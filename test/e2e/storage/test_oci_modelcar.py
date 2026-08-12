@@ -13,8 +13,7 @@
 # limitations under the License.
 
 """
-Spec-level regression test for oci:// (modelcar) uidModelcar
-on InferenceService.
+Regression test for oci:// (modelcar) uidModelcar on InferenceService.
 
 When uidModelcar is configured in the storageInitializer config,
 the modelcar sidecar and the inference container must run as the
@@ -22,9 +21,6 @@ same UID.  Without this, ptrace_scope=1 (the default on many
 Linux distributions) blocks the inference container from
 traversing /proc/<pid>/root/ of the modelcar sidecar, breaking
 the symlink-based model mount.
-
-Assertion level: pod *spec* only -- the test does not wait for
-the pod to become Running or send inference requests.
 """
 
 import json
@@ -32,6 +28,7 @@ import os
 
 import pytest
 from kubernetes import client
+from kubernetes.client import V1ResourceRequirements
 from kserve import (
     KServeClient,
     V1beta1InferenceService,
@@ -41,11 +38,10 @@ from kserve import (
     V1beta1ModelFormat,
     constants,
 )
-from kubernetes.client import V1ResourceRequirements
 
 from ..common.utils import KSERVE_NAMESPACE, KSERVE_TEST_NAMESPACE
 
-OCI_MODELCAR_TEST_IMAGE = "ghcr.io/kserve/oci-modelcar-test-fixture:v1"
+SKLEARN_MODELCAR_URI = os.environ.get("SKLEARN_MODELCAR_URI")
 
 ISVC_LABEL_KEY = "serving.kserve.io/inferenceservice"
 KSERVE_CONTAINER_NAME = "kserve-container"
@@ -55,7 +51,9 @@ MODELCAR_CONTAINER_NAME = "modelcar"
 def _get_uid_modelcar_from_config(core_api, namespace: str) -> int | None:
     """Read uidModelcar from the inferenceservice-config."""
     try:
-        cm = core_api.read_namespaced_config_map("inferenceservice-config", namespace)
+        cm = core_api.read_namespaced_config_map(
+            "inferenceservice-config", namespace
+        )
         raw = cm.data.get("storageInitializer", "{}")
         cfg = json.loads(raw)
         return cfg.get("uidModelcar")
@@ -118,9 +116,12 @@ def test_oci_modelcar_uid_isvc():
 
     1. Reads uidModelcar from the inferenceservice-config.
     2. Creates an InferenceService with oci:// storageUri.
-    3. Waits for the pod.
+    3. Waits for the ISVC to become ready.
     4. Asserts ShareProcessNamespace + matching RunAsUser.
     """
+    if not SKLEARN_MODELCAR_URI:
+        pytest.skip("SKLEARN_MODELCAR_URI not set")
+
     service_name = "isvc-oci-modelcar-uid-smoke"
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
@@ -136,7 +137,7 @@ def test_oci_modelcar_uid_isvc():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(name="sklearn"),
-            storage_uri=(f"oci://{OCI_MODELCAR_TEST_IMAGE}"),
+            storage_uri=SKLEARN_MODELCAR_URI,
             resources=V1ResourceRequirements(
                 requests={
                     "cpu": "50m",
@@ -162,13 +163,17 @@ def test_oci_modelcar_uid_isvc():
 
     try:
         kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(
+            service_name, namespace=KSERVE_TEST_NAMESPACE
+        )
 
         pods = kserve_client.core_api.list_namespaced_pod(
             KSERVE_TEST_NAMESPACE,
             label_selector=f"{ISVC_LABEL_KEY}={service_name}",
         )
-        assert pods.items, f"No pod found for ISVC '{service_name}' after ready"
+        assert pods.items, (
+            f"No pod found for ISVC '{service_name}' after ready"
+        )
         pod = pods.items[0]
 
         _assert_modelcar_uid(pod, uid_modelcar, "InferenceService")
