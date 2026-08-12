@@ -39,7 +39,7 @@ dependencies = [
     "python-multipart>=0.0.27", # CVE-2026-42561
     "pyjwt>=2.13.0", # CVE-2026-48526
     "pyasn1>=0.6.3", # CVE-2026-30922
-    "pillow>=12.2.0", # CVE-2026-40192
+    "pillow>=12.3.0", # CVE-2026-40192
 ]
 name = "kserve"
 version = "0.20.0"
@@ -117,7 +117,7 @@ override-dependencies = [
     "python-multipart>=0.0.27", # CVE-2026-42561
     "pyjwt>=2.13.0", # CVE-2026-48526
     "pyasn1>=0.6.3", # CVE-2026-30922
-    "pillow>=12.2.0", # CVE-2026-40192
+    "pillow>=12.3.0", # CVE-2026-40192
 ]
 
 [build-system]
