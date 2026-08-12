@@ -51,9 +51,7 @@ MODELCAR_CONTAINER_NAME = "modelcar"
 def _get_uid_modelcar_from_config(core_api, namespace: str) -> int | None:
     """Read uidModelcar from the inferenceservice-config."""
     try:
-        cm = core_api.read_namespaced_config_map(
-            "inferenceservice-config", namespace
-        )
+        cm = core_api.read_namespaced_config_map("inferenceservice-config", namespace)
         raw = cm.data.get("storageInitializer", "{}")
         cfg = json.loads(raw)
         return cfg.get("uidModelcar")
@@ -163,17 +161,13 @@ def test_oci_modelcar_uid_isvc():
 
     try:
         kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(
-            service_name, namespace=KSERVE_TEST_NAMESPACE
-        )
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
         pods = kserve_client.core_api.list_namespaced_pod(
             KSERVE_TEST_NAMESPACE,
             label_selector=f"{ISVC_LABEL_KEY}={service_name}",
         )
-        assert pods.items, (
-            f"No pod found for ISVC '{service_name}' after ready"
-        )
+        assert pods.items, f"No pod found for ISVC '{service_name}' after ready"
         pod = pods.items[0]
 
         _assert_modelcar_uid(pod, uid_modelcar, "InferenceService")
