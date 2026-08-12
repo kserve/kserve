@@ -3,15 +3,15 @@ authors = [
     {name = "Dan Sun", email = "dsun20@bloomberg.net"},
 ]
 license = {text = "Apache-2.0"}
-requires-python = "<3.13,>=3.10"
+requires-python = "<3.14,>=3.10"
 dependencies = [
     "kserve @ file:///${PROJECT_ROOT}/../kserve",
     "torchvision==0.26.0+cpu",
     "torch==2.11.0+cpu",
-    "pillow<11.0.0,>=10.3.0",
+    "pillow>=12.2.0",
 ]
 name = "custom_transformer"
-version = "0.20.0rc0"
+version = "0.20.0"
 description = "Custom Transformer Examples. Not intended for use outside KServe Frameworks Images."
 
 [dependency-groups]
@@ -20,7 +20,7 @@ test = [
     "mypy<1.0,>=0.991",
 ]
 dev = [
-    "black[colorama]~=24.3.0",
+    "black[colorama]>=26.3.1,<27",
 ]
 
 [tool.uv.sources]

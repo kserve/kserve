@@ -13,7 +13,7 @@ dependencies = [
     "modelscope<2.0.0,>=1.16.0",
 ]
 name = "huggingfaceserver"
-version = "0.20.0rc0"
+version = "0.20.0"
 description = "Model Server implementation for huggingface. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 
@@ -21,13 +21,12 @@ readme = "README.md"
 override-dependencies = [
     "aiohttp>=3.13.4", # CVE-2026-34520
     "h11>=0.16.0", # CVE-2025-43859
-    "cryptography>=46.0.7", # CVE-2026-39892
+    "cryptography>=48.0.1", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36
     "python-multipart>=0.0.27", # CVE-2026-42561
     "pyjwt>=2.13.0", # CVE-2026-48526
     "pyasn1>=0.6.3", # CVE-2026-30922
     "setuptools>=78.1.1", # CVE-2025-47273
     "modelscope>=1.27.0", # CVE-2025-51427
-    "pillow>=12.2.0", # CVE-2026-40192
     "azure-core>=1.38.0", # CVE-2026-21226
     "dulwich>=1.2.5", # CVE-2026-42305
     "cbor2>=5.9.0", # CVE-2025-68131
@@ -47,5 +46,5 @@ test = [
     "openai>=2.0.0",
 ]
 dev = [
-    "black[colorama]>=26.3.1", # CVE-2026-32274
+    "black[colorama]>=26.3.1,<27", # CVE-2026-32274
 ]

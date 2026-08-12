@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -169,6 +170,26 @@ type WorkloadSpec struct {
 	// The controller is responsible for enabling discovery between head and worker pods.
 	// +optional
 	Worker *corev1.PodSpec `json:"worker,omitempty"`
+
+	// RolloutStrategy configures how rolling updates are performed for this workload.
+	// When omitted, Kubernetes/LWS defaults apply.
+	// +optional
+	RolloutStrategy *RolloutStrategy `json:"rolloutStrategy,omitempty"`
+}
+
+// RolloutStrategy configures the rolling update behavior for a workload.
+type RolloutStrategy struct {
+	// MaxUnavailable specifies the maximum number of replicas that can be
+	// unavailable during a rolling update. Value can be an absolute number
+	// (ex: 5) or a percentage of total replicas (ex: "50%").
+	// +optional
+	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
+
+	// MaxSurge specifies the maximum number of replicas that can be scheduled
+	// above the desired number of replicas during a rolling update. Value can
+	// be an absolute number (ex: 5) or a percentage of total replicas (ex: "50%").
+	// +optional
+	MaxSurge *intstr.IntOrString `json:"maxSurge,omitempty"`
 }
 
 // LLMModelSpec defines the model source and its characteristics.
@@ -508,9 +529,11 @@ type KEDAScalingSpec struct {
 
 	// IdleReplicaCount is the number of replicas KEDA will scale the resource down to
 	// when there are no triggers active. This must be less than minReplicas.
+	// Set to 0 for true scale-to-zero: KEDA scales the resource to zero replicas when idle
+	// and immediately back to minReplicas once a trigger becomes active.
 	// If not set, KEDA will not scale below minReplicas.
 	// +optional
-	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Minimum=0
 	IdleReplicaCount *int32 `json:"idleReplicaCount,omitempty"`
 
 	// Fallback defines the replica count to maintain when the scaler is in a fallback state

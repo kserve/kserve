@@ -4,9 +4,10 @@ authors = [
     {name = "The KServe Authors", email = "fspolti@redhat.com"},
 ]
 license = {text = "https://github.com/kserve/kserve/blob/master/LICENSE"}
-requires-python = "<3.13,>=3.10"
+requires-python = "<3.14,>=3.10"
 dependencies = [
-    "aiohttp<4.0.0,>=3.10.0",
+    # GHSA-6mq8-rvhq-8wgg, CVE-2025-69223 aiohttp HTTP parser auto_decompress zip bomb DoS
+    "aiohttp<4.0.0,>=3.13.3",
     "certifi>=2024.7.4",
     "requests<3.0.0,>=2.32.2",
     "google-cloud-storage<3.0.0,>=2.14.0",
@@ -19,7 +20,7 @@ dependencies = [
     # CVE-2026-42563 Dulwich arbitrary code execution via malicious Git file paths during merge
     # CVE-2026-42305 Dulwich remote code execution via malicious Git repository (Windows path validation)
     "dulwich>=1.2.5",
-    "cryptography>=46.0.5", # CVE-2026-26007 cryptography Subgroup Attack Due to Missing Subgroup Validation for SECT Curves
+    "cryptography>=48.0.1", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36
     # CVE-2026-32597 PyJWT accepts unknown `crit` header extensions (RFC 7515 §4.1.11 MUST violation)
     # Pinning because it is a transitive dependency.
     "pyjwt>=2.12.0",
@@ -31,7 +32,7 @@ dependencies = [
     "azure-core>=1.38.0"
 ]
 name = "kserve-storage"
-version = "0.20.0rc0"
+version = "0.20.0"
 readme = "README.md"
 description = "KServe Storage Handler. This module is responsible to download the models from the provided source"
 classifiers = [
