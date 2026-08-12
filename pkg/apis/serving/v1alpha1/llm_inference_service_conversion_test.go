@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
@@ -1258,4 +1259,188 @@ func TestLLMInferenceServiceConversion_NilTokenizerPreserved(t *testing.T) {
 	require.NotNil(t, restored.Spec.Router.Scheduler)
 	assert.Nil(t, restored.Spec.Router.Scheduler.Tokenizer,
 		"nil Tokenizer should remain nil after round-trip")
+}
+
+func TestLLMInferenceServiceConversion_PreservesKVCacheOffloading(t *testing.T) {
+	storageClass := "fast-nvme"
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-kvcache",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "Qwen/Qwen2.5-7B-Instruct"},
+			},
+			WorkloadSpec: WorkloadSpec{
+				KVCacheOffloading: &KVCacheOffloadingSpec{
+					CPU:            resource.MustParse("10Gi"),
+					EvictionPolicy: "lru",
+					Secondary: []SecondaryTierSpec{
+						{
+							FileSystem: &FileSystemTierSpec{
+								EmptyDir: &EmptyDirTierSpec{
+									Size: resource.MustParse("100Gi"),
+								},
+							},
+						},
+						{
+							FileSystem: &FileSystemTierSpec{
+								PVC: &PVCTierSpec{
+									Spec: &corev1.PersistentVolumeClaimSpec{
+										StorageClassName: &storageClass,
+										Resources: corev1.VolumeResourceRequirements{
+											Requests: corev1.ResourceList{
+												corev1.ResourceStorage: resource.MustParse("200Gi"),
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							FileSystem: &FileSystemTierSpec{
+								PVC: &PVCTierSpec{
+									Ref: &PVCRefTierSpec{
+										Name: "my-pvc",
+										Path: "kv-cache/",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, hub.Spec.KVCacheOffloading)
+	assert.True(t, hub.Spec.KVCacheOffloading.CPU.Equal(resource.MustParse("10Gi")))
+	assert.Equal(t, "lru", hub.Spec.KVCacheOffloading.EvictionPolicy)
+	require.Len(t, hub.Spec.KVCacheOffloading.Secondary, 3)
+
+	// emptyDir tier
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[0].FileSystem)
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[0].FileSystem.EmptyDir)
+	assert.True(t, hub.Spec.KVCacheOffloading.Secondary[0].FileSystem.EmptyDir.Size.Equal(resource.MustParse("100Gi")))
+
+	// PVC spec tier
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[1].FileSystem)
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC)
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec)
+	assert.Equal(t, storageClass, *hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec.StorageClassName)
+
+	// PVC ref tier
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[2].FileSystem)
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC)
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref)
+	assert.Equal(t, "my-pvc", hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Name)
+	assert.Equal(t, "kv-cache/", hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Path)
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, restored.Spec.KVCacheOffloading)
+	assert.True(t, restored.Spec.KVCacheOffloading.CPU.Equal(resource.MustParse("10Gi")))
+	assert.Equal(t, "lru", restored.Spec.KVCacheOffloading.EvictionPolicy)
+	require.Len(t, restored.Spec.KVCacheOffloading.Secondary, 3)
+
+	// emptyDir round-trip
+	require.NotNil(t, restored.Spec.KVCacheOffloading.Secondary[0].FileSystem.EmptyDir)
+	assert.True(t, restored.Spec.KVCacheOffloading.Secondary[0].FileSystem.EmptyDir.Size.Equal(resource.MustParse("100Gi")))
+
+	// PVC spec round-trip
+	require.NotNil(t, restored.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec)
+	assert.Equal(t, storageClass, *restored.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec.StorageClassName)
+
+	// PVC ref round-trip
+	require.NotNil(t, restored.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref)
+	assert.Equal(t, "my-pvc", restored.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Name)
+	assert.Equal(t, "kv-cache/", restored.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Path)
+}
+
+func TestLLMInferenceServiceConversion_NilKVCacheOffloadingPreserved(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-no-kvcache",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "facebook/opt-125m"},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+	assert.Nil(t, hub.Spec.KVCacheOffloading)
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+	assert.Nil(t, restored.Spec.KVCacheOffloading)
+}
+
+func TestLLMInferenceServiceConversion_KVCacheOnPrefill(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-prefill-kvcache",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "Qwen/Qwen2.5-7B-Instruct"},
+			},
+			Prefill: &WorkloadSpec{
+				KVCacheOffloading: &KVCacheOffloadingSpec{
+					CPU:            resource.MustParse("8Gi"),
+					EvictionPolicy: "arc",
+					Secondary: []SecondaryTierSpec{
+						{
+							FileSystem: &FileSystemTierSpec{
+								EmptyDir: &EmptyDirTierSpec{
+									Size: resource.MustParse("50Gi"),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, hub.Spec.Prefill)
+	require.NotNil(t, hub.Spec.Prefill.KVCacheOffloading)
+	assert.True(t, hub.Spec.Prefill.KVCacheOffloading.CPU.Equal(resource.MustParse("8Gi")))
+	assert.Equal(t, "arc", hub.Spec.Prefill.KVCacheOffloading.EvictionPolicy)
+	require.Len(t, hub.Spec.Prefill.KVCacheOffloading.Secondary, 1)
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, restored.Spec.Prefill)
+	require.NotNil(t, restored.Spec.Prefill.KVCacheOffloading)
+	assert.True(t, restored.Spec.Prefill.KVCacheOffloading.CPU.Equal(resource.MustParse("8Gi")))
+	assert.Equal(t, "arc", restored.Spec.Prefill.KVCacheOffloading.EvictionPolicy)
+	require.Len(t, restored.Spec.Prefill.KVCacheOffloading.Secondary, 1)
+	require.NotNil(t, restored.Spec.Prefill.KVCacheOffloading.Secondary[0].FileSystem.EmptyDir)
+	assert.True(t, restored.Spec.Prefill.KVCacheOffloading.Secondary[0].FileSystem.EmptyDir.Size.Equal(resource.MustParse("50Gi")))
 }

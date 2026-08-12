@@ -20,6 +20,7 @@ import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
@@ -169,6 +170,90 @@ type WorkloadSpec struct {
 	// The controller is responsible for enabling discovery between head and worker pods.
 	// +optional
 	Worker *corev1.PodSpec `json:"worker,omitempty"`
+
+	// KVCacheOffloading configures multi-tier KV cache CPU offloading for this workload.
+	// The controller translates this into --kv-transfer-config for the vLLM serve command.
+	// +optional
+	KVCacheOffloading *KVCacheOffloadingSpec `json:"kvCacheOffloading,omitempty"`
+}
+
+// KVCacheOffloadingSpec configures KV cache offloading via vLLM's OffloadingConnector.
+type KVCacheOffloadingSpec struct {
+	// CPU is the amount of CPU RAM to allocate as the primary KV cache tier
+	// (maps to vLLM kv_connector_extra_config.cpu_bytes_to_use). Accepts standard
+	// Kubernetes quantity notation, e.g. "10Gi".
+	CPU resource.Quantity `json:"cpu"`
+
+	// EvictionPolicy for the primary CPU KV cache tier. Defaults to "lru".
+	// +optional
+	// +kubebuilder:validation:Enum=lru;arc
+	// +kubebuilder:default=lru
+	EvictionPolicy string `json:"evictionPolicy,omitempty"`
+
+	// Secondary is an ordered list of secondary KV cache tiers. vLLM cascades
+	// through tiers in the order listed. Currently only fileSystem tiers are
+	// supported; the array shape is designed to accommodate object store tiers
+	// in a future follow-up without an API break.
+	// +optional
+	Secondary []SecondaryTierSpec `json:"secondary,omitempty"`
+}
+
+// SecondaryTierSpec defines one secondary KV cache tier.
+// Exactly one field must be set.
+type SecondaryTierSpec struct {
+	// FileSystem configures a POSIX disk tier backed by a Kubernetes volume.
+	// +optional
+	FileSystem *FileSystemTierSpec `json:"fileSystem,omitempty"`
+}
+
+// FileSystemTierSpec configures a POSIX disk secondary tier.
+// Exactly one of EmptyDir or PVC must be set.
+type FileSystemTierSpec struct {
+	// EmptyDir uses a node-local ephemeral emptyDir volume. No StorageClass required.
+	// Each pod gets its own independent, node-local disk cache. The controller also
+	// adds an ephemeral-storage resource request to the main container equal to the
+	// size so the scheduler accounts for the disk space when placing the pod.
+	// +optional
+	EmptyDir *EmptyDirTierSpec `json:"emptyDir,omitempty"`
+
+	// PVC configures a PVC-backed disk cache tier. Either Spec (for a controller-managed
+	// ephemeral PVC per pod) or Ref (for a pre-existing user-managed PVC) must be set,
+	// but not both.
+	// +optional
+	PVC *PVCTierSpec `json:"pvc,omitempty"`
+}
+
+// EmptyDirTierSpec configures a node-local ephemeral emptyDir volume as a KV cache tier.
+type EmptyDirTierSpec struct {
+	// Size is the maximum storage capacity for this tier (maps to emptyDir.sizeLimit).
+	// The controller also requests this amount as ephemeral-storage on the main container.
+	Size resource.Quantity `json:"size"`
+}
+
+// PVCTierSpec configures a PVC-backed KV cache tier.
+// Exactly one of Spec or Ref must be set.
+type PVCTierSpec struct {
+	// Spec creates one ephemeral PVC per pod automatically. The PVC is owned by the pod
+	// and deleted when the pod is deleted — it does not survive pod restarts.
+	// +optional
+	Spec *corev1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
+
+	// Ref mounts a pre-existing user-managed PVC as the disk cache. The PVC must
+	// already exist. For a cache shared across replicas, provision an RWX PVC;
+	// for per-pod persistent cache, provision a separate PVC per pod and reference
+	// it by name.
+	// +optional
+	Ref *PVCRefTierSpec `json:"ref,omitempty"`
+}
+
+// PVCRefTierSpec mounts a pre-existing user-managed PVC as a KV cache tier.
+type PVCRefTierSpec struct {
+	// Name of the pre-existing PersistentVolumeClaim.
+	Name string `json:"name"`
+
+	// Path is a subdirectory within the PVC used as VolumeMount.subPath.
+	// +optional
+	Path string `json:"path,omitempty"`
 }
 
 // LLMModelSpec defines the model source and its characteristics.
