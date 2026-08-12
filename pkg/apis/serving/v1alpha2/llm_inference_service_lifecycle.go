@@ -21,15 +21,20 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
-// Top-level conditions. Ready aggregates WorkloadsReady and RouterReady via the
-// Knative LivingConditionSet. PresetsCombined is an independent gate that blocks
-// reconciliation when False but is not part of the Ready rollup.
+// Top-level conditions. Ready aggregates PresetsCombined, WorkloadsReady and
+// RouterReady via the Knative LivingConditionSet.
 const (
 	// PresetsCombined is True when all referenced LLMInferenceServiceConfig resources
-	// have been found and merged successfully. False with reason ConfigNotFound when a
-	// referenced config does not exist, or CombineBaseError on merge failure.
+	// have been found, merged and checked. False with reason ConfigNotFound when a
+	// referenced config does not exist, CombineBaseError on merge failure, or
+	// InvalidRenderedConfig when the API server rejects the merged spec. Unknown with
+	// reason ValidationUnavailable when the merged spec could not be checked at all.
 	// Set by the config reconciler (config_merge.go). Always present.
-	// Not part of the Ready rollup - blocks reconciliation instead.
+	//
+	// Counts towards Ready: when this is not True the controller stops before creating
+	// any child resource, leaving WorkloadsReady and RouterReady stale. Including it
+	// keeps Ready from reading True off those stale values, and puts the failure's
+	// reason and message on Ready itself.
 	PresetsCombined apis.ConditionType = "PresetsCombined"
 
 	// WorkloadReady is True when all workload sub-conditions (MainWorkloadReady,
@@ -130,6 +135,7 @@ const (
 )
 
 var llmInferenceServiceCondSet = apis.NewLivingConditionSet(
+	PresetsCombined,
 	WorkloadReady,
 	RouterReady,
 )
@@ -250,6 +256,12 @@ func (in *LLMInferenceService) MarkPresetsCombinedReady() {
 
 func (in *LLMInferenceService) MarkPresetsCombinedNotReady(reason, messageFormat string, messageA ...interface{}) {
 	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(PresetsCombined, reason, messageFormat, messageA...)
+}
+
+// MarkPresetsCombinedUnknown reports that the merged config could not be checked,
+// as opposed to being rejected.
+func (in *LLMInferenceService) MarkPresetsCombinedUnknown(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkUnknown(PresetsCombined, reason, messageFormat, messageA...)
 }
 
 func (in *LLMInferenceService) MarkSchedulerWorkloadReady() {

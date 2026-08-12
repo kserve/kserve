@@ -559,6 +559,42 @@ func TestTrafficFieldsChanged(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "status addresses model names changed",
+			old: func() *v1alpha2.LLMInferenceService {
+				s := memberSvc("v1", "g", 9, false, now)
+				s.Status.Addresses = []v1alpha2.SourcedAddress{{
+					Models: []v1alpha2.ModelSourcedAddressStatus{{Name: "model-beta"}},
+				}}
+				return &s
+			}(),
+			new: func() *v1alpha2.LLMInferenceService {
+				s := memberSvc("v1", "g", 9, false, now)
+				s.Status.Addresses = []v1alpha2.SourcedAddress{{
+					Models: []v1alpha2.ModelSourcedAddressStatus{{Name: "model-alpha"}},
+				}}
+				return &s
+			}(),
+			want: true,
+		},
+		{
+			name: "status addresses model names unchanged",
+			old: func() *v1alpha2.LLMInferenceService {
+				s := memberSvc("v1", "g", 9, false, now)
+				s.Status.Addresses = []v1alpha2.SourcedAddress{{
+					Models: []v1alpha2.ModelSourcedAddressStatus{{Name: "model-alpha"}},
+				}}
+				return &s
+			}(),
+			new: func() *v1alpha2.LLMInferenceService {
+				s := memberSvc("v1", "g", 9, false, now)
+				s.Status.Addresses = []v1alpha2.SourcedAddress{{
+					Models: []v1alpha2.ModelSourcedAddressStatus{{Name: "model-alpha"}},
+				}}
+				return &s
+			}(),
+			want: false,
+		},
+		{
 			name: "non-traffic change on grouped member",
 			old:  func() *v1alpha2.LLMInferenceService { s := memberSvc("v1", "g", 9, false, now); return &s }(),
 			new:  func() *v1alpha2.LLMInferenceService { s := memberSvc("v1", "g", 9, false, now); return &s }(),

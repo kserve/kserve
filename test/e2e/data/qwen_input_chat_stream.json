@@ -3,11 +3,11 @@
     "messages": [
         {
             "role": "system",
-            "content": "Answer with only the numeric result. No explanation."
+            "content": "Answer with just the number, nothing else."
         },
         {
             "role": "user",
-            "content": "2 + 2 ="
+            "content": "2+2="
         }
     ],
     "temperature": 0,

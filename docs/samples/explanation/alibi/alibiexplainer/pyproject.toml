@@ -1,6 +1,6 @@
 [project]
 name = "alibiexplainer"
-version = "0.20.0rc0"
+version = "0.20.0"
 description = "Model Explanation Server. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 requires-python = ">=3.10,<=3.12"
@@ -32,7 +32,7 @@ test = [
     "mypy>=0.991,<1.0",
 ]
 dev = [
-    "black[colorama]>=24.3.0,<24.4",
+    "black[colorama]>=26.3.1,<27",
 ]
 
 [tool.uv.sources]

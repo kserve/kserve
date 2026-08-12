@@ -3,7 +3,7 @@ authors = [
     {name = "Jooho Lee", email = "ljhiyh@gmail.com"},
 ]
 license = {text = "Apache-2.0"}
-requires-python = "<3.13,>=3.10"
+requires-python = "<3.14,>=3.10"
 dependencies = [
     "kserve>=0.16.0",
     "kserve-storage>=0.16.0",
@@ -13,7 +13,7 @@ dependencies = [
     "lgbserver>=0.16.0",
 ]
 name = "predictiveserver"
-version = "0.20.0rc0"
+version = "0.20.0"
 description = "Unified Predictive Model Server supporting scikit-learn, LightGBM, and XGBoost for KServe."
 readme = "README.md"
 
@@ -25,7 +25,7 @@ test = [
     "mypy<1.0,>=0.991",
 ]
 dev = [
-    "black[colorama]~=24.3.0",
+    "black[colorama]>=26.3.1,<27",
 ]
 
 [tool.uv.sources]

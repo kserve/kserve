@@ -138,8 +138,6 @@ type LLMISVCReconciler struct {
 	Config *rest.Config
 	record.EventRecorder
 	Clientset kubernetes.Interface
-
-	Validator func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -150,6 +148,8 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=leaderworkerset.x-k8s.io,resources=leaderworkersets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// Secret access stays cluster-scoped so Owns() can watch TLS cert secrets in workload namespaces.
+// Keep create/update/patch/delete so reconcile and force-stop can manage TLS secrets.
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes;gateways;gatewayclasses,verbs=get;list;watch;create;update;patch;delete
@@ -272,9 +272,8 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 			llmSvc, kserveTypes.ResolveOciModelMode(config.StorageConfig))
 	}
 
-	// nil baseCfg means config resolution set a condition (e.g. ConfigNotFound) and there's nothing more to do.
 	baseCfg, err := r.reconcileBaseRefs(ctx, llmSvc, config)
-	if err != nil || baseCfg == nil {
+	if err != nil {
 		return err
 	}
 
@@ -753,20 +752,13 @@ func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler
 		}
 
 		for _, llmSvc := range llmSvcList.Items {
-			// Use WithSkipClearSchedulerConfigRef to preserve the Ref for matching
-			result, err := r.combineBaseRefsConfig(ctx, &llmSvc, cfg, WithSkipClearSchedulerConfigRef())
+			result, err := r.combineBaseRefsConfig(ctx, &llmSvc, cfg)
 			if err != nil {
 				logger.Error(err, "Failed to combine baseRefs config", "namespace", llmSvc.Namespace, "name", llmSvc.Name)
 				continue
 			}
 
-			combinedCfg := result.Config.Spec
-
-			if combinedCfg.Router == nil ||
-				combinedCfg.Router.Scheduler == nil ||
-				combinedCfg.Router.Scheduler.Config == nil ||
-				combinedCfg.Router.Scheduler.Config.Ref == nil ||
-				combinedCfg.Router.Scheduler.Config.Ref.Name != sub.Name {
+			if result.ResolvedSchedulerConfigMap == nil || *result.ResolvedSchedulerConfigMap != client.ObjectKeyFromObject(sub) {
 				continue
 			}
 

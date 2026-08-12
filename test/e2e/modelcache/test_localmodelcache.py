@@ -191,7 +191,7 @@ async def test_vllm_modelcache(test_namespace):
     assert_answers_four(res["choices"][0]["message"]["content"])
     # Delete ISVC first so the LocalModelCache is no longer in use
     kserve_client.delete(service_name, test_namespace)
-    # Wait for the isvc to be deleted to avoid modelcache still in use error
+    # Wait for the isvc to be deleted to avoid modelcache still in use error when deleting the model cache
     await asyncio.sleep(30)
     kserve_client.delete_local_model_cache(model_cache.metadata.name)
 

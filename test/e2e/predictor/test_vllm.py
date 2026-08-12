@@ -45,6 +45,12 @@ from .test_output import (
 from kserve.logging import trace_logger
 
 
+def assert_answers_four(text: str):
+    """Gracefully handle if the answer slightly changes between model/lib updates"""
+    assert text is not None, "expected a completion, got no text field"
+    assert "4" in text, f"expected the answer to contain '4', got: {text!r}"
+
+
 def _assert_embedding_matches_reference(actual, reference, *, threshold: float = 0.999):
     """Assert ``actual`` is semantically equivalent to the reference vector.
 
@@ -183,14 +189,14 @@ def test_vllm_openai_chat_completions_streaming(test_namespace):
     kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     # Test streaming response
-    full_response, _ = chat_completion_stream(
+    full_response, chunks = chat_completion_stream(
         service_name,
         "./data/qwen_input_chat_stream.json",
         namespace=test_namespace,
     )
     trace_logger.info(f"Full response: {full_response}")
 
-    # Verify we got a valid response
+    assert len(chunks) > 0, "expected streaming chunks, got none"
     assert_answers_four(full_response)
 
 
@@ -303,12 +309,13 @@ def test_vllm_openai_text_completion_streaming(test_namespace):
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-    full_response, _ = completion_stream(
+    full_response, chunks = completion_stream(
         service_name,
         "./data/qwen_input_cmpl_stream.json",
         namespace=test_namespace,
     )
     trace_logger.info(f"Full response: {full_response}")
+    assert len(chunks) > 0, "expected streaming chunks, got none"
     assert_answers_four(full_response)
 
 

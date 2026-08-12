@@ -41,6 +41,7 @@ jobs:
 
   detect-changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       install_methods: ${{ steps.set-matrix.outputs.install_methods }}
     steps:
@@ -77,6 +78,7 @@ jobs:
 
   llmisvc-image-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -127,6 +129,7 @@ jobs:
 
   seed-model-cache:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [llmisvc-image-build]
     steps:
       - name: Checkout source
@@ -176,6 +179,7 @@ jobs:
 
   seed-image-cache:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Pull and save vLLM CPU image
         run: |
@@ -192,6 +196,7 @@ jobs:
 
   test-llmisvc:
     runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 125
     needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
     strategy:
       fail-fast: false
@@ -333,6 +338,7 @@ jobs:
 
   test-llmisvc-wva-autoscaling-hpa:
     runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 25
     needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
     strategy:
       fail-fast: false
@@ -436,8 +442,9 @@ jobs:
         with:
           name: test-results-llmisvc-autoscaling-hpa-${{ matrix.install-method }}
 
-  test-llmisvc-wva-autoscaling-keda:
+  test-llmisvc-autoscaling-direct-keda-and-wva-with-keda:
     runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 30
     needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
     strategy:
       fail-fast: false
@@ -522,28 +529,51 @@ jobs:
         run: |
           ./test/scripts/gh-actions/verify-autoscaling-health.sh keda
 
-      - name: Run KEDA autoscaling E2E tests
-        id: autoscaling-keda-tests
-        timeout-minutes: 60
+      - name: Run WVA-mediated KEDA autoscaling E2E tests
+        id: autoscaling-wva-keda-tests
+        timeout-minutes: 30
         env:
           OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
         run: |
           export PYTEST_MAXFAIL=2
-          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_keda and cluster_cpu" 0 "envoy-gateway"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_wva and autoscaling_keda and cluster_cpu" 0 "envoy-gateway"
+
+      - name: Run direct KEDA autoscaling E2E tests
+        id: autoscaling-direct-keda-tests
+        if: always() && steps.autoscaling-wva-keda-tests.conclusion != 'cancelled'
+        timeout-minutes: 30
+        env:
+          OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
+        run: |
+          export PYTEST_MAXFAIL=2
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_direct_keda and cluster_cpu" 0 "envoy-gateway"
 
       - name: Check system status
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh "llmisvc"
 
-      - name: Upload test results
+      - name: Upload WVA-mediated KEDA test results
         if: always()
         uses: ./.github/actions/upload-test-results
         with:
-          name: test-results-llmisvc-autoscaling-keda-${{ matrix.install-method }}
+          name: test-results-llmisvc-autoscaling-wva-keda-${{ matrix.install-method }}
+          path: |
+            /tmp/junit_e2e*autoscaling_wva_and_autoscaling_keda*.xml
+            /tmp/e2e_results*autoscaling_wva_and_autoscaling_keda*.json
+
+      - name: Upload direct KEDA test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llmisvc-autoscaling-direct-keda-${{ matrix.install-method }}
+          path: |
+            /tmp/junit_e2e*autoscaling_direct_keda*.xml
+            /tmp/e2e_results*autoscaling_direct_keda*.json
 
   test-llmisvc-tracing:
     runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 25
     needs: [detect-changes, llmisvc-image-build]
     strategy:
       fail-fast: false

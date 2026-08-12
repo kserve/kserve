@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -623,6 +624,80 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithKEDA(t *testing.T) {
 	require.NotNil(t, restored.Spec.Scaling.WVA.KEDA.Fallback)
 	assert.Equal(t, int32(3), restored.Spec.Scaling.WVA.KEDA.Fallback.FailureThreshold)
 	assert.Equal(t, int32(2), restored.Spec.Scaling.WVA.KEDA.Fallback.Replicas)
+}
+
+func TestLLMInferenceServiceConversion_ScalingSpecWithDirectKEDA(t *testing.T) {
+	modelName := "test-model"
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-isvc-scaling-direct-keda",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+				Name: &modelName,
+			},
+			WorkloadSpec: WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(2)),
+					MaxReplicas: 10,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							PollingInterval:  ptr.To(int32(30)),
+							CooldownPeriod:   ptr.To(int32(60)),
+							IdleReplicaCount: ptr.To(int32(1)),
+							Advanced: &kedav1alpha1.AdvancedConfig{
+								ScalingModifiers: kedav1alpha1.ScalingModifiers{
+									Formula: "trig0 + trig1",
+									Target:  "10",
+								},
+							},
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+							{Type: "memory", Metadata: map[string]string{"value": "70"}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	dst := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(dst)
+	require.NoError(t, err)
+
+	require.NotNil(t, dst.Spec.Scaling)
+	assert.Nil(t, dst.Spec.Scaling.WVA)
+	require.NotNil(t, dst.Spec.Scaling.KEDA)
+	assert.Equal(t, int32(30), *dst.Spec.Scaling.KEDA.PollingInterval)
+	assert.Equal(t, int32(60), *dst.Spec.Scaling.KEDA.CooldownPeriod)
+	assert.Equal(t, int32(1), *dst.Spec.Scaling.KEDA.IdleReplicaCount)
+	require.NotNil(t, dst.Spec.Scaling.KEDA.Advanced)
+	assert.Equal(t, "trig0 + trig1", dst.Spec.Scaling.KEDA.Advanced.ScalingModifiers.Formula)
+	assert.Equal(t, "10", dst.Spec.Scaling.KEDA.Advanced.ScalingModifiers.Target)
+	require.Len(t, dst.Spec.Scaling.KEDA.Triggers, 2)
+	assert.Equal(t, "cpu", dst.Spec.Scaling.KEDA.Triggers[0].Type)
+	assert.Equal(t, "memory", dst.Spec.Scaling.KEDA.Triggers[1].Type)
+
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(dst)
+	require.NoError(t, err)
+
+	require.NotNil(t, restored.Spec.Scaling)
+	assert.Nil(t, restored.Spec.Scaling.WVA)
+	require.NotNil(t, restored.Spec.Scaling.KEDA)
+	assert.Equal(t, int32(30), *restored.Spec.Scaling.KEDA.PollingInterval)
+	assert.Equal(t, int32(60), *restored.Spec.Scaling.KEDA.CooldownPeriod)
+	assert.Equal(t, int32(1), *restored.Spec.Scaling.KEDA.IdleReplicaCount)
+	require.NotNil(t, restored.Spec.Scaling.KEDA.Advanced)
+	assert.Equal(t, "trig0 + trig1", restored.Spec.Scaling.KEDA.Advanced.ScalingModifiers.Formula)
+	assert.Equal(t, "10", restored.Spec.Scaling.KEDA.Advanced.ScalingModifiers.Target)
+	require.Len(t, restored.Spec.Scaling.KEDA.Triggers, 2)
+	assert.Equal(t, "cpu", restored.Spec.Scaling.KEDA.Triggers[0].Type)
+	assert.Equal(t, "memory", restored.Spec.Scaling.KEDA.Triggers[1].Type)
 }
 
 func TestLLMInferenceServiceConversion_NilScalingSpec(t *testing.T) {
@@ -1258,4 +1333,86 @@ func TestLLMInferenceServiceConversion_NilTokenizerPreserved(t *testing.T) {
 	require.NotNil(t, restored.Spec.Router.Scheduler)
 	assert.Nil(t, restored.Spec.Router.Scheduler.Tokenizer,
 		"nil Tokenizer should remain nil after round-trip")
+}
+
+func TestLLMInferenceServiceConversion_PreservesRolloutStrategy(t *testing.T) {
+	maxUnavail := intstr.FromInt32(1)
+	maxSurge := intstr.FromString("50%")
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-rollout",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-4-Scout-17B-16E-Instruct"},
+			},
+			WorkloadSpec: WorkloadSpec{
+				Replicas: ptr.To[int32](2),
+				RolloutStrategy: &RolloutStrategy{
+					MaxUnavailable: &maxUnavail,
+					MaxSurge:       &maxSurge,
+				},
+			},
+			Prefill: &WorkloadSpec{
+				Replicas: ptr.To[int32](2),
+				RolloutStrategy: &RolloutStrategy{
+					MaxUnavailable: &maxUnavail,
+				},
+			},
+		},
+	}
+
+	// v1alpha1 -> v1alpha2
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, hub.Spec.RolloutStrategy)
+	assert.Equal(t, intstr.FromInt32(1), *hub.Spec.RolloutStrategy.MaxUnavailable)
+	assert.Equal(t, intstr.FromString("50%"), *hub.Spec.RolloutStrategy.MaxSurge)
+
+	require.NotNil(t, hub.Spec.Prefill)
+	require.NotNil(t, hub.Spec.Prefill.RolloutStrategy)
+	assert.Equal(t, intstr.FromInt32(1), *hub.Spec.Prefill.RolloutStrategy.MaxUnavailable)
+	assert.Nil(t, hub.Spec.Prefill.RolloutStrategy.MaxSurge)
+
+	// v1alpha2 -> v1alpha1
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+
+	require.NotNil(t, restored.Spec.RolloutStrategy)
+	assert.Equal(t, intstr.FromInt32(1), *restored.Spec.RolloutStrategy.MaxUnavailable)
+	assert.Equal(t, intstr.FromString("50%"), *restored.Spec.RolloutStrategy.MaxSurge)
+
+	require.NotNil(t, restored.Spec.Prefill)
+	require.NotNil(t, restored.Spec.Prefill.RolloutStrategy)
+	assert.Equal(t, intstr.FromInt32(1), *restored.Spec.Prefill.RolloutStrategy.MaxUnavailable)
+	assert.Nil(t, restored.Spec.Prefill.RolloutStrategy.MaxSurge)
+}
+
+func TestLLMInferenceServiceConversion_NilRolloutStrategy(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-no-rollout",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-4-Scout-17B-16E-Instruct"},
+			},
+		},
+	}
+
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+	assert.Nil(t, hub.Spec.RolloutStrategy)
+
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+	assert.Nil(t, restored.Spec.RolloutStrategy)
 }

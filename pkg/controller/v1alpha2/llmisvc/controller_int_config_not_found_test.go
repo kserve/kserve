@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -62,6 +63,10 @@ var _ = Describe("LLMInferenceService Config resolution", func() {
 				cond := current.Status.GetCondition(v1alpha2.PresetsCombined)
 				g.Expect(cond.Reason).To(Equal("ConfigNotFound"))
 				g.Expect(cond.Message).To(ContainSubstring("does-not-exist"))
+
+				// The controller stops before creating children, so Ready must come from
+				// PresetsCombined, not from stale workload/router conditions.
+				g.Expect(current.Status).To(HaveCondition(string(apis.ConditionReady), "False"))
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 
