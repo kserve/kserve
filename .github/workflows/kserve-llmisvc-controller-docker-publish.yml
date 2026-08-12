@@ -13,7 +13,11 @@ on:
   # Run tests for any PRs.
   pull_request:
     paths:
-      - "**"
+      - "cmd/**"
+      - "pkg/**"
+      - "go.mod"
+      - "go.sum"
+      - "llmisvc-controller.Dockerfile"
       - "!python/**"
       - "!.github/**"
       - "!docs/**"
