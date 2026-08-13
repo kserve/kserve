@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -1383,7 +1383,7 @@ wheels = [
 [[package]]
 name = "lgbserver"
 version = "0.20.0"
-source = { directory = "../lgbserver" }
+source = { virtual = "../lgbserver" }
 dependencies = [
     { name = "kserve" },
     { name = "kserve-storage" },
@@ -2019,10 +2019,10 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "kserve", directory = "../kserve" },
-    { name = "kserve-storage", directory = "../storage" },
-    { name = "lgbserver", directory = "../lgbserver" },
-    { name = "sklearnserver", directory = "../sklearnserver" },
-    { name = "xgbserver", directory = "../xgbserver" },
+    { name = "kserve-storage", virtual = "../storage" },
+    { name = "lgbserver", virtual = "../lgbserver" },
+    { name = "sklearnserver", virtual = "../sklearnserver" },
+    { name = "xgbserver", virtual = "../xgbserver" },
 ]
 
 [package.metadata.requires-dev]
@@ -2910,7 +2910,7 @@ wheels = [
 [[package]]
 name = "sklearnserver"
 version = "0.20.0"
-source = { directory = "../sklearnserver" }
+source = { virtual = "../sklearnserver" }
 dependencies = [
     { name = "joblib" },
     { name = "kserve" },
@@ -3300,7 +3300,7 @@ wheels = [
 [[package]]
 name = "xgbserver"
 version = "0.20.0"
-source = { directory = "../xgbserver" }
+source = { virtual = "../xgbserver" }
 dependencies = [
     { name = "kserve" },
     { name = "kserve-storage" },
