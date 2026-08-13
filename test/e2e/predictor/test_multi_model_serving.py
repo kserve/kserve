@@ -99,81 +99,82 @@ async def test_mms_sklearn_kserve(
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
+    model_names = [
+        f"model1-sklearn-{protocol_version}-{storage_type}",
+        f"model2-sklearn-{protocol_version}-{storage_type}",
+    ]
+
     # Create an instance of inference service with isvc
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    try:
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    cluster_ip = get_cluster_ip()
+        cluster_ip = get_cluster_ip()
 
-    model_names = [
-        f"model1-sklearn-{protocol_version}",
-        f"model2-sklearn-{protocol_version}",
-    ]
-
-    for model_name in model_names:
-        model_spec = V1alpha1ModelSpec(
-            storage_uri=storage_uri,
-            memory="128Mi",
-            framework="sklearn",
-        )
-
-        model = V1alpha1TrainedModel(
-            api_version=constants.KSERVE_V1ALPHA1,
-            kind=constants.KSERVE_KIND_TRAINEDMODEL,
-            metadata=client.V1ObjectMeta(
-                name=model_name, namespace=KSERVE_TEST_NAMESPACE
-            ),
-            spec=V1alpha1TrainedModelSpec(
-                inference_service=service_name, model=model_spec
-            ),
-        )
-
-        # Create instances of trained models using model1 and model2
-        kserve_client.create_trained_model(model, KSERVE_TEST_NAMESPACE)
-
-        kserve_client.wait_model_ready(
-            service_name,
-            model_name,
-            isvc_namespace=KSERVE_TEST_NAMESPACE,
-            isvc_version=constants.KSERVE_V1BETA1_VERSION,
-            protocol_version=protocol_version,
-            cluster_ip=cluster_ip,
-        )
-
-    if protocol_version == "v1":
-        responses = [
-            await predict_isvc(
-                rest_v1_client,
-                service_name,
-                "./data/iris_input.json",
-                model_name=model_name,
-                network_layer=network_layer,
+        for model_name in model_names:
+            model_spec = V1alpha1ModelSpec(
+                storage_uri=storage_uri,
+                memory="128Mi",
+                framework="sklearn",
             )
-            for model_name in model_names
-        ]
-        assert responses[0]["predictions"] == [1, 1]
-        assert responses[1]["predictions"] == [1, 1]
-    elif protocol_version == "v2":
-        responses = [
-            await predict_isvc(
-                rest_v2_client,
-                service_name,
-                "./data/iris_input_v2.json",
-                model_name=model_name,
-                network_layer=network_layer,
-            )
-            for model_name in model_names
-        ]
-        assert responses[0].outputs[0].data == [1, 1]
-        assert responses[1].outputs[0].data == [1, 1]
 
-    # Clean up inference service and trained models
-    for model_name in model_names:
-        kserve_client.delete_trained_model(model_name, KSERVE_TEST_NAMESPACE)
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+            model = V1alpha1TrainedModel(
+                api_version=constants.KSERVE_V1ALPHA1,
+                kind=constants.KSERVE_KIND_TRAINEDMODEL,
+                metadata=client.V1ObjectMeta(
+                    name=model_name, namespace=KSERVE_TEST_NAMESPACE
+                ),
+                spec=V1alpha1TrainedModelSpec(
+                    inference_service=service_name, model=model_spec
+                ),
+            )
+
+            # Create instances of trained models using model1 and model2
+            kserve_client.create_trained_model(model, KSERVE_TEST_NAMESPACE)
+
+            kserve_client.wait_model_ready(
+                service_name,
+                model_name,
+                isvc_namespace=KSERVE_TEST_NAMESPACE,
+                isvc_version=constants.KSERVE_V1BETA1_VERSION,
+                protocol_version=protocol_version,
+                cluster_ip=cluster_ip,
+            )
+
+        if protocol_version == "v1":
+            responses = [
+                await predict_isvc(
+                    rest_v1_client,
+                    service_name,
+                    "./data/iris_input.json",
+                    model_name=model_name,
+                    network_layer=network_layer,
+                )
+                for model_name in model_names
+            ]
+            assert responses[0]["predictions"] == [1, 1]
+            assert responses[1]["predictions"] == [1, 1]
+        elif protocol_version == "v2":
+            responses = [
+                await predict_isvc(
+                    rest_v2_client,
+                    service_name,
+                    "./data/iris_input_v2.json",
+                    model_name=model_name,
+                    network_layer=network_layer,
+                )
+                for model_name in model_names
+            ]
+            assert responses[0].outputs[0].data == [1, 1]
+            assert responses[1].outputs[0].data == [1, 1]
+    finally:
+        # Clean up inference service and trained models
+        for model_name in model_names:
+            kserve_client.delete_trained_model(model_name, KSERVE_TEST_NAMESPACE)
+        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.parametrize(
@@ -243,78 +244,80 @@ async def test_mms_xgboost_kserve(
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
+    model_names = [
+        f"model1-xgboost-{protocol_version}-{storage_type}",
+        f"model2-xgboost-{protocol_version}-{storage_type}",
+    ]
+
     # Create an instance of inference service with isvc
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    try:
+        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
 
-    cluster_ip = get_cluster_ip()
-    model_names = [
-        f"model1-xgboost-{protocol_version}",
-        f"model2-xgboost-{protocol_version}",
-    ]
+        cluster_ip = get_cluster_ip()
 
-    for model_name in model_names:
-        # Define trained models
-        model_spec = V1alpha1ModelSpec(
-            storage_uri=storage_uri,
-            memory="128Mi",
-            framework="xgboost",
-        )
-
-        model = V1alpha1TrainedModel(
-            api_version=constants.KSERVE_V1ALPHA1,
-            kind=constants.KSERVE_KIND_TRAINEDMODEL,
-            metadata=client.V1ObjectMeta(
-                name=model_name, namespace=KSERVE_TEST_NAMESPACE
-            ),
-            spec=V1alpha1TrainedModelSpec(
-                inference_service=service_name, model=model_spec
-            ),
-        )
-
-        # Create instances of trained models using model1 and model2
-        kserve_client.create_trained_model(model, KSERVE_TEST_NAMESPACE)
-
-        kserve_client.wait_model_ready(
-            service_name,
-            model_name,
-            isvc_namespace=KSERVE_TEST_NAMESPACE,
-            isvc_version=constants.KSERVE_V1BETA1_VERSION,
-            protocol_version=protocol_version,
-            cluster_ip=cluster_ip,
-        )
-
-    if protocol_version == "v1":
-        responses = [
-            await predict_isvc(
-                rest_v1_client,
-                service_name,
-                "./data/iris_input.json",
-                model_name=model_name,
-                network_layer=network_layer,
+        for model_name in model_names:
+            # Define trained models
+            model_spec = V1alpha1ModelSpec(
+                storage_uri=storage_uri,
+                memory="128Mi",
+                framework="xgboost",
             )
-            for model_name in model_names
-        ]
-        assert responses[0]["predictions"] == [1, 1]
-        assert responses[1]["predictions"] == [1, 1]
-    elif protocol_version == "v2":
-        responses = [
-            await predict_isvc(
-                rest_v2_client,
-                service_name,
-                "./data/iris_input_v2.json",
-                model_name=model_name,
-                network_layer=network_layer,
-            )
-            for model_name in model_names
-        ]
-        assert responses[0].outputs[0].data == [1.0, 1.0]
-        assert responses[1].outputs[0].data == [1.0, 1.0]
 
-    # Clean up inference service and trained models
-    for model_name in model_names:
-        kserve_client.delete_trained_model(model_name, KSERVE_TEST_NAMESPACE)
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+            model = V1alpha1TrainedModel(
+                api_version=constants.KSERVE_V1ALPHA1,
+                kind=constants.KSERVE_KIND_TRAINEDMODEL,
+                metadata=client.V1ObjectMeta(
+                    name=model_name, namespace=KSERVE_TEST_NAMESPACE
+                ),
+                spec=V1alpha1TrainedModelSpec(
+                    inference_service=service_name, model=model_spec
+                ),
+            )
+
+            # Create instances of trained models using model1 and model2
+            kserve_client.create_trained_model(model, KSERVE_TEST_NAMESPACE)
+
+            kserve_client.wait_model_ready(
+                service_name,
+                model_name,
+                isvc_namespace=KSERVE_TEST_NAMESPACE,
+                isvc_version=constants.KSERVE_V1BETA1_VERSION,
+                protocol_version=protocol_version,
+                cluster_ip=cluster_ip,
+            )
+
+        if protocol_version == "v1":
+            responses = [
+                await predict_isvc(
+                    rest_v1_client,
+                    service_name,
+                    "./data/iris_input.json",
+                    model_name=model_name,
+                    network_layer=network_layer,
+                )
+                for model_name in model_names
+            ]
+            assert responses[0]["predictions"] == [1, 1]
+            assert responses[1]["predictions"] == [1, 1]
+        elif protocol_version == "v2":
+            responses = [
+                await predict_isvc(
+                    rest_v2_client,
+                    service_name,
+                    "./data/iris_input_v2.json",
+                    model_name=model_name,
+                    network_layer=network_layer,
+                )
+                for model_name in model_names
+            ]
+            assert responses[0].outputs[0].data == [1.0, 1.0]
+            assert responses[1].outputs[0].data == [1.0, 1.0]
+    finally:
+        # Clean up inference service and trained models
+        for model_name in model_names:
+            kserve_client.delete_trained_model(model_name, KSERVE_TEST_NAMESPACE)
+        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
