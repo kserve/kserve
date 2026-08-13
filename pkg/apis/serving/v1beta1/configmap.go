@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -66,6 +67,10 @@ const (
 	ErrInvalidKserveIngressGatewayFormat    = "invalid ingress config - kserveIngressGateway should be in the format <namespace>/<name>"
 	ErrInvalidKserveIngressGatewayName      = "invalid ingress config - kserveIngressGateway gateway name is invalid"
 	ErrInvalidKserveIngressGatewayNamespace = "invalid ingress config - kserveIngressGateway gateway namespace is invalid"
+	ErrIngressGatewayRequired               = "invalid ingress config - one of ingressGateways or ingressGateway is required"
+	ErrInvalidIngressGatewaysFormat         = "invalid ingress config - ingressGateways entries should be in the format <namespace>/<name>"
+	ErrInvalidIngressGatewaysName           = "invalid ingress config - ingressGateways gateway name is invalid"
+	ErrInvalidIngressGatewaysNamespace      = "invalid ingress config - ingressGateways gateway namespace is invalid"
 )
 
 // +kubebuilder:object:generate=false
@@ -114,8 +119,22 @@ type MultiNodeConfig struct {
 
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
-	EnableGatewayAPI             bool      `json:"enableGatewayApi,omitempty"`
-	KserveIngressGateway         string    `json:"kserveIngressGateway,omitempty"`
+	EnableGatewayAPI     bool   `json:"enableGatewayApi,omitempty"`
+	KserveIngressGateway string `json:"kserveIngressGateway,omitempty"`
+	// IngressGateways is the list of Istio ingress gateways, each in the
+	// "<namespace>/<name>" format, that external traffic for an InferenceService is
+	// accepted on. Listing more than one gateway exposes every InferenceService on
+	// all of them, which allows a single InferenceService to be reachable through
+	// several ingress paths (for example a public cloud load balancer gateway and a
+	// private/VPN-only gateway).
+	// When set, it supersedes the deprecated single valued IngressGateway.
+	// +listType=atomic
+	IngressGateways []string `json:"ingressGateways,omitempty"`
+	// IngressGateway is the single Istio ingress gateway, in the "<namespace>/<name>"
+	// format, that external traffic for an InferenceService is accepted on.
+	//
+	// Deprecated: use IngressGateways instead. It is still honored when
+	// IngressGateways is not set.
 	IngressGateway               string    `json:"ingressGateway,omitempty"`
 	KnativeLocalGatewayService   string    `json:"knativeLocalGatewayService,omitempty"`
 	LocalGateway                 string    `json:"localGateway,omitempty"`
@@ -273,6 +292,35 @@ func NewMultiNodeConfig(isvcConfigMap *corev1.ConfigMap) (*MultiNodeConfig, erro
 	return mncfg, nil
 }
 
+// ExternalGateways returns the Istio ingress gateways that external, that is non
+// cluster-local, traffic for an InferenceService is accepted on. The deprecated
+// single valued ingressGateway is only honored when ingressGateways is not set.
+func (ingressConfig *IngressConfig) ExternalGateways() []string {
+	if len(ingressConfig.IngressGateways) > 0 {
+		return slices.Clone(ingressConfig.IngressGateways)
+	}
+	if ingressConfig.IngressGateway != "" {
+		return []string{ingressConfig.IngressGateway}
+	}
+	return nil
+}
+
+func validateIngressGateways(gateways []string) error {
+	for _, gateway := range gateways {
+		splits := strings.Split(gateway, "/")
+		if len(splits) != 2 {
+			return fmt.Errorf("%s, got %q", ErrInvalidIngressGatewaysFormat, gateway)
+		}
+		if errs := validation.IsDNS1123Label(splits[0]); len(errs) != 0 {
+			return fmt.Errorf("%s, got %q", ErrInvalidIngressGatewaysNamespace, gateway)
+		}
+		if errs := validation.IsDNS1123Label(splits[1]); len(errs) != 0 {
+			return fmt.Errorf("%s, got %q", ErrInvalidIngressGatewaysName, gateway)
+		}
+	}
+	return nil
+}
+
 func validateIngressGateway(ingressConfig *IngressConfig) error {
 	if ingressConfig.KserveIngressGateway == "" {
 		return errors.New(ErrKserveIngressGatewayRequired)
@@ -307,8 +355,11 @@ func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 				return nil, err
 			}
 		}
-		if ingressConfig.IngressGateway == "" {
-			return nil, errors.New("invalid ingress config - ingressGateway is required")
+		if len(ingressConfig.IngressGateways) == 0 && ingressConfig.IngressGateway == "" {
+			return nil, errors.New(ErrIngressGatewayRequired)
+		}
+		if err := validateIngressGateways(ingressConfig.IngressGateways); err != nil {
+			return nil, err
 		}
 		if ingressConfig.PathTemplate != "" {
 			// TODO: ensure that the generated path is valid, that is:

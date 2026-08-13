@@ -3864,7 +3864,17 @@
           "type": "string"
         },
         "ingressGateway": {
+          "description": "IngressGateway is the single Istio ingress gateway, in the \"\u003cnamespace\u003e/\u003cname\u003e\" format, that external traffic for an InferenceService is accepted on.\n\nDeprecated: use IngressGateways instead. It is still honored when IngressGateways is not set.",
           "type": "string"
+        },
+        "ingressGateways": {
+          "description": "IngressGateways is the list of Istio ingress gateways, each in the \"\u003cnamespace\u003e/\u003cname\u003e\" format, that external traffic for an InferenceService is accepted on. Listing more than one gateway exposes every InferenceService on all of them, which allows a single InferenceService to be reachable through several ingress paths (for example a public cloud load balancer gateway and a private/VPN-only gateway). When set, it supersedes the deprecated single valued IngressGateway.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          },
+          "x-kubernetes-list-type": "atomic"
         },
         "knativeLocalGatewayService": {
           "type": "string"
