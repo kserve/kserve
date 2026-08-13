@@ -49,6 +49,7 @@ class V1beta1InferenceServiceStatus(object):
     openapi_types = {
         'address': 'KnativeAddressable',
         'annotations': 'dict(str, str)',
+        'canary_statuses': 'list[V1beta1CanaryStatus]',
         'cluster_serving_runtime_name': 'str',
         'components': 'dict(str, V1beta1ComponentStatusSpec)',
         'conditions': 'list[KnativeCondition]',
@@ -62,6 +63,7 @@ class V1beta1InferenceServiceStatus(object):
     attribute_map = {
         'address': 'address',
         'annotations': 'annotations',
+        'canary_statuses': 'canaryStatuses',
         'cluster_serving_runtime_name': 'clusterServingRuntimeName',
         'components': 'components',
         'conditions': 'conditions',
@@ -72,7 +74,7 @@ class V1beta1InferenceServiceStatus(object):
         'url': 'url'
     }
 
-    def __init__(self, address=None, annotations=None, cluster_serving_runtime_name=None, components=None, conditions=None, deployment_mode=None, model_status=None, observed_generation=None, serving_runtime_name=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, address=None, annotations=None, canary_statuses=None, cluster_serving_runtime_name=None, components=None, conditions=None, deployment_mode=None, model_status=None, observed_generation=None, serving_runtime_name=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1InferenceServiceStatus - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -80,6 +82,7 @@ class V1beta1InferenceServiceStatus(object):
 
         self._address = None
         self._annotations = None
+        self._canary_statuses = None
         self._cluster_serving_runtime_name = None
         self._components = None
         self._conditions = None
@@ -94,6 +97,8 @@ class V1beta1InferenceServiceStatus(object):
             self.address = address
         if annotations is not None:
             self.annotations = annotations
+        if canary_statuses is not None:
+            self.canary_statuses = canary_statuses
         if cluster_serving_runtime_name is not None:
             self.cluster_serving_runtime_name = cluster_serving_runtime_name
         if components is not None:
@@ -154,6 +159,29 @@ class V1beta1InferenceServiceStatus(object):
         """
 
         self._annotations = annotations
+
+    @property
+    def canary_statuses(self):
+        """Gets the canary_statuses of this V1beta1InferenceServiceStatus.  # noqa: E501
+
+        CanaryStatuses is the observed state of canary deployments.  # noqa: E501
+
+        :return: The canary_statuses of this V1beta1InferenceServiceStatus.  # noqa: E501
+        :rtype: list[V1beta1CanaryStatus]
+        """
+        return self._canary_statuses
+
+    @canary_statuses.setter
+    def canary_statuses(self, canary_statuses):
+        """Sets the canary_statuses of this V1beta1InferenceServiceStatus.
+
+        CanaryStatuses is the observed state of canary deployments.  # noqa: E501
+
+        :param canary_statuses: The canary_statuses of this V1beta1InferenceServiceStatus.  # noqa: E501
+        :type: list[V1beta1CanaryStatus]
+        """
+
+        self._canary_statuses = canary_statuses
 
     @property
     def cluster_serving_runtime_name(self):

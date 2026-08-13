@@ -15,6 +15,7 @@ on:
 jobs:
   go-security-scan:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       GO111MODULE: on
     steps:

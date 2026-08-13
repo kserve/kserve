@@ -929,12 +929,13 @@ func TestSetAvailableResourcesForApi(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			// Reset the cache before each test
-			gvResourcesCache = nil
+			gvResourcesCache.Clear()
 
 			SetAvailableResourcesForApi(scenario.groupVersion, scenario.resources)
 
-			g.Expect(gvResourcesCache).ToNot(gomega.BeNil())
-			g.Expect(gvResourcesCache[scenario.groupVersion]).To(gomega.BeComparableTo(scenario.resources))
+			cached, ok := gvResourcesCache.Load(scenario.groupVersion)
+			g.Expect(ok).To(gomega.BeTrue())
+			g.Expect(cached.(*metav1.APIResourceList)).To(gomega.BeComparableTo(scenario.resources))
 		})
 	}
 }

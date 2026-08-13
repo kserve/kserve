@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
@@ -395,6 +396,23 @@ func TestValidateWorkloadScaling(t *testing.T) {
 			wantErrCount: 0,
 		},
 		{
+			name: "valid: WVA KEDA idleReplicaCount=0 (scale-to-zero)",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 10,
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								IdleReplicaCount: ptr.To(int32(0)),
+							},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
 			name: "valid: initialCooldownPeriod set",
 			workload: &WorkloadSpec{
 				Scaling: &ScalingSpec{
@@ -567,14 +585,127 @@ func TestValidateWorkloadScaling(t *testing.T) {
 			wantErrStrings: []string{"minReplicas (10) cannot exceed maxReplicas (5)"},
 		},
 		{
-			name: "error: scaling without WVA",
+			name: "error: scaling without WVA or direct KEDA",
 			workload: &WorkloadSpec{
 				Scaling: &ScalingSpec{
 					MaxReplicas: 5,
 				},
 			},
 			wantErrCount:   1,
-			wantErrStrings: []string{"wva is required when scaling is configured"},
+			wantErrStrings: []string{"either wva or keda must be specified when scaling is configured"},
+		},
+		{
+			name: "error: scaling with both WVA and direct KEDA",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 5,
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
+					},
+					KEDA: &DirectKEDAScalingSpec{
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"wva and keda are mutually exclusive"},
+		},
+		{
+			name: "valid: scaling with direct KEDA",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 5,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							PollingInterval: ptr.To(int32(30)),
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{
+								Type: "cpu",
+								Metadata: map[string]string{
+									"value": "80",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: direct KEDA idleReplicaCount=0 (scale-to-zero)",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 5,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							IdleReplicaCount: ptr.To(int32(0)),
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: direct KEDA with scalingModifiers",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 5,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							Advanced: &kedav1alpha1.AdvancedConfig{
+								ScalingModifiers: kedav1alpha1.ScalingModifiers{
+									Formula: "trig0 + trig1",
+									Target:  "10",
+								},
+							},
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+							{Type: "memory", Metadata: map[string]string{"value": "70"}},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "error: direct KEDA without triggers",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 5,
+					KEDA:        &DirectKEDAScalingSpec{},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"at least one trigger is required when using direct KEDA scaling"},
+		},
+		{
+			name: "error: direct KEDA idleReplicaCount without minReplicas",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 10,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							IdleReplicaCount: ptr.To(int32(1)),
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"minReplicas is required when idleReplicaCount is set"},
 		},
 		{
 			name: "error: WVA with both HPA and KEDA",
@@ -1015,6 +1146,56 @@ func TestValidateActuatorConsistency(t *testing.T) {
 		}
 		errs := validator.validateScaling(svc)
 		assert.Empty(t, errs)
+	})
+
+	t.Run("error: decode direct KEDA, prefill WVA", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				KEDA: &DirectKEDAScalingSpec{
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+					},
+				},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.prefill.scaling")
+		assert.Contains(t, errs[0].Detail, "decode uses direct keda but prefill uses wva")
+	})
+
+	t.Run("error: decode WVA, prefill direct KEDA", func(t *testing.T) {
+		svc := newBaseLLMInferenceServiceV1Alpha2()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{KEDA: &KEDAScalingSpec{}}},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				KEDA: &DirectKEDAScalingSpec{
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{Type: "memory", Metadata: map[string]string{"value": "70"}},
+					},
+				},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.prefill.scaling")
+		assert.Contains(t, errs[0].Detail, "decode uses wva but prefill uses direct keda")
 	})
 
 	t.Run("error: decode HPA, prefill KEDA", func(t *testing.T) {
@@ -1706,5 +1887,138 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 		require.Len(t, errs, 1)
 		assert.Contains(t, errs[0].Field, "prefill")
 		assert.Contains(t, errs[0].Field, "cpu")
+	})
+}
+
+func TestValidateRolloutStrategy(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	makeSvc := func(rs *RolloutStrategy) *LLMInferenceService {
+		return &LLMInferenceService{
+			Spec: LLMInferenceServiceSpec{
+				WorkloadSpec: WorkloadSpec{RolloutStrategy: rs},
+			},
+		}
+	}
+
+	t.Run("nil rollout strategy produces no errors", func(t *testing.T) {
+		errs := validator.validateRolloutStrategy(makeSvc(nil))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid integer maxUnavailable", func(t *testing.T) {
+		v := intstr.FromInt32(1)
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{MaxUnavailable: &v}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid percentage maxSurge", func(t *testing.T) {
+		v := intstr.FromString("100%")
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{MaxSurge: &v}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid combination maxUnavailable=0% maxSurge=100%", func(t *testing.T) {
+		mu := intstr.FromString("0%")
+		ms := intstr.FromString("100%")
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{
+			MaxUnavailable: &mu,
+			MaxSurge:       &ms,
+		}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("valid combination maxUnavailable=1 maxSurge=0", func(t *testing.T) {
+		mu := intstr.FromInt32(1)
+		ms := intstr.FromInt32(0)
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{
+			MaxUnavailable: &mu,
+			MaxSurge:       &ms,
+		}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("negative integer rejected", func(t *testing.T) {
+		v := intstr.FromInt32(-1)
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{MaxUnavailable: &v}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "maxUnavailable")
+	})
+
+	t.Run("non-percentage string rejected", func(t *testing.T) {
+		v := intstr.FromString("abc")
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{MaxSurge: &v}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "maxSurge")
+	})
+
+	t.Run("percentage over 100 rejected", func(t *testing.T) {
+		v := intstr.FromString("150%")
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{MaxSurge: &v}))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+	})
+
+	t.Run("both zero deadlock rejected", func(t *testing.T) {
+		mu := intstr.FromInt32(0)
+		ms := intstr.FromInt32(0)
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{
+			MaxUnavailable: &mu,
+			MaxSurge:       &ms,
+		}))
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Detail, "both be zero")
+	})
+
+	t.Run("both zero percentage deadlock rejected", func(t *testing.T) {
+		mu := intstr.FromString("0%")
+		ms := intstr.FromString("0%")
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{
+			MaxUnavailable: &mu,
+			MaxSurge:       &ms,
+		}))
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Detail, "both be zero")
+	})
+
+	t.Run("maxUnavailable=0 alone allowed for single-node", func(t *testing.T) {
+		v := intstr.FromInt32(0)
+		errs := validator.validateRolloutStrategy(makeSvc(&RolloutStrategy{MaxUnavailable: &v}))
+		assert.Empty(t, errs)
+	})
+
+	t.Run("maxUnavailable=0 alone rejected for multi-node", func(t *testing.T) {
+		v := intstr.FromInt32(0)
+		svc := makeSvc(&RolloutStrategy{MaxUnavailable: &v})
+		svc.Spec.Worker = &corev1.PodSpec{}
+		errs := validator.validateRolloutStrategy(svc)
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeRequired, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "maxSurge")
+	})
+
+	t.Run("maxUnavailable=1 alone allowed for multi-node", func(t *testing.T) {
+		v := intstr.FromInt32(1)
+		svc := makeSvc(&RolloutStrategy{MaxUnavailable: &v})
+		svc.Spec.Worker = &corev1.PodSpec{}
+		errs := validator.validateRolloutStrategy(svc)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("prefill rollout strategy validated independently", func(t *testing.T) {
+		v := intstr.FromInt32(-1)
+		svc := &LLMInferenceService{
+			Spec: LLMInferenceServiceSpec{
+				Prefill: &WorkloadSpec{
+					RolloutStrategy: &RolloutStrategy{MaxUnavailable: &v},
+				},
+			},
+		}
+		errs := validator.validateRolloutStrategy(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "prefill")
+		assert.Contains(t, errs[0].Field, "maxUnavailable")
 	})
 }

@@ -15,6 +15,7 @@
 import asyncio
 import json
 import os
+import time
 from concurrent import futures
 from typing import Union, List, Dict
 from urllib.parse import urlparse
@@ -22,6 +23,7 @@ from urllib.parse import urlparse
 import portforward
 import requests
 from kubernetes import client as k8s_client
+from kubernetes.stream import stream as k8s_stream
 from orjson import orjson
 
 from httpx import HTTPStatusError
@@ -31,10 +33,17 @@ from kserve import constants
 from kserve.inference_client import InferenceGRPCClient, InferenceRESTClient
 from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.logging import trace_logger as logger
-from .http_retry import post_with_retry
+from .http_retry import DEFAULT_TIMEOUT_SECONDS, post_with_retry
 
 KSERVE_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "kserve")
-KSERVE_TEST_NAMESPACE = "kserve-ci-e2e-test"
+_BASE_TEST_NAMESPACE = os.environ.get("KSERVE_TEST_NAMESPACE", "kserve-ci-e2e-test")
+_WORKER_ID = os.environ.get("PYTEST_XDIST_WORKER", "")
+_NAMESPACE_ISOLATION = os.environ.get("E2E_WORKER_COUNT", "")
+KSERVE_TEST_NAMESPACE = (
+    f"{_BASE_TEST_NAMESPACE}-{_WORKER_ID}"
+    if _WORKER_ID and _NAMESPACE_ISOLATION
+    else _BASE_TEST_NAMESPACE
+)
 # autogluonserver: large image + storage init + predictor load often exceeds default
 # KServeClient.wait_isvc_ready (600s) under parallel e2e; override via env if needed.
 AUTOGLUON_ISVC_WAIT_TIMEOUT = int(os.getenv("AUTOGLUON_ISVC_WAIT_TIMEOUT", "1200"))
@@ -483,7 +492,9 @@ def _vllm_request(
         logger.info("Sending url = %s", url)
         logger.info("Sending request data: %s", data)
 
-        response = requests.post(url, json.dumps(data), headers=headers)
+        response = requests.post(
+            url, json.dumps(data), headers=headers, timeout=DEFAULT_TIMEOUT_SECONDS
+        )
         logger.info("Got response code %s", response.status_code)
         if not response.status_code == 200:
             response.raise_for_status()
@@ -661,11 +672,90 @@ def is_model_ready(
     return rest_client.is_model_ready(base_url, model_name, headers=headers)
 
 
-def extract_process_ids_from_logs(logs: str) -> set[int]:
-    process_ids = set()
-    for line in logs.splitlines():
-        tokens = line.strip().split()
-        if len(tokens) >= 5 and tokens[3] == "kserve.trace":
-            process_ids.add(int(tokens[2]))
-    logger.info("Extracted process ids: %s", process_ids)
-    return process_ids
+_WORKER_COUNT_SCRIPT = """\
+import glob, os
+count = 0
+for f in glob.glob("/proc/[0-9]*/cmdline"):
+    try:
+        data = open(f, "rb").read()
+        if b"spawn_main" not in data: continue
+        status = open(os.path.join(os.path.dirname(f), "status")).read()
+        ppid = status.split("PPid:\\t")[1].split()[0]
+        if ppid == "1": count += 1
+    except (OSError, IndexError): pass
+print(count)
+"""
+
+
+def get_container_worker_count(
+    core_api: k8s_client.CoreV1Api,
+    pod_name: str,
+    namespace: str,
+    container: str = INFERENCESERVICE_CONTAINER,
+    timeout: int = 30,
+    interval: int = 2,
+) -> int:
+    """Count multiprocessing worker processes inside a running container via /proc."""
+    cmd = ["python", "-c", _WORKER_COUNT_SCRIPT]
+    deadline = time.monotonic() + timeout
+    last_count = 0
+    while True:
+        resp = k8s_stream(
+            core_api.connect_get_namespaced_pod_exec,
+            pod_name,
+            namespace,
+            container=container,
+            command=cmd,
+            stderr=False,
+            stdout=True,
+            stdin=False,
+            tty=False,
+        )
+        try:
+            last_count = int(resp.strip())
+        except ValueError:
+            logger.warning("Unexpected worker-count output: %r", resp)
+            last_count = 0
+        if last_count > 0 or time.monotonic() >= deadline:
+            break
+        time.sleep(interval)
+    logger.info("Worker process count in %s/%s: %d", namespace, pod_name, last_count)
+    return last_count
+
+
+async def wait_for_pod_logs(
+    core_api,
+    pod_name: str,
+    namespace: str,
+    container: str = "kserve-container",
+    *,
+    expected_substring: str = None,
+    timeout_s: int = 30,
+    poll_interval_s: int = 2,
+) -> str:
+    """Poll pod logs until non-empty (and optionally containing a substring).
+
+    Replaces bare ``asyncio.sleep()`` calls that hope logs are available after
+    a fixed delay. Returns the full log content once the condition is met.
+    """
+    import time
+
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        try:
+            logs = core_api.read_namespaced_pod_log(
+                name=pod_name,
+                namespace=namespace,
+                container=container,
+            )
+            if logs and (expected_substring is None or expected_substring in logs):
+                return logs
+        except k8s_client.rest.ApiException:
+            pass
+        await asyncio.sleep(poll_interval_s)
+    try:
+        return core_api.read_namespaced_pod_log(
+            name=pod_name, namespace=namespace, container=container
+        )
+    except k8s_client.rest.ApiException:
+        return ""

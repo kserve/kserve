@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -135,7 +136,7 @@ type WorkloadSpec struct {
 
 	// Scaling configuration for autoscaling this workload.
 	// When specified, the controller creates and manages autoscaling resources
-	// (VariantAutoscaling CR, ServiceMonitor, and the selected actuator — HPA or KEDA ScaledObject)
+	// (ServiceMonitor and the selected actuator — HPA or KEDA ScaledObject, annotated for WVA discovery)
 	// targeting this workload.
 	// Mutually exclusive with the static 'replicas' field.
 	// In a disaggregated setup, each workload (decode and prefill) can have its own independent scaling configuration,
@@ -182,6 +183,31 @@ type WorkloadSpec struct {
 	// The controller translates this into --kv-transfer-config for the vLLM serve command.
 	// +optional
 	KVCacheOffloading *KVCacheOffloadingSpec `json:"kvCacheOffloading,omitempty"`
+
+	// RolloutStrategy configures how rolling updates are performed for this workload.
+	// When omitted, Kubernetes/LWS defaults apply (maxUnavailable: 25%, maxSurge: 25%
+	// for Deployments; maxUnavailable: 1, maxSurge: 0 for LeaderWorkerSets).
+	// +optional
+	RolloutStrategy *RolloutStrategy `json:"rolloutStrategy,omitempty"`
+}
+
+// RolloutStrategy configures the rolling update behavior for a workload.
+// These settings apply to both Deployment and LeaderWorkerSet resources
+// created by the controller.
+type RolloutStrategy struct {
+	// MaxUnavailable specifies the maximum number of replicas that can be
+	// unavailable during a rolling update. Value can be an absolute number
+	// (ex: 5) or a percentage of total replicas (ex: "50%").
+	// Defaults to 25% for Deployments, 1 for LeaderWorkerSets when not set.
+	// +optional
+	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
+
+	// MaxSurge specifies the maximum number of replicas that can be scheduled
+	// above the desired number of replicas during a rolling update. Value can
+	// be an absolute number (ex: 5) or a percentage of total replicas (ex: "50%").
+	// Defaults to 25% for Deployments, 0 for LeaderWorkerSets when not set.
+	// +optional
+	MaxSurge *intstr.IntOrString `json:"maxSurge,omitempty"`
 }
 
 // KVCacheOffloadingSpec configures KV cache offloading via vLLM's OffloadingConnector.
@@ -467,6 +493,23 @@ type SchedulerSpec struct {
 
 	// Replicas is the number of replicas for the scheduler.
 	Replicas *int32 `json:"replicas,omitempty"`
+
+	// Tokenizer provides optional operational overrides for the standalone
+	// tokenizer deployment that serves the vLLM render endpoint
+	// (/v1/completions/render) over HTTP. The tokenizer is auto-deployed when
+	// token-producer or precise-prefix-cache-scorer plugins are detected in the
+	// scheduler config.inline. Use this field to customize the tokenizer pod
+	// template (resources, image overrides, etc.).
+	// +optional
+	Tokenizer *TokenizerSpec `json:"tokenizer,omitempty"`
+}
+
+// TokenizerSpec configures a standalone tokenizer deployment.
+type TokenizerSpec struct {
+	// Template for the tokenizer pod spec. This is merged on top of the
+	// well-known tokenizer config defaults (vLLM render container).
+	// +optional
+	Template *corev1.PodSpec `json:"template,omitempty"`
 }
 
 type SchedulerConfigSpec struct {
@@ -491,11 +534,17 @@ type InferencePoolSpec struct {
 
 // ScalingSpec configures autoscaling for the LLM inference deployment.
 // When scaling is configured, the controller creates and manages autoscaling resources
-// (VariantAutoscaling CR, ServiceMonitor, and the selected actuator — HPA or KEDA ScaledObject).
-// +kubebuilder:validation:XValidation:rule="has(self.wva)",message="wva is required when scaling is configured; it provides the autoscaling mechanism"
+// (ServiceMonitor and the selected actuator — HPA or KEDA ScaledObject).
+// Use WVA for metric-driven scaling (actuators annotated for WVA discovery), or KEDA for direct
+// scaling with user-defined triggers (no WVA required).
+// +kubebuilder:validation:XValidation:rule="has(self.wva) || has(self.keda)",message="either wva or keda must be specified when scaling is configured"
+// +kubebuilder:validation:XValidation:rule="!(has(self.wva) && has(self.keda))",message="wva and keda are mutually exclusive"
+// +kubebuilder:validation:XValidation:rule="!has(self.keda) || size(self.keda.triggers) > 0",message="at least one trigger is required when using direct KEDA scaling"
 // +kubebuilder:validation:XValidation:rule="!has(self.minReplicas) || self.minReplicas <= self.maxReplicas",message="minReplicas cannot exceed maxReplicas"
-// +kubebuilder:validation:XValidation:rule="!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)",message="minReplicas is required when idleReplicaCount is set; idleReplicaCount must be less than minReplicas"
+// +kubebuilder:validation:XValidation:rule="!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)",message="minReplicas is required when idleReplicaCount is set"
 // +kubebuilder:validation:XValidation:rule="!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas",message="idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active"
+// +kubebuilder:validation:XValidation:rule="!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)",message="minReplicas is required when idleReplicaCount is set"
+// +kubebuilder:validation:XValidation:rule="!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas) || self.keda.idleReplicaCount < self.minReplicas",message="idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active"
 type ScalingSpec struct {
 	// MinReplicas is the minimum number of replicas for the deployment during active scaling.
 	// This is the scaling floor when triggers are active.
@@ -515,9 +564,17 @@ type ScalingSpec struct {
 	// rather than traditional CPU/memory metrics.
 	// +optional
 	WVA *WVASpec `json:"wva,omitempty"`
+
+	// KEDA configures direct KEDA scaling without WVA.
+	// Users specify their own triggers (CPU, Prometheus, queue depth, etc.) and the controller
+	// creates a ScaledObject with those triggers. Mutually exclusive with WVA.
+	// +optional
+	KEDA *DirectKEDAScalingSpec `json:"keda,omitempty"`
 }
 
 // WVASpec configures the Workload Variant Autoscaler.
+// scalingModifiers under wva.keda.advanced are forbidden because WVA owns the metric formula.
+// +kubebuilder:validation:XValidation:rule="!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula) == 0 && size(self.keda.advanced.scalingModifiers.target) == 0 && size(self.keda.advanced.scalingModifiers.activationTarget) == 0 && size(self.keda.advanced.scalingModifiers.metricType) == 0)",message="scalingModifiers must not be set; WVA controls the scaling metric formula and logic"
 type WVASpec struct {
 	// VariantCost specifies the cost per replica for this variant (used in saturation analysis).
 	// Must be a non-negative numeric string (e.g., "10", "10.0", "0.5").
@@ -575,7 +632,8 @@ type HPAScalingSpec struct {
 
 // KEDAScalingSpec configures the KEDA ScaledObject for autoscaling.
 // The fields are directly from the upstream KEDA ScaledObject API.
-// +kubebuilder:validation:XValidation:rule="!has(self.advanced) || (size(self.advanced.scalingModifiers.formula) == 0 && size(self.advanced.scalingModifiers.target) == 0 && size(self.advanced.scalingModifiers.activationTarget) == 0 && size(self.advanced.scalingModifiers.metricType) == 0)",message="scalingModifiers must not be set; WVA controls the scaling metric formula and logic"
+// Note: WVA-only restrictions on scalingModifiers live on WVASpec so direct KEDA
+// (DirectKEDAScalingSpec) can use scalingModifiers when users define their own triggers.
 // +kubebuilder:validation:XValidation:rule="!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0",message="horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name"
 type KEDAScalingSpec struct {
 	// PollingInterval is the interval in seconds to check each trigger on.
@@ -600,9 +658,11 @@ type KEDAScalingSpec struct {
 
 	// IdleReplicaCount is the number of replicas KEDA will scale the resource down to
 	// when there are no triggers active. This must be less than minReplicas.
+	// Set to 0 for true scale-to-zero: KEDA scales the resource to zero replicas when idle
+	// and immediately back to minReplicas once a trigger becomes active.
 	// If not set, KEDA will not scale below minReplicas.
 	// +optional
-	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Minimum=0
 	IdleReplicaCount *int32 `json:"idleReplicaCount,omitempty"`
 
 	// Fallback defines the replica count to maintain when the scaler is in a fallback state
@@ -615,6 +675,18 @@ type KEDAScalingSpec struct {
 	// This includes HPA behavior configuration and restore-to-original replica count settings.
 	// +optional
 	Advanced *kedav1alpha1.AdvancedConfig `json:"advanced,omitempty"`
+}
+
+// DirectKEDAScalingSpec configures direct KEDA scaling without WVA.
+// It embeds KEDAScalingSpec for shared ScaledObject settings and adds user-defined triggers.
+type DirectKEDAScalingSpec struct {
+	KEDAScalingSpec `json:",inline"`
+
+	// Triggers defines the KEDA scaling triggers.
+	// At least one trigger is required.
+	// +kubebuilder:validation:MinItems=1
+	// +listType=atomic
+	Triggers []kedav1alpha1.ScaleTriggers `json:"triggers"`
 }
 
 // TracingSpec defines the distributed tracing configuration.
@@ -793,6 +865,16 @@ type GroupMemberStatus struct {
 	BackendRef *gwapiv1.BackendObjectReference `json:"backendRef,omitempty"`
 }
 
+// ObservedWorkloadStatus identifies a workload resource and its observed replica state.
+type ObservedWorkloadStatus struct {
+	corev1.TypedLocalObjectReference `json:",inline"`
+
+	// ReadyReplicas is the number of pods available to serve traffic.
+	// Copied from the workload's status on each reconcile.
+	// +optional
+	ReadyReplicas *int32 `json:"readyReplicas,omitempty"`
+}
+
 // WorkloadStatus records the workload resources observed during the last
 // successful reconciliation. Nil when no workload resources have been
 // created yet, or when the service is stopped.
@@ -802,12 +884,12 @@ type WorkloadStatus struct {
 	// When disaggregated serving is configured, this workload handles
 	// the decode phase; otherwise it handles both prefill and decode.
 	// +optional
-	Primary *corev1.TypedLocalObjectReference `json:"primary,omitempty"`
+	Primary *ObservedWorkloadStatus `json:"primary,omitempty"`
 
 	// Prefill is the prefill workload in disaggregated serving mode.
 	// Nil when disaggregated serving is not configured.
 	// +optional
-	Prefill *corev1.TypedLocalObjectReference `json:"prefill,omitempty"`
+	Prefill *ObservedWorkloadStatus `json:"prefill,omitempty"`
 
 	// Service is the Kubernetes Service fronting the primary inference workload.
 	// +optional
@@ -816,7 +898,7 @@ type WorkloadStatus struct {
 	// Scheduler is the EPP scheduler Deployment.
 	// Nil when the scheduler is not configured.
 	// +optional
-	Scheduler *corev1.TypedLocalObjectReference `json:"scheduler,omitempty"`
+	Scheduler *ObservedWorkloadStatus `json:"scheduler,omitempty"`
 }
 
 // SourcedAddress extends Addressable with the networking resource that

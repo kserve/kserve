@@ -83,8 +83,47 @@ configuration change.
 | *(planned)* `fetch` | `oci+fetch://` | Storage initializer pulls image layers | Air-gapped clusters, legacy runtimes |
 
 The `oci+native://` approach avoids the modelcar sidecar overhead and leverages
-the container runtime's image pull and caching directly.  No benchmark data is
-available yet — do not assume a performance advantage without measuring.
+the container runtime's image pull and caching directly.
+
+## Measured startup behavior
+
+Single-node benchmark (kind, Kubernetes v1.36.1, containerd 2.3.1, KServe
+built from master at dbf6cfe, single cloud VM — AWS m6i.2xlarge: 8 vCPU /
+32 GB RAM, 1 TB gp3 EBS at default provisioning (3,000 IOPS / 125 MiB/s) —
+with control plane, registry, MinIO, and the predictor pod colocated, so
+numbers reflect the delivery architecture, not WAN or multi-node effects;
+the 140 GB tier is bound by that default disk throughput). Artifacts
+of 2 / 14 / 140 GB (sized to fp16 weights of 1B / 7B / 70B-class models).
+Median time from `InferenceService` apply to first successful prediction,
+seconds:
+
+| Path | 2 GB cold | 2 GB warm | 14 GB cold | 14 GB warm | 140 GB cold | 140 GB warm |
+|---|---|---|---|---|---|---|
+| `oci+native://` | 38.6 | **11.5** | 443.4 | **11.4** | 4,585.5 | **11.7** |
+| modelcar (`oci://`) | 59.6 | 15.4 | 363.3 | 15.2 | 4,603.0 | 15.8 |
+| `s3://` | 39.6 | 30.0 | 137.8 | 128.4 | 2,318.8 | 2,441.6 |
+
+*Warm* = model image already in the node's containerd store; for `s3://`
+there is no node-level cache, so every pod start re-downloads the artifact.
+
+Takeaways:
+
+- **Warm starts on OCI paths are size-independent.** With the image cached
+  on the node, `oci+native://` reaches first prediction in ~12 s whether the
+  model is 2 GB or 140 GB. Adding a replica of a 140 GB model on a warm node
+  is ~11.7 s vs ~41 min of re-download over `s3://`.
+- **The first cold pull costs more than a plain download** (~2× at 140 GB):
+  containerd writes the layer blob and then unpacks it into a snapshot — two
+  passes over the disk — where the storage initializer streams the object
+  once. If a node serves a model more than once, the cached pulls quickly
+  amortize this.
+- modelcar shows the same pull behavior plus a constant ~4 s sidecar
+  lifecycle overhead per pod.
+
+Absolute numbers scale with disk/network throughput; the relative behavior
+of the paths is the durable result. Full methodology, scripts and raw data:
+<https://github.com/kliukovkin/oci-model-delivery-bench> — the harness runs
+on any cluster if you want numbers for your own environment.
 
 ## References
 

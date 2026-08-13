@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -61,7 +62,6 @@ import (
 	igwapiv1alpha2 "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	wvav1alpha1 "github.com/llm-d/llm-d-workload-variant-autoscaler/api/v1alpha1"
 
 	"github.com/kserve/kserve/pkg/utils"
 
@@ -138,8 +138,6 @@ type LLMISVCReconciler struct {
 	Config *rest.Config
 	record.EventRecorder
 	Clientset kubernetes.Interface
-
-	Validator func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -150,6 +148,8 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=leaderworkerset.x-k8s.io,resources=leaderworkersets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
+// Secret access stays cluster-scoped so Owns() can watch TLS cert secrets in workload namespaces.
+// Keep create/update/patch/delete so reconcile and force-stop can manage TLS secrets.
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=gateway.networking.k8s.io,resources=httproutes;gateways;gatewayclasses,verbs=get;list;watch;create;update;patch;delete
@@ -169,8 +169,8 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions/status,resourceNames=llminferenceservices.serving.kserve.io;llminferenceserviceconfigs.serving.kserve.io,verbs=update;patch
 //+kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 //+kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=llmd.ai,resources=variantautoscalings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=llmd.ai,resources=variantautoscalings,verbs=list;delete
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelcaches,verbs=get;list;watch
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnamespacecaches,verbs=get;list;watch
 //+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
@@ -202,9 +202,17 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// Resource is being deleted, perform cleanup
 		logger.Info("Marked for deletion, finalizing resources")
 		if controllerutil.ContainsFinalizer(original, finalizerName) {
-			if cleanupErr := r.finalize(ctx, original); cleanupErr != nil {
+			done, cleanupErr := r.finalize(ctx, original)
+			if cleanupErr != nil {
 				logger.Error(cleanupErr, "Finalization failed")
 				return ctrl.Result{}, cleanupErr
+			}
+			if !done {
+				logger.Info("Finalization incomplete, requeueing")
+				if statusErr := r.updateStatus(ctx, original); statusErr != nil {
+					logger.Error(statusErr, "Failed to persist finalization status")
+				}
+				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 
 			// Cleanup successful, remove finalizer to allow deletion
@@ -264,9 +272,8 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 			llmSvc, kserveTypes.ResolveOciModelMode(config.StorageConfig))
 	}
 
-	// nil baseCfg means config resolution set a condition (e.g. ConfigNotFound) and there's nothing more to do.
 	baseCfg, err := r.reconcileBaseRefs(ctx, llmSvc, config)
-	if err != nil || baseCfg == nil {
+	if err != nil {
 		return err
 	}
 
@@ -283,18 +290,30 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
 
-	observeWorkloadStatus(llmSvc)
+	if err := r.observeWorkloadStatus(ctx, llmSvc); err != nil {
+		return fmt.Errorf("failed to observe workload status: %w", err)
+	}
 
 	return nil
 }
 
-// finalize performs cleanup operations when the LLMInferenceService is being deleted
-func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
-		return fmt.Errorf("failed to finalize scheduler service account: %w", err)
+// finalize performs cleanup operations when the LLMInferenceService is being deleted.
+// Returns (done, err): done=false signals that cleanup is still in progress and the
+// caller should requeue.
+func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (bool, error) {
+	done, err := r.finalizeGroupMembership(ctx, llmSvc)
+	if err != nil {
+		return false, err
+	}
+	if !done {
+		return false, nil
 	}
 
-	return nil
+	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
+		return false, fmt.Errorf("failed to finalize scheduler service account: %w", err)
+	}
+
+	return true, nil
 }
 
 // updateStatus updates the status of the LLMInferenceService with retry on conflict.
@@ -376,6 +395,10 @@ func GetFailConditions(svc *v1alpha2.LLMInferenceService) string {
 func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	logger := mgr.GetLogger().WithName("LLMInferenceService.SetupWithManager")
 
+	if err := setupGroupFieldIndex(context.Background(), mgr.GetFieldIndexer()); err != nil {
+		return fmt.Errorf("failed to set up field indexer for routing group: %w", err)
+	}
+
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha2.LLMInferenceService{}).
 		Watches(&v1alpha2.LLMInferenceServiceConfig{}, r.enqueueOnLLMInferenceServiceConfigChange(logger)).
@@ -389,6 +412,12 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.EnqueueOnLLMInferenceServicePods),
 			builder.WithPredicates(PodStatusPredicate()))
+
+	b = b.Watches(
+		&v1alpha2.LLMInferenceService{},
+		&groupMemberEventHandler{reconciler: r},
+		builder.WithPredicates(groupMemberChangePredicate()),
+	)
 
 	if err := r.extendControllerSetup(mgr, b); err != nil {
 		return fmt.Errorf("failed to extend controller setup: %w", err)
@@ -410,10 +439,6 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), igwapiv1alpha2.GroupVersion.String(), "InferencePool"); ok && err == nil {
 		b = b.Owns(&igwapiv1alpha2.InferencePool{}, builder.WithPredicates(childResourcesPredicate)).
 			Watches(&igwapiv1alpha2.InferencePool{}, r.enqueueOnInferencePoolChange(logger))
-	}
-
-	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), wvav1alpha1.GroupVersion.String(), "VariantAutoscaling"); ok && err == nil {
-		b = b.Owns(&wvav1alpha1.VariantAutoscaling{}, builder.WithPredicates(childResourcesPredicate))
 	}
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), kedav1alpha1.SchemeGroupVersion.String(), "ScaledObject"); ok && err == nil {
@@ -727,20 +752,13 @@ func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler
 		}
 
 		for _, llmSvc := range llmSvcList.Items {
-			// Use WithSkipClearSchedulerConfigRef to preserve the Ref for matching
-			result, err := r.combineBaseRefsConfig(ctx, &llmSvc, cfg, WithSkipClearSchedulerConfigRef())
+			result, err := r.combineBaseRefsConfig(ctx, &llmSvc, cfg)
 			if err != nil {
 				logger.Error(err, "Failed to combine baseRefs config", "namespace", llmSvc.Namespace, "name", llmSvc.Name)
 				continue
 			}
 
-			combinedCfg := result.Config.Spec
-
-			if combinedCfg.Router == nil ||
-				combinedCfg.Router.Scheduler == nil ||
-				combinedCfg.Router.Scheduler.Config == nil ||
-				combinedCfg.Router.Scheduler.Config.Ref == nil ||
-				combinedCfg.Router.Scheduler.Config.Ref.Name != sub.Name {
+			if result.ResolvedSchedulerConfigMap == nil || *result.ResolvedSchedulerConfigMap != client.ObjectKeyFromObject(sub) {
 				continue
 			}
 

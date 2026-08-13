@@ -16,6 +16,10 @@ spec:
         env:
         - name: HF_HUB_DISABLE_PROGRESS_BARS
           value: "1"
+        - name: HF_HUB_DISABLE_XET
+          value: "1"
+        - name: HF_HUB_ENABLE_HF_TRANSFER
+          value: "0"
         - name: TOKIO_WORKER_THREADS
           value: "1"
         - name: STORAGE_IGNORE_PATTERNS

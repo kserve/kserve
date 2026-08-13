@@ -21,15 +21,20 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
-// Top-level conditions. Ready aggregates WorkloadsReady and RouterReady via the
-// Knative LivingConditionSet. PresetsCombined is an independent gate that blocks
-// reconciliation when False but is not part of the Ready rollup.
+// Top-level conditions. Ready aggregates PresetsCombined, WorkloadsReady and
+// RouterReady via the Knative LivingConditionSet.
 const (
 	// PresetsCombined is True when all referenced LLMInferenceServiceConfig resources
-	// have been found and merged successfully. False with reason ConfigNotFound when a
-	// referenced config does not exist, or CombineBaseError on merge failure.
+	// have been found, merged and checked. False with reason ConfigNotFound when a
+	// referenced config does not exist, CombineBaseError on merge failure, or
+	// InvalidRenderedConfig when the API server rejects the merged spec. Unknown with
+	// reason ValidationUnavailable when the merged spec could not be checked at all.
 	// Set by the config reconciler (config_merge.go). Always present.
-	// Not part of the Ready rollup - blocks reconciliation instead.
+	//
+	// Counts towards Ready: when this is not True the controller stops before creating
+	// any child resource, leaving WorkloadsReady and RouterReady stale. Including it
+	// keeps Ready from reading True off those stale values, and puts the failure's
+	// reason and message on Ready itself.
 	PresetsCombined apis.ConditionType = "PresetsCombined"
 
 	// WorkloadReady is True when all workload sub-conditions (MainWorkloadReady,
@@ -39,8 +44,9 @@ const (
 	WorkloadReady apis.ConditionType = "WorkloadsReady"
 
 	// RouterReady is True when all router sub-conditions (GatewaysReady,
-	// HTTPRoutesReady, InferencePoolReady, SchedulerWorkloadReady) that are
-	// present are True. Aggregated by DetermineRouterReadiness. Always present.
+	// HTTPRoutesReady, InferencePoolReady, SchedulerWorkloadReady,
+	// TokenizerReady) that are present are True. Aggregated by
+	// DetermineRouterReadiness. Always present.
 	RouterReady apis.ConditionType = "RouterReady"
 )
 
@@ -87,6 +93,12 @@ const (
 	// Deployment has reached its desired replica count. Set by the scheduler
 	// reconciler. Only present when the scheduler is enabled.
 	SchedulerWorkloadReady apis.ConditionType = "SchedulerWorkloadReady"
+
+	// TokenizerReady is True when the standalone tokenizer Deployment has
+	// reached its desired replica count and all pods are passing readiness
+	// probes. Set by the tokenizer reconciler. Only present when
+	// spec.router.scheduler.tokenizer is set.
+	TokenizerReady apis.ConditionType = "TokenizerReady"
 )
 
 const (
@@ -123,6 +135,7 @@ const (
 )
 
 var llmInferenceServiceCondSet = apis.NewLivingConditionSet(
+	PresetsCombined,
 	WorkloadReady,
 	RouterReady,
 )
@@ -245,6 +258,12 @@ func (in *LLMInferenceService) MarkPresetsCombinedNotReady(reason, messageFormat
 	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(PresetsCombined, reason, messageFormat, messageA...)
 }
 
+// MarkPresetsCombinedUnknown reports that the merged config could not be checked,
+// as opposed to being rejected.
+func (in *LLMInferenceService) MarkPresetsCombinedUnknown(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkUnknown(PresetsCombined, reason, messageFormat, messageA...)
+}
+
 func (in *LLMInferenceService) MarkSchedulerWorkloadReady() {
 	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(SchedulerWorkloadReady)
 }
@@ -255,6 +274,18 @@ func (in *LLMInferenceService) MarkSchedulerWorkloadNotReady(reason, messageForm
 
 func (in *LLMInferenceService) MarkSchedulerWorkloadUnset() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(SchedulerWorkloadReady)
+}
+
+func (in *LLMInferenceService) MarkTokenizerReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(TokenizerReady)
+}
+
+func (in *LLMInferenceService) MarkTokenizerNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(TokenizerReady, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkTokenizerUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(TokenizerReady)
 }
 
 func (in *LLMInferenceService) MarkGatewaysReady() {
@@ -321,6 +352,7 @@ func (in *LLMInferenceService) DetermineRouterReadiness() {
 		in.GetStatus().GetCondition(HTTPRoutesReady),
 		in.GetStatus().GetCondition(InferencePoolReady),
 		in.GetStatus().GetCondition(SchedulerWorkloadReady),
+		in.GetStatus().GetCondition(TokenizerReady),
 	}
 
 	for _, cond := range subConditions {

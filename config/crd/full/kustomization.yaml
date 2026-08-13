@@ -8,3 +8,6 @@ resources:
   - serving.kserve.io_servingruntimes.yaml
   - serving.kserve.io_inferencegraphs.yaml
   - ./clusterstoragecontainer
+
+patches:
+  - path: isvc_conversion_webhook_patch.yaml

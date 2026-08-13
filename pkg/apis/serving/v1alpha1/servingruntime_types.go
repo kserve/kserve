@@ -118,7 +118,30 @@ type ServingRuntimePodSpec struct {
 	// +optional
 	SchedulerName string `json:"schedulerName,omitempty"`
 
-	// Possibly other things here
+	// ResourceClaims defines which ResourceClaims must be allocated
+	// and reserved before the Pod is allowed to start. The resources
+	// will be made available to those containers which consume them
+	// by name.
+	//
+	// Dynamic Resource Allocation (DRA) is GA since Kubernetes 1.32
+	// (beta, enabled by default, since 1.31). The cluster must support
+	// DRA for these claims to take effect on created Pods.
+	//
+	// Each entry may reference an existing ResourceClaim (resourceClaimName)
+	// or ResourceClaimTemplate (resourceClaimTemplateName) in the same
+	// namespace. KServe does not create these objects; they must exist
+	// before the Pod can be scheduled.
+	//
+	// Note: the resulting Pod's resourceClaims field is immutable
+	// after pod creation per Kubernetes semantics.
+	//
+	// +patchMergeKey=name
+	// +patchStrategy=merge,retainKeys
+	// +listType=map
+	// +listMapKey=name
+	// +featureGate=DynamicResourceAllocation
+	// +optional
+	ResourceClaims []corev1.PodResourceClaim `json:"resourceClaims,omitempty" patchStrategy:"merge,retainKeys" patchMergeKey:"name"`
 }
 
 // ServingRuntimeSpec defines the desired state of ServingRuntime. This spec is currently provisional

@@ -29,6 +29,7 @@ jobs:
     test:
         name: Test
         runs-on: ubuntu-latest
+        timeout-minutes: 25
         steps:
 
             - name: Check out code into the Go module directory
@@ -74,6 +75,7 @@ jobs:
     check-coverage:
         needs: test
         runs-on: ubuntu-latest
+        timeout-minutes: 10
         name: Check Coverage
         steps:
             - name: checkout
