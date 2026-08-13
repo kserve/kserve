@@ -334,6 +334,60 @@ func TestAutoscalerClassHPA(t *testing.T) {
 			},
 			errMatcher: gomega.BeNil(),
 		},
+		"HPA Memory metrics with target above the utilization range": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricMemory),
+							ScaleTarget: ptr.To(int32(500)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("the target utilization percentage should be a [1-100] integer"),
+		},
+		"HPA Memory metrics with target below the utilization range": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricMemory),
+							ScaleTarget: ptr.To(int32(0)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("the target utilization percentage should be a [1-100] integer"),
+		},
 		"Invalid autoscaler class": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{

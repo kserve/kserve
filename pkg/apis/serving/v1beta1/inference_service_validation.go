@@ -535,14 +535,12 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 		return err
 	}
 
+	// ScaleTarget is an AverageUtilization percentage for both cpu and memory:
+	// getHPAMetrics builds a UtilizationMetricType target from it either way. The
+	// same [1-100] bound therefore applies to both, as it does on the KEDA path.
 	if compExtSpec.ScaleTarget != nil {
-		target := *compExtSpec.ScaleTarget
-		if metric == MetricCPU && target < 1 || target > 100 {
-			return errors.New("the target utilization percentage should be a [1-100] integer")
-		}
-
-		if metric == MetricMemory && target < 1 {
-			return errors.New("the target memory should be greater than 1 MiB")
+		if err := validateTargetUtilization(*compExtSpec.ScaleTarget); err != nil {
+			return err
 		}
 	}
 
