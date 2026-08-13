@@ -436,11 +436,11 @@ jobs:
           kubectl describe pods -n kserve
 
       - name: Run predictor E2E tests
-        # Per-test namespace isolation adds setup/teardown overhead; keep headroom
-        # under parallel load so a few slow ISVCs do not kill the whole suite.
+        # Per-test namespace isolation adds ns create/delete overhead per test;
+        # keep extra timeout headroom vs master (60m) but retain xdist=6.
         timeout-minutes: 90
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "predictor" "4"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "predictor" "6"
 
       - name: Check system status
         if: always()
