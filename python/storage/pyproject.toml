@@ -26,8 +26,9 @@ dependencies = [
     # Pinning because it is a transitive dependency.
     "pyjwt>=2.12.0",
     # CVE-2026-30922 pyasn1 Vulnerable to Denial of Service via Unbounded Recursion
+    # CVE-2026-59885 pyasn1 Quadratic complexity in OID processing allows DoS
     # Pinning because it is a transitive dependency.
-    "pyasn1>=0.6.3",
+    "pyasn1>=0.6.4",
     # CVE-2026-21226 Azure Core is vulnerable to deserialization of untrusted data
     # Pinning because it is a transitive dependency.
     "azure-core>=1.38.0"
