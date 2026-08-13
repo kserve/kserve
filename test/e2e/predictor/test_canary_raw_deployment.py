@@ -297,7 +297,7 @@ def test_canary_create(network_layer, test_namespace):
 
         if _is_gatewayapi(network_layer):
             backends = _get_httproute_backend_refs(
-                f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
+                f"{service_name}-predictor", test_namespace
             )
             assert len(backends) == 2, (
                 f"Expected 2 backends (stable + canary), got {backends}"
@@ -314,7 +314,7 @@ def test_canary_create(network_layer, test_namespace):
             _verify_traffic_split(
                 kserve,
                 service_name,
-                KSERVE_TEST_NAMESPACE,
+                test_namespace,
                 expected_pcts={200: 80, 500: 20},
                 network_layer=network_layer,
                 num_requests=100,
@@ -377,7 +377,7 @@ def test_canary_promote(network_layer, test_namespace):
 
         if _is_gatewayapi(network_layer):
             backends = _get_httproute_backend_refs(
-                f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
+                f"{service_name}-predictor", test_namespace
             )
             assert len(backends) == 1, (
                 f"Expected 1 backend after promotion, got {backends}"
@@ -389,7 +389,7 @@ def test_canary_promote(network_layer, test_namespace):
             _verify_traffic_split(
                 kserve,
                 service_name,
-                KSERVE_TEST_NAMESPACE,
+                test_namespace,
                 expected_pcts={500: 100},
                 network_layer=network_layer,
                 num_requests=50,
@@ -449,7 +449,7 @@ def test_canary_rollback(network_layer, test_namespace):
 
         if _is_gatewayapi(network_layer):
             backends = _get_httproute_backend_refs(
-                f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
+                f"{service_name}-predictor", test_namespace
             )
             assert len(backends) == 1, (
                 f"Expected 1 backend after rollback, got {backends}"
@@ -461,7 +461,7 @@ def test_canary_rollback(network_layer, test_namespace):
             _verify_traffic_split(
                 kserve,
                 service_name,
-                KSERVE_TEST_NAMESPACE,
+                test_namespace,
                 expected_pcts={200: 100},
                 network_layer=network_layer,
                 num_requests=50,

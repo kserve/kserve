@@ -45,12 +45,6 @@ from .test_output import (
 from kserve.logging import trace_logger
 
 
-def assert_answers_four(text: str):
-    """Gracefully handle if the answer slightly changes between model/lib updates"""
-    assert text is not None, "expected a completion, got no text field"
-    assert "4" in text, f"expected the answer to contain '4', got: {text!r}"
-
-
 def _assert_embedding_matches_reference(actual, reference, *, threshold: float = 0.999):
     """Assert ``actual`` is semantically equivalent to the reference vector.
 

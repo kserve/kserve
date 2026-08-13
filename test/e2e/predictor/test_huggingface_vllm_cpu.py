@@ -40,12 +40,6 @@ ISVC_READY_TIMEOUT_S = 900
 ISVC_ANNOTATIONS = {"serving.knative.dev/progress-deadline": "20m"}
 
 
-def assert_answers_four(text: str):
-    """Gracefully handle if the answer slightly changes between model/lib updates"""
-    assert text is not None, "expected a completion, got no text field"
-    assert "4" in text, f"expected the answer to contain '4', got: {text!r}"
-
-
 @pytest.mark.vllm
 def test_huggingface_vllm_cpu_openai_chat_completions(test_namespace):
     service_name = "hf-qwen-chat-vllm"

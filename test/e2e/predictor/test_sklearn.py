@@ -170,7 +170,6 @@ async def test_sklearn_runtime_kserve(rest_v1_client, network_layer, test_namesp
         f"Expected 2 multiprocessing workers but found {worker_count}"
     )
 
-
     tasks = [
         predict_isvc(
             rest_v1_client,
@@ -184,8 +183,6 @@ async def test_sklearn_runtime_kserve(rest_v1_client, network_layer, test_namesp
     responses = await asyncio.gather(*tasks)
     for res in responses:
         assert res["predictions"] == [19]
-
-
 
 
 @pytest.mark.predictor
