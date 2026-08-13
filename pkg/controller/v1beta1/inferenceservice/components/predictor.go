@@ -224,13 +224,16 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	if p.deploymentMode == constants.Standard {
 		rawDeployment = true
 		podLabelKey = constants.RawDeploymentAppLabel
+		// Reconcile canary first so CanaryStatuses is fresh when the stable
+		// minReplicas reduction decision is made below. This ensures the
+		// stable Deployment is not scaled down until canary pods are Ready.
+		if err := p.reconcileCanaryDeployments(ctx, isvc); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile canary deployments")
+		}
 		// This is main RawKubeReconciler to create objects (deployment, svc, scaler)
 		if err := p.reconcileRawDeployment(ctx, isvc, objectMeta, workerObjectMeta, &podSpec, workerPodSpec); err != nil {
 			isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
-		}
-		if err := p.reconcileCanaryDeployments(ctx, isvc); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile canary deployments")
 		}
 	} else {
 		var err error
@@ -792,15 +795,7 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 	}
 
 	componentExt := isvc.Spec.Predictor.ComponentExtensionSpec
-	if len(isvc.Spec.Canary) > 0 && componentExt.MinReplicas != nil {
-		var totalCanaryReplicas int32
-		for i := range isvc.Spec.Canary {
-			totalCanaryReplicas += canaryReplicaCount(isvc, &isvc.Spec.Canary[i])
-		}
-		adjusted := *componentExt.MinReplicas - totalCanaryReplicas
-		adjusted = max(adjusted, 1)
-		componentExt.MinReplicas = &adjusted
-	}
+	adjustStableMinReplicasForCanaries(isvc, &componentExt)
 
 	r, err := raw.NewRawKubeReconciler(ctx, p.client, p.clientset, p.scheme, objectMeta, workerObjectMeta, &componentExt,
 		podSpec, workerPodSpec, &isvc.Spec.Predictor.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec)
@@ -872,6 +867,36 @@ func canaryReplicaCount(isvc *v1beta1.InferenceService, canary *v1beta1.CanarySp
 		stableReplicas = *isvc.Spec.Predictor.MinReplicas
 	}
 	return int32(math.Ceil(float64(stableReplicas) * float64(canary.TrafficPercent) / 100))
+}
+
+// adjustStableMinReplicasForCanaries reduces the stable predictor's minReplicas
+// by the replica count of canaries that are actually Ready (as reported in
+// isvc.Status.CanaryStatuses). Not-ready canaries are not counted, so the
+// stable Deployment is not scaled down until canary pods can serve traffic.
+// This prevents a transient capacity gap during canary rollout.
+func adjustStableMinReplicasForCanaries(isvc *v1beta1.InferenceService, componentExt *v1beta1.ComponentExtensionSpec) {
+	if len(isvc.Spec.Canary) == 0 || componentExt.MinReplicas == nil {
+		return
+	}
+
+	readyMap := make(map[string]bool, len(isvc.Status.CanaryStatuses))
+	for _, cs := range isvc.Status.CanaryStatuses {
+		readyMap[cs.Name] = cs.Ready
+	}
+
+	var readyCanaryReplicas int32
+	for i := range isvc.Spec.Canary {
+		canary := &isvc.Spec.Canary[i]
+		if !readyMap[canary.Predictor.Name] {
+			continue
+		}
+		readyCanaryReplicas += canaryReplicaCount(isvc, canary)
+	}
+
+	if readyCanaryReplicas > 0 {
+		adjusted := max(*componentExt.MinReplicas-readyCanaryReplicas, 1)
+		componentExt.MinReplicas = &adjusted
+	}
 }
 
 func buildCanaryPredictor(stable v1beta1.PredictorSpec, canary v1beta1.CanarySpec, replicas int32) (v1beta1.PredictorSpec, error) {

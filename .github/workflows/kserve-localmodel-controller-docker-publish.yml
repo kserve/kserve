@@ -13,7 +13,11 @@ on:
   # Run tests for any PRs.
   pull_request:
     paths:
-      - "**"
+      - "cmd/**"
+      - "pkg/**"
+      - "go.mod"
+      - "go.sum"
+      - "localmodel.Dockerfile"
       - "!python/**"
       - "!.github/**"
       - "!docs/**"
@@ -54,13 +58,26 @@ jobs:
       - name: Free-up disk space
         uses: ./.github/actions/free-up-disk-space
 
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+        with:
+          platforms: arm64
+          cache-image: true
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+
       - name: Run tests
         run: |
           if [ -f docker-compose.test.yml ]; then
             docker-compose --file docker-compose.test.yml build
             docker-compose --file docker-compose.test.yml run sut
           else
-            docker buildx build . --file localmodel.Dockerfile
+            # e2e-test.yml builds this image as amd64 on every PR, so the
+            # publisher only needs to cover the other published platform
+            docker buildx build --platform linux/arm64/v8 . --file localmodel.Dockerfile
           fi
 
   # Push image to GitHub Packages.
