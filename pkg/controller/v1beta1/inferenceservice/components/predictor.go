@@ -931,6 +931,17 @@ func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta
 	stableName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 	expectedNames := map[string]bool{stableName: true}
 
+	// Add stable worker deployment and services if multi-node is enabled
+	if isvc.Spec.Predictor.WorkerSpec != nil {
+		isvcGeneration := strconv.FormatInt(isvc.Generation, 10)
+		// Worker deployment
+		expectedNames[constants.PredictorWorkerServiceName(isvc.Name)] = true
+		// Head headless service
+		expectedNames[constants.GetHeadServiceName(stableName, isvcGeneration)] = true
+		// Worker headless service
+		expectedNames[constants.GetWorkerServiceName(stableName, isvcGeneration)] = true
+	}
+
 	stablePredictor := isvc.Spec.Predictor
 
 	for i := range isvc.Spec.Canary {

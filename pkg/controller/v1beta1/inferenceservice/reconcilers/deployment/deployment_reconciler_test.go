@@ -1704,3 +1704,46 @@ func TestCleanupOrphans(t *testing.T) {
 	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-v2-predictor", Namespace: "default"}, &appsv1.Deployment{})
 	assert.NoError(t, err)
 }
+
+func TestCleanupOrphansWithWorker(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = appsv1.AddToScheme(scheme)
+
+	labels := map[string]string{
+		constants.InferenceServicePodLabelKey: "my-isvc",
+		constants.KServiceComponentLabel:      "predictor",
+	}
+
+	headDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-predictor", Namespace: "default", Labels: labels},
+	}
+	workerDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-predictor-worker", Namespace: "default", Labels: labels},
+	}
+	oldDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-old-predictor", Namespace: "default", Labels: labels},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(headDeployment, workerDeployment, oldDeployment).Build()
+	reconciler := &DeploymentReconciler{client: fakeClient, scheme: scheme}
+
+	// expectedNames should include both head and worker deployment names
+	expectedNames := map[string]bool{
+		"my-isvc-predictor":        true,
+		"my-isvc-predictor-worker": true,
+	}
+	err := reconciler.CleanupOrphans(t.Context(), "default", kclient.MatchingLabels(labels), expectedNames)
+	require.NoError(t, err)
+
+	// Old deployment should be deleted
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-old-predictor", Namespace: "default"}, &appsv1.Deployment{})
+	assert.True(t, errors.IsNotFound(err))
+
+	// Head deployment should be kept
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-predictor", Namespace: "default"}, &appsv1.Deployment{})
+	assert.NoError(t, err)
+
+	// Worker deployment should be kept (not deleted as orphan)
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-predictor-worker", Namespace: "default"}, &appsv1.Deployment{})
+	assert.NoError(t, err)
+}
