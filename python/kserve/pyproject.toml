@@ -38,7 +38,7 @@ dependencies = [
     "cryptography>=50.0.0", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36, GHSA-g6cj-pr64-35w5
     "python-multipart>=0.0.27", # CVE-2026-42561
     "pyjwt>=2.13.0", # CVE-2026-48526
-    "pyasn1>=0.6.3", # CVE-2026-30922
+    "pyasn1>=0.6.4", # CVE-2026-30922, CVE-2026-59885
     "pillow>=12.3.0", # CVE-2026-40192
 ]
 name = "kserve"
@@ -116,7 +116,7 @@ override-dependencies = [
     "cryptography>=50.0.0", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36, GHSA-g6cj-pr64-35w5
     "python-multipart>=0.0.27", # CVE-2026-42561
     "pyjwt>=2.13.0", # CVE-2026-48526
-    "pyasn1>=0.6.3", # CVE-2026-30922
+    "pyasn1>=0.6.4", # CVE-2026-30922, CVE-2026-59885
     "pillow>=12.3.0", # CVE-2026-40192
 ]
 
