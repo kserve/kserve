@@ -44,6 +44,10 @@ func (c *FakeServingV1alpha1) KernelCaches(namespace string) v1alpha1.KernelCach
 	return newFakeKernelCaches(c, namespace)
 }
 
+func (c *FakeServingV1alpha1) KernelCacheCaptures(namespace string) v1alpha1.KernelCacheCaptureInterface {
+	return newFakeKernelCacheCaptures(c, namespace)
+}
+
 func (c *FakeServingV1alpha1) KernelCacheNodes() v1alpha1.KernelCacheNodeInterface {
 	return newFakeKernelCacheNodes(c)
 }

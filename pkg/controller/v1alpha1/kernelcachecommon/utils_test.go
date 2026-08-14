@@ -38,6 +38,7 @@ func TestLoadKernelCacheConfig(t *testing.T) {
 				"kernelcache": `{
 					"jobNamespace": "custom-namespace",
 					"extractImage": "custom-image:v1",
+					"captureImage": "custom-mcv:v1",
 					"jobTTLSecondsAfterFinished": 7200,
 					"reconcileIntervalSeconds": 120
 				}`,
@@ -57,6 +58,9 @@ func TestLoadKernelCacheConfig(t *testing.T) {
 		}
 		if config.ExtractImage != "custom-image:v1" {
 			t.Errorf("expected ExtractImage=custom-image:v1, got %s", config.ExtractImage)
+		}
+		if config.CaptureImage != "custom-mcv:v1" {
+			t.Errorf("expected CaptureImage=custom-mcv:v1, got %s", config.CaptureImage)
 		}
 		if *config.JobTTLSecondsAfterFinished != 7200 {
 			t.Errorf("expected JobTTLSecondsAfterFinished=7200, got %d", *config.JobTTLSecondsAfterFinished)
@@ -88,6 +92,9 @@ func TestLoadKernelCacheConfig(t *testing.T) {
 		}
 		if config.ExtractImage != DefaultExtractImage {
 			t.Errorf("expected default ExtractImage=%s, got %s", DefaultExtractImage, config.ExtractImage)
+		}
+		if config.CaptureImage != DefaultCaptureImage {
+			t.Errorf("expected default CaptureImage=%s, got %s", DefaultCaptureImage, config.CaptureImage)
 		}
 		if *config.JobTTLSecondsAfterFinished != DefaultJobTTLSecondsAfterFinished {
 			t.Errorf("expected default JobTTLSecondsAfterFinished=%d, got %d",
@@ -125,6 +132,9 @@ func TestLoadKernelCacheConfig(t *testing.T) {
 		}
 		if config.ExtractImage != DefaultExtractImage {
 			t.Errorf("expected default ExtractImage=%s, got %s", DefaultExtractImage, config.ExtractImage)
+		}
+		if config.CaptureImage != DefaultCaptureImage {
+			t.Errorf("expected default CaptureImage=%s, got %s", DefaultCaptureImage, config.CaptureImage)
 		}
 		if *config.JobTTLSecondsAfterFinished != DefaultJobTTLSecondsAfterFinished {
 			t.Errorf("expected default JobTTLSecondsAfterFinished=%d, got %d",

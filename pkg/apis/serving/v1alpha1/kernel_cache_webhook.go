@@ -186,15 +186,32 @@ func (kc *KernelCache) Default(ctx context.Context, obj runtime.Object) error {
 		}
 	} else {
 		// Non-Kyverno mode: verify cosign signature and resolve digest
-		// This ensures image authenticity when Kyverno is not available
 		kernelcacheLog.V(1).Info("Verifying image signature with cosign (Kyverno disabled)", "image", cache.Spec.Image)
 		digest, err = cosign.VerifyImageSignature(verifyCtx, cache.Spec.Image)
 		if err != nil {
-			kernelcacheLog.Error(err, "failed to verify image signature")
-			return apierrors.NewBadRequest(fmt.Sprintf(
-				"image signature verification failed for '%s': %s",
-				cache.Spec.Image, err.Error(),
-			))
+			kernelcacheLog.Error(err, "failed to verify image signature", "image", cache.Spec.Image)
+
+			allowUnsigned, configErr := isAllowUnsignedEnabled(ctx)
+			if configErr != nil {
+				kernelcacheLog.Error(configErr, "failed to read allowUnsigned config, defaulting to reject")
+			}
+
+			if !allowUnsigned {
+				return apierrors.NewBadRequest(fmt.Sprintf(
+					"image signature verification failed for '%s': %s",
+					cache.Spec.Image, err.Error(),
+				))
+			}
+
+			kernelcacheLog.Info("allowUnsigned is enabled, resolving digest without verification", "image", cache.Spec.Image)
+			digest, err = cosign.ResolveImageDigest(verifyCtx, cache.Spec.Image)
+			if err != nil {
+				kernelcacheLog.Error(err, "failed to resolve image digest")
+				return apierrors.NewBadRequest(fmt.Sprintf(
+					"failed to resolve image digest for '%s': %s",
+					cache.Spec.Image, err.Error(),
+				))
+			}
 		}
 	}
 
@@ -645,42 +662,60 @@ func isKyvernoVerificationEnabled() bool {
 	return enabled
 }
 
-// isKernelCacheEnabled checks if KernelCache feature is enabled in ConfigMap
-// isKernelCacheEnabled checks if KernelCache feature enabled in ConfigMap
-// Reads ConfigMap directly to avoid import cycle with v1beta1
-func isKernelCacheEnabled(ctx context.Context) (bool, error) {
+// kernelCacheWebhookConfig mirrors the fields from v1beta1.KernelCacheConfig
+// that the webhook needs. Defined here to avoid an import cycle with v1beta1.
+type kernelCacheWebhookConfig struct {
+	Enabled       bool `json:"enabled"`
+	AllowUnsigned bool `json:"allowUnsigned"`
+}
+
+// loadKernelCacheWebhookConfig reads and parses the kernelcache section from the ConfigMap.
+func loadKernelCacheWebhookConfig(ctx context.Context) (*kernelCacheWebhookConfig, error) {
 	cfg, err := ctrl.GetConfig()
 	if err != nil {
-		return false, fmt.Errorf("failed to get kubeconfig: %w", err)
+		return nil, fmt.Errorf("failed to get kubeconfig: %w", err)
 	}
 
 	clientset, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
-		return false, fmt.Errorf("failed to create clientset: %w", err)
+		return nil, fmt.Errorf("failed to create clientset: %w", err)
 	}
 
-	// Read ConfigMap directly
 	cm, err := clientset.CoreV1().ConfigMaps("kserve").Get(ctx, "inferenceservice-config", metav1.GetOptions{})
 	if err != nil {
-		return false, fmt.Errorf("failed to get inferenceservice-config: %w", err)
+		return nil, fmt.Errorf("failed to get inferenceservice-config: %w", err)
 	}
 
-	// Parse kernelcache config (avoid importing v1beta1 by using raw JSON)
+	config := &kernelCacheWebhookConfig{}
 	kernelcacheData, ok := cm.Data["kernelcache"]
 	if !ok {
-		// No config section - default to disabled for safety
-		return false, nil
+		return config, nil
 	}
 
-	// Simple JSON parse for enabled field
-	var config struct {
-		Enabled bool `json:"enabled"`
-	}
-	if err := json.Unmarshal([]byte(kernelcacheData), &config); err != nil {
-		return false, fmt.Errorf("failed to parse kernelcache config: %w", err)
+	if err := json.Unmarshal([]byte(kernelcacheData), config); err != nil {
+		return nil, fmt.Errorf("failed to parse kernelcache config: %w", err)
 	}
 
+	return config, nil
+}
+
+// isKernelCacheEnabled checks if KernelCache feature is enabled in ConfigMap.
+func isKernelCacheEnabled(ctx context.Context) (bool, error) {
+	config, err := loadKernelCacheWebhookConfig(ctx)
+	if err != nil {
+		return false, err
+	}
 	return config.Enabled, nil
+}
+
+// isAllowUnsignedEnabled checks if allowUnsigned is enabled in the kernelcache ConfigMap section.
+// When true, images that fail cosign verification are allowed (digest resolved without verification).
+func isAllowUnsignedEnabled(ctx context.Context) (bool, error) {
+	config, err := loadKernelCacheWebhookConfig(ctx)
+	if err != nil {
+		return false, err
+	}
+	return config.AllowUnsigned, nil
 }
 
 // mutationKeyFromEnv retrieves the HMAC secret from environment variable

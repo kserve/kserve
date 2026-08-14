@@ -26,6 +26,8 @@ type InferenceGraphExpansion interface{}
 
 type KernelCacheExpansion interface{}
 
+type KernelCacheCaptureExpansion interface{}
+
 type KernelCacheNodeExpansion interface{}
 
 type LLMInferenceServiceExpansion interface{}

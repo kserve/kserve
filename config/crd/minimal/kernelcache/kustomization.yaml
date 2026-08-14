@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - serving.kserve.io_kernelcaches.yaml
   - serving.kserve.io_kernelcachenodes.yaml
+  - serving.kserve.io_kernelcachecaptures.yaml

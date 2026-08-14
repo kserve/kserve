@@ -496,9 +496,9 @@ func (r *KernelCacheNodeReconciler) getExtractionJob(
 ) (*batchv1.Job, error) {
 	jobList := &batchv1.JobList{}
 	labels := map[string]string{
-		"cache":           cacheInfo.Name,
-		"cache-namespace": cacheInfo.Namespace,
-		"app":             "kernel-cache-extract",
+		"kernelcache.kserve.io/cache":     cacheInfo.Name,
+		"kernelcache.kserve.io/namespace": cacheInfo.Namespace,
+		"app.kubernetes.io/component":     "extract",
 	}
 
 	if err := r.List(ctx, jobList,
@@ -886,11 +886,10 @@ func (r *KernelCacheNodeReconciler) jobCompleted(job *batchv1.Job) bool {
 }
 
 // kernelCacheToNodeMapper maps KernelCache changes to KernelCacheNode reconcile requests
-// Only reconciles THIS node's KernelCacheNode (filtered by nodeName)
+// Always reconciles THIS node's KernelCacheNode so discoverCaches can pick up new KCs
 func (r *KernelCacheNodeReconciler) kernelCacheToNodeMapper(ctx context.Context, obj client.Object) []reconcile.Request {
-	kc := obj.(*v1alpha1.KernelCache)
+	_ = obj.(*v1alpha1.KernelCache)
 
-	// Only reconcile this node's KernelCacheNode
 	kcNodeName := nodeName
 	kcNode := &v1alpha1.KernelCacheNode{}
 	if err := r.Get(ctx, types.NamespacedName{Name: kcNodeName}, kcNode); err != nil {
@@ -900,19 +899,13 @@ func (r *KernelCacheNodeReconciler) kernelCacheToNodeMapper(ctx context.Context,
 		return []reconcile.Request{}
 	}
 
-	// Check if this node has the cache (using cache key format: {namespace}/{name})
-	cacheKey := kc.Namespace + "/" + kc.Name
-	if _, ok := kcNode.Status.CacheStatus[cacheKey]; ok {
-		return []reconcile.Request{
-			{
-				NamespacedName: types.NamespacedName{
-					Name: kcNodeName,
-				},
+	return []reconcile.Request{
+		{
+			NamespacedName: types.NamespacedName{
+				Name: kcNodeName,
 			},
-		}
+		},
 	}
-
-	return []reconcile.Request{}
 }
 
 // jobToNodeMapper maps Job changes to KernelCacheNode reconcile requests
@@ -921,8 +914,8 @@ func (r *KernelCacheNodeReconciler) jobToNodeMapper(ctx context.Context, obj cli
 	job := obj.(*batchv1.Job)
 
 	// Extract cache info from Job labels
-	cacheName := job.Labels["cache"]
-	cacheNamespace := job.Labels["cache-namespace"]
+	cacheName := job.Labels["kernelcache.kserve.io/cache"]
+	cacheNamespace := job.Labels["kernelcache.kserve.io/namespace"]
 
 	if cacheName == "" || cacheNamespace == "" {
 		return []reconcile.Request{}

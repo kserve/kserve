@@ -894,7 +894,6 @@ func (mi *StorageInitializerInjector) injectPVCMount(
 	cacheRootEnv string,
 	resolvedDigest string,
 ) error {
-
 	// Determine mount path, subpath, and environment variable based on mounting metadata
 	var mountPath string
 	var subPath string

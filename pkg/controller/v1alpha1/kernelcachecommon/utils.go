@@ -47,6 +47,9 @@ func LoadKernelCacheConfig(ctx context.Context, clientset kubernetes.Interface) 
 	if kernelCacheConfig.ExtractImage == "" {
 		kernelCacheConfig.ExtractImage = DefaultExtractImage
 	}
+	if kernelCacheConfig.CaptureImage == "" {
+		kernelCacheConfig.CaptureImage = DefaultCaptureImage
+	}
 	if kernelCacheConfig.JobTTLSecondsAfterFinished == nil {
 		kernelCacheConfig.JobTTLSecondsAfterFinished = ptr.To(DefaultJobTTLSecondsAfterFinished)
 	} else if *kernelCacheConfig.JobTTLSecondsAfterFinished < MinJobTTLSecondsAfterFinished {

@@ -553,7 +553,7 @@ var _ = Describe("KernelCacheNode Controller", func() {
 
 				// Verify that orphaned cache was removed
 				Expect(mockFS.removedFolders).To(ContainElement(orphanedKey))
-				Expect(len(mockFS.removedFolders)).To(Equal(1))
+				Expect(mockFS.removedFolders).To(HaveLen(1))
 
 				// Verify that active caches were NOT removed
 				Expect(mockFS.removedFolders).ToNot(ContainElement(storageKey1))
