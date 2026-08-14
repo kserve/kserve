@@ -578,7 +578,6 @@ var _ = Describe("KernelCache Reconciler - Core Reconciliation", func() {
 			}, timeout, interval).Should(BeTrue())
 		})
 	})
-
 })
 
 // NOTE: Multi-node aggregation tests are not included here because they require

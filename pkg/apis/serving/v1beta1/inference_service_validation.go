@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -29,10 +30,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/serving/pkg/apis/autoscaling"
+	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -76,7 +81,7 @@ func (v *InferenceServiceValidator) ValidateCreate(ctx context.Context, obj runt
 		return nil, err
 	}
 	validatorLogger.Info("validate create", "name", isvc.Name)
-	return validateInferenceService(isvc)
+	return validateInferenceService(ctx, isvc)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
@@ -102,7 +107,11 @@ func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, 
 	if err := validatePredictorNameChange(isvc, oldIsvc); err != nil {
 		return nil, err
 	}
-	return validateInferenceService(isvc)
+	// Validate KernelCache label changes
+	if err := validateKernelCacheLabelChanges(isvc, oldIsvc); err != nil {
+		return nil, err
+	}
+	return validateInferenceService(ctx, isvc)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
@@ -116,7 +125,7 @@ func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, obj runt
 	return nil, nil
 }
 
-func validateInferenceService(isvc *InferenceService) (admission.Warnings, error) {
+func validateInferenceService(ctx context.Context, isvc *InferenceService) (admission.Warnings, error) {
 	var allWarnings admission.Warnings
 	annotations := isvc.Annotations
 
@@ -174,6 +183,13 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 	}
 
 	if err := validateCanarySpecs(isvc); err != nil {
+		return allWarnings, err
+	}
+
+	// Validate KernelCache labels
+	kernelCacheWarnings, err := validateKernelCacheLabels(ctx, isvc)
+	allWarnings = append(allWarnings, kernelCacheWarnings...)
+	if err != nil {
 		return allWarnings, err
 	}
 
@@ -935,4 +951,158 @@ func GetConfidentialSpecFromPredictor(predictor *PredictorSpec) *ConfidentialSpe
 	default:
 		return nil
 	}
+}
+
+// validateKernelCacheLabels validates KernelCache and KernelCacheCapture labels
+func validateKernelCacheLabels(ctx context.Context, isvc *InferenceService) (admission.Warnings, error) {
+	var warnings admission.Warnings
+
+	// Check for KernelCache label
+	kcName, hasKC := isvc.Labels[constants.KernelCacheLabel]
+	kccName, hasKCC := isvc.Labels[constants.KernelCacheCaptureLabel]
+
+	// If neither label is present, nothing to validate
+	if !hasKC && !hasKCC {
+		return nil, nil
+	}
+
+	// Check if KernelCache feature is enabled
+	enabled, err := isKernelCacheEnabled(ctx)
+	if err != nil {
+		validatorLogger.Error(err, "failed to check KernelCache feature enabled state")
+		// Return error - we need to know if feature is enabled to validate properly
+		return nil, fmt.Errorf("failed to check KernelCache feature status: %w", err)
+	}
+
+	if !enabled {
+		// Feature is disabled - REJECT if labels are present
+		if hasKC {
+			return nil, fmt.Errorf("KernelCache label %q is set to %q but KernelCache feature is disabled (kernelcache.enabled=false in inferenceservice-config ConfigMap)",
+				constants.KernelCacheLabel, kcName)
+		}
+		if hasKCC {
+			return nil, fmt.Errorf("KernelCacheCapture label %q is set to %q but KernelCache feature is disabled (kernelcache.enabled=false in inferenceservice-config ConfigMap)",
+				constants.KernelCacheCaptureLabel, kccName)
+		}
+	}
+
+	// Feature is enabled - validate that referenced resources exist
+	cfg, err := ctrl.GetConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get kubeconfig: %w", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create clientset: %w", err)
+	}
+
+	// Validate KernelCache exists if label is present
+	if hasKC {
+		// Use discovery API to check if KC CRD is installed
+		_, err := clientset.Discovery().RESTClient().Get().
+			AbsPath("/apis/serving.kserve.io/v1alpha1/namespaces/" + isvc.Namespace + "/kernelcaches/" + kcName).
+			DoRaw(ctx)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("KernelCache %q referenced by label %q does not exist in namespace %q",
+					kcName, constants.KernelCacheLabel, isvc.Namespace)
+			}
+			// Other errors (permission denied, API server issues) - log but allow
+			validatorLogger.Error(err, "failed to verify KernelCache existence", "name", kcName, "namespace", isvc.Namespace)
+			warnings = append(warnings, fmt.Sprintf("Could not verify KernelCache %q exists: %v", kcName, err))
+		}
+	}
+
+	// Validate KernelCacheCapture exists if label is present
+	if hasKCC {
+		_, err := clientset.Discovery().RESTClient().Get().
+			AbsPath("/apis/serving.kserve.io/v1alpha1/namespaces/" + isvc.Namespace + "/kernelcachecaptures/" + kccName).
+			DoRaw(ctx)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("KernelCacheCapture %q referenced by label %q does not exist in namespace %q",
+					kccName, constants.KernelCacheCaptureLabel, isvc.Namespace)
+			}
+			// Other errors - log but allow
+			validatorLogger.Error(err, "failed to verify KernelCacheCapture existence", "name", kccName, "namespace", isvc.Namespace)
+			warnings = append(warnings, fmt.Sprintf("Could not verify KernelCacheCapture %q exists: %v", kccName, err))
+		}
+	}
+
+	return warnings, nil
+}
+
+// isKernelCacheEnabled checks if the KernelCache feature is enabled in the ConfigMap
+func isKernelCacheEnabled(ctx context.Context) (bool, error) {
+	cfg, err := ctrl.GetConfig()
+	if err != nil {
+		return false, fmt.Errorf("failed to get kubeconfig: %w", err)
+	}
+
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return false, fmt.Errorf("failed to create clientset: %w", err)
+	}
+
+	// Read ConfigMap
+	cm, err := clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// ConfigMap doesn't exist - default to disabled
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to get inferenceservice-config ConfigMap: %w", err)
+	}
+
+	// Parse kernelcache config
+	kernelcacheData, ok := cm.Data["kernelcache"]
+	if !ok {
+		// No config section - default to disabled
+		return false, nil
+	}
+
+	var config struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.Unmarshal([]byte(kernelcacheData), &config); err != nil {
+		return false, fmt.Errorf("failed to parse kernelcache config: %w", err)
+	}
+
+	return config.Enabled, nil
+}
+
+// validateKernelCacheLabelChanges validates that KernelCache labels are not added after creation
+func validateKernelCacheLabelChanges(newIsvc *InferenceService, oldIsvc *InferenceService) error {
+	oldKC, hadKC := oldIsvc.Labels[constants.KernelCacheLabel]
+	newKC, hasKC := newIsvc.Labels[constants.KernelCacheLabel]
+
+	oldKCC, hadKCC := oldIsvc.Labels[constants.KernelCacheCaptureLabel]
+	newKCC, hasKCC := newIsvc.Labels[constants.KernelCacheCaptureLabel]
+
+	// Check if KernelCache label was added
+	if !hadKC && hasKC {
+		return fmt.Errorf("KernelCache label %q cannot be added after InferenceService creation (label only works at pod creation time). To use KernelCache, delete and recreate the InferenceService with the label set",
+			constants.KernelCacheLabel)
+	}
+
+	// Check if KernelCache label was changed
+	if hadKC && hasKC && oldKC != newKC {
+		return fmt.Errorf("KernelCache label %q cannot be changed from %q to %q (label only works at pod creation time). To switch KernelCache, delete and recreate the InferenceService",
+			constants.KernelCacheLabel, oldKC, newKC)
+	}
+
+	// Check if KernelCacheCapture label was added
+	if !hadKCC && hasKCC {
+		return fmt.Errorf("KernelCacheCapture label %q cannot be added after InferenceService creation (label only works at pod creation time). To use KernelCacheCapture, delete and recreate the InferenceService with the label set",
+			constants.KernelCacheCaptureLabel)
+	}
+
+	// Check if KernelCacheCapture label was changed
+	if hadKCC && hasKCC && oldKCC != newKCC {
+		return fmt.Errorf("KernelCacheCapture label %q cannot be changed from %q to %q (label only works at pod creation time). To switch KernelCacheCapture, delete and recreate the InferenceService",
+			constants.KernelCacheCaptureLabel, oldKCC, newKCC)
+	}
+
+	return nil
 }

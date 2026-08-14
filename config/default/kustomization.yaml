@@ -57,6 +57,11 @@ replacements:
       kind: ValidatingWebhookConfiguration
       name: servingruntime.serving.kserve.io
   - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: servingruntime.serving.kserve.io
+  - fieldPaths:
     - spec.commonName
     - spec.dnsNames.0
     options:

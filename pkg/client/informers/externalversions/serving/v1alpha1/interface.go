@@ -32,6 +32,8 @@ type Interface interface {
 	InferenceGraphs() InferenceGraphInformer
 	// KernelCaches returns a KernelCacheInformer.
 	KernelCaches() KernelCacheInformer
+	// KernelCacheCaptures returns a KernelCacheCaptureInformer.
+	KernelCacheCaptures() KernelCacheCaptureInformer
 	// KernelCacheNodes returns a KernelCacheNodeInformer.
 	KernelCacheNodes() KernelCacheNodeInformer
 	// LLMInferenceServices returns a LLMInferenceServiceInformer.
@@ -79,6 +81,11 @@ func (v *version) InferenceGraphs() InferenceGraphInformer {
 // KernelCaches returns a KernelCacheInformer.
 func (v *version) KernelCaches() KernelCacheInformer {
 	return &kernelCacheInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// KernelCacheCaptures returns a KernelCacheCaptureInformer.
+func (v *version) KernelCacheCaptures() KernelCacheCaptureInformer {
+	return &kernelCacheCaptureInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // KernelCacheNodes returns a KernelCacheNodeInformer.

@@ -175,11 +175,13 @@ type KernelCacheConfig struct {
 	Enabled                       bool   `json:"enabled"`
 	JobNamespace                  string `json:"jobNamespace"`
 	ExtractImage                  string `json:"extractImage,omitempty"`
+	CaptureImage                  string `json:"captureImage,omitempty"`
 	FSGroup                       *int64 `json:"fsGroup,omitempty"`
 	JobTTLSecondsAfterFinished    *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
 	ReconcileIntervalSeconds      *int64 `json:"reconcileIntervalSeconds,omitempty"`
 	NoGPU                         bool   `json:"noGPU,omitempty"`
 	EnablePermissionInitContainer bool   `json:"enablePermissionInitContainer,omitempty"`
+	AllowUnsigned                 bool   `json:"allowUnsigned,omitempty"`
 }
 
 // +kubebuilder:object:generate=false

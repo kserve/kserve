@@ -13,6 +13,13 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
   - nodes
   - pods
   verbs:
@@ -39,6 +46,12 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  verbs:
+  - create
 - apiGroups:
   - batch
   resources:
@@ -70,6 +83,7 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - kernelcachecaptures
   - kernelcachenodes
   - kernelcaches
   - localmodelcaches
@@ -86,6 +100,13 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - kernelcachecaptures/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachecaptures/status
   - kernelcachenodes/status
   - kernelcaches/status
   - localmodelcaches/status

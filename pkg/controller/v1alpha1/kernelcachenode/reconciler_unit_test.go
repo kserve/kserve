@@ -255,9 +255,9 @@ func TestGetExtractionJob(t *testing.T) {
 				Name:      "extract-test-cache-abc",
 				Namespace: "kserve",
 				Labels: map[string]string{
-					"cache":           "test-cache",
-					"cache-namespace": "default",
-					"app":             "kernel-cache-extract",
+					"kernelcache.kserve.io/cache":     "test-cache",
+					"kernelcache.kserve.io/namespace": "default",
+					"app.kubernetes.io/component":     "extract",
 				},
 			},
 		}

@@ -182,6 +182,7 @@ var (
 	ConfidentialResourceIdAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/confidential-resource-id"
 	LocalModelLoRAAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/localmodel-lora"
 	KernelCacheLabel                                 = InferenceServiceInternalAnnotationsPrefix + "/kernelcache"
+	KernelCacheCaptureLabel                          = KServeAPIGroupName + "/cache-capture"
 	KernelCachePVCNameAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/kernelcache-pvc-name"
 	DisableKernelCacheKey                            = KServeAPIGroupName + "/disable-kernelcache"
 )

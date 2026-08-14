@@ -648,6 +648,8 @@ data:
          "jobNamespace": "kserve",
          # extractImage specifies the image used for the kernel cache extraction job.
          "extractImage" : "quay.io/gkm/gkm-extract:latest",
+         # captureImage specifies the image used for the kernel cache capture sidecar.
+         "captureImage" : "quay.io/gkm/mcv:latest",
          # Kubernetes modifies the filesystem group ID on the attached volume.
          "fsGroup": 1000,
          # TTL for the extraction job after it is finished.
@@ -657,7 +659,9 @@ data:
          # Disable GPU detection for testing (uses MCV GPU detection by default)
          "noGPU": false,
          # Enable permission fix init container for extraction Jobs (needed for KIND clusters and environments where kubelet can't change volume ownership)
-         "enablePermissionInitContainer": false
+         "enablePermissionInitContainer": false,
+         # Allow unsigned images (images that fail cosign verification are allowed with digest resolved without verification)
+         "allowUnsigned": false
        }
 
   explainers: |-
@@ -792,7 +796,8 @@ data:
       "jobTTLSecondsAfterFinished": 3600,
       "reconcileIntervalSeconds": 60,
       "noGPU": false,
-      "enablePermissionInitContainer": false
+      "enablePermissionInitContainer": false,
+      "allowUnsigned": false
     }
 
   security: |-

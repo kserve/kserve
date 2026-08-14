@@ -30,6 +30,7 @@ const (
 	// Default values
 	DefaultJobNamespace                     = "kserve"
 	DefaultExtractImage                     = "quay.io/gkm/gkm-extract:latest"
+	DefaultCaptureImage                     = "quay.io/gkm/mcv:latest"
 	DefaultJobTTLSecondsAfterFinished int32 = 3600
 	DefaultReconcileIntervalSeconds   int64 = 60
 

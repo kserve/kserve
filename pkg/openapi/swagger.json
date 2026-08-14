@@ -244,6 +244,28 @@
         }
       }
     },
+    "v1alpha1.CreateKernelCacheConfig": {
+      "description": "CreateKernelCacheConfig controls auto-creation of KernelCache after successful capture",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Enabled controls whether to auto-create KernelCache",
+          "type": "boolean"
+        },
+        "mountType": {
+          "description": "MountType for the auto-created KernelCache",
+          "type": "string"
+        },
+        "name": {
+          "description": "Name for the auto-created KernelCache (defaults to KCC name)",
+          "type": "string"
+        },
+        "pullSecretRef": {
+          "description": "PullSecretRef for pulling the captured image (can differ from push secret)",
+          "$ref": "#/definitions/v1.LocalObjectReference"
+        }
+      }
+    },
     "v1alpha1.GPUCompatibilitySummary": {
       "description": "GPUCompatibilitySummary aggregates GPU compatibility across all nodes",
       "type": "object",
@@ -618,6 +640,115 @@
         }
       }
     },
+    "v1alpha1.KernelCacheCapture": {
+      "description": "KernelCacheCapture captures JIT-compiled kernel caches from running InferenceServices and packages them as OCI images for reuse in other deployments.",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheCaptureSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheCaptureStatus"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheCaptureSpec": {
+      "description": "KernelCacheCaptureSpec defines the desired state of KernelCacheCapture",
+      "type": "object",
+      "required": [
+        "targetImage"
+      ],
+      "properties": {
+        "cachePath": {
+          "description": "CachePath specifies an explicit cache directory path Overrides CachePreset if both are specified",
+          "type": "string"
+        },
+        "cachePreset": {
+          "description": "CachePreset specifies a known cache location preset (vllm, tgi, triton-python) Mutually exclusive with CachePath",
+          "type": "string"
+        },
+        "createKernelCache": {
+          "description": "CreateKernelCache controls auto-creation of KernelCache CR",
+          "$ref": "#/definitions/v1alpha1.CreateKernelCacheConfig"
+        },
+        "registrySecretRef": {
+          "description": "RegistrySecretRef references a Secret containing registry push credentials Optional for insecure/unauthenticated registries (e.g., kind-registry, localhost)",
+          "$ref": "#/definitions/v1alpha1.SecretKeySelector"
+        },
+        "targetImage": {
+          "description": "TargetImage is the OCI image URL where captured cache will be pushed",
+          "type": "string",
+          "default": ""
+        },
+        "trigger": {
+          "description": "Trigger initiates the cache capture when set to true",
+          "type": "boolean"
+        },
+        "volumeStrategy": {
+          "description": "VolumeStrategy specifies how to access the cache shared: inject shared emptyDir volume (default) copy: use kubectl cp to copy cache from main container",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheCaptureStatus": {
+      "description": "KernelCacheCaptureStatus defines the observed state of KernelCacheCapture",
+      "type": "object",
+      "properties": {
+        "capturedAt": {
+          "description": "CapturedAt is the timestamp when capture completed",
+          "$ref": "#/definitions/v1.Time"
+        },
+        "capturedCacheSizeBytes": {
+          "description": "CapturedCacheSizeBytes is the size of the captured cache in bytes",
+          "type": "integer",
+          "format": "int64"
+        },
+        "conditions": {
+          "description": "Conditions represent the latest available observations",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.Condition"
+          },
+          "x-kubernetes-patch-merge-key": "type",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "detectedCachePath": {
+          "description": "DetectedCachePath is the resolved cache path used for capture",
+          "type": "string"
+        },
+        "imageDigest": {
+          "description": "ImageDigest is the sha256 digest of the captured image",
+          "type": "string"
+        },
+        "kernelCacheRef": {
+          "description": "KernelCacheRef references the auto-created KernelCache",
+          "$ref": "#/definitions/v1alpha1.NamespacedName"
+        },
+        "phase": {
+          "description": "Phase indicates current state of the capture",
+          "type": "string"
+        },
+        "podName": {
+          "description": "PodName is the pod from which cache was captured",
+          "type": "string"
+        }
+      }
+    },
     "v1alpha1.KernelCacheList": {
       "description": "KernelCacheList contains a list of KernelCache",
       "type": "object",
@@ -765,44 +896,40 @@
       ],
       "properties": {
         "accessModes": {
-          "description": "AccessModes for PV/PVC (optional, default: [ReadWriteMany] for Phase 1)",
+          "description": "AccessModes for PV/PVC (only used when mountType=pvc)",
           "type": "array",
           "items": {
             "type": "string",
             "default": ""
           }
         },
-        "framework": {
-          "type": "string"
-        },
-        "frameworkVersion": {
-          "type": "string"
-        },
-        "gpuType": {
-          "description": "GPU metadata for automatic ISVC matching (Phase 2 webhook uses this) Populated from MCV GPU detection or sidecar auto-creation",
-          "type": "string"
-        },
         "image": {
           "description": "Image is the OCI image URL containing kernel cache",
           "type": "string",
           "default": ""
         },
-        "minCUDAVersion": {
+        "imagePullPolicy": {
+          "description": "ImagePullPolicy for pulling the cache image specified in spec.image. For imageVolume mode: controls when Kubernetes pulls the image for volume mounting. For pvc mode: controls when the extraction job pulls the image to extract.",
           "type": "string"
         },
-        "minDriverVersion": {
+        "mountPath": {
+          "description": "MountPath in the container filesystem where the cache should be mounted. If empty (recommended), automatically computed from OCI image labels to maintain framework compatibility. The webhook determines the optimal mount path based on labels like io.kserve.km/cache-root-env.\n\nOverride only when automatic detection is insufficient. When set, SubPath within the volume (PVC or OCI image) is still auto-computed from labels.\n\nExample: \"/custom/cache/location\" mounts the cache at this path instead of the label-derived path.",
+          "type": "string"
+        },
+        "mountType": {
+          "description": "MountType specifies how to mount the cache (pvc or imageVolume)",
           "type": "string"
         },
         "podTemplate": {
-          "description": "PodTemplate for extraction Job customization (nodeSelector, tolerations, etc.)",
+          "description": "PodTemplate for extraction Job customization (only used when mountType=pvc)",
           "$ref": "#/definitions/v1alpha1.KernelCachePodTemplate"
         },
         "storageClassName": {
-          "description": "Phase 1 simple mode storage fields (removed in Phase 2 when NodeGroups added) StorageClassName for PV/PVC (optional, uses cluster default if unset)",
+          "description": "StorageClassName for PV/PVC (only used when mountType=pvc)",
           "type": "string"
         },
         "storageSize": {
-          "description": "StorageSize for PV/PVC (optional, default: 10Gi if unset)",
+          "description": "StorageSize for PV/PVC (only used when mountType=pvc)",
           "$ref": "#/definitions/resource.Quantity"
         }
       }
@@ -819,20 +946,16 @@
           "description": "GPU compatibility summary (aggregate from all nodes)",
           "$ref": "#/definitions/v1alpha1.GPUCompatibilitySummary"
         },
-        "inferenceServices": {
-          "description": "Phase 2: ISVCs referencing this cache",
-          "type": "array",
-          "items": {
-            "default": {},
-            "$ref": "#/definitions/v1alpha1.NamespacedName"
-          }
+        "mountType": {
+          "description": "MountType tracks the active mount type (pvc or imageVolume) Reflects the spec.mountType value for observability",
+          "type": "string"
         },
         "resolvedDigest": {
           "description": "ResolvedDigest is the image digest (sha256:...) resolved by mutating webhook This field is immutable once set - copied from annotation on first reconcile Controller ALWAYS uses this field (not annotation) to prevent tampering",
           "type": "string"
         },
         "servingStatus": {
-          "description": "Phase 2: Serving PVC usage (aggregate across all nodes/namespaces)",
+          "description": "Serving PVC usage (aggregate across all nodes/namespaces)",
           "$ref": "#/definitions/v1alpha1.ServingStatus"
         },
         "state": {
@@ -1386,6 +1509,21 @@
         }
       }
     },
+    "v1alpha1.SecretKeySelector": {
+      "description": "SecretKeySelector references a key in a Secret",
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "Key in the secret (defaults to .dockerconfigjson)",
+          "type": "string"
+        },
+        "name": {
+          "description": "Name of the secret",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
     "v1alpha1.ServingRuntime": {
       "description": "ServingRuntime is the Schema for the servingruntimes API",
       "type": "object",
@@ -1691,7 +1829,7 @@
       "type": "object"
     },
     "v1alpha1.ServingStatus": {
-      "description": "ServingStatus tracks serving PVC usage (Phase 2)",
+      "description": "ServingStatus tracks serving PVC usage across namespaces",
       "type": "object",
       "required": [
         "totalNamespaces",
@@ -1709,7 +1847,7 @@
           }
         },
         "totalNamespaces": {
-          "description": "Aggregate counts across all nodes/namespaces (Phase 2)",
+          "description": "Aggregate counts across all nodes/namespaces",
           "type": "integer",
           "format": "int32",
           "default": 0
@@ -4436,6 +4574,9 @@
         "jobNamespace"
       ],
       "properties": {
+        "allowUnsigned": {
+          "type": "boolean"
+        },
         "enablePermissionInitContainer": {
           "type": "boolean"
         },

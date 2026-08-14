@@ -18,10 +18,13 @@ resources:
 - ../localmodelnodes
 - ../webhook/localmodel
 - ../webhook/kernelcache
+- ../webhook/kernelcachecapture
 
 patches:
 - path: webhook_cainjection_patch.yaml
 - path: kernelcache_webhook_cainjection_patch.yaml
+- path: kernelcachecapture_mutatingwebhook_cainjection_patch.yaml
+- path: kernelcachecapture_validatingwebhook_cainjection_patch.yaml
 - path: localmodel_manager_image_patch.yaml
 
 
@@ -49,6 +52,16 @@ replacements:
       kind: ValidatingWebhookConfiguration
       name: kernelcache.serving.kserve.io
   - fieldPaths:
+    - webhooks.*.clientConfig.service.namespace
+    select:
+      kind: MutatingWebhookConfiguration
+      name: kernelcachecapture.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.namespace
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: kernelcachecapture.serving.kserve.io
+  - fieldPaths:
     - metadata.annotations.[cert-manager.io/inject-ca-from]
     options:
       delimiter: '/'
@@ -72,6 +85,22 @@ replacements:
     select:
       kind: ValidatingWebhookConfiguration
       name: kernelcache.serving.kserve.io
+  - fieldPaths:
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 0
+    select:
+      kind: MutatingWebhookConfiguration
+      name: kernelcachecapture.serving.kserve.io
+  - fieldPaths:
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 0
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: kernelcachecapture.serving.kserve.io
   - fieldPaths:
     - spec.commonName
     - spec.dnsNames.0
@@ -131,6 +160,16 @@ replacements:
     select:
       kind: ValidatingWebhookConfiguration
       name: kernelcache.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: MutatingWebhookConfiguration
+      name: kernelcachecapture.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
+      kind: ValidatingWebhookConfiguration
+      name: kernelcachecapture.serving.kserve.io
   - fieldPaths:
     - spec.commonName
     - spec.dnsNames.0

@@ -19,6 +19,7 @@ package localmodelcache
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/kserve/kserve/pkg/utils"
@@ -71,7 +72,7 @@ func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, obj runti
 		return nil, fmt.Errorf("failed to check LocalModel configuration: %w", err)
 	}
 	if !enabled {
-		return nil, fmt.Errorf("LocalModel feature is disabled in inferenceservice-config ConfigMap (localModel.enabled=false)")
+		return nil, errors.New("LocalModel feature is disabled in inferenceservice-config ConfigMap (localModel.enabled=false)")
 	}
 
 	localModelCacheWithSameStorageURI, err := v.validateUniqueStorageURI(ctx, localModelCache)

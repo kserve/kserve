@@ -142,6 +142,34 @@ func verifyNewBundleFormat(ctx context.Context, ref gcrname.Reference, regOpts [
 	return "", fmt.Errorf("all %d bundles failed verification, last error: %w", len(bundles), lastErr)
 }
 
+// ResolveImageDigest resolves the digest of an OCI image without signature verification.
+// Used as a fallback when allowUnsigned is enabled and cosign verification fails.
+// Tries HTTPS first, falls back to HTTP for insecure registries.
+func ResolveImageDigest(ctx context.Context, imageRef string) (string, error) {
+	ref, err := gcrname.ParseReference(imageRef)
+	if err != nil {
+		return "", fmt.Errorf("parse image reference: %w", err)
+	}
+
+	remoteOpts := []gcrremote.Option{gcrremote.WithAuthFromKeychain(authn.DefaultKeychain), gcrremote.WithContext(ctx)}
+
+	desc, err := gcrremote.Get(ref, remoteOpts...)
+	if err != nil {
+		// Retry with insecure (HTTP) for registries that don't support TLS
+		log.Info("HTTPS fetch failed, retrying with HTTP", "image", imageRef, "error", err)
+		insecureRef, parseErr := gcrname.ParseReference(imageRef, gcrname.Insecure)
+		if parseErr != nil {
+			return "", fmt.Errorf("parse image reference (insecure): %w", parseErr)
+		}
+		desc, err = gcrremote.Get(insecureRef, remoteOpts...)
+		if err != nil {
+			return "", fmt.Errorf("fetch image descriptor: %w", err)
+		}
+	}
+
+	return desc.Digest.String(), nil
+}
+
 // verifyLegacySignature verifies images with legacy .sig tags (cosign v2)
 func verifyLegacySignature(ctx context.Context, ref gcrname.Reference, regOpts []ociremote.Option, rc *rekorclient.Rekor, trusted root.TrustedMaterial) (string, error) {
 	co := &cosign.CheckOpts{
