@@ -20,6 +20,7 @@ import tarfile
 import unittest.mock as mock
 
 import pytest
+import zstandard
 
 from kserve_storage import Storage
 from kserve_storage.kserve_storage import (
@@ -227,16 +228,18 @@ def test_oci_uncompressed_tar_layer_extracts(tmp_path):
     assert os.path.isfile(os.path.join(out, "model.txt"))
 
 
-def test_oci_zstd_layer_rejected(tmp_path):
-    # zstd layers cannot be decompressed by stdlib tarfile before Python 3.14
-    # (the initializer runs 3.11); reject with an actionable error instead of a
-    # cryptic mid-stream gzip failure. Rejection happens before any blob fetch.
+def test_oci_zstd_layer_extracts(tmp_path):
     out = str(tmp_path / "out")
     manifest = {
         "mediaType": "application/vnd.oci.image.manifest.v1+json",
         "layers": [{"digest": "sha256:layer0", "mediaType": _ZSTD_LAYER}],
     }
     client = _make_client(manifest)
+    tar_bytes = _build_layer_tar_bytes(model_files=("model.txt",), compress=False)
+    layer_bytes = zstandard.ZstdCompressor().compress(tar_bytes)
+    client.get_blob.side_effect = lambda target, digest, stream=True: (
+        _FakeBlobResponse(layer_bytes)
+    )
     with (
         mock.patch("oras.client.OrasClient", return_value=client),
         mock.patch(
@@ -245,16 +248,10 @@ def test_oci_zstd_layer_rejected(tmp_path):
         ),
         mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
     ):
-        with pytest.raises(RuntimeError) as excinfo:
-            Storage._download_oci("oci://registry.io/mymodel:v1", out)
+        result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
 
-    msg = str(excinfo.value)
-    assert "zstd" in msg
-    # Actionable: hint at rebuilding with gzip or the 3.14 stdlib path, without
-    # asserting the exact wording.
-    assert "gzip" in msg or "3.14" in msg
-    # Rejected before streaming any blob.
-    client.get_blob.assert_not_called()
+    assert result == out
+    assert os.path.isfile(os.path.join(out, "model.txt"))
 
 
 def test_oci_non_tar_layer_skipped(tmp_path):
