@@ -521,9 +521,16 @@ func (p *Predictor) buildObjectMeta(isvc *v1beta1.InferenceService, predictorNam
 	}
 }
 
-// validateRuntimeWorkerSpec reports an error when the InferenceService requests a
-// worker but the selected ServingRuntime has no WorkerSpec. It must be called
-// before any field access on sRuntime.WorkerSpec, which is an optional pointer.
+// validateRuntimeWorkerSpec reports an error when the selected ServingRuntime has no
+// WorkerSpec. It must be called before any field access on sRuntime.WorkerSpec, which
+// is an optional pointer.
+//
+// The check is deliberately unconditional on isvc.Spec.Predictor.WorkerSpec: this is
+// the nil guard protecting every subsequent sRuntime.WorkerSpec dereference, so gating
+// it on the InferenceService would reopen the panic it exists to prevent. The message
+// still speaks in terms of the InferenceService because the sole caller,
+// reconcileWorker, runs only on the multi-node path, which Reconcile enters just when
+// isvc.Spec.Predictor.WorkerSpec != nil.
 func validateRuntimeWorkerSpec(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.InferenceService) error {
 	if sRuntime.WorkerSpec != nil {
 		return nil
