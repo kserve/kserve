@@ -60,7 +60,11 @@ from ..common.utils import KSERVE_TEST_NAMESPACE
 # Public, multi-arch (linux/amd64 + linux/arm64) modelcar-layout fixture image.
 # Contains a single model file at /models/model.joblib and is anonymously
 # pullable from ghcr.io. Published out-of-band for KServe oci+fetch:// E2E.
+# :v1 has gzip-compressed layers; :zstd is the same layout with zstd-compressed
+# layers (application/vnd.oci.image.layer.v1.tar+zstd) to exercise the zstandard
+# streaming-decompression path in the storage handler.
 OCI_FETCH_TEST_IMAGE = "ghcr.io/kliukovkin/kserve-oci-test-fixture:v1"
+OCI_FETCH_ZSTD_TEST_IMAGE = "ghcr.io/kliukovkin/kserve-oci-test-fixture:zstd"
 
 # Model file the fixture is known to contain under /models/.
 EXPECTED_MODEL_FILE = "model.joblib"
@@ -148,8 +152,19 @@ def _wait_for_container_running(
 
 
 @pytest.mark.storage
-def test_oci_fetch_inference_service_pulls_and_extracts_model():
+@pytest.mark.parametrize(
+    "image_ref, name_suffix",
+    [
+        (OCI_FETCH_TEST_IMAGE, "gzip"),
+        (OCI_FETCH_ZSTD_TEST_IMAGE, "zstd"),
+    ],
+    ids=["gzip-layers", "zstd-layers"],
+)
+def test_oci_fetch_inference_service_pulls_and_extracts_model(image_ref, name_suffix):
     """An oci+fetch:// ISVC pulls the image and extracts /models/ to /mnt/models.
+
+    Run for both a gzip-layered fixture (:v1) and a zstd-layered fixture (:zstd);
+    the zstd variant exercises the zstandard streaming-decompression path.
 
     The test:
     1. Creates an InferenceService with an oci+fetch:// storageUri pointing at a
@@ -161,7 +176,7 @@ def test_oci_fetch_inference_service_pulls_and_extracts_model():
        /mnt/models (the shared emptyDir written by the init container).
     5. Deletes the InferenceService in teardown.
     """
-    service_name = "isvc-oci-fetch-pull"
+    service_name = f"isvc-oci-fetch-{name_suffix}"
     kserve_client = KServeClient(
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
@@ -171,7 +186,7 @@ def test_oci_fetch_inference_service_pulls_and_extracts_model():
         min_replicas=1,
         model=V1beta1ModelSpec(
             model_format=V1beta1ModelFormat(name="sklearn"),
-            storage_uri=f"oci+fetch://{OCI_FETCH_TEST_IMAGE}",
+            storage_uri=f"oci+fetch://{image_ref}",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
                 limits={"cpu": "1", "memory": "1Gi"},
