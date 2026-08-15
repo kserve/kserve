@@ -39,7 +39,7 @@ from ..common.utils import (
 @pytest.mark.grpc
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_custom_model_grpc(test_namespace):
+async def test_custom_model_grpc(network_layer, test_namespace):
     service_name = "custom-grpc-logger"
     model_name = "custom-model"
 
@@ -120,6 +120,7 @@ async def test_custom_model_grpc(test_namespace):
         service_name=service_name,
         payload=payload,
         model_name=model_name,
+        network_layer=network_layer,
         namespace=test_namespace,
     )
     fields = response.outputs[0].data

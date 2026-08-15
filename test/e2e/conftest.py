@@ -152,11 +152,24 @@ def _generate_namespace_name(node_name: str, prefix: str = "e2e") -> str:
     return f"{prefix}-{name_hash}"
 
 
+def _namespace_labels(core_v1: client.CoreV1Api) -> dict:
+    labels = {"kserve.io/e2e-test": "true"}
+    try:
+        seed = core_v1.read_namespace(SEED_NAMESPACE)
+    except client.rest.ApiException:
+        return labels
+    seed_labels = seed.metadata.labels or {}
+    for key, value in seed_labels.items():
+        if key == "istio-injection" or key.startswith("pod-security.kubernetes.io/"):
+            labels[key] = value
+    return labels
+
+
 def _create_namespace(core_v1: client.CoreV1Api, namespace: str) -> None:
     ns = client.V1Namespace(
         metadata=client.V1ObjectMeta(
             name=namespace,
-            labels={"kserve.io/e2e-test": "true"},
+            labels=_namespace_labels(core_v1),
         )
     )
     try:

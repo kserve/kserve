@@ -414,9 +414,7 @@ async def test_predictor_grpc_with_transformer_grpc_raw(network_layer, test_name
                     limits={"cpu": "100m", "memory": "1Gi"},
                 ),
                 ports=[
-                    V1ContainerPort(
-                        container_port=8081, name="h2c-port", protocol="TCP"
-                    )
+                    V1ContainerPort(container_port=8081, name="h2c", protocol="TCP")
                 ],
                 args=["--model_name", model_name],
             )
@@ -434,9 +432,7 @@ async def test_predictor_grpc_with_transformer_grpc_raw(network_layer, test_name
                     limits={"cpu": "100m", "memory": "1Gi"},
                 ),
                 ports=[
-                    V1ContainerPort(
-                        container_port=8081, name="grpc-port", protocol="TCP"
-                    )
+                    V1ContainerPort(container_port=8081, name="h2c", protocol="TCP")
                 ],
                 args=["--model_name", model_name, "--predictor_protocol", "grpc-v2"],
             )

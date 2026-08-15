@@ -20,6 +20,7 @@ from concurrent import futures
 from typing import Union, List, Dict
 from urllib.parse import urlparse
 
+import grpc
 import portforward
 import requests
 from kubernetes import client as k8s_client
@@ -64,11 +65,23 @@ TRANSFORMER_CONTAINER = "transformer-container"
 STORAGE_URI_ENV = "STORAGE_URI"
 
 
+def _grpc_authority(host: str) -> str:
+    """Strip a trailing :port so Istio Host matching uses the hostname only."""
+    if host.startswith("["):
+        end = host.find("]")
+        return host[: end + 1] if end != -1 else host
+    name, sep, port = host.rpartition(":")
+    if sep and port.isdigit():
+        return name
+    return host
+
+
 def grpc_client(host, cluster_ip):
     if ":" not in cluster_ip:
         cluster_ip = cluster_ip + ":80"
+    authority = _grpc_authority(host)
     logger.info("Cluster IP: %s", cluster_ip)
-    logger.info("gRPC target host: %s", host)
+    logger.info("gRPC target host: %s", authority)
     # default_authority sets :authority / Host for insecure channels through
     # Istio/Knative ingress; ssl_target_name_override alone is insufficient and
     # can yield UNIMPLEMENTED from the gateway under Host-based routing.
@@ -76,8 +89,8 @@ def grpc_client(host, cluster_ip):
         cluster_ip,
         verbose=False,
         channel_args=[
-            ("grpc.default_authority", host),
-            ("grpc.ssl_target_name_override", host),
+            ("grpc.default_authority", authority),
+            ("grpc.ssl_target_name_override", authority),
         ],
         timeout=120,
     )
@@ -370,20 +383,44 @@ async def predict_grpc(
         namespace=namespace,
         version=version,
     )
-    _, cluster_ip, host, _ = get_isvc_endpoint(isvc, network_layer)
-
     if model_name is None:
         model_name = service_name
-    client = grpc_client(host, cluster_ip)
 
-    response = await client.infer(
-        InferRequest.from_grpc(
-            pb.ModelInferRequest(
-                model_name=model_name, inputs=payload, parameters=parameters
+    last_error = None
+    for attempt in range(5):
+        _, cluster_ip, host, _ = get_isvc_endpoint(isvc, network_layer)
+        client = grpc_client(host, cluster_ip)
+        try:
+            return await client.infer(
+                InferRequest.from_grpc(
+                    pb.ModelInferRequest(
+                        model_name=model_name, inputs=payload, parameters=parameters
+                    )
+                )
             )
-        )
-    )
-    return response
+        except grpc.aio.AioRpcError as err:
+            await client.close()
+            retryable = err.code() in (
+                grpc.StatusCode.UNAVAILABLE,
+                grpc.StatusCode.UNIMPLEMENTED,
+            )
+            if not retryable or attempt == 4:
+                raise
+            delay = min(2**attempt, 8)
+            logger.warning(
+                "gRPC infer failed (%s); retrying in %ss (%s/5)",
+                err.code().name,
+                delay,
+                attempt + 1,
+            )
+            last_error = err
+            await asyncio.sleep(delay)
+            isvc = kfs_client.get(
+                service_name,
+                namespace=namespace,
+                version=version,
+            )
+    raise last_error
 
 
 async def predict_modelmesh(

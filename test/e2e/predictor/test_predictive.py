@@ -122,7 +122,7 @@ async def test_predictive_lightgbm_v1(rest_v1_client, network_layer, test_namesp
             storage_uri="gs://kfserving-examples/models/lightgbm/iris",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "256Mi"},
+                limits={"cpu": "1", "memory": "1Gi"},
             ),
         ),
     )
@@ -260,7 +260,7 @@ async def test_predictive_lightgbm_v2(rest_v2_client, network_layer, test_namesp
             storage_uri="gs://kfserving-examples/models/lightgbm/iris",
             resources=V1ResourceRequirements(
                 requests={"cpu": "50m", "memory": "128Mi"},
-                limits={"cpu": "100m", "memory": "512Mi"},
+                limits={"cpu": "1", "memory": "1Gi"},
             ),
             readiness_probe=client.V1Probe(
                 http_get=client.V1HTTPGetAction(
