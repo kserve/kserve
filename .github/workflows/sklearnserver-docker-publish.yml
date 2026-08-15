@@ -13,7 +13,12 @@ on:
   # Run tests for any PRs.
   pull_request:
     paths:
-      - "python/**"
+      - "python/sklearnserver/**"
+      - "python/kserve/**"
+      - "python/storage/**"
+      - "python/pyproject.toml"
+      - "python/third_party/**"
+      - "python/sklearn.Dockerfile"
       - "!.github/**"
       - "!docs/**"
       - "!**.md"
@@ -67,7 +72,9 @@ jobs:
         timeout-minutes: 10
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
-          platforms: linux/amd64,linux/arm64/v8
+          # e2e-test.yml builds this image as amd64 on every PR, so the
+          # publisher only needs to cover the other published platform
+          platforms: linux/arm64/v8
           context: python
           file: python/sklearn.Dockerfile
           push: false

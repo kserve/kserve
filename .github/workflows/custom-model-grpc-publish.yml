@@ -9,7 +9,12 @@ on:
   # Run tests for any PRs.
   pull_request:
     paths:
-      - "python/**"
+      - "python/custom_model/**"
+      - "python/kserve/**"
+      - "python/storage/**"
+      - "python/pyproject.toml"
+      - "python/third_party/**"
+      - "python/custom_model_grpc.Dockerfile"
       - "!.github/**"
       - "!docs/**"
       - "!**.md"

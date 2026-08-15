@@ -201,8 +201,10 @@ var (
 
 const (
 	HfURIPrefix        = "hf://"
+	MsURIPrefix        = "modelscope://"
 	OciURIPrefix       = "oci://"
 	OciNativeURIPrefix = "oci+native://"
+	OciFetchURIPrefix  = "oci+fetch://"
 	PvcURIPrefix       = "pvc://"
 	S3URIPrefix        = "s3://"
 
