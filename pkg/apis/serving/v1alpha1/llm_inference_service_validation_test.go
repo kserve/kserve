@@ -217,6 +217,23 @@ func TestValidateWorkloadScaling(t *testing.T) {
 			wantErrCount: 0,
 		},
 		{
+			name: "valid: WVA KEDA idleReplicaCount=0 (scale-to-zero)",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 10,
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								IdleReplicaCount: ptr.To(int32(0)),
+							},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
 			name: "valid: initialCooldownPeriod set",
 			workload: &WorkloadSpec{
 				Scaling: &ScalingSpec{
@@ -389,14 +406,127 @@ func TestValidateWorkloadScaling(t *testing.T) {
 			wantErrStrings: []string{"minReplicas (10) cannot exceed maxReplicas (5)"},
 		},
 		{
-			name: "error: scaling without WVA",
+			name: "error: scaling without wva or keda",
 			workload: &WorkloadSpec{
 				Scaling: &ScalingSpec{
 					MaxReplicas: 5,
 				},
 			},
 			wantErrCount:   1,
-			wantErrStrings: []string{"wva is required when scaling is configured"},
+			wantErrStrings: []string{"either wva or keda must be specified when scaling is configured"},
+		},
+		{
+			name: "error: scaling with both WVA and direct KEDA",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 5,
+					WVA: &WVASpec{
+						ActuatorSpec: ActuatorSpec{
+							HPA: &HPAScalingSpec{},
+						},
+					},
+					KEDA: &DirectKEDAScalingSpec{
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"wva and keda are mutually exclusive"},
+		},
+		{
+			name: "valid: scaling with direct KEDA",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 5,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							PollingInterval: ptr.To(int32(30)),
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{
+								Type: "cpu",
+								Metadata: map[string]string{
+									"value": "80",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: direct KEDA idleReplicaCount=0 (scale-to-zero)",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 5,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							IdleReplicaCount: ptr.To(int32(0)),
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "valid: direct KEDA with scalingModifiers",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 5,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							Advanced: &kedav1alpha1.AdvancedConfig{
+								ScalingModifiers: kedav1alpha1.ScalingModifiers{
+									Formula: "trig0 + trig1",
+									Target:  "10",
+								},
+							},
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+							{Type: "memory", Metadata: map[string]string{"value": "70"}},
+						},
+					},
+				},
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "error: direct KEDA without triggers",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 5,
+					KEDA:        &DirectKEDAScalingSpec{},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"at least one trigger is required when using direct KEDA scaling"},
+		},
+		{
+			name: "error: direct KEDA idleReplicaCount without minReplicas",
+			workload: &WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MaxReplicas: 10,
+					KEDA: &DirectKEDAScalingSpec{
+						KEDAScalingSpec: KEDAScalingSpec{
+							IdleReplicaCount: ptr.To(int32(1)),
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+						},
+					},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"minReplicas is required when idleReplicaCount is set"},
 		},
 		{
 			name: "error: WVA with both HPA and KEDA",
@@ -630,6 +760,37 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 		assert.Empty(t, errs, "expected no errors when both workloads use KEDA")
 	})
 
+	t.Run("both decode and prefill with matching direct KEDA scaling modes", func(t *testing.T) {
+		svc := newBaseLLMInferenceService()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				KEDA: &DirectKEDAScalingSpec{
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+					},
+				},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 8,
+				KEDA: &DirectKEDAScalingSpec{
+					KEDAScalingSpec: KEDAScalingSpec{
+						IdleReplicaCount: ptr.To(int32(1)),
+					},
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{Type: "memory", Metadata: map[string]string{"value": "70"}},
+					},
+				},
+				MinReplicas: ptr.To(int32(2)),
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		assert.Empty(t, errs, "expected no errors when both workloads use direct KEDA")
+	})
+
 	t.Run("scalingModifiers set - rejected", func(t *testing.T) {
 		svc := newBaseLLMInferenceService()
 		svc.Spec.WorkloadSpec = WorkloadSpec{
@@ -740,6 +901,56 @@ func TestValidateScaling_PrefillWorkload(t *testing.T) {
 		}
 		assert.True(t, foundDecodeErr, "expected error on spec.scaling path for decode workload")
 		assert.True(t, foundPrefillErr, "expected error on spec.prefill.scaling path for prefill workload")
+	})
+
+	t.Run("error: decode direct KEDA, prefill WVA", func(t *testing.T) {
+		svc := newBaseLLMInferenceService()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				KEDA: &DirectKEDAScalingSpec{
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+					},
+				},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.prefill.scaling")
+		assert.Contains(t, errs[0].Detail, "decode uses direct keda but prefill uses wva")
+	})
+
+	t.Run("error: decode WVA, prefill direct KEDA", func(t *testing.T) {
+		svc := newBaseLLMInferenceService()
+		svc.Spec.WorkloadSpec = WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{KEDA: &KEDAScalingSpec{}}},
+			},
+		}
+		svc.Spec.Prefill = &WorkloadSpec{
+			Scaling: &ScalingSpec{
+				MaxReplicas: 5,
+				KEDA: &DirectKEDAScalingSpec{
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{Type: "memory", Metadata: map[string]string{"value": "70"}},
+					},
+				},
+			},
+		}
+
+		errs := validator.validateScaling(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "spec.prefill.scaling")
+		assert.Contains(t, errs[0].Detail, "decode uses wva but prefill uses direct keda")
 	})
 }
 

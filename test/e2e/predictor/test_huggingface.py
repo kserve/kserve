@@ -174,12 +174,12 @@ def test_huggingface_openai_chat_completions_streaming():
     )
 
     # Test streaming response
-    full_response, _ = chat_completion_stream(
+    full_response, chunks = chat_completion_stream(
         service_name, "./data/qwen_input_chat_stream.json"
     )
     trace_logger.info(f"Full response: {full_response}")
 
-    # Verify we got a valid response
+    assert len(chunks) > 0, "expected streaming chunks, got none"
     assert_answers_four(full_response)
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
@@ -289,10 +289,11 @@ def test_huggingface_openai_text_completion_streaming():
         timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
 
-    full_response, _ = completion_stream(
+    full_response, chunks = completion_stream(
         service_name, "./data/qwen_input_cmpl_stream.json"
     )
     trace_logger.info(f"Full response: {full_response}")
+    assert len(chunks) > 0, "expected streaming chunks, got none"
     assert_answers_four(full_response)
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

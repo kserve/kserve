@@ -36,6 +36,10 @@ SCHEDULER_CONFIGMAP_NAME = "scheduler-config-e2e"
 SCHEDULER_CONFIGMAP_KEY = "epp"
 
 OPT_125M_MODEL_URI = os.environ.get("OPT_125M_MODEL_URI", "hf://facebook/opt-125m")
+OPT_125M_OCI_MODEL_URI = os.environ.get(
+    "OPT_125M_OCI_MODEL_URI",
+    f"oci://kserve/opt-125m-modelcar:{os.environ.get('TAG', 'latest')}",
+)
 VLLM_CPU_IMAGE = os.environ.get("VLLM_CPU_IMAGE", "vllm/vllm-openai-cpu:v0.19.0")
 
 # PVC storage test constants
@@ -346,6 +350,9 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     "model-fb-opt-125m": {
         "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
+    },
+    "model-fb-opt-125m-oci": {
+        "model": {"uri": OPT_125M_OCI_MODEL_URI, "name": "facebook/opt-125m"},
     },
     "model-pvc": {
         "model": {"uri": f"pvc://{PVC_STORAGE_NAME}", "name": "facebook/opt-125m"},
@@ -1345,6 +1352,24 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "cooldownPeriod": 10,
                     "initialCooldownPeriod": 0,
                 }
+            },
+        }
+    },
+    "scaling-direct-keda": {
+        "scaling": {
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "keda": {
+                "pollingInterval": 5,
+                "cooldownPeriod": 10,
+                "initialCooldownPeriod": 0,
+                "triggers": [
+                    {
+                        "type": "cpu",
+                        "metricType": "Utilization",
+                        "metadata": {"value": "50"},
+                    }
+                ],
             },
         }
     },

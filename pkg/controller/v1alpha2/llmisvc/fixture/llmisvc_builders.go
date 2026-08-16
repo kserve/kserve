@@ -19,6 +19,7 @@ package fixture
 import (
 	"maps"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -288,6 +289,58 @@ func KEDAScaling(minReplicas int32, maxReplicas int32) *v1alpha2.ScalingSpec {
 	}
 }
 
+// KEDAScalingWithIdleReplicaCount builds scaling.wva.keda with an idleReplicaCount,
+// e.g. idleReplicaCount=0 for true scale-to-zero.
+func KEDAScalingWithIdleReplicaCount(minReplicas int32, maxReplicas int32, idleReplicaCount int32) *v1alpha2.ScalingSpec {
+	return &v1alpha2.ScalingSpec{
+		MinReplicas: &minReplicas,
+		MaxReplicas: maxReplicas,
+		WVA: &v1alpha2.WVASpec{
+			ActuatorSpec: v1alpha2.ActuatorSpec{
+				KEDA: &v1alpha2.KEDAScalingSpec{
+					IdleReplicaCount: &idleReplicaCount,
+				},
+			},
+		},
+	}
+}
+
+// DirectKEDAScaling builds scaling.keda with user-defined triggers (no WVA).
+func DirectKEDAScaling(minReplicas int32, maxReplicas int32, triggers ...kedav1alpha1.ScaleTriggers) *v1alpha2.ScalingSpec {
+	if len(triggers) == 0 {
+		triggers = []kedav1alpha1.ScaleTriggers{
+			{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+		}
+	}
+	return &v1alpha2.ScalingSpec{
+		MinReplicas: &minReplicas,
+		MaxReplicas: maxReplicas,
+		KEDA: &v1alpha2.DirectKEDAScalingSpec{
+			Triggers: triggers,
+		},
+	}
+}
+
+// DirectKEDAScalingWithIdleReplicaCount builds scaling.keda with user-defined triggers and an
+// idleReplicaCount (no WVA), e.g. idleReplicaCount=0 for true scale-to-zero.
+func DirectKEDAScalingWithIdleReplicaCount(minReplicas int32, maxReplicas int32, idleReplicaCount int32, triggers ...kedav1alpha1.ScaleTriggers) *v1alpha2.ScalingSpec {
+	if len(triggers) == 0 {
+		triggers = []kedav1alpha1.ScaleTriggers{
+			{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+		}
+	}
+	return &v1alpha2.ScalingSpec{
+		MinReplicas: &minReplicas,
+		MaxReplicas: maxReplicas,
+		KEDA: &v1alpha2.DirectKEDAScalingSpec{
+			KEDAScalingSpec: v1alpha2.KEDAScalingSpec{
+				IdleReplicaCount: &idleReplicaCount,
+			},
+			Triggers: triggers,
+		},
+	}
+}
+
 func HPAScalingWithBehavior(minReplicas int32, maxReplicas int32, behavior *autoscalingv2.HorizontalPodAutoscalerBehavior) *v1alpha2.ScalingSpec {
 	return &v1alpha2.ScalingSpec{
 		MinReplicas: &minReplicas,
@@ -305,6 +358,21 @@ func HPAScalingWithBehavior(minReplicas int32, maxReplicas int32, behavior *auto
 func ScalingWithVariantCost(base *v1alpha2.ScalingSpec, variantCost string) *v1alpha2.ScalingSpec {
 	base.WVA.VariantCost = variantCost
 	return base
+}
+
+func WithRolloutStrategy(rs *v1alpha2.RolloutStrategy) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		llmSvc.Spec.RolloutStrategy = rs
+	}
+}
+
+func WithPrefillRolloutStrategy(rs *v1alpha2.RolloutStrategy) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		if llmSvc.Spec.Prefill == nil {
+			llmSvc.Spec.Prefill = &v1alpha2.WorkloadSpec{}
+		}
+		llmSvc.Spec.Prefill.RolloutStrategy = rs
+	}
 }
 
 func WithWorkloadLabels(labels map[string]string) LLMInferenceServiceOption {
