@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import asyncio
-import hashlib
 import logging
 import os
 
@@ -37,6 +36,7 @@ from .common.http_retry import (
 )
 
 _ns_logger = logging.getLogger("e2e.namespace")
+_CLEANUP_LOG = _ns_logger
 
 SEED_NAMESPACE = os.environ.get("KSERVE_SEED_NAMESPACE", "kserve-ci-e2e-test")
 S3_CREDENTIALS_SECRET = os.environ.get("S3_CREDENTIALS_SECRET", "seaweedfs-s3-creds")
@@ -140,16 +140,6 @@ def _get_core_api() -> client.CoreV1Api:
             config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
         )
     return client.CoreV1Api()
-
-
-def _generate_namespace_name(node_name: str, prefix: str = "e2e") -> str:
-    """Generate short DNS-safe namespace name from pytest node ID.
-
-    Keeps names short (≤24 chars) to leave room for ISVC hostname construction
-    which combines {isvc_name}-predictor-{namespace} under a 63-char DNS limit.
-    """
-    name_hash = hashlib.sha256(node_name.encode()).hexdigest()[:12]
-    return f"{prefix}-{name_hash}"
 
 
 def _namespace_labels(core_v1: client.CoreV1Api) -> dict:
@@ -263,20 +253,56 @@ def _wait_pods_terminated(core_v1: client.CoreV1Api, namespace: str) -> None:
         time.sleep(2)
 
 
-@pytest.fixture(scope="function")
-def test_namespace(request):
-    """Create isolated namespace for each test, cleanup after."""
+@pytest.fixture(scope="session")
+def _e2e_worker_id(request):
+    workerinput = getattr(request.config, "workerinput", None)
+    if workerinput:
+        return workerinput["workerid"]
+    return "master"
+
+
+def _cleanup_isvcs(namespace: str) -> None:
+    """Delete leftover InferenceServices so a worker namespace does not pile up."""
+    _get_core_api()
+    api = client.CustomObjectsApi()
+    group = "serving.kserve.io"
+    version = "v1beta1"
+    plural = "inferenceservices"
+    try:
+        resp = api.list_namespaced_custom_object(group, version, namespace, plural)
+    except client.rest.ApiException:
+        return
+    for item in resp.get("items", []):
+        name = item["metadata"]["name"]
+        try:
+            api.delete_namespaced_custom_object(group, version, namespace, plural, name)
+        except client.rest.ApiException as e:
+            if e.status != 404:
+                _CLEANUP_LOG.warning(
+                    "Failed to delete ISVC %s/%s: %s", namespace, name, e
+                )
+    deadline = time.monotonic() + 45
+    while time.monotonic() < deadline:
+        try:
+            resp = api.list_namespaced_custom_object(group, version, namespace, plural)
+            if not resp.get("items"):
+                return
+        except client.rest.ApiException:
+            return
+        time.sleep(1)
+
+
+@pytest.fixture(scope="session")
+def test_namespace_session(_e2e_worker_id):
+    """One namespace per xdist worker. Per-test namespaces starve Knative/Istio ingress."""
     core_v1 = _get_core_api()
-    ns_name = _generate_namespace_name(request.node.nodeid)
+    ns_name = f"e2e-{_e2e_worker_id}"[:24]
 
     _create_namespace(core_v1, ns_name)
     _provision_secrets(core_v1, ns_name)
 
     yield ns_name
 
-    # Always delete per-test namespaces unless explicitly told to keep all
-    # resources. Preserving namespaces on failure (SKIP_DELETION_ON_FAILURE)
-    # piles up ISVCs under pytest-xdist and starves the ingress gateway.
     skip_del = os.getenv("SKIP_RESOURCE_DELETION", "").lower() in ("true", "1")
     if skip_del:
         _ns_logger.info(f"Preserving namespace {ns_name}")
@@ -284,6 +310,13 @@ def test_namespace(request):
 
     _wait_pods_terminated(core_v1, ns_name)
     _delete_namespace(core_v1, ns_name)
+
+
+@pytest.fixture(scope="function")
+def test_namespace(test_namespace_session):
+    """Reuse the worker namespace; delete ISVCs after each test."""
+    yield test_namespace_session
+    _cleanup_isvcs(test_namespace_session)
 
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)

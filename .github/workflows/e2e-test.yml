@@ -490,8 +490,8 @@ jobs:
           kubectl describe pods -n kserve
 
       - name: Run predictor E2E tests
-        # Per-test namespace isolation adds ns create/delete overhead per test;
-        # keep extra timeout headroom vs master (60m) but retain xdist=6.
+        # Worker-scoped namespaces keep xdist=6 without per-test NS ingress
+        # starvation; extra timeout headroom vs master (60m) for ISVC cleanup.
         timeout-minutes: 90
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "predictor" "6"
