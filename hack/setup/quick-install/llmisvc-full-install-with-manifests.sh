@@ -6876,12 +6876,15 @@ spec:
                                 - currentReplicas
                                 - currentReplicasIfHigher
                                 - currentReplicasIfLower
+                                - scalingModifiers
                                 type: string
                               failureThreshold:
                                 format: int32
+                                minimum: 0
                                 type: integer
                               replicas:
                                 format: int32
+                                minimum: 0
                                 type: integer
                             required:
                             - failureThreshold
@@ -6905,6 +6908,9 @@ spec:
                                 authenticationRef:
                                   properties:
                                     kind:
+                                      enum:
+                                      - TriggerAuthentication
+                                      - ClusterTriggerAuthentication
                                       type: string
                                     name:
                                       type: string
@@ -6920,6 +6926,7 @@ spec:
                                 name:
                                   type: string
                                 type:
+                                  minLength: 1
                                   type: string
                                 useCachedMetrics:
                                   type: boolean
@@ -23462,12 +23469,15 @@ spec:
                             - currentReplicas
                             - currentReplicasIfHigher
                             - currentReplicasIfLower
+                            - scalingModifiers
                             type: string
                           failureThreshold:
                             format: int32
+                            minimum: 0
                             type: integer
                           replicas:
                             format: int32
+                            minimum: 0
                             type: integer
                         required:
                         - failureThreshold
@@ -23491,6 +23501,9 @@ spec:
                             authenticationRef:
                               properties:
                                 kind:
+                                  enum:
+                                  - TriggerAuthentication
+                                  - ClusterTriggerAuthentication
                                   type: string
                                 name:
                                   type: string
@@ -23506,6 +23519,7 @@ spec:
                             name:
                               type: string
                             type:
+                              minLength: 1
                               type: string
                             useCachedMetrics:
                               type: boolean
@@ -31900,12 +31914,15 @@ spec:
                                 - currentReplicas
                                 - currentReplicasIfHigher
                                 - currentReplicasIfLower
+                                - scalingModifiers
                                 type: string
                               failureThreshold:
                                 format: int32
+                                minimum: 0
                                 type: integer
                               replicas:
                                 format: int32
+                                minimum: 0
                                 type: integer
                             required:
                             - failureThreshold
@@ -31929,6 +31946,9 @@ spec:
                                 authenticationRef:
                                   properties:
                                     kind:
+                                      enum:
+                                      - TriggerAuthentication
+                                      - ClusterTriggerAuthentication
                                       type: string
                                     name:
                                       type: string
@@ -31944,6 +31964,7 @@ spec:
                                 name:
                                   type: string
                                 type:
+                                  minLength: 1
                                   type: string
                                 useCachedMetrics:
                                   type: boolean
@@ -48517,12 +48538,15 @@ spec:
                             - currentReplicas
                             - currentReplicasIfHigher
                             - currentReplicasIfLower
+                            - scalingModifiers
                             type: string
                           failureThreshold:
                             format: int32
+                            minimum: 0
                             type: integer
                           replicas:
                             format: int32
+                            minimum: 0
                             type: integer
                         required:
                         - failureThreshold
@@ -48546,6 +48570,9 @@ spec:
                             authenticationRef:
                               properties:
                                 kind:
+                                  enum:
+                                  - TriggerAuthentication
+                                  - ClusterTriggerAuthentication
                                   type: string
                                 name:
                                   type: string
@@ -48561,6 +48588,7 @@ spec:
                             name:
                               type: string
                             type:
+                              minLength: 1
                               type: string
                             useCachedMetrics:
                               type: boolean
@@ -56733,12 +56761,15 @@ spec:
                                 - currentReplicas
                                 - currentReplicasIfHigher
                                 - currentReplicasIfLower
+                                - scalingModifiers
                                 type: string
                               failureThreshold:
                                 format: int32
+                                minimum: 0
                                 type: integer
                               replicas:
                                 format: int32
+                                minimum: 0
                                 type: integer
                             required:
                             - failureThreshold
@@ -56762,6 +56793,9 @@ spec:
                                 authenticationRef:
                                   properties:
                                     kind:
+                                      enum:
+                                      - TriggerAuthentication
+                                      - ClusterTriggerAuthentication
                                       type: string
                                     name:
                                       type: string
@@ -56777,6 +56811,7 @@ spec:
                                 name:
                                   type: string
                                 type:
+                                  minLength: 1
                                   type: string
                                 useCachedMetrics:
                                   type: boolean
@@ -74017,12 +74052,15 @@ spec:
                             - currentReplicas
                             - currentReplicasIfHigher
                             - currentReplicasIfLower
+                            - scalingModifiers
                             type: string
                           failureThreshold:
                             format: int32
+                            minimum: 0
                             type: integer
                           replicas:
                             format: int32
+                            minimum: 0
                             type: integer
                         required:
                         - failureThreshold
@@ -74046,6 +74084,9 @@ spec:
                             authenticationRef:
                               properties:
                                 kind:
+                                  enum:
+                                  - TriggerAuthentication
+                                  - ClusterTriggerAuthentication
                                   type: string
                                 name:
                                   type: string
@@ -74061,6 +74102,7 @@ spec:
                             name:
                               type: string
                             type:
+                              minLength: 1
                               type: string
                             useCachedMetrics:
                               type: boolean
@@ -82642,12 +82684,15 @@ spec:
                                 - currentReplicas
                                 - currentReplicasIfHigher
                                 - currentReplicasIfLower
+                                - scalingModifiers
                                 type: string
                               failureThreshold:
                                 format: int32
+                                minimum: 0
                                 type: integer
                               replicas:
                                 format: int32
+                                minimum: 0
                                 type: integer
                             required:
                             - failureThreshold
@@ -82671,6 +82716,9 @@ spec:
                                 authenticationRef:
                                   properties:
                                     kind:
+                                      enum:
+                                      - TriggerAuthentication
+                                      - ClusterTriggerAuthentication
                                       type: string
                                     name:
                                       type: string
@@ -82686,6 +82734,7 @@ spec:
                                 name:
                                   type: string
                                 type:
+                                  minLength: 1
                                   type: string
                                 useCachedMetrics:
                                   type: boolean
@@ -99968,12 +100017,15 @@ spec:
                             - currentReplicas
                             - currentReplicasIfHigher
                             - currentReplicasIfLower
+                            - scalingModifiers
                             type: string
                           failureThreshold:
                             format: int32
+                            minimum: 0
                             type: integer
                           replicas:
                             format: int32
+                            minimum: 0
                             type: integer
                         required:
                         - failureThreshold
@@ -99997,6 +100049,9 @@ spec:
                             authenticationRef:
                               properties:
                                 kind:
+                                  enum:
+                                  - TriggerAuthentication
+                                  - ClusterTriggerAuthentication
                                   type: string
                                 name:
                                   type: string
@@ -100012,6 +100067,7 @@ spec:
                             name:
                               type: string
                             type:
+                              minLength: 1
                               type: string
                             useCachedMetrics:
                               type: boolean
