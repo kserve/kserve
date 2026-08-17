@@ -2427,18 +2427,22 @@ func TestReplaceVariables_NixlTransferConfigBashSafe(t *testing.T) {
 
 	// Mirrors the decode/prefill templates: user-supplied config wins, then the
 	// version-gated OffloadingConnector, then the P/D NixlConnector fallback.
-	const scriptTmpl = `VLLM_VERSION="0.1.dev1+g51f799c1a"
-KV_TRANSFER_ARGS=""
-if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-  if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-    KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
-  fi
-  if [ -z "${KV_TRANSFER_ARGS}" ]; then
-    KV_TRANSFER_ARGS="{{ KV_HELPER }}"
-  fi
-fi
-eval "set -- ${KV_TRANSFER_ARGS}"
-printf '%s' "$2"`
+	// Kept as joined lines rather than one raw literal: golangci-lint's --fix rewrites a
+	// multi-line raw string here and drops a line in the process, leaving unbalanced if/fi.
+	scriptTmpl := strings.Join([]string{
+		`VLLM_VERSION="0.1.dev1+g51f799c1a"`,
+		`KV_TRANSFER_ARGS=""`,
+		`if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then`,
+		`  if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then`,
+		`    KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"`,
+		`  fi`,
+		`  if [ -z "${KV_TRANSFER_ARGS}" ]; then`,
+		`    KV_TRANSFER_ARGS="{{ KV_HELPER }}"`,
+		`  fi`,
+		`fi`,
+		`eval "set -- ${KV_TRANSFER_ARGS}"`,
+		`printf '%s' "$2"`,
+	}, "\n")
 
 	for _, tc := range []struct {
 		name   string
