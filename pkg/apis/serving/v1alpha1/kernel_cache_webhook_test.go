@@ -162,8 +162,7 @@ func TestSignAndVerifyMutation(t *testing.T) {
 	digest := "sha256:abc123def456"
 
 	// Test signing
-	sig, err := signMutation(secret, image, digest)
-	g.Expect(err).ToNot(gomega.HaveOccurred())
+	sig := signMutation(secret, image, digest)
 	g.Expect(sig).ToNot(gomega.BeEmpty())
 
 	// Test valid verification

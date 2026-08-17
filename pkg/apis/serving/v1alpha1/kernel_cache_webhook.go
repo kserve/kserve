@@ -245,11 +245,7 @@ func (kc *KernelCache) Default(ctx context.Context, obj runtime.Object) error {
 		return apierrors.NewBadRequest("webhook configuration error: " + err.Error())
 	}
 
-	sig, err := signMutation(secret, cache.Spec.Image, digest)
-	if err != nil {
-		return apierrors.NewBadRequest(fmt.Sprintf("failed to sign mutation: %v", err))
-	}
-	cache.Annotations[AnnotationMutationSig] = sig
+	cache.Annotations[AnnotationMutationSig] = signMutation(secret, cache.Spec.Image, digest)
 
 	kernelcacheLog.Info("added/updated resolvedDigest", "image", cache.Spec.Image, "digest", digest)
 	return nil
@@ -606,11 +602,12 @@ func extractMountingMetadataFromImage(imageRef string) map[string]string {
 	}
 
 	// Log if any mounting metadata is missing (expected for older images)
-	if len(result) == 0 {
+	switch {
+	case len(result) == 0:
 		kernelcacheLog.V(1).Info("No mounting metadata labels found in image (this is expected for images created before generic mounting support)")
-	} else if len(result) < 3 {
+	case len(result) < 3:
 		kernelcacheLog.Info("Incomplete mounting metadata found in image", "found", len(result), "expected", 3)
-	} else {
+	default:
 		kernelcacheLog.Info("Extracted complete mounting metadata from image",
 			"hash", result["cache-hash"],
 			"subpath", result["cache-mount-subpath"],
@@ -729,13 +726,13 @@ func mutationKeyFromEnv() (string, error) {
 
 // signMutation creates HMAC signature: HMAC(secret, image|digest), base64-encoded
 // The signature binds the digest to the image ref to prevent digest tampering
-func signMutation(secret, image, digest string) (string, error) {
+func signMutation(secret, image, digest string) string {
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(image))
 	mac.Write([]byte("|"))
 	mac.Write([]byte(digest))
 	sum := mac.Sum(nil)
-	return base64.StdEncoding.EncodeToString(sum), nil
+	return base64.StdEncoding.EncodeToString(sum)
 }
 
 // verifyMutation verifies the HMAC signature matches expected value
@@ -744,7 +741,7 @@ func verifyMutation(secret, image, digest, sigB64 string) bool {
 	if sigB64 == "" {
 		return false
 	}
-	wantSig, _ := signMutation(secret, image, digest)
+	wantSig := signMutation(secret, image, digest)
 	want, _ := base64.StdEncoding.DecodeString(wantSig)
 	got, err := base64.StdEncoding.DecodeString(sigB64)
 	if err != nil {

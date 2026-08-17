@@ -183,7 +183,7 @@ var (
 	KernelCachePVCNameAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/kernelcache-pvc-name"
 	DisableKernelCacheKey           = KServeAPIGroupName + "/disable-kernelcache"
 	// KernelCacheCapture label for triggering cache capture
-	KernelCacheCaptureLabel             = KServeAPIGroupName + "/cache-capture"
+	KernelCacheCaptureLabel             = InferenceServiceInternalAnnotationsPrefix + "/kernelcachecapture"
 	ConfidentialEnabledAnnotationKey    = InferenceServiceInternalAnnotationsPrefix + "/confidential-enabled"
 	ConfidentialResourceIdAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/confidential-resource-id"
 )

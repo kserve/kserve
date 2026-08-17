@@ -168,7 +168,7 @@ func TestReconcile_AddsFinalizer(t *testing.T) {
 		NamespacedName: types.NamespacedName{Name: "test-kcc", Namespace: "default"},
 	})
 	assert.NoError(t, err)
-	assert.True(t, result.Requeue, "Should requeue after adding finalizer")
+	assert.NotZero(t, result.RequeueAfter, "Should requeue after adding finalizer")
 
 	// Verify finalizer was added
 	updated := &v1alpha1.KernelCacheCapture{}
@@ -196,7 +196,7 @@ func TestReconcile_InitializesPhase(t *testing.T) {
 		NamespacedName: types.NamespacedName{Name: "test-kcc", Namespace: "default"},
 	})
 	assert.NoError(t, err)
-	assert.True(t, result.Requeue, "Should requeue after initializing phase")
+	assert.NotZero(t, result.RequeueAfter, "Should requeue after initializing phase")
 
 	// Verify phase was set to Pending
 	updated := &v1alpha1.KernelCacheCapture{}
@@ -331,7 +331,7 @@ func TestHandlePendingPhase_PodNotRunning(t *testing.T) {
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				"serving.kserve.io/cache-capture": "test-kcc",
+				"internal.serving.kserve.io/kernelcachecapture": "test-kcc",
 			},
 		},
 		Status: corev1.PodStatus{
@@ -368,7 +368,7 @@ func TestHandlePendingPhase_ContainerNotReady(t *testing.T) {
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				"serving.kserve.io/cache-capture": "test-kcc",
+				"internal.serving.kserve.io/kernelcachecapture": "test-kcc",
 			},
 		},
 		Status: corev1.PodStatus{
@@ -411,7 +411,7 @@ func TestHandlePendingPhase_TransitionsToCapturing(t *testing.T) {
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				"serving.kserve.io/cache-capture": "test-kcc",
+				"internal.serving.kserve.io/kernelcachecapture": "test-kcc",
 			},
 		},
 		Status: corev1.PodStatus{

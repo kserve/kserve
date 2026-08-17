@@ -77,9 +77,7 @@ func (f *FileSystemHelper) hasCacheFolder(storageKey string) (bool, error) {
 }
 
 func (f *FileSystemHelper) ensureCacheRootFolderExists() error {
-	// If the folder already exists, this will do nothing
-	// 0755 allows owner (agent) to write, all users to read/traverse
-	if err := os.MkdirAll(f.cachesRootFolder, 0o755); err != nil {
+	if err := os.MkdirAll(f.cachesRootFolder, 0o750); err != nil {
 		return err
 	}
 	return nil

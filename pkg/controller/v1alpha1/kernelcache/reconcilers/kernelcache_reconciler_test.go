@@ -431,7 +431,7 @@ func TestReconcileImageVolume(t *testing.T) {
 			Scheme:    scheme,
 		}
 
-		_, err := reconciler.reconcileImageVolume(context.TODO(), kc, nil, v1alpha1.KernelCacheMountTypeImageVolume)
+		_, err := reconciler.reconcileImageVolume(context.TODO(), kc, v1alpha1.KernelCacheMountTypeImageVolume)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -480,7 +480,7 @@ func TestReconcileImageVolume(t *testing.T) {
 			Scheme:    scheme,
 		}
 
-		_, err := reconciler.reconcileImageVolume(context.TODO(), kc, nil, v1alpha1.KernelCacheMountTypeImageVolume)
+		_, err := reconciler.reconcileImageVolume(context.TODO(), kc, v1alpha1.KernelCacheMountTypeImageVolume)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -535,12 +535,9 @@ func TestReconcileImageVolume(t *testing.T) {
 			Scheme:    scheme,
 		}
 
-		result, err := reconciler.reconcileImageVolume(context.TODO(), kc, nil, v1alpha1.KernelCacheMountTypeImageVolume)
+		result, err := reconciler.reconcileImageVolume(context.TODO(), kc, v1alpha1.KernelCacheMountTypeImageVolume)
 		if err != nil {
 			t.Errorf("expected no error, got %v", err)
-		}
-		if result.Requeue {
-			t.Error("expected no requeue")
 		}
 		if result.RequeueAfter != 0 {
 			t.Errorf("expected no requeue after, got %v", result.RequeueAfter)
@@ -576,14 +573,10 @@ func TestReconcileImageVolume(t *testing.T) {
 			Scheme:    scheme,
 		}
 
-		result, err := reconciler.reconcileImageVolume(context.TODO(), kc, nil, v1alpha1.KernelCacheMountTypeImageVolume)
+		_, err := reconciler.reconcileImageVolume(context.TODO(), kc, v1alpha1.KernelCacheMountTypeImageVolume)
 		if err != nil {
 			t.Fatalf("expected no error with missing nodes, got %v", err)
 		}
-		if result.Requeue {
-			t.Error("expected no requeue")
-		}
-
 		// Verify status is still Pending (no nodes = no state change)
 		updated := &v1alpha1.KernelCache{}
 		err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: "test-cache", Namespace: "default"}, updated)
