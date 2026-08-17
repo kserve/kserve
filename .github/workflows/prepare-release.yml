@@ -21,6 +21,7 @@ concurrency:
 jobs:
   prepare-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
 

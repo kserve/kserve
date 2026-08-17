@@ -682,13 +682,27 @@ func createRawTopLevelHTTPRoute(ctx context.Context, client client.Client, isvc 
 }
 
 // applyCanaryWeights modifies the HTTPRoute's backend refs to include weighted
-// backends for canary traffic splitting.
+// backends for canary traffic splitting. Only canaries whose deployments are
+// Ready (as reported in isvc.Status.CanaryStatuses) receive traffic; not-ready
+// canaries are omitted so no traffic is routed to a backend without ready
+// endpoints.
+//
+// This function only modifies rules whose backend points to the stable predictor
+// (identified by predictorName). Other rules (e.g., explainer, transformer) are
+// left unchanged.
 func applyCanaryWeights(isvc *v1beta1.InferenceService, predictorName string, httpRoute *gwapiv1.HTTPRoute) {
-	var totalCanaryPercent int32
-	for _, canary := range isvc.Spec.Canary {
-		totalCanaryPercent += canary.TrafficPercent
+	readyMap := make(map[string]bool, len(isvc.Status.CanaryStatuses))
+	for _, cs := range isvc.Status.CanaryStatuses {
+		readyMap[cs.Name] = cs.Ready
 	}
-	stableWeight := int32(100) - totalCanaryPercent
+
+	var totalReadyCanaryPercent int32
+	for _, canary := range isvc.Spec.Canary {
+		if readyMap[canary.Predictor.Name] {
+			totalReadyCanaryPercent += canary.TrafficPercent
+		}
+	}
+	stableWeight := int32(100) - totalReadyCanaryPercent
 
 	for i := range httpRoute.Spec.Rules {
 		rule := &httpRoute.Spec.Rules[i]
@@ -712,6 +726,9 @@ func applyCanaryWeights(isvc *v1beta1.InferenceService, predictorName string, ht
 		weightedBackends = append(weightedBackends, stable)
 
 		for _, canary := range isvc.Spec.Canary {
+			if !readyMap[canary.Predictor.Name] {
+				continue
+			}
 			canaryServiceName := constants.PredictorServiceName(isvc.Name, canary.Predictor.Name)
 			cw := canary.TrafficPercent
 			backend := gwapiv1.HTTPBackendRef{

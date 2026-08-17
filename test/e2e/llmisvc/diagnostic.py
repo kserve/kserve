@@ -228,6 +228,37 @@ def _emit_container_logs(
             log("# -- logs (%s): unavailable (%s)", label, e)
 
 
+def collect_endpoint_slices(namespace: str, log: Callable = _log.info):
+    """Dump EndpointSlices in `namespace`.
+
+    EndpointSlices are labeled by Service (kubernetes.io/service-name), not by
+    llmisvc labels, so the label-based resource sweep misses them. They show
+    which backend pods were Ready at collection time - useful for correlating
+    routing errors with backend readiness.
+    """
+    disco = client.DiscoveryV1Api()
+    try:
+        slices = disco.list_namespaced_endpoint_slice(namespace=namespace).items
+        for es in slices:
+            svc = (es.metadata.labels or {}).get("kubernetes.io/service-name", "?")
+            endpoints = [
+                {
+                    "addresses": ep.addresses,
+                    "ready": ep.conditions.ready if ep.conditions else None,
+                    "targetRef": ep.target_ref.name if ep.target_ref else None,
+                }
+                for ep in (es.endpoints or [])
+            ]
+            log(
+                "### EndpointSlice %s (service=%s): %s",
+                es.metadata.name,
+                svc,
+                endpoints,
+            )
+    except Exception as e:
+        log("# failed to collect EndpointSlices: %s", e)
+
+
 def collect_diagnostics(
     service_name: str,
     namespace: str,
@@ -258,6 +289,7 @@ def collect_diagnostics(
             log("# failed to dump LLMInferenceService: %s", e)
 
     print_all_events_table(namespace, log=log)
+    collect_endpoint_slices(namespace, log=log)
     collect_pod_logs(namespace, labels, log=log)
 
     for obj in kinds_matching_by_labels(namespace, labels):

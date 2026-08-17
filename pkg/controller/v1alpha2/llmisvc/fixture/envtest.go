@@ -60,10 +60,6 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 			Config:        cfg,
 			Clientset:     clientSet,
 			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "LLMInferenceServiceController"}),
-			Validator: func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
-				_, err := (&v1alpha2.LLMInferenceServiceValidator{}).ValidateCreate(ctx, llmSvc)
-				return err
-			},
 		}
 		return llmCtrl.SetupWithManager(mgr)
 	}

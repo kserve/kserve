@@ -19,6 +19,7 @@ package ingress
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
@@ -160,7 +161,14 @@ func createAddress(ctx context.Context, cl client.Client, isvc *v1beta1.Inferenc
 		return nil, fmt.Errorf("failed to get entry point service %s: %w", entryPointSvcName, err)
 	}
 	if entryPointSvc.Spec.ClusterIP == corev1.ClusterIPNone {
-		host = host + ":" + constants.InferenceServiceDefaultHttpPort
+		port := constants.InferenceServiceDefaultHttpPort
+		if p := httpTargetPort(entryPointSvc); p != "" {
+			port = p
+		} else {
+			log.Info("No HTTP target port found on service, defaulting to InferenceServiceDefaultHttpPort",
+				"defaultPort", constants.InferenceServiceDefaultHttpPort, "service", entryPointSvc.Name)
+		}
+		host = host + ":" + port
 	}
 	return &duckv1.Addressable{
 		URL: &apis.URL{
@@ -169,6 +177,25 @@ func createAddress(ctx context.Context, cl client.Client, isvc *v1beta1.Inferenc
 			Path:   "",
 		},
 	}, nil
+}
+
+// httpTargetPort returns the target port (as a string) of the first non-gRPC
+// port on the Service, which is the port the container actually listens on.
+// For headless Services the address must use this port directly because there
+// is no ClusterIP to perform port remapping.
+func httpTargetPort(svc *corev1.Service) string {
+	for _, p := range svc.Spec.Ports {
+		if isGrpcPortByName(p.Name) {
+			continue
+		}
+		if p.AppProtocol != nil && *p.AppProtocol == "kubernetes.io/h2c" {
+			continue
+		}
+		if p.TargetPort.IntValue() > 0 {
+			return strconv.Itoa(p.TargetPort.IntValue())
+		}
+	}
+	return ""
 }
 
 func generateRule(ingressHost string, componentName string, path string, port int32) netv1.IngressRule { //nolint:unparam
