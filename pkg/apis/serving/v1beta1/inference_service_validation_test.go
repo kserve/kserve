@@ -571,6 +571,105 @@ func TestAutoscalerClassKEDA(t *testing.T) {
 			},
 			errMatcher: gomega.BeNil(),
 		},
+		"Reject KEDA without any autoScaling spec": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "keda",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("requires at least one component")),
+		},
+		"Reject KEDA with transformer but no autoScaling on any component": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "RawDeployment",
+						"serving.kserve.io/autoscalerClass": "keda",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							Containers: []corev1.Container{
+								{Image: "some-transformer:latest"},
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("requires at least one component")),
+		},
+		"Valid KEDA with autoScaling on transformer only": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "keda",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+					Transformer: &TransformerSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							AutoScaling: &AutoScalingSpec{
+								Metrics: []MetricsSpec{
+									{
+										Type: ResourceMetricSourceType,
+										Resource: &ResourceMetricSource{
+											Name: ResourceMetricCPU,
+											Target: MetricTarget{
+												Type:               UtilizationMetricType,
+												AverageUtilization: ptr.To(int32(80)),
+											},
+										},
+									},
+								},
+							},
+						},
+						PodSpec: PodSpec{
+							Containers: []corev1.Container{
+								{Image: "some-transformer:latest"},
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
