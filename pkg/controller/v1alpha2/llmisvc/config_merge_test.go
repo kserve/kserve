@@ -2121,6 +2121,60 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
+			name: "nixlTransferConfig renders the decode-side NixlConnector consumer role",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`{{ nixlDecodeTransferConfig }}`}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								// Same escaping contract as kvTransferConfig: quotes stay as \" so the
+								// value survives the KV_TRANSFER_ARGS="..." bash assignment.
+								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "nixlTransferConfig renders the prefill-side NixlConnector producer role",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`{{ nixlPrefillTransferConfig }}`}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "kvTransferConfig includes eviction policy when set",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
@@ -2357,6 +2411,79 @@ printf '%s' "$2"`
 		HaveKeyWithValue("spec_name", "TieringOffloadingSpec"),
 		HaveKeyWithValue("eviction_policy", "lru"),
 	))
+}
+
+// TestReplaceVariables_NixlTransferConfigBashSafe runs the P/D templates' actual
+// KV_TRANSFER_ARGS shape through bash. VLLM_VERSION is pinned to the string the llm-d
+// engine images really report ("0.1.dev1+g51f799c1a"), which can never satisfy the
+// 0.22.0 OffloadingConnector gate — so this also pins the behaviour that matters for
+// #5987: on those images the NixlConnector fallback is what reaches vLLM, and the JSON
+// survives the bash assignment intact.
+func TestReplaceVariables_NixlTransferConfigBashSafe(t *testing.T) {
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available")
+	}
+
+	// Mirrors the decode/prefill templates: user-supplied config wins, then the
+	// version-gated OffloadingConnector, then the P/D NixlConnector fallback.
+	const scriptTmpl = `VLLM_VERSION="0.1.dev1+g51f799c1a"
+KV_TRANSFER_ARGS=""
+if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+  if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+    KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+  fi
+  if [ -z "${KV_TRANSFER_ARGS}" ]; then
+    KV_TRANSFER_ARGS="{{ KV_HELPER }}"
+  fi
+fi
+eval "set -- ${KV_TRANSFER_ARGS}"
+printf '%s' "$2"`
+
+	for _, tc := range []struct {
+		name   string
+		helper string
+		role   string
+	}{
+		{name: "decode consumes KV", helper: "nixlDecodeTransferConfig", role: "kv_consumer"},
+		{name: "prefill produces KV", helper: "nixlPrefillTransferConfig", role: "kv_producer"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			cfg := &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Command: []string{"/bin/bash", "-c", strings.ReplaceAll(scriptTmpl, "KV_HELPER", tc.helper)}},
+							},
+						},
+					},
+				},
+			}
+
+			// No kvCacheOffloading: this is a plain P/D topology, the #5987 reproducer.
+			got, err := llmisvc.ReplaceVariables(&v1alpha2.LLMInferenceService{}, cfg, nil)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			renderedScript := got.Spec.Template.Containers[0].Command[2]
+			out, err := exec.CommandContext(t.Context(), bashPath, "-c", renderedScript).CombinedOutput() // #nosec G204 -- test input, not user data
+			g.Expect(err).ToNot(HaveOccurred(), "bash execution failed: %s", string(out))
+
+			var parsed map[string]any
+			g.Expect(json.Unmarshal(out, &parsed)).To(Succeed(), "vllm would reject: %q", string(out))
+			g.Expect(parsed).To(HaveKeyWithValue("kv_connector", "NixlConnector"))
+			g.Expect(parsed).To(HaveKeyWithValue("kv_role", tc.role))
+
+			// A user-supplied connector must still win over the injected default.
+			userOwned := exec.CommandContext(t.Context(), bashPath, "-c", renderedScript) // #nosec G204 -- test input, not user data
+			userOwned.Env = append(userOwned.Environ(), `VLLM_ADDITIONAL_ARGS=--kv-transfer-config '{"kv_connector":"MyConnector"}'`)
+			out, err = userOwned.CombinedOutput()
+			g.Expect(err).ToNot(HaveOccurred(), "bash execution failed: %s", string(out))
+			g.Expect(string(out)).To(BeEmpty(), "KServe overrode a user-supplied --kv-transfer-config")
+		})
+	}
 }
 
 func mustParseURL(s string) apis.URL {
