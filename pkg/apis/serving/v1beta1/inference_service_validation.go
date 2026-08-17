@@ -479,12 +479,32 @@ func validateInferenceServiceAutoscaler(isvc *InferenceService) error {
 	value, ok := annotations[constants.AutoscalerClass]
 	class := constants.AutoscalerClassType(value)
 	if ok {
-		for _, item := range constants.AutoscalerAllowedClassList {
-			if class == item {
-				return nil
+		if !slices.Contains(constants.AutoscalerAllowedClassList, class) {
+			return fmt.Errorf("[%s] is not a supported autoscaler class type", value)
+		}
+		// KEDA requires at least one component to declare an autoScaling spec;
+		// without one no ScaledObject can be created and the ISVC would silently
+		// deploy with no autoscaling.
+		if class == constants.AutoscalerClassKeda {
+			hasAutoScaling := false
+			for _, component := range []Component{
+				&isvc.Spec.Predictor,
+				isvc.Spec.Transformer,
+				isvc.Spec.Explainer,
+			} {
+				if !reflect.ValueOf(component).IsNil() {
+					ext := component.GetExtensions()
+					if ext != nil && ext.AutoScaling != nil {
+						hasAutoScaling = true
+						break
+					}
+				}
+			}
+			if !hasAutoScaling {
+				return fmt.Errorf("autoscalerClass %q requires at least one component "+
+					"(predictor, transformer, or explainer) to have an autoScaling spec", value)
 			}
 		}
-		return fmt.Errorf("[%s] is not a supported autoscaler class type", value)
 	}
 
 	return nil

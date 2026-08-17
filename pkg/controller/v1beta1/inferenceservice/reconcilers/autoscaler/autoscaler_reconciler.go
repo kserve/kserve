@@ -89,6 +89,15 @@ func createAutoscaler(client client.Client,
 	configMap *corev1.ConfigMap,
 ) (Autoscaler, error) {
 	ac := getAutoscalerClass(componentMeta)
+	// When KEDA is selected at the ISVC level, only create a ScaledObject for
+	// components that explicitly declare an autoScaling spec. Unlike HPA, KEDA
+	// has no legacy fallback and would produce an invalid ScaledObject with
+	// empty triggers. Components without autoScaling get a NoOpAutoscaler,
+	// allowing predictor, transformer, and explainer to be configured
+	// independently.
+	if ac == constants.AutoscalerClassKeda && (componentExt == nil || componentExt.AutoScaling == nil) {
+		return &NoOpAutoscaler{}, nil
+	}
 	switch ac {
 	case constants.AutoscalerClassHPA, constants.AutoscalerClassExternal, constants.AutoscalerClassNone:
 		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt)
