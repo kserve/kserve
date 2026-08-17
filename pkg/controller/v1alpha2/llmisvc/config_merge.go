@@ -686,6 +686,21 @@ type templateGlobalConfig struct {
 
 // ReplaceVariables processes the configuration as a Go template to substitute
 // variables with values from the LLM service and global configuration.
+// nixlTransferConfig builds the NixlConnector --kv-transfer-config argument for the given
+// kv_role. Escaping matches kvTransferConfig: \\\" decodes to \" after ReplaceVariables
+// re-unmarshals the rendered template as JSON, and the \" then survives the
+// KV_TRANSFER_ARGS="..." bash assignment in the config templates.
+func nixlTransferConfig(role string) string {
+	b, err := json.Marshal(map[string]any{
+		"kv_connector": "NixlConnector",
+		"kv_role":      role,
+	})
+	if err != nil {
+		return ""
+	}
+	return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\\\"`) + "'"
+}
+
 func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig, reconcilerConfig *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
 	templateBytes, err := json.Marshal(llmSvcCfg)
 	if err != nil {
@@ -763,6 +778,19 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 				// template. Plain " would be eaten by the shell and vLLM would get invalid JSON.
 				return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\\\"`) + "'"
 			},
+			// nixlPrefillTransferConfig / nixlDecodeTransferConfig render the engine-side
+			// NixlConnector --kv-transfer-config for a disaggregated Prefill/Decode topology.
+			// The routing sidecar (--kv-connector=nixlv2) only orchestrates the handoff; without
+			// a connector on the engines themselves vLLM logs "Got kv_transfer_params, but no
+			// KVConnector found" and decode silently recomputes the KV prefill just produced.
+			//
+			// The role is split across two zero-argument funcs rather than passed as an argument
+			// because ReplaceVariables json.Marshal's the config before parsing it as a template:
+			// a quoted string literal inside {{ }} would arrive as \" and fail to parse.
+			//
+			// kv_both is deliberately not used — vLLM deprecates it for NixlConnector.
+			"nixlPrefillTransferConfig": func() string { return nixlTransferConfig("kv_producer") },
+			"nixlDecodeTransferConfig":  func() string { return nixlTransferConfig("kv_consumer") },
 			// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
 			// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
 			// The 5-second buffer reserves time for signal propagation and final process cleanup

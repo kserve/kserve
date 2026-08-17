@@ -396,6 +396,14 @@ func TestPresetFiles(t *testing.T) {
 											Value: "/models",
 										},
 										{
+											Name: "VLLM_NIXL_SIDE_CHANNEL_HOST",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "status.podIP",
+												},
+											},
+										},
+										{
 											Name:  "VLLM_RANDOMIZE_DP_DUMMY_INPUTS",
 											Value: "1",
 										},
