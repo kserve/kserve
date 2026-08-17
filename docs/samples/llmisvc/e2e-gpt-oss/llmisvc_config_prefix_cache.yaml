@@ -85,7 +85,3 @@ spec:
                 - pluginRef: active-request-scorer
                   weight: 3
                 - pluginRef: max-score-picker
-      pool:
-        spec:
-          endpointPickerRef:
-            group: ""
