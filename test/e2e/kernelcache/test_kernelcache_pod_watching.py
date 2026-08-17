@@ -101,12 +101,18 @@ async def test_kernelcache_state_transitions():
                 extracted = True
                 break
 
-        assert extracted, f"KernelCache did not reach Extracted state within 60s, current state: {state}"
+        assert extracted, (
+            f"KernelCache did not reach Extracted state within 60s, current state: {state}"
+        )
 
         # Verify initial pod counts are zero
         counts = kc.get("status", {}).get("counts", {})
-        assert counts.get("podRunningCnt", 0) == 0, "Should have 0 pods running initially"
-        assert counts.get("nodeInUseCnt", 0) == 0, "Should have 0 nodes in use initially"
+        assert counts.get("podRunningCnt", 0) == 0, (
+            "Should have 0 pods running initially"
+        )
+        assert counts.get("nodeInUseCnt", 0) == 0, (
+            "Should have 0 nodes in use initially"
+        )
 
         # Create a pod that mounts the kernel cache Serving PVC
         # Serving PVC naming: {cache_name} (same as cache name)
@@ -184,7 +190,9 @@ async def test_kernelcache_state_transitions():
                 state_running = True
                 break
 
-        assert state_running, f"KernelCache did not transition to Running state within 90s, current state: {state}"
+        assert state_running, (
+            f"KernelCache did not transition to Running state within 90s, current state: {state}"
+        )
 
         # Verify pod counts are updated
         counts = kc.get("status", {}).get("counts", {})
@@ -201,11 +209,17 @@ async def test_kernelcache_state_transitions():
         )
 
         # Check cache status on this node
-        cache_status = kcnode.get("status", {}).get("cacheStatus", {}).get(cache_name, {})
-        assert cache_status.get("state") == "Running", f"Node cache state should be Running, got: {cache_status.get('state')}"
+        cache_status = (
+            kcnode.get("status", {}).get("cacheStatus", {}).get(cache_name, {})
+        )
+        assert cache_status.get("state") == "Running", (
+            f"Node cache state should be Running, got: {cache_status.get('state')}"
+        )
 
         # Verify serving namespace counts
-        serving_ns = cache_status.get("servingNamespaces", {}).get(KSERVE_TEST_NAMESPACE, {})
+        serving_ns = cache_status.get("servingNamespaces", {}).get(
+            KSERVE_TEST_NAMESPACE, {}
+        )
         assert serving_ns.get("podsUsing", 0) >= 1, "Should count pod using cache"
         assert serving_ns.get("podsReady", 0) >= 1, "Should count ready pod"
 
@@ -247,12 +261,18 @@ async def test_kernelcache_state_transitions():
                 state_extracted = True
                 break
 
-        assert state_extracted, f"KernelCache did not transition back to Extracted state within 90s, current state: {state}"
+        assert state_extracted, (
+            f"KernelCache did not transition back to Extracted state within 90s, current state: {state}"
+        )
 
         # Verify pod counts are back to zero
         counts = kc.get("status", {}).get("counts", {})
-        assert counts.get("podRunningCnt", 0) == 0, "Should have 0 pods running after deletion"
-        assert counts.get("nodeInUseCnt", 0) == 0, "Should have 0 nodes in use after deletion"
+        assert counts.get("podRunningCnt", 0) == 0, (
+            "Should have 0 pods running after deletion"
+        )
+        assert counts.get("nodeInUseCnt", 0) == 0, (
+            "Should have 0 nodes in use after deletion"
+        )
 
     finally:
         # Cleanup: Delete pod if still exists
@@ -410,11 +430,15 @@ async def test_kernelcache_multiple_pods_counting():
             name=cache_name,
         )
         counts = kc.get("status", {}).get("counts", {})
-        assert counts.get("podRunningCnt", 0) >= 2, f"Should have at least 2 pods running, got: {counts.get('podRunningCnt')}"
+        assert counts.get("podRunningCnt", 0) >= 2, (
+            f"Should have at least 2 pods running, got: {counts.get('podRunningCnt')}"
+        )
 
         # Verify serving status shows namespace counts
         serving_status = kc.get("status", {}).get("servingStatus", {})
-        ns_counts = serving_status.get("namespaceCounts", {}).get(KSERVE_TEST_NAMESPACE, {})
+        ns_counts = serving_status.get("namespaceCounts", {}).get(
+            KSERVE_TEST_NAMESPACE, {}
+        )
         assert ns_counts.get("podsUsing", 0) >= 2, "Should count 2 pods using cache"
 
     finally:

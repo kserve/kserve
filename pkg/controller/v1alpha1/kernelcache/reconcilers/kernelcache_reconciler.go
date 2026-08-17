@@ -148,7 +148,7 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// Branch based on mount type
 	if mountType == v1alpha1.KernelCacheMountTypeImageVolume {
-		return r.reconcileImageVolume(ctx, kc, kernelCacheConfig, mountType)
+		return r.reconcileImageVolume(ctx, kc, mountType)
 	}
 
 	// PVC mode (traditional extraction)
@@ -280,7 +280,6 @@ func (r *KernelCacheReconciler) handleDeletion(
 func (r *KernelCacheReconciler) reconcileImageVolume(
 	ctx context.Context,
 	kc *v1alpha1.KernelCache,
-	kernelCacheConfig *v1beta1.KernelCacheConfig,
 	mountType v1alpha1.KernelCacheMountType,
 ) (ctrl.Result, error) {
 	r.Log.Info("Reconciling KernelCache in image volume mode",
@@ -1041,14 +1040,14 @@ func (r *KernelCacheReconciler) updateAggregateStatus(
 
 	// Calculate overall state based on hierarchy: Error > Running > Extracted > Downloading > Pending
 	state := v1alpha1.CacheStatePending
-	if counts.NodeErrorCnt > 0 {
+	switch {
+	case counts.NodeErrorCnt > 0:
 		state = v1alpha1.CacheStateError
-	} else if counts.NodeInUseCnt > 0 || servingStatus.TotalPodsUsing > 0 {
+	case counts.NodeInUseCnt > 0 || servingStatus.TotalPodsUsing > 0:
 		state = v1alpha1.CacheStateRunning
-	} else if counts.NodeNotInUseCnt > 0 {
+	case counts.NodeNotInUseCnt > 0:
 		state = v1alpha1.CacheStateExtracted
-	} else if counts.NodeCnt > 0 {
-		// Nodes exist but no extracted/running/error = downloading
+	case counts.NodeCnt > 0:
 		state = v1alpha1.CacheStateDownloading
 	}
 

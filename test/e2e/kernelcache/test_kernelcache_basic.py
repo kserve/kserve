@@ -141,7 +141,9 @@ async def test_kernelcache_basic():
                 break
             await asyncio.sleep(1)
         else:
-            pytest.fail(f"Extraction Job for cache {cache_name} was not created within 30 seconds")
+            pytest.fail(
+                f"Extraction Job for cache {cache_name} was not created within 30 seconds"
+            )
 
         # Wait for extraction Job to complete (up to 2 minutes)
         for _ in range(24):  # 24 * 5s = 2 minutes
@@ -171,14 +173,18 @@ async def test_kernelcache_basic():
                 name=cache_name,
             )
             # Check if ready (has available copies, no failures)
-            if ("status" in kc and
-                "cacheCopies" in kc["status"] and
-                kc["status"]["cacheCopies"]["available"] > 0 and
-                kc["status"]["cacheCopies"]["failed"] == 0):
+            if (
+                "status" in kc
+                and "cacheCopies" in kc["status"]
+                and kc["status"]["cacheCopies"]["available"] > 0
+                and kc["status"]["cacheCopies"]["failed"] == 0
+            ):
                 break
             await asyncio.sleep(1)
         else:
-            pytest.fail(f"KernelCache {cache_name} did not become ready within 30 seconds")
+            pytest.fail(
+                f"KernelCache {cache_name} did not become ready within 30 seconds"
+            )
 
         # Verify KernelCache is ready
         assert "status" in kc, "KernelCache should have status"

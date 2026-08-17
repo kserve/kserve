@@ -49,9 +49,9 @@ var _ = Describe("KernelCacheNode Controller", func() {
 		)
 
 		BeforeEach(func() {
-			kernelCacheName = "test-cache-" + randStringRunes(5)
+			kernelCacheName = "test-cache-" + randStringRunes()
 			kernelCacheNamespace = "default"
-			nodeName = "test-node-" + randStringRunes(5)
+			nodeName = "test-node-" + randStringRunes()
 
 			// Create a test node
 			node := &corev1.Node{
@@ -119,7 +119,7 @@ var _ = Describe("KernelCacheNode Controller", func() {
 
 			kcNode = &v1alpha1.KernelCacheNode{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-kcnode-" + randStringRunes(5),
+					Name:      "test-kcnode-" + randStringRunes(),
 					Namespace: constants.KServeNamespace,
 				},
 				Status: v1alpha1.KernelCacheNodeStatus{
@@ -879,9 +879,9 @@ var _ = Describe("KernelCacheNode Controller", func() {
 			)
 
 			BeforeEach(func() {
-				testNS = "test-ns-" + randStringRunes(5)
-				cacheName = "test-cache-" + randStringRunes(5)
-				jobNS = "job-ns-" + randStringRunes(5) // Randomize to avoid conflicts between tests
+				testNS = "test-ns-" + randStringRunes()
+				cacheName = "test-cache-" + randStringRunes()
+				jobNS = "job-ns-" + randStringRunes() // Randomize to avoid conflicts between tests
 
 				namespace := &corev1.Namespace{
 					ObjectMeta: metav1.ObjectMeta{
@@ -899,7 +899,7 @@ var _ = Describe("KernelCacheNode Controller", func() {
 
 				kcNode = &v1alpha1.KernelCacheNode{
 					ObjectMeta: metav1.ObjectMeta{
-						Name: "test-node-" + randStringRunes(5),
+						Name: "test-node-" + randStringRunes(),
 					},
 					Status: v1alpha1.KernelCacheNodeStatus{
 						NodeName: "test-node",
@@ -1091,13 +1091,12 @@ var _ = Describe("KernelCacheNode Controller", func() {
 	})
 })
 
-// Helper function to generate random strings for test resource names
-func randStringRunes(n int) string {
+func randStringRunes() string {
 	const letterRunes = "abcdefghijklmnopqrstuvwxyz0123456789"
-	b := make([]byte, n)
+	b := make([]byte, 5)
 	for i := range b {
 		b[i] = letterRunes[time.Now().UnixNano()%int64(len(letterRunes))]
-		time.Sleep(time.Nanosecond) // Ensure different values
+		time.Sleep(time.Nanosecond)
 	}
 	return string(b)
 }

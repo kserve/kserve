@@ -56,13 +56,8 @@ func newKCC(name string, trigger bool) *v1alpha1.KernelCacheCapture {
 	}
 }
 
-func newPodForKCC(name, kccName string, running bool, containerReady bool) *corev1.Pod {
-	phase := corev1.PodPending
-	if running {
-		phase = corev1.PodRunning
-	}
-
-	p := &corev1.Pod{
+func newPodForKCC(name, kccName string, containerReady bool) *corev1.Pod {
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: testNS,
@@ -76,19 +71,14 @@ func newPodForKCC(name, kccName string, running bool, containerReady bool) *core
 				{Name: "cache-capture", Image: "mcv:latest"},
 			},
 		},
-	}
-
-	if running {
-		p.Status = corev1.PodStatus{
-			Phase: phase,
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
 			ContainerStatuses: []corev1.ContainerStatus{
 				{Name: "model-server", Ready: true},
 				{Name: "cache-capture", Ready: containerReady},
 			},
-		}
+		},
 	}
-
-	return p
 }
 
 var _ = Describe("KernelCacheCapture Controller Integration", func() {
@@ -125,7 +115,7 @@ var _ = Describe("KernelCacheCapture Controller Integration", func() {
 			}, timeout, interval).Should(Succeed())
 
 			// Create pod with matching label, running, container ready
-			pod := newPodForKCC("lifecycle-pod", kccName, true, true)
+			pod := newPodForKCC("lifecycle-pod", kccName, true)
 			Expect(k8sClient.Create(ctx, pod)).Should(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, pod) }()
 
@@ -173,7 +163,7 @@ var _ = Describe("KernelCacheCapture Controller Integration", func() {
 			defer func() { _ = k8sClient.Delete(ctx, kcc) }()
 
 			// Create ready pod
-			pod := newPodForKCC("autocreate-pod", kccName, true, true)
+			pod := newPodForKCC("autocreate-pod", kccName, true)
 			Expect(k8sClient.Create(ctx, pod)).Should(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, pod) }()
 			pod.Status = corev1.PodStatus{
@@ -223,7 +213,7 @@ var _ = Describe("KernelCacheCapture Controller Integration", func() {
 			Expect(k8sClient.Create(ctx, kcc)).Should(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, kcc) }()
 
-			pod := newPodForKCC("build-fail-pod", kccName, true, true)
+			pod := newPodForKCC("build-fail-pod", kccName, true)
 			Expect(k8sClient.Create(ctx, pod)).Should(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, pod) }()
 			pod.Status = corev1.PodStatus{
@@ -254,7 +244,7 @@ var _ = Describe("KernelCacheCapture Controller Integration", func() {
 			Expect(k8sClient.Create(ctx, kcc)).Should(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, kcc) }()
 
-			pod := newPodForKCC("push-fail-pod", kccName, true, true)
+			pod := newPodForKCC("push-fail-pod", kccName, true)
 			Expect(k8sClient.Create(ctx, pod)).Should(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, pod) }()
 			pod.Status = corev1.PodStatus{
@@ -304,7 +294,7 @@ var _ = Describe("KernelCacheCapture Controller Integration", func() {
 			Expect(k8sClient.Create(ctx, kcc)).Should(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, kcc) }()
 
-			pod := newPodForKCC("not-ready-pod", kccName, true, false)
+			pod := newPodForKCC("not-ready-pod", kccName, false)
 			Expect(k8sClient.Create(ctx, pod)).Should(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, pod) }()
 			pod.Status = corev1.PodStatus{
@@ -339,7 +329,7 @@ var _ = Describe("KernelCacheCapture Controller Integration", func() {
 			kcc := newKCC(kccName, true)
 			Expect(k8sClient.Create(ctx, kcc)).Should(Succeed())
 
-			pod := newPodForKCC("finalizer-pod", kccName, true, true)
+			pod := newPodForKCC("finalizer-pod", kccName, true)
 			Expect(k8sClient.Create(ctx, pod)).Should(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, pod) }()
 			pod.Status = corev1.PodStatus{
@@ -417,7 +407,7 @@ var _ = Describe("KernelCacheCapture Controller Integration", func() {
 			Expect(k8sClient.Create(ctx, kcc)).Should(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, kcc) }()
 
-			pod := newPodForKCC("no-kc-pod", kccName, true, true)
+			pod := newPodForKCC("no-kc-pod", kccName, true)
 			Expect(k8sClient.Create(ctx, pod)).Should(Succeed())
 			defer func() { _ = k8sClient.Delete(ctx, pod) }()
 			pod.Status = corev1.PodStatus{

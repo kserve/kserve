@@ -96,7 +96,7 @@ func VerifyImageSignature(ctx context.Context, imageRef string) (string, error) 
 }
 
 // verifyNewBundleFormat verifies images signed with --new-bundle-format
-func verifyNewBundleFormat(ctx context.Context, ref gcrname.Reference, regOpts []ociremote.Option, rc *rekorclient.Rekor, trusted root.TrustedMaterial) (string, error) {
+func verifyNewBundleFormat(ctx context.Context, ref gcrname.Reference, regOpts []ociremote.Option, _ *rekorclient.Rekor, trusted root.TrustedMaterial) (string, error) {
 	bundles, hash, err := cosign.GetBundles(ctx, ref, regOpts)
 	if err != nil {
 		return "", fmt.Errorf("failed to get bundles: %w", err)

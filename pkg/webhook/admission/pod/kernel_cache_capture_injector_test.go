@@ -73,7 +73,7 @@ func TestInjectKernelCacheCaptureSidecar_AlreadyInjected(t *testing.T) {
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				CacheCaptureLabelKey: "my-kcc",
+				constants.KernelCacheCaptureLabel: "my-kcc",
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -106,7 +106,7 @@ func TestInjectKernelCacheCaptureSidecar_FeatureDisabled(t *testing.T) {
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				CacheCaptureLabelKey: "my-kcc",
+				constants.KernelCacheCaptureLabel: "my-kcc",
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -140,12 +140,12 @@ func newTestKCCServer(t *testing.T, kcc *v1alpha1.KernelCacheCapture) (*httptest
 		if r.URL.Path == expectedPath {
 			w.Header().Set("Content-Type", "application/json")
 			data, _ := json.Marshal(kcc)
-			w.Write(data)
+			_, _ = w.Write(data)
 			return
 		}
 		// Return 404 for unknown paths
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","reason":"NotFound","code":404}`))
+		_, _ = w.Write([]byte(`{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","reason":"NotFound","code":404}`))
 	}))
 
 	clientset, err := kubernetes.NewForConfig(&rest.Config{Host: server.URL})
@@ -176,7 +176,7 @@ func TestInjectKernelCacheCaptureSidecar_FullInjection_SharedVolume(t *testing.T
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				CacheCaptureLabelKey: "test-kcc",
+				constants.KernelCacheCaptureLabel: "test-kcc",
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -299,7 +299,7 @@ func TestInjectKernelCacheCaptureSidecar_WithRegistrySecret(t *testing.T) {
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				CacheCaptureLabelKey: "test-kcc",
+				constants.KernelCacheCaptureLabel: "test-kcc",
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -353,7 +353,7 @@ func TestInjectKernelCacheCaptureSidecar_KCCNotFound(t *testing.T) {
 	// Server returns 404 for all paths
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","reason":"NotFound","code":404}`))
+		_, _ = w.Write([]byte(`{"kind":"Status","apiVersion":"v1","metadata":{},"status":"Failure","reason":"NotFound","code":404}`))
 	}))
 	defer server.Close()
 
@@ -365,7 +365,7 @@ func TestInjectKernelCacheCaptureSidecar_KCCNotFound(t *testing.T) {
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				CacheCaptureLabelKey: "nonexistent-kcc",
+				constants.KernelCacheCaptureLabel: "nonexistent-kcc",
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -412,7 +412,7 @@ func TestInjectKernelCacheCaptureSidecar_ExplicitCachePath(t *testing.T) {
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				CacheCaptureLabelKey: "test-kcc",
+				constants.KernelCacheCaptureLabel: "test-kcc",
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -472,8 +472,8 @@ func TestInjectKernelCacheCaptureSidecar_WithKernelCacheLabel(t *testing.T) {
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				CacheCaptureLabelKey:       "test-kcc",
-				constants.KernelCacheLabel: "existing-kc",
+				constants.KernelCacheCaptureLabel: "test-kcc",
+				constants.KernelCacheLabel:        "existing-kc",
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -544,7 +544,7 @@ func TestInjectKernelCacheCaptureSidecar_ExistingVolumeAtPath(t *testing.T) {
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				CacheCaptureLabelKey: "test-kcc",
+				constants.KernelCacheCaptureLabel: "test-kcc",
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -615,7 +615,7 @@ func TestInjectKernelCacheCaptureSidecar_SidecarResources(t *testing.T) {
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				CacheCaptureLabelKey: "test-kcc",
+				constants.KernelCacheCaptureLabel: "test-kcc",
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -686,7 +686,7 @@ func TestInjectKernelCacheCaptureSidecar_CachePresets(t *testing.T) {
 					Name:      "test-pod",
 					Namespace: "default",
 					Labels: map[string]string{
-						CacheCaptureLabelKey: "test-kcc",
+						constants.KernelCacheCaptureLabel: "test-kcc",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -735,7 +735,7 @@ func TestInjectKernelCacheCaptureSidecar_CustomCaptureImage(t *testing.T) {
 			Name:      "test-pod",
 			Namespace: "default",
 			Labels: map[string]string{
-				CacheCaptureLabelKey: "test-kcc",
+				constants.KernelCacheCaptureLabel: "test-kcc",
 			},
 		},
 		Spec: corev1.PodSpec{

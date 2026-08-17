@@ -167,7 +167,7 @@ func (r *KernelCacheCaptureReconciler) Reconcile(ctx context.Context, req ctrl.R
 			return reconcile.Result{}, err
 		}
 		log.Info("Added finalizer to KCC")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
 	// Initialize phase to Pending if not set
@@ -178,7 +178,7 @@ func (r *KernelCacheCaptureReconciler) Reconcile(ctx context.Context, req ctrl.R
 			return reconcile.Result{}, err
 		}
 		log.Info("Initialized KCC phase to Pending")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
 	// If not triggered yet, nothing to do
@@ -216,10 +216,9 @@ func (r *KernelCacheCaptureReconciler) Reconcile(ctx context.Context, req ctrl.R
 func (r *KernelCacheCaptureReconciler) handlePendingPhase(ctx context.Context, kcc *v1alpha1.KernelCacheCapture, log logr.Logger) (ctrl.Result, error) {
 	log.Info("Handling Pending phase - searching for pod with cache-capture sidecar")
 
-	// Find pod with the cache-capture label pointing to this KCC
 	podList := &corev1.PodList{}
 	labelSelector := client.MatchingLabels{
-		"serving.kserve.io/cache-capture": kcc.Name,
+		constants.KernelCacheCaptureLabel: kcc.Name,
 	}
 	if err := r.List(ctx, podList, client.InNamespace(kcc.Namespace), labelSelector); err != nil {
 		log.Error(err, "Failed to list pods")

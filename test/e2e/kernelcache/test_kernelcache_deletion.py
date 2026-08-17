@@ -79,7 +79,9 @@ async def test_kernelcache_deletion_with_finalizer():
                 break
             await asyncio.sleep(1)
         else:
-            pytest.fail(f"Extraction Job for cache {cache_name} was not created within 30 seconds")
+            pytest.fail(
+                f"Extraction Job for cache {cache_name} was not created within 30 seconds"
+            )
 
         assert len(jobs.items) > 0, "Extraction Job should exist before deletion"
 
@@ -102,9 +104,11 @@ async def test_kernelcache_deletion_with_finalizer():
                 plural=constants.KSERVE_PLURAL_KERNELCACHE,
                 name=cache_name,
             )
-            if ("status" in kc and
-                "cacheCopies" in kc["status"] and
-                kc["status"]["cacheCopies"]["available"] > 0):
+            if (
+                "status" in kc
+                and "cacheCopies" in kc["status"]
+                and kc["status"]["cacheCopies"]["available"] > 0
+            ):
                 break
             await asyncio.sleep(1)
 

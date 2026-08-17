@@ -35,9 +35,6 @@ import (
 )
 
 const (
-	// CacheCaptureLabelKey is the label key that references a KernelCacheCapture name
-	CacheCaptureLabelKey = "serving.kserve.io/cache-capture"
-
 	// CacheCaptureAnnotationCachePath stores the resolved cache path for the controller
 	CacheCaptureAnnotationCachePath = "serving.kserve.io/cache-path"
 
@@ -52,7 +49,6 @@ const (
 
 	// RegistryCredsVolumeName is the name of the registry credentials volume
 	RegistryCredsVolumeName = "registry-creds"
-
 )
 
 // CacheCaptureInjector injects MCV sidecar for cache capture
@@ -72,8 +68,7 @@ func NewCacheCaptureInjector(client client.Client, clientset kubernetes.Interfac
 // InjectCacheCaptureSidecar injects the MCV sidecar if the pod has the cache-capture label.
 // The configMap parameter is the already-fetched inferenceservice-config ConfigMap.
 func (cci *CacheCaptureInjector) InjectCacheCaptureSidecar(ctx context.Context, pod *corev1.Pod, configMap *corev1.ConfigMap) error {
-	// Check if pod has cache-capture label
-	kccName, ok := pod.Labels[CacheCaptureLabelKey]
+	kccName, ok := pod.Labels[constants.KernelCacheCaptureLabel]
 	if !ok {
 		// No label, nothing to inject
 		return nil
@@ -372,4 +367,3 @@ while true; do sleep 3600; done
 		"image", captureImage,
 		"volumeStrategy", kcc.Spec.VolumeStrategy)
 }
-
