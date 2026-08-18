@@ -49,6 +49,7 @@ const (
 	EndpointAttr     = "endpoint"
 	AnnotationAttr   = "annotations"
 	RecordedTimeAttr = "recordedtime"
+	StatusCodeAttr   = "statuscode"
 
 	// LoggerWorkerQueueSize is the default WorkQueue capacity, used when
 	// StartDispatcher is called with a non-positive queue size. Callers
@@ -154,6 +155,10 @@ func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 		} else {
 			event.SetExtension(AnnotationAttr, string(bits))
 		}
+	}
+
+	if logReq.StatusCode != 0 {
+		event.SetExtension(StatusCodeAttr, logReq.StatusCode)
 	}
 
 	event.SetSource(logReq.SourceUri.String())
