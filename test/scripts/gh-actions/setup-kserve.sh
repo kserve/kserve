@@ -32,6 +32,43 @@ export ENABLE_LLMISVC="${ENABLE_LLMISVC:-false}"
 export ENABLE_KSERVE_WITH_LLMISVC="${ENABLE_KSERVE_WITH_LLMISVC:-false}"
 export INSTALL_METHOD="${INSTALL_METHOD:-kustomize}"
 
+# facebook/opt-125m is only consumed by the llmisvc e2e suite. Pure-kserve suites
+# get an s3-init job without the opt-125m init container, so they never depend on
+# HuggingFace connectivity.
+if [[ $ENABLE_LLMISVC == "true" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; then
+  export DOWNLOAD_OPT_125M="${DOWNLOAD_OPT_125M:-true}"
+else
+  export DOWNLOAD_OPT_125M="${DOWNLOAD_OPT_125M:-false}"
+fi
+
+# Apply the s3-init job that seeds the SeaweedFS test buckets, then wait for it.
+# Picks one of three manifests:
+#   seaweedfs-init-job.yaml            - buckets + sklearn only (no opt-125m)
+#   seaweedfs-init-job-from-cache.yaml - + opt-125m copied from OPT_125M_CACHE_IMAGE
+#   seaweedfs-init-job-opt125m-hf.yaml - + opt-125m downloaded from HuggingFace
+apply_s3_init_job() {
+  local dir="${REPO_ROOT}/config/overlays/test/s3-local-backend"
+  if [[ $DOWNLOAD_OPT_125M != "true" ]]; then
+    echo "Applying s3-init job (opt-125m skipped: DOWNLOAD_OPT_125M=${DOWNLOAD_OPT_125M}) ..."
+    kubectl apply -n kserve -f "${dir}/seaweedfs-init-job.yaml"
+  elif [[ -n "${OPT_125M_CACHE_IMAGE:-}" ]]; then
+    echo "Applying s3-init job (opt-125m from cache image ${OPT_125M_CACHE_IMAGE}) ..."
+    OPT_125M_CACHE_IMAGE="${OPT_125M_CACHE_IMAGE}" envsubst '${OPT_125M_CACHE_IMAGE}' \
+      < "${dir}/seaweedfs-init-job-from-cache.yaml" | kubectl apply -n kserve -f -
+  else
+    echo "Applying s3-init job (opt-125m from HuggingFace) ..."
+    sed "s|kserve/storage-initializer:latest|${KO_DOCKER_REPO:-kserve}/${STORAGE_INIT_IMG:-storage-initializer}:${TAG:-latest}|g" \
+      "${dir}/seaweedfs-init-job-opt125m-hf.yaml" | kubectl apply -n kserve -f -
+  fi
+  if ! kubectl wait --for=condition=complete --timeout=900s job/s3-init -n kserve; then
+    echo "S3 init job failed. Pod status and logs:"
+    kubectl get pods -l job-name=s3-init -n kserve
+    kubectl describe pods -l job-name=s3-init -n kserve || true
+    kubectl logs -l job-name=s3-init -n kserve --all-containers --tail=50 || true
+    exit 1
+  fi
+}
+
 # Extract gateway class name from NETWORK_LAYER (e.g., "envoy-gatewayapi" -> "envoy")
 # If NETWORK_LAYER contains "-", extract the first part; otherwise, use "false"
 if [[ $NETWORK_LAYER == *"-gatewayapi"* ]]; then
@@ -102,20 +139,7 @@ if [[ $ENABLE_LLMISVC == "false" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; th
   kubectl rollout status deployment/seaweedfs -n kserve --timeout=120s
 
   echo "Add testing models to s3 storage ..."
-  if [[ -n "${OPT_125M_CACHE_IMAGE:-}" ]]; then
-    OPT_125M_CACHE_IMAGE="${OPT_125M_CACHE_IMAGE}" envsubst '${OPT_125M_CACHE_IMAGE}' \
-      < config/overlays/test/s3-local-backend/seaweedfs-init-job-from-cache.yaml | kubectl apply -n kserve -f -
-  else
-    sed "s|kserve/storage-initializer:latest|${KO_DOCKER_REPO:-kserve}/${STORAGE_INIT_IMG:-storage-initializer}:${TAG:-latest}|g" \
-      config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml | kubectl apply -n kserve -f -
-  fi
-  if ! kubectl wait --for=condition=complete --timeout=900s job/s3-init -n kserve; then
-    echo "S3 init job failed. Pod status and logs:"
-    kubectl get pods -l job-name=s3-init -n kserve
-    kubectl describe pods -l job-name=s3-init -n kserve || true
-    kubectl logs -l job-name=s3-init -n kserve --all-containers --tail=50 || true
-    exit 1
-  fi
+  apply_s3_init_job
 
   echo "Add storageSpec testing secrets ..."
   kubectl apply -f config/overlays/test/s3-local-backend/storage-config-secret.yaml -n "$E2E_NS"
@@ -161,20 +185,7 @@ else
   kubectl rollout status deployment/seaweedfs -n kserve --timeout=120s
 
   echo "Pre-caching opt-125m model in SeaweedFS ..."
-  if [[ -n "${OPT_125M_CACHE_IMAGE:-}" ]]; then
-    OPT_125M_CACHE_IMAGE="${OPT_125M_CACHE_IMAGE}" envsubst '${OPT_125M_CACHE_IMAGE}' \
-      < "${REPO_ROOT}/config/overlays/test/s3-local-backend/seaweedfs-init-job-from-cache.yaml" | kubectl apply -n kserve -f -
-  else
-    sed "s|kserve/storage-initializer:latest|${KO_DOCKER_REPO:-kserve}/${STORAGE_INIT_IMG:-storage-initializer}:${TAG:-latest}|g" \
-      "${REPO_ROOT}/config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml" | kubectl apply -n kserve -f -
-  fi
-  if ! kubectl wait --for=condition=complete --timeout=900s job/s3-init -n kserve; then
-    echo "S3 init job failed. Pod status and logs:"
-    kubectl get pods -l job-name=s3-init -n kserve
-    kubectl describe pods -l job-name=s3-init -n kserve || true
-    kubectl logs -l job-name=s3-init -n kserve --all-containers --tail=50 || true
-    exit 1
-  fi
+  apply_s3_init_job
 
   echo "Configuring S3 credentials in test namespace ..."
   kubectl apply -f "${REPO_ROOT}/config/overlays/test/s3-local-backend/seaweedfs-s3-creds-secret.yaml" -n "$E2E_NS"

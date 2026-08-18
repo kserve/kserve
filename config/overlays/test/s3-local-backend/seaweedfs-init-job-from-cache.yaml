@@ -1,3 +1,5 @@
+# s3-init job variant: seeds facebook/opt-125m from a pre-built OCI image (OPT_125M_CACHE_IMAGE).
+# Only applied when the llmisvc e2e suite is enabled; see setup-kserve.sh apply_s3_init_job.
 apiVersion: batch/v1
 kind: Job
 metadata:

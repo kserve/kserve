@@ -117,7 +117,7 @@ kubectl wait --for=condition=Ready pods --field-selector=status.phase=Running --
 kubectl get events -A
 
 echo "Add testing models to s3 storage ..."
-kubectl apply -f config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml -n kserve
+kubectl apply -f config/overlays/test/s3-local-backend/seaweedfs-init-job-opt125m-hf.yaml -n kserve
 kubectl wait --for=condition=complete --timeout=30s job/s3-init -n kserve
 
 echo "Creating a namespace kserve-ci-test ..."
