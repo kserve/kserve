@@ -122,6 +122,11 @@ type LoggerSpec struct {
 	// Only used when BatchSize > 1. Defaults to "0" (no time-based flushing).
 	// +optional
 	BatchInterval *string `json:"batchInterval,omitempty"`
+	// Log responses regardless of their status code, and add a statuscode extension
+	// attribute to the response cloud event. Only 200 responses are logged when this
+	// is unset. Defaults to false.
+	// +optional
+	LogAllResponses *bool `json:"logAllResponses,omitempty"`
 }
 
 // MetricsBackend enum
