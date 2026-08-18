@@ -214,7 +214,6 @@ func GetStorageContainerSpecByName(ctx context.Context, namespace, name, storage
 		}
 		// Not found in namespace (or CRD not installed) — fall through to ClusterStorageContainer.
 		// Note: this allows a ClusterStorageContainer with the same name to substitute.
-		log.V(1).Info("StorageContainer not found in namespace, falling through to ClusterStorageContainer", "name", name, "namespace", namespace)
 	}
 
 	// Fall back to ClusterStorageContainer
@@ -954,8 +953,6 @@ func (mi *StorageInitializerInjector) SetIstioCniSecurityContext(pod *corev1.Pod
 				// the sidecar to be able to access the network. This is why copying the UID is
 				// preferred over using the default UID of 1337.
 			}
-
-			log.V(1).Info("Storage initializer UID is set", "pod", pod.Name, "uid", storageInitializerContainer.SecurityContext.RunAsUser)
 		}
 	}
 
