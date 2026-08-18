@@ -676,6 +676,15 @@ apidocs:
 check-doc-links:
 	@python3 hack/verify-doc-links.py && echo "$@: OK"
 
+# Replays the CLI flags our manifests render against every image whose tag
+# changed versus BASE_REF. Needs a container engine and network access, so it
+# is not part of precommit.
+.PHONY: check-image-flag-drift
+check-image-flag-drift: yq
+	@BASE_REF=$(or $(BASE_REF),origin/master) HEAD_REF=$(or $(HEAD_REF),HEAD) \
+		ENGINE=$(ENGINE) YQ=$(YQ) \
+		hack/verify-image-flag-drift.sh && echo "$@: OK"
+
 # Extension point for distro-specific manifest generation.
 .PHONY: manifests-distro
 manifests-distro:
