@@ -21,6 +21,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -104,6 +105,30 @@ func TestAddStorageInitializerAnnotationsOciNative(t *testing.T) {
 	annotationVal, hasAnnotation := annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
 	assert.True(t, hasAnnotation, "oci+native:// must set StorageInitializerSourceUriInternalAnnotationKey so InjectModelcar can inject the ImageVolume")
 	assert.Equal(t, ociNativeURI, annotationVal)
+}
+
+func TestAddLoggerAnnotationsLogAllResponses(t *testing.T) {
+	cases := map[string]struct {
+		logAllResponses *bool
+		expected        string
+		expectSet       bool
+	}{
+		"unset leaves the annotation off": {logAllResponses: nil, expectSet: false},
+		"true propagates":                 {logAllResponses: ptr.To(true), expected: "true", expectSet: true},
+		"false propagates":                {logAllResponses: ptr.To(false), expected: "false", expectSet: true},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			annotations := map[string]string{}
+			addLoggerAnnotations(&v1beta1.LoggerSpec{LogAllResponses: tc.logAllResponses}, annotations)
+
+			val, ok := annotations[constants.LoggerLogAllResponsesInternalAnnotationKey]
+			assert.Equal(t, tc.expectSet, ok)
+			if tc.expectSet {
+				assert.Equal(t, tc.expected, val)
+			}
+		})
+	}
 }
 
 func ptrInt32(v int32) *int32 { return &v }

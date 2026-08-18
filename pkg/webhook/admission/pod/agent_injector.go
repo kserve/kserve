@@ -53,6 +53,7 @@ const (
 	LoggerArgumentTlsSkipVerify       = "--logger-tls-skip-verify"
 	LoggerArgumentMetadataHeaders     = "--metadata-headers"
 	LoggerArgumentMetadataAnnotations = "--metadata-annotations"
+	LoggerArgumentLogAllResponses     = "--log-all-responses"
 	LoggerDefaultServiceAccountName   = "logger-sa"
 )
 
@@ -303,6 +304,11 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 				}
 			}
 			loggerArgs = append(loggerArgs, LoggerArgumentMetadataAnnotations, strings.Join(kvPairs, ","))
+		}
+		logAllResponses, ok := pod.Annotations[constants.LoggerLogAllResponsesInternalAnnotationKey]
+		if ok {
+			// pflag only honours the value of a bool flag in the --flag=value form.
+			loggerArgs = append(loggerArgs, LoggerArgumentLogAllResponses+"="+logAllResponses)
 		}
 		args = append(args, loggerArgs...)
 
