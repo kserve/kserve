@@ -4622,7 +4622,7 @@ spec:
   router:
     scheduler:
       annotations:
-        app.kubernetes.io/version: 0.9.0
+        app.kubernetes.io/version: 0.10.0
       pool:
         spec:
           endpointPickerRef:
