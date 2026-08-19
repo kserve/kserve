@@ -4379,7 +4379,8 @@ spec:
           - type: disagg-headers-handler
           - type: always-disagg-pd-decider
           - parameters:
-              deciderPluginName: always-disagg-pd-decider
+              deciders:
+                prefill: always-disagg-pd-decider
             type: disagg-profile-handler
           - type: prefill-filter
           - type: decode-filter

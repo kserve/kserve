@@ -17,7 +17,8 @@ spec:
             - type: always-disagg-pd-decider
             - type: disagg-profile-handler
               parameters:
-                deciderPluginName: always-disagg-pd-decider
+                deciders:
+                  prefill: always-disagg-pd-decider
             - type: prefill-filter
             - type: decode-filter
             # approx-prefix-cache-producer's maxPrefixTokensToMatch defaults to 131072 (128K tokens).
