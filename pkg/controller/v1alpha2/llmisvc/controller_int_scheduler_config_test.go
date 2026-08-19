@@ -1976,8 +1976,67 @@ schedulingProfiles:
 
 			expectSettles(ctx, poolKey, &igwapi.InferencePool{})
 		})
-	})
 
+		It("should revoke role rules that are not in the desired state", func(ctx SpecContext) {
+			// given - the scheduler's rules are hardcoded in the controller, so a rule
+			// only disappears from the desired state when a release narrows it. Drift is
+			// the only way to exercise that here, and it stands in for the upgrade: a
+			// rule the controller no longer intends to grant must not survive.
+			svcName := "test-llm-role-rule-revocation"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			roleKey := types.NamespacedName{
+				Name:      kmeta.ChildName(svcName, "-epp-role"),
+				Namespace: testNs.Name,
+			}
+
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, roleKey, &rbacv1.Role{})
+			}).WithContext(ctx).Should(Succeed(), "the scheduler role should be created")
+
+			// when - a rule the controller never asked for is added
+			widerGrant := rbacv1.PolicyRule{
+				APIGroups: []string{""},
+				Resources: []string{"secrets"},
+				Verbs:     []string{"get", "list", "watch"},
+			}
+
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &rbacv1.Role{}
+				if errGet := envTest.Get(ctx, roleKey, current); errGet != nil {
+					return errGet
+				}
+				current.Rules = append(current.Rules, widerGrant)
+
+				return envTest.Update(ctx, current)
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// then - the controller takes it back
+			Eventually(func(g Gomega, ctx context.Context) error {
+				current := &rbacv1.Role{}
+				g.Expect(envTest.Get(ctx, roleKey, current)).To(Succeed())
+				g.Expect(current.Rules).ToNot(ContainElement(widerGrant))
+
+				return nil
+			}).WithContext(ctx).Should(Succeed(), "a rule outside the desired state should be revoked")
+
+			expectSettles(ctx, roleKey, &rbacv1.Role{})
+		})
+	})
 })
 
 // schedulerContainerName is the expected name of the main container in the scheduler deployment

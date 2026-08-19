@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	rbacv1 "k8s.io/api/rbac/v1"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	igwapiv1alpha2 "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
@@ -132,6 +133,69 @@ func TestSemanticInferencePoolV1Alpha2IsEqual(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.wantEq, semanticInferencePoolV1Alpha2IsEqual(tt.expected, tt.current))
+		})
+	}
+}
+
+// Role rules are hardcoded in the controller, so they shrink when a release
+// narrows them. Until the comparison is exact, that narrowing never reaches
+// services that already exist - the wider grant stays in place.
+func TestSemanticRoleIsEqual(t *testing.T) {
+	role := func(rules ...rbacv1.PolicyRule) *rbacv1.Role {
+		return &rbacv1.Role{Rules: rules}
+	}
+
+	pods := rbacv1.PolicyRule{
+		APIGroups: []string{""},
+		Resources: []string{"pods"},
+		Verbs:     []string{"get", "list", "watch"},
+	}
+	podsReadOnly := rbacv1.PolicyRule{
+		APIGroups: []string{""},
+		Resources: []string{"pods"},
+		Verbs:     []string{"get", "list"},
+	}
+	leases := rbacv1.PolicyRule{
+		APIGroups: []string{"coordination.k8s.io"},
+		Resources: []string{"leases"},
+		Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
+	}
+
+	tests := []struct {
+		name     string
+		expected *rbacv1.Role
+		current  *rbacv1.Role
+		wantEq   bool
+	}{
+		{
+			name:     "identical - no update",
+			expected: role(pods, leases),
+			current:  role(pods, leases),
+			wantEq:   true,
+		},
+		{
+			name:     "rule dropped from the desired state - update",
+			expected: role(pods),
+			current:  role(pods, leases),
+			wantEq:   false,
+		},
+		{
+			name:     "verb trimmed within a rule - update",
+			expected: role(podsReadOnly),
+			current:  role(pods),
+			wantEq:   false,
+		},
+		{
+			name:     "rule added - update",
+			expected: role(pods, leases),
+			current:  role(pods),
+			wantEq:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantEq, semanticRoleIsEqual(tt.expected, tt.current))
 		})
 	}
 }

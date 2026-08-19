@@ -2039,8 +2039,12 @@ func semanticServiceAccountIsEqual(expected *corev1.ServiceAccount, current *cor
 		equality.Semantic.DeepDerivative(expected.Annotations, current.Annotations)
 }
 
+// Rules are generated in full by the controller, so they are compared exactly.
+// DeepDerivative treats the cluster object as a superset, which means a grant the
+// controller has stopped asking for - because a release narrowed the rule set -
+// would never be revoked on services that already exist.
 func semanticRoleIsEqual(expected *rbacv1.Role, curr *rbacv1.Role) bool {
-	return equality.Semantic.DeepDerivative(expected.Rules, curr.Rules) &&
+	return equality.Semantic.DeepEqual(expected.Rules, curr.Rules) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
