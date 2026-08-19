@@ -18003,6 +18003,8 @@ spec:
                   properties:
                     enabled:
                       type: boolean
+                    storageContainerName:
+                      type: string
                   type: object
                 template:
                   properties:

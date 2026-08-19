@@ -50593,6 +50593,8 @@ spec:
                 properties:
                   enabled:
                     type: boolean
+                  storageContainerName:
+                    type: string
                 type: object
               template:
                 properties:
@@ -103812,6 +103814,8 @@ spec:
                 properties:
                   enabled:
                     type: boolean
+                  storageContainerName:
+                    type: string
                 type: object
               template:
                 properties:
@@ -112299,6 +112303,12 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - clusterstoragecontainers
+  verbs:
+  - get
 - apiGroups:
   - serving.kserve.io
   resources:
