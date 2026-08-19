@@ -340,6 +340,7 @@ const (
 	ModelInitModeEnvVarKey                            = "MODEL_INIT_MODE"
 	QueueProxyAggregatePrometheusMetricsPortEnvVarKey = "AGGREGATE_PROMETHEUS_METRICS_PORT"
 	InferenceServiceNameEnvVarKey                     = "INFERENCE_SERVICE_NAME"
+	ModelNameEnvVarKey                                = "MODEL_NAME"
 )
 
 type InferenceServiceComponent string
@@ -485,10 +486,10 @@ const (
 const (
 	ArgumentModelName      = "--model_name"
 	ArgumentModelDir       = "--model_dir"
-	ArgumentModelClassName = "--model_class_name"
-	ArgumentPredictorHost  = "--predictor_host"
-	ArgumentHttpPort       = "--http_port"
-	ArgumentWorkers        = "--workers"
+	ArgumentModelClassName  = "--model_class_name"
+	ArgumentPredictorHost   = "--predictor_host"
+	ArgumentHttpPort        = "--http_port"
+	ArgumentWorkers         = "--workers"
 )
 
 // InferenceService container names

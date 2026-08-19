@@ -156,6 +156,14 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 		}
 	}
 
+	// Inject MODEL_NAME so runtimes can discover the expected model name from the environment.
+	for i := range podSpec.Containers {
+		containerName := podSpec.Containers[i].Name
+		if err := isvcutils.AddEnvVarToPodSpec(&podSpec, containerName, constants.ModelNameEnvVarKey, isvc.Name); err != nil {
+			return nil, errors.Wrapf(err, "failed to add MODEL_NAME environment variable to container %s", containerName)
+		}
+	}
+
 	predictorName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 
 	// Labels and annotations from predictor component
@@ -639,9 +647,8 @@ func multiNodeProcess(sRuntime v1alpha1.ServingRuntimeSpec, isvc *v1beta1.Infere
 		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.RequestGPUCountEnvName, constants.InferenceServiceContainerName)
 	}
 
-	// Set the environment variable for "isvc name" to the MODEL_NAME when multiNodeEnabled is true.
-	if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, "MODEL_NAME", isvc.Name); err != nil {
-		return nil, errors.Wrapf(err, "failed to add MODEL_NAME environment to the container(%s)", constants.InferenceServiceContainerName)
+	if err := isvcutils.AddEnvVarToPodSpec(podSpec, constants.InferenceServiceContainerName, constants.ModelNameEnvVarKey, isvc.Name); err != nil {
+		return nil, errors.Wrapf(err, "failed to add %s environment to the container(%s)", constants.ModelNameEnvVarKey, constants.InferenceServiceContainerName)
 	}
 
 	deploymentAnnotations := annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
