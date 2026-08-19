@@ -475,26 +475,21 @@ func RouterLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 }
 
 func semanticHTTPRouteIsEqual(e *gwapiv1.HTTPRoute, c *gwapiv1.HTTPRoute) bool {
-	specEqual := equality.Semantic.DeepDerivative(e.Spec, c.Spec)
-	if isGroupRoute(e) {
-		// Grouped routes need exact rule comparison to detect stale backendRefs
-		// from deleted members. DeepDerivative only checks subset membership.
-		specEqual = equality.Semantic.DeepEqual(e.Spec.Rules, c.Spec.Rules) &&
-			equality.Semantic.DeepDerivative(e.Spec.ParentRefs, c.Spec.ParentRefs) &&
-			equality.Semantic.DeepDerivative(e.Spec.Hostnames, c.Spec.Hostnames)
-	}
-	return specEqual &&
+	// Rules are generated in full from the merged config, so they need exact
+	// comparison to detect removals - LoRA adapter matches dropped from
+	// spec.model.lora, backendRefs from deleted group members. DeepDerivative
+	// only checks subset membership: it accepts a cluster object longer than the
+	// desired one, leaving the extra entries in place forever.
+	//
+	// ParentRefs and Hostnames stay on DeepDerivative. ToParentRefs deliberately
+	// leaves Namespace nil so Gateway API defaults it to the route namespace, and
+	// exact comparison there would diverge against the stored object.
+	return equality.Semantic.DeepEqual(e.Spec.Rules, c.Spec.Rules) &&
+		equality.Semantic.DeepDerivative(e.Spec.ParentRefs, c.Spec.ParentRefs) &&
+		equality.Semantic.DeepDerivative(e.Spec.Hostnames, c.Spec.Hostnames) &&
 		equality.Semantic.DeepDerivative(e.Labels, c.Labels) &&
 		!hasStaleControllerLabels(e.Labels, c.Labels) &&
 		equality.Semantic.DeepDerivative(e.Annotations, c.Annotations)
-}
-
-func isGroupRoute(route *gwapiv1.HTTPRoute) bool {
-	if route == nil || route.Labels == nil {
-		return false
-	}
-	_, hasGroupLabel := route.Labels[constants.LLMRoutingGroupLabelKey]
-	return hasGroupLabel
 }
 
 // hasStaleControllerLabels returns true when the current object carries a
