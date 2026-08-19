@@ -2010,6 +2010,10 @@ func withMetricsDataSourceParams(parameters map[string]interface{}) mutateSchedu
 	}
 }
 
+// Ports and the selector are fixed in the controller and derived from the service
+// name, so neither can shrink while a service exists and the subset comparison
+// costs nothing today. Move to DeepEqual if either becomes driven by the spec:
+// DeepDerivative would silently keep serving a port that had been removed.
 func semanticServiceIsEqual(expected *corev1.Service, current *corev1.Service) bool {
 	return equality.Semantic.DeepDerivative(expected.Spec, current.Spec) &&
 		equality.Semantic.DeepDerivative(expected.Labels, current.Labels) &&
@@ -2032,6 +2036,11 @@ func semanticInferencePoolV1Alpha2IsEqual(expected *igwapiv1alpha2.InferencePool
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
 
+// Deliberately tolerant, and it must stay that way. OpenShift's service account
+// controller appends its own pull secret entries to the accounts we create, and
+// the desired object only ever carries what was copied off the namespace default
+// account. Comparing these exactly would have the two controllers take turns
+// removing each other's entries for as long as the service exists.
 func semanticServiceAccountIsEqual(expected *corev1.ServiceAccount, current *corev1.ServiceAccount) bool {
 	return equality.Semantic.DeepDerivative(expected.Secrets, current.Secrets) &&
 		equality.Semantic.DeepDerivative(expected.ImagePullSecrets, current.ImagePullSecrets) &&
@@ -2049,6 +2058,10 @@ func semanticRoleIsEqual(expected *rbacv1.Role, curr *rbacv1.Role) bool {
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
 
+// Bindings are generated with exactly one subject, so the list cannot shrink and
+// a changed subject is caught in place. Move to DeepEqual if a binding ever grows
+// a second subject, since dropping back to one would otherwise leave the first
+// bound.
 func semanticClusterRoleBindingIsEqual(expected *rbacv1.ClusterRoleBinding, curr *rbacv1.ClusterRoleBinding) bool {
 	return equality.Semantic.DeepDerivative(expected.Subjects, curr.Subjects) &&
 		equality.Semantic.DeepDerivative(expected.RoleRef, curr.RoleRef) &&
