@@ -193,11 +193,8 @@ func TestSemanticHTTPRouteIsEqual_GroupedRouteRules(t *testing.T) {
 	}
 }
 
-// TestSemanticHTTPRouteIsEqual_StaleAdapterMatches pins the geometry of the LoRA
-// adapter bug: adapter matches are appended to an existing model-routing rule, so
-// removing adapters leaves the rule with extra matches whose prefix is identical
-// to what the controller now wants. The comparator must see the tail, whether the
-// removal empties the rule back to the base model or only trims it.
+// TestSemanticHTTPRouteIsEqual_StaleAdapterMatches verifies that removing LoRA
+// adapters makes routes with stale header matches unequal.
 func TestSemanticHTTPRouteIsEqual_StaleAdapterMatches(t *testing.T) {
 	const headerName = "X-Gateway-Model-Name"
 

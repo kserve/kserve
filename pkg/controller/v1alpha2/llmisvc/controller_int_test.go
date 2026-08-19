@@ -2231,8 +2231,7 @@ func publisherModel(namespace, model string) string {
 	return fmt.Sprintf("publishers/%s/models/%s", namespace, model)
 }
 
-// modelRoutingHeaderValues collects every value the model-routing header is matched
-// against, across all rules and matches of the route.
+// modelRoutingHeaderValues returns all values matched by the named header.
 func modelRoutingHeaderValues(route *gwapiv1.HTTPRoute, headerName string) []string {
 	var values []string
 	for _, rule := range route.Spec.Rules {
@@ -2248,9 +2247,8 @@ func modelRoutingHeaderValues(route *gwapiv1.HTTPRoute, headerName string) []str
 	return values
 }
 
-// expectRouteConverged asserts the managed HTTPRoute settles instead of being
-// rewritten on every reconcile. Generation only advances on spec writes, so a
-// moving generation means the controller is fighting itself.
+// expectRouteConverged verifies that reconciliation stops updating the route spec.
+// The generation changes only when the spec changes.
 func expectRouteConverged(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) {
 	routes, err := managedRoutes(ctx, llmSvc)
 	Expect(err).ToNot(HaveOccurred())
