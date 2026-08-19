@@ -2016,14 +2016,18 @@ func semanticServiceIsEqual(expected *corev1.Service, current *corev1.Service) b
 		equality.Semantic.DeepDerivative(expected.Annotations, current.Annotations)
 }
 
+// The pool spec is taken wholesale from spec.router.scheduler.pool.spec, so it is
+// compared exactly. DeepDerivative treats the cluster object as a superset, which
+// hides a selector key or a target port dropped from the service spec - leaving
+// the pool matching a wider set of pods than the spec asks for.
 func semanticInferencePoolIsEqual(expected *igwapi.InferencePool, curr *igwapi.InferencePool) bool {
-	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
+	return equality.Semantic.DeepEqual(expected.Spec, curr.Spec) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
 
 func semanticInferencePoolV1Alpha2IsEqual(expected *igwapiv1alpha2.InferencePool, curr *igwapiv1alpha2.InferencePool) bool {
-	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
+	return equality.Semantic.DeepEqual(expected.Spec, curr.Spec) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
