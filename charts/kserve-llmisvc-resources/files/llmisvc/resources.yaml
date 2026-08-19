@@ -1373,6 +1373,12 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - clusterstoragecontainers
+  verbs:
+  - get
+- apiGroups:
+  - serving.kserve.io
+  resources:
   - llminferenceserviceconfigs
   - llminferenceservices
   verbs:
