@@ -44,8 +44,8 @@ require (
 	google.golang.org/api v0.281.0
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 	gopkg.in/go-playground/validator.v9 v9.31.0
-	istio.io/api v1.27.1
-	istio.io/client-go v1.27.1
+	istio.io/api v1.30.4
+	istio.io/client-go v1.30.4
 	k8s.io/api v0.36.0
 	k8s.io/apiextensions-apiserver v0.36.0
 	k8s.io/apimachinery v0.36.0
