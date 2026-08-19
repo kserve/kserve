@@ -378,6 +378,11 @@ type StorageInitializerSpec struct {
 	// Default: true (nil is treated as true for backward compatibility)
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
+
+	// StorageContainerName specifies the ClusterStorageContainer used to download model artifacts.
+	// When set, the referenced container is merged over the default storage-initializer configuration.
+	// +optional
+	StorageContainerName *string `json:"storageContainerName,omitempty"`
 }
 
 // RouterSpec defines the routing configuration for exposing the service.

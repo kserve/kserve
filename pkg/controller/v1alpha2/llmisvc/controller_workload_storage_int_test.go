@@ -231,6 +231,121 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			validateStorageInitializerIsConfigured(expectedPrefillDeployment, "hf://user-id/repo-id:tag")
 		})
 
+		It("should use the named ClusterStorageContainer for a custom model URI", func(ctx SpecContext) {
+			svcName := "test-llm-storage-csc"
+			testNs := NewTestNamespace(ctx, envTest)
+			cscName := "test-llm-storage-csc"
+
+			storageContainer := &v1alpha1.ClusterStorageContainer{
+				ObjectMeta: metav1.ObjectMeta{Name: cscName},
+				Spec: v1alpha1.StorageContainerSpec{
+					Container: corev1.Container{
+						Name:  constants.StorageInitializerContainerName,
+						Image: "example.com/custom-storage-initializer:v1",
+						Env: []corev1.EnvVar{
+							{Name: "CUSTOM_STORAGE", Value: "enabled"},
+						},
+					},
+					SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+					WorkloadType:        v1alpha1.InitContainer,
+				},
+			}
+			Expect(envTest.Create(ctx, storageContainer)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, storageContainer)).To(Succeed())
+			}()
+
+			modelURL, err := apis.ParseURL("custom://models/llama")
+			Expect(err).ToNot(HaveOccurred())
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svcName,
+					Namespace: testNs.Name,
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+					},
+					StorageInitializer: &v1alpha2.StorageInitializerSpec{
+						StorageContainerName: ptr.To(cscName),
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{},
+				},
+			}
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer testNs.DeleteAndWait(ctx, llmSvc)
+
+			deployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, deployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			Expect(deployment.Spec.Template.Spec.InitContainers).To(ContainElement(And(
+				HaveField("Name", constants.StorageInitializerContainerName),
+				HaveField("Image", "example.com/custom-storage-initializer:v1"),
+				HaveField("Env", ContainElement(corev1.EnvVar{Name: "CUSTOM_STORAGE", Value: "enabled"})),
+			)))
+			validateStorageInitializerIsConfigured(deployment, "custom://models/llama")
+		})
+
+		It("should report a missing named ClusterStorageContainer", func(ctx SpecContext) {
+			svcName := "test-llm-storage-missing-csc"
+			testNs := NewTestNamespace(ctx, envTest)
+			modelURL, err := apis.ParseURL("custom://models/llama")
+			Expect(err).ToNot(HaveOccurred())
+
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      svcName,
+					Namespace: testNs.Name,
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						Name: ptr.To("foo"),
+						URI:  *modelURL,
+					},
+					StorageInitializer: &v1alpha2.StorageInitializerSpec{
+						StorageContainerName: ptr.To("does-not-exist"),
+					},
+					WorkloadSpec: v1alpha2.WorkloadSpec{},
+				},
+			}
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer testNs.DeleteAndWait(ctx, llmSvc)
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				condition := current.Status.GetCondition(v1alpha2.WorkloadReady)
+				g.Expect(condition).ToNot(BeNil())
+				g.Expect(condition.IsFalse()).To(BeTrue())
+				g.Expect(condition.Message).
+					To(ContainSubstring(`ClusterStorageContainer "does-not-exist" not found`))
+			}).WithContext(ctx).Should(Succeed())
+
+			Eventually(func() *corev1.Event {
+				return findEvent(ctx, envTest.Client, llmSvc, "Error")
+			}).WithContext(ctx).Should(And(
+				Not(BeNil()),
+				HaveField("Message", ContainSubstring(`ClusterStorageContainer "does-not-exist" not found`)),
+			))
+
+			deployment := &appsv1.Deployment{}
+			Consistently(func(ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      svcName + "-kserve",
+					Namespace: testNs.Name,
+				}, deployment)
+			}).WithContext(ctx).ShouldNot(Succeed())
+		})
+
 		It("should merge user-provided env vars into storage-initializer for hf:// URI", func(ctx SpecContext) {
 			svcName := "test-llm-storage-hf-user-envs"
 			testNs := NewTestNamespace(ctx, envTest)
