@@ -8,7 +8,7 @@ dependencies = [
     "kserve @ file:///${PROJECT_ROOT}/../kserve",
     "torchvision==0.26.0+cpu",
     "torch==2.11.0+cpu",
-    "pillow>=12.2.0",
+    "pillow>=12.3.0",
 ]
 name = "custom_transformer"
 version = "0.20.0"

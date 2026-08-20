@@ -202,6 +202,18 @@ SCENARIOS = {
         v1=MemberSpec(name="canary-v1", weight=9, scheduler=False),
         v2=MemberSpec(name="canary-v2", weight=1, scheduler=False),
     ),
+    "pool": Scenario(
+        name="pool",
+        description="Both members use InferencePool with EPP scheduler",
+        v1=MemberSpec(name="canary-v1", weight=9, scheduler=True),
+        v2=MemberSpec(name="canary-v2", weight=1, scheduler=True),
+    ),
+    "mixed": Scenario(
+        name="mixed",
+        description="v1 uses plain Service, v2 uses InferencePool (canary upgrade path)",
+        v1=MemberSpec(name="canary-v1", weight=9, scheduler=False),
+        v2=MemberSpec(name="canary-v2", weight=1, scheduler=True),
+    ),
 }
 
 
@@ -210,7 +222,7 @@ SCENARIOS = {
 # ---------------------------------------------------------------------------
 
 
-def get_api():
+def get_k8s_client():
     config.load_kube_config(context=KUBE_CONTEXT)
     return k8s_client.CustomObjectsApi()
 
@@ -597,6 +609,60 @@ def wait_for_group_weight(api, observer, member, expected, ns, timeout=30):
     raise TimeoutError(f"{member} weight={w}, expected {expected} (from {observer})")
 
 
+def _has_istio():
+    try:
+        k8s_client.ApiextensionsV1Api().read_custom_resource_definition(
+            "destinationrules.networking.istio.io"
+        )
+        return True
+    except k8s_client.ApiException:
+        return False
+
+
+def _apply_epp_tls_workaround(ns):
+    """Apply Istio DestinationRules for EPP TLS. Idempotent.
+
+    Istio's sidecar proxy enforces mTLS between services by default, but
+    the EPP scheduler generates its own self-signed TLS cert rather than
+    using Istio mesh certs. Without a DestinationRule, Istio initiates
+    mTLS to EPP, EPP presents its self-signed cert, and Istio rejects
+    the connection - leaving InferencePool stuck in WaitingForGateway.
+
+    The DestinationRule switches to SIMPLE TLS (accept any server cert)
+    for EPP services, bypassing the mTLS mismatch. Only needed on Istio;
+    Envoy Gateway handles EPP TLS natively.
+    """
+    core = k8s_client.CoreV1Api()
+    api = k8s_client.CustomObjectsApi()
+    svcs = core.list_namespaced_service(ns)
+    for svc in svcs.items:
+        if "epp" not in svc.metadata.name:
+            continue
+        name = f"{svc.metadata.name}-tls"
+        body = {
+            "apiVersion": "networking.istio.io/v1",
+            "kind": "DestinationRule",
+            "metadata": {"name": name, "namespace": ns},
+            "spec": {
+                "host": f"{svc.metadata.name}.{ns}.svc.cluster.local",
+                "trafficPolicy": {
+                    "tls": {"mode": "SIMPLE", "insecureSkipVerify": True}
+                },
+            },
+        }
+        try:
+            api.create_namespaced_custom_object(
+                "networking.istio.io", "v1", ns, "destinationrules", body
+            )
+        except k8s_client.ApiException as e:
+            if e.status == 409:
+                api.patch_namespaced_custom_object(
+                    "networking.istio.io", "v1", ns, "destinationrules", name, body
+                )
+            else:
+                raise
+
+
 # ---------------------------------------------------------------------------
 # Test fixtures
 # ---------------------------------------------------------------------------
@@ -607,7 +673,7 @@ def canary_env(request, test_namespace):
     """Deploy a canary scenario - namespace teardown handles cleanup."""
     scenario_name = request.param
     scenario = SCENARIOS[scenario_name]
-    api = get_api()
+    api = get_k8s_client()
     ns = test_namespace
 
     # Apply workload configs (deduplicate if both members use the same one)
@@ -624,6 +690,10 @@ def canary_env(request, test_namespace):
     wait_ready(api, scenario.v1.name, ns)
     logger.info(f"Waiting for {scenario.v2.name} Ready...")
     wait_ready(api, scenario.v2.name, ns)
+
+    # Istio needs DestinationRules for EPP TLS origination (scheduler scenarios only).
+    if any(m.scheduler for m in [scenario.v1, scenario.v2]) and _has_istio():
+        _apply_epp_tls_workaround(ns)
 
     yield scenario, api, ns
 
@@ -651,6 +721,34 @@ class TestCanaryLifecycle:
         with member_lifecycle(api, [scenario.v1.name, scenario.v2.name], ns):
             self._run_canary_lifecycle(canary_env, traffic_driver)
 
+    @pytest.mark.requires_weighted_inference_pool
+    @pytest.mark.parametrize(
+        "canary_env",
+        ["pool"],
+        indirect=True,
+        ids=["pool"],
+    )
+    def test_canary_pool_backend(self, canary_env, traffic_driver):
+        """InferencePool backend - Istio only (Envoy AI Gateway disables ext_proc
+        for routes with multiple weighted InferencePool backendRefs)."""
+        scenario, api, ns = canary_env
+        with member_lifecycle(api, [scenario.v1.name, scenario.v2.name], ns):
+            self._run_canary_lifecycle(canary_env, traffic_driver)
+
+    @pytest.mark.requires_weighted_inference_pool
+    @pytest.mark.parametrize(
+        "canary_env",
+        ["mixed"],
+        indirect=True,
+        ids=["mixed"],
+    )
+    def test_canary_mixed_backend(self, canary_env, traffic_driver):
+        """Mixed backend (v1 service, v2 pool) - canary upgrade path. Istio
+        only (Envoy AI Gateway can't weight-split with InferencePool)."""
+        scenario, api, ns = canary_env
+        with member_lifecycle(api, [scenario.v1.name, scenario.v2.name], ns):
+            self._run_canary_lifecycle(canary_env, traffic_driver)
+
     def test_model_name_divergence(self, test_namespace):
         """Members with different model.name form independent sub-groups.
 
@@ -658,7 +756,7 @@ class TestCanaryLifecycle:
         is degraded (GroupDegraded=True/MemberDivergence) because members
         diverge on model identity.
         """
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         with member_lifecycle(api, [DIV_V1, DIV_V2], ns):
@@ -704,7 +802,7 @@ class TestCanaryLifecycle:
         members should appear in each other's group and GroupDegraded should
         clear.
         """
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         with member_lifecycle(api, [DIV_V1, DIV_V2], ns):
@@ -758,7 +856,7 @@ class TestCanaryLifecycle:
 
     def test_weight_without_group_rejected(self, test_namespace):
         """Webhook rejects LLMISVC with weight but no group. (spike step 11)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         with member_lifecycle(api, ["webhook-reject"], ns):
@@ -908,7 +1006,7 @@ class TestCanaryLifecycle:
     def test_force_stop(self, test_namespace, traffic_driver):
         """Force-stop a member - scales to zero, stopped=true in group status,
         traffic shifts to remaining member. (spike step 8)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="stop-v1", weight=9, scheduler=False)
@@ -989,7 +1087,7 @@ class TestCanaryLifecycle:
     def test_decommission(self, test_namespace, traffic_driver):
         """Delete a member from the group - remaining member stays Ready,
         traffic continues. (spike step 9)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="decom-v1", weight=9, scheduler=False)
@@ -1042,7 +1140,7 @@ class TestCanaryLifecycle:
 
     def test_leave_group(self, test_namespace):
         """Remove group+weight from a member - leaves the group. (spike step 14)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="leave-v1", weight=5, scheduler=False)
@@ -1089,7 +1187,7 @@ class TestCanaryLifecycle:
 
     def test_three_member_group(self, test_namespace, traffic_driver):
         """Three members in a group all receive traffic. (spike step 15)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="tri-v1", weight=5, scheduler=False)
@@ -1143,7 +1241,7 @@ class TestCanaryLifecycle:
 
     def test_late_join(self, test_namespace, traffic_driver):
         """A member joins an already-running group. (spike step 16)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="late-v1", weight=9, scheduler=False)
@@ -1198,7 +1296,7 @@ class TestCanaryLifecycle:
 
     def test_delete_at_nonzero_weight(self, test_namespace, traffic_driver):
         """Delete a member with weight>0 - no route breakage. (spike step 17)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="delw-v1", weight=5, scheduler=False)
@@ -1241,7 +1339,7 @@ class TestCanaryLifecycle:
 
     def test_rollback(self, test_namespace, traffic_driver):
         """Promote v2 then rollback to v1 - traffic returns. (spike step 7)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="roll-v1", weight=9, scheduler=False)
@@ -1313,7 +1411,7 @@ class TestCanaryLifecycle:
 
     def test_force_stop_route_owner(self, test_namespace, traffic_driver):
         """Force-stop the route owner - traffic shifts to other member. (spike step 18)"""
-        api = get_api()
+        api = get_k8s_client()
         ns = test_namespace
 
         v1 = MemberSpec(name="owner-v1", weight=5, scheduler=False)
