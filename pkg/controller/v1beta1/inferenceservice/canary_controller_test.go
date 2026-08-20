@@ -80,6 +80,32 @@ var _ = Describe("Canary deployment controller", func() {
 		}
 	}
 
+	// markCanaryAvailable simulates the Deployment controller by setting
+	// AvailableReplicas on the canary Deployment so that the KServe controller
+	// marks the canary as Ready and reduces the stable minReplicas accordingly.
+	markCanaryAvailable := func(ctx context.Context, key types.NamespacedName) {
+		Eventually(func() error {
+			deploy := &appsv1.Deployment{}
+			if err := k8sClient.Get(ctx, key, deploy); err != nil {
+				return err
+			}
+			replicas := int32(1)
+			if deploy.Spec.Replicas != nil {
+				replicas = *deploy.Spec.Replicas
+			}
+			updated := deploy.DeepCopy()
+			updated.Status.AvailableReplicas = replicas
+			updated.Status.ReadyReplicas = replicas
+			updated.Status.Replicas = replicas
+			updated.Status.UpdatedReplicas = replicas
+			updated.Status.Conditions = []appsv1.DeploymentCondition{
+				{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+				{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+			}
+			return k8sClient.Status().Update(ctx, updated)
+		}, timeout, interval).Should(Succeed())
+	}
+
 	Context("When creating an InferenceService with a canary", func() {
 		It("Should create separate Deployments for stable and canary", func() {
 			configMap := createInferenceServiceConfigMap(configs)
@@ -101,6 +127,9 @@ var _ = Describe("Canary deployment controller", func() {
 
 			stableKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceName), Namespace: "default"}
 			canaryKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceName, "v2"), Namespace: "default"}
+
+			// Mark canary as available so the controller reduces stable minReplicas.
+			markCanaryAvailable(ctx, canaryKey)
 
 			// Stable gets 3 replicas (4 - 1), canary gets 1 (25% of 4)
 			Eventually(func() int32 {
@@ -161,6 +190,9 @@ var _ = Describe("Canary deployment controller", func() {
 			Eventually(func() error {
 				return k8sClient.Get(ctx, canaryKey, &appsv1.Deployment{})
 			}, timeout, interval).Should(Succeed())
+
+			// Mark canary as available so the controller reduces stable minReplicas.
+			markCanaryAvailable(ctx, canaryKey)
 
 			// Bump traffic to 50%
 			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -341,6 +373,10 @@ var _ = Describe("Canary deployment controller", func() {
 			stableKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceName), Namespace: "default"}
 			canaryV2Key := types.NamespacedName{Name: constants.PredictorServiceName(serviceName, "v2"), Namespace: "default"}
 			canaryV3Key := types.NamespacedName{Name: constants.PredictorServiceName(serviceName, "v3"), Namespace: "default"}
+
+			// Mark both canaries as available so the controller reduces stable minReplicas.
+			markCanaryAvailable(ctx, canaryV2Key)
+			markCanaryAvailable(ctx, canaryV3Key)
 
 			// 4 total: 2 stable, 1 v2 (25%), 1 v3 (25%)
 			Eventually(func() int32 {
