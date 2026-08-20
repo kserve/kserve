@@ -187,6 +187,13 @@ type ServiceConfig struct {
 	// ServiceClusterIPNone is a boolean flag to indicate if the service should have a clusterIP set to None.
 	// If the DeploymentMode is Raw, the default value for ServiceClusterIPNone is false when the value is absent.
 	ServiceClusterIPNone bool `json:"serviceClusterIPNone,omitempty"`
+	// IpFamilyPolicy controls the IP family assignment policy of the created Service.
+	// Valid values are the corev1 IPFamilyPolicy values: SingleStack, PreferDualStack, RequireDualStack.
+	// When unset, the Service is created without an explicit policy and the cluster default applies.
+	IpFamilyPolicy string `json:"ipFamilyPolicy,omitempty"`
+	// IpFamilies explicitly assigns IP families to the created Service, e.g. ["IPv4","IPv6"].
+	// Only takes effect when IpFamilyPolicy is set, and only on newly created Services
+	IpFamilies []string `json:"ipFamilies,omitempty"`
 }
 
 func GetInferenceServiceConfigMap(ctx context.Context, clientset kubernetes.Interface) (*corev1.ConfigMap, error) {

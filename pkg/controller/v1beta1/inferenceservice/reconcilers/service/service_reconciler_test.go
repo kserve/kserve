@@ -292,6 +292,51 @@ func TestCreateServiceRawTrueAndConfigNil(t *testing.T) {
 	runTestServiceCreate(emptyServiceConfig, "", t)
 }
 
+func TestCreateServiceIpFamiliesUnset(t *testing.T) {
+	// No IP family config: fields must stay unset (cluster defaults)
+	service := createService(testServiceMeta(), &v1beta1.ComponentExtensionSpec{}, &corev1.PodSpec{}, false, emptyServiceConfig)
+	assert.Nil(t, service[0].Spec.IPFamilyPolicy, "Expected IPFamilyPolicy to be nil when not configured")
+	assert.Nil(t, service[0].Spec.IPFamilies, "Expected IPFamilies to be nil when not configured")
+}
+
+func TestCreateServiceIpFamiliesDualStack(t *testing.T) {
+	serviceConfig := &v1beta1.ServiceConfig{
+		IpFamilyPolicy: "PreferDualStack",
+		IpFamilies:     []string{"IPv4", "IPv6"},
+	}
+	service := createService(testServiceMeta(), &v1beta1.ComponentExtensionSpec{}, &corev1.PodSpec{}, false, serviceConfig)
+	require.NotNil(t, service[0].Spec.IPFamilyPolicy)
+	assert.Equal(t, corev1.IPFamilyPolicyPreferDualStack, *service[0].Spec.IPFamilyPolicy)
+	assert.Equal(t, []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}, service[0].Spec.IPFamilies)
+}
+
+func TestCreateServiceIpFamiliesPolicyOnly(t *testing.T) {
+	// Policy without explicit families: policy set, families left for the apiserver to assign
+	serviceConfig := &v1beta1.ServiceConfig{
+		IpFamilyPolicy: "PreferDualStack",
+	}
+	service := createService(testServiceMeta(), &v1beta1.ComponentExtensionSpec{}, &corev1.PodSpec{}, false, serviceConfig)
+	require.NotNil(t, service[0].Spec.IPFamilyPolicy)
+	assert.Equal(t, corev1.IPFamilyPolicyPreferDualStack, *service[0].Spec.IPFamilyPolicy)
+	assert.Nil(t, service[0].Spec.IPFamilies, "Expected IPFamilies to be nil when only policy is configured")
+}
+
+func TestCreateServiceIpFamiliesWithClusterIPNone(t *testing.T) {
+	// Both policy and ip families features combined
+	serviceConfig := &v1beta1.ServiceConfig{
+		ServiceClusterIPNone: true,
+		IpFamilyPolicy:       "PreferDualStack",
+		IpFamilies:           []string{"IPv4", "IPv6"},
+	}
+	service := createService(testServiceMeta(), &v1beta1.ComponentExtensionSpec{}, &corev1.PodSpec{}, false, serviceConfig)
+	assert.Equal(t, corev1.ClusterIPNone, service[0].Spec.ClusterIP)
+	assert.Equal(t, []corev1.IPFamily{corev1.IPv4Protocol, corev1.IPv6Protocol}, service[0].Spec.IPFamilies)
+}
+
+func testServiceMeta() metav1.ObjectMeta {
+	return metav1.ObjectMeta{Name: "test-service", Namespace: "default"}
+}
+
 func runTestServiceCreate(serviceConfig *v1beta1.ServiceConfig, expectedClusterIP string, t *testing.T) {
 	componentMeta := metav1.ObjectMeta{
 		Name:      "test-service",

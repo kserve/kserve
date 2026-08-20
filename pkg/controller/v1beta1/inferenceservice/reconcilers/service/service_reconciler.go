@@ -185,6 +185,14 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 		service.Spec.ClusterIP = corev1.ClusterIPNone
 	}
 
+	// Explicit IP family assignment for dual-stack capable clusters.
+	if serviceConfig != nil && serviceConfig.IpFamilyPolicy != "" {
+		service.Spec.IPFamilyPolicy = ptr.To(corev1.IPFamilyPolicy(serviceConfig.IpFamilyPolicy))
+		for _, family := range serviceConfig.IpFamilies {
+			service.Spec.IPFamilies = append(service.Spec.IPFamilies, corev1.IPFamily(family))
+		}
+	}
+
 	// Allow platform-specific customization of the service (e.g. annotations, port overrides).
 	customizeService(service, componentMeta)
 
