@@ -1416,3 +1416,35 @@ func TestLLMInferenceServiceConversion_NilRolloutStrategy(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, restored.Spec.RolloutStrategy)
 }
+
+func TestLLMInferenceServiceConversion_PreservesStorageContainerName(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-storage-container",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "custom", Host: "models/llama"},
+			},
+			StorageInitializer: &StorageInitializerSpec{
+				Enabled:              ptr.To(true),
+				StorageContainerName: ptr.To("my-custom-storage"),
+			},
+		},
+	}
+
+	hub := &v1alpha2.LLMInferenceService{}
+	err := src.ConvertTo(hub)
+	require.NoError(t, err)
+	require.NotNil(t, hub.Spec.StorageInitializer)
+	assert.Equal(t, true, *hub.Spec.StorageInitializer.Enabled)
+	assert.Equal(t, "my-custom-storage", *hub.Spec.StorageInitializer.StorageContainerName)
+
+	restored := &LLMInferenceService{}
+	err = restored.ConvertFrom(hub)
+	require.NoError(t, err)
+	require.NotNil(t, restored.Spec.StorageInitializer)
+	assert.Equal(t, true, *restored.Spec.StorageInitializer.Enabled)
+	assert.Equal(t, "my-custom-storage", *restored.Spec.StorageInitializer.StorageContainerName)
+}

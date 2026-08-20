@@ -370,6 +370,13 @@ type LoRASpec struct {
 //
 //	storageInitializer:
 //	  enabled: true
+//
+// Example - Named ClusterStorageContainer for a custom URI scheme:
+//
+//	storageInitializer:
+//	  storageContainerName: my-custom-storage
+//
+// +kubebuilder:validation:XValidation:rule="!(has(self.enabled) && self.enabled == false && has(self.storageContainerName))",message="storageContainerName cannot be set when enabled is false"
 type StorageInitializerSpec struct {
 	// Enabled controls whether the storage-initializer initContainer is created.
 	// When nil or true, storage-initializer is created for applicable URIs (s3://, hf://).

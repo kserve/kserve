@@ -22,6 +22,8 @@ import (
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func TestStorageContainerSpec_IsStorageUriSupported(t *testing.T) {
@@ -87,4 +89,38 @@ func TestStorageContainerSpec_IsStorageUriSupported(t *testing.T) {
 			g.Expect(supported).To(gomega.Equal(tc.supported))
 		})
 	}
+}
+
+func TestClusterStorageContainer_EligibleInitContainerForURI(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	base := ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{Name: "custom"},
+		Spec: StorageContainerSpec{
+			WorkloadType:        InitContainer,
+			SupportedUriFormats: []SupportedUriFormat{{Prefix: "custom://"}},
+		},
+	}
+
+	t.Run("eligible", func(t *testing.T) {
+		g.Expect(base.EligibleInitContainerForURI("custom://models/llama")).To(gomega.Succeed())
+	})
+	t.Run("disabled", func(t *testing.T) {
+		sc := base.DeepCopy()
+		sc.Disabled = ptr.To(true)
+		err := sc.EligibleInitContainerForURI("custom://models/llama")
+		g.Expect(err).To(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("is disabled"))
+	})
+	t.Run("wrong workload type", func(t *testing.T) {
+		sc := base.DeepCopy()
+		sc.Spec.WorkloadType = LocalModelDownloadJob
+		err := sc.EligibleInitContainerForURI("custom://models/llama")
+		g.Expect(err).To(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("workloadType"))
+	})
+	t.Run("unsupported uri", func(t *testing.T) {
+		err := base.EligibleInitContainerForURI("s3://bucket/model")
+		g.Expect(err).To(gomega.HaveOccurred())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("does not support storageUri"))
+	})
 }

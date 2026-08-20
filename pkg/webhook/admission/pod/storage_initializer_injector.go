@@ -163,21 +163,8 @@ func GetStorageContainerSpecByName(ctx context.Context, name, storageUri string,
 		}
 		return nil, fmt.Errorf("failed to fetch ClusterStorageContainer %q: %w", name, err)
 	}
-	if sc.IsDisabled() {
-		return nil, fmt.Errorf("ClusterStorageContainer %q is disabled", name)
-	}
-	if sc.Spec.WorkloadType != v1alpha1.InitContainer {
-		return nil, fmt.Errorf(
-			"ClusterStorageContainer %q has workloadType %q; explicit selection requires %q",
-			name, sc.Spec.WorkloadType, v1alpha1.InitContainer,
-		)
-	}
-	supported, err := sc.Spec.IsStorageUriSupported(storageUri)
-	if err != nil {
-		return nil, fmt.Errorf("ClusterStorageContainer %q URI check failed for %q: %w", name, storageUri, err)
-	}
-	if !supported {
-		return nil, fmt.Errorf("ClusterStorageContainer %q does not support storageUri %q", name, storageUri)
+	if err := sc.EligibleInitContainerForURI(storageUri); err != nil {
+		return nil, err
 	}
 	return &sc.Spec, nil
 }
