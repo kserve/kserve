@@ -60,8 +60,18 @@ LLMISVC_LABEL_NAME = "app.kubernetes.io/name"
 LLMISVC_LABEL_PART_OF = "app.kubernetes.io/part-of"
 LLMISVC_LABEL_PART_OF_VALUE = "llminferenceservice"
 
-# The inference container name used by both ISVC and LLMISVC controllers.
+# Container name used in the inline pod template we submit. The LLMISVC
+# controller merges this template with its base config templates
+# (config/llmisvcconfig/config-llm-*.yaml), whose model-serving container is
+# named "main" — that is the container the controller attaches the model
+# volume mount to, not the template-provided container below.
 KSERVE_CONTAINER_NAME = "kserve-container"
+
+# The LLMISVC controller's canonical model-serving container. The oci+native://
+# ImageVolume mount lands here (the base templates all define `name: main`), so
+# assertions about the model VolumeMount must target this container, not the
+# template's KSERVE_CONTAINER_NAME.
+LLMISVC_MODEL_CONTAINER_NAME = "main"
 
 # Seconds to wait for a pod to appear after LLMInferenceService creation.
 POD_WAIT_TIMEOUT = 120
@@ -229,19 +239,24 @@ def test_oci_native_image_volume_spec_llmisvc(tmp_path):
         image_vol_name = matched[0]["name"]
 
         containers = pod_dict.get("spec", {}).get("containers", []) or []
-        kserve_container = next(
-            (c for c in containers if c.get("name") == KSERVE_CONTAINER_NAME), None
+        # The LLMISVC controller attaches the model volume mount to its canonical
+        # "main" container (from the merged base template), not to the container
+        # name we supplied in the inline template.
+        model_container = next(
+            (c for c in containers if c.get("name") == LLMISVC_MODEL_CONTAINER_NAME),
+            None,
         )
-        assert kserve_container is not None, (
-            f"{KSERVE_CONTAINER_NAME} not found in pod spec. "
+        assert model_container is not None, (
+            f"{LLMISVC_MODEL_CONTAINER_NAME} container not found in pod spec. "
             f"Container names: {[c.get('name') for c in containers]}"
         )
 
-        mounts = kserve_container.get("volume_mounts", []) or []
+        mounts = model_container.get("volume_mounts", []) or []
         image_mount = next((m for m in mounts if m.get("name") == image_vol_name), None)
         assert image_mount is not None, (
-            f"No VolumeMount for ImageVolume '{image_vol_name}' on {KSERVE_CONTAINER_NAME}. "
-            f"Mounts present: {[m.get('name') for m in mounts]}"
+            f"No VolumeMount for ImageVolume '{image_vol_name}' on "
+            f"{LLMISVC_MODEL_CONTAINER_NAME}. Mounts present: "
+            f"{[m.get('name') for m in mounts]}"
         )
         assert image_mount.get("read_only") is True, (
             f"Expected VolumeMount '{image_vol_name}' to be read-only"

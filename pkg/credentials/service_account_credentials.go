@@ -36,6 +36,7 @@ import (
 	"github.com/kserve/kserve/pkg/credentials/hdfs"
 	"github.com/kserve/kserve/pkg/credentials/hf"
 	"github.com/kserve/kserve/pkg/credentials/https"
+	"github.com/kserve/kserve/pkg/credentials/ms"
 	"github.com/kserve/kserve/pkg/credentials/s3"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -331,6 +332,10 @@ func (c *CredentialBuilder) mountSecretCredential(ctx context.Context, secretNam
 	} else if _, ok := secret.Data[hf.HFTokenKey]; ok {
 		log.Info("Setting secret envs for huggingface", "HfSecret", secret.Name)
 		envs := hf.BuildSecretEnvs(secret)
+		container.Env = append(container.Env, envs...)
+	} else if _, ok := secret.Data[ms.MSTokenKey]; ok {
+		log.Info("Setting secret envs for modelscope", "MsSecret", secret.Name)
+		envs := ms.BuildSecretEnvs(secret)
 		container.Env = append(container.Env, envs...)
 	} else {
 		log.V(5).Info("Skipping unsupported secret", "Secret", secret.Name)
