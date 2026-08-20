@@ -17,7 +17,6 @@ limitations under the License.
 package llmisvc
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -118,7 +117,6 @@ func TestAttachStorageInitializerConfidential(t *testing.T) {
 				},
 			}
 			err := r.attachStorageInitializer(
-				context.Background(),
 				llmSvc,
 				"s3://bucket/model",
 				curr,
