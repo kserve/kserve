@@ -16,6 +16,8 @@ limitations under the License.
 
 package llmisvc
 
+import "github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+
 // SetUseVersionedConfigForTest overrides the useVersionedConfig flag for testing
 // and returns a cleanup function that restores the original value.
 func SetUseVersionedConfigForTest(enabled bool) func() {
@@ -24,4 +26,12 @@ func SetUseVersionedConfigForTest(enabled bool) func() {
 	return func() {
 		useVersionedConfig = original
 	}
+}
+
+// KVTransferArgsEnvVarForTest exposes the transfer-argument slot name.
+const KVTransferArgsEnvVarForTest = kvTransferArgsEnvVar
+
+// ApplyKVCacheCarriersForTest exposes applyKVCacheCarriers.
+func ApplyKVCacheCarriersForTest(cfg *v1alpha2.LLMInferenceServiceConfig) error {
+	return applyKVCacheCarriers(cfg)
 }
