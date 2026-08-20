@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -36,7 +37,6 @@ import (
 	"github.com/kserve/kserve/pkg/credentials/s3"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
-	podwebhook "github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
 
 const CaBundleVolumeName = "cabundle-cert"
@@ -201,20 +201,24 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		}
 
 	default:
-		if llmSvc.Spec.StorageInitializer == nil ||
-			llmSvc.Spec.StorageInitializer.StorageContainerName == nil ||
-			*llmSvc.Spec.StorageInitializer.StorageContainerName == "" {
-			return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
-		}
-		if len(loraPairs) == 0 {
-			if err := r.attachStorageInitializer(ctx, llmSvc, modelUri, curr, podSpec, config.StorageConfig, containerName, modelPath); err != nil {
-				return err
+		if llmSvc.HasNamedStorageContainer() {
+			if len(loraPairs) == 0 {
+				if err := r.attachStorageInitializer(ctx, llmSvc, modelUri, curr, podSpec, config.StorageConfig, containerName, modelPath); err != nil {
+					return err
+				}
+			} else {
+				pairs := append([]storageDownloadPair{{uri: modelUri, path: constants.DefaultModelLocalMountPath}}, loraPairs...)
+				if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, pairs); err != nil {
+					return err
+				}
+			}
+			if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
+				if err := r.mergeNamedStorageContainer(ctx, llmSvc, modelUri, initContainer); err != nil {
+					return err
+				}
 			}
 		} else {
-			pairs := append([]storageDownloadPair{{uri: modelUri, path: constants.DefaultModelLocalMountPath}}, loraPairs...)
-			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, pairs); err != nil {
-				return err
-			}
+			return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
 		}
 	}
 
@@ -435,10 +439,6 @@ func (r *LLMISVCReconciler) attachStorageInitializer(ctx context.Context, llmSvc
 
 	initContainer := utils.CreateInitContainerWithConfig(&copied, containerArgs)
 
-	if err := r.mergeNamedStorageContainer(ctx, llmSvc, modelUri, initContainer); err != nil {
-		return err
-	}
-
 	// Inject confidential env vars before appending to the pod spec
 	if confidential != nil && confidential.Enabled {
 		resourceId := ""
@@ -479,19 +479,23 @@ func (r *LLMISVCReconciler) attachStorageInitializer(ctx context.Context, llmSvc
 }
 
 func (r *LLMISVCReconciler) mergeNamedStorageContainer(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, modelURI string, initContainer *corev1.Container) error {
-	if llmSvc.Spec.StorageInitializer == nil ||
-		llmSvc.Spec.StorageInitializer.StorageContainerName == nil ||
-		*llmSvc.Spec.StorageInitializer.StorageContainerName == "" {
+	if !llmSvc.HasNamedStorageContainer() {
 		return nil
 	}
 
 	name := *llmSvc.Spec.StorageInitializer.StorageContainerName
-	storageContainer, err := podwebhook.GetStorageContainerSpecByName(ctx, name, modelURI, r.Client)
-	if err != nil {
+	sc := &v1alpha1.ClusterStorageContainer{}
+	if err := r.Get(ctx, types.NamespacedName{Name: name}, sc); err != nil {
+		if apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to resolve storageContainerName %q: ClusterStorageContainer %q not found", name, name)
+		}
+		return fmt.Errorf("failed to resolve storageContainerName %q: %w", name, err)
+	}
+	if err := sc.EligibleInitContainerForURI(modelURI); err != nil {
 		return fmt.Errorf("failed to resolve storageContainerName %q: %w", name, err)
 	}
 
-	merged, err := utils.MergeContainerWithPatch(*initContainer, storageContainer.Container)
+	merged, err := utils.MergeContainerWithPatch(*initContainer, sc.Spec.Container)
 	if err != nil {
 		return fmt.Errorf("failed to merge ClusterStorageContainer %q: %w", name, err)
 	}
@@ -541,10 +545,6 @@ func (r *LLMISVCReconciler) attachMultiStorageDownloads(
 	}
 
 	initC := utils.CreateInitContainerWithConfig(&copied, args)
-
-	if err := r.mergeNamedStorageContainer(ctx, llmSvc, pairs[0].uri, initC); err != nil {
-		return err
-	}
 
 	if userOverride != nil {
 		merged, err := utils.MergeContainerWithPatch(*initC, *userOverride)
