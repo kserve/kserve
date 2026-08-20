@@ -50,6 +50,7 @@ spec:
         args:
         - "--metrics-addr=127.0.0.1:8443"
         - "--leader-elect"
+        - "--aggregator-addr=:8080"
         env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -84,6 +85,9 @@ spec:
           protocol: TCP
         - containerPort: 8443
           name: metrics
+          protocol: TCP
+        - containerPort: 8080
+          name: aggregator
           protocol: TCP
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs

@@ -29,6 +29,14 @@ spec:
     targetPort: {{ .Values.kserve.llmisvc.controller.service.targetPort }}
     protocol: TCP
     name: https
+  {{- with .Values.kserve.llmisvc.controller.aggregator }}
+  {{- if .enabled }}
+  - port: {{ .port }}
+    targetPort: aggregator
+    protocol: TCP
+    name: aggregator
+  {{- end }}
+  {{- end }}
 ---
 apiVersion: v1
 kind: Service

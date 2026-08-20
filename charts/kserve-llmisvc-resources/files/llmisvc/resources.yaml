@@ -1441,6 +1441,10 @@ spec:
     port: 8443
     protocol: TCP
     targetPort: metrics
+  - name: aggregator
+    port: 8080
+    protocol: TCP
+    targetPort: aggregator
   selector:
     control-plane: llmisvc-controller-manager
     controller-tools.k8s.io: "1.0"
@@ -1487,6 +1491,7 @@ spec:
       - args:
         - --metrics-addr=127.0.0.1:8443
         - --leader-elect
+        - --aggregator-addr=:8080
         command:
         - /manager
         env:
@@ -1511,6 +1516,9 @@ spec:
           protocol: TCP
         - containerPort: 8443
           name: metrics
+          protocol: TCP
+        - containerPort: 8080
+          name: aggregator
           protocol: TCP
         readinessProbe:
           failureThreshold: 5

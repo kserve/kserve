@@ -59,6 +59,11 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.inferenceservice.resources.requests.cpu | string | `"1"` |  |
 | kserve.inferenceservice.resources.requests.memory | string | `"2Gi"` |  |
 | kserve.llmisvc.controller.affinity | object | `{}` |  |
+| kserve.llmisvc.controller.aggregator.backendTimeout | string | `"3s"` |  |
+| kserve.llmisvc.controller.aggregator.bindAddress | string | `":8080"` |  |
+| kserve.llmisvc.controller.aggregator.enabled | bool | `true` |  |
+| kserve.llmisvc.controller.aggregator.namespace | string | `""` |  |
+| kserve.llmisvc.controller.aggregator.port | int | `8080` |  |
 | kserve.llmisvc.controller.annotations | object | `{}` |  |
 | kserve.llmisvc.controller.containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |
 | kserve.llmisvc.controller.containerSecurityContext.capabilities.drop[0] | string | `"ALL"` |  |
