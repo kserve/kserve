@@ -11,6 +11,5 @@
         }
     ],
     "temperature": 0,
-    "max_tokens": 32,
-    "seed": 42
+    "max_tokens": 20
 }

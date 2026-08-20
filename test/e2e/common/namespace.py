@@ -4,7 +4,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+#    http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Worker-scoped namespace isolation for predictor e2e tests.
+"""Worker-scoped namespace helpers for e2e tests.
 
 Each pytest-xdist worker gets one Kubernetes namespace. InferenceServices are
 deleted after each test so workers do not collide or starve Knative ingress.
@@ -23,17 +23,24 @@ import os
 import time
 
 from kubernetes import client, config
-import pytest
 
-logger = logging.getLogger("e2e.predictor")
-_CLEANUP_LOG = logger
+logger = logging.getLogger("e2e.namespace")
 
 SEED_NAMESPACE = os.environ.get("KSERVE_SEED_NAMESPACE", "kserve-ci-e2e-test")
 S3_CREDENTIALS_SECRET = os.environ.get("S3_CREDENTIALS_SECRET", "seaweedfs-s3-creds")
 STORAGE_CONFIG_SECRET = "storage-config"
+WORKER_NAMESPACE_PREFIX = "e2e"
 
 
-def _get_core_api() -> client.CoreV1Api:
+def skip_resource_deletion() -> bool:
+    return os.getenv("SKIP_RESOURCE_DELETION", "").lower() in ("true", "1")
+
+
+def worker_namespace_name(worker_id: str) -> str:
+    return f"{WORKER_NAMESPACE_PREFIX}-{worker_id}"[:24]
+
+
+def get_core_api() -> client.CoreV1Api:
     try:
         config.load_incluster_config()
     except config.ConfigException:
@@ -56,7 +63,7 @@ def _namespace_labels(core_v1: client.CoreV1Api) -> dict:
     return labels
 
 
-def _create_namespace(core_v1: client.CoreV1Api, namespace: str) -> None:
+def create_namespace(core_v1: client.CoreV1Api, namespace: str) -> None:
     ns = client.V1Namespace(
         metadata=client.V1ObjectMeta(
             name=namespace,
@@ -65,7 +72,7 @@ def _create_namespace(core_v1: client.CoreV1Api, namespace: str) -> None:
     )
     try:
         core_v1.create_namespace(ns)
-        logger.info(f"Created namespace {namespace}")
+        logger.info("Created namespace %s", namespace)
     except client.rest.ApiException as e:
         if e.status != 409:
             raise
@@ -102,7 +109,7 @@ def _copy_secret(core_v1: client.CoreV1Api, name: str, src: str, dst: str) -> No
             raise
 
 
-def _provision_secrets(core_v1: client.CoreV1Api, namespace: str) -> None:
+def provision_secrets(core_v1: client.CoreV1Api, namespace: str) -> None:
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         try:
@@ -131,16 +138,16 @@ def _provision_secrets(core_v1: client.CoreV1Api, namespace: str) -> None:
             raise
 
 
-def _delete_namespace(core_v1: client.CoreV1Api, namespace: str) -> None:
+def delete_namespace(core_v1: client.CoreV1Api, namespace: str) -> None:
     try:
         core_v1.delete_namespace(namespace)
-        logger.info(f"Deleted namespace {namespace}")
+        logger.info("Deleted namespace %s", namespace)
     except client.rest.ApiException as e:
         if e.status != 404:
-            logger.error(f"Failed to delete {namespace}: {e}")
+            logger.error("Failed to delete %s: %s", namespace, e)
 
 
-def _wait_pods_terminated(core_v1: client.CoreV1Api, namespace: str) -> None:
+def wait_pods_terminated(core_v1: client.CoreV1Api, namespace: str) -> None:
     deadline = time.monotonic() + 60
     while time.monotonic() < deadline:
         try:
@@ -154,17 +161,9 @@ def _wait_pods_terminated(core_v1: client.CoreV1Api, namespace: str) -> None:
         time.sleep(2)
 
 
-@pytest.fixture(scope="session")
-def _e2e_worker_id(request):
-    workerinput = getattr(request.config, "workerinput", None)
-    if workerinput:
-        return workerinput["workerid"]
-    return "master"
-
-
-def _cleanup_isvcs(namespace: str) -> None:
+def cleanup_isvcs(namespace: str) -> None:
     """Delete leftover InferenceServices so a worker namespace does not pile up."""
-    _get_core_api()
+    get_core_api()
     api = client.CustomObjectsApi()
     group = "serving.kserve.io"
     version = "v1beta1"
@@ -179,9 +178,7 @@ def _cleanup_isvcs(namespace: str) -> None:
             api.delete_namespaced_custom_object(group, version, namespace, plural, name)
         except client.rest.ApiException as e:
             if e.status != 404:
-                _CLEANUP_LOG.warning(
-                    "Failed to delete ISVC %s/%s: %s", namespace, name, e
-                )
+                logger.warning("Failed to delete ISVC %s/%s: %s", namespace, name, e)
     deadline = time.monotonic() + 45
     while time.monotonic() < deadline:
         try:
@@ -191,36 +188,3 @@ def _cleanup_isvcs(namespace: str) -> None:
         except client.rest.ApiException:
             return
         time.sleep(1)
-
-
-@pytest.fixture(scope="session")
-def test_namespace_session(_e2e_worker_id):
-    """One namespace per xdist worker. Per-test namespaces starve Knative/Istio ingress."""
-    core_v1 = _get_core_api()
-    ns_name = f"pred-{_e2e_worker_id}"[:24]
-
-    _create_namespace(core_v1, ns_name)
-    _provision_secrets(core_v1, ns_name)
-
-    yield ns_name
-
-    skip_del = os.getenv("SKIP_RESOURCE_DELETION", "").lower() in ("true", "1")
-    if skip_del:
-        logger.info(f"Preserving namespace {ns_name}")
-        return
-
-    _wait_pods_terminated(core_v1, ns_name)
-    _delete_namespace(core_v1, ns_name)
-
-
-@pytest.fixture(scope="function")
-def test_namespace(test_namespace_session):
-    """Reuse the worker namespace; delete ISVCs after each test."""
-    yield test_namespace_session
-    _cleanup_isvcs(test_namespace_session)
-
-
-@pytest.hookimpl(tryfirst=True, hookwrapper=True)
-def pytest_runtest_makereport(item, call):
-    outcome = yield
-    setattr(item, f"rep_{call.when}", outcome.get_result())
