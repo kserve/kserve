@@ -196,6 +196,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{
 											Name:  "HOME",
 											Value: "/home",
@@ -384,6 +385,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{
 											Name:  "HOME",
 											Value: "/home",
@@ -482,6 +484,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{
 											Name:  "HOME",
 											Value: "/home",
