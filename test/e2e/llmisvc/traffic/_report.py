@@ -187,11 +187,23 @@ class Slice:
                 f"p99: {self.latency_p99:.3f}s"
             )
         if self.error_count > 0:
+            t0 = self._records[0].timestamp
             samples = []
             for r in self._records:
                 if r.is_error and (r.body or r.error):
-                    samples.append(f"    [{r.status}] {r.body or r.error}")
-                    if len(samples) >= 3:
+                    # x-inference-pod attributes the failure: present -> the
+                    # backend pod itself returned the error (app or shutdown);
+                    # missing -> a gateway-level failure (no backend reached,
+                    # i.e. a routing/config gap). The offset shows where in the
+                    # slice it landed - clustered near 0s points at convergence
+                    # tail, spread out points at steady-state churn.
+                    pod = r.headers.get("x-inference-pod") or "-"
+                    detail = (r.body or r.error or "").replace("\n", " ")
+                    samples.append(
+                        f"    [{r.status}] +{r.timestamp - t0:.1f}s "
+                        f"pod={pod} lat={r.latency:.3f}s: {detail}"
+                    )
+                    if len(samples) >= 5:
                         break
             if samples:
                 lines.append("  Error samples:")

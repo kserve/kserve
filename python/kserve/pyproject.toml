@@ -35,11 +35,11 @@ dependencies = [
     # workspace's resolver only and is stripped from the published wheel.
     "aiohttp>=3.13.4", # CVE-2026-34520
     "h11>=0.16.0", # CVE-2025-43859
-    "cryptography>=48.0.1", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36
+    "cryptography>=50.0.0", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36, GHSA-g6cj-pr64-35w5
     "python-multipart>=0.0.27", # CVE-2026-42561
     "pyjwt>=2.13.0", # CVE-2026-48526
-    "pyasn1>=0.6.3", # CVE-2026-30922
-    "pillow>=12.2.0", # CVE-2026-40192
+    "pyasn1>=0.6.4", # CVE-2026-30922, CVE-2026-59885
+    "pillow>=12.3.0", # CVE-2026-40192
 ]
 name = "kserve"
 version = "0.20.0"
@@ -113,11 +113,11 @@ override-dependencies = [
     "urllib3>=2.7.0", # CVE-2026-21441
     "aiohttp>=3.13.4", # CVE-2026-34520
     "h11>=0.16.0", # CVE-2025-43859
-    "cryptography>=48.0.1", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36
+    "cryptography>=50.0.0", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36, GHSA-g6cj-pr64-35w5
     "python-multipart>=0.0.27", # CVE-2026-42561
     "pyjwt>=2.13.0", # CVE-2026-48526
-    "pyasn1>=0.6.3", # CVE-2026-30922
-    "pillow>=12.2.0", # CVE-2026-40192
+    "pyasn1>=0.6.4", # CVE-2026-30922, CVE-2026-59885
+    "pillow>=12.3.0", # CVE-2026-40192
 ]
 
 [build-system]
