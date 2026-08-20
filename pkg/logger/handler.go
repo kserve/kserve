@@ -209,8 +209,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				eh.log.Error(err, "Failed to log response")
 			}
 		}
-	}
-	if lrw.statusCode != http.StatusOK {
+	} else {
 		eh.log.Info("Failed to proxy request", "status code", lrw.statusCode)
 	}
 }
