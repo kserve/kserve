@@ -18,7 +18,9 @@ package llmisvc_test
 
 import (
 	"encoding/json"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -2121,6 +2123,60 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
+			name: "nixlTransferConfig renders the decode-side NixlConnector consumer role",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`{{ nixlDecodeTransferConfig }}`}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								// Same escaping contract as kvTransferConfig: quotes stay as \" so the
+								// value survives the KV_TRANSFER_ARGS="..." bash assignment.
+								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "nixlTransferConfig renders the prefill-side NixlConnector producer role",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`{{ nixlPrefillTransferConfig }}`}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "kvTransferConfig includes eviction policy when set",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
@@ -2357,6 +2413,115 @@ printf '%s' "$2"`
 		HaveKeyWithValue("spec_name", "TieringOffloadingSpec"),
 		HaveKeyWithValue("eviction_policy", "lru"),
 	))
+}
+
+// TestReplaceVariables_NixlTransferConfigBashSafe runs the P/D templates' actual
+// KV_TRANSFER_ARGS shape through bash. VLLM_VERSION is pinned to the string the llm-d
+// engine images really report ("0.1.dev1+g51f799c1a"), which can never satisfy the
+// 0.22.0 OffloadingConnector gate, so the NixlConnector branch is the one under test.
+//
+// It covers both sides of the NIXL probe. Injecting the connector unconditionally makes
+// non-NIXL images (the CPU e2e image among them) die at startup with
+// "RuntimeError: NIXL is not available", so "no NIXL, no injection" is as load-bearing
+// as the escaping and is asserted here rather than left to e2e.
+func TestReplaceVariables_NixlTransferConfigBashSafe(t *testing.T) {
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available")
+	}
+
+	// Mirrors the decode/prefill templates: user-supplied config wins, then the
+	// version-gated OffloadingConnector, then the NIXL-gated P/D fallback.
+	// Kept as joined lines rather than one raw literal: golangci-lint's --fix rewrites a
+	// multi-line raw string here and drops a line in the process, leaving unbalanced if/fi.
+	scriptTmpl := strings.Join([]string{
+		`VLLM_VERSION="0.1.dev1+g51f799c1a"`,
+		`KV_TRANSFER_ARGS=""`,
+		`if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then`,
+		`  if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then`,
+		`    KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"`,
+		`  fi`,
+		`  if [ -z "${KV_TRANSFER_ARGS}" ]; then`,
+		`    NIXL_PY=$(command -v python3 || command -v python || true)`,
+		`    if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then`,
+		`      KV_TRANSFER_ARGS="{{ KV_HELPER }}"`,
+		`    fi`,
+		`  fi`,
+		`fi`,
+		`eval "set -- ${KV_TRANSFER_ARGS}"`,
+		`printf '%s' "$2"`,
+	}, "\n")
+
+	// Shim python3 on PATH so the probe can be driven both ways without NIXL installed.
+	stubPython := func(t *testing.T, importSucceeds bool) string {
+		t.Helper()
+		dir := t.TempDir()
+		body := "#!/bin/sh\nexit 1\n"
+		if importSucceeds {
+			body = "#!/bin/sh\nexit 0\n"
+		}
+		if err := os.WriteFile(filepath.Join(dir, "python3"), []byte(body), 0o755); err != nil { //nolint:gosec // G306: probe stub must be executable
+			t.Fatalf("writing python3 stub: %v", err)
+		}
+		return dir
+	}
+
+	for _, tc := range []struct {
+		name   string
+		helper string
+		role   string
+	}{
+		{name: "decode consumes KV", helper: "nixlDecodeTransferConfig", role: "kv_consumer"},
+		{name: "prefill produces KV", helper: "nixlPrefillTransferConfig", role: "kv_producer"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			cfg := &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Command: []string{"/bin/bash", "-c", strings.ReplaceAll(scriptTmpl, "KV_HELPER", tc.helper)}},
+							},
+						},
+					},
+				},
+			}
+
+			// No kvCacheOffloading: this is a plain P/D topology, the #5987 reproducer.
+			got, err := llmisvc.ReplaceVariables(&v1alpha2.LLMInferenceService{}, cfg, nil)
+			g.Expect(err).ToNot(HaveOccurred())
+			renderedScript := got.Spec.Template.Containers[0].Command[2]
+
+			run := func(pathDir string, extraEnv ...string) string {
+				t.Helper()
+				cmd := exec.CommandContext(t.Context(), bashPath, "-c", renderedScript) // #nosec G204 -- test input, not user data
+				cmd.Env = append(cmd.Environ(), "PATH="+pathDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+				cmd.Env = append(cmd.Env, extraEnv...)
+				out, runErr := cmd.CombinedOutput()
+				g.Expect(runErr).ToNot(HaveOccurred(), "bash execution failed: %s", string(out))
+				// The template echoes its decision; the connector JSON is the final line.
+				lines := strings.Split(string(out), "\n")
+				return lines[len(lines)-1]
+			}
+
+			// NIXL present: the connector is injected and the JSON survives bash intact.
+			var parsed map[string]any
+			jsonArg := run(stubPython(t, true))
+			g.Expect(json.Unmarshal([]byte(jsonArg), &parsed)).To(Succeed(), "vllm would reject: %q", jsonArg)
+			g.Expect(parsed).To(HaveKeyWithValue("kv_connector", "NixlConnector"))
+			g.Expect(parsed).To(HaveKeyWithValue("kv_role", tc.role))
+
+			// NIXL absent: inject nothing. Injecting here is what breaks CPU engines.
+			g.Expect(run(stubPython(t, false))).To(BeEmpty(),
+				"a connector was injected on an image without NIXL")
+
+			// A user-supplied connector must still win over the injected default.
+			g.Expect(run(stubPython(t, true), `VLLM_ADDITIONAL_ARGS=--kv-transfer-config '{"kv_connector":"MyConnector"}'`)).To(BeEmpty(),
+				"KServe overrode a user-supplied --kv-transfer-config")
+		})
+	}
 }
 
 func mustParseURL(s string) apis.URL {
