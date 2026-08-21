@@ -34,7 +34,7 @@ from kserve import constants
 from kserve.inference_client import InferenceGRPCClient, InferenceRESTClient
 from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.logging import trace_logger as logger
-from .http_retry import DEFAULT_TIMEOUT_SECONDS, post_with_retry
+from .http_retry import DEFAULT_TIMEOUT_SECONDS, get_with_retry, post_with_retry
 
 
 def assert_answers_four(text: str):
@@ -783,6 +783,60 @@ def completion_stream(
                         full_content += text
 
     return full_content, chunks
+
+
+def wait_model_ready_with_retry(
+    kserve_client: KServeClient,
+    service_name: str,
+    model_name: str,
+    *,
+    isvc_namespace: str,
+    isvc_version: str = constants.KSERVE_V1BETA1_VERSION,
+    protocol_version: str = "v1",
+    cluster_ip: str = None,
+    timeout_seconds: int = 600,
+    polling_interval: int = 10,
+) -> None:
+    """Poll model health through Istio with retries for transient gateway errors.
+
+    KServeClient.wait_model_ready uses bare requests.get and aborts on the first
+    connection refused while the ingress gateway is still programming routes.
+    """
+    if cluster_ip is None:
+        cluster_ip = get_cluster_ip()
+
+    isvc = kserve_client.get(
+        service_name,
+        namespace=isvc_namespace,
+        version=isvc_version,
+    )
+    host = urlparse(isvc["status"]["url"]).netloc
+    headers = {"Host": host}
+
+    if protocol_version.lower() == "v2":
+        url = f"http://{cluster_ip}/{protocol_version}/models/{model_name}/ready"
+    else:
+        url = f"http://{cluster_ip}/{protocol_version}/models/{model_name}"
+
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        try:
+            response = get_with_retry(url, headers=headers, timeout=30)
+            if response.status_code == 200:
+                return
+        except requests.RequestException as exc:
+            logger.warning(
+                "Model ready check failed for %s/%s: %s",
+                service_name,
+                model_name,
+                exc,
+            )
+        time.sleep(polling_interval)
+
+    raise RuntimeError(
+        f"InferenceService ({service_name}) has not loaded the "
+        f"model ({model_name}) before the timeout."
+    )
 
 
 def is_model_ready(

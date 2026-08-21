@@ -43,8 +43,7 @@ from kserve import (
 from kserve.logging import logger
 from kubernetes.client import V1ResourceRequirements
 
-from ..common.utils import get_cluster_ip
-from ..common.utils import predict_isvc
+from ..common.utils import get_cluster_ip, predict_isvc, wait_model_ready_with_retry
 
 
 ENABLE_METRIC_AGG = "serving.kserve.io/enable-metric-aggregation"
@@ -90,7 +89,8 @@ async def test_qpext_kserve(rest_v2_client, network_layer, test_namespace):
     )
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
-    kserve_client.wait_model_ready(
+    wait_model_ready_with_retry(
+        kserve_client,
         service_name,
         model_name=service_name,
         isvc_namespace=test_namespace,

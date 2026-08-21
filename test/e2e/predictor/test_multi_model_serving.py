@@ -29,7 +29,7 @@ from kserve import (
     V1beta1XGBoostSpec,
 )
 
-from ..common.utils import predict_isvc, get_cluster_ip
+from ..common.utils import predict_isvc, get_cluster_ip, wait_model_ready_with_retry
 
 
 @pytest.mark.parametrize(
@@ -105,7 +105,8 @@ async def test_mms_sklearn_kserve(
 
         kserve_client.create_trained_model(model, test_namespace)
 
-        kserve_client.wait_model_ready(
+        wait_model_ready_with_retry(
+            kserve_client,
             service_name,
             model_name,
             isvc_namespace=test_namespace,
@@ -217,7 +218,8 @@ async def test_mms_xgboost_kserve(
 
         kserve_client.create_trained_model(model, test_namespace)
 
-        kserve_client.wait_model_ready(
+        wait_model_ready_with_retry(
+            kserve_client,
             service_name,
             model_name,
             isvc_namespace=test_namespace,

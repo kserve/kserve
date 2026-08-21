@@ -161,13 +161,13 @@ def wait_pods_terminated(core_v1: client.CoreV1Api, namespace: str) -> None:
         time.sleep(2)
 
 
-def cleanup_isvcs(namespace: str) -> None:
-    """Delete leftover InferenceServices so a worker namespace does not pile up."""
-    get_core_api()
-    api = client.CustomObjectsApi()
-    group = "serving.kserve.io"
-    version = "v1beta1"
-    plural = "inferenceservices"
+def _delete_namespaced_custom_objects(
+    api: client.CustomObjectsApi,
+    group: str,
+    version: str,
+    plural: str,
+    namespace: str,
+) -> None:
     try:
         resp = api.list_namespaced_custom_object(group, version, namespace, plural)
     except client.rest.ApiException:
@@ -178,12 +178,34 @@ def cleanup_isvcs(namespace: str) -> None:
             api.delete_namespaced_custom_object(group, version, namespace, plural, name)
         except client.rest.ApiException as e:
             if e.status != 404:
-                logger.warning("Failed to delete ISVC %s/%s: %s", namespace, name, e)
+                logger.warning(
+                    "Failed to delete %s/%s/%s: %s", namespace, plural, name, e
+                )
+
+
+def cleanup_isvcs(namespace: str) -> None:
+    """Delete leftover InferenceServices and TrainedModels in a worker namespace."""
+    get_core_api()
+    api = client.CustomObjectsApi()
+    group = "serving.kserve.io"
+
+    _delete_namespaced_custom_objects(
+        api, group, "v1alpha1", "trainedmodels", namespace
+    )
+    _delete_namespaced_custom_objects(
+        api, group, "v1beta1", "inferenceservices", namespace
+    )
+
     deadline = time.monotonic() + 45
     while time.monotonic() < deadline:
         try:
-            resp = api.list_namespaced_custom_object(group, version, namespace, plural)
-            if not resp.get("items"):
+            isvcs = api.list_namespaced_custom_object(
+                group, "v1beta1", namespace, "inferenceservices"
+            )
+            models = api.list_namespaced_custom_object(
+                group, "v1alpha1", namespace, "trainedmodels"
+            )
+            if not isvcs.get("items") and not models.get("items"):
                 return
         except client.rest.ApiException:
             return
