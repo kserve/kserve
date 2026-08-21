@@ -34,6 +34,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
+	llmisvcwebhook "github.com/kserve/kserve/pkg/webhook/admission/llminferenceservice"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -73,8 +74,12 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 		return llmConfigCtrl.SetupWithManager(mgr)
 	}
 
-	webhookManifests := pkgtest.WithWebhookManifests(filepath.Join(pkgtest.ProjectRoot(), "test", "webhooks"))
-	webhooks := func(_ *rest.Config, mgr ctrl.Manager) error {
+	// The production manifest, not a copy of it: envtest rewrites clientConfig to
+	// its own local address, so the kustomize $(...) placeholders never matter,
+	// and there is no second file to drift.
+	webhookManifests := pkgtest.WithWebhookManifests(
+		filepath.Join(pkgtest.ProjectRoot(), "config", "webhook", "llmisvc", "manifests.yaml"))
+	webhooks := func(cfg *rest.Config, mgr ctrl.Manager) error {
 		// Create validation function for config template validation
 		v2ConfigValidationFunc := func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
 			llmisvcConfig, err := llmisvc.LoadConfig(ctx, mgr.GetAPIReader())
@@ -114,7 +119,35 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 		v1alpha2ConfigValidator := &v1alpha2.LLMInferenceServiceConfigValidator{
 			ConfigValidationFunc: v2ConfigValidationFunc,
 		}
-		return v1alpha2ConfigValidator.SetupWithManager(mgr)
+		if err := v1alpha2ConfigValidator.SetupWithManager(mgr); err != nil {
+			return err
+		}
+
+		// Both mutating defaulters, matching config/webhook/llmisvc/manifests.yaml.
+		// Every webhook that manifest declares must be registered here: they all
+		// carry failurePolicy: Fail, so a missing handler blocks every create.
+		defaulterClientSet, err := kubernetes.NewForConfig(cfg)
+		if err != nil {
+			return err
+		}
+
+		if err := ctrl.NewWebhookManagedBy(mgr).
+			For(&v1alpha1.LLMInferenceService{}).
+			WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha1{
+				Client:    mgr.GetClient(),
+				Clientset: defaulterClientSet,
+			}).
+			Complete(); err != nil {
+			return err
+		}
+
+		return ctrl.NewWebhookManagedBy(mgr).
+			For(&v1alpha2.LLMInferenceService{}).
+			WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha2{
+				Client:    mgr.GetClient(),
+				Clientset: defaulterClientSet,
+			}).
+			Complete()
 	}
 
 	envTest := pkgtest.NewEnvTest(append([]pkgtest.Option{webhookManifests}, additionalEnvTestOptions()...)...).
