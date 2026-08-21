@@ -1904,6 +1904,141 @@ schedulingProfiles:
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
+
+	Context("Removals in the desired state", func() {
+		It("should drop inference pool selector keys removed from the spec", func(ctx SpecContext) {
+			// given - a pool selector the service owns, carrying an extra key
+			svcName := "test-llm-pool-selector-removal"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			const extraKey igwapi.LabelKey = "tier"
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+			llmSvc.Spec.Router.Scheduler.Pool = &v1alpha2.InferencePoolSpec{
+				Spec: &igwapi.InferencePoolSpec{
+					Selector: igwapi.LabelSelector{
+						MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
+							"app.kubernetes.io/name": igwapi.LabelValue(svcName),
+							extraKey:                 "gpu",
+						},
+					},
+					TargetPorts: []igwapi.Port{{Number: 8000}},
+					EndpointPickerRef: igwapi.EndpointPickerRef{
+						Kind: "Service",
+						Name: igwapi.ObjectName(kmeta.ChildName(svcName, "-epp-service")),
+						Port: &igwapi.Port{Number: 9002},
+					},
+				},
+			}
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			poolKey := types.NamespacedName{
+				Name:      kmeta.ChildName(svcName, "-inference-pool"),
+				Namespace: testNs.Name,
+			}
+
+			Eventually(func(g Gomega, ctx context.Context) error {
+				pool := &igwapi.InferencePool{}
+				g.Expect(envTest.Get(ctx, poolKey, pool)).To(Succeed())
+				g.Expect(pool.Spec.Selector.MatchLabels).To(HaveKey(extraKey))
+
+				return nil
+			}).WithContext(ctx).Should(Succeed(), "the pool should start with both selector keys")
+
+			// when - the key is removed from the service spec
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceService{}
+				if errGet := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current); errGet != nil {
+					return errGet
+				}
+				delete(current.Spec.Router.Scheduler.Pool.Spec.Selector.MatchLabels, extraKey)
+
+				return envTest.Update(ctx, current)
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// then - the pool stops selecting on it
+			Eventually(func(g Gomega, ctx context.Context) error {
+				pool := &igwapi.InferencePool{}
+				g.Expect(envTest.Get(ctx, poolKey, pool)).To(Succeed())
+				g.Expect(pool.Spec.Selector.MatchLabels).ToNot(HaveKey(extraKey))
+
+				return nil
+			}).WithContext(ctx).Should(Succeed(), "the removed selector key should be dropped from the pool")
+
+			expectSettles(ctx, poolKey, &igwapi.InferencePool{})
+		})
+
+		It("should revoke role rules that are not in the desired state", func(ctx SpecContext) {
+			// given - the scheduler's rules are hardcoded in the controller, so a rule
+			// only disappears from the desired state when a release narrows it. Drift is
+			// the only way to exercise that here, and it stands in for the upgrade: a
+			// rule the controller no longer intends to grant must not survive.
+			svcName := "test-llm-role-rule-revocation"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			roleKey := types.NamespacedName{
+				Name:      kmeta.ChildName(svcName, "-epp-role"),
+				Namespace: testNs.Name,
+			}
+
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, roleKey, &rbacv1.Role{})
+			}).WithContext(ctx).Should(Succeed(), "the scheduler role should be created")
+
+			// when - a rule the controller never asked for is added
+			widerGrant := rbacv1.PolicyRule{
+				APIGroups: []string{""},
+				Resources: []string{"secrets"},
+				Verbs:     []string{"get", "list", "watch"},
+			}
+
+			errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &rbacv1.Role{}
+				if errGet := envTest.Get(ctx, roleKey, current); errGet != nil {
+					return errGet
+				}
+				current.Rules = append(current.Rules, widerGrant)
+
+				return envTest.Update(ctx, current)
+			})
+			Expect(errRetry).ToNot(HaveOccurred())
+
+			// then - the controller takes it back
+			Eventually(func(g Gomega, ctx context.Context) error {
+				current := &rbacv1.Role{}
+				g.Expect(envTest.Get(ctx, roleKey, current)).To(Succeed())
+				g.Expect(current.Rules).ToNot(ContainElement(widerGrant))
+
+				return nil
+			}).WithContext(ctx).Should(Succeed(), "a rule outside the desired state should be revoked")
+
+			expectSettles(ctx, roleKey, &rbacv1.Role{})
+		})
+	})
 })
 
 // schedulerContainerName is the expected name of the main container in the scheduler deployment
@@ -2020,4 +2155,23 @@ func assertPipelineOrder(g Gomega, pluginTypes []string) {
 		"token-producer must appear before precise-prefix-cache-producer")
 	g.Expect(producerIdx).To(BeNumerically("<", scorerIdx),
 		"precise-prefix-cache-producer must appear before prefix-cache-scorer")
+}
+
+// expectSettles asserts an object stops being rewritten once it has converged.
+// Generation only advances on spec writes, so a generation that keeps moving means
+// the controller and something else are overwriting each other - the failure mode
+// of comparing a field the controller does not fully own.
+func expectSettles(ctx context.Context, key types.NamespacedName, empty client.Object) {
+	settled := empty.DeepCopyObject().(client.Object)
+	Expect(envTest.Get(ctx, key, settled)).To(Succeed())
+	generation := settled.GetGeneration()
+
+	Consistently(func(g Gomega, ctx context.Context) error {
+		current := empty.DeepCopyObject().(client.Object)
+		g.Expect(envTest.Get(ctx, key, current)).To(Succeed())
+		g.Expect(current.GetGeneration()).To(Equal(generation))
+
+		return nil
+	}).WithContext(ctx).WithTimeout(2*time.Second).WithPolling(250*time.Millisecond).
+		Should(Succeed(), "object should converge instead of being rewritten on every reconcile")
 }

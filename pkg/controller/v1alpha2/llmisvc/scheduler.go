@@ -2010,24 +2010,37 @@ func withMetricsDataSourceParams(parameters map[string]interface{}) mutateSchedu
 	}
 }
 
+// Ports and the selector are fixed in the controller and derived from the service
+// name, so neither can shrink while a service exists and the subset comparison
+// costs nothing today. Move to DeepEqual if either becomes driven by the spec:
+// DeepDerivative would silently keep serving a port that had been removed.
 func semanticServiceIsEqual(expected *corev1.Service, current *corev1.Service) bool {
 	return equality.Semantic.DeepDerivative(expected.Spec, current.Spec) &&
 		equality.Semantic.DeepDerivative(expected.Labels, current.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, current.Annotations)
 }
 
+// The pool spec is taken wholesale from spec.router.scheduler.pool.spec, so it is
+// compared exactly. DeepDerivative treats the cluster object as a superset, which
+// hides a selector key or a target port dropped from the service spec - leaving
+// the pool matching a wider set of pods than the spec asks for.
 func semanticInferencePoolIsEqual(expected *igwapi.InferencePool, curr *igwapi.InferencePool) bool {
-	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
+	return equality.Semantic.DeepEqual(expected.Spec, curr.Spec) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
 
 func semanticInferencePoolV1Alpha2IsEqual(expected *igwapiv1alpha2.InferencePool, curr *igwapiv1alpha2.InferencePool) bool {
-	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
+	return equality.Semantic.DeepEqual(expected.Spec, curr.Spec) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
 
+// Deliberately tolerant, and it must stay that way. OpenShift's service account
+// controller appends its own pull secret entries to the accounts we create, and
+// the desired object only ever carries what was copied off the namespace default
+// account. Comparing these exactly would have the two controllers take turns
+// removing each other's entries for as long as the service exists.
 func semanticServiceAccountIsEqual(expected *corev1.ServiceAccount, current *corev1.ServiceAccount) bool {
 	return equality.Semantic.DeepDerivative(expected.Secrets, current.Secrets) &&
 		equality.Semantic.DeepDerivative(expected.ImagePullSecrets, current.ImagePullSecrets) &&
@@ -2035,12 +2048,20 @@ func semanticServiceAccountIsEqual(expected *corev1.ServiceAccount, current *cor
 		equality.Semantic.DeepDerivative(expected.Annotations, current.Annotations)
 }
 
+// Rules are generated in full by the controller, so they are compared exactly.
+// DeepDerivative treats the cluster object as a superset, which means a grant the
+// controller has stopped asking for - because a release narrowed the rule set -
+// would never be revoked on services that already exist.
 func semanticRoleIsEqual(expected *rbacv1.Role, curr *rbacv1.Role) bool {
-	return equality.Semantic.DeepDerivative(expected.Rules, curr.Rules) &&
+	return equality.Semantic.DeepEqual(expected.Rules, curr.Rules) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
 
+// Bindings are generated with exactly one subject, so the list cannot shrink and
+// a changed subject is caught in place. Move to DeepEqual if a binding ever grows
+// a second subject, since dropping back to one would otherwise leave the first
+// bound.
 func semanticClusterRoleBindingIsEqual(expected *rbacv1.ClusterRoleBinding, curr *rbacv1.ClusterRoleBinding) bool {
 	return equality.Semantic.DeepDerivative(expected.Subjects, curr.Subjects) &&
 		equality.Semantic.DeepDerivative(expected.RoleRef, curr.RoleRef) &&
