@@ -1349,7 +1349,11 @@ class InferResponse:
                 else output
             )
             if self._requested_outputs:
-                use_binary_data = output.binary_data
+                use_binary_data = (
+                    self._use_binary_outputs
+                    if output.binary_data is None
+                    else output.binary_data
+                )
             if infer_output is None:
                 raise InvalidInput(
                     f"Unexpected inference output '{output.name}' for model '{self.model_name}'"
@@ -1362,7 +1366,7 @@ class InferResponse:
                 infer_output.set_data_from_numpy(
                     infer_output.data, binary_data=use_binary_data
                 )
-            elif infer_output.data or infer_output._raw_data:
+            elif infer_output.data is not None or infer_output._raw_data is not None:
                 infer_output.set_data_from_numpy(
                     infer_output.as_numpy(), binary_data=use_binary_data
                 )
