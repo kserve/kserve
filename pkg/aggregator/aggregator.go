@@ -29,11 +29,12 @@ import (
 // Aggregator lists backends via BackendDiscovery and serves aggregated endpoints.
 type Aggregator struct {
 	discovery BackendDiscovery
-	filter    BackendFilter
-	client    *http.Client
-	timeout   time.Duration
-	mergers   map[string]Merger
-	log       logr.Logger
+	// filter is a single func; compose several with ChainFilters before passing Options.Filter.
+	filter  BackendFilter
+	client  *http.Client
+	timeout time.Duration
+	mergers map[string]Merger
+	log     logr.Logger
 }
 
 // New builds an Aggregator from Options.

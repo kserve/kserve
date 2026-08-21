@@ -71,7 +71,21 @@ type BackendDiscovery interface {
 
 // BackendFilter selects which backends participate for a given request.
 // Consumers inject header-based tenancy/auth filtering here; the default is a no-op.
+// Compose auth, tenancy, or label selectors with ChainFilters.
 type BackendFilter func(r *http.Request, backends []Backend) []Backend
+
+// ChainFilters applies filters in order. Nil entries are skipped.
+func ChainFilters(filters ...BackendFilter) BackendFilter {
+	return func(r *http.Request, backends []Backend) []Backend {
+		for _, f := range filters {
+			if f == nil {
+				continue
+			}
+			backends = f(r, backends)
+		}
+		return backends
+	}
+}
 
 // Merger combines per-backend results into a single HTTP response body and status.
 type Merger func(results []BackendResult) (body []byte, statusCode int, err error)
@@ -81,6 +95,7 @@ type Options struct {
 	// Discovery lists backends. Required.
 	Discovery BackendDiscovery
 	// Filter optionally narrows backends per request. Nil means include all.
+	// Use ChainFilters to compose auth, tenancy, or label selectors into one Filter.
 	Filter BackendFilter
 	// Timeout is the per-backend request timeout applied via context. Zero defaults to 3s.
 	Timeout time.Duration
