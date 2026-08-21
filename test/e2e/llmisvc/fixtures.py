@@ -141,6 +141,14 @@ try:
 except (json.JSONDecodeError, TypeError):
     DEFAULT_LLMISVC_ANNOTATIONS = {}
 
+# Sized from the measured idle footprint of the latency predictor sidecars,
+# 138 MB and 133 MB RSS with a single uvicorn worker. The limits leave margin
+# above that while remaining schedulable on a shared build node.
+LATENCY_PREDICTOR_CI_RESOURCES = {
+    "requests": {"cpu": "200m", "memory": "512Mi"},
+    "limits": {"cpu": "1", "memory": "2Gi"},
+}
+
 STORAGE_INITIALIZER_INIT_CONTAINER = {
     "name": "storage-initializer",
     "env": [
@@ -773,6 +781,57 @@ LLMINFERENCESERVICE_CONFIGS = {
                             },
                         ],
                     },
+                },
+            },
+        },
+    },
+    # Declaring predicted-latency-producer causes the controller to append the
+    # latency predictor preset, which injects the training and prediction
+    # sidecars. No other e2e test reaches that preset, so this is the only
+    # coverage of those images.
+    #
+    # The preset requests 2 and 8 CPU with 4Gi each, sized for a production
+    # router rather than a CI node. The 8 CPU request follows from
+    # UVICORN_WORKERS, since the prediction server forks one uvicorn worker per
+    # unit; reducing it to 1 is therefore a prerequisite for reducing the
+    # request. Containers merge by name, so these entries override the
+    # resources without restating the images.
+    "scheduler-with-latency-predictor": {
+        "router": {
+            "scheduler": {
+                "config": {
+                    "inline": {
+                        "apiVersion": "llm-d.ai/v1alpha1",
+                        "kind": "EndpointPickerConfig",
+                        "plugins": [
+                            {"type": "predicted-latency-producer"},
+                            {"type": "latency-scorer"},
+                            {"type": "weighted-random-picker"},
+                        ],
+                        "schedulingProfiles": [
+                            {
+                                "name": "default",
+                                "plugins": [
+                                    {"pluginRef": "predicted-latency-producer"},
+                                    {"pluginRef": "latency-scorer"},
+                                    {"pluginRef": "weighted-random-picker"},
+                                ],
+                            },
+                        ],
+                    },
+                },
+                "template": {
+                    "containers": [
+                        {
+                            "name": "training-server",
+                            "resources": LATENCY_PREDICTOR_CI_RESOURCES,
+                        },
+                        {
+                            "name": "prediction-server",
+                            "resources": LATENCY_PREDICTOR_CI_RESOURCES,
+                            "env": [{"name": "UVICORN_WORKERS", "value": "1"}],
+                        },
+                    ],
                 },
             },
         },
