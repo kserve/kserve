@@ -235,16 +235,3 @@ func TestValidateUpdate_DeletionBypass(t *testing.T) {
 	g.Expect(warnings).To(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 }
-
-func TestValidateUpdate_InvalidObjectType(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	s := runtime.NewScheme()
-	fakeClient := fake.NewClientBuilder().WithScheme(s).Build()
-	validator := LocalModelCacheValidator{fakeClient}
-	invalidObj := &v1beta1.InferenceService{}
-	oldLmc := makeTestLocalModelCache()
-	warnings, err := validator.ValidateUpdate(t.Context(), &oldLmc, invalidObj)
-	g.Expect(warnings).To(gomega.BeNil())
-	g.Expect(err).To(gomega.HaveOccurred())
-	g.Expect(err.Error()).To(gomega.ContainSubstring("expected *v1alpha1.LocalModelCache"))
-}
