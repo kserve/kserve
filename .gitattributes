@@ -4,7 +4,10 @@ python/kserve/kserve/protocol/rest/openai/types/openapi.py linguist-generated=tr
 
 # Generated install scripts
 hack/setup/quick-install/*.sh linguist-generated=true
-install/**/*.sh linguist-generated=true
+*install/**/*.sh linguist-generated=true
+
+# Storage initializer scripts
+python/storage-initializer/scripts/* text eol=lf
 
 # Helm chart generated files
 charts/**/files/** linguist-generated=true

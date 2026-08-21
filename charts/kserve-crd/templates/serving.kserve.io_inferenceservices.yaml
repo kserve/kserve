@@ -2961,6 +2961,14 @@ spec:
                                 type: string
                               tty:
                                 type: boolean
+                              verification:
+                                properties:
+                                  digest:
+                                    type: string
+                                type: object
+                                x-kubernetes-validations:
+                                  - message: digest cannot be empty
+                                    rule: '!(has(self.digest) && self.digest == '''')'
                               volumeDevices:
                                 items:
                                   properties:
@@ -4444,6 +4452,14 @@ spec:
                                 type: string
                               tty:
                                 type: boolean
+                              verification:
+                                properties:
+                                  digest:
+                                    type: string
+                                type: object
+                                x-kubernetes-validations:
+                                  - message: digest cannot be empty
+                                    rule: '!(has(self.digest) && self.digest == '''')'
                               volumeDevices:
                                 items:
                                   properties:
@@ -5247,6 +5263,14 @@ spec:
                                 type: string
                               tty:
                                 type: boolean
+                              verification:
+                                properties:
+                                  digest:
+                                    type: string
+                                type: object
+                                x-kubernetes-validations:
+                                  - message: digest cannot be empty
+                                    rule: '!(has(self.digest) && self.digest == '''')'
                               volumeDevices:
                                 items:
                                   properties:
@@ -6006,6 +6030,14 @@ spec:
                                 type: string
                               tty:
                                 type: boolean
+                              verification:
+                                properties:
+                                  digest:
+                                    type: string
+                                type: object
+                                x-kubernetes-validations:
+                                  - message: digest cannot be empty
+                                    rule: '!(has(self.digest) && self.digest == '''')'
                               volumeDevices:
                                 items:
                                   properties:
@@ -6769,6 +6801,14 @@ spec:
                                 type: string
                               tty:
                                 type: boolean
+                              verification:
+                                properties:
+                                  digest:
+                                    type: string
+                                type: object
+                                x-kubernetes-validations:
+                                  - message: digest cannot be empty
+                                    rule: '!(has(self.digest) && self.digest == '''')'
                               volumeDevices:
                                 items:
                                   properties:
@@ -7517,6 +7557,14 @@ spec:
                                 type: string
                               tty:
                                 type: boolean
+                              verification:
+                                properties:
+                                  digest:
+                                    type: string
+                                type: object
+                                x-kubernetes-validations:
+                                  - message: digest cannot be empty
+                                    rule: '!(has(self.digest) && self.digest == '''')'
                               volumeDevices:
                                 items:
                                   properties:
@@ -8272,6 +8320,14 @@ spec:
                                 type: string
                               tty:
                                 type: boolean
+                              verification:
+                                properties:
+                                  digest:
+                                    type: string
+                                type: object
+                                x-kubernetes-validations:
+                                  - message: digest cannot be empty
+                                    rule: '!(has(self.digest) && self.digest == '''')'
                               volumeDevices:
                                 items:
                                   properties:
@@ -9199,6 +9255,14 @@ spec:
                                 type: string
                               tty:
                                 type: boolean
+                              verification:
+                                properties:
+                                  digest:
+                                    type: string
+                                type: object
+                                x-kubernetes-validations:
+                                  - message: digest cannot be empty
+                                    rule: '!(has(self.digest) && self.digest == '''')'
                               volumeDevices:
                                 items:
                                   properties:
@@ -9968,6 +10032,14 @@ spec:
                                 type: string
                               tty:
                                 type: boolean
+                              verification:
+                                properties:
+                                  digest:
+                                    type: string
+                                type: object
+                                x-kubernetes-validations:
+                                  - message: digest cannot be empty
+                                    rule: '!(has(self.digest) && self.digest == '''')'
                               volumeDevices:
                                 items:
                                   properties:
@@ -10796,6 +10868,14 @@ spec:
                                 type: string
                               tty:
                                 type: boolean
+                              verification:
+                                properties:
+                                  digest:
+                                    type: string
+                                type: object
+                                x-kubernetes-validations:
+                                  - message: digest cannot be empty
+                                    rule: '!(has(self.digest) && self.digest == '''')'
                               volumeDevices:
                                 items:
                                   properties:
@@ -16096,6 +16176,14 @@ spec:
                                 type: string
                               tty:
                                 type: boolean
+                              verification:
+                                properties:
+                                  digest:
+                                    type: string
+                                type: object
+                                x-kubernetes-validations:
+                                  - message: digest cannot be empty
+                                    rule: '!(has(self.digest) && self.digest == '''')'
                               volumeDevices:
                                 items:
                                   properties:
@@ -22420,6 +22508,14 @@ spec:
                           type: string
                         tty:
                           type: boolean
+                        verification:
+                          properties:
+                            digest:
+                              type: string
+                          type: object
+                          x-kubernetes-validations:
+                            - message: digest cannot be empty
+                              rule: '!(has(self.digest) && self.digest == '''')'
                         volumeDevices:
                           items:
                             properties:
@@ -23893,6 +23989,14 @@ spec:
                           type: string
                         tty:
                           type: boolean
+                        verification:
+                          properties:
+                            digest:
+                              type: string
+                          type: object
+                          x-kubernetes-validations:
+                            - message: digest cannot be empty
+                              rule: '!(has(self.digest) && self.digest == '''')'
                         volumeDevices:
                           items:
                             properties:
@@ -24686,6 +24790,14 @@ spec:
                           type: string
                         tty:
                           type: boolean
+                        verification:
+                          properties:
+                            digest:
+                              type: string
+                          type: object
+                          x-kubernetes-validations:
+                            - message: digest cannot be empty
+                              rule: '!(has(self.digest) && self.digest == '''')'
                         volumeDevices:
                           items:
                             properties:
@@ -25434,6 +25546,14 @@ spec:
                           type: string
                         tty:
                           type: boolean
+                        verification:
+                          properties:
+                            digest:
+                              type: string
+                          type: object
+                          x-kubernetes-validations:
+                            - message: digest cannot be empty
+                              rule: '!(has(self.digest) && self.digest == '''')'
                         volumeDevices:
                           items:
                             properties:
@@ -26185,6 +26305,14 @@ spec:
                           type: string
                         tty:
                           type: boolean
+                        verification:
+                          properties:
+                            digest:
+                              type: string
+                          type: object
+                          x-kubernetes-validations:
+                            - message: digest cannot be empty
+                              rule: '!(has(self.digest) && self.digest == '''')'
                         volumeDevices:
                           items:
                             properties:
@@ -26923,6 +27051,14 @@ spec:
                           type: string
                         tty:
                           type: boolean
+                        verification:
+                          properties:
+                            digest:
+                              type: string
+                          type: object
+                          x-kubernetes-validations:
+                            - message: digest cannot be empty
+                              rule: '!(has(self.digest) && self.digest == '''')'
                         volumeDevices:
                           items:
                             properties:
@@ -27668,6 +27804,14 @@ spec:
                           type: string
                         tty:
                           type: boolean
+                        verification:
+                          properties:
+                            digest:
+                              type: string
+                          type: object
+                          x-kubernetes-validations:
+                            - message: digest cannot be empty
+                              rule: '!(has(self.digest) && self.digest == '''')'
                         volumeDevices:
                           items:
                             properties:
@@ -28585,6 +28729,14 @@ spec:
                           type: string
                         tty:
                           type: boolean
+                        verification:
+                          properties:
+                            digest:
+                              type: string
+                          type: object
+                          x-kubernetes-validations:
+                            - message: digest cannot be empty
+                              rule: '!(has(self.digest) && self.digest == '''')'
                         volumeDevices:
                           items:
                             properties:
@@ -29344,6 +29496,14 @@ spec:
                           type: string
                         tty:
                           type: boolean
+                        verification:
+                          properties:
+                            digest:
+                              type: string
+                          type: object
+                          x-kubernetes-validations:
+                            - message: digest cannot be empty
+                              rule: '!(has(self.digest) && self.digest == '''')'
                         volumeDevices:
                           items:
                             properties:
@@ -30162,6 +30322,14 @@ spec:
                           type: string
                         tty:
                           type: boolean
+                        verification:
+                          properties:
+                            digest:
+                              type: string
+                          type: object
+                          x-kubernetes-validations:
+                            - message: digest cannot be empty
+                              rule: '!(has(self.digest) && self.digest == '''')'
                         volumeDevices:
                           items:
                             properties:
@@ -35452,6 +35620,14 @@ spec:
                           type: string
                         tty:
                           type: boolean
+                        verification:
+                          properties:
+                            digest:
+                              type: string
+                          type: object
+                          x-kubernetes-validations:
+                            - message: digest cannot be empty
+                              rule: '!(has(self.digest) && self.digest == '''')'
                         volumeDevices:
                           items:
                             properties:

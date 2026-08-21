@@ -95,6 +95,9 @@ type StorageInitializerParams struct {
 	// models. When nil, the default storage initializer is used.
 	StorageContainerSpec *v1alpha1.StorageContainerSpec
 
+	// Verification contains optional digest verification specification for downloaded model artifacts.
+	Verification *v1beta1.VerificationSpec
+
 	// Indicates whether to use the legacy logic for storage initialization.
 	IsLegacyURI bool
 }
@@ -701,6 +704,9 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 
 		// Apply confidential model serving configuration if enabled via annotations
 		applyConfidentialConfig(initContainer, params.IsvcAnnotations)
+
+		// Apply model digest verification configuration if enabled
+		applyVerificationConfig(initContainer, params.Config, params.Verification)
 	}
 
 	return nil
@@ -717,6 +723,20 @@ func applyConfidentialConfig(initContainer *corev1.Container, annotations map[st
 		initContainer,
 		annotations[constants.ConfidentialResourceIdAnnotationKey],
 	)
+}
+
+// applyVerificationConfig injects environment variables for model digest verification.
+func applyVerificationConfig(initContainer *corev1.Container, config *types.StorageInitializerConfig, verification *v1beta1.VerificationSpec) {
+	if verification == nil {
+		return
+	}
+
+	digest := ""
+	if verification.Digest != nil {
+		digest = *verification.Digest
+	}
+
+	utils.ApplyVerificationContainerConfig(initContainer, digest)
 }
 
 // InjectStorageInitializer injects an init container to provision model data
@@ -779,6 +799,14 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 		return err
 	}
 
+	// Extract verification spec from annotation if present
+	var verification *v1beta1.VerificationSpec
+	if digest, ok := pod.Annotations[constants.VerificationDigestInternalAnnotationKey]; ok && digest != "" {
+		verification = &v1beta1.VerificationSpec{
+			Digest: &digest,
+		}
+	}
+
 	storageInitializerParams := &StorageInitializerParams{
 		Namespace:            pod.Namespace,
 		StorageURIs:          storageURIs,
@@ -790,6 +818,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 		IsvcAnnotations:      pod.Annotations,
 		StorageSpec:          &storageSpec,
 		StorageContainerSpec: storageContainerSpec,
+		Verification:         verification,
 		IsLegacyURI:          true,
 	}
 

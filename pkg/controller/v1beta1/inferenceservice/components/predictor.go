@@ -120,6 +120,8 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 	}
 	// Add confidential annotations if enabled on the predictor
 	addConfidentialAnnotations(&isvc.Spec.Predictor, annotations)
+	// Add verification annotations if configured on the predictor
+	addVerificationAnnotations(&isvc.Spec.Predictor, annotations)
 
 	var podSpec corev1.PodSpec
 	var sRuntime v1alpha1.ServingRuntimeSpec
@@ -323,6 +325,18 @@ func addConfidentialAnnotations(predictor *v1beta1.PredictorSpec, annotations ma
 	if confidential.ResourceId != nil && *confidential.ResourceId != "" {
 		annotations[constants.ConfidentialResourceIdAnnotationKey] = *confidential.ResourceId
 	}
+}
+
+// addVerificationAnnotations sets the verification-digest annotation on the pod template if
+// the predictor's VerificationSpec has a digest configured. The annotation is read by
+// InjectStorageInitializer in the admission webhook to populate StorageInitializerParams.Verification,
+// which causes VERIFICATION_DIGEST to be injected into the storage-initializer init container.
+func addVerificationAnnotations(predictor *v1beta1.PredictorSpec, annotations map[string]string) {
+	verification := v1beta1.GetVerificationSpecFromPredictor(predictor)
+	if verification == nil || verification.Digest == nil || *verification.Digest == "" {
+		return
+	}
+	annotations[constants.VerificationDigestInternalAnnotationKey] = *verification.Digest
 }
 
 func (p *Predictor) reconcileModel(ctx context.Context, isvc *v1beta1.InferenceService, multiNodeEnabled bool) (v1alpha1.ServingRuntimeSpec, map[string]string, error) {
@@ -797,8 +811,10 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 	componentExt := isvc.Spec.Predictor.ComponentExtensionSpec
 	adjustStableMinReplicasForCanaries(isvc, &componentExt)
 
+	verification := v1beta1.GetVerificationSpecFromPredictor(&isvc.Spec.Predictor)
+
 	r, err := raw.NewRawKubeReconciler(ctx, p.client, p.clientset, p.scheme, objectMeta, workerObjectMeta, &componentExt,
-		podSpec, workerPodSpec, &isvc.Spec.Predictor.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec)
+		podSpec, workerPodSpec, &isvc.Spec.Predictor.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec, verification)
 	if err != nil {
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for predictor")
 	}
@@ -842,8 +858,10 @@ func (p *Predictor) reconcileKnativeDeployment(ctx context.Context, isvc *v1beta
 		storageSpec = &modelStorageSpec.StorageSpec
 	}
 
+	verification := v1beta1.GetVerificationSpecFromPredictor(&isvc.Spec.Predictor)
+
 	r := knative.NewKsvcReconciler(ctx, p.client, p.scheme, *objectMeta, &isvc.Spec.Predictor.ComponentExtensionSpec,
-		podSpec, isvc.Status.Components[v1beta1.PredictorComponent], p.inferenceServiceConfig.ServiceLabelDisallowedList, &isvc.Spec.Predictor.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec)
+		podSpec, isvc.Status.Components[v1beta1.PredictorComponent], p.inferenceServiceConfig.ServiceLabelDisallowedList, &isvc.Spec.Predictor.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec, verification)
 
 	if err := controllerutil.SetControllerReference(isvc, r.Service, p.scheme); err != nil {
 		return nil, errors.Wrapf(err, "fails to set owner reference for predictor")
@@ -943,7 +961,7 @@ func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta
 		componentExt.MinReplicas = &replicas
 
 		r, err := raw.NewRawKubeReconciler(ctx, p.client, p.clientset, p.scheme, res.objectMeta, metav1.ObjectMeta{},
-			&componentExt, &res.podSpec, nil, nil, nil, nil, nil, nil)
+			&componentExt, &res.podSpec, nil, nil, nil, nil, nil, nil, nil)
 		if err != nil {
 			return errors.Wrapf(err, "fails to create canary reconciler for %s", canary.Predictor.Name)
 		}

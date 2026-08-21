@@ -180,6 +180,7 @@ var (
 	LocalModelPVCNameAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/localmodel-pvc-name"
 	ConfidentialEnabledAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/confidential-enabled"
 	ConfidentialResourceIdAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/confidential-resource-id"
+	VerificationDigestInternalAnnotationKey          = InferenceServiceInternalAnnotationsPrefix + "/verification-digest"
 )
 
 // kserve networking constants

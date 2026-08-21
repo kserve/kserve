@@ -395,6 +395,7 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 //	An error if the configuration fails, otherwise nil.
 func (r *LLMISVCReconciler) attachStorageInitializer(llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, containerName string, modelPath string) error {
 	confidential := llmSvc.Spec.Model.Confidential
+	verification := llmSvc.Spec.Model.Verification
 	userOverride := extractAndStripStorageInitializer(podSpec)
 
 	containerArgs := []string{
@@ -427,6 +428,13 @@ func (r *LLMISVCReconciler) attachStorageInitializer(llmSvc *v1alpha2.LLMInferen
 			resourceId = *confidential.ResourceId
 		}
 		utils.ApplyConfidentialContainerConfig(initContainer, resourceId)
+	}
+
+	if verification != nil {
+		utils.ApplyVerificationContainerConfig(
+			initContainer,
+			verification.Digest,
+		)
 	}
 
 	if userOverride != nil {
