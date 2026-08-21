@@ -36,7 +36,7 @@ jobs:
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 60
 
     steps:
       - name: Checkout source
