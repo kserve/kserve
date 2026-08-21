@@ -76,6 +76,7 @@ var (
 	component           = flag.String("component", "", "The component name (predictor, explainer, transformer) to add as header to log events")
 	metadataHeaders     = flag.StringSlice("metadata-headers", nil, "Allow list of headers that will be passed down as metadata")
 	metadataAnnotations = flag.StringSlice("metadata-annotations", nil, "Allow list of metadata annotation to be passed with payload logging")
+	logAllResponses     = flag.Bool("log-all-responses", false, "Log response payloads regardless of status code, and stamp events with the status code")
 	// batcher flags
 	enableBatcher = flag.Bool("enable-batcher", false, "Enable request batcher")
 	maxBatchSize  = flag.String("max-batchsize", "32", "Max Batch Size")
@@ -128,6 +129,7 @@ type loggerArgs struct {
 	annotations      map[string]string
 	certName         string
 	tlsSkipVerify    bool
+	logAllResponses  bool
 }
 
 type batcherArgs struct {
@@ -374,6 +376,7 @@ func startLogger(workers int, logStorePath *string, marshallerUrl string, marsha
 		annotations:      annotationKVPair,
 		certName:         *CaCertFile,
 		tlsSkipVerify:    *TlsSkipVerify,
+		logAllResponses:  *logAllResponses,
 	}
 }
 
@@ -434,7 +437,8 @@ func buildServer(port string, userPort int, loggerArgs *loggerArgs, batcherArgs 
 	if loggerArgs != nil {
 		composedHandler = kfslogger.New(loggerArgs.logUrl, loggerArgs.sourceUrl, loggerArgs.loggerType,
 			loggerArgs.inferenceService, loggerArgs.namespace, loggerArgs.endpoint, loggerArgs.component, composedHandler,
-			loggerArgs.metadataHeaders, loggerArgs.certName, loggerArgs.annotations, loggerArgs.tlsSkipVerify)
+			loggerArgs.metadataHeaders, loggerArgs.certName, loggerArgs.annotations, loggerArgs.tlsSkipVerify,
+			loggerArgs.logAllResponses)
 	}
 
 	composedHandler = queue.ForwardedShimHandler(composedHandler)
