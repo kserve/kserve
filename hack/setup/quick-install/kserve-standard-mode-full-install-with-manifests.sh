@@ -4385,7 +4385,7 @@ spec:
             value: "500"
           - name: LATENCY_OBJECTIVE_TYPE
             value: mean
-          image: ghcr.io/llm-d/llm-d-latency-predictor-training-server:v0.9.0
+          image: ghcr.io/llm-d/llm-d-latency-predictor-training-server:0.9.0
           imagePullPolicy: IfNotPresent
           livenessProbe:
             httpGet:
@@ -4461,7 +4461,7 @@ spec:
             value: "30"
           - name: LATENCY_OBJECTIVE_TYPE
             value: mean
-          image: ghcr.io/llm-d/llm-d-latency-predictor-prediction-server:v0.9.0
+          image: ghcr.io/llm-d/llm-d-latency-predictor-prediction-server:0.9.0
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 5
