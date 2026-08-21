@@ -45,7 +45,9 @@ func New(opts Options) (*Aggregator, error) {
 	timeout := opts.timeout()
 	client := opts.HTTPClient
 	if client == nil {
-		client = &http.Client{Timeout: timeout}
+		// Do not set Client.Timeout: each backend request is already bounded
+		// by context.WithTimeout in the handler.
+		client = &http.Client{}
 	}
 
 	mergers := defaultMergers()

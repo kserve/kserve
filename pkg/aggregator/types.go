@@ -82,9 +82,10 @@ type Options struct {
 	Discovery BackendDiscovery
 	// Filter optionally narrows backends per request. Nil means include all.
 	Filter BackendFilter
-	// Timeout is the per-backend request timeout. Zero defaults to 3s.
+	// Timeout is the per-backend request timeout applied via context. Zero defaults to 3s.
 	Timeout time.Duration
-	// HTTPClient is used for backend requests. Nil uses a client built from Timeout.
+	// HTTPClient is used for backend requests. Nil uses a default client with no
+	// client-level timeout; Timeout is enforced on the request context instead.
 	HTTPClient *http.Client
 	// Mergers overrides default merge strategies keyed by request path.
 	// Missing paths fall back to built-in mergers.
