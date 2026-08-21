@@ -29,10 +29,15 @@ import (
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.BuiltInAdapter":                schema_pkg_apis_serving_v1alpha1_BuiltInAdapter(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.CacheCounts":                   schema_pkg_apis_serving_v1alpha1_CacheCounts(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.CacheNodeCacheInfo":            schema_pkg_apis_serving_v1alpha1_CacheNodeCacheInfo(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterServingRuntime":         schema_pkg_apis_serving_v1alpha1_ClusterServingRuntime(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterServingRuntimeList":     schema_pkg_apis_serving_v1alpha1_ClusterServingRuntimeList(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterStorageContainer":       schema_pkg_apis_serving_v1alpha1_ClusterStorageContainer(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterStorageContainerList":   schema_pkg_apis_serving_v1alpha1_ClusterStorageContainerList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.CreateKernelCacheConfig":       schema_pkg_apis_serving_v1alpha1_CreateKernelCacheConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.GPUCompatibilitySummary":       schema_pkg_apis_serving_v1alpha1_GPUCompatibilitySummary(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.GPUTypeInfo":                   schema_pkg_apis_serving_v1alpha1_GPUTypeInfo(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InfereceGraphRouterTimeouts":   schema_pkg_apis_serving_v1alpha1_InfereceGraphRouterTimeouts(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraph":                schema_pkg_apis_serving_v1alpha1_InferenceGraph(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceGraphList":            schema_pkg_apis_serving_v1alpha1_InferenceGraphList(ref),
@@ -41,6 +46,17 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceRouter":               schema_pkg_apis_serving_v1alpha1_InferenceRouter(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceStep":                 schema_pkg_apis_serving_v1alpha1_InferenceStep(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.InferenceTarget":               schema_pkg_apis_serving_v1alpha1_InferenceTarget(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCache":                   schema_pkg_apis_serving_v1alpha1_KernelCache(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheCapture":            schema_pkg_apis_serving_v1alpha1_KernelCacheCapture(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheCaptureSpec":        schema_pkg_apis_serving_v1alpha1_KernelCacheCaptureSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheCaptureStatus":      schema_pkg_apis_serving_v1alpha1_KernelCacheCaptureStatus(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheList":               schema_pkg_apis_serving_v1alpha1_KernelCacheList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheNode":               schema_pkg_apis_serving_v1alpha1_KernelCacheNode(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheNodeList":           schema_pkg_apis_serving_v1alpha1_KernelCacheNodeList(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheNodeStatus":         schema_pkg_apis_serving_v1alpha1_KernelCacheNodeStatus(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCachePodTemplate":        schema_pkg_apis_serving_v1alpha1_KernelCachePodTemplate(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheSpec":               schema_pkg_apis_serving_v1alpha1_KernelCacheSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheStatus":             schema_pkg_apis_serving_v1alpha1_KernelCacheStatus(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceService":           schema_pkg_apis_serving_v1alpha1_LLMInferenceService(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceConfig":     schema_pkg_apis_serving_v1alpha1_LLMInferenceServiceConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LLMInferenceServiceConfigList": schema_pkg_apis_serving_v1alpha1_LLMInferenceServiceConfigList(ref),
@@ -59,11 +75,15 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelNodeSpec":            schema_pkg_apis_serving_v1alpha1_LocalModelNodeSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelStorageSpec":         schema_pkg_apis_serving_v1alpha1_LocalModelStorageSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ModelSpec":                     schema_pkg_apis_serving_v1alpha1_ModelSpec(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.NamespaceServingCounts":        schema_pkg_apis_serving_v1alpha1_NamespaceServingCounts(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.NodeCacheCounts":               schema_pkg_apis_serving_v1alpha1_NodeCacheCounts(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SecretKeySelector":             schema_pkg_apis_serving_v1alpha1_SecretKeySelector(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntime":                schema_pkg_apis_serving_v1alpha1_ServingRuntime(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeList":            schema_pkg_apis_serving_v1alpha1_ServingRuntimeList(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimePodSpec":         schema_pkg_apis_serving_v1alpha1_ServingRuntimePodSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeSpec":            schema_pkg_apis_serving_v1alpha1_ServingRuntimeSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingRuntimeStatus":          schema_pkg_apis_serving_v1alpha1_ServingRuntimeStatus(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingStatus":                 schema_pkg_apis_serving_v1alpha1_ServingStatus(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.StorageContainerSpec":          schema_pkg_apis_serving_v1alpha1_StorageContainerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.StorageHelper":                 schema_pkg_apis_serving_v1alpha1_StorageHelper(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SupportedModelFormat":          schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref),
@@ -107,6 +127,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServiceValidator":      schema_pkg_apis_serving_v1beta1_InferenceServiceValidator(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServicesConfig":        schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.IngressConfig":                  schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheConfig":              schema_pkg_apis_serving_v1beta1_KernelCacheConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":                   schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LocalModelConfig":               schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                     schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
@@ -199,6 +220,160 @@ func schema_pkg_apis_serving_v1alpha1_BuiltInAdapter(ref common.ReferenceCallbac
 		},
 		Dependencies: []string{
 			"k8s.io/api/core/v1.EnvVar"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_CacheCounts(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CacheCounts tracks aggregate node counts for state calculation",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodeCnt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeCnt - total nodes with this cache tracked",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"nodeErrorCnt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeErrorCnt - nodes with extraction errors",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"nodeInUseCnt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeInUseCnt - nodes with cache mounted by pods",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"nodeNotInUseCnt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeNotInUseCnt - nodes with cache extracted but not mounted",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"nodeCnt", "nodeErrorCnt", "nodeInUseCnt", "nodeNotInUseCnt"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_CacheNodeCacheInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CacheNodeCacheInfo tracks full cache information and status on one node Combines cache identity (name/namespace/image/digest) with extraction state Agent populates all fields by watching KernelCache CRs and tracking extraction jobs",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Cache identity (agent reads from KernelCache CR)",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"digest": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Description: "State represents this cache's state on this specific node",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"compatibleGPUs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GPU compatibility (from MCV validation during extraction) Lists GPU IDs that are compatible/incompatible with this cache",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: 0,
+										Type:    []string{"integer"},
+										Format:  "int32",
+									},
+								},
+							},
+						},
+					},
+					"incompatibleGPUs": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: 0,
+										Type:    []string{"integer"},
+										Format:  "int32",
+									},
+								},
+							},
+						},
+					},
+					"servingNamespaces": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Serving PVC usage on this node (per-namespace counts)",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.NamespaceServingCounts"),
+									},
+								},
+							},
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Message provides details about current state (e.g., error messages)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"lastUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LastUpdate timestamp",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+				},
+				Required: []string{"name", "namespace", "image"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.NamespaceServingCounts", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
 
@@ -389,6 +564,165 @@ func schema_pkg_apis_serving_v1alpha1_ClusterStorageContainerList(ref common.Ref
 		},
 		Dependencies: []string{
 			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ClusterStorageContainer", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_CreateKernelCacheConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CreateKernelCacheConfig controls auto-creation of KernelCache after successful capture",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Enabled controls whether to auto-create KernelCache",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name for the auto-created KernelCache (defaults to KCC name)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mountType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MountType for the auto-created KernelCache",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"pullSecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PullSecretRef for pulling the captured image (can differ from push secret)",
+							Ref:         ref("k8s.io/api/core/v1.LocalObjectReference"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.LocalObjectReference"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_GPUCompatibilitySummary(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GPUCompatibilitySummary aggregates GPU compatibility across all nodes",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"compatibleTypes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GPU types this cache is compatible with (from all nodes)",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"incompatibleTypes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GPU types this cache is incompatible with",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"totalCompatibleGPUs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Total compatible GPU count across all nodes",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"totalIncompatibleGPUs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Total incompatible GPU count",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"totalCompatibleGPUs", "totalIncompatibleGPUs"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_GPUTypeInfo(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "GPUTypeInfo describes GPU hardware on a node",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"gpuType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GPU type identifier (from MCV detection) Examples: \"Aldebaran/MI200\", \"nvidia-a100-80gb\"",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"driverVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Driver version for this GPU type",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"cudaVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CUDA or ROCm version",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"rocmVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"ids": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GPU device IDs for this type (0-indexed) Example: [0, 1, 2, 3] means GPUs 0-3 are this type Supports heterogeneous nodes with mixed GPU types",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: 0,
+										Type:    []string{"integer"},
+										Format:  "int32",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"gpuType", "ids"},
+			},
+		},
 	}
 }
 
@@ -875,6 +1209,630 @@ func schema_pkg_apis_serving_v1alpha1_InferenceTarget(ref common.ReferenceCallba
 				},
 			},
 		},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_KernelCache(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelCache packages GPU kernel caches (PyTorch, Triton, vLLM JIT-compiled kernels) into OCI images and extracts them to PVCs for accelerated workload startup.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheSpec", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_KernelCacheCapture(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelCacheCapture captures JIT-compiled kernel caches from running InferenceServices and packages them as OCI images for reuse in other deployments.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheCaptureSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheCaptureStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheCaptureSpec", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheCaptureStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_KernelCacheCaptureSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelCacheCaptureSpec defines the desired state of KernelCacheCapture",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"targetImage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TargetImage is the OCI image URL where captured cache will be pushed",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"registrySecretRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RegistrySecretRef references a Secret containing registry push credentials Optional for insecure/unauthenticated registries (e.g., kind-registry, localhost)",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SecretKeySelector"),
+						},
+					},
+					"cachePreset": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CachePreset specifies a known cache location preset (vllm, tgi, triton-python) Mutually exclusive with CachePath",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"cachePath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CachePath specifies an explicit cache directory path Overrides CachePreset if both are specified",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"volumeStrategy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VolumeStrategy specifies how to access the cache shared: inject shared emptyDir volume (default) copy: use kubectl cp to copy cache from main container",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"trigger": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Trigger initiates the cache capture when set to true",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"createKernelCache": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CreateKernelCache controls auto-creation of KernelCache CR",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.CreateKernelCacheConfig"),
+						},
+					},
+				},
+				Required: []string{"targetImage"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.CreateKernelCacheConfig", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.SecretKeySelector"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_KernelCacheCaptureStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelCacheCaptureStatus defines the observed state of KernelCacheCapture",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase indicates current state of the capture",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"imageDigest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ImageDigest is the sha256 digest of the captured image",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"capturedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CapturedAt is the timestamp when capture completed",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"capturedCacheSizeBytes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CapturedCacheSizeBytes is the size of the captured cache in bytes",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"kernelCacheRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "KernelCacheRef references the auto-created KernelCache",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.NamespacedName"),
+						},
+					},
+					"detectedCachePath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DetectedCachePath is the resolved cache path used for capture",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"podName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PodName is the pod from which cache was captured",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"conditions": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-patch-merge-key": "type",
+								"x-kubernetes-patch-strategy":  "merge",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "Conditions represent the latest available observations",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.NamespacedName", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_KernelCacheList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelCacheList contains a list of KernelCache",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCache"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCache", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_KernelCacheNode(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelCacheNode tracks per-node kernel cache extraction status. Operator-created CRD pattern uses Status only (no Spec). Cluster-scoped like LocalModelNode - one per physical node, tracks caches from all namespaces.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Spec removed - operator-created CRD pattern uses Status only",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheNodeStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheNodeStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_KernelCacheNodeList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelCacheNodeList contains a list of KernelCacheNode",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheNode"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCacheNode", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_KernelCacheNodeStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelCacheNodeStatus defines per-node extraction and GPU compatibility status Agent owns all writes to this structure",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodeName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeName is the Kubernetes node this tracks",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"gpuInfo": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GPU info: list of GPU types detected on this node (from MCV) Can be empty (CPU-only node) or heterogeneous (mixed GPU types)",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.GPUTypeInfo"),
+									},
+								},
+							},
+						},
+					},
+					"cacheStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CacheStatus maps cache name (unique within namespace) to full cache info and status Agent discovers caches by watching KernelCache CRs and populates this map Key format: \"{namespace}/{name}\" for uniqueness across namespaces",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.CacheNodeCacheInfo"),
+									},
+								},
+							},
+						},
+					},
+					"counts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Aggregate counts across all caches on this node (for kubectl get display)",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.NodeCacheCounts"),
+						},
+					},
+				},
+				Required: []string{"nodeName"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.CacheNodeCacheInfo", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.GPUTypeInfo", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.NodeCacheCounts"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_KernelCachePodTemplate(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelCachePodTemplate customizes extraction Job pods",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "NodeSelector for extraction Jobs",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"tolerations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Tolerations for extraction Jobs",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.Toleration"),
+									},
+								},
+							},
+						},
+					},
+					"priorityClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PriorityClassName for extraction Jobs",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.Toleration"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_KernelCacheSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelCacheSpec defines the desired state of KernelCache",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Image is the OCI image URL containing kernel cache",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mountType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MountType specifies how to mount the cache (pvc or imageVolume)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"storageClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StorageClassName for PV/PVC (only used when mountType=pvc)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"storageSize": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StorageSize for PV/PVC (only used when mountType=pvc)",
+							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
+						},
+					},
+					"accessModes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AccessModes for PV/PVC (only used when mountType=pvc)",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+					"podTemplate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PodTemplate for extraction Job customization (only used when mountType=pvc)",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCachePodTemplate"),
+						},
+					},
+					"imagePullPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ImagePullPolicy for pulling the cache image specified in spec.image. For imageVolume mode: controls when Kubernetes pulls the image for volume mounting. For pvc mode: controls when the extraction job pulls the image to extract.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mountPath": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MountPath in the container filesystem where the cache should be mounted. If empty (recommended), automatically computed from OCI image labels to maintain framework compatibility. The webhook determines the optimal mount path based on labels like io.kserve.km/cache-root-env.\n\nOverride only when automatic detection is insufficient. When set, SubPath within the volume (PVC or OCI image) is still auto-computed from labels.\n\nExample: \"/custom/cache/location\" mounts the cache at this path instead of the label-derived path.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"image"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.KernelCachePodTemplate", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_KernelCacheStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelCacheStatus defines the observed state of KernelCache",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"state": {
+						SchemaProps: spec.SchemaProps{
+							Description: "State represents overall cache state across all nodes Hierarchy: Error > Running > Extracted > Downloading > Pending",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mountType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MountType tracks the active mount type (pvc or imageVolume) Reflects the spec.mountType value for observability",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resolvedDigest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResolvedDigest is the image digest (sha256:...) resolved by mutating webhook This field is immutable once set - copied from annotation on first reconcile Controller ALWAYS uses this field (not annotation) to prevent tampering",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"counts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Counts tracks aggregate node and pod counts for state calculation",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.CacheCounts"),
+						},
+					},
+					"gpuCompatibility": {
+						SchemaProps: spec.SchemaProps{
+							Description: "GPU compatibility summary (aggregate from all nodes)",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.GPUCompatibilitySummary"),
+						},
+					},
+					"servingStatus": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Serving PVC usage (aggregate across all nodes/namespaces)",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.CacheCounts", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.GPUCompatibilitySummary", "github.com/kserve/kserve/pkg/apis/serving/v1alpha1.ServingStatus"},
 	}
 }
 
@@ -1703,6 +2661,125 @@ func schema_pkg_apis_serving_v1alpha1_ModelSpec(ref common.ReferenceCallback) co
 	}
 }
 
+func schema_pkg_apis_serving_v1alpha1_NamespaceServingCounts(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NamespaceServingCounts tracks pod usage per namespace",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"podsUsing": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"podsReady": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Total pods mounting cache in this namespace",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"podsTerminating": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Pods in Ready state",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"podsUsing", "podsReady", "podsTerminating"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_NodeCacheCounts(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "NodeCacheCounts aggregates cache and pod counts across all caches on a node",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cachesInUse": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CachesInUse - caches in Running state (mounted by pods)",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"cachesNotInUse": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CachesNotInUse - caches in Extracted state (available but not mounted)",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"cachesError": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CachesError - caches in Error state",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"totalPodsUsing": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TotalPodsUsing - total pods using any cache on this node (any phase)",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"totalPodsTerminating": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TotalPodsTerminating - total pods terminating",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"cachesInUse", "cachesNotInUse", "cachesError", "totalPodsUsing", "totalPodsTerminating"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_serving_v1alpha1_SecretKeySelector(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SecretKeySelector references a key in a Secret",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of the secret",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Key in the secret (defaults to .dockerconfigjson)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_serving_v1alpha1_ServingRuntime(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2262,6 +3339,69 @@ func schema_pkg_apis_serving_v1alpha1_ServingRuntimeStatus(ref common.ReferenceC
 	}
 }
 
+func schema_pkg_apis_serving_v1alpha1_ServingStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ServingStatus tracks serving PVC usage across namespaces",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"totalNamespaces": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Aggregate counts across all nodes/namespaces",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"totalPodsUsing": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Namespaces with serving PVCs",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"totalPodsReady": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Total pods using cache (any phase)",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"totalPodsTerminating": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Total ready pods",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"namespaceCounts": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Per-namespace breakdown (for debugging)",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1alpha1.NamespaceServingCounts"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"totalNamespaces", "totalPodsUsing", "totalPodsReady", "totalPodsTerminating"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.NamespaceServingCounts"},
+	}
+}
+
 func schema_pkg_apis_serving_v1alpha1_StorageContainerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -2365,7 +3505,6 @@ func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceC
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -3097,7 +4236,6 @@ func schema_pkg_apis_serving_v1beta1_AuthenticationRef(ref common.ReferenceCallb
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -5422,7 +6560,6 @@ func schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -6552,7 +7689,6 @@ func schema_pkg_apis_serving_v1beta1_HuggingFaceRuntimeSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -7056,6 +8192,75 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_KernelCacheConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"jobNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"extractImage": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"fsGroup": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+					"jobTTLSecondsAfterFinished": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"reconcileIntervalSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+					"noGPU": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"enablePermissionInitContainer": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"allowUnsigned": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"enabled", "jobNamespace"},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -7399,7 +8604,6 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -7732,7 +8936,6 @@ func schema_pkg_apis_serving_v1beta1_ModelFormat(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -8589,7 +9792,6 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -8978,7 +10180,6 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -9328,7 +10529,6 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -10227,7 +11427,6 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -11353,7 +12552,6 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -11814,7 +13012,6 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -12165,7 +13362,6 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -13109,7 +14305,6 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -13935,7 +15130,6 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{

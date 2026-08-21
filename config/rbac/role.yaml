@@ -209,6 +209,14 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - kernelcachecaptures
+  verbs:
+  - get
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachenodes
+  - kernelcaches
   - localmodelcaches
   - localmodelnamespacecaches
   verbs:

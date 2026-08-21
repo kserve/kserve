@@ -1,0 +1,10 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kserve-kernelcachenode-agent
+  namespace: kserve
+spec:
+  template:
+    spec:
+      nodeSelector:
+        kserve/kernelcache: "worker"

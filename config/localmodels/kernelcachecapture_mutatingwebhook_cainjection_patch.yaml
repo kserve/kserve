@@ -1,0 +1,8 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: kernelcachecapture.serving.kserve.io
+  annotations:
+    cert-manager.io/inject-ca-from: $(kserveNamespace)/localmodel-serving-cert
+webhooks:
+  - name: kernelcachecapture.kserve-webhook-server.defaulter

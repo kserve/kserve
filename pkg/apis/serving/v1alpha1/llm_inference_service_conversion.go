@@ -88,7 +88,7 @@ func (dst *LLMInferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 		URL:    src.Status.URL,
 		Status: src.Status.Status,
 	}
-	dst.Status.Address = src.Status.Address //nolint:staticcheck // retained for schema compatibility
+	dst.Status.Address = src.Status.Address //nolint:staticcheck // preserving deprecated field for backward compatibility
 	for _, sa := range src.Status.Addresses {
 		dst.Status.Addresses = append(dst.Status.Addresses, sa.Addressable)
 	}
