@@ -24790,7 +24790,12 @@ spec:
                 properties:
                   enabled:
                     type: boolean
+                  storageContainerName:
+                    type: string
                 type: object
+                x-kubernetes-validations:
+                - message: storageContainerName cannot be set when enabled is false
+                  rule: '!(has(self.enabled) && self.enabled == false && has(self.storageContainerName))'
               template:
                 properties:
                   activeDeadlineSeconds:
@@ -50596,6 +50601,9 @@ spec:
                   storageContainerName:
                     type: string
                 type: object
+                x-kubernetes-validations:
+                - message: storageContainerName cannot be set when enabled is false
+                  rule: '!(has(self.enabled) && self.enabled == false && has(self.storageContainerName))'
               template:
                 properties:
                   activeDeadlineSeconds:
@@ -77115,7 +77123,12 @@ spec:
                 properties:
                   enabled:
                     type: boolean
+                  storageContainerName:
+                    type: string
                 type: object
+                x-kubernetes-validations:
+                - message: storageContainerName cannot be set when enabled is false
+                  rule: '!(has(self.enabled) && self.enabled == false && has(self.storageContainerName))'
               template:
                 properties:
                   activeDeadlineSeconds:
@@ -103817,6 +103830,9 @@ spec:
                   storageContainerName:
                     type: string
                 type: object
+                x-kubernetes-validations:
+                - message: storageContainerName cannot be set when enabled is false
+                  rule: '!(has(self.enabled) && self.enabled == false && has(self.storageContainerName))'
               template:
                 properties:
                   activeDeadlineSeconds:
