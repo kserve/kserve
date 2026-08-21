@@ -4,6 +4,12 @@ KV cache offloading extends GPU memory by cascading evicted KV cache blocks to
 cheaper tiers: GPU → CPU RAM → disk. This allows serving longer contexts or
 more concurrent requests without increasing GPU count.
 
+## Sizing
+
+Set `kvCacheOffloading.cpu` to how much CPU RAM the KV cache may use before blocks
+are evicted to the next tier. Size `template.resources` for the model server itself;
+this CPU tier is added on top of those resources automatically when needed.
+
 ## How to choose a secondary disk tier
 
 ### I have a Ceph cluster (e.g. ODF on OpenShift)
