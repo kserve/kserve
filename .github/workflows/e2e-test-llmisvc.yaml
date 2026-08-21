@@ -187,8 +187,11 @@ jobs:
 
   seed-image-cache:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
       - name: Pull and save vLLM CPU image
         run: |
           docker pull --platform linux/amd64 ${{ env.VLLM_CPU_IMAGE }}
@@ -201,6 +204,46 @@ jobs:
           path: /tmp/vllm-cpu.tar
           compression-level: 0
           if-no-files-found: error
+
+      - name: Pull and save latency predictor images
+        run: |
+          set -uo pipefail
+          # Versions are read from the preset rather than pinned again here. A
+          # second copy would diverge on the next bump, leaving the cache holding
+          # images no test loads while every run pulls them from the registry.
+          mapfile -t images < <(grep -ohE \
+            'ghcr\.io/llm-d/llm-d-latency-predictor-[a-z-]+:[^"[:space:]]+' \
+            config/llmisvcconfig/config-llm-scheduler-latency-predictor.yaml | sort -u)
+          # An empty match means the preset changed shape rather than indicating a
+          # registry problem, and would leave the cache permanently ineffective.
+          # Every step after this point is best effort.
+          if [[ ${#images[@]} -eq 0 ]]; then
+            echo "::error::no latency predictor images found in the preset - has it been restructured?"
+            exit 1
+          fi
+          # Guarded with if rather than &&: the runner already applies -e, under
+          # which an unguarded failure would abort a step that is permitted to
+          # produce nothing.
+          for image in "${images[@]}"; do
+            tar="/tmp/$(basename "${image}" | tr ':' '-').tar"
+            if ! docker pull --platform linux/amd64 "${image}"; then
+              echo "::warning::could not pull ${image}; the test job will pull it directly"
+              continue
+            fi
+            if ! docker save "${image}" -o "${tar}"; then
+              echo "::warning::could not save ${image}; the test job will pull it directly"
+              rm -f "${tar}"
+            fi
+          done
+
+      - name: Upload latency predictor image artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: latency-predictor-images-${{ env.TAG }}
+          path: /tmp/llm-d-latency-predictor-*.tar
+          compression-level: 0
+          # Producing no archives is a slower run rather than a failed one.
+          if-no-files-found: warn
 
   test-llmisvc:
     runs-on: cncf-ubuntu-16-64-x86
@@ -280,6 +323,34 @@ jobs:
 
       - name: Load vLLM CPU image into minikube
         run: minikube image load ./tmp/vllm-cpu.tar
+
+      # Cache warming must not gate the tests. A pod pulls its own images when
+      # they are not preloaded, so a registry outage costs time rather than the
+      # entire suite. An image that does not exist still fails in the test that
+      # required it, where the pod status reports the cause.
+      - name: Download latency predictor image artifact
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: latency-predictor-images-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load latency predictor images into minikube
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+          shopt -s nullglob
+          loaded=0
+          for tar in ./tmp/llm-d-latency-predictor-*.tar; do
+            if minikube image load "${tar}"; then
+              loaded=$((loaded + 1))
+            else
+              echo "::warning::could not load ${tar}; the pod will pull it directly"
+            fi
+          done
+          if [[ ${loaded} -eq 0 ]]; then
+            echo "::notice::latency predictor images not preloaded; pods will pull them"
+          fi
 
       - name: KServe dependency setup
         uses: ./.github/actions/kserve-dep-setup
