@@ -75,9 +75,7 @@ def _create_llmisvc(kserve_client: KServeClient, body: dict, version: str):
     )
 
 
-def _delete_llmisvc(
-    kserve_client: KServeClient, name: str, namespace: str, version: str
-):
+def _delete_llmisvc(kserve_client: KServeClient, name: str, namespace: str, version: str):
     try:
         kserve_client.api_instance.delete_namespaced_custom_object(
             constants.KSERVE_GROUP,
