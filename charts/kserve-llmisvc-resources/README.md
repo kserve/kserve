@@ -114,15 +114,7 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.llmisvc.controller.tolerations | list | `[]` |  |
 | kserve.llmisvc.controller.topologySpreadConstraints | list | `[]` |  |
 | kserve.llmisvc.createGIECRDs | bool | `true` |  |
-| kserve.localmodel.agent.affinity | object | `{}` |  |
-| kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
-| kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
-| kserve.localmodel.agent.nodeSelector | object | `{}` |  |
 | kserve.localmodel.agent.reconcilationFrequencyInSecs | int | `60` |  |
-| kserve.localmodel.agent.securityContext.runAsNonRoot | bool | `true` |  |
-| kserve.localmodel.agent.securityContext.runAsUser | int | `1000` |  |
-| kserve.localmodel.agent.tag | string | `""` |  |
-| kserve.localmodel.agent.tolerations | list | `[]` |  |
 | kserve.localmodel.controller.image | string | `"kserve/kserve-localmodel-controller"` |  |
 | kserve.localmodel.controller.tag | string | `""` |  |
 | kserve.localmodel.defaultJobImage | string | `"kserve/storage-initializer"` |  |
