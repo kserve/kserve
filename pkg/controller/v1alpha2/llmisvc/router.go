@@ -700,8 +700,11 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 		return nil
 	}
 
-	// Resolve gateway identities once for pool parent matching.
-	gatewayKeys := resolvedGatewayKeys(resolvedGWs)
+	// Resolve gateway identities once for pool parent matching. Gateways resolved from
+	// managed HTTPRoutes are unioned with spec.router.gateway.refs: without a managed
+	// route (BYO-gateway mode), there are no managed HTTPRoutes to resolve gateways
+	// from, and the spec refs are the only source of the readiness scope.
+	gatewayKeys := poolReadinessGatewayKeys(llmSvc, resolvedGWs)
 
 	// For referenced pools (external), only check that pool
 	if llmSvc.Spec.Router.Scheduler.Pool != nil && llmSvc.Spec.Router.Scheduler.Pool.Ref != nil && llmSvc.Spec.Router.Scheduler.Pool.Ref.Name != "" {
