@@ -1773,6 +1773,73 @@ func TestValidateConfidential(t *testing.T) {
 	}
 }
 
+func TestValidateVerification(t *testing.T) {
+	tests := []struct {
+		name           string
+		verification   *VerificationSpec
+		lora           *LoRASpec
+		wantErrCount   int
+		wantErrStrings []string
+	}{
+		{
+			name:         "verification nil passes",
+			verification: nil,
+			wantErrCount: 0,
+		},
+		{
+			name: "verification without LoRA passes",
+			verification: &VerificationSpec{
+				Digest: "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+			},
+			wantErrCount: 0,
+		},
+		{
+			name: "verification with LoRA adapters fails",
+			verification: &VerificationSpec{
+				Digest: "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+			},
+			lora: &LoRASpec{
+				Adapters: []LLMModelSpec{
+					{Name: ptr.To("adapter-1")},
+				},
+			},
+			wantErrCount:   1,
+			wantErrStrings: []string{"model digest verification is not supported when LoRA adapters are specified"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validator := &LLMInferenceServiceValidator{}
+			llmSvc := &LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm-isvc",
+					Namespace: "default",
+				},
+				Spec: LLMInferenceServiceSpec{
+					Model: LLMModelSpec{
+						Verification: tt.verification,
+						LoRA:         tt.lora,
+					},
+				},
+			}
+			_, errs := validator.validateVerification(llmSvc)
+
+			assert.Len(t, errs, tt.wantErrCount)
+			for _, wantStr := range tt.wantErrStrings {
+				found := false
+				for _, e := range errs {
+					if strings.Contains(e.Error(), wantStr) {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "expected error containing %q, got: %v", wantStr, errs)
+			}
+		})
+	}
+}
+
 func TestValidateKVCacheOffloading(t *testing.T) {
 	validator := &LLMInferenceServiceValidator{}
 

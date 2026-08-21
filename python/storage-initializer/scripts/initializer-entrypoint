@@ -4,6 +4,7 @@ import sys
 
 from kserve_storage import Storage
 from kserve_storage.logging import configure_logging, logger
+from kserve_storage.verification import get_single_artifact, verify_digest
 
 configure_logging()
 
@@ -30,6 +31,31 @@ except RuntimeError as e:
 except Exception as e:
     logger.error("Unexpected error during storage initialization: %s", e)
     sys.exit(1)
+
+# Post-download digest verification (runs ciphertext-first before any decryption)
+expected_digest = os.environ.get("VERIFICATION_DIGEST")
+if expected_digest:
+    if len(dest_paths) != 1:
+        logger.error(
+            "Digest verification currently supports only a single downloaded artifact."
+        )
+        sys.exit(1)
+
+    try:
+        marker = os.path.join(dest_paths[0], ".digest_verified")
+        if os.path.exists(marker):
+            try:
+                os.remove(marker)
+            except OSError:
+                pass
+            logger.info("Digest verification succeeded for archive artifact in %s", dest_paths[0])
+        else:
+            artifact_path = get_single_artifact(dest_paths[0])
+            verify_digest(artifact_path, expected_digest)
+            logger.info("Digest verification succeeded for %s", artifact_path)
+    except Exception as e:
+        logger.error("Digest verification failed: %s", e)
+        sys.exit(1)
 
 # Post-download decryption for confidential model serving
 if os.environ.get("CONFIDENTIAL_ENABLED", "").lower() == "true":
