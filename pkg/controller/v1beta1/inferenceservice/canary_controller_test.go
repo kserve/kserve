@@ -121,7 +121,7 @@ var _ = Describe("Canary deployment controller", func() {
 
 			isvc := makeCanaryISVC(serviceName, "default", "s3://test/model-v1", 4,
 				[]v1beta1.CanarySpec{makeCanary("v2", 25, "s3://test/model-v2")})
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
@@ -179,7 +179,7 @@ var _ = Describe("Canary deployment controller", func() {
 
 			isvc := makeCanaryISVC(serviceName, "default", "s3://test/model-v1", 4,
 				[]v1beta1.CanarySpec{makeCanary("v2", 25, "s3://test/model-v2")})
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
@@ -239,7 +239,7 @@ var _ = Describe("Canary deployment controller", func() {
 
 			isvc := makeCanaryISVC(serviceName, "default", "s3://test/model-v1", 4,
 				[]v1beta1.CanarySpec{makeCanary("v2", 25, "s3://test/model-v2")})
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
@@ -303,7 +303,7 @@ var _ = Describe("Canary deployment controller", func() {
 
 			isvc := makeCanaryISVC(serviceName, "default", "s3://test/model-v1", 4,
 				[]v1beta1.CanarySpec{makeCanary("v2", 25, "s3://test/model-v2")})
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
@@ -366,7 +366,7 @@ var _ = Describe("Canary deployment controller", func() {
 					makeCanary("v2", 25, "s3://test/model-v2"),
 					makeCanary("v3", 25, "s3://test/model-v3"),
 				})
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
@@ -459,7 +459,7 @@ var _ = Describe("Canary deployment controller", func() {
 
 			isvc := makeCanaryISVC(serviceName, "default", "s3://test/model-v1", 4,
 				[]v1beta1.CanarySpec{makeCanary("v2", 25, "s3://test/model-v2")})
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
