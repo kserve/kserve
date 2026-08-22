@@ -19,7 +19,6 @@ import pytest
 import pytest_asyncio
 from httpx_retries import Retry, RetryTransport
 import httpx
-
 import kserve
 from kserve import KServeClient, InferenceRESTClient, RESTConfig
 from kserve.constants.constants import PredictorProtocol
@@ -29,6 +28,16 @@ from .common.http_retry import (
     DEFAULT_RETRY_BACKOFF_FACTOR,
     DEFAULT_RETRY_STATUS_CODES,
     DEFAULT_RETRY_TOTAL,
+)
+from .common.namespace import (
+    cleanup_isvcs,
+    create_namespace,
+    delete_namespace,
+    get_core_api,
+    provision_secrets,
+    skip_resource_deletion,
+    wait_pods_terminated,
+    worker_namespace_name,
 )
 
 
@@ -119,3 +128,37 @@ def pytest_addoption(parser):
 @pytest.fixture(scope="session")
 def network_layer(request):
     return request.config.getoption("--network-layer")
+
+
+@pytest.fixture(scope="session")
+def _e2e_worker_id(request):
+    workerinput = getattr(request.config, "workerinput", None)
+    if workerinput:
+        return workerinput["workerid"]
+    return "master"
+
+
+@pytest.fixture(scope="session")
+def test_namespace_session(_e2e_worker_id):
+    """One namespace per xdist worker. Per-test namespaces starve Knative/Istio ingress."""
+    core_v1 = get_core_api()
+    ns_name = worker_namespace_name(_e2e_worker_id)
+
+    create_namespace(core_v1, ns_name)
+    provision_secrets(core_v1, ns_name)
+
+    yield ns_name
+
+    if skip_resource_deletion():
+        logger.info("Preserving namespace %s", ns_name)
+        return
+
+    wait_pods_terminated(core_v1, ns_name)
+    delete_namespace(core_v1, ns_name)
+
+
+@pytest.fixture(scope="function")
+def test_namespace(test_namespace_session):
+    """Reuse the worker namespace; delete ISVCs after each test."""
+    yield test_namespace_session
+    cleanup_isvcs(test_namespace_session)

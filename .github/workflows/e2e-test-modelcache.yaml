@@ -253,7 +253,7 @@ jobs:
 
   test-modelcache:
     runs-on: ubuntu-latest
-    timeout-minutes: 65
+    timeout-minutes: 90
     needs: [detect-changes, kserve-image-build, llmisvc-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false

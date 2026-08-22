@@ -29,7 +29,6 @@ from kserve import (
 from kserve.constants import constants
 
 from ..common.utils import (
-    KSERVE_TEST_NAMESPACE,
     generate,
 )
 
@@ -54,7 +53,7 @@ ISVC_ANNOTATIONS = {"serving.knative.dev/progress-deadline": "20m"}
     reason="ModelScope CDN not reliably reachable from CI runners; see TODO(#5330)."
 )
 @pytest.mark.llm
-def test_modelscope_qwen_chat_completions():
+def test_modelscope_qwen_chat_completions(test_namespace):
     """Download Qwen2.5-0.5B-Instruct from ModelScope and serve it.
 
     Mirrors test_huggingface_openai_chat_completions but sources the model from
@@ -96,7 +95,7 @@ def test_modelscope_qwen_chat_completions():
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=test_namespace,
             annotations=ISVC_ANNOTATIONS,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
@@ -108,11 +107,11 @@ def test_modelscope_qwen_chat_completions():
     kserve_client.create(isvc)
     kserve_client.wait_isvc_ready(
         service_name,
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=test_namespace,
         timeout_seconds=ISVC_READY_TIMEOUT_S,
     )
 
-    res = generate(service_name, "./data/qwen_input_chat.json")
+    res = generate(
+        service_name, "./data/qwen_input_chat.json", namespace=test_namespace
+    )
     assert res["choices"][0]["message"]["content"] == "The result of 2 + 2 is 4."
-
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
