@@ -91,6 +91,17 @@ spec:
         args:
         - "--metrics-addr={{ .Values.kserve.llmisvc.controller.metricsBindAddress }}:{{ .Values.kserve.llmisvc.controller.metricsBindPort }}"
         - "--leader-elect"
+        {{- with .Values.kserve.llmisvc.controller.aggregator }}
+        {{- if .enabled }}
+        - "--aggregator-addr={{ .bindAddress }}"
+        - "--aggregator-backend-timeout={{ .backendTimeout }}"
+        {{- if .namespace }}
+        - "--aggregator-namespace={{ .namespace }}"
+        {{- end }}
+        {{- else }}
+        - "--enable-aggregator=false"
+        {{- end }}
+        {{- end }}
         {{- with .Values.kserve.llmisvc.controller.extraArgs }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -135,6 +146,13 @@ spec:
         - containerPort: {{ .Values.kserve.llmisvc.controller.metricsBindPort }}
           name: metrics
           protocol: TCP
+        {{- with .Values.kserve.llmisvc.controller.aggregator }}
+        {{- if .enabled }}
+        - containerPort: {{ .port }}
+          name: aggregator
+          protocol: TCP
+        {{- end }}
+        {{- end }}
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert

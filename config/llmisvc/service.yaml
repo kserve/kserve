@@ -16,3 +16,7 @@ spec:
     targetPort: metrics
     protocol: TCP
     name: https
+  - port: 8080
+    targetPort: aggregator
+    protocol: TCP
+    name: aggregator

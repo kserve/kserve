@@ -51,6 +51,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/kserve/kserve/pkg/aggregator"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -89,6 +90,10 @@ type Options struct {
 	migrationPollInterval time.Duration
 	tlsMinVersion         string
 	tlsCipherSuites       string
+	enableAggregator      bool
+	aggregatorAddr        string
+	aggregatorNamespace   string
+	aggregatorTimeout     time.Duration
 	zapOpts               zap.Options
 }
 
@@ -101,6 +106,9 @@ func DefaultOptions() Options {
 		metricsSecure:         true,
 		migrationTimeout:      1 * time.Hour,
 		migrationPollInterval: 30 * time.Second,
+		enableAggregator:      true,
+		aggregatorAddr:        ":8080",
+		aggregatorTimeout:     3 * time.Second,
 		zapOpts:               zap.Options{},
 	}
 }
@@ -120,6 +128,10 @@ func GetOptions() Options {
 	flag.StringVar(&opts.tlsCipherSuites, "tls-cipher-suites", opts.tlsCipherSuites, "Comma-separated list of TLS cipher suites (Go names). If empty, Go defaults are used.")
 	flag.DurationVar(&opts.migrationTimeout, "storage-migration-timeout", opts.migrationTimeout, "Total retry budget for storage version migration.")
 	flag.DurationVar(&opts.migrationPollInterval, "storage-migration-poll-interval", opts.migrationPollInterval, "Polling interval for storage version migration retries after initial backoff.")
+	flag.BoolVar(&opts.enableAggregator, "enable-aggregator", opts.enableAggregator, "Serve aggregated LLMInferenceService endpoints from this controller process.")
+	flag.StringVar(&opts.aggregatorAddr, "aggregator-addr", opts.aggregatorAddr, "The address the aggregator HTTP server binds to.")
+	flag.StringVar(&opts.aggregatorNamespace, "aggregator-namespace", opts.aggregatorNamespace, "Namespace to aggregate LLMInferenceServices from. Empty watches all namespaces.")
+	flag.DurationVar(&opts.aggregatorTimeout, "aggregator-backend-timeout", opts.aggregatorTimeout, "Per-backend request timeout for aggregated endpoints.")
 	opts.zapOpts.BindFlags(flag.CommandLine)
 	flag.Parse()
 	return opts
@@ -339,6 +351,21 @@ func main() {
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
+	}
+
+	if options.enableAggregator {
+		aggServer, err := newAggregatorServer(options.aggregatorAddr, options.aggregatorTimeout, aggregator.ClientDiscovery{
+			Client:    mgr.GetClient(),
+			Namespace: options.aggregatorNamespace,
+		})
+		if err != nil {
+			setupLog.Error(err, "unable to create aggregator")
+			os.Exit(1)
+		}
+		if err := mgr.Add(aggServer); err != nil {
+			setupLog.Error(err, "unable to register aggregator")
+			os.Exit(1)
+		}
 	}
 
 	// Storage version migration runs as a LeaderElection runnable, which starts

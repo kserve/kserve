@@ -76,6 +76,12 @@ kserve:
       extraVolumeMounts: []
       extraArgs: []
       terminationGracePeriodSeconds: 10
+      aggregator:
+        enabled: true
+        bindAddress: ':8080'
+        port: 8080
+        backendTimeout: 3s
+        namespace: ''
   controller:
     deploymentMode: Knative
     gateway:
