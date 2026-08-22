@@ -1,0 +1,1 @@
+kubectl get cm inferenceservice-config -n kserve -o jsonpath='{.data.storageInitializer}' | jq .memoryLimit
