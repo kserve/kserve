@@ -330,7 +330,7 @@ func createRawPredictorHTTPRoute(ctx context.Context, client client.Client, isvc
 		},
 	}
 	if len(isvc.Spec.Canary) > 0 {
-		applyCanaryWeights(isvc, &httpRoute)
+		applyCanaryWeights(isvc, predictorName, &httpRoute)
 	}
 	return &httpRoute, nil
 }
@@ -676,7 +676,7 @@ func createRawTopLevelHTTPRoute(ctx context.Context, client client.Client, isvc 
 		},
 	}
 	if len(isvc.Spec.Canary) > 0 {
-		applyCanaryWeights(isvc, &httpRoute)
+		applyCanaryWeights(isvc, predictorName, &httpRoute)
 	}
 	return &httpRoute, nil
 }
@@ -686,7 +686,11 @@ func createRawTopLevelHTTPRoute(ctx context.Context, client client.Client, isvc 
 // Ready (as reported in isvc.Status.CanaryStatuses) receive traffic; not-ready
 // canaries are omitted so no traffic is routed to a backend without ready
 // endpoints.
-func applyCanaryWeights(isvc *v1beta1.InferenceService, httpRoute *gwapiv1.HTTPRoute) {
+//
+// This function only modifies rules whose backend points to the stable predictor
+// (identified by predictorName). Other rules (e.g., explainer, transformer) are
+// left unchanged.
+func applyCanaryWeights(isvc *v1beta1.InferenceService, predictorName string, httpRoute *gwapiv1.HTTPRoute) {
 	readyMap := make(map[string]bool, len(isvc.Status.CanaryStatuses))
 	for _, cs := range isvc.Status.CanaryStatuses {
 		readyMap[cs.Name] = cs.Ready
@@ -707,6 +711,9 @@ func applyCanaryWeights(isvc *v1beta1.InferenceService, httpRoute *gwapiv1.HTTPR
 		}
 
 		template := rule.BackendRefs[0]
+		if string(template.Name) != predictorName {
+			continue
+		}
 		weightedBackends := make([]gwapiv1.HTTPBackendRef, 0, 1+len(isvc.Spec.Canary))
 
 		sw := stableWeight
