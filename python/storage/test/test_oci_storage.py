@@ -20,6 +20,7 @@ import tarfile
 import unittest.mock as mock
 
 import pytest
+import zstandard
 
 from kserve_storage import Storage
 from kserve_storage.kserve_storage import (
@@ -227,16 +228,23 @@ def test_oci_uncompressed_tar_layer_extracts(tmp_path):
     assert os.path.isfile(os.path.join(out, "model.txt"))
 
 
-def test_oci_zstd_layer_rejected(tmp_path):
-    # zstd layers cannot be decompressed by stdlib tarfile before Python 3.14
-    # (the initializer runs 3.11); reject with an actionable error instead of a
-    # cryptic mid-stream gzip failure. Rejection happens before any blob fetch.
+def test_oci_zstd_layer_extracts(tmp_path):
+    # A zstd-compressed layer (mediaType ...tar+zstd) is streamed through a
+    # zstandard decompressor and then read as an uncompressed tar. A real
+    # zstd->tar round-trip: a broken decompressor wrap surfaces as a real error
+    # rather than passing silently under MagicMock.
     out = str(tmp_path / "out")
+    tar_bytes = _build_layer_tar_bytes(model_files=("model.txt",), compress=False)
+    zstd_bytes = zstandard.ZstdCompressor().compress(tar_bytes)
     manifest = {
         "mediaType": "application/vnd.oci.image.manifest.v1+json",
         "layers": [{"digest": "sha256:layer0", "mediaType": _ZSTD_LAYER}],
     }
-    client = _make_client(manifest)
+    client = mock.MagicMock()
+    client.get_manifest.return_value = manifest
+    client.get_blob.side_effect = lambda target, digest, stream=True: _FakeBlobResponse(
+        zstd_bytes
+    )
     with (
         mock.patch("oras.client.OrasClient", return_value=client),
         mock.patch(
@@ -245,16 +253,49 @@ def test_oci_zstd_layer_rejected(tmp_path):
         ),
         mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
     ):
-        with pytest.raises(RuntimeError) as excinfo:
-            Storage._download_oci("oci://registry.io/mymodel:v1", out)
+        result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
 
-    msg = str(excinfo.value)
-    assert "zstd" in msg
-    # Actionable: hint at rebuilding with gzip or the 3.14 stdlib path, without
-    # asserting the exact wording.
-    assert "gzip" in msg or "3.14" in msg
-    # Rejected before streaming any blob.
-    client.get_blob.assert_not_called()
+    assert result == out
+    assert os.path.isfile(os.path.join(out, "model.txt"))
+    # The zstd layer was fetched and streamed -- not skipped, not rejected.
+    assert client.get_blob.call_count == 1
+
+
+def test_oci_zstd_and_gzip_layers_extract(tmp_path):
+    # A manifest mixing a zstd layer and a gzip layer: each is decompressed by
+    # its own path (zstandard wrap vs tarfile "r|gz") and both models land.
+    out = str(tmp_path / "out")
+    gzip_bytes = _build_layer_tar_bytes(model_files=("gzip_model.txt",), compress=True)
+    zstd_bytes = zstandard.ZstdCompressor().compress(
+        _build_layer_tar_bytes(model_files=("zstd_model.txt",), compress=False)
+    )
+    blobs = {"sha256:gz": gzip_bytes, "sha256:zstd": zstd_bytes}
+    manifest = {
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "layers": [
+            {"digest": "sha256:zstd", "mediaType": _ZSTD_LAYER},
+            {"digest": "sha256:gz", "mediaType": _GZIP_LAYER},
+        ],
+    }
+    client = mock.MagicMock()
+    client.get_manifest.return_value = manifest
+    client.get_blob.side_effect = lambda target, digest, stream=True: _FakeBlobResponse(
+        blobs[digest]
+    )
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+    ):
+        result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    assert result == out
+    assert os.path.isfile(os.path.join(out, "zstd_model.txt"))
+    assert os.path.isfile(os.path.join(out, "gzip_model.txt"))
+    assert client.get_blob.call_count == 2
 
 
 def test_oci_non_tar_layer_skipped(tmp_path):
