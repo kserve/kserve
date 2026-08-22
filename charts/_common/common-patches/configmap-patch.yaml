@@ -160,3 +160,13 @@ data:
       "scaleUpStabilizationWindowSeconds": "{{ .Values.kserve.autoscaler.scaleUpStabilizationWindowSeconds }}",
       "scaleDownStabilizationWindowSeconds": "{{ .Values.kserve.autoscaler.scaleDownStabilizationWindowSeconds }}"
     }
+  autoscaling-wva-controller-config: |-
+    {
+      "prometheus": {
+        "url": "{{ .Values.kserve.autoscalingWvaControllerConfig.prometheus.url }}",
+        "tlsInsecureSkipVerify": {{ .Values.kserve.autoscalingWvaControllerConfig.prometheus.tlsInsecureSkipVerify }},
+        "authModes": "{{ .Values.kserve.autoscalingWvaControllerConfig.prometheus.authModes }}",
+        "triggerAuthName": "{{ .Values.kserve.autoscalingWvaControllerConfig.prometheus.triggerAuthName }}",
+        "triggerAuthKind": "{{ .Values.kserve.autoscalingWvaControllerConfig.prometheus.triggerAuthKind }}"
+      }
+    }
