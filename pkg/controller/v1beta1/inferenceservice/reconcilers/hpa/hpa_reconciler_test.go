@@ -916,6 +916,94 @@ func TestGetHPAMetrics(t *testing.T) {
 			},
 		},
 		{
+			name: "autoscaling with memory average value metric and no target type",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Metrics: []v1beta1.MetricsSpec{
+						{
+							Type: v1beta1.ResourceMetricSourceType,
+							Resource: &v1beta1.ResourceMetricSource{
+								Name: v1beta1.ResourceMetricMemory,
+								Target: v1beta1.MetricTarget{
+									AverageValue: v1beta1.NewMetricQuantity("500Mi"),
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedSpecs: []autoscalingv2.MetricSpec{
+				{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
+						Name: corev1.ResourceMemory,
+						Target: autoscalingv2.MetricTarget{
+							Type:         autoscalingv2.AverageValueMetricType,
+							AverageValue: ptr.To(resource.MustParse("500Mi")),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "autoscaling with memory utilization metric and no target type",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Metrics: []v1beta1.MetricsSpec{
+						{
+							Type: v1beta1.ResourceMetricSourceType,
+							Resource: &v1beta1.ResourceMetricSource{
+								Name: v1beta1.ResourceMetricMemory,
+								Target: v1beta1.MetricTarget{
+									AverageUtilization: ptr.To(int32(65)),
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedSpecs: []autoscalingv2.MetricSpec{
+				{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
+						Name: corev1.ResourceMemory,
+						Target: autoscalingv2.MetricTarget{
+							Type:               autoscalingv2.UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(65)),
+						},
+					},
+				},
+			},
+		},
+		{
+			// Both values set gives no hint about which type was meant, so nothing is inferred.
+			name: "autoscaling with ambiguous memory target is not inferred",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Metrics: []v1beta1.MetricsSpec{
+						{
+							Type: v1beta1.ResourceMetricSourceType,
+							Resource: &v1beta1.ResourceMetricSource{
+								Name: v1beta1.ResourceMetricMemory,
+								Target: v1beta1.MetricTarget{
+									AverageValue:       v1beta1.NewMetricQuantity("500Mi"),
+									AverageUtilization: ptr.To(int32(65)),
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedSpecs: []autoscalingv2.MetricSpec{
+				{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
+						Name: corev1.ResourceMemory,
+					},
+				},
+			},
+		},
+		{
 			name:         "nil componentExt should return default CPU metric",
 			componentExt: nil,
 			expectedSpecs: []autoscalingv2.MetricSpec{
