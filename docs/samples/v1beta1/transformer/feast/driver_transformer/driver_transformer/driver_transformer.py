@@ -21,7 +21,7 @@ import kserve
 from kserve import InferRequest, InferResponse, InferInput
 from kserve.protocol.grpc import grpc_predict_v2_pb2 as pb
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
-from kserve.logging import logger
+from kserve.log_config import logger
 
 
 class DriverTransformer(kserve.Model):

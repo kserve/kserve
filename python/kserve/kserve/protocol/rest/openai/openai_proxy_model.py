@@ -21,7 +21,7 @@ import httpx
 import orjson
 from pydantic import ValidationError
 
-from ....logging import logger
+from ....log_config import logger
 from .errors import OpenAIError, create_error_response
 from .openai_model import (
     OpenAIGenerativeModel,

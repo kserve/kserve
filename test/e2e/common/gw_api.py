@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from kubernetes import client
-from kserve.logging import trace_logger as logger
+from kserve.log_config import trace_logger as logger
 
 import copy
 

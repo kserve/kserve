@@ -17,7 +17,7 @@ import argparse
 from artserver import ARTModel
 
 import kserve
-from kserve import logging
+from kserve import log_config
 
 DEFAULT_ADVERSARY_TYPE = "SquareAttack"
 
@@ -43,7 +43,7 @@ args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     if args.configure_logging:
-        logging.configure_logging(args.log_config_file)
+        log_config.configure_logging(args.log_config_file)
     model = ARTModel(
         args.model_name,
         adversary_type=args.adversary_type,
