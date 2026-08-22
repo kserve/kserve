@@ -2653,6 +2653,309 @@ func TestValidateCanarySpecs(t *testing.T) {
 	}
 }
 
+func TestPodSpecSecurityValidation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	scenarios := map[string]struct {
+		isvc     InferenceService
+		expected gomega.OmegaMatcher
+	}{
+		"predictor hostNetwork blocked": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							HostNetwork: true,
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.MatchError(gomega.ContainSubstring("setting hostNetwork is not allowed in predictor")),
+		},
+		"predictor hostPID blocked": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							HostPID: true,
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.MatchError(gomega.ContainSubstring("setting hostPID is not allowed in predictor")),
+		},
+		"predictor hostIPC blocked": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							HostIPC: true,
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.MatchError(gomega.ContainSubstring("setting hostIPC is not allowed in predictor")),
+		},
+		"predictor projected SA token volume blocked": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Volumes: []corev1.Volume{
+								{
+									Name: "stolen-sa-token",
+									VolumeSource: corev1.VolumeSource{
+										Projected: &corev1.ProjectedVolumeSource{
+											Sources: []corev1.VolumeProjection{
+												{
+													ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+														Path:              "token",
+														ExpirationSeconds: proto.Int64(3600),
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.MatchError(gomega.ContainSubstring("projected volume \"stolen-sa-token\" with serviceAccountToken source is not allowed in predictor")),
+		},
+		"projected volume without SA token allowed": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						PodSpec: PodSpec{
+							Volumes: []corev1.Volume{
+								{
+									Name: "configmap-projection",
+									VolumeSource: corev1.VolumeSource{
+										Projected: &corev1.ProjectedVolumeSource{
+											Sources: []corev1.VolumeProjection{
+												{
+													ConfigMap: &corev1.ConfigMapProjection{
+														LocalObjectReference: corev1.LocalObjectReference{
+															Name: "my-config",
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.BeNil(),
+		},
+		"transformer hostNetwork blocked": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							HostNetwork: true,
+							Containers: []corev1.Container{
+								{
+									Image: "transformer:latest",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.MatchError(gomega.ContainSubstring("setting hostNetwork is not allowed in transformer")),
+		},
+		"explainer hostPID blocked": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+					Explainer: &ExplainerSpec{
+						PodSpec: PodSpec{
+							HostPID: true,
+							Containers: []corev1.Container{
+								{
+									Image: "explainer:latest",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.MatchError(gomega.ContainSubstring("setting hostPID is not allowed in explainer")),
+		},
+		"workerSpec hostNetwork blocked": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/autoscalerClass": "none",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("pvc://my-pvc/model"),
+							},
+						},
+						WorkerSpec: &WorkerSpec{
+							PodSpec: PodSpec{
+								HostNetwork: true,
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.MatchError(gomega.ContainSubstring("setting hostNetwork is not allowed in predictor workerSpec")),
+		},
+		"workerSpec projected SA token blocked": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/autoscalerClass": "none",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("pvc://my-pvc/model"),
+							},
+						},
+						WorkerSpec: &WorkerSpec{
+							PodSpec: PodSpec{
+								Volumes: []corev1.Volume{
+									{
+										Name: "sa-token",
+										VolumeSource: corev1.VolumeSource{
+											Projected: &corev1.ProjectedVolumeSource{
+												Sources: []corev1.VolumeProjection{
+													{
+														ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+															Path: "token",
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.MatchError(gomega.ContainSubstring("projected volume \"sa-token\" with serviceAccountToken source is not allowed in predictor workerSpec")),
+		},
+		"valid isvc without security-sensitive fields": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			expected: gomega.BeNil(),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			validator := InferenceServiceValidator{}
+			_, err := validator.ValidateCreate(t.Context(), &scenario.isvc)
+			g.Expect(err).To(scenario.expected)
+		})
+	}
+
+	t.Run("update adding hostNetwork blocked", func(t *testing.T) {
+		validator := InferenceServiceValidator{}
+		oldISVC := InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "foo", Namespace: "default"},
+			Spec: InferenceServiceSpec{
+				Predictor: PredictorSpec{
+					Tensorflow: &TFServingSpec{
+						PredictorExtensionSpec: PredictorExtensionSpec{
+							StorageURI:     proto.String("gs://testbucket/testmodel"),
+							RuntimeVersion: proto.String("0.14.0"),
+						},
+					},
+				},
+			},
+		}
+		newISVC := oldISVC.DeepCopy()
+		newISVC.Spec.Predictor.HostNetwork = true
+
+		_, err := validator.ValidateUpdate(t.Context(), &oldISVC, newISVC)
+		g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("setting hostNetwork is not allowed in predictor")))
+	})
+}
+
 func TestValidatePredictorNameChange(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	validator := InferenceServiceValidator{}
