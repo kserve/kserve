@@ -40,7 +40,6 @@ dependencies = [
     "pyjwt>=2.13.0", # CVE-2026-48526
     "pyasn1>=0.6.4", # CVE-2026-30922, CVE-2026-59885
     "pillow>=12.3.0", # CVE-2026-40192
-    "setuptools>=78.1.1", # CVE-2025-47273
 ]
 name = "kserve"
 version = "0.20.0"
@@ -119,11 +118,10 @@ override-dependencies = [
     "pyjwt>=2.13.0", # CVE-2026-48526
     "pyasn1>=0.6.4", # CVE-2026-30922, CVE-2026-59885
     "pillow>=12.3.0", # CVE-2026-40192
-    "setuptools>=78.1.1", # CVE-2025-47273
 ]
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=78.1.1"] # CVE-2025-47273
 build-backend = "setuptools.build_meta"
 
 # UV workspace source for local dependency resolution
