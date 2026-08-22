@@ -70,6 +70,19 @@ func IsMMSPredictor(predictor *v1beta1.PredictorSpec) bool {
 		hasStorageSpec := impl.GetStorageSpec() != nil
 		hasStorageUris := len(predictor.StorageUris) > 0
 
+		// If the container already has a "/mnt/models" then the model download is being handled outside of KServe and
+		// we should not enable MMS.
+		//
+		// Without this KServe will attempt to inject its own emptydir volume at /mnt/models for MMS, which would
+		// conflict with the existing one, producing an invalid pod.
+		if predictor.Model != nil {
+			for _, volumeMount := range predictor.Model.VolumeMounts {
+				if volumeMount.MountPath == constants.ModelDir || strings.HasPrefix(volumeMount.MountPath, constants.ModelDir+"/") {
+					return false
+				}
+			}
+		}
+
 		// HuggingFace supports model ID without storage initializer, but it should not be a multi-model server.
 		if predictor.HuggingFace != nil || (predictor.Model != nil && predictor.Model.ModelFormat.Name == "huggingface") {
 			return false
