@@ -253,6 +253,14 @@ spec:
                     type: string
                   uri:
                     type: string
+                  verification:
+                    properties:
+                      digest:
+                        type: string
+                    type: object
+                    x-kubernetes-validations:
+                    - message: digest cannot be empty
+                      rule: '!(has(self.digest) && self.digest == '''')'
                 required:
                 - uri
                 type: object

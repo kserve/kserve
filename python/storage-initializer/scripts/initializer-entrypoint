@@ -62,3 +62,18 @@ if os.environ.get("CONFIDENTIAL_ENABLED", "").lower() == "true":
     except Exception as e:
         logger.error("Confidential decryption failed: %s", e)
         sys.exit(1)
+
+
+from kserve_storage.verification import verify_digest, get_single_artifact
+
+expected_digest = os.environ.get("VERIFICATION_DIGEST")
+
+if expected_digest:
+    if len(dest_paths) != 1:
+        logger.error(
+            "Digest verification currently supports only a single downloaded artifact."
+        )
+        sys.exit(1)
+
+    artifact_path = get_single_artifact(dest_paths[0])
+    verify_digest(artifact_path, expected_digest)
