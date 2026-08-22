@@ -1,0 +1,38 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "isvc-pdb-transformer"
+  annotations:
+    serving.kserve.io/deploymentMode: RawDeployment
+spec:
+  transformer:
+    minReplicas: 2
+    podDisruptionBudget:
+      minAvailable: 1
+    containers:
+      - name: kserve-container
+        image: kserve/image-transformer:latest
+        args:
+          - --model_name=isvc-pdb-transformer
+          - --protocol=v1
+          - --http_port=8080
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 1
+            memory: 512Mi
+  predictor:
+    minReplicas: 2
+    podDisruptionBudget:
+      minAvailable: 1
+    sklearn:
+      storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
+      resources:
+        requests:
+          cpu: 100m
+          memory: 256Mi
+        limits:
+          cpu: 1
+          memory: 512Mi

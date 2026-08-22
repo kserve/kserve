@@ -25,6 +25,8 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"google.golang.org/protobuf/proto"
+	policyv1 "k8s.io/api/policy/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 )
 
@@ -225,6 +227,148 @@ func TestFirstNonNilComponent(t *testing.T) {
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
 			g.Expect(FirstNonNilComponent(scenario.components)).To(scenario.matcher)
+		})
+	}
+}
+
+func TestValidatePodDisruptionBudget(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	minAvailable1 := intstr.FromInt32(1)
+	minAvailable2 := intstr.FromInt32(2)
+	minAvailablePct := intstr.FromString("50%")
+	minAvailable100Pct := intstr.FromString("100%")
+	minAvailable99Pct := intstr.FromString("99%")
+	maxUnavailable0 := intstr.FromInt32(0)
+	maxUnavailable0Pct := intstr.FromString("0%")
+	maxUnavailable1 := intstr.FromInt32(1)
+
+	scenarios := map[string]struct {
+		spec    ComponentExtensionSpec
+		matcher types.GomegaMatcher
+	}{
+		"NilPDB": {
+			spec:    ComponentExtensionSpec{},
+			matcher: gomega.BeNil(),
+		},
+		"ValidMinAvailableLessThanMinReplicas": {
+			spec: ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(2)),
+				PodDisruptionBudget: &policyv1.PodDisruptionBudgetSpec{
+					MinAvailable: &minAvailable1,
+				},
+			},
+			matcher: gomega.BeNil(),
+		},
+		"ValidMaxUnavailable": {
+			spec: ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(2)),
+				PodDisruptionBudget: &policyv1.PodDisruptionBudgetSpec{
+					MaxUnavailable: &maxUnavailable1,
+				},
+			},
+			matcher: gomega.BeNil(),
+		},
+		"ValidPercentageMinAvailable": {
+			spec: ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(2)),
+				PodDisruptionBudget: &policyv1.PodDisruptionBudgetSpec{
+					MinAvailable: &minAvailablePct,
+				},
+			},
+			matcher: gomega.BeNil(),
+		},
+		"MinAvailableEqualsMinReplicas": {
+			spec: ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(2)),
+				PodDisruptionBudget: &policyv1.PodDisruptionBudgetSpec{
+					MinAvailable: &minAvailable2,
+				},
+			},
+			matcher: gomega.MatchError(errors.New(PDBMinAvailableGEMinReplicasError)),
+		},
+		"MinAvailableExceedsMinReplicas": {
+			spec: ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				PodDisruptionBudget: &policyv1.PodDisruptionBudgetSpec{
+					MinAvailable: &minAvailable2,
+				},
+			},
+			matcher: gomega.MatchError(errors.New(PDBMinAvailableGEMinReplicasError)),
+		},
+		"MinAvailableEqualsDefaultMinReplicas": {
+			// minReplicas nil defaults to 1; minAvailable 1 >= 1 should fail
+			spec: ComponentExtensionSpec{
+				PodDisruptionBudget: &policyv1.PodDisruptionBudgetSpec{
+					MinAvailable: &minAvailable1,
+				},
+			},
+			matcher: gomega.MatchError(errors.New(PDBMinAvailableGEMinReplicasError)),
+		},
+		"ScaleToZeroWithPDB": {
+			spec: ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(0)),
+				PodDisruptionBudget: &policyv1.PodDisruptionBudgetSpec{
+					MinAvailable: &minAvailable1,
+				},
+			},
+			matcher: gomega.MatchError(errors.New(PDBWithScaleToZeroError)),
+		},
+		"MaxUnavailableZero": {
+			spec: ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(2)),
+				PodDisruptionBudget: &policyv1.PodDisruptionBudgetSpec{
+					MaxUnavailable: &maxUnavailable0,
+				},
+			},
+			matcher: gomega.MatchError(errors.New(PDBMaxUnavailableZeroError)),
+		},
+		"MaxUnavailableZeroPercent": {
+			spec: ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(2)),
+				PodDisruptionBudget: &policyv1.PodDisruptionBudgetSpec{
+					MaxUnavailable: &maxUnavailable0Pct,
+				},
+			},
+			matcher: gomega.MatchError(errors.New(PDBMaxUnavailableZeroError)),
+		},
+		"MinAvailable100Percent": {
+			spec: ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(2)),
+				PodDisruptionBudget: &policyv1.PodDisruptionBudgetSpec{
+					MinAvailable: &minAvailable100Pct,
+				},
+			},
+			matcher: gomega.MatchError(errors.New(PDBMinAvailableGEMinReplicasError)),
+		},
+		"MinAvailable99PercentWith1Replica": {
+			// ceil(0.99 * 1) = 1 >= 1 → blocks all disruptions
+			spec: ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				PodDisruptionBudget: &policyv1.PodDisruptionBudgetSpec{
+					MinAvailable: &minAvailable99Pct,
+				},
+			},
+			matcher: gomega.MatchError(errors.New(PDBMinAvailableGEMinReplicasError)),
+		},
+		"BothMinAvailableAndMaxUnavailable": {
+			spec: ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(2)),
+				PodDisruptionBudget: &policyv1.PodDisruptionBudgetSpec{
+					MinAvailable:   &minAvailable1,
+					MaxUnavailable: &maxUnavailable1,
+				},
+			},
+			matcher: gomega.MatchError(errors.New(PDBMutualExclusionError)),
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			res := scenario.spec.Validate()
+			if !g.Expect(res).To(scenario.matcher) {
+				t.Errorf("got %v, want %v", res, scenario.matcher)
+			}
 		})
 	}
 }
