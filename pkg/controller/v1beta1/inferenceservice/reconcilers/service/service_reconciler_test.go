@@ -22,9 +22,13 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -345,4 +349,88 @@ func TestServiceSetControllerReferences(t *testing.T) {
 	assert.Equal(t, owner.Name, service1.GetOwnerReferences()[0].Name)
 	assert.Len(t, service2.GetOwnerReferences(), 1)
 	assert.Equal(t, owner.Name, service2.GetOwnerReferences()[0].Name)
+}
+
+func TestCleanupOrphans(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+
+	labels := map[string]string{
+		constants.InferenceServicePodLabelKey: "my-isvc",
+		constants.KServiceComponentLabel:      "predictor",
+	}
+
+	expected := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-predictor", Namespace: "default", Labels: labels},
+	}
+	orphan := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-old-predictor", Namespace: "default", Labels: labels},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(expected, orphan).Build()
+	reconciler := &ServiceReconciler{client: fakeClient, scheme: scheme}
+
+	expectedNames := map[string]bool{"my-isvc-predictor": true}
+	err := reconciler.CleanupOrphans(t.Context(), "default", client.MatchingLabels(labels), expectedNames)
+	require.NoError(t, err)
+
+	// Orphan should be deleted
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-old-predictor", Namespace: "default"}, &corev1.Service{})
+	assert.True(t, apierr.IsNotFound(err))
+
+	// Expected should be kept
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-predictor", Namespace: "default"}, &corev1.Service{})
+	assert.NoError(t, err)
+}
+
+func TestCleanupOrphansWithMultiNode(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = corev1.AddToScheme(scheme)
+
+	labels := map[string]string{
+		constants.InferenceServicePodLabelKey: "my-isvc",
+		constants.KServiceComponentLabel:      "predictor",
+	}
+
+	// Multi-node creates three services: default, head headless, worker headless
+	defaultService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-predictor", Namespace: "default", Labels: labels},
+	}
+	headService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-head-1", Namespace: "default", Labels: labels},
+	}
+	workerService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-workers-1", Namespace: "default", Labels: labels},
+	}
+	oldService := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-old-predictor", Namespace: "default", Labels: labels},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(defaultService, headService, workerService, oldService).Build()
+	reconciler := &ServiceReconciler{client: fakeClient, scheme: scheme}
+
+	// expectedNames should include all three multi-node service names
+	expectedNames := map[string]bool{
+		"my-isvc-predictor": true,
+		"my-isvc-head-1":    true,
+		"my-isvc-workers-1": true,
+	}
+	err := reconciler.CleanupOrphans(t.Context(), "default", client.MatchingLabels(labels), expectedNames)
+	require.NoError(t, err)
+
+	// Old service should be deleted
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-old-predictor", Namespace: "default"}, &corev1.Service{})
+	assert.True(t, apierr.IsNotFound(err))
+
+	// Default service should be kept
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-predictor", Namespace: "default"}, &corev1.Service{})
+	assert.NoError(t, err)
+
+	// Head service should be kept (not deleted as orphan)
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-head-1", Namespace: "default"}, &corev1.Service{})
+	assert.NoError(t, err)
+
+	// Worker service should be kept (not deleted as orphan)
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-workers-1", Namespace: "default"}, &corev1.Service{})
+	assert.NoError(t, err)
 }

@@ -1245,3 +1245,48 @@ func TestSetControllerReferences(t *testing.T) {
 	assert.Equal(t, "owner-uid", string(hpa.OwnerReferences[0].UID))
 	assert.True(t, *hpa.OwnerReferences[0].Controller)
 }
+
+func TestCleanupOrphans(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = autoscalingv2.AddToScheme(scheme)
+
+	labels := map[string]string{
+		constants.InferenceServicePodLabelKey: "my-isvc",
+		constants.KServiceComponentLabel:      "predictor",
+	}
+
+	expected := &autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-predictor", Namespace: "default", Labels: labels},
+		Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MaxReplicas: 3},
+	}
+	orphan := &autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-old-predictor", Namespace: "default", Labels: labels},
+		Spec:       autoscalingv2.HorizontalPodAutoscalerSpec{MaxReplicas: 3},
+	}
+	unrelated := &autoscalingv2.HorizontalPodAutoscaler{
+		ObjectMeta: metav1.ObjectMeta{Name: "other-isvc-predictor", Namespace: "default", Labels: map[string]string{
+			constants.InferenceServicePodLabelKey: "other-isvc",
+			constants.KServiceComponentLabel:      "predictor",
+		}},
+		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{MaxReplicas: 3},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(expected, orphan, unrelated).Build()
+	reconciler := &HPAReconciler{client: fakeClient, scheme: scheme}
+
+	expectedNames := map[string]bool{"my-isvc-predictor": true}
+	err := reconciler.CleanupOrphans(t.Context(), "default", client.MatchingLabels(labels), expectedNames)
+	require.NoError(t, err)
+
+	// Orphan should be deleted
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-old-predictor", Namespace: "default"}, &autoscalingv2.HorizontalPodAutoscaler{})
+	assert.True(t, apierr.IsNotFound(err))
+
+	// Expected should be kept
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-predictor", Namespace: "default"}, &autoscalingv2.HorizontalPodAutoscaler{})
+	assert.NoError(t, err)
+
+	// Unrelated (different labels) should be untouched
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "other-isvc-predictor", Namespace: "default"}, &autoscalingv2.HorizontalPodAutoscaler{})
+	assert.NoError(t, err)
+}

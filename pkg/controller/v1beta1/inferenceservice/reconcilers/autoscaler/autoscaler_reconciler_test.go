@@ -301,6 +301,10 @@ func (f *fakeAutoscaler) SetControllerReferences(owner metav1.Object, scheme *ru
 	return nil
 }
 
+func (f *fakeAutoscaler) CleanupOrphans(_ context.Context, _ string, _ client.MatchingLabels, _ map[string]bool) error {
+	return nil
+}
+
 func TestAutoscalerReconciler_Reconcile(t *testing.T) {
 	tests := []struct {
 		name         string

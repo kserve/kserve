@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -342,4 +343,26 @@ func (r *KedaReconciler) Reconcile(ctx context.Context) error {
 
 func (r *KedaReconciler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
 	return controllerutil.SetControllerReference(owner, r.ScaledObject, scheme)
+}
+
+// CleanupOrphans deletes ScaledObjects matching labels whose names are not in expectedNames.
+func (r *KedaReconciler) CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error {
+	list := &kedav1alpha1.ScaledObjectList{}
+	if err := r.client.List(ctx, list, client.InNamespace(namespace), labels); err != nil {
+		if !apimeta.IsNoMatchError(err) {
+			return fmt.Errorf("fails to list ScaledObjects for cleanup: %w", err)
+		}
+		return nil
+	}
+	for i := range list.Items {
+		obj := &list.Items[i]
+		if expectedNames[obj.Name] {
+			continue
+		}
+		log.Info("Deleting orphaned ScaledObject", "name", obj.Name)
+		if err := r.client.Delete(ctx, obj); err != nil && !apierr.IsNotFound(err) {
+			return fmt.Errorf("fails to delete orphaned ScaledObject %s: %w", obj.Name, err)
+		}
+	}
+	return nil
 }

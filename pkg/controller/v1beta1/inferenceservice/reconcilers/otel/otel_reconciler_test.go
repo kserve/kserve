@@ -20,14 +20,17 @@ import (
 	"testing"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 
 	otelv1beta1 "github.com/open-telemetry/opentelemetry-operator/apis/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -399,4 +402,36 @@ func TestCreateOtelCollectorWithNoResources(t *testing.T) {
 	// Check that limits and requests maps are either nil or empty
 	assert.Empty(t, resources.Limits)
 	assert.Empty(t, resources.Requests)
+}
+
+func TestCleanupOrphans(t *testing.T) {
+	s := runtime.NewScheme()
+	_ = otelv1beta1.AddToScheme(s)
+
+	labels := map[string]string{
+		constants.InferenceServicePodLabelKey: "my-isvc",
+		constants.KServiceComponentLabel:      "predictor",
+	}
+
+	expected := &otelv1beta1.OpenTelemetryCollector{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-predictor", Namespace: "default", Labels: labels},
+	}
+	orphan := &otelv1beta1.OpenTelemetryCollector{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-old-predictor", Namespace: "default", Labels: labels},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(s).WithObjects(expected, orphan).Build()
+	reconciler := &OtelReconciler{client: fakeClient, scheme: s}
+
+	expectedNames := map[string]bool{"my-isvc-predictor": true}
+	err := reconciler.CleanupOrphans(t.Context(), "default", client.MatchingLabels(labels), expectedNames)
+	require.NoError(t, err)
+
+	// Orphan should be deleted
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-old-predictor", Namespace: "default"}, &otelv1beta1.OpenTelemetryCollector{})
+	assert.True(t, apierr.IsNotFound(err))
+
+	// Expected should be kept
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-predictor", Namespace: "default"}, &otelv1beta1.OpenTelemetryCollector{})
+	assert.NoError(t, err)
 }

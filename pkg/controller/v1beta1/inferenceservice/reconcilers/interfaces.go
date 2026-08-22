@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
@@ -36,6 +37,9 @@ type WorkloadReconciler interface {
 
 	// SetControllerReferences sets owner references on all workloads
 	SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error
+
+	// CleanupOrphans deletes resources matching labels whose names are not in expectedNames
+	CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error
 }
 
 // ServiceReconciler reconciles service resources
@@ -48,6 +52,9 @@ type ServiceReconciler interface {
 
 	// SetControllerReferences sets owner references on all services
 	SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error
+
+	// CleanupOrphans deletes resources matching labels whose names are not in expectedNames
+	CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error
 }
 
 // IngressReconciler reconciles ingress/routing resources
