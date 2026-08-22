@@ -153,6 +153,14 @@ func (s *LLMInferenceService) IsUsingLLMInferenceServiceConfigInNamespace(name, 
 	return false
 }
 
+// HasNamedStorageContainer reports whether a ClusterStorageContainer is explicitly selected.
+func (s *LLMInferenceService) HasNamedStorageContainer() bool {
+	return s != nil &&
+		s.Spec.StorageInitializer != nil &&
+		s.Spec.StorageInitializer.StorageContainerName != nil &&
+		*s.Spec.StorageInitializer.StorageContainerName != ""
+}
+
 // HasManagedDRA reports whether managed DRA is enabled via annotations.
 func (s *LLMInferenceService) HasManagedDRA() bool {
 	if s == nil {

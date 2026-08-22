@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -200,7 +201,25 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		}
 
 	default:
-		return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
+		if llmSvc.HasNamedStorageContainer() {
+			if len(loraPairs) == 0 {
+				if err := r.attachStorageInitializer(llmSvc, modelUri, curr, podSpec, config.StorageConfig, containerName, modelPath); err != nil {
+					return err
+				}
+			} else {
+				pairs := append([]storageDownloadPair{{uri: modelUri, path: constants.DefaultModelLocalMountPath}}, loraPairs...)
+				if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, pairs); err != nil {
+					return err
+				}
+			}
+			if initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName); initContainer != nil {
+				if err := r.mergeNamedStorageContainer(ctx, llmSvc, modelUri, initContainer); err != nil {
+					return err
+				}
+			}
+		} else {
+			return fmt.Errorf("unsupported schema in model URI: %s", modelUri)
+		}
 	}
 
 	// Attach LoRA adapters (PVC mounts + vLLM flag injection) after model downloads
@@ -456,6 +475,31 @@ func (r *LLMISVCReconciler) attachStorageInitializer(llmSvc *v1alpha2.LLMInferen
 		return err
 	}
 
+	return nil
+}
+
+func (r *LLMISVCReconciler) mergeNamedStorageContainer(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, modelURI string, initContainer *corev1.Container) error {
+	if !llmSvc.HasNamedStorageContainer() {
+		return nil
+	}
+
+	name := *llmSvc.Spec.StorageInitializer.StorageContainerName
+	sc := &v1alpha1.ClusterStorageContainer{}
+	if err := r.Get(ctx, types.NamespacedName{Name: name}, sc); err != nil {
+		if apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to resolve storageContainerName %q: ClusterStorageContainer %q not found", name, name)
+		}
+		return fmt.Errorf("failed to resolve storageContainerName %q: %w", name, err)
+	}
+	if err := sc.EligibleInitContainerForURI(modelURI); err != nil {
+		return fmt.Errorf("failed to resolve storageContainerName %q: %w", name, err)
+	}
+
+	merged, err := utils.MergeContainerWithPatch(*initContainer, sc.Spec.Container)
+	if err != nil {
+		return fmt.Errorf("failed to merge ClusterStorageContainer %q: %w", name, err)
+	}
+	*initContainer = merged
 	return nil
 }
 
