@@ -231,6 +231,10 @@ curl -k https://<route-url>/v1/completions \
 - **Development/Testing**: #2 (no scheduler)
 - **Production (Advanced, RDMA available)**: Use example #3 (prefill-decode)
 
+## NVIDIA DRA Alternative
+
+If your cluster uses Kubernetes **Dynamic Resource Allocation (DRA)** instead of the `nvidia.com/gpu` device plugin, see [`../nvidia-dra/`](../nvidia-dra/). Those samples mirror the basic and prefill-decode configurations here but allocate GPUs via `ResourceClaimTemplate`.
+
 ## Troubleshooting
 
 ### Pods Not Starting
