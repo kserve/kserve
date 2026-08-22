@@ -13,12 +13,14 @@
 # limitations under the License.
 import copy
 import json
+import struct
 
 import numpy as np
 import pytest
 from orjson import orjson
 
 from kserve import InferRequest, InferInput, InferResponse, InferOutput
+from kserve.constants.constants import MAX_BYTES_TENSOR_ELEMENTS
 from kserve.errors import InvalidInput
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import (
     ModelInferRequest,
@@ -26,6 +28,7 @@ from kserve.protocol.grpc.grpc_predict_v2_pb2 import (
     ModelInferResponse,
 )
 from kserve.protocol.infer_type import (
+    deserialize_bytes_tensor,
     serialize_byte_tensor,
     _contains_fp16_datatype,
     RequestedOutput,
@@ -1118,3 +1121,74 @@ def test_contains_fp16_datatype_with_no_outputs():
     )
 
     assert _contains_fp16_datatype(infer_response) is False
+
+
+def _encode_bytes_tensor(elements):
+    """Build a raw BYTES tensor blob: a 4-byte little-endian length prefix
+    followed by the content, per element."""
+    return b"".join(struct.pack("<I", len(e)) + e for e in elements)
+
+
+def test_deserialize_bytes_tensor_roundtrip_concrete_shape():
+    elements = [b"hello", b"", b"a longer value", b"\x00\x01\x02"]
+    blob = _encode_bytes_tensor(elements)
+    out = deserialize_bytes_tensor(blob, expected_element_count=len(elements))
+    assert list(out) == elements
+
+
+def test_deserialize_bytes_tensor_roundtrip_default_bound():
+    elements = [b"a", b"bc", b"def"]
+    blob = _encode_bytes_tensor(elements)
+    assert list(deserialize_bytes_tensor(blob)) == elements
+
+
+def test_deserialize_bytes_tensor_truncated_length_prefix():
+    # Fewer than 4 bytes remain for the length prefix.
+    with pytest.raises(InvalidInput):
+        deserialize_bytes_tensor(b"\x02\x00")
+
+
+def test_deserialize_bytes_tensor_element_length_exceeds_buffer():
+    # Length prefix claims 100 bytes but only 3 follow.
+    with pytest.raises(InvalidInput):
+        deserialize_bytes_tensor(struct.pack("<I", 100) + b"abc")
+
+
+def test_deserialize_bytes_tensor_more_elements_than_shape():
+    blob = _encode_bytes_tensor([b"", b""])
+    with pytest.raises(InvalidInput):
+        deserialize_bytes_tensor(blob, expected_element_count=1)
+
+
+def test_deserialize_bytes_tensor_fewer_elements_than_shape():
+    blob = _encode_bytes_tensor([b"x"])
+    with pytest.raises(InvalidInput):
+        deserialize_bytes_tensor(blob, expected_element_count=2)
+
+
+def test_deserialize_bytes_tensor_shape_count_over_maximum():
+    # A concrete shape larger than the cap is rejected before any decoding.
+    with pytest.raises(InvalidInput):
+        deserialize_bytes_tensor(
+            b"", expected_element_count=MAX_BYTES_TENSOR_ELEMENTS + 1
+        )
+
+
+def test_deserialize_bytes_tensor_unbounded_blob_is_capped():
+    # Wildcard shape (expected_element_count=None): a blob of zero-length
+    # prefixes is bounded by max_element_count instead of growing unbounded.
+    blob = struct.pack("<I", 0) * 5
+    with pytest.raises(InvalidInput):
+        deserialize_bytes_tensor(blob, max_element_count=3)
+
+
+def test_infer_request_from_bytes_bytes_shape_mismatch_rejected():
+    # A BYTES input whose declared shape requires fewer elements than the binary
+    # blob encodes is rejected during decode instead of being fully expanded.
+    json_header = (
+        b'{"id":"1","inputs":[{"name":"input1","shape":[1],"datatype":"BYTES",'
+        b'"parameters":{"binary_data_size":8}}]}'
+    )
+    body = json_header + struct.pack("<I", 0) * 2  # two zero-length elements
+    with pytest.raises(InvalidInput):
+        InferRequest.from_bytes(body, len(json_header), "test_model")
