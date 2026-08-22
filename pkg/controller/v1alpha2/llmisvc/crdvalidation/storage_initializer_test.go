@@ -46,7 +46,7 @@ var _ = Describe("LLMInferenceService storageInitializer CEL", func() {
 			},
 		}
 
-		err = envTest.Client.Create(ctx, svc)
+		err = envTest.Create(ctx, svc)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("storageContainerName cannot be set when enabled is false"))
 	})
