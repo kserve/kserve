@@ -5,7 +5,9 @@ ARG VENV_PATH=/prod_venv
 FROM ${BASE_IMAGE} AS builder
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends python3-dev curl build-essential && apt-get clean && \
+RUN apt-get update && apt-get install -y --no-install-recommends curl python3-dev build-essential && \
+    if [ "$(uname -m)" = "ppc64le" ]; then apt-get install pkg-config libssl-dev gcc gfortran cmake pkg-config libssl-dev libopenblas-dev libjpeg-dev libhdf5-dev wget -y; fi && \
+    apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 # Install uv
@@ -23,20 +25,125 @@ COPY storage/pyproject.toml storage/uv.lock storage/
 
 # ========== Install kserve dependencies ==========
 COPY kserve/pyproject.toml kserve/uv.lock kserve/
+
+# On ppc64le: patch pyproject.toml to add the ppc64le package index and sources,
+# then regenerate uv.lock before syncing.
+RUN if [ "$(uname -m)" = "ppc64le" ]; then \
+        sed -i \
+            -e '/^index-strategy\s*=.*/a \\' \
+            -e '/^index-strategy\s*=.*/a [[tool.uv.index]]' \
+            -e '/^index-strategy\s*=.*/a name = "ppc64le-wheels"' \
+            -e '/^index-strategy\s*=.*/a url = "https://wheels.developerfirst.ibm.com/ppc64le/linux"' \
+            -e '/^index-strategy\s*=.*/a explicit = true' \
+            -e '/^\s*"pyasn1>=[^,]*"$/s/"$/",/' \
+            -e '/^\s*"pyasn1>=/a\    "httptools==0.6.4",' \
+            -e '/^\s*"pyasn1>=/a\    "uvloop==0.21.0",' \
+            -e '/^kserve-storage\s*=.*/a grpcio = { index = "ppc64le-wheels" }' \
+            -e '/^kserve-storage\s*=.*/a grpcio-tools = { index = "ppc64le-wheels" }' \
+            -e '/^kserve-storage\s*=.*/a numpy = { index = "ppc64le-wheels" }' \
+            -e '/^kserve-storage\s*=.*/a pandas = { index = "ppc64le-wheels" }' \
+            -e '/^kserve-storage\s*=.*/a psutil = { index = "ppc64le-wheels" }' \
+            -e '/^kserve-storage\s*=.*/a pyyaml = { index = "ppc64le-wheels" }' \
+            -e '/^kserve-storage\s*=.*/a httptools = { index = "ppc64le-wheels" }' \
+            -e '/^kserve-storage\s*=.*/a uvloop = { index = "ppc64le-wheels" }' \
+            kserve/pyproject.toml && \
+        cd kserve && uv lock && \
+        cp uv.lock /tmp/kserve_ppc64le_uv.lock && \
+        cp pyproject.toml /tmp/kserve_ppc64le_pyproject.toml; \
+    fi
+
 RUN cd kserve && uv sync --active --no-cache
 
 COPY kserve kserve
+
+# On ppc64le: restore the patched pyproject.toml + uv.lock after COPY overwrites them
+RUN if [ "$(uname -m)" = "ppc64le" ]; then \
+        rm -f kserve/pyproject.toml kserve/uv.lock && \
+        cp /tmp/kserve_ppc64le_pyproject.toml kserve/pyproject.toml && \
+        cp /tmp/kserve_ppc64le_uv.lock kserve/uv.lock && \
+        rm -f /tmp/kserve_ppc64le_pyproject.toml /tmp/kserve_ppc64le_uv.lock; \
+    fi
+
 RUN cd kserve && uv sync --active --no-cache
 
 # ========== Install kserve storage dependencies ==========
 COPY storage storage
-RUN cd storage && uv pip install . --no-cache
+
+# On ppc64le: append ppc64le index + sources to storage/pyproject.toml,
+# regenerate uv.lock, then sync (same pattern as kserve/lgbserver).
+RUN if [ "$(uname -m)" = "ppc64le" ]; then \
+        sed -i \
+            -e '/^    "pyasn1>=[^,]*"$/s/"$/",/' \
+            -e '/^    "pyasn1>=/a\    "google-crc32c==1.7.1",' \
+            -e '/^    "pyasn1>=/a\    "pyyaml==6.0.2",' \
+            storage/pyproject.toml && \
+        printf '%s\n' \
+            '' \
+            '[tool.uv]' \
+            'index-strategy = "unsafe-best-match"' \
+            'package = true' \
+            '' \
+            '[build-system]' \
+            'requires = ["setuptools>=61.0"]' \
+            'build-backend = "setuptools.build_meta"' \
+            '' \
+            '[[tool.uv.index]]' \
+            'name = "ppc64le-wheels"' \
+            'url = "https://wheels.developerfirst.ibm.com/ppc64le/linux"' \
+            'explicit = true' \
+            '' \
+            '[tool.uv.sources]' \
+            'google-crc32c = { index = "ppc64le-wheels" }' \
+            'hf-xet = { index = "ppc64le-wheels" }' \
+            'pyyaml = { index = "ppc64le-wheels" }' \
+            >> storage/pyproject.toml && \
+        cd storage && uv lock && \
+        uv sync --active --no-cache; \
+    else \
+        cd storage && uv pip install . --no-cache; \
+    fi
 
 # ========== Install sklearnserver dependencies ==========
 COPY sklearnserver/pyproject.toml sklearnserver/uv.lock sklearnserver/
+
+# On ppc64le: add the ppc64le index + sources for scikit-learn/scipy/numpy/pandas
+# and regenerate uv.lock before the first sync so no sdist compilation occurs.
+RUN if [ "$(uname -m)" = "ppc64le" ]; then \
+        sed -i \
+            -e '/^\s*"pandas<[^"]*"$/s/"$/",/' \
+            -e '/^\s*"pandas</a\    "scipy==1.15.3",' \
+            sklearnserver/pyproject.toml && \
+        printf '%s\n' \
+            '' \
+            '[tool.uv]' \
+            'index-strategy = "unsafe-best-match"' \
+            '' \
+            '[[tool.uv.index]]' \
+            'name = "ppc64le-wheels"' \
+            'url = "https://wheels.developerfirst.ibm.com/ppc64le/linux"' \
+            'explicit = true' \
+            '' \
+            '[tool.uv.sources]' \
+            'scikit-learn = { index = "ppc64le-wheels" }' \
+            'scipy = { index = "ppc64le-wheels" }' \
+            >> sklearnserver/pyproject.toml && \
+        cd sklearnserver && uv lock && \
+        cp uv.lock /tmp/sklearnserver_ppc64le_uv.lock && \
+        cp pyproject.toml /tmp/sklearnserver_ppc64le_pyproject.toml; \
+    fi
+
 RUN cd sklearnserver && uv sync --active --no-cache
 
 COPY sklearnserver sklearnserver
+
+# On ppc64le: restore the patched pyproject.toml + uv.lock after COPY overwrites them
+RUN if [ "$(uname -m)" = "ppc64le" ]; then \
+        rm -f sklearnserver/pyproject.toml sklearnserver/uv.lock && \
+        cp /tmp/sklearnserver_ppc64le_pyproject.toml sklearnserver/pyproject.toml && \
+        cp /tmp/sklearnserver_ppc64le_uv.lock sklearnserver/uv.lock && \
+        rm -f /tmp/sklearnserver_ppc64le_pyproject.toml /tmp/sklearnserver_ppc64le_uv.lock; \
+    fi
+
 RUN cd sklearnserver && uv sync --active --no-cache
 
 # Generate third-party licenses
