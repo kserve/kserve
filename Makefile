@@ -246,9 +246,11 @@ manifests: controller-gen kustomize yq
 	cp -f config/crd/full/localmodel/*.yaml charts/kserve-localmodel-crd/templates/
 	rm charts/kserve-localmodel-crd/templates/kustomization.yaml
 	
-	# Copy llmisvc crd (with conversion webhook patches applied via kustomize)
-	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceservices.yaml
-	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
+	# Copy llmisvc crd (with conversion webhook patches applied via kustomize).
+	# Written to files/ (not templates/) so the chart's render-time transforms
+	# in templates/serving.kserve.io_*.yaml survive regeneration.
+	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd/files/serving.kserve.io_llminferenceservices.yaml
+	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd/files/serving.kserve.io_llminferenceserviceconfigs.yaml
 	
 	# Copy the full crd to the test folder
 	$(KUSTOMIZE) build config/crd/full > test/crds/serving.kserve.io_all_crds.yaml

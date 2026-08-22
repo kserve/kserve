@@ -3,7 +3,8 @@
   "patchGlob" "files/llmisvc/*-patch.yaml"
   "certName" "llmisvc-serving-cert"
   "context" .) }}
-{{- if .Values.kserve.llmisvc.createGIECRDs -}}
+{{- $selfSigned := (include "llm-isvc-resources.selfSignedCertsConfig" . | fromJson).enabled -}}
+{{- if and .Values.kserve.llmisvc.createGIECRDs (not $selfSigned) -}}
 {{ $rendered }}
 {{- else -}}
 {{- $gieCRDNames := include "llm-isvc-resources.gieCRDNames" . | fromYamlArray -}}
@@ -12,7 +13,7 @@
 {{- if $trimmed -}}
 {{- $parsed := fromYaml $trimmed -}}
 {{- $skip := false -}}
-{{- if and $parsed (eq (default "" $parsed.kind) "CustomResourceDefinition") -}}
+{{- if and $parsed (not $.Values.kserve.llmisvc.createGIECRDs) (eq (default "" $parsed.kind) "CustomResourceDefinition") -}}
 {{- $name := "" -}}
 {{- if $parsed.metadata -}}
 {{- $name = default "" $parsed.metadata.name -}}
@@ -21,9 +22,35 @@
 {{- $skip = true -}}
 {{- end -}}
 {{- end -}}
-{{- if and $parsed (not $skip) }}
+{{- /* selfSignedCerts mode: cert-manager owns nothing here — drop its
+       Certificate/Issuer objects entirely. */ -}}
+{{- if and $parsed $selfSigned (hasPrefix "cert-manager.io/" (default "" $parsed.apiVersion)) -}}
+{{- $skip = true -}}
+{{- end -}}
+{{- if and $parsed (not $skip) -}}
+{{- if and $selfSigned (or (eq (default "" $parsed.kind) "MutatingWebhookConfiguration") (eq (default "" $parsed.kind) "ValidatingWebhookConfiguration")) -}}
+{{- /* selfSignedCerts mode: without cert-manager's CA injector the
+       inject-ca-from annotation is inert, so drop it and set the CA
+       directly as every webhook's caBundle. */ -}}
+{{- $certs := include "llm-isvc-resources.webhookCertData" $ | fromJson -}}
+{{- $caB64 := $certs.CACert | b64enc -}}
+{{- if and $parsed.metadata $parsed.metadata.annotations -}}
+{{- $_ := unset $parsed.metadata.annotations "cert-manager.io/inject-ca-from" -}}
+{{- if not $parsed.metadata.annotations -}}
+{{- $_ := unset $parsed.metadata "annotations" -}}
+{{- end -}}
+{{- end -}}
+{{- range $wh := $parsed.webhooks -}}
+{{- if $wh.clientConfig -}}
+{{- $_ := set $wh.clientConfig "caBundle" $caB64 -}}
+{{- end -}}
+{{- end }}
+---
+{{ toYaml $parsed }}
+{{- else }}
 ---
 {{ $trimmed }}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
