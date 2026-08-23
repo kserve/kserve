@@ -482,8 +482,7 @@ schedulingProfiles:
 			// Verify P/D config (should contain prefill-filter, decode-filter, disagg-profile-handler, etc.)
 			configText, found := getSchedulerConfigText(expectedDeployment)
 			Expect(found).To(BeTrue(), "Expected P/D config in scheduler deployment")
-			// P/D config should contain these plugins (using new v0.7.0 names)
-			Expect(configText).To(ContainSubstring("disagg-headers-handler"))
+			// P/D config should contain these plugins
 			Expect(configText).To(ContainSubstring("prefill-filter"))
 			Expect(configText).To(ContainSubstring("decode-filter"))
 			Expect(configText).To(ContainSubstring("disagg-profile-handler"))

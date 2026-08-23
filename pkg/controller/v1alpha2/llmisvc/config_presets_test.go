@@ -104,7 +104,7 @@ func TestPresetFiles(t *testing.T) {
 									Command: []string{
 										"/app/pd-sidecar",
 										"--port=8000",
-										"--vllm-port=8001",
+										"--model-server-port=8001",
 										"--kv-connector=nixlv2",
 										"--enable-ssrf-protection=true",
 										"--pool-group=inference.networking.x-k8s.io",
