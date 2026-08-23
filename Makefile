@@ -510,12 +510,8 @@ bump-version:
 
 # Build the docker image
 docker-build:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} . -t ${KO_DOCKER_REPO}/${CONTROLLER_IMG}:${TAG}
+	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} . -t ${KO_DOCKER_REPO}/${CONTROLLER_IMG}:${TAG}
 	@echo "updating kustomize image patch file for manager resource"
-
-	# Use perl instead of sed to avoid OSX/Linux compatibility issue:
-	# https://stackoverflow.com/questions/34533893/sed-command-creating-unwanted-duplicates-of-file-with-e-extension
-	perl -pi -e 's@image: .*@image: '"${CONTROLLER_IMG}"'@' ./config/default/manager_image_patch.yaml
 
 # Push the docker image
 docker-push:
@@ -528,13 +524,13 @@ docker-push-llmisvc: docker-build-llmisvc
 	${ENGINE} push ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${TAG}
 
 docker-build-localmodel:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG} -f localmodel.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG} -f localmodel.Dockerfile .
 
 docker-push-localmodel: docker-build-localmodel
 	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG} -f localmodel.Dockerfile .
 
 docker-build-localmodelnode-agent:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG} -f localmodel-agent.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG} -f localmodel-agent.Dockerfile .
 
 docker-push-localmodelnode-agent: docker-build-localmodelnode-agent
 	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG} -f localmodel-agent.Dockerfile .
@@ -630,7 +626,7 @@ docker-push-art: docker-build-art
 	${ENGINE} push ${KO_DOCKER_REPO}/${ART_IMG}:${TAG}
 
 docker-build-storageInitializer:
-	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}:${TAG} -f storage-initializer.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --load --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}:${TAG} -f storage-initializer.Dockerfile .
 
 docker-push-storageInitializer: docker-build-storageInitializer
 	${ENGINE} push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}:${TAG}
@@ -691,3 +687,11 @@ manifests-distro:
 
 # Optional local/downstream overrides (ignored if absent)
 -include Makefile.overrides.mk
+
+# Build and push controller/localmodel images, then install KServe + LocalModel on kind via kustomize.
+# Uses KO_DOCKER_REPO/TAG for image overrides; skips configmap image rewrites (UPDATE_CONFIGMAP_IMAGES=false).
+.PHONY: deploy-dev-kind-localmodel
+deploy-dev-kind-localmodel: docker-build docker-push docker-build-localmodel docker-push-localmodel 
+	SET_KSERVE_REGISTRY=$$KO_DOCKER_REPO SET_KSERVE_VERSION=$$TAG \
+	ENABLE_KSERVE=true ENABLE_LOCALMODEL=true UPDATE_CONFIGMAP_IMAGES=false \
+	./hack/setup/infra/manage.kserve-kustomize.sh
