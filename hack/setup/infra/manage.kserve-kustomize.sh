@@ -166,8 +166,6 @@ if ! is_positive "$EMBED_MANIFESTS" && [ -z "${KSERVE_OVERLAY_DIR}" ] && ([ -n "
     
     # Customized images are loaded onto the node, not pushed to a registry, so
     # force IfNotPresent to avoid registry pulls for locally-built image tags.
-    # TODO: remove this after the following PR is merged:
-    KSERVE_INSTALL_CI=true
     if is_positive ${KSERVE_INSTALL_CI}; then
         find "${TARGET_CONFIG_ROOT_DIR}/config" -type f -name "*.yaml" \
             "${FIND_PRUNE[@]}" \
