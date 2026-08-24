@@ -41,6 +41,7 @@ func TestAttachStorageInitializerConfidential(t *testing.T) {
 	tests := []struct {
 		name            string
 		confidential    *v1alpha2.ConfidentialSpec
+		verification    *v1alpha2.VerificationSpec
 		expectedImage   string
 		expectedEnvVars map[string]string
 	}{
@@ -74,6 +75,16 @@ func TestAttachStorageInitializerConfidential(t *testing.T) {
 			expectedImage: "kserve/storage-initializer:latest",
 			expectedEnvVars: map[string]string{
 				constants.ConfidentialEnabledEnvVar: "true",
+			},
+		},
+		{
+			name: "verification digest injected",
+			verification: &v1alpha2.VerificationSpec{
+				Digest: ptr.To("sha256:1234567890abcdef"),
+			},
+			expectedImage: "kserve/storage-initializer:latest",
+			expectedEnvVars: map[string]string{
+				constants.VerificationDigestEnvVar: "sha256:1234567890abcdef",
 			},
 		},
 		{
@@ -113,6 +124,7 @@ func TestAttachStorageInitializerConfidential(t *testing.T) {
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
 						Confidential: tc.confidential,
+						Verification: tc.verification,
 					},
 				},
 			}
@@ -152,6 +164,7 @@ func TestAttachStorageInitializerConfidential(t *testing.T) {
 				for _, env := range initContainer.Env {
 					assert.NotEqual(t, constants.ConfidentialEnabledEnvVar, env.Name)
 					assert.NotEqual(t, constants.ConfidentialResourceIdEnvVar, env.Name)
+					assert.NotEqual(t, constants.VerificationDigestEnvVar, env.Name)
 				}
 			}
 		})

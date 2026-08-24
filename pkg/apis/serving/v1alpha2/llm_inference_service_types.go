@@ -324,6 +324,23 @@ type LLMModelSpec struct {
 	// from a Key Broker Service (KBS) via TEE attestation.
 	// +optional
 	Confidential *ConfidentialSpec `json:"confidential,omitempty"`
+
+	// Verification enables integrity verification of downloaded model artifacts.
+	// The storage initializer verifies the downloaded model against the expected
+	// digest before the model server starts.
+	// +optional
+	Verification *VerificationSpec `json:"verification,omitempty"`
+}
+
+// VerificationSpec configures integrity verification for downloaded model artifacts.
+// The storage initializer verifies the downloaded model before it is loaded by
+// the model server.
+// +kubebuilder:validation:XValidation:rule="!(has(self.digest) && self.digest == '')",message="digest cannot be empty"
+type VerificationSpec struct {
+	// Digest is the expected SHA-256 digest of the downloaded model artifact.
+	// Format: sha256:<hex-digest>
+	// +optional
+	Digest *string `json:"digest,omitempty"`
 }
 
 // LoRASpec defines the configuration for LoRA adapters.

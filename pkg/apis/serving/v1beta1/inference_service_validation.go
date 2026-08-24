@@ -916,3 +916,35 @@ func GetConfidentialSpecFromPredictor(predictor *PredictorSpec) *ConfidentialSpe
 		return nil
 	}
 }
+
+// GetVerificationSpecFromPredictor extracts the VerificationSpec from any predictor implementation
+// that embeds PredictorExtensionSpec. This mirrors GetConfidentialSpecFromPredictor and ensures
+// all predictor runtimes are handled consistently without duplicating switch logic in the controller.
+func GetVerificationSpecFromPredictor(predictor *PredictorSpec) *VerificationSpec {
+	switch {
+	case predictor.SKLearn != nil:
+		return predictor.SKLearn.Verification
+	case predictor.XGBoost != nil:
+		return predictor.XGBoost.Verification
+	case predictor.Tensorflow != nil:
+		return predictor.Tensorflow.Verification
+	case predictor.PyTorch != nil:
+		return predictor.PyTorch.Verification
+	case predictor.Triton != nil:
+		return predictor.Triton.Verification
+	case predictor.ONNX != nil:
+		return predictor.ONNX.Verification
+	case predictor.HuggingFace != nil:
+		return predictor.HuggingFace.Verification
+	case predictor.PMML != nil:
+		return predictor.PMML.Verification
+	case predictor.LightGBM != nil:
+		return predictor.LightGBM.Verification
+	case predictor.Paddle != nil:
+		return predictor.Paddle.Verification
+	case predictor.Model != nil:
+		return predictor.Model.Verification
+	default:
+		return nil
+	}
+}
