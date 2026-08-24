@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 
 	gstorage "cloud.google.com/go/storage"
@@ -99,24 +98,17 @@ func (g *GCSObjectDownloader) Download(ctx context.Context, client stiface.Clien
 			return fmt.Errorf("an error occurred while iterating: %w", err)
 		}
 		objectValue := strings.TrimPrefix(attrs.Name, g.Item)
-		fileName, err := safeLocalModelPath(filepath.Join(g.ModelDir, g.ModelName), objectValue)
+		file, fileName, err := createLocalModelFile(g.ModelDir, g.ModelName, objectValue)
 		if err != nil {
 			return err
 		}
 
 		foundObject = true
-		if FileExists(fileName) {
-			log.Info("Deleting file", "name", fileName)
-			if err := os.Remove(fileName); err != nil {
-				return fmt.Errorf("file is unable to be deleted: %w", err)
-			}
-		}
-		file, err := Create(fileName)
-		if err != nil {
-			return fmt.Errorf("file is already created: %w", err)
-		}
 		if err := g.DownloadFile(ctx, client, attrs, file); err != nil {
 			errs = append(errs, err)
+		}
+		if err := file.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("failed to close file %s: %w", fileName, err))
 		}
 	}
 	if !foundObject {
