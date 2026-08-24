@@ -37,12 +37,21 @@ var blockedHTTPDestinationPrefixes = []netip.Prefix{
 	netip.MustParsePrefix("169.254.0.0/16"),
 	netip.MustParsePrefix("172.16.0.0/12"),
 	netip.MustParsePrefix("192.0.0.0/24"),
+	netip.MustParsePrefix("192.0.2.0/24"),
 	netip.MustParsePrefix("192.168.0.0/16"),
 	netip.MustParsePrefix("198.18.0.0/15"),
+	netip.MustParsePrefix("198.51.100.0/24"),
+	netip.MustParsePrefix("203.0.113.0/24"),
 	netip.MustParsePrefix("224.0.0.0/4"),
 	netip.MustParsePrefix("240.0.0.0/4"),
 	netip.MustParsePrefix("::/128"),
 	netip.MustParsePrefix("::1/128"),
+	netip.MustParsePrefix("64:ff9b::/96"),
+	netip.MustParsePrefix("64:ff9b:1::/48"),
+	netip.MustParsePrefix("100::/64"),
+	netip.MustParsePrefix("2001::/23"),
+	netip.MustParsePrefix("2001:db8::/32"),
+	netip.MustParsePrefix("2002::/16"),
 	netip.MustParsePrefix("fc00::/7"),
 	netip.MustParsePrefix("fe80::/10"),
 	netip.MustParsePrefix("ff00::/8"),
@@ -52,13 +61,23 @@ type restrictedHTTPTransport struct {
 	base http.RoundTripper
 }
 
+type httpHostResolver interface {
+	LookupNetIP(context.Context, string, string) ([]netip.Addr, error)
+}
+
+type httpDialer interface {
+	DialContext(context.Context, string, string) (net.Conn, error)
+}
+
 func defaultHTTPStorageClient() *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
+	// A proxy would resolve the target outside the validated dial path.
+	transport.Proxy = nil
 	dialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
 	}
-	transport.DialContext = restrictedHTTPDialContext(dialer)
+	transport.DialContext = restrictedHTTPDialContext(dialer, net.DefaultResolver)
 
 	return &http.Client{
 		Transport:     restrictedHTTPTransport{base: transport},
@@ -78,16 +97,26 @@ func (t restrictedHTTPTransport) RoundTrip(req *http.Request) (*http.Response, e
 	return base.RoundTrip(req)
 }
 
-func restrictedHTTPDialContext(dialer *net.Dialer) func(context.Context, string, string) (net.Conn, error) {
+func restrictedHTTPDialContext(dialer httpDialer, resolver httpHostResolver) func(context.Context, string, string) (net.Conn, error) {
 	return func(ctx context.Context, network string, address string) (net.Conn, error) {
 		host, port, err := net.SplitHostPort(address)
 		if err != nil {
 			return nil, err
 		}
-		if err := validateHTTPHost(ctx, host); err != nil {
+		addrs, err := resolveHTTPHost(ctx, resolver, host)
+		if err != nil {
 			return nil, err
 		}
-		return dialer.DialContext(ctx, network, net.JoinHostPort(host, port))
+
+		var dialErrors []error
+		for _, addr := range addrs {
+			conn, dialErr := dialer.DialContext(ctx, network, net.JoinHostPort(addr.Unmap().String(), port))
+			if dialErr == nil {
+				return conn, nil
+			}
+			dialErrors = append(dialErrors, dialErr)
+		}
+		return nil, fmt.Errorf("failed to dial HTTP(S) storage destination %q: %w", host, errors.Join(dialErrors...))
 	}
 }
 
@@ -112,31 +141,42 @@ func validateHTTPURL(ctx context.Context, uri *url.URL) error {
 }
 
 func validateHTTPHost(ctx context.Context, host string) error {
+	_, err := resolveHTTPHost(ctx, net.DefaultResolver, host)
+	return err
+}
+
+func resolveHTTPHost(ctx context.Context, resolver httpHostResolver, host string) ([]netip.Addr, error) {
 	if host == "" {
-		return errors.New("HTTP(S) storage URI host is empty")
+		return nil, errors.New("HTTP(S) storage URI host is empty")
 	}
 
 	if addr, err := netip.ParseAddr(host); err == nil {
-		return validateHTTPDestinationAddr(host, addr)
+		if err := validateHTTPDestinationAddr(host, addr); err != nil {
+			return nil, err
+		}
+		return []netip.Addr{addr}, nil
 	}
 
-	addrs, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
+	if resolver == nil {
+		resolver = net.DefaultResolver
+	}
+	addrs, err := resolver.LookupNetIP(ctx, "ip", host)
 	if err != nil {
-		return fmt.Errorf("failed to resolve HTTP(S) storage URI host %q: %w", host, err)
+		return nil, fmt.Errorf("failed to resolve HTTP(S) storage URI host %q: %w", host, err)
 	}
 	if len(addrs) == 0 {
-		return fmt.Errorf("HTTP(S) storage URI host %q resolved to no addresses", host)
+		return nil, fmt.Errorf("HTTP(S) storage URI host %q resolved to no addresses", host)
 	}
 	for _, addr := range addrs {
 		if err := validateHTTPDestinationAddr(host, addr); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return addrs, nil
 }
 
 func validateHTTPDestinationAddr(host string, addr netip.Addr) error {
-	addr = addr.Unmap()
+	addr = addr.Unmap().WithZone("")
 	for _, prefix := range blockedHTTPDestinationPrefixes {
 		if prefix.Contains(addr) {
 			return fmt.Errorf("blocked unsafe HTTP(S) storage destination %q resolved to %s", host, addr)
