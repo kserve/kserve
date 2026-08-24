@@ -510,163 +510,159 @@ bump-version:
 
 # Build the docker image
 docker-build:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} . -t ${KO_DOCKER_REPO}/${CONTROLLER_IMG}
+	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} . -t ${KO_DOCKER_REPO}/${CONTROLLER_IMG}:${TAG}
 	@echo "updating kustomize image patch file for manager resource"
-
-	# Use perl instead of sed to avoid OSX/Linux compatibility issue:
-	# https://stackoverflow.com/questions/34533893/sed-command-creating-unwanted-duplicates-of-file-with-e-extension
-	perl -pi -e 's@image: .*@image: '"${CONTROLLER_IMG}"'@' ./config/default/manager_image_patch.yaml
 
 # Push the docker image
 docker-push:
-	docker push ${KO_DOCKER_REPO}/${CONTROLLER_IMG}
+	docker push ${KO_DOCKER_REPO}/${CONTROLLER_IMG}:${TAG}
 
 docker-build-llmisvc:
-	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG} -f llmisvc-controller.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${TAG} -f llmisvc-controller.Dockerfile .
 
 docker-push-llmisvc: docker-build-llmisvc
-	${ENGINE} push ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${TAG}
 
 docker-build-localmodel:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG} -f localmodel.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG} -f localmodel.Dockerfile .
 
 docker-push-localmodel: docker-build-localmodel
-	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG} -f localmodel.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG} -f localmodel.Dockerfile .
 
 docker-build-localmodelnode-agent:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG} -f localmodel-agent.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG} -f localmodel-agent.Dockerfile .
 
 docker-push-localmodelnode-agent: docker-build-localmodelnode-agent
-	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG} -f localmodel-agent.Dockerfile .
+	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG} -f localmodel-agent.Dockerfile .
 
 docker-build-agent:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}
+	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}:${TAG}
 
 docker-build-router:
-	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -f router.Dockerfile . -t ${KO_DOCKER_REPO}/${ROUTER_IMG}
+	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -f router.Dockerfile . -t ${KO_DOCKER_REPO}/${ROUTER_IMG}:${TAG}
 
 docker-push-agent:
-	${ENGINE} push ${KO_DOCKER_REPO}/${AGENT_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${AGENT_IMG}:${TAG}
 
 docker-push-router:
-	${ENGINE} push ${KO_DOCKER_REPO}/${ROUTER_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${ROUTER_IMG}:${TAG}
 
 docker-build-sklearn:
-	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${SKLEARN_IMG} -f sklearn.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${SKLEARN_IMG}:${TAG} -f sklearn.Dockerfile .
 
 docker-push-sklearn: docker-build-sklearn
-	${ENGINE} push ${KO_DOCKER_REPO}/${SKLEARN_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${SKLEARN_IMG}:${TAG}
 
 docker-build-xgb:
-	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${XGB_IMG} -f xgb.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${XGB_IMG}:${TAG} -f xgb.Dockerfile .
 
 docker-push-xgb: docker-build-xgb
-	${ENGINE} push ${KO_DOCKER_REPO}/${XGB_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${XGB_IMG}:${TAG}
 
 docker-build-lgb:
-	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${LGB_IMG} -f lgb.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${LGB_IMG}:${TAG} -f lgb.Dockerfile .
 
 docker-push-lgb: docker-build-lgb
-	${ENGINE} push ${KO_DOCKER_REPO}/${LGB_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${LGB_IMG}:${TAG}
 
 docker-build-predictive:
-	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PREDICTIVE_IMG} -f predictiveserver.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PREDICTIVE_IMG}:${TAG} -f predictiveserver.Dockerfile .
 
 docker-push-predictive: docker-build-predictive
-	cd python && ${ENGINE} buildx build ${ARCH} --push --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PREDICTIVE_IMG} -f predictiveserver.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --push --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PREDICTIVE_IMG}:${TAG} -f predictiveserver.Dockerfile .
 
 docker-build-pmml:
-	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${PMML_BASE_IMG} -t ${KO_DOCKER_REPO}/${PMML_IMG} -f pmml.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${PMML_BASE_IMG} -t ${KO_DOCKER_REPO}/${PMML_IMG}:${TAG} -f pmml.Dockerfile .
 
 docker-push-pmml: docker-build-pmml
-	${ENGINE} push ${KO_DOCKER_REPO}/${PMML_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${PMML_IMG}:${TAG}
 
 docker-build-paddle:
-	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PADDLE_IMG} -f paddle.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PADDLE_IMG}:${TAG} -f paddle.Dockerfile .
 
 docker-push-paddle: docker-build-paddle
-	${ENGINE} push ${KO_DOCKER_REPO}/${PADDLE_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${PADDLE_IMG}:${TAG}
 
 docker-build-autogluon:
-	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${AUTOGLUON_IMG} -f autogluon.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${AUTOGLUON_IMG}:${TAG} -f autogluon.Dockerfile .
 
 docker-push-autogluon: docker-build-autogluon
-	${ENGINE} push ${KO_DOCKER_REPO}/${AUTOGLUON_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${AUTOGLUON_IMG}:${TAG}
 
 docker-build-custom-model:
-	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG} -f custom_model.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG}:${TAG} -f custom_model.Dockerfile .
 
 docker-push-custom-model: docker-build-custom-model
-	docker push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG}
+	docker push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG}:${TAG}
 
 docker-build-custom-model-grpc:
-	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG} -f custom_model_grpc.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}:${TAG} -f custom_model_grpc.Dockerfile .
 
 docker-push-custom-model-grpc: docker-build-custom-model-grpc
-	${ENGINE} push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}:${TAG}
 
 docker-build-custom-transformer:
-	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${IMAGE_TRANSFORMER_IMG} -f custom_transformer.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${IMAGE_TRANSFORMER_IMG}:${TAG} -f custom_transformer.Dockerfile .
 
 docker-push-custom-transformer: docker-build-custom-transformer
-	${ENGINE} push ${KO_DOCKER_REPO}/${IMAGE_TRANSFORMER_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${IMAGE_TRANSFORMER_IMG}:${TAG}
 
 docker-build-custom-transformer-grpc:
-	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG} -f custom_transformer_grpc.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}:${TAG} -f custom_transformer_grpc.Dockerfile .
 
 docker-push-custom-transformer-grpc: docker-build-custom-transformer-grpc
-	${ENGINE} push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}:${TAG}
 
 docker-build-aif:
-	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${AIF_IMG} -f aiffairness.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${AIF_IMG}:${TAG} -f aiffairness.Dockerfile .
 
 docker-push-aif: docker-build-aif
-	${ENGINE} push ${KO_DOCKER_REPO}/${AIF_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${AIF_IMG}:${TAG}
 
 docker-build-art:
-	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${ART_IMG} -f artexplainer.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${ART_IMG}:${TAG} -f artexplainer.Dockerfile .
 
 docker-push-art: docker-build-art
-	${ENGINE} push ${KO_DOCKER_REPO}/${ART_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${ART_IMG}:${TAG}
 
 docker-build-storageInitializer:
-	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG} -f storage-initializer.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} --load --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}:${TAG} -f storage-initializer.Dockerfile .
 
 docker-push-storageInitializer: docker-build-storageInitializer
-	${ENGINE} push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}:${TAG}
 
 docker-build-qpext:
-	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${QPEXT_IMG} -f qpext/qpext.Dockerfile .
+	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${QPEXT_IMG}:${TAG} -f qpext/qpext.Dockerfile .
 
 docker-build-push-qpext: docker-build-qpext
-	${ENGINE} push ${KO_DOCKER_REPO}/${QPEXT_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${QPEXT_IMG}:${TAG}
 
 deploy-dev-qpext: docker-build-push-qpext
 	kubectl patch cm config-deployment -n knative-serving --type merge --patch '{"data": {"queue-sidecar-image": "${KO_DOCKER_REPO}/${QPEXT_IMG}"}}'
 
 docker-build-success-200-isvc:
-	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG} -f success_200_isvc.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG}:${TAG} -f success_200_isvc.Dockerfile .
 
 docker-push-success-200-isvc: docker-build-success-200-isvc
-	${ENGINE} push ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG}:${TAG}
 
 docker-build-error-node-404:
-	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG} -f error_404_isvc.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG}:${TAG} -f error_404_isvc.Dockerfile .
 
 docker-push-error-node-404: docker-build-error-node-404
-	${ENGINE} push ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG}:${TAG}
 
 docker-build-huggingface:
-	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${HUGGINGFACE_IMG} -f huggingface_server.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${HUGGINGFACE_IMG}:${TAG} -f huggingface_server.Dockerfile .
 
 docker-push-huggingface: docker-build-huggingface
-	${ENGINE} push ${KO_DOCKER_REPO}/${HUGGINGFACE_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${HUGGINGFACE_IMG}:${TAG}
 
 docker-build-huggingface-cpu:
-	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_CPU_IMG} -f huggingface_server_cpu.Dockerfile .
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_CPU_IMG}:${TAG} -f huggingface_server_cpu.Dockerfile .
 
 docker-push-huggingface-cpu: docker-build-huggingface-cpu
-	${ENGINE} push ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_CPU_IMG}
+	${ENGINE} push ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_CPU_IMG}:${TAG}
 
 apidocs:
 	${ENGINE} buildx build ${ARCH} -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
@@ -676,9 +672,26 @@ apidocs:
 check-doc-links:
 	@python3 hack/verify-doc-links.py && echo "$@: OK"
 
+# Replays the CLI flags our manifests render against every image whose tag
+# changed versus BASE_REF. Needs a container engine and network access, so it
+# is not part of precommit.
+.PHONY: check-image-flag-drift
+check-image-flag-drift: yq
+	@BASE_REF=$(or $(BASE_REF),origin/master) HEAD_REF=$(or $(HEAD_REF),HEAD) \
+		ENGINE=$(ENGINE) YQ=$(YQ) \
+		hack/verify-image-flag-drift.sh && echo "$@: OK"
+
 # Extension point for distro-specific manifest generation.
 .PHONY: manifests-distro
 manifests-distro:
 
 # Optional local/downstream overrides (ignored if absent)
 -include Makefile.overrides.mk
+
+# Build and push controller/localmodel images, then install KServe + LocalModel on kind via kustomize.
+# Uses KO_DOCKER_REPO/TAG for image overrides; skips configmap image rewrites (UPDATE_CONFIGMAP_IMAGES=false).
+.PHONY: deploy-dev-kind-localmodel
+deploy-dev-kind-localmodel: docker-build docker-push docker-build-localmodel docker-push-localmodel 
+	SET_KSERVE_REGISTRY=$$KO_DOCKER_REPO SET_KSERVE_VERSION=$$TAG \
+	ENABLE_KSERVE=true ENABLE_LOCALMODEL=true UPDATE_CONFIGMAP_IMAGES=false \
+	./hack/setup/infra/manage.kserve-kustomize.sh
