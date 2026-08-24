@@ -95,3 +95,17 @@ func TestFanOut(t *testing.T) {
 	assert.True(t, results[0].OK())
 	assert.Equal(t, "ok", string(results[0].Body))
 }
+
+func TestFanOutForwardsAuthorization(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "Bearer cluster-token", r.Header.Get("Authorization"))
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	header := http.Header{}
+	header.Set("Authorization", "Bearer cluster-token")
+	results := FanOut(t.Context(), http.DefaultClient, []Backend{{Name: "a", URL: srv.URL}}, PathHealth, header)
+	require.Len(t, results, 1)
+	assert.True(t, results[0].OK())
+}

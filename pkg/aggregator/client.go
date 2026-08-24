@@ -63,6 +63,8 @@ func queryBackend(ctx context.Context, client *http.Client, backend Backend, pat
 		result.Duration = time.Since(start)
 		return result
 	}
+	// Forward inbound headers (including Authorization) so tenancy/auth
+	// tokens on the aggregator request reach the model servers.
 	for k, values := range header {
 		for _, v := range values {
 			req.Header.Add(k, v)
