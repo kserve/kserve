@@ -21,8 +21,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -46,25 +48,36 @@ import (
 	s3credential "github.com/kserve/kserve/pkg/credentials/s3"
 )
 
-func safeLocalModelPath(baseDir string, objectPath string) (string, error) {
-	baseDir = filepath.Clean(baseDir)
-	normalizedObjectPath := strings.ReplaceAll(objectPath, "\\", "/")
-	trimmedObjectPath := strings.TrimLeft(normalizedObjectPath, "/")
-	for _, segment := range strings.Split(trimmedObjectPath, "/") {
-		if segment == ".." {
-			return "", fmt.Errorf("path traversal detected in object path: %s", objectPath)
-		}
+func createLocalModelFile(modelDir string, modelName string, objectPath string) (*os.File, string, error) {
+	trimmedObjectPath := strings.TrimLeft(objectPath, "/")
+	if !fs.ValidPath(modelName) {
+		return nil, "", fmt.Errorf("invalid model name: %s", modelName)
+	}
+	if !fs.ValidPath(trimmedObjectPath) {
+		return nil, "", fmt.Errorf("invalid object path: %s", objectPath)
 	}
 
-	candidate := filepath.Clean(filepath.Join(baseDir, filepath.FromSlash(trimmedObjectPath)))
-	relativePath, err := filepath.Rel(baseDir, candidate)
+	relativePath := path.Join(modelName, trimmedObjectPath)
+	if err := os.MkdirAll(modelDir, os.ModePerm); err != nil { //nolint:gosec // G301: agent and model server run as different UIDs sharing an emptyDir volume
+		return nil, "", err
+	}
+	root, err := os.OpenRoot(modelDir)
 	if err != nil {
-		return "", fmt.Errorf("unable to validate object path %s: %w", objectPath, err)
+		return nil, "", err
 	}
-	if relativePath == ".." || strings.HasPrefix(relativePath, ".."+string(os.PathSeparator)) || filepath.IsAbs(relativePath) {
-		return "", fmt.Errorf("object path escapes model directory: %s", objectPath)
+	defer root.Close()
+
+	parentDir := path.Dir(relativePath)
+	if parentDir != "." {
+		if err := root.MkdirAll(filepath.FromSlash(parentDir), os.ModePerm); err != nil { //nolint:gosec // G301: shared model volume must be traversable by the model server
+			return nil, "", fmt.Errorf("unable to create parent directory for object %s: %w", objectPath, err)
+		}
 	}
-	return candidate, nil
+	file, err := root.Create(filepath.FromSlash(relativePath))
+	if err != nil {
+		return nil, "", fmt.Errorf("unable to create file for object %s: %w", objectPath, err)
+	}
+	return file, filepath.Join(modelDir, filepath.FromSlash(relativePath)), nil
 }
 
 func FileExists(filename string) bool {
