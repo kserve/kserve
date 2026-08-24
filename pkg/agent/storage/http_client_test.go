@@ -18,8 +18,6 @@ package storage
 
 import (
 	"context"
-	"errors"
-	"net"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -34,42 +32,26 @@ func (r staticHTTPResolver) LookupNetIP(context.Context, string, string) ([]neti
 	return r.addrs, nil
 }
 
-type recordingHTTPDialer struct {
-	addresses []string
-}
-
-func (d *recordingHTTPDialer) DialContext(_ context.Context, _, address string) (net.Conn, error) {
-	d.addresses = append(d.addresses, address)
-	return nil, errors.New("test dial stopped")
-}
-
-func TestRestrictedHTTPDialContextPinsValidatedAddress(t *testing.T) {
-	dialer := &recordingHTTPDialer{}
-	dial := restrictedHTTPDialContext(dialer, staticHTTPResolver{
-		addrs: []netip.Addr{netip.MustParseAddr("93.184.216.34")},
-	})
-
-	_, err := dial(context.Background(), "tcp", "models.example:443")
-	if err == nil {
-		t.Fatal("expected test dial to stop with an error")
-	}
-	if len(dialer.addresses) != 1 || dialer.addresses[0] != "93.184.216.34:443" {
-		t.Fatalf("dialed addresses = %v, want the validated IP address", dialer.addresses)
-	}
-}
-
-func TestRestrictedHTTPDialContextRejectsReboundAddress(t *testing.T) {
-	dialer := &recordingHTTPDialer{}
-	dial := restrictedHTTPDialContext(dialer, staticHTTPResolver{
-		addrs: []netip.Addr{netip.MustParseAddr("127.0.0.1")},
-	})
-
-	_, err := dial(context.Background(), "tcp", "models.example:80")
+func TestValidateHTTPDialAddressRejectsUnsafeResolvedAddress(t *testing.T) {
+	err := validateHTTPDialAddress(context.Background(), "tcp4", "127.0.0.1:80", nil)
 	if err == nil || !strings.Contains(err.Error(), "blocked unsafe HTTP(S) storage destination") {
 		t.Fatalf("expected unsafe destination error, got: %v", err)
 	}
-	if len(dialer.addresses) != 0 {
-		t.Fatalf("dialed unsafe addresses: %v", dialer.addresses)
+
+	if err := validateHTTPDialAddress(context.Background(), "tcp4", "93.184.216.34:443", nil); err != nil {
+		t.Fatalf("expected public dial address to be allowed: %v", err)
+	}
+}
+
+func TestResolveHTTPHostRejectsMixedPublicAndPrivateAddresses(t *testing.T) {
+	resolver := staticHTTPResolver{addrs: []netip.Addr{
+		netip.MustParseAddr("93.184.216.34"),
+		netip.MustParseAddr("10.0.0.1"),
+	}}
+
+	_, err := resolveHTTPHost(context.Background(), resolver, "models.example")
+	if err == nil || !strings.Contains(err.Error(), "blocked unsafe HTTP(S) storage destination") {
+		t.Fatalf("expected mixed DNS response to be rejected, got: %v", err)
 	}
 }
 
@@ -92,5 +74,38 @@ func TestDefaultHTTPStorageClientDoesNotUseEnvironmentProxy(t *testing.T) {
 	}
 	if transport.Proxy != nil {
 		t.Fatal("HTTP storage client must not delegate target resolution to a proxy")
+	}
+	if transport.DialContext == nil {
+		t.Fatal("HTTP storage client must validate resolved socket addresses")
+	}
+	if transport.ResponseHeaderTimeout != httpStorageResponseHeaderTimeout {
+		t.Fatalf("response header timeout = %s, want %s", transport.ResponseHeaderTimeout, httpStorageResponseHeaderTimeout)
+	}
+}
+
+func TestValidateHTTPDestinationAddrRejectsSpecialRanges(t *testing.T) {
+	blocked := []string{
+		"192.88.99.2",
+		"100:0:0:1::1",
+		"3fff::1",
+		"5f00::1",
+		"fec0::1",
+		"4000::1",
+	}
+	for _, address := range blocked {
+		t.Run(address, func(t *testing.T) {
+			if err := validateHTTPDestinationAddr(address, netip.MustParseAddr(address)); err == nil {
+				t.Fatalf("expected special address %s to be rejected", address)
+			}
+		})
+	}
+
+	allowed := []string{"93.184.216.34", "2606:4700:4700::1111"}
+	for _, address := range allowed {
+		t.Run(address, func(t *testing.T) {
+			if err := validateHTTPDestinationAddr(address, netip.MustParseAddr(address)); err != nil {
+				t.Fatalf("expected public address %s to be allowed: %v", address, err)
+			}
+		})
 	}
 }
