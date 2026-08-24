@@ -24,10 +24,17 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"syscall"
 	"time"
 )
 
-const maxHTTPSRedirects = 10
+const (
+	maxHTTPSRedirects                = 10
+	httpStorageDialTimeout           = 30 * time.Second
+	httpStorageResponseHeaderTimeout = 30 * time.Second
+)
+
+var globalHTTPIPv6Prefix = netip.MustParsePrefix("2000::/3")
 
 var blockedHTTPDestinationPrefixes = []netip.Prefix{
 	netip.MustParsePrefix("0.0.0.0/8"),
@@ -38,6 +45,7 @@ var blockedHTTPDestinationPrefixes = []netip.Prefix{
 	netip.MustParsePrefix("172.16.0.0/12"),
 	netip.MustParsePrefix("192.0.0.0/24"),
 	netip.MustParsePrefix("192.0.2.0/24"),
+	netip.MustParsePrefix("192.88.99.0/24"),
 	netip.MustParsePrefix("192.168.0.0/16"),
 	netip.MustParsePrefix("198.18.0.0/15"),
 	netip.MustParsePrefix("198.51.100.0/24"),
@@ -52,6 +60,7 @@ var blockedHTTPDestinationPrefixes = []netip.Prefix{
 	netip.MustParsePrefix("2001::/23"),
 	netip.MustParsePrefix("2001:db8::/32"),
 	netip.MustParsePrefix("2002::/16"),
+	netip.MustParsePrefix("3fff::/20"),
 	netip.MustParsePrefix("fc00::/7"),
 	netip.MustParsePrefix("fe80::/10"),
 	netip.MustParsePrefix("ff00::/8"),
@@ -65,19 +74,17 @@ type httpHostResolver interface {
 	LookupNetIP(context.Context, string, string) ([]netip.Addr, error)
 }
 
-type httpDialer interface {
-	DialContext(context.Context, string, string) (net.Conn, error)
-}
-
 func defaultHTTPStorageClient() *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	// A proxy would resolve the target outside the validated dial path.
+	// Proxies resolve the target outside this transport's validated dial path.
 	transport.Proxy = nil
 	dialer := &net.Dialer{
-		Timeout:   30 * time.Second,
-		KeepAlive: 30 * time.Second,
+		Timeout:        httpStorageDialTimeout,
+		KeepAlive:      30 * time.Second,
+		ControlContext: validateHTTPDialAddress,
 	}
-	transport.DialContext = restrictedHTTPDialContext(dialer, net.DefaultResolver)
+	transport.DialContext = dialer.DialContext
+	transport.ResponseHeaderTimeout = httpStorageResponseHeaderTimeout
 
 	return &http.Client{
 		Transport:     restrictedHTTPTransport{base: transport},
@@ -97,27 +104,16 @@ func (t restrictedHTTPTransport) RoundTrip(req *http.Request) (*http.Response, e
 	return base.RoundTrip(req)
 }
 
-func restrictedHTTPDialContext(dialer httpDialer, resolver httpHostResolver) func(context.Context, string, string) (net.Conn, error) {
-	return func(ctx context.Context, network string, address string) (net.Conn, error) {
-		host, port, err := net.SplitHostPort(address)
-		if err != nil {
-			return nil, err
-		}
-		addrs, err := resolveHTTPHost(ctx, resolver, host)
-		if err != nil {
-			return nil, err
-		}
-
-		var dialErrors []error
-		for _, addr := range addrs {
-			conn, dialErr := dialer.DialContext(ctx, network, net.JoinHostPort(addr.Unmap().String(), port))
-			if dialErr == nil {
-				return conn, nil
-			}
-			dialErrors = append(dialErrors, dialErr)
-		}
-		return nil, fmt.Errorf("failed to dial HTTP(S) storage destination %q: %w", host, errors.Join(dialErrors...))
+func validateHTTPDialAddress(_ context.Context, _ string, address string, _ syscall.RawConn) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return fmt.Errorf("invalid HTTP(S) storage dial address %q: %w", address, err)
 	}
+	addr, err := netip.ParseAddr(host)
+	if err != nil {
+		return fmt.Errorf("HTTP(S) storage dial address %q is not an IP address: %w", address, err)
+	}
+	return validateHTTPDestinationAddr(host, addr)
 }
 
 func checkHTTPStorageRedirect(req *http.Request, via []*http.Request) error {
@@ -177,6 +173,12 @@ func resolveHTTPHost(ctx context.Context, resolver httpHostResolver, host string
 
 func validateHTTPDestinationAddr(host string, addr netip.Addr) error {
 	addr = addr.Unmap().WithZone("")
+	if !addr.IsValid() {
+		return fmt.Errorf("blocked invalid HTTP(S) storage destination %q", host)
+	}
+	if addr.Is6() && !globalHTTPIPv6Prefix.Contains(addr) {
+		return fmt.Errorf("blocked unsafe HTTP(S) storage destination %q resolved to %s", host, addr)
+	}
 	for _, prefix := range blockedHTTPDestinationPrefixes {
 		if prefix.Contains(addr) {
 			return fmt.Errorf("blocked unsafe HTTP(S) storage destination %q resolved to %s", host, addr)
