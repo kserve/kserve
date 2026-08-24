@@ -19,8 +19,6 @@ package storage
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -78,18 +76,9 @@ func (m *S3Provider) DownloadModel(modelDir string, modelName string, storageUri
 				continue
 			}
 			subObjectKey := strings.TrimPrefix(*object.Key, prefix)
-			fileName := filepath.Join(modelDir, modelName, subObjectKey)
-
-			if FileExists(fileName) {
-				// File got corrupted or is mid-download :(
-				// TODO: Figure out if we can maybe continue?
-				if err := os.Remove(fileName); err != nil {
-					return fmt.Errorf("file is unable to be deleted: %w", err)
-				}
-			}
-			file, err := Create(fileName)
+			file, fileName, err := createLocalModelFile(modelDir, modelName, subObjectKey)
 			if err != nil {
-				return fmt.Errorf("file is already created: %w", err)
+				return err
 			}
 
 			if _, err := m.TransferClient.DownloadObject(ctx, &transfermanager.DownloadObjectInput{
