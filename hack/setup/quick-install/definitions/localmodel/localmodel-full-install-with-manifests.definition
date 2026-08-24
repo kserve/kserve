@@ -1,0 +1,20 @@
+DESCRIPTION: Install LocalModel and all related dependencies with manifests included in the script.
+EMBED_MANIFESTS: true
+
+TOOLS:
+  - helm
+  - kustomize
+  - yq
+  
+INCLUDE_DEFINITIONS:
+  - ./localmodel-dependency-install.definition
+    
+COMPONENTS:
+  - name: kserve-kustomize
+    env:
+      ENABLE_LLMISVC: false
+      ENABLE_KSERVE: false
+      ENABLE_LOCALMODEL: true
+      INSTALL_RUNTIMES: false
+      INSTALL_LLMISVC_CONFIGS: false
+      
