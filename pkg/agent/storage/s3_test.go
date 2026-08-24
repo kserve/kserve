@@ -252,3 +252,30 @@ func TestDownloadModel_NoPrefixInURI(t *testing.T) {
 		t.Error("expected model.pt to exist")
 	}
 }
+
+func TestDownloadModel_RejectsPathTraversal(t *testing.T) {
+	tmpDir := t.TempDir()
+	outsidePath := filepath.Join(tmpDir, "outside.txt")
+	if err := os.WriteFile(outsidePath, []byte("do not overwrite"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	provider := &S3Provider{
+		Client: &mocks.MockS3PaginatedClient{
+			Pages: [][]string{{"prefix/../../outside.txt"}},
+		},
+		TransferClient: &mocks.MockS3TransferClient{},
+	}
+
+	err := provider.DownloadModel(filepath.Join(tmpDir, "models"), "model1", "s3://bucket/prefix/")
+	if err == nil {
+		t.Fatal("expected path traversal object to be rejected")
+	}
+	got, readErr := os.ReadFile(outsidePath)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(got) != "do not overwrite" {
+		t.Fatalf("outside file contents = %q, want %q", string(got), "do not overwrite")
+	}
+}

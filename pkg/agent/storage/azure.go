@@ -18,8 +18,8 @@ package storage
 
 import (
 	"context"
+	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
@@ -58,16 +58,11 @@ func (a AzureProvider) DownloadModel(modelDir string, modelName string, storageU
 			return err
 		}
 		for _, _blob := range resp.Segment.BlobItems {
-			fileName := filepath.Join(modelDir, modelName, *_blob.Name)
-			log.Info("Downloading blob %s", "fileName", fileName)
-			file, err := os.Create(filepath.Clean(fileName))
+			file, fileName, err := createLocalModelFile(modelDir, modelName, *_blob.Name)
 			if err != nil {
 				return err
 			}
-			defer func(destFile *os.File) {
-				err = destFile.Close()
-				log.Error(err, "Error closing file")
-			}(file)
+			log.Info("Downloading blob %s", "fileName", fileName)
 
 			_, err = a.Client.DownloadFile(ctx, bucket, prefix, file,
 				&azblob.DownloadFileOptions{
@@ -77,7 +72,11 @@ func (a AzureProvider) DownloadModel(modelDir string, modelName string, storageU
 					},
 				})
 			if err != nil {
+				_ = file.Close()
 				return err
+			}
+			if err := file.Close(); err != nil {
+				return fmt.Errorf("failed to close file %s: %w", fileName, err)
 			}
 		}
 	}
