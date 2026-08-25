@@ -56,17 +56,17 @@ func loadSchedulerPresetInline(g *WithT, filename string) (*v1alpha2.LLMInferenc
 }
 
 // TestInjectLoRAAffinityScorerDefault asserts the LoRA affinity scorer is injected
-// into the single-profile optimized-baseline preset: added to the top-level plugins
+// into the single-profile default preset: added to the top-level plugins
 // list and referenced (weight 4) in the default profile. The baseline has no picker,
 // so the scorer is appended at the end of the profile.
 func TestInjectLoRAAffinityScorerDefault(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// Before injection the preset must not reference the scorer.
-	_, before := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-optimized-baseline.yaml")
+	_, before := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-default.yaml")
 	g.Expect(pluginTypeSet(before)).NotTo(HaveKey(loraAffinityScorerPlugin))
 
-	cfg, _ := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-optimized-baseline.yaml")
+	cfg, _ := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-default.yaml")
 	g.Expect(injectLoRAAffinityScorer(cfg)).To(Succeed())
 
 	after := map[string]interface{}{}
@@ -89,7 +89,7 @@ func TestInjectLoRAAffinityScorerDefault(t *testing.T) {
 func TestInjectLoRAAffinityScorerPD(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	cfg, _ := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-pd.yaml")
+	cfg, _ := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-default-pd.yaml")
 	g.Expect(injectLoRAAffinityScorer(cfg)).To(Succeed())
 
 	after := map[string]interface{}{}
@@ -122,7 +122,7 @@ func TestInjectLoRAAffinityScorerPD(t *testing.T) {
 func TestInjectLoRAAffinityScorerIdempotent(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	cfg, _ := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-optimized-baseline.yaml")
+	cfg, _ := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-default.yaml")
 	g.Expect(injectLoRAAffinityScorer(cfg)).To(Succeed())
 	once := cfg.Spec.Router.Scheduler.Config.Inline.Raw
 
@@ -349,14 +349,14 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 	}
 }
 
-// TestSchedulerOptimizedBaselinePreset asserts the single-profile preset shipped in
-// config/llmisvcconfig matches the llm-d optimized-baseline guide:
+// TestSchedulerDefaultPreset asserts the single-profile preset shipped in
+// config/llmisvcconfig contains the expected plugins:
 // approx-prefix-cache-producer, inflight-load-producer, prefix-cache-affinity-filter,
 // token-load-scorer with a single default profile.
-func TestSchedulerOptimizedBaselinePreset(t *testing.T) {
+func TestSchedulerDefaultPreset(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	_, cfg := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-optimized-baseline.yaml")
+	_, cfg := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-default.yaml")
 
 	g.Expect(pluginTypeSet(cfg)).To(SatisfyAll(
 		HaveKey("approx-prefix-cache-producer"),
@@ -505,7 +505,7 @@ func profilePluginRefs(cfg map[string]interface{}, name string) (refs []pluginRe
 func TestSchedulerPDDisaggPreset(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	_, cfg := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-pd.yaml")
+	_, cfg := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-default-pd.yaml")
 
 	g.Expect(pluginTypeSet(cfg)).To(SatisfyAll(
 		HaveKey("always-disagg-pd-decider"),

@@ -66,34 +66,34 @@ const (
 	configDecodeWorkerDataParallelNameSuffix  = "config-llm-decode-worker-data-parallel"
 	configPrefillWorkerDataParallelNameSuffix = "config-llm-prefill-worker-data-parallel"
 	// Router and scheduler configurations
-	configRouterSchedulerNameSuffix                  = "config-llm-scheduler"
-	configRouterSchedulerOptimizedBaselineNameSuffix = "config-llm-scheduler-eppconfig-optimized-baseline" // default EPPConfig
-	configRouterSchedulerPDDisaggNameSuffix          = "config-llm-scheduler-eppconfig-pd"                 // default EPPConfig for P/D
-	configRouterRouteNameSuffix                      = "config-llm-router-route"
-	configSchedulerLatencyPredictorNameSuffix        = "config-llm-scheduler-latency-predictor"
-	configTokenizerNameSuffix                        = "config-llm-tokenizer" // #nosec G101
+	configRouterSchedulerNameSuffix                   = "config-llm-scheduler"
+	configRouterSchedulerDefaultEPPConfigNameSuffix   = "config-llm-scheduler-eppconfig-default"    // default EPPConfig
+	configRouterSchedulerDefaultPDEPPConfigNameSuffix = "config-llm-scheduler-eppconfig-default-pd" // default EPPConfig for P/D
+	configRouterRouteNameSuffix                       = "config-llm-router-route"
+	configSchedulerLatencyPredictorNameSuffix         = "config-llm-scheduler-latency-predictor"
+	configTokenizerNameSuffix                         = "config-llm-tokenizer" // #nosec G101
 	// Tracing configurations
 	configTracingNameSuffix = "config-llm-tracing"
 )
 
 var (
-	configPrefix                               = constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_CONFIG_PREFIX", "kserve-")
-	configTemplateName                         = configPrefix + configTemplateNameSuffix
-	configDecodeTemplateName                   = configPrefix + configDecodeTemplateNameSuffix
-	configDecodeWorkerPipelineParallelName     = configPrefix + configDecodeWorkerPipelineParallelNameSuffix
-	configWorkerPipelineParallelName           = configPrefix + configWorkerPipelineParallelNameSuffix
-	configWorkerDataParallelName               = configPrefix + configWorkerDataParallelNameSuffix
-	configDecodeWorkerDataParallelName         = configPrefix + configDecodeWorkerDataParallelNameSuffix
-	configPrefillTemplateName                  = configPrefix + configPrefillTemplateNameSuffix
-	configPrefillWorkerPipelineParallelName    = configPrefix + configPrefillWorkerPipelineParallelNameSuffix
-	configPrefillWorkerDataParallelName        = configPrefix + configPrefillWorkerDataParallelNameSuffix
-	configRouterSchedulerName                  = configPrefix + configRouterSchedulerNameSuffix
-	configRouterSchedulerOptimizedBaselineName = configPrefix + configRouterSchedulerOptimizedBaselineNameSuffix
-	configRouterSchedulerPDDisaggName          = configPrefix + configRouterSchedulerPDDisaggNameSuffix
-	configRouterRouteName                      = configPrefix + configRouterRouteNameSuffix
-	configSchedulerLatencyPredictorName        = configPrefix + configSchedulerLatencyPredictorNameSuffix
-	configTokenizerName                        = configPrefix + configTokenizerNameSuffix
-	configTracingName                          = configPrefix + configTracingNameSuffix
+	configPrefix                                = constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_CONFIG_PREFIX", "kserve-")
+	configTemplateName                          = configPrefix + configTemplateNameSuffix
+	configDecodeTemplateName                    = configPrefix + configDecodeTemplateNameSuffix
+	configDecodeWorkerPipelineParallelName      = configPrefix + configDecodeWorkerPipelineParallelNameSuffix
+	configWorkerPipelineParallelName            = configPrefix + configWorkerPipelineParallelNameSuffix
+	configWorkerDataParallelName                = configPrefix + configWorkerDataParallelNameSuffix
+	configDecodeWorkerDataParallelName          = configPrefix + configDecodeWorkerDataParallelNameSuffix
+	configPrefillTemplateName                   = configPrefix + configPrefillTemplateNameSuffix
+	configPrefillWorkerPipelineParallelName     = configPrefix + configPrefillWorkerPipelineParallelNameSuffix
+	configPrefillWorkerDataParallelName         = configPrefix + configPrefillWorkerDataParallelNameSuffix
+	configRouterSchedulerName                   = configPrefix + configRouterSchedulerNameSuffix
+	configRouterSchedulerDefaultEPPConfigName   = configPrefix + configRouterSchedulerDefaultEPPConfigNameSuffix
+	configRouterSchedulerDefaultPDEPPConfigName = configPrefix + configRouterSchedulerDefaultPDEPPConfigNameSuffix
+	configRouterRouteName                       = configPrefix + configRouterRouteNameSuffix
+	configSchedulerLatencyPredictorName         = configPrefix + configSchedulerLatencyPredictorNameSuffix
+	configTokenizerName                         = configPrefix + configTokenizerNameSuffix
+	configTracingName                           = configPrefix + configTracingNameSuffix
 )
 
 // FIXME move those presets to well-known when they're finally known :)
@@ -113,8 +113,8 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configPrefillTemplateName,
 	configPrefillWorkerDataParallelName,
 	configRouterSchedulerName,
-	configRouterSchedulerOptimizedBaselineName,
-	configRouterSchedulerPDDisaggName,
+	configRouterSchedulerDefaultEPPConfigName,
+	configRouterSchedulerDefaultPDEPPConfigName,
 	configRouterRouteName,
 	configSchedulerLatencyPredictorName,
 	configTokenizerName,
@@ -426,9 +426,9 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			// Older images fall back to the hardcoded schedulerConfigText().
 			if injectDefaultSchedulerConfig && routerVersionSupportsPreset(ctx, schedulerCfg) {
 				if resolvedSpec.Prefill != nil { // P/D disagg.
-					refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerPDDisaggName)})
-				} else { // single-profile optimized baseline.
-					refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerOptimizedBaselineName)})
+					refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerDefaultPDEPPConfigName)})
+				} else {
+					refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerDefaultEPPConfigName)})
 				}
 			}
 		}

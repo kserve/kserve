@@ -1,14 +1,13 @@
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
-  name: kserve-config-llm-scheduler-eppconfig-optimized-baseline
+  name: kserve-config-llm-scheduler-eppconfig-default
   namespace: kserve
 spec:
   router:
     scheduler:
       config:
-        # Single-profile default mirroring the llm-d optimized-baseline guide:
-        # https://github.com/llm-d/llm-d/blob/main/guides/optimized-baseline/router/optimized-baseline.values.yaml
+        # Default single-profile EndpointPickerConfig.
         # lora-affinity-scorer is injected by the scheduler when the LLMInferenceService has spec.model.lora.adapters set.
         inline:
           apiVersion: llm-d.ai/v1alpha1

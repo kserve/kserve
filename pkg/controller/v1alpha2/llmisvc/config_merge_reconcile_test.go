@@ -437,7 +437,7 @@ plugins:
 		},
 	}
 	baselinePreset := &v1alpha2.LLMInferenceServiceConfig{
-		ObjectMeta: metav1.ObjectMeta{Name: configRouterSchedulerOptimizedBaselineName, Namespace: constants.KServeNamespace},
+		ObjectMeta: metav1.ObjectMeta{Name: configRouterSchedulerDefaultEPPConfigName, Namespace: constants.KServeNamespace},
 		Spec: v1alpha2.LLMInferenceServiceSpec{
 			Router: &v1alpha2.RouterSpec{
 				Scheduler: &v1alpha2.SchedulerSpec{
@@ -462,7 +462,7 @@ plugins:
 
 	require.NoError(t, err)
 	for _, ref := range combined.AppliedConfigRefs {
-		assert.NotEqual(t, configRouterSchedulerOptimizedBaselineName, string(ref.Name),
+		assert.NotEqual(t, configRouterSchedulerDefaultEPPConfigName, string(ref.Name),
 			"preset must not be applied when the well-known scheduler config already supplies an EPPConfig")
 	}
 	assert.Nil(t, combined.Config.Spec.Router.Scheduler.Config,

@@ -490,14 +490,14 @@ schedulingProfiles:
 	})
 
 	Context("Default scheduler config with llm-d-router >= 0.11.0", func() {
-		It("should use optimized-baseline preset plugins (non-prefill)", func(ctx SpecContext) {
+		It("should use default preset plugins (non-prefill)", func(ctx SpecContext) {
 			// given
-			svcName := "test-llm-preset-optimized"
+			svcName := "test-llm-preset-default"
 			testNs := NewTestNamespace(ctx, envTest)
 
 			// Override the scheduler template in the test namespace with version 0.11.0
 			// so routerVersionSupportsPreset returns true and the controller injects
-			// the optimized-baseline preset instead of the legacy schedulerConfigText().
+			// the default EPPConfig preset instead of the legacy schedulerConfigText().
 			schedulerCfg := LLMInferenceServiceConfig("kserve-config-llm-scheduler",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
 				WithConfigSchedulerTemplate("0.11.0"),
@@ -519,7 +519,7 @@ schedulingProfiles:
 			}()
 
 			// then - verify the scheduler deployment uses preset plugins from
-			// config-llm-scheduler-eppconfig-optimized-baseline.yaml
+			// config-llm-scheduler-eppconfig-default.yaml
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) {
 				g.Expect(envTest.Get(ctx, types.NamespacedName{
@@ -582,7 +582,7 @@ schedulingProfiles:
 			}()
 
 			// then - verify the scheduler deployment uses preset plugins from
-			// config-llm-scheduler-eppconfig-pd.yaml
+			// config-llm-scheduler-eppconfig-default-pd.yaml
 			expectedDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) {
 				g.Expect(envTest.Get(ctx, types.NamespacedName{

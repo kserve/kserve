@@ -4746,7 +4746,7 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
-  name: kserve-config-llm-scheduler-eppconfig-optimized-baseline
+  name: kserve-config-llm-scheduler-eppconfig-default
   namespace: kserve
 spec:
   router:
@@ -4769,7 +4769,7 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
-  name: kserve-config-llm-scheduler-eppconfig-pd
+  name: kserve-config-llm-scheduler-eppconfig-default-pd
   namespace: kserve
 spec:
   router:

@@ -1,14 +1,13 @@
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
-  name: kserve-config-llm-scheduler-eppconfig-pd
+  name: kserve-config-llm-scheduler-eppconfig-default-pd
   namespace: kserve
 spec:
   router:
     scheduler:
       config:
-        # Prefill/Decode disaggregation mirroring the llm-d pd-disaggregation guide:
-        # https://github.com/llm-d/llm-d/blob/main/guides/pd-disaggregation/router/pd-disaggregation.values.yaml
+        # Default Prefill/Decode disaggregation EndpointPickerConfig.
         # lora-affinity-scorer is injected by the scheduler when the LLMInferenceService has spec.model.lora.adapters set.
         inline:
           apiVersion: llm-d.ai/v1alpha1
