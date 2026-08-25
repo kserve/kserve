@@ -17,6 +17,7 @@ limitations under the License.
 package llmisvc
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -35,6 +36,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/localmodelcache"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 func TestSanitizeLoRAPathSegment(t *testing.T) {
@@ -440,5 +442,220 @@ func TestAttachLoRAAdaptersNoDuplicateMountPath(t *testing.T) {
 			t.Errorf("volumes %q and %q both mount at %q", prev, m.Name, m.MountPath)
 		}
 		seen[m.MountPath] = m.Name
+	}
+}
+
+// Both members of a colliding pair are suffixed, so the outcome does not depend
+// on which one the sort happens to put first.
+func TestEnumerateLoRAAdaptersCollisionSuffix(t *testing.T) {
+	t.Parallel()
+
+	adapters, err := enumerateLoRAAdapters(loRASpec(t,
+		"sql/v2", "pvc://adapters/sql-slash-v2",
+		"sql-v2", "pvc://adapters/sql-dash-v2",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"sql-v2": "/mnt/lora/sql-v2-" + utils.ShortHash("sql-v2"),
+		"sql/v2": "/mnt/lora/sql-v2-" + utils.ShortHash("sql/v2"),
+	}
+	if len(adapters) != len(want) {
+		t.Fatalf("got %d adapters, want %d", len(adapters), len(want))
+	}
+	for _, a := range adapters {
+		if got := a.mountPath; got != want[a.name] {
+			t.Errorf("adapter %q: got %q want %q", a.name, got, want[a.name])
+		}
+	}
+}
+
+// Admission rejects duplicate names, so this only reaches specs that bypassed the
+// webhook. The message must name the duplicate rather than report a self-collision.
+func TestEnumerateLoRAAdaptersDuplicateName(t *testing.T) {
+	t.Parallel()
+
+	_, err := enumerateLoRAAdapters(loRASpec(t,
+		"dup", "pvc://adapters/one",
+		"dup", "pvc://adapters/two",
+	))
+	if err == nil {
+		t.Fatal("expected an error for duplicate adapter names")
+	}
+	if want := `duplicate LoRA adapter name "dup"`; !strings.Contains(err.Error(), want) {
+		t.Errorf("got %q, want it to contain %q", err.Error(), want)
+	}
+}
+
+// A literal adapter name can equal the suffixed form another adapter resolves to.
+// The occurrence count cannot see that, so the uniqueness check has to catch it.
+func TestEnumerateLoRAAdaptersSuffixCollidesWithLiteralName(t *testing.T) {
+	t.Parallel()
+
+	shadow := "sql-v2-" + utils.ShortHash("sql/v2")
+	_, err := enumerateLoRAAdapters(loRASpec(t,
+		"sql/v2", "pvc://adapters/sql-slash-v2",
+		"sql-v2", "pvc://adapters/sql-dash-v2",
+		shadow, "pvc://adapters/shadow",
+	))
+	if err == nil {
+		t.Fatal("expected an error when a suffixed segment collides with a literal name")
+	}
+	if want := "/mnt/lora/" + shadow; !strings.Contains(err.Error(), want) {
+		t.Errorf("got %q, want it to contain %q", err.Error(), want)
+	}
+}
+
+// Adapters merged in from an LLMInferenceServiceConfig are never LoRA-validated, so
+// unnamed adapters reach enumerateLoRAAdapters through a fully admitted spec. Two of
+// them collide on the sanitize fallback, and the error must name that, not a duplicate "".
+func TestEnumerateLoRAAdaptersUnnamedCollision(t *testing.T) {
+	t.Parallel()
+
+	spec := loRASpec(t, "placeholder", "pvc://adapters/one", "other", "pvc://adapters/two")
+	spec.Model.LoRA.Adapters[0].Name = nil
+	spec.Model.LoRA.Adapters[1].Name = nil
+
+	_, err := enumerateLoRAAdapters(spec)
+	if err == nil {
+		t.Fatal("expected an error for two unnamed adapters")
+	}
+	if want := "two or more LoRA adapters have no name"; !strings.Contains(err.Error(), want) {
+		t.Errorf("got %q, want it to contain %q", err.Error(), want)
+	}
+	// Adapters are sorted by name before segments are computed, so any index reported
+	// here would point into the sorted slice rather than spec.model.lora.adapters.
+	if strings.Contains(err.Error(), "index") {
+		t.Errorf("message names an index that does not locate the adapter in the spec: %q", err.Error())
+	}
+}
+
+// The reconciler dispatches the LoRAMountPathCollision event on errors.Is against this
+// sentinel, so rewording a message must not quietly cost the event its reason.
+func TestLoRAAdapterCollisionErrorsAreMarked(t *testing.T) {
+	t.Parallel()
+
+	shadow := "sql-v2-" + utils.ShortHash("sql/v2")
+	unnamed := loRASpec(t, "a", "pvc://adapters/a", "b", "pvc://adapters/b")
+	unnamed.Model.LoRA.Adapters[0].Name = nil
+	unnamed.Model.LoRA.Adapters[1].Name = nil
+
+	for name, spec := range map[string]v1alpha2.LLMInferenceServiceSpec{
+		"duplicate name": loRASpec(t, "dup", "pvc://adapters/one", "dup", "pvc://adapters/two"),
+		"shadowed suffix": loRASpec(t,
+			"sql/v2", "pvc://adapters/one", "sql-v2", "pvc://adapters/two", shadow, "pvc://adapters/three"),
+		"both unnamed": unnamed,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := enumerateLoRAAdapters(spec)
+			if err == nil {
+				t.Fatal("expected an error")
+			}
+			var collision *loRAMountPathCollisionError
+			if !errors.As(err, &collision) {
+				t.Errorf("error is not a collision: %v", err)
+			}
+		})
+	}
+
+	// Other enumerate failures must not claim the collision reason.
+	_, err := enumerateLoRAAdapters(loRASpec(t, "a", "oci://registry/adapter"))
+	if err == nil {
+		t.Fatal("expected an error for oci://")
+	}
+	var collision *loRAMountPathCollisionError
+	if errors.As(err, &collision) {
+		t.Error("unsupported-scheme error must not be classified as a collision")
+	}
+}
+
+// The upgrade-safety property that matters is not "a lone adapter keeps its path" but
+// "a clean adapter keeps its path even when others in the same spec collide". Only the
+// colliding group may move.
+func TestEnumerateLoRAAdaptersCollisionDoesNotMoveBystanders(t *testing.T) {
+	t.Parallel()
+
+	adapters, err := enumerateLoRAAdapters(loRASpec(t,
+		"sql/v2", "pvc://adapters/one",
+		"sql-v2", "pvc://adapters/two",
+		"lonely", "pvc://adapters/three",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{
+		"lonely": "/mnt/lora/lonely",
+		"sql-v2": "/mnt/lora/sql-v2-" + utils.ShortHash("sql-v2"),
+		"sql/v2": "/mnt/lora/sql-v2-" + utils.ShortHash("sql/v2"),
+	}
+	if len(adapters) != len(want) {
+		t.Fatalf("got %d adapters, want %d", len(adapters), len(want))
+	}
+	for _, a := range adapters {
+		if a.mountPath != want[a.name] {
+			t.Errorf("adapter %q moved: got %q want %q", a.name, a.mountPath, want[a.name])
+		}
+	}
+}
+
+// Reordering spec.model.lora.adapters is a semantic no-op, so it must not move a mount.
+// The doc comment on loraMountSegments claims this; without a test nothing enforces it.
+func TestEnumerateLoRAAdaptersMountPathsAreOrderIndependent(t *testing.T) {
+	t.Parallel()
+
+	pairs := [][2]string{
+		{"sql/v2", "pvc://adapters/one"},
+		{"sql-v2", "pvc://adapters/two"},
+		{"lonely", "pvc://adapters/three"},
+	}
+	paths := func(order []int) map[string]string {
+		t.Helper()
+		flat := make([]string, 0, len(order)*2)
+		for _, i := range order {
+			flat = append(flat, pairs[i][0], pairs[i][1])
+		}
+		adapters, err := enumerateLoRAAdapters(loRASpec(t, flat...))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := make(map[string]string, len(adapters))
+		for _, a := range adapters {
+			got[a.name] = a.mountPath
+		}
+		return got
+	}
+
+	base := paths([]int{0, 1, 2})
+	for _, order := range [][]int{{2, 1, 0}, {1, 0, 2}, {0, 2, 1}, {2, 0, 1}, {1, 2, 0}} {
+		got := paths(order)
+		for name, path := range base {
+			if got[name] != path {
+				t.Errorf("order %v moved adapter %q: got %q want %q", order, name, got[name], path)
+			}
+		}
+	}
+}
+
+// An unsupported scheme is the more specific problem, so it must not be masked by a
+// collision that happens to share the spec - the event reason is chosen from the error.
+func TestEnumerateLoRAAdaptersSchemeErrorBeatsCollision(t *testing.T) {
+	t.Parallel()
+
+	_, err := enumerateLoRAAdapters(loRASpec(t,
+		"sql/v2", "pvc://adapters/one",
+		"sql-v2", "pvc://adapters/two",
+		"oci-adapter", "oci://registry/adapter",
+	))
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if !strings.Contains(err.Error(), "oci://") {
+		t.Errorf("got %q, want the unsupported scheme reported", err.Error())
+	}
+	var collision *loRAMountPathCollisionError
+	if errors.As(err, &collision) {
+		t.Error("scheme error must not carry the collision reason")
 	}
 }
