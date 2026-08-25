@@ -1,0 +1,39 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ServingRuntime
+metadata:
+  name: turing-runtime
+  namespace: default
+spec:
+  supportedModelFormats:
+    - name: turing-subspace
+      version: "1"
+      autoSelect: true
+    - name: huggingface
+      version: "1"
+      autoSelect: false
+  containers:
+    - name: kserve-container
+      image: ghcr.io/intutic/turing:v0.1.0-cuda
+      command: ["turing", "serve"]
+      args:
+        - "--model"
+        - "$(MODEL_NAME)"
+        - "--port"
+        - "8080"
+        - "--device"
+        - "cuda"
+      ports:
+        - containerPort: 8080
+          protocol: TCP
+      env:
+        - name: MODEL_NAME
+          value: "llama-3.1-70b"
+      resources:
+        limits:
+          nvidia.com/gpu: "1"
+          memory: "32Gi"
+          cpu: "8"
+        requests:
+          nvidia.com/gpu: "1"
+          memory: "24Gi"
+          cpu: "4"
