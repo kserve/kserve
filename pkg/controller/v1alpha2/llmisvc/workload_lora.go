@@ -47,10 +47,6 @@ const (
 // Replaces anything that is not alphanumeric, dash, underscore, or dot.
 var loraPathInvalidCharsRe = regexp.MustCompile(`[^a-zA-Z0-9._-]`)
 
-// loraVolumeNameInvalidCharsRe matches characters that are invalid in Kubernetes volume names
-// (which must be DNS labels: lowercase alphanumeric and hyphens only).
-var loraVolumeNameInvalidCharsRe = regexp.MustCompile(`[^a-z0-9-]`)
-
 // resolvedLoRAAdapter is one adapter after URI validation (hf/s3 downloads are handled in attachModelArtifacts).
 type resolvedLoRAAdapter struct {
 	name      string
@@ -153,7 +149,7 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 	for _, a := range adapters {
 		switch a.scheme {
 		case constants.PvcURIPrefix:
-			volName := kmeta.ChildName("lora-pvc-", a.name)
+			volName := utils.SafeObjectName(kmeta.ChildName("lora-pvc-", a.name))
 			if err := attachLoraPVCAdapter(a.uri, podSpec, containerName, a.mountPath, volName); err != nil {
 				return fmt.Errorf("LoRA adapter %q: %w", a.name, err)
 			}

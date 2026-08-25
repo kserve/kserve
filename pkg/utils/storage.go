@@ -232,10 +232,16 @@ func FindCommonParentPath(paths []string) string {
 	return "/" + strings.Join(commonComponents, "/")
 }
 
-// Helper function to generate volume name from path
+// GetVolumeNameFromPath generates a volume name from a mount path. Path
+// segments may carry characters that are valid in paths but not in volume
+// names (dots, uppercase), and distinct paths must not collapse into the same
+// name, so the joined segments go through SafeObjectName. Joining slashes here
+// rather than delegating to SafeObjectName is deliberate: it reproduces the
+// historical name, which SafeObjectName then keeps when valid, so existing
+// pods are not restarted by a rename. An empty path yields an empty name;
+// callers keep their own fallbacks.
 func GetVolumeNameFromPath(path string) string {
-	// Convert path to valid volume name (remove slashes, etc.)
-	return strings.ReplaceAll(strings.Trim(path, "/"), "/", "-")
+	return SafeObjectName(strings.ReplaceAll(strings.Trim(path, "/"), "/", "-"))
 }
 
 // AddDefaultHuggingFaceEnvVars adds default HuggingFace optimization environment variables
