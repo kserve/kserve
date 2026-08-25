@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -327,4 +328,117 @@ func TestBuildCachedPVCURI_MatchesLocalModelCacheHelper(t *testing.T) {
 	got := localmodelcache.BuildCachedPVCURI("hf://org/model", "cache-gpu1", "hf://org/model/extra")
 	assert.True(t, strings.HasPrefix(got, "pvc://cache-gpu1/models/"))
 	assert.True(t, strings.HasSuffix(got, "/extra"))
+}
+
+func loRASpec(t *testing.T, nameToURI ...string) v1alpha2.LLMInferenceServiceSpec {
+	t.Helper()
+	if len(nameToURI)%2 != 0 {
+		t.Fatal("loRASpec takes name/uri pairs")
+	}
+	base, err := apis.ParseURL("hf://org/base")
+	if err != nil {
+		t.Fatal(err)
+	}
+	adapters := make([]v1alpha2.LLMModelSpec, 0, len(nameToURI)/2)
+	for i := 0; i < len(nameToURI); i += 2 {
+		uri, err := apis.ParseURL(nameToURI[i+1])
+		if err != nil {
+			t.Fatal(err)
+		}
+		adapters = append(adapters, v1alpha2.LLMModelSpec{Name: ptr.To(nameToURI[i]), URI: *uri})
+	}
+	return v1alpha2.LLMInferenceServiceSpec{
+		Model: v1alpha2.LLMModelSpec{URI: *base, LoRA: &v1alpha2.LoRASpec{Adapters: adapters}},
+	}
+}
+
+// sanitizeLoRAPathSegment is lossy, so distinct adapter names can reduce to the
+// same segment. Admission does not catch this: the duplicate check in ValidateLoRA
+// compares raw names, not sanitized path segments.
+func TestEnumerateLoRAAdaptersDistinctMountPaths(t *testing.T) {
+	t.Parallel()
+
+	adapters, err := enumerateLoRAAdapters(loRASpec(t,
+		"sql/v2", "pvc://adapters/sql-slash-v2",
+		"sql-v2", "pvc://adapters/sql-dash-v2",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(adapters) != 2 {
+		t.Fatalf("got %d adapters, want 2", len(adapters))
+	}
+	if adapters[0].mountPath == adapters[1].mountPath {
+		t.Errorf("adapters %q and %q share mount path %q",
+			adapters[0].name, adapters[1].name, adapters[0].mountPath)
+	}
+}
+
+// Adapters whose sanitized name is already unique must keep the path they have
+// today, otherwise an upgrade moves the mount and restarts a healthy pod.
+func TestEnumerateLoRAAdaptersMountPathStableWithoutCollision(t *testing.T) {
+	t.Parallel()
+
+	adapters, err := enumerateLoRAAdapters(loRASpec(t, "sql/v2", "pvc://adapters/sql-v2"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := adapters[0].mountPath, "/mnt/lora/sql-v2"; got != want {
+		t.Errorf("got %q want %q", got, want)
+	}
+}
+
+// Colliding hf:// adapters share a storage-initializer target, so one silently
+// overwrites the other and both names serve whichever landed last.
+func TestEnumerateLoRAAdaptersDistinctDownloadTargets(t *testing.T) {
+	t.Parallel()
+
+	adapters, err := enumerateLoRAAdapters(loRASpec(t,
+		"sql/v2", "hf://org/sql-slash-v2",
+		"sql-v2", "hf://org/sql-dash-v2",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pairs := collectLoRADownloadPairs(adapters)
+	if len(pairs) != 2 {
+		t.Fatalf("got %d download pairs, want 2", len(pairs))
+	}
+	if pairs[0].path == pairs[1].path {
+		t.Errorf("%q and %q both download to %q", pairs[0].uri, pairs[1].uri, pairs[0].path)
+	}
+}
+
+// Two volume mounts on the same mountPath in one container are rejected by the API
+// server (volumeMounts[1].mountPath must be unique), so the workload never starts.
+func TestAttachLoRAAdaptersNoDuplicateMountPath(t *testing.T) {
+	t.Parallel()
+
+	spec := loRASpec(t,
+		"sql/v2", "pvc://adapters/sql-slash-v2",
+		"sql-v2", "pvc://adapters/sql-dash-v2",
+	)
+	adapters, err := enumerateLoRAAdapters(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec:       spec,
+	}
+	podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+
+	r := &LLMISVCReconciler{}
+	if err := r.attachLoRAAdapters(t.Context(), llmSvc, podSpec, adapters); err != nil {
+		t.Fatal(err)
+	}
+
+	seen := make(map[string]string, len(podSpec.Containers[0].VolumeMounts))
+	for _, m := range podSpec.Containers[0].VolumeMounts {
+		if prev, dup := seen[m.MountPath]; dup {
+			t.Errorf("volumes %q and %q both mount at %q", prev, m.Name, m.MountPath)
+		}
+		seen[m.MountPath] = m.Name
+	}
 }
