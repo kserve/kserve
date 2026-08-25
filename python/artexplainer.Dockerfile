@@ -46,6 +46,7 @@ RUN if [ "$(uname -m)" = "ppc64le" ]; then \
             -e '/^kserve-storage\s*=.*/a pyyaml = { index = "ppc64le-wheels" }' \
             -e '/^kserve-storage\s*=.*/a httptools = { index = "ppc64le-wheels" }' \
             -e '/^kserve-storage\s*=.*/a uvloop = { index = "ppc64le-wheels" }' \
+            -e '/^kserve-storage\s*=.*/a pillow = { index = "ppc64le-wheels" }' \
             kserve/pyproject.toml && \
         cd kserve && uv lock && \
         cp uv.lock /tmp/kserve_ppc64le_uv.lock && \
