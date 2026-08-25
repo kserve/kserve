@@ -37,7 +37,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
-	kservetls "github.com/kserve/kserve/pkg/tls"
 	localmodelwebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
 	localmodelnamespacecachewebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelnamespacecache"
 )
@@ -105,7 +104,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	tlsResult, err := kservetls.Resolve(context.Background(), cfg, options.tlsMinVersion, options.tlsCipherSuites)
+	tlsOpts, err := resolveTLS(context.Background(), options.tlsMinVersion, options.tlsCipherSuites)
 	if err != nil {
 		setupLog.Error(err, "unable to resolve TLS configuration")
 		os.Exit(1)
@@ -116,11 +115,11 @@ func main() {
 	mgr, err := manager.New(cfg, manager.Options{
 		Metrics: metricsserver.Options{
 			BindAddress: options.metricsAddr,
-			TLSOpts:     tlsResult,
+			TLSOpts:     tlsOpts,
 		},
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port:    options.webhookPort,
-			TLSOpts: tlsResult,
+			TLSOpts: tlsOpts,
 		}),
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,
@@ -194,7 +193,11 @@ func main() {
 
 	// Start the Cmd
 	setupLog.Info("Starting the Cmd.")
-	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
+	startCtx, err := setupDistroStartup(signals.SetupSignalHandler(), mgr)
+	if err != nil {
+		setupLog.Error(err, "Failed to set up distro startup; profile changes will not trigger a restart")
+	}
+	if err := mgr.Start(startCtx); err != nil {
 		setupLog.Error(err, "unable to run the manager")
 		os.Exit(1)
 	}

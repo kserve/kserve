@@ -17,7 +17,6 @@ limitations under the License.
 package tls
 
 import (
-	"context"
 	"crypto/tls"
 	"strings"
 	"testing"
@@ -156,7 +155,7 @@ func TestResolve(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := Resolve(context.Background(), nil, tt.minVersion, tt.cipherSuites)
+			result, err := Resolve(tt.minVersion, tt.cipherSuites)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatalf("Resolve() expected error containing %q, got nil", tt.errContains)
