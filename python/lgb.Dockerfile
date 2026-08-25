@@ -47,6 +47,7 @@ RUN if [ "$(uname -m)" = "ppc64le" ]; then \
             -e '/^kserve-storage\s*=.*/a httptools = { index = "ppc64le-wheels" }' \
             -e '/^kserve-storage\s*=.*/a uvloop = { index = "ppc64le-wheels" }' \
             -e '/^kserve-storage\s*=.*/a scikit-learn = { index = "ppc64le-wheels" }' \
+            -e '/^kserve-storage\s*=.*/a pillow = { index = "ppc64le-wheels" }' \
             kserve/pyproject.toml && \
         cd kserve && uv lock && \
         cp uv.lock /tmp/kserve_ppc64le_uv.lock && \
@@ -140,6 +141,7 @@ RUN if [ "$(uname -m)" = "ppc64le" ]; then \
             'lightgbm = { index = "ppc64le-wheels" }' \
             'google-crc32c = { index = "ppc64le-wheels" }' \
             'hf-xet = { index = "ppc64le-wheels" }' \
+            'pillow = { index = "ppc64le-wheels" }' \
             >> lgbserver/pyproject.toml && \
         cd lgbserver && uv lock && \
         cp uv.lock /tmp/lgbserver_ppc64le_uv.lock && \
