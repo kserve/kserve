@@ -226,8 +226,8 @@ func setLoRALocalModelMetadata(
 		}
 		adapterURI := adapter.URI.String()
 		if match := localmodelcache.MatchCacheForURI(adapterURI, nodeGroup, nodeGroupExists, models, nsModels); match != nil {
-			// Persist only cache identity; reconcile-time Get derives sourceUri/PVC.
-			entries[*adapter.Name] = localmodelcache.AnnotationRef(*match)
+			// json:"-" omits sourceUri/PVC from the annotation; reconcile-time Get derives them.
+			entries[*adapter.Name] = *match
 			defaulterLogger.Info("LocalModelCache found for LoRA adapter", "adapter", *adapter.Name,
 				"cache", match.Cache, "llmSvc", llmSvc.Name)
 		}

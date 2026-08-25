@@ -140,14 +140,6 @@ func ParseLoRACacheAnnotation(raw string) (map[string]CacheEntry, error) {
 	return entries, nil
 }
 
-// AnnotationRef returns a CacheEntry with only the fields stored in the LoRA annotation.
-func AnnotationRef(entry CacheEntry) CacheEntry {
-	return CacheEntry{
-		Cache:     entry.Cache,
-		Namespace: entry.Namespace,
-	}
-}
-
 func loRACacheAnnotationRaw(annotations map[string]string) string {
 	if annotations == nil {
 		return ""

@@ -95,16 +95,6 @@ func TestMarshalParseLoRACacheAnnotation(t *testing.T) {
 	assert.Empty(t, entries["adapter-a"].PVCName)
 }
 
-func TestAnnotationRef(t *testing.T) {
-	got := AnnotationRef(CacheEntry{
-		Cache:     "c",
-		Namespace: "ns",
-		SourceURI: "hf://x",
-		PVCName:   "c-gpu1",
-	})
-	assert.Equal(t, CacheEntry{Cache: "c", Namespace: "ns"}, got)
-}
-
 func TestBuildCachedPVCURI(t *testing.T) {
 	sourceURI := "hf://org/model"
 	pvcName := "my-cache-gpu1"
