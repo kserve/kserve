@@ -1,0 +1,17 @@
+name: 'Base Download Actions'
+description: 'A wrapper around download docker artifact to download a set of base images'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Download base artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: ./tmp
+        pattern: ${{ env.BASE_ARTIFACT_PREFIX }}-*
+        merge-multiple: true
+
+    - name: Load base images
+      uses: ./.github/actions/load-docker-images
+      with:
+        directory: ./tmp

@@ -1,0 +1,80 @@
+{
+	"components": {
+		"requestBodies": {
+			"modelInput": {
+				"content": {
+					"application/json": {
+						"schema": {
+							"additionalProperties": false,
+							"properties": {
+								"inputs": {
+									"items": {
+										"items": {
+											"type": "number"
+										},
+										"maxItems": 3,
+										"minItems": 3,
+										"type": "array"
+									},
+									"maxItems": 3,
+									"minItems": 3,
+									"type": "array"
+								}
+							},
+							"required": ["inputs"],
+							"type": "object"
+						}
+					}
+				}
+			}
+		},
+		"responses": {
+			"modelOutput": {
+				"content": {
+					"application/json": {
+						"schema": {
+							"additionalProperties": false,
+							"properties": {
+								"outputs": {
+									"items": {
+										"items": {
+											"type": "number"
+										},
+										"maxItems": 3,
+										"minItems": 3,
+										"type": "array"
+									},
+									"maxItems": 3,
+									"minItems": 3,
+									"type": "array"
+								}
+							},
+							"required": ["outputs"],
+							"type": "object"
+						}
+					}
+				},
+				"description": "Model output"
+			}
+		}
+	},
+	"info": {
+		"title": "TFServing Predict Request API",
+		"version": "1.0"
+	},
+	"openapi": "3.0.0",
+	"paths": {
+		"/v1/models/model/versions/1:predict": {
+			"post": {
+				"requestBody": {
+					"$ref": "#/components/requestBodies/modelInput"
+				},
+				"responses": {
+					"200": {
+						"$ref": "#/components/responses/modelOutput"
+					}
+				}
+			}
+		}
+	}
+}

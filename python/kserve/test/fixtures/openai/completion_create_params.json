@@ -1,0 +1,6 @@
+{
+  "model": "gpt-3.5-turbo",
+  "prompt": "What is AI?",
+  "max_tokens": 7,
+  "logprobs": 1
+}

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: model-store-pod
+spec:
+  volumes:
+    - name: model-store
+      persistentVolumeClaim:
+        claimName: model-pv-claim
+  containers:
+    - name: model-store
+      image: ubuntu
+      command: [ "sleep" ]
+      args: [ "infinity" ]
+      volumeMounts:
+        - mountPath: "/pv"
+          name: model-store
+      resources:
+        limits:
+          memory: "4Gi"
+          cpu: "2"

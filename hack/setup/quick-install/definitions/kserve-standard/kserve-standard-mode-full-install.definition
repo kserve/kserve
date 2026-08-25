@@ -1,0 +1,20 @@
+DESCRIPTION: Install KServe Standard Mode/LLMISvc dependencies using helm
+RELEASE: true
+
+TOOLS:
+  - helm
+  - kustomize
+  - yq
+  
+INCLUDE_DEFINITIONS:
+  - ./kserve-standard-mode-dependency-install.definition
+    
+COMPONENTS:
+  - name: kserve-helm
+    env:
+      DEPLOYMENT_MODE: Standard
+      ENABLE_LLMISVC: false
+      ENABLE_KSERVE: true
+      INSTALL_RUNTIMES: true
+      INSTALL_LLMISVC_CONFIGS: false
+

@@ -1,0 +1,45 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-torchserve
+  annotations:
+    serving.kserve.io/server-type: torchserve
+spec:
+  annotations:
+    prometheus.kserve.io/port: "8082"
+    prometheus.kserve.io/path: "/metrics"
+  supportedModelFormats:
+    - name: pytorch
+      version: "1"
+      autoSelect: true
+      priority: 2
+  protocolVersions:
+    - v1
+    - v2
+    - grpc-v2
+  containers:
+    - name: kserve-container
+      image: kserve-torchserve:replace
+      args:
+        - torchserve
+        - --start
+        - --model-store=/mnt/models/model-store
+        - --ts-config=/mnt/models/config/config.properties
+      env:
+        - name: "TS_SERVICE_ENVELOPE"
+          value: "{{.Labels.serviceEnvelope}}"
+      securityContext:
+        runAsUser: 1000    # User ID is not defined in the Dockerfile, so we need to set it here to run as non-root
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi

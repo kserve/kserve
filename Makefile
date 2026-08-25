@@ -1,0 +1,697 @@
+# The Go and Python based tools are defined in Makefile.tools.mk.
+include Makefile.tools.mk
+
+# Load dependency versions
+include kserve-deps.env
+
+# Load image configurations
+include kserve-images.env
+
+CURRENT_YEAR := $(shell date +%Y)
+
+# Base Image URL
+BASE_IMG ?= python:3.11-slim-bookworm
+PMML_BASE_IMG ?= eclipse-temurin:21-jdk-noble
+
+CRD_OPTIONS ?= "crd:maxDescLen=0"
+KSERVE_ENABLE_SELF_SIGNED_CA ?= false
+
+ENVTEST ?= $(LOCALBIN)/setup-envtest
+# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller-runtime | awk -F'[v.]' '{printf "release-%d.%d", $$2, $$3}')
+ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ if .Replace }}{{ .Replace.Version }}{{ else }}{{ .Version }}{{ end }}" k8s.io/api | awk -F'[v.]' '{printf "1.%d", $$3}')
+
+ENGINE ?= docker
+# Empty string for local build when using podman, it allows to build different architectures
+# to use do: ENGINE=podman ARCH="--arch x86_64" make docker-build-something
+ARCH ?=
+
+# CPU/Memory limits for controller-manager
+KSERVE_CONTROLLER_CPU_LIMIT ?= 100m
+KSERVE_CONTROLLER_MEMORY_LIMIT ?= 300Mi
+$(shell perl -pi -e 's/cpu:.*/cpu: $(KSERVE_CONTROLLER_CPU_LIMIT)/' config/default/manager_resources_patch.yaml)
+$(shell perl -pi -e 's/memory:.*/memory: $(KSERVE_CONTROLLER_MEMORY_LIMIT)/' config/default/manager_resources_patch.yaml)
+
+# Force the Go toolchain defined in go.mod.
+# When GOTOOLCHAIN=auto, the Go command may download a minimal toolchain to the
+# module cache that is missing tools such as covdata, which breaks
+# "go test -cover" (see https://go.dev/issue/75031).
+# Setting GOTOOLCHAIN to the exact version from go.mod makes Go use a
+# fully-installed toolchain instead.
+GOTOOLCHAIN ?= auto
+ifeq (auto,$(GOTOOLCHAIN))
+ifeq (,$(FORCE_HOST_GO))
+export GOTOOLCHAIN := $(or $(shell grep '^toolchain go' go.mod | cut -d' ' -f2),go$(shell grep '^go ' go.mod | head -1 | cut -d' ' -f2))
+else
+export GOTOOLCHAIN := local
+endif
+endif
+
+export GOFLAGS=-mod=mod
+
+# Go build tags (e.g. "distro" for distribution-specific code).
+# Passed to Docker image builds via --build-arg and to all go commands via GOFLAGS.
+GOTAGS ?=
+ifdef GOTAGS
+export GOFLAGS += -tags=$(GOTAGS)
+endif
+
+all: test manager agent router
+
+.PHONY: setup-envtest
+setup-envtest: envtest
+	@echo "Setting up envtest binaries for Kubernetes version $(ENVTEST_K8S_VERSION)..."
+	@$(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path || { \
+		echo "Error: Failed to set up envtest binaries for version $(ENVTEST_K8S_VERSION)."; \
+		exit 1; \
+		}
+
+# Run go fmt against code
+fmt:
+	go fmt ./pkg/... ./cmd/... && cd qpext && go fmt ./...
+
+py-fmt: $(RUFF)
+	$(RUFF) format --config ruff.toml ./python ./docs ./test ./hack
+
+# Run go vet against code
+vet:
+	go vet ./pkg/... ./cmd/... && cd qpext && go vet ./...
+
+tidy:
+	go mod tidy
+	cd qpext && go mod tidy
+
+.PHONY: sync-deps
+sync-deps:
+	@@python3 hack/setup/scripts/generate-versions-from-gomod.py --no-cache
+
+.PHONY: sync-img-env
+sync-img-env:
+	@python3 hack/setup/scripts/generate-images-sh.py
+
+go-lint: golangci-lint
+	@echo "Go-linting ."
+	@$(GOLANGCI_LINT) run --fix
+	@echo "Go-linting qpext/"
+	@cd qpext && $(GOLANGCI_LINT) run --fix
+
+py-lint: $(RUFF)
+	$(RUFF) check --config ruff.toml
+
+# Verify e2e test files parse and collect without errors (catches import errors, syntax errors, fixture issues).
+e2e-collect: $(PYTEST)
+	$(UV) pip install --python $(PYTHON_BIN)/python -e ./python/kserve -q
+	$(UV) pip install --python $(PYTHON_BIN)/python --group test --directory ./python/kserve -q
+	$(PYTEST) --collect-only test/e2e/ -q
+
+pin-actions: pinact
+	GITHUB_TOKEN=$$(gh auth token 2>/dev/null) $(PINACT) run .github/workflows/*.yml .github/workflows/*.yaml
+
+# Verify that all GitHub Actions are pinned to a full-length commit SHA (offline check, no API calls).
+verify-pinned-actions:
+	@if grep -rPn 'uses:\s+\S+@(?!([0-9a-f]{40}))' .github/workflows/*.yml .github/workflows/*.yaml 2>/dev/null; then \
+		echo "ERROR: Found GitHub Actions not pinned to a full SHA. Run 'make pin-actions' to fix."; \
+		exit 1; \
+	fi
+
+validate-infra-scripts:
+	@python3 hack/setup/scripts/validate-install-scripts.py
+
+generate-quick-install-scripts: validate-infra-scripts $(PYTHON_VENV)
+	@$(PYTHON_BIN)/pip install -q -r hack/setup/scripts/install-script-generator/requirements.txt
+	@$(PYTHON_BIN)/python hack/setup/scripts/install-script-generator/generator.py
+
+generate-chart-manifests:
+	@bash hack/setup/scripts/generate_chart_manifests.sh
+	make lint-helm-charts
+	make verify-helm-helpers-consistency
+
+lint-helm-charts:
+	@bash hack/setup/scripts/lint-helm.sh
+
+verify-helm-helpers-consistency:
+	@bash hack/setup/scripts/verify-helm-helpers.sh
+
+verify-minimal-crd-sync:
+	@bash hack/verify-minimal-crd-sync.sh
+
+# Generate manifests e.g. CRD, RBAC etc.
+manifests: controller-gen kustomize yq
+	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full	
+	@$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths={./pkg/controller/v1alpha1/inferencegraph,./pkg/controller/v1alpha1/trainedmodel,./pkg/controller/v1beta1/inferenceservice} output:rbac:artifacts:config=config/rbac
+	@$(CONTROLLER_GEN) rbac:roleName=kserve-llmisvc-manager-role paths=./pkg/controller/v1alpha2/llmisvc output:rbac:artifacts:config=config/rbac/llmisvc
+	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
+	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodelnode-agent-role paths=./pkg/controller/v1alpha1/localmodelnode output:rbac:artifacts:config=config/rbac/localmodelnode
+	# Hook for distro-specific manifest generation (override via Makefile.overrides.mk).
+	@$(MAKE) manifests-distro
+
+	# DO NOT COPY to helm chart. It needs to be created before the Envoy Gateway or you will need to restart the Envoy Gateway controller.
+	# The llmisvc helm chart needs to be installed after the Envoy Gateway as well, so it needs to be created before the llmisvc helm chart.
+	# Pull upstream GIE v1 CRDs (InferencePool, etc.) from release artifact
+	curl -sL https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/$(GIE_VERSION)/v1-manifests.yaml > config/llmisvc/gateway-inference-extension.yaml
+	# Append llm-d.ai CRDs (InferenceObjective, InferenceModelRewrite) from llm-d-router release
+	@echo "---" >> config/llmisvc/gateway-inference-extension.yaml
+	curl -sL https://github.com/llm-d/llm-d-router/releases/download/$(LLMD_ROUTER_VERSION)/manifests.yaml >> config/llmisvc/gateway-inference-extension.yaml
+	# Workaround to update main-dev version from llm-d-router release as annotation
+	sed -i 's|llm-d.ai/bundle-version: main-dev|llm-d.ai/bundle-version: $(LLMD_ROUTER_VERSION)|' config/llmisvc/gateway-inference-extension.yaml
+	cp config/llmisvc/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
+	cat test/crds/gateway-inference-extension-v1alpha2pool.yaml >> config/llmisvc/gateway-inference-extension.yaml
+	cat test/crds/gateway-inference-extension-v1alpha2pool.yaml >> test/crds/gateway-inference-extension.yaml
+
+	# Move StorageContainer CRD to storagecontainer folder
+	mv config/crd/full/serving.kserve.io_clusterstoragecontainers.yaml config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml
+	
+	# Move LLMISVC CRD to llmisvc folder	                   
+	mv config/crd/full/serving.kserve.io_llminferenceservices.yaml config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	mv config/crd/full/serving.kserve.io_llminferenceserviceconfigs.yaml config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	
+	# Move LocalModel CRD to localmodel folder
+	mv config/crd/full/serving.kserve.io_localmodelcaches.yaml config/crd/full/localmodel/serving.kserve.io_localmodelcaches.yaml
+	mv config/crd/full/serving.kserve.io_localmodelnamespacecaches.yaml config/crd/full/localmodel/serving.kserve.io_localmodelnamespacecaches.yaml
+	mv config/crd/full/serving.kserve.io_localmodelnodegroups.yaml config/crd/full/localmodel/serving.kserve.io_localmodelnodegroups.yaml
+	mv config/crd/full/serving.kserve.io_localmodelnodes.yaml config/crd/full/localmodel/serving.kserve.io_localmodelnodes.yaml
+		
+	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year=$(CURRENT_YEAR) paths=./pkg/apis/serving/v1alpha1
+	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year=$(CURRENT_YEAR) paths=./pkg/apis/serving/v1alpha2
+	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year=$(CURRENT_YEAR) paths=./pkg/apis/serving/v1beta1
+
+	# Strip schema validation from embedded external types in LLMInferenceServiceConfig.
+	# These subtrees contain Go template expressions (e.g. {{ .GlobalConfig.ModelBasedRoutingHeaderName }})
+	# that fail upstream schema validation at apply time. Recursive descent per subtree survives
+	# schema restructuring across Gateway API / GIE / core API version bumps.
+	@for ver in 0 1; do \
+		base=".spec.versions[$$ver].schema.openAPIV3Schema.properties.spec.properties"; \
+		for path in \
+			"$$base.router.properties.route.properties.http.properties.spec" \
+			"$$base.router.properties.scheduler.properties.pool.properties.spec" \
+			"$$base.template" \
+			"$$base.worker" \
+			"$$base.prefill.properties.template" \
+			"$$base.prefill.properties.worker" \
+			"$$base.router.properties.scheduler.properties.template" \
+			"$$base.router.properties.scheduler.properties.tokenizer.properties.template"; \
+		do \
+			for field in pattern x-kubernetes-validations minLength minItems minProperties; do \
+				$(YQ) "($$path | .. | select(has(\"$$field\"))) |= del(.$$field)" -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml; \
+			done; \
+		done; \
+	done
+	# Remove validation for the LLMInferenceServiceConfig API so that we can override only specific values (both versions).
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
+	# Remove validation for the LLMInferenceService API so that we can override only specific values (both versions).
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+
+	#remove the required property on framework as name field needs to be optional
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	#remove ephemeralContainers properties for compress crd size https://github.com/kubeflow/kfserving/pull/1141#issuecomment-714170602
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.ephemeralContainers)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	#knative does not allow setting port on liveness or readiness probe
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.tcpSocket.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	#With v1 and newer kubernetes protocol requires default
+	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_inferenceservices.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_clusterservingruntimes.yaml
+	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_servingruntimes.yaml
+	
+	# Copy kserve crd (with conversion webhook patches applied via kustomize)
+	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "inferenceservices.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_inferenceservices.yaml
+	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "trainedmodels.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_trainedmodels.yaml
+	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "clusterservingruntimes.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_clusterservingruntimes.yaml
+	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "servingruntimes.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_servingruntimes.yaml
+	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "inferencegraphs.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_inferencegraphs.yaml
+	cp config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/files/
+	cp config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-llmisvc-crd/files/
+	cp -f config/crd/full/localmodel/*.yaml charts/kserve-localmodel-crd/templates/
+	rm charts/kserve-localmodel-crd/templates/kustomization.yaml
+	
+	# Copy llmisvc crd (with conversion webhook patches applied via kustomize)
+	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceservices.yaml
+	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
+	
+	# Copy the full crd to the test folder
+	$(KUSTOMIZE) build config/crd/full > test/crds/serving.kserve.io_all_crds.yaml
+	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
+	$(KUSTOMIZE) build config/crd/full/clusterstoragecontainer >> test/crds/serving.kserve.io_all_crds.yaml
+	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
+	$(KUSTOMIZE) build config/crd/full/llmisvc >> test/crds/serving.kserve.io_all_crds.yaml
+	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
+	$(KUSTOMIZE) build config/crd/full/localmodel >> test/crds/serving.kserve.io_all_crds.yaml
+	
+	# Generate minimal crd
+	./hack/minimal-crdgen.sh
+	
+	# Copy kserve minimal crd (with conversion webhook patches applied via kustomize)
+	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "inferenceservices.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_inferenceservices.yaml
+	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "trainedmodels.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_trainedmodels.yaml
+	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "clusterservingruntimes.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_clusterservingruntimes.yaml
+	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "servingruntimes.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_servingruntimes.yaml
+	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "inferencegraphs.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_inferencegraphs.yaml
+	cp -f config/crd/minimal/localmodel/*.yaml charts/kserve-localmodel-crd-minimal/templates/
+	cp -f config/crd/minimal/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd-minimal/files/
+	cp -f config/crd/minimal/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-llmisvc-crd-minimal/files/
+	rm charts/kserve-localmodel-crd-minimal/templates/kustomization.yaml
+
+	# Copy minimal llmisvc crd (with conversion webhook patches applied via kustomize)
+	$(KUSTOMIZE) build config/crd/minimal/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd-minimal/templates/serving.kserve.io_llminferenceservices.yaml
+	$(KUSTOMIZE) build config/crd/minimal/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd-minimal/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
+	
+    # Copy Test inferenceconfig configmap to test overlay
+	cp config/configmap/inferenceservice.yaml config/overlays/test/configmap/inferenceservice.yaml
+
+# Generate code
+generate: controller-gen helm-docs
+	@# Preserve existing copyright years across regeneration.
+	@grep -rn 'Copyright [0-9]\{4\} The KServe Authors' --include='*.go' --include='*.py' \
+		pkg/ cmd/ python/ 2>/dev/null | \
+		sed -n 's/^\(.*\):[0-9]*:.*Copyright \([0-9]\{4\}\).*/\1\t\2/p' | \
+		sort -u > /tmp/copyright_years_cache
+	hack/update-codegen.sh
+	hack/update-openapigen.sh
+	hack/python-sdk/client-gen.sh
+	@while read -r line; do \
+		f=$$(echo "$$line" | cut -f1); year=$$(echo "$$line" | cut -f2); \
+		if [ -f "$$f" ]; then sed -i "s/Copyright [0-9]\{4\} The KServe Authors/Copyright $$year The KServe Authors/" "$$f"; fi; \
+	done < /tmp/copyright_years_cache
+	@rm -f /tmp/copyright_years_cache
+	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
+
+# Update uv.lock files
+uv-lock: $(UV)
+# Update the kserve package first as other packages depends on it.
+	cd ./python && \
+	cd kserve && $(UV) lock && cd .. && \
+	for file in $$(find . -type f -name "pyproject.toml" -not -path "./pyproject.toml" -not -path "*.venv/*"); do \
+		folder=$$(dirname "$$file"); \
+		echo "moving into folder $$folder"; \
+		case "$$folder" in \
+			*plugin*|plugin|kserve) \
+				echo -e "\033[33mSkipping folder $$folder\033[0m" ;; \
+			*) \
+				cd "$$folder" && $(UV) lock && cd - > /dev/null ;; \
+		esac; \
+	done
+
+.PHONY: ensure-go-version-upgrade ensure-golangci-go-version
+ensure-go-version-upgrade: ensure-golangci-go-version
+
+ensure-golangci-go-version: yq	
+	@GO_GOMOD_VERSION="$$(grep -m1 '^go ' go.mod | cut -d' ' -f2 | cut -d. -f1-2)"; \
+	GO_GOLANGCI_VERSION="$$($(YQ) -r '.run.go // ""' .golangci.yml | cut -d. -f1-2)"; \
+	if [ -z "$${GO_GOLANGCI_VERSION}" ]; then \
+		echo "INFO: '.golangci.yml:run.go' is not set; defaulting to $$GO_GOMOD_VERSION."; \
+		GO_GOLANGCI_VERSION="$${GO_GOMOD_VERSION}"; \
+	fi; \
+	if [ "$${GO_GOMOD_VERSION}" != "$${GO_GOLANGCI_VERSION}" ]; then \
+		echo "ERROR: go.mod uses Go $$GO_GOMOD_VERSION but .golangci.yml uses $$GO_GOLANGCI_VERSION"; \
+		echo "Please update '.golangci.yml:run.go' to $$GO_GOMOD_VERSION (major.minor) and rerun 'make precommit'."; \
+		exit 1; \
+	fi
+# Sync common helpers to all charts (must run before helm package)
+sync-helm-common-helpers:
+	@echo "Syncing common helpers to all charts..."
+	@for chart in kserve-resources kserve-llmisvc-resources kserve-localmodel-resources kserve-runtime-configs; do \
+		cp charts/_common/_utils.tpl charts/$$chart/templates/_utils.tpl; \
+		echo "  ✓ Copied to charts/$$chart/templates/_utils.tpl"; \
+	done
+
+# Sync common resource helpers to charts that need them (must run before helm package)
+sync-helm-common-resource-helpers:
+	@echo "Syncing common resource helpers to charts..."
+	@for chart in kserve-resources kserve-llmisvc-resources; do \
+		cp charts/_common/_common.tpl charts/$$chart/templates/_common.tpl; \
+		echo "  ✓ Copied to charts/$$chart/templates/_common.tpl"; \
+	done
+
+# Sync multi-resource helpers to charts that need them (must run before helm package)
+sync-helm-multi-resource-helpers:
+	@echo "Syncing multi-resource helpers to charts..."
+	@for chart in kserve-resources kserve-llmisvc-resources kserve-localmodel-resources; do \
+		cp charts/_common/_resources.tpl charts/$$chart/templates/_resources.tpl; \
+		echo "  ✓ Copied to charts/$$chart/templates/_resources.tpl"; \
+	done
+
+boilerplate:
+	hack/boilerplate.sh
+
+# This runs all necessary steps to prepare for a commit.
+precommit: ensure-go-version-upgrade sync-deps sync-img-env vet go-lint py-fmt py-lint e2e-collect generate tidy manifests uv-lock generate-quick-install-scripts generate-chart-manifests sync-helm-common-helpers sync-helm-common-resource-helpers sync-helm-multi-resource-helpers verify-pinned-actions verify-minimal-crd-sync boilerplate
+
+# This is used by CI to ensure that the precommit checks are met.
+check: precommit
+	@if [ ! -z "`git status -s`" ]; then \
+		echo "The following differences will fail CI until committed:"; \
+		git diff --exit-code; \
+		echo "Please ensure that you have run 'make precommit' and committed the changes."; \
+		exit 1; \
+	fi
+
+# This clears all the installed binaries.
+#
+# Whenever you run into issues with the target like `precommit` or `test`, try running this target.
+.PHONY: clean
+clean:
+	rm -rf $(LOCALBIN)
+
+# Run tests
+# Override TEST_PKGS to focus on specific packages, e.g.:
+#   make test TEST_PKGS="./pkg/controller/v1alpha2/llmisvc/..."
+TEST_PKGS ?= $$(go list ./pkg/...) ./cmd/...
+TEST_TIMEOUT ?= 30m
+test: fmt vet manifests envtest test-qpext
+	KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test --timeout $(TEST_TIMEOUT) $(TEST_PKGS) -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
+
+test-qpext:
+	cd qpext && go test -v ./... -cover
+
+# Build manager binary
+manager: generate fmt vet go-lint
+	go build -o bin/manager ./cmd/manager
+
+# Build agent binary
+agent: fmt vet
+	go build -o bin/agent ./cmd/agent
+
+# Build router binary
+router: fmt vet
+	go build -o bin/router ./cmd/router
+
+# Run against the configured Kubernetes cluster in ~/.kube/config
+run: generate fmt vet go-lint
+	go run ./cmd/manager/main.go
+
+# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+deploy: manifests
+	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
+	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
+	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
+	kubectl apply --server-side=true --force-conflicts -k config/crd/full
+	kubectl apply --server-side=true --force-conflicts -k config/crd/full/localmodel
+	kubectl apply --server-side=true --force-conflicts -k config/crd/full/llmisvc
+	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
+	# Remove the certmanager certificate if KSERVE_ENABLE_SELF_SIGNED_CA is not false
+	cd config/default && if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
+	echo > ../certmanager/certificate.yaml; \
+	echo > ../certmanager/llmisvc/certificate.yaml; \
+	else git checkout HEAD -- ../certmanager/certificate.yaml ../certmanager/llmisvc/certificate.yaml; fi;
+	kubectl apply --server-side=true -k config/default
+	if [ ${KSERVE_ENABLE_SELF_SIGNED_CA} != false ]; then \
+		./hack/self-signed-ca.sh; \
+		./hack/self-signed-ca.sh --service llmisvc-webhook-server-service \
+			--secret llmisvc-webhook-server-cert \
+			--webhookDeployment llmisvc-controller-manager \
+			--validatingWebhookName llminferenceservice.serving.kserve.io \
+			--validatingWebhookName llminferenceserviceconfig.serving.kserve.io; \
+	fi;
+	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+	kubectl wait --for=condition=ready pod -l control-plane=llmisvc-controller-manager -n kserve --timeout=300s
+	kubectl apply  --server-side=true  -k config/clusterresources
+	git checkout HEAD -- config/certmanager/certificate.yaml config/certmanager/llmisvc/certificate.yaml
+
+
+deploy-dev: manifests
+	kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/${GATEWAY_API_VERSION}/standard-install.yaml
+	# Given that llmisvc CRs and CRDs are packaged together, when using kustomize build a race condition will occur.
+	# This is because before the CRD is registered to the api server, kustomize will attempt to create the CR.
+	# The below kubectl apply and kubectl wait commands are necessary to avoid this race condition.
+	kubectl apply --server-side=true --force-conflicts -k config/crd/full
+	kubectl apply --server-side=true --force-conflicts -k config/crd/full/localmodel
+	kubectl apply --server-side=true --force-conflicts -k config/crd/full/llmisvc
+	kubectl wait --for=condition=established --timeout=60s crd/llminferenceserviceconfigs.serving.kserve.io
+	./hack/image_patch_dev.sh development
+	
+	@echo "Deploy KServe,LocalModel and LLMInferenceService"
+	hack/setup/infra/manage.cert-manager-helm.sh
+	hack/setup/infra/manage.lws-operator.sh
+	hack/setup/infra/gateway-api/manage.gateway-api-extension-crd.sh
+	hack/setup/infra/manage.envoy-gateway-helm.sh
+	hack/setup/infra/manage.envoy-ai-gateway-helm.sh
+	hack/setup/infra/gateway-api/manage.gateway-api-gwclass.sh
+	hack/setup/infra/gateway-api/manage.gateway-api-gw.sh
+	KSERVE_OVERLAY_DIR=development hack/setup/infra/manage.kserve-kustomize.sh
+	
+	@echo "Create ClusterServingRuntimes as part of default deployment"
+	kubectl wait --for=condition=ready pod -l control-plane=kserve-controller-manager -n kserve --timeout=300s
+	kubectl wait --for=condition=ready pod -l control-plane=llmisvc-controller-manager -n kserve --timeout=300s
+	kubectl apply --server-side=true --force-conflicts -k config/clusterresources
+
+# Quick redeploy after code changes (rebuild images and update deployments)
+redeploy-dev-image:
+	./hack/image_patch_dev.sh development
+	kubectl apply --server-side=true --force-conflicts -k config/overlays/development
+	
+	kubectl rollout restart deployment/kserve-controller-manager -n kserve
+	kubectl rollout status deployment/kserve-controller-manager -n kserve --timeout=300s
+	
+	kubectl rollout restart deployment/llmisvc-controller-manager -n kserve
+	kubectl rollout status deployment/llmisvc-controller-manager -n kserve --timeout=300s
+	
+	@echo "Deployments updated successfully"
+	kubectl get pods -n kserve
+
+deploy-dev-sklearn: docker-push-sklearn
+	./hack/serving_runtime_image_patch.sh "kserve-sklearnserver.yaml" "${KO_DOCKER_REPO}/${SKLEARN_IMG}"
+
+deploy-dev-xgb: docker-push-xgb
+	./hack/serving_runtime_image_patch.sh "kserve-xgbserver.yaml" "${KO_DOCKER_REPO}/${XGB_IMG}"
+
+deploy-dev-lgb: docker-push-lgb
+	./hack/serving_runtime_image_patch.sh "kserve-lgbserver.yaml" "${KO_DOCKER_REPO}/${LGB_IMG}"
+
+deploy-dev-pmml : docker-push-pmml
+	./hack/serving_runtime_image_patch.sh "kserve-pmmlserver.yaml" "${KO_DOCKER_REPO}/${PMML_IMG}"
+
+deploy-dev-paddle: docker-push-paddle
+	./hack/serving_runtime_image_patch.sh "kserve-paddleserver.yaml" "${KO_DOCKER_REPO}/${PADDLE_IMG}"
+
+deploy-dev-predictive: docker-push-predictive
+	./hack/serving_runtime_image_patch.sh "kserve-predictiveserver.yaml" "${KO_DOCKER_REPO}/${PREDICTIVE_IMG}"
+
+deploy-dev-huggingface: docker-push-huggingface
+	./hack/serving_runtime_image_patch.sh "kserve-huggingfaceserver.yaml" "${KO_DOCKER_REPO}/${HUGGINGFACE_IMG}"
+
+deploy-dev-storageInitializer: docker-push-storageInitializer
+	./hack/storageInitializer_patch_dev.sh ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}
+	kubectl apply --server-side=true -k config/overlays/dev-image-config
+	
+deploy-helm:
+	USE_LOCAL_CHARTS=true ./hack/setup/infra/manage.kserve-helm.sh
+
+undeploy:
+	kubectl delete -k config/default
+
+undeploy-dev:
+	kubectl delete -k config/overlays/development
+
+bump-version:
+	@echo "bumping version numbers for this release"
+	@hack/release/prepare-for-release.sh $(PRIOR_VERSION) $(NEW_VERSION)
+
+# Build the docker image
+docker-build:
+	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} . -t ${KO_DOCKER_REPO}/${CONTROLLER_IMG}:${TAG}
+	@echo "updating kustomize image patch file for manager resource"
+
+# Push the docker image
+docker-push:
+	docker push ${KO_DOCKER_REPO}/${CONTROLLER_IMG}:${TAG}
+
+docker-build-llmisvc:
+	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${TAG} -f llmisvc-controller.Dockerfile .
+
+docker-push-llmisvc: docker-build-llmisvc
+	${ENGINE} push ${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${TAG}
+
+docker-build-localmodel:
+	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG} -f localmodel.Dockerfile .
+
+docker-push-localmodel: docker-build-localmodel
+	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG} -f localmodel.Dockerfile .
+
+docker-build-localmodelnode-agent:
+	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG} -f localmodel-agent.Dockerfile .
+
+docker-push-localmodelnode-agent: docker-build-localmodelnode-agent
+	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG} -f localmodel-agent.Dockerfile .
+
+docker-build-agent:
+	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}:${TAG}
+
+docker-build-router:
+	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -f router.Dockerfile . -t ${KO_DOCKER_REPO}/${ROUTER_IMG}:${TAG}
+
+docker-push-agent:
+	${ENGINE} push ${KO_DOCKER_REPO}/${AGENT_IMG}:${TAG}
+
+docker-push-router:
+	${ENGINE} push ${KO_DOCKER_REPO}/${ROUTER_IMG}:${TAG}
+
+docker-build-sklearn:
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${SKLEARN_IMG}:${TAG} -f sklearn.Dockerfile .
+
+docker-push-sklearn: docker-build-sklearn
+	${ENGINE} push ${KO_DOCKER_REPO}/${SKLEARN_IMG}:${TAG}
+
+docker-build-xgb:
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${XGB_IMG}:${TAG} -f xgb.Dockerfile .
+
+docker-push-xgb: docker-build-xgb
+	${ENGINE} push ${KO_DOCKER_REPO}/${XGB_IMG}:${TAG}
+
+docker-build-lgb:
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${LGB_IMG}:${TAG} -f lgb.Dockerfile .
+
+docker-push-lgb: docker-build-lgb
+	${ENGINE} push ${KO_DOCKER_REPO}/${LGB_IMG}:${TAG}
+
+docker-build-predictive:
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PREDICTIVE_IMG}:${TAG} -f predictiveserver.Dockerfile .
+
+docker-push-predictive: docker-build-predictive
+	cd python && ${ENGINE} buildx build ${ARCH} --push --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PREDICTIVE_IMG}:${TAG} -f predictiveserver.Dockerfile .
+
+docker-build-pmml:
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${PMML_BASE_IMG} -t ${KO_DOCKER_REPO}/${PMML_IMG}:${TAG} -f pmml.Dockerfile .
+
+docker-push-pmml: docker-build-pmml
+	${ENGINE} push ${KO_DOCKER_REPO}/${PMML_IMG}:${TAG}
+
+docker-build-paddle:
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${PADDLE_IMG}:${TAG} -f paddle.Dockerfile .
+
+docker-push-paddle: docker-build-paddle
+	${ENGINE} push ${KO_DOCKER_REPO}/${PADDLE_IMG}:${TAG}
+
+docker-build-autogluon:
+	cd python && ${ENGINE} buildx build ${ARCH} --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${AUTOGLUON_IMG}:${TAG} -f autogluon.Dockerfile .
+
+docker-push-autogluon: docker-build-autogluon
+	${ENGINE} push ${KO_DOCKER_REPO}/${AUTOGLUON_IMG}:${TAG}
+
+docker-build-custom-model:
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG}:${TAG} -f custom_model.Dockerfile .
+
+docker-push-custom-model: docker-build-custom-model
+	docker push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_IMG}:${TAG}
+
+docker-build-custom-model-grpc:
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}:${TAG} -f custom_model_grpc.Dockerfile .
+
+docker-push-custom-model-grpc: docker-build-custom-model-grpc
+	${ENGINE} push ${KO_DOCKER_REPO}/${CUSTOM_MODEL_GRPC_IMG}:${TAG}
+
+docker-build-custom-transformer:
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${IMAGE_TRANSFORMER_IMG}:${TAG} -f custom_transformer.Dockerfile .
+
+docker-push-custom-transformer: docker-build-custom-transformer
+	${ENGINE} push ${KO_DOCKER_REPO}/${IMAGE_TRANSFORMER_IMG}:${TAG}
+
+docker-build-custom-transformer-grpc:
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}:${TAG} -f custom_transformer_grpc.Dockerfile .
+
+docker-push-custom-transformer-grpc: docker-build-custom-transformer-grpc
+	${ENGINE} push ${KO_DOCKER_REPO}/${CUSTOM_TRANSFORMER_GRPC_IMG}:${TAG}
+
+docker-build-aif:
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${AIF_IMG}:${TAG} -f aiffairness.Dockerfile .
+
+docker-push-aif: docker-build-aif
+	${ENGINE} push ${KO_DOCKER_REPO}/${AIF_IMG}:${TAG}
+
+docker-build-art:
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${ART_IMG}:${TAG} -f artexplainer.Dockerfile .
+
+docker-push-art: docker-build-art
+	${ENGINE} push ${KO_DOCKER_REPO}/${ART_IMG}:${TAG}
+
+docker-build-storageInitializer:
+	cd python && ${ENGINE} buildx build ${ARCH} --load --build-arg BASE_IMAGE=${BASE_IMG} -t ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}:${TAG} -f storage-initializer.Dockerfile .
+
+docker-push-storageInitializer: docker-build-storageInitializer
+	${ENGINE} push ${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}:${TAG}
+
+docker-build-qpext:
+	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${QPEXT_IMG}:${TAG} -f qpext/qpext.Dockerfile .
+
+docker-build-push-qpext: docker-build-qpext
+	${ENGINE} push ${KO_DOCKER_REPO}/${QPEXT_IMG}:${TAG}
+
+deploy-dev-qpext: docker-build-push-qpext
+	kubectl patch cm config-deployment -n knative-serving --type merge --patch '{"data": {"queue-sidecar-image": "${KO_DOCKER_REPO}/${QPEXT_IMG}"}}'
+
+docker-build-success-200-isvc:
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG}:${TAG} -f success_200_isvc.Dockerfile .
+
+docker-push-success-200-isvc: docker-build-success-200-isvc
+	${ENGINE} push ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG}:${TAG}
+
+docker-build-error-node-404:
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG}:${TAG} -f error_404_isvc.Dockerfile .
+
+docker-push-error-node-404: docker-build-error-node-404
+	${ENGINE} push ${KO_DOCKER_REPO}/${ERROR_404_ISVC_IMG}:${TAG}
+
+docker-build-huggingface:
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${HUGGINGFACE_IMG}:${TAG} -f huggingface_server.Dockerfile .
+
+docker-push-huggingface: docker-build-huggingface
+	${ENGINE} push ${KO_DOCKER_REPO}/${HUGGINGFACE_IMG}:${TAG}
+
+docker-build-huggingface-cpu:
+	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_CPU_IMG}:${TAG} -f huggingface_server_cpu.Dockerfile .
+
+docker-push-huggingface-cpu: docker-build-huggingface-cpu
+	${ENGINE} push ${KO_DOCKER_REPO}/${HUGGINGFACE_SERVER_CPU_IMG}:${TAG}
+
+apidocs:
+	${ENGINE} buildx build ${ARCH} -f docs/apis/Dockerfile --rm -t apidocs-gen . && \
+	${ENGINE} run -it --rm -v $(CURDIR)/pkg/apis:/go/src/github.com/kserve/kserve/pkg/apis -v ${PWD}/docs/apis:/go/gen-crd-api-reference-docs/apidocs apidocs-gen
+
+.PHONY: check-doc-links
+check-doc-links:
+	@python3 hack/verify-doc-links.py && echo "$@: OK"
+
+# Replays the CLI flags our manifests render against every image whose tag
+# changed versus BASE_REF. Needs a container engine and network access, so it
+# is not part of precommit.
+.PHONY: check-image-flag-drift
+check-image-flag-drift: yq
+	@BASE_REF=$(or $(BASE_REF),origin/master) HEAD_REF=$(or $(HEAD_REF),HEAD) \
+		ENGINE=$(ENGINE) YQ=$(YQ) \
+		hack/verify-image-flag-drift.sh && echo "$@: OK"
+
+# Extension point for distro-specific manifest generation.
+.PHONY: manifests-distro
+manifests-distro:
+
+# Optional local/downstream overrides (ignored if absent)
+-include Makefile.overrides.mk
+
+# Build and push controller/localmodel images, then install KServe + LocalModel on kind via kustomize.
+# Uses KO_DOCKER_REPO/TAG for image overrides; skips configmap image rewrites (UPDATE_CONFIGMAP_IMAGES=false).
+.PHONY: deploy-dev-kind-localmodel
+deploy-dev-kind-localmodel: docker-build docker-push docker-build-localmodel docker-push-localmodel 
+	SET_KSERVE_REGISTRY=$$KO_DOCKER_REPO SET_KSERVE_VERSION=$$TAG \
+	ENABLE_KSERVE=true ENABLE_LOCALMODEL=true UPDATE_CONFIGMAP_IMAGES=false \
+	./hack/setup/infra/manage.kserve-kustomize.sh

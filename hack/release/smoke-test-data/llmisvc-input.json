@@ -1,0 +1,5 @@
+{
+  "model": "facebook/opt-125m",
+  "prompt": "Hello, my name is",
+  "max_tokens": 10
+}

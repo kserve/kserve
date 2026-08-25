@@ -1,0 +1,11 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: sklearn-iris
+spec:
+  predictor:
+    logger:
+      mode: all
+      url: http://message-dumper.default/
+    sklearn:
+      storageUri: gs://kfserving-examples/models/sklearn/1.0/model

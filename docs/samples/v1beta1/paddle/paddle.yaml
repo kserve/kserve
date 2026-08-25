@@ -1,0 +1,8 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "paddle-resnet50"
+spec:
+  predictor:
+    paddle:
+      storageUri: "gs://kfserving-examples/models/paddle/resnet"

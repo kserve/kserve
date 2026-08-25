@@ -1,0 +1,69 @@
+name: 'Minikube setup action'
+description: 'Sets up minikube on the github runner'
+
+inputs:
+  nodes:
+    description: 'Number of nodes to start minikube with'
+    required: false
+    default: '1'
+  driver:
+    description: 'Driver to use for minikube'
+    required: false
+    default: 'none'
+  start-args:
+    description: 'Additional arguments to pass to minikube start'
+    required: false
+    default: ''
+  addons:
+    description: 'Comma-separated minikube addons to enable (e.g. metallb,ingress,registry)'
+    required: false
+    default: ''
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install kubectl
+      uses: azure/setup-kubectl@v4.0.0
+      with:
+        version: 'v1.34.4'
+
+    - name: Create /etc/cni/net.d
+      shell: bash
+      run: sudo mkdir -p /etc/cni/net.d
+
+    - name: Setup Minikube
+      uses: medyagh/setup-minikube@latest
+      with:
+        minikube-version: '1.38.1'
+        kubernetes-version: 'v1.34.4'
+        driver: ${{ inputs.driver }}
+        addons: ${{ inputs.addons }}
+        wait: 'all'
+        cpus: 'max'
+        memory: 'max'
+        start-args: --wait-timeout=6m0s --nodes=${{ inputs.nodes }} ${{ inputs.start-args }}
+
+    - name: Configure MetalLB address pool
+      if: contains(inputs.addons, 'metallb')
+      shell: bash
+      run: |
+        IP=$(minikube ip)
+        PREFIX=${IP%.*}
+        kubectl apply -f - <<EOF
+        apiVersion: v1
+        kind: ConfigMap
+        metadata:
+          namespace: metallb-system
+          name: config
+        data:
+          config: |
+            address-pools:
+            - name: default
+              protocol: layer2
+              addresses:
+              - ${PREFIX}.200-${PREFIX}.235
+        EOF
+
+    - name: Check Kubernetes pods
+      shell: bash
+      run: kubectl get pods -n kube-system

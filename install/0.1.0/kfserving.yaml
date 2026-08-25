@@ -1,0 +1,636 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: kfserving-controller-manager
+    controller-tools.k8s.io: "1.0"
+    istio-injection: disabled
+  name: kfserving-system
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  creationTimestamp: null
+  labels:
+    controller-tools.k8s.io: "1.0"
+  name: kfservices.serving.kubeflow.org
+spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.url
+    name: URL
+    type: string
+  - JSONPath: .status.default.traffic
+    name: Default Traffic
+    type: integer
+  - JSONPath: .status.canary.traffic
+    name: Canary Traffic
+    type: integer
+  - JSONPath: .metadata.creationTimestamp
+    name: Age
+    type: date
+  group: serving.kubeflow.org
+  names:
+    kind: KFService
+    plural: kfservices
+    shortNames:
+    - kfservice
+  scope: Namespaced
+  validation:
+    openAPIV3Schema:
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          properties:
+            canary:
+              description: Canary defines an alternate configuration to route a percentage
+                of traffic.
+              properties:
+                custom:
+                  description: The following fields follow a "1-of" semantic. Users
+                    must specify exactly one spec.
+                  properties:
+                    container:
+                      type: object
+                  required:
+                  - container
+                  type: object
+                maxReplicas:
+                  description: This is the up bound for autoscaler to scale to
+                  format: int64
+                  type: integer
+                minReplicas:
+                  description: Minimum number of replicas, pods won't scale down to
+                    0 in case of no traffic
+                  format: int64
+                  type: integer
+                pytorch:
+                  properties:
+                    modelClassName:
+                      description: Defaults PyTorch model class name to 'PyTorchModel'
+                      type: string
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest PyTorch Version
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+                serviceAccountName:
+                  description: Service Account Name
+                  type: string
+                sklearn:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest SKLearn Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+                tensorflow:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest TF Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+                tensorrt:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest TensorRT Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+                xgboost:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest XGBoost Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+              type: object
+            canaryTrafficPercent:
+              format: int64
+              type: integer
+            default:
+              properties:
+                custom:
+                  description: The following fields follow a "1-of" semantic. Users
+                    must specify exactly one spec.
+                  properties:
+                    container:
+                      type: object
+                  required:
+                  - container
+                  type: object
+                maxReplicas:
+                  description: This is the up bound for autoscaler to scale to
+                  format: int64
+                  type: integer
+                minReplicas:
+                  description: Minimum number of replicas, pods won't scale down to
+                    0 in case of no traffic
+                  format: int64
+                  type: integer
+                pytorch:
+                  properties:
+                    modelClassName:
+                      description: Defaults PyTorch model class name to 'PyTorchModel'
+                      type: string
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest PyTorch Version
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+                serviceAccountName:
+                  description: Service Account Name
+                  type: string
+                sklearn:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest SKLearn Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+                tensorflow:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest TF Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+                tensorrt:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest TensorRT Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+                xgboost:
+                  properties:
+                    modelUri:
+                      type: string
+                    resources:
+                      description: Defaults to requests and limits of 1CPU, 2Gb MEM.
+                      type: object
+                    runtimeVersion:
+                      description: Defaults to latest XGBoost Version.
+                      type: string
+                  required:
+                  - modelUri
+                  type: object
+              type: object
+          required:
+          - default
+          type: object
+        status:
+          properties:
+            canary:
+              properties:
+                name:
+                  type: string
+                replicas:
+                  format: int64
+                  type: integer
+                traffic:
+                  format: int64
+                  type: integer
+              type: object
+            conditions:
+              description: Conditions the latest available observations of a resource's
+                current state. +patchMergeKey=type +patchStrategy=merge
+              items:
+                properties:
+                  lastTransitionTime:
+                    description: LastTransitionTime is the last time the condition
+                      transitioned from one status to another. We use VolatileTime
+                      in place of metav1.Time to exclude this from creating equality.Semantic
+                      differences (all other things held constant).
+                    type: string
+                  message:
+                    description: A human readable message indicating details about
+                      the transition.
+                    type: string
+                  reason:
+                    description: The reason for the condition's last transition.
+                    type: string
+                  severity:
+                    description: Severity with which to treat failures of this type
+                      of condition. When this is not specified, it defaults to Error.
+                    type: string
+                  status:
+                    description: Status of the condition, one of True, False, Unknown.
+                      +required
+                    type: string
+                  type:
+                    description: Type of condition. +required
+                    type: string
+                required:
+                - type
+                - status
+                type: object
+              type: array
+            default:
+              properties:
+                name:
+                  type: string
+                replicas:
+                  format: int64
+                  type: integer
+                traffic:
+                  format: int64
+                  type: integer
+              type: object
+            observedGeneration:
+              description: ObservedGeneration is the 'Generation' of the Service that
+                was last processed by the controller.
+              format: int64
+              type: integer
+            url:
+              type: string
+          type: object
+  version: v1alpha1
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kfserving-proxy-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - serving.knative.dev
+  resources:
+  - configurations
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - serving.knative.dev
+  resources:
+  - configurations/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - serving.knative.dev
+  resources:
+  - routes
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - serving.knative.dev
+  resources:
+  - routes/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - serving.kubeflow.org
+  resources:
+  - kfservices
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - serving.kubeflow.org
+  resources:
+  - kfservices/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kfserving-proxy-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: proxy-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kfserving-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  creationTimestamp: null
+  name: manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: manager-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kfserving-system
+---
+apiVersion: v1
+data:
+  credentials: |-
+    {
+       "gcs" : {
+           "gcsCredentialFileName": "gcloud-application-credentials.json"
+       },
+       "s3" : {
+           "s3AccessKeyIDName": "awsAccessKeyID",
+           "s3SecretAccessKeyName": "awsSecretAccessKey"
+       }
+    }
+  frameworks: |-
+    {
+        "tensorflow": {
+            "image": "tensorflow/serving"
+        },
+        "sklearn": {
+            "image": "gcr.io/kfserving/sklearnserver"
+        },
+        "pytorch": {
+            "image": "gcr.io/kfserving/pytorchserver"
+        },
+        "xgboost": {
+            "image": "gcr.io/kfserving/xgbserver"
+        },
+        "tensorrt": {
+            "image": "nvcr.io/nvidia/tensorrtserver"
+        }
+    }
+kind: ConfigMap
+metadata:
+  name: kfservice-config
+  namespace: kfserving-system
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kfserving-webhook-server-secret
+  namespace: kfserving-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    prometheus.io/port: "8443"
+    prometheus.io/scheme: https
+    prometheus.io/scrape: "true"
+  labels:
+    control-plane: controller-manager
+    controller-tools.k8s.io: "1.0"
+  name: kfserving-controller-manager-metrics-service
+  namespace: kfserving-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    targetPort: https
+  selector:
+    control-plane: controller-manager
+    controller-tools.k8s.io: "1.0"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: kfserving-controller-manager
+    controller-tools.k8s.io: "1.0"
+  name: kfserving-controller-manager-service
+  namespace: kfserving-system
+spec:
+  ports:
+  - port: 443
+  selector:
+    control-plane: kfserving-controller-manager
+    controller-tools.k8s.io: "1.0"
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    control-plane: kfserving-controller-manager
+    controller-tools.k8s.io: "1.0"
+  name: kfserving-controller-manager
+  namespace: kfserving-system
+spec:
+  selector:
+    matchLabels:
+      control-plane: kfserving-controller-manager
+      controller-tools.k8s.io: "1.0"
+  serviceName: controller-manager-service
+  template:
+    metadata:
+      labels:
+        control-plane: kfserving-controller-manager
+        controller-tools.k8s.io: "1.0"
+    spec:
+      containers:
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8080/
+        - --logtostderr=true
+        - --v=10
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.4.0
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+      - args:
+        - --metrics-addr=127.0.0.1:8080
+        command:
+        - /manager
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: SECRET_NAME
+          value: kfserving-webhook-server-secret
+        image: gcr.io/kfserving/kfserving-controller:v0.1.0
+        imagePullPolicy: Always
+        name: manager
+        ports:
+        - containerPort: 9876
+          name: webhook-server
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 100m
+            memory: 300Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        volumeMounts:
+        - mountPath: /tmp/cert
+          name: cert
+          readOnly: true
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: kfserving-webhook-server-secret

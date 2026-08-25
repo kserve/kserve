@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: margen-pod
+spec:
+  volumes:
+    - name: model-pv-claim
+      persistentVolumeClaim:
+        claimName: model-pv-claim
+  initContainers:
+    - name: data-permission-fix
+      image: busybox
+      command: ["/bin/chmod","-R","777", "/data"]
+      volumeMounts:
+      - name: model-pv-claim
+        mountPath: /data
+  containers:
+    - name: margen-container
+      image: {username}/margen:v1.2
+      volumeMounts:
+        - mountPath: "/home/model-server"
+          name: model-pv-claim
+      resources:
+        limits:
+          memory: 400Mi
+          cpu: 300m          

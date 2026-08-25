@@ -1,0 +1,13 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "custom-simple"
+spec:
+  predictor:
+    minReplicas: 1
+    containers:
+    - image: codait/max-object-detector
+      name: kserve-container
+      ports:
+        - containerPort: 5000
+          protocol: TCP

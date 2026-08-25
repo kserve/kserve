@@ -1,0 +1,45 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: custom-transformer-collocation
+spec:
+  predictor:
+    containers:
+      - name: kserve-container        # Do not change the name; This should be the predictor container
+        image: "pytorch/torchserve:0.9.0-cpu"
+        args:
+          - "torchserve"
+          - "--start"
+          - "--model-store=/mnt/models/model-store"
+          - "--ts-config=/mnt/models/config/config.properties"
+        env:
+          - name: TS_SERVICE_ENVELOPE
+            value: kserve
+          - name: STORAGE_URI    # This will trigger storage initializer; Should be only present in predictor container
+            value: "gs://kfserving-examples/models/torchserve/image_classifier/v1"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 1
+            memory: 1Gi
+
+      - name: transformer-container    # Do not change the container name
+        image: kserve/image-transformer:latest
+        args:
+          - --model_name=mnist
+          - --protocol=v1    # protocol of the predictor; used for converting the input to specific protocol supported by the predictor
+          - --http_port=8080
+          - --grpc_port=8081
+          - --predictor_host=localhost:8085      # predictor listening port
+        ports:
+          - containerPort: 8080
+            protocol: TCP
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 1
+            memory: 1Gi

@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+- ../../base
+- s3-local-backend
+
+components:
+- ../../components/kserve
+- ../../components/localmodel
+
+patches:
+- path: configmap/inferenceservice.yaml
+- path: manager_image_patch.yaml
+- path: localmodel_manager_image_patch.yaml
+- path: localmodelnode_agent_image_patch.yaml

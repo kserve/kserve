@@ -1,0 +1,10 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "sklearn-iris-local"
+  labels:
+    networking.knative.dev/visibility: cluster-local
+spec:
+  predictor:
+    sklearn:
+      storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"

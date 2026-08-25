@@ -1,0 +1,250 @@
+version: "2"
+
+run:
+  timeout: 6m
+  go: "1.25"
+  tests: true
+
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0
+  uniq-by-line: true
+
+output:
+  formats:
+    text:
+      colors: true
+      print-issued-lines: true
+      print-linter-name: true
+  path-prefix: ""
+
+# REF: https://golangci-lint.run/docs/linters/
+linters:
+  default: none
+  enable:
+    # Check for pass []any as any in variadic func(...any).
+    - asasalint
+
+    # Dangerous unicode characters
+    - bidichk
+
+    # Checks whether HTTP response body is closed successfully.
+    - bodyclose
+
+    # Canonicalheader checks whether net/http.Header uses canonical header.
+    - canonicalheader
+
+    # Containedctx is a linter that detects struct contained context.Context
+    # field.
+    - containedctx
+
+    # Check whether the function uses a non-inherited context.
+    - contextcheck
+
+    # Copyloopvar is a linter detects places where loop variables are copied.
+    - copyloopvar
+
+    # Check declaration order of types, consts, vars and funcs.
+    - decorder
+
+    # Checks assignments with too many blank identifiers (e.g. x, , , _, := f()).
+    - dogsled
+
+    # Checks for duplicate words in the source code.
+    - dupword
+
+    # Check for two durations multiplied together.
+    - durationcheck
+
+    # Checks that sentinel errors are prefixed with the Err- and error types
+    # are suffixed with the -Error.
+    - errname
+
+    # Errorlint is a linter for that can be used to find code that will cause
+    # problems with the error wrapping scheme introduced in Go 1.13.
+    - errorlint
+
+    # Detects functions from golang.org/x/exp/ that can be replaced by std functions.
+    - exptostd
+
+    # Detects nested contexts in loops. https://gabnotes.org/fat-contexts/
+    - fatcontext
+
+    # Forbids specific identifiers in source code (scoped to test files via exclude-rules).
+    - forbidigo
+
+    # Enforces standards of using ginkgo and gomega.
+    - ginkgolinter
+
+    # Provides diagnostics that check for bugs, performance and style issues.
+    # Extensible without recompilation through dynamic rules.
+    # Dynamic rules are written declaratively with AST patterns, filters,
+    # report message and optional suggestion.
+    - gocritic
+
+    # Inspects source code for security problems.
+    - gosec
+
+    # Vet examines Go source code and reports suspicious constructs.
+    # It is roughly the same as 'go vet' and uses its passes.
+    - govet
+
+    # Enforces consistent import aliases.
+    - importas
+
+    # Detects when assignments to existing variables are not used.
+    - ineffassign
+
+    # Intrange is a linter to find places where for loops could make use of
+    # an integer range.
+    - intrange
+
+    # Checks key value pairs for common logger libraries (kitlog,klog,logr,zap).
+    - loggercheck
+
+    # Finds slice declarations with non-zero initial length.
+    - makezero
+
+    # Reports use of unnecessary []byte/string conversion calls
+    - mirror
+
+    # Finds commonly misspelled English words.
+    - misspell
+
+    # Checks that functions with naked returns are not longer than a maximum size (can be zero).
+    - nakedret
+
+    # Finds the code that returns nil even if it checks that the error is not nil.
+    - nilerr
+
+    # Reports constructs that checks for err != nil, but returns a different nil value error.
+    # Powered by nilness and nilerr.
+    - nilnesserr
+
+    # Reports ill-formed or insufficient nolint directives.
+    - nolintlint
+
+    # Checks that fmt.Sprintf can be replaced with a faster alternative.
+    - perfsprint
+
+    # Finds slice declarations that could potentially be pre-allocated.
+    - prealloc
+
+    # Reports direct reads from proto message fields when getters should be used.
+    - protogetter
+
+    # Checks that package variables are not reassigned.
+    - reassign
+
+    # Checks for receiver type consistency.
+    - recvcheck
+
+    # Fast, configurable, extensible, flexible, and beautiful linter for Go. Drop-in replacement of golint.
+    # - revive
+
+    # Checks for mistakes with OpenTelemetry/Census spans.
+    - spancheck
+
+    # Stylecheck is a replacement for golint.
+    # - stylecheck
+
+    # It's a set of rules from staticcheck. It's not the same thing as the staticcheck binary.
+    # In v2, gosimple and stylecheck are merged into staticcheck.
+    - staticcheck
+
+    # Remove unnecessary type conversions.
+    - unconvert
+
+    # Reports unused function parameters and results in your code.
+    - unparam
+
+    # A linter that detect the possibility to use variables/constants from the
+    # Go standard library.
+    - usestdlibvars
+
+    # Reports uses of functions with replacement inside the testing package.
+    - usetesting
+
+    # Finds wasted assignment statements.
+    - wastedassign
+
+    # Whitespace is a linter that checks for unnecessary newlines at the start
+    # and end of functions, if, for, etc.
+    - whitespace
+
+  settings:
+    forbidigo:
+      forbid:
+        - pattern: '\.SetLogger\('
+          msg: "Use pkg/testing SetupTestLogger instead of calling SetLogger directly in tests"
+        - pattern: 'fmt\.(Printf|Println|Print)\('
+          msg: "Use t.Logf/t.Log for test output instead of fmt print functions"
+    staticcheck:
+      # In v2, gosimple and stylecheck are merged into staticcheck.
+      # Stylecheck (ST*) was disabled in v1, so exclude those checks.
+      checks:
+        - "all"
+        - "-ST*"
+    gosec:
+      # specify configuration of gosec rules: https://github.com/securego/gosec#available-rules
+      config:
+        # maximum allowed permissions for os.OpenFile and os.Chmod
+        # default: "0600"
+        G302: "0640"
+        # maximum allowed permissions for os.WriteFile and ioutil.WriteFile
+        G306: "0640"
+    importas:
+      alias:
+        - pkg: "github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+          alias: ""
+        - pkg: "github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+          alias: ""
+        - pkg: "k8s.io/api/core/v1"
+          alias: "corev1"
+        - pkg: "k8s.io/apimachinery/pkg/apis/meta/v1"
+          alias: "metav1"
+        - pkg: "sigs.k8s.io/controller-runtime"
+          alias: "ctrl"
+        - pkg: "sigs.k8s.io/controller-runtime/runtime"
+          alias: "runtime"
+        - pkg: "sigs.k8s.io/gateway-api/apis/v1"
+          alias: "gwapiv1"
+
+  exclusions:
+    generated: lax
+    rules:
+      # Only enforce forbidigo in test files.
+      - path-except: "_test\\.go$"
+        linters:
+          - forbidigo
+    paths:
+      # skip auto gen folders
+      - "client/"
+      - "tools/tf2openapi/generated/"
+      - "openapi/"
+      - "zz_generated\\..*\\.go$"
+
+formatters:
+  enable:
+    # Gofmt checks whether code was gofmt-ed. By default this tool runs
+    # with -s option to check for code simplification.
+    - gofmt
+
+    # Gofumpt checks whether code was gofumpt-ed.
+    - gofumpt
+
+    # Check import statements are formatted according to the 'goimport'
+    # command. Reformat imports in autofix mode.
+    - goimports
+
+  settings:
+    goimports:
+      local-prefixes: "github.com/kserve/kserve"
+
+  exclusions:
+    generated: lax
+    paths:
+      - "client/"
+      - "tools/tf2openapi/generated/"
+      - "openapi/"
+      - "zz_generated\\..*\\.go$"

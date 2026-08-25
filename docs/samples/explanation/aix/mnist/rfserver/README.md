@@ -1,0 +1,1 @@
+# Random Forest for MNIST on kfserving

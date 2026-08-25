@@ -1,0 +1,15 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "artserver"
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: sklearn
+      storageUri: gs://kfserving-examples/models/sklearn/mnist/art
+  explainer:
+    art:
+      type: SquareAttack
+      config:
+        nb_classes: "10"

@@ -1,0 +1,31 @@
+---
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "sklearn-iris"
+spec:
+  predictor:
+    sklearn:
+      storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
+---
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "xgboost-iris"
+spec:
+  predictor:
+    xgboost:
+      storageUri: "gs://kfserving-examples/models/xgboost/iris"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: InferenceGraph
+metadata:
+  name: model-chainer
+spec:
+  nodes:
+    root:
+      routerType: Sequence
+      steps:
+        - serviceName: sklearn-iris
+        - serviceName: xgboost-iris
+          data: $request

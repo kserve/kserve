@@ -1,0 +1,104 @@
+{
+    "$schema": "https://json-schema.org/draft-07/schema#",
+    "title": "LLM ISVC Resources Helm Chart Values",
+    "type": "object",
+    "properties": {
+        "commonLabels": {
+            "type": "object",
+            "description": "Common labels to add to all resources"
+        },
+        "commonAnnotations": {
+            "type": "object",
+            "description": "Common annotations to add to all resources"
+        },
+        "kserve": {
+            "type": "object",
+            "properties": {
+                "version": {
+                    "type": "string",
+                    "description": "Version of KServe LLM ISVC components"
+                },
+                "llmisvc": {
+                    "type": "object",
+                    "properties": {
+                        "createGIECRDs": {
+                            "type": "boolean",
+                            "default": true,
+                            "description": "Create the Gateway API Inference Extension (GIE) CRDs bundled with this chart. Set to false if these CRDs are managed by another component to avoid Helm release-ownership conflicts. The LLMInferenceService controller still requires the CRDs to exist on the cluster at runtime."
+                        },
+                        "controller": {
+                            "type": "object",
+                            "properties": {
+                                "image": {
+                                    "type": "string",
+                                    "description": "KServe LLM ISVC controller manager container image"
+                                },
+                                "tag": {
+                                    "type": "string",
+                                    "description": "KServe LLM ISVC controller container image tag"
+                                },
+                                "imagePullPolicy": {
+                                    "type": "string",
+                                    "enum": [
+                                        "Always",
+                                        "IfNotPresent",
+                                        "Never"
+                                    ],
+                                    "description": "Specifies when to pull controller image from registry"
+                                },
+                                "replicas": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "description": "Number of replicas for the controller deployment"
+                                },
+                                "resources": {
+                                    "type": "object",
+                                    "properties": {
+                                        "limits": {
+                                            "type": "object",
+                                            "properties": {
+                                                "cpu": {
+                                                    "type": "string"
+                                                },
+                                                "memory": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        },
+                                        "requests": {
+                                            "type": "object",
+                                            "properties": {
+                                                "cpu": {
+                                                    "type": "string"
+                                                },
+                                                "memory": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "nodeSelector": {
+                                    "type": "object",
+                                    "description": "Node selector for pod assignment"
+                                },
+                                "tolerations": {
+                                    "type": "array",
+                                    "description": "Tolerations for pod assignment"
+                                },
+                                "affinity": {
+                                    "type": "object",
+                                    "description": "Affinity for pod assignment"
+                                },
+                                "topologySpreadConstraints": {
+                                    "type": "array",
+                                    "description": "Topology spread constraints for pod assignment"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

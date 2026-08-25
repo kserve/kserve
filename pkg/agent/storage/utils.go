@@ -1,0 +1,263 @@
+/*
+Copyright 2021 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package storage
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	gstorage "cloud.google.com/go/storage"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/googleapis/google-cloud-go-testing/storage/stiface"
+	"google.golang.org/api/option"
+
+	"github.com/kserve/kserve/pkg/credentials/azure"
+
+	gcscredential "github.com/kserve/kserve/pkg/credentials/gcs"
+	s3credential "github.com/kserve/kserve/pkg/credentials/s3"
+)
+
+func FileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	if err == nil && !info.IsDir() {
+		return true
+	} else {
+		return false
+	}
+}
+
+func AsSha256(o interface{}) string {
+	h := sha256.New()
+	fmt.Fprintf(h, "%v", o)
+
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func Create(fileName string) (*os.File, error) {
+	// Set the permissions to `777` so that the downloaded files are still
+	// readable by every other user and group. This ensures that the agent is
+	// compatible with any model / server container, using any user ID. Note we
+	// also need to enable the `+x` bit to ensure the folder is "listable":
+	// https://stackoverflow.com/a/30788944/5015573
+	if err := os.MkdirAll(filepath.Dir(fileName), os.ModePerm); err != nil { //nolint:gosec // G301: agent and model server run as different UIDs sharing an emptyDir volume
+		return nil, err
+	}
+	return os.Create(filepath.Clean(fileName))
+}
+
+func RemoveDir(dir string) error {
+	// Validate and sanitize the directory path
+	cleanDir := filepath.Clean(dir)
+	if cleanDir != dir {
+		// Directory path contains invalid characters or tries to escape the expected directory structure
+		return fmt.Errorf("the directory contains invalid characters: %s", dir)
+	}
+	d, err := os.Open(cleanDir)
+	if err != nil {
+		return err
+	}
+	defer func(d *os.File) {
+		closeErr := d.Close()
+		if closeErr != nil {
+			log.Error(closeErr, "failed to close file")
+		}
+	}(d)
+	names, err := d.Readdirnames(-1)
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		err = os.RemoveAll(filepath.Join(dir, name))
+		if err != nil {
+			return err
+		}
+	}
+	// Remove empty dir
+	if err := os.Remove(dir); err != nil {
+		return fmt.Errorf("dir is unable to be deleted: %w", err)
+	}
+	return nil
+}
+
+type azureStaticTokenCredential struct {
+	token      string
+	expiration time.Time
+}
+
+func (s *azureStaticTokenCredential) GetToken(ctx context.Context, opts policy.TokenRequestOptions) (azcore.AccessToken, error) {
+	return azcore.AccessToken{
+		Token:     s.token,
+		ExpiresOn: s.expiration,
+	}, nil
+}
+
+func initializeAzureClient() (AzureClient, error) {
+	var azureClient AzureClient
+	clientOptions := azblob.ClientOptions{}
+	serviceUrl, ok := os.LookupEnv(azure.AzureServiceUrl)
+	if !ok {
+		accountName, ok := os.LookupEnv(azure.AzureAccountName)
+		if !ok {
+			return nil, fmt.Errorf("one of %s or %s is required", azure.AzureAccountName, azure.AzureServiceUrl)
+		}
+		serviceUrl = fmt.Sprintf("https://%s.blob.core.windows.net/", accountName)
+	}
+	if _, ok := os.LookupEnv(azure.AzureStorageAccessKey); ok {
+		defaultCred, err := azidentity.NewDefaultAzureCredential(nil)
+		if err != nil {
+			return nil, err
+		}
+		client, err := azblob.NewClient(serviceUrl, defaultCred, &clientOptions)
+		if err != nil {
+			return nil, err
+		}
+		azureClient = client
+	} else if token, ok := os.LookupEnv(azure.AzureAccessToken); ok {
+		expiresOn := time.Now().Add(time.Minute * 5)
+		expiresOnStr, ok := os.LookupEnv(azure.AzureAccessTokenExpiresOnSeconds)
+		if ok {
+			seconds, err := strconv.ParseInt(expiresOnStr, 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			expiresOn = time.Unix(seconds, 0)
+		} else {
+			log.Info(azure.AzureAccessTokenExpiresOnSeconds + " not found, defaulting token expiration to 5 minutes")
+		}
+		tokenCred := azureStaticTokenCredential{
+			token:      token,
+			expiration: expiresOn,
+		}
+		client, err := azblob.NewClient(serviceUrl, &tokenCred, &clientOptions)
+		if err != nil {
+			return nil, err
+		}
+		azureClient = client
+	} else {
+		return nil, fmt.Errorf("one of %s or %s must be provided", azure.AzureStorageAccessKey, azure.AzureAccessToken)
+	}
+	return azureClient, nil
+}
+
+func GetProvider(providers map[Protocol]Provider, protocol Protocol) (Provider, error) {
+	if provider, ok := providers[protocol]; ok {
+		return provider, nil
+	}
+
+	switch protocol {
+	case AZURE:
+		log.Info("Initializing Azure client")
+		azureClient, err := initializeAzureClient()
+		if err != nil {
+			return nil, err
+		}
+		providers[AZURE] = &AzureProvider{Client: azureClient}
+	case GCS:
+		log.Info("Initializing GCS client")
+		var gcsClient *gstorage.Client
+		var err error
+
+		ctx := context.Background()
+		if _, ok := os.LookupEnv(gcscredential.GCSCredentialEnvKey); ok {
+			// GCS relies on environment variable GOOGLE_APPLICATION_CREDENTIALS to point to the service-account-key
+			// If set, it will be automatically be picked up by the client.
+			gcsClient, err = gstorage.NewClient(ctx)
+		} else {
+			gcsClient, err = gstorage.NewClient(ctx, option.WithoutAuthentication())
+		}
+
+		if err != nil {
+			return nil, err
+		}
+
+		providers[GCS] = &GCSProvider{
+			Client: stiface.AdaptClient(gcsClient),
+		}
+	case S3:
+		log.Info("Initializing S3 client")
+
+		region, _ := os.LookupEnv(s3credential.AWSRegion)
+		useVirtualBucketString, ok := os.LookupEnv(s3credential.S3UseVirtualBucket)
+		useVirtualBucket := true
+		if ok && strings.ToLower(useVirtualBucketString) == "false" {
+			useVirtualBucket = false
+		}
+		useAccelerateString, ok := os.LookupEnv(s3credential.S3UseAccelerate)
+		useAccelerate := false
+		if ok && strings.ToLower(useAccelerateString) == "true" {
+			useAccelerate = true
+		}
+
+		ctx := context.Background()
+		configOpts := []func(*awsconfig.LoadOptions) error{
+			awsconfig.WithRegion(region),
+		}
+
+		if useAnonCred, ok := os.LookupEnv(s3credential.AWSAnonymousCredential); ok && strings.ToLower(useAnonCred) == "true" {
+			configOpts = append(configOpts, awsconfig.WithCredentialsProvider(aws.AnonymousCredentials{}))
+		}
+
+		cfg, err := awsconfig.LoadDefaultConfig(ctx, configOpts...)
+		if err != nil {
+			return nil, err
+		}
+
+		s3Opts := func(o *s3.Options) {
+			o.UsePathStyle = !useVirtualBucket
+			o.UseAccelerate = useAccelerate
+			if endpoint, ok := os.LookupEnv(s3credential.AWSEndpointUrl); ok {
+				o.BaseEndpoint = aws.String(endpoint)
+			}
+		}
+
+		s3Client := s3.NewFromConfig(cfg, s3Opts)
+		providers[S3] = &S3Provider{
+			Client:         s3Client,
+			TransferClient: transfermanager.New(s3Client),
+		}
+	case HTTPS:
+		httpsClient := &http.Client{}
+		providers[HTTPS] = &HTTPSProvider{
+			Client: httpsClient,
+		}
+	case HTTP:
+		httpsClient := &http.Client{}
+		providers[HTTP] = &HTTPSProvider{
+			Client: httpsClient,
+		}
+	}
+
+	return providers[protocol], nil
+}

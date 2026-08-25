@@ -1,0 +1,29 @@
+{
+    "packageName" : "kserve",
+    "projectName" : "kserve",
+    "packageVersion": "0.1",
+    "importMappings": {
+        "V1Container": "from kubernetes.client import V1Container",
+        "V1ContainerPort": "from kubernetes.client import V1ContainerPort",
+        "V1EnvFromSource": "from kubernetes.client import V1EnvFromSource",
+        "V1EnvVar": "from kubernetes.client import V1EnvVar",
+        "V1Lifecycle": "from kubernetes.client import V1Lifecycle",
+        "V1Probe": "from kubernetes.client import V1Probe",
+        "V1SecurityContext": "from kubernetes.client import V1SecurityContext",
+        "V1VolumeDevice": "from kubernetes.client import V1VolumeDevice",
+        "V1VolumeMount": "from kubernetes.client import V1VolumeMount",
+        "V1Affinity": "from kubernetes.client import V1Affinity",
+        "V1EphemeralContainer": "from kubernetes.client import V1EphemeralContainer",
+        "V1HostAlias": "from kubernetes.client import V1HostAlias",
+        "V1LocalObjectReference": "from kubernetes.client import V1LocalObjectReference",
+        "V1PodDNSConfig": "from kubernetes.client import V1PodDNSConfig",
+        "V1PodReadinessGate": "from kubernetes.client import V1PodReadinessGate",
+        "V1PodSecurityContext": "from kubernetes.client import V1PodSecurityContext",
+        "V1Toleration": "from kubernetes.client import V1Toleration",
+        "V1TopologySpreadConstraint": "from kubernetes.client import V1TopologySpreadConstraint",
+        "V1Volume": "from kubernetes.client import V1Volume",
+        "V1ObjectMeta": "from kubernetes.client import V1ObjectMeta",
+        "V1ListMeta": "from kubernetes.client import V1ListMeta",
+        "V1ResourceRequirements": "from kubernetes.client import V1ResourceRequirements"
+    }
+}

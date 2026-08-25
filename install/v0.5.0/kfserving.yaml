@@ -1,0 +1,757 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: kfserving-controller-manager
+    controller-tools.k8s.io: "1.0"
+    istio-injection: disabled
+  name: kfserving-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: leader-election-role
+  namespace: kfserving-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - configmaps/status
+  verbs:
+  - get
+  - update
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: kfserving-manager-role
+rules:
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  - validatingwebhookconfigurations
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.istio.io
+  resources:
+  - virtualservices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.istio.io
+  resources:
+  - virtualservices/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.istio.io
+  resources:
+  - virtualservices/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - serving.knative.dev
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.knative.dev
+  resources:
+  - services/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.knative.dev
+  resources:
+  - services/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - serving.kubeflow.org
+  resources:
+  - inferenceservices
+  - inferenceservices/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.kubeflow.org
+  resources:
+  - inferenceservices/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - serving.kubeflow.org
+  resources:
+  - trainedmodels
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.kubeflow.org
+  resources:
+  - trainedmodels/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kfserving-proxy-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: leader-election-rolebinding
+  namespace: kfserving-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kfserving-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kfserving-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kfserving-manager-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kfserving-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kfserving-proxy-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kfserving-proxy-role
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: kfserving-system
+---
+apiVersion: v1
+data:
+  agent: |-
+    {
+        "image" : "kfserving/agent:v0.5.0",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
+  batcher: |-
+    {
+        "image" : "kfserving/agent:v0.5.0",
+        "memoryRequest": "1Gi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "1",
+        "cpuLimit": "1"
+    }
+  credentials: |-
+    {
+       "gcs": {
+           "gcsCredentialFileName": "gcloud-application-credentials.json"
+       },
+       "s3": {
+           "s3AccessKeyIDName": "AWS_ACCESS_KEY_ID",
+           "s3SecretAccessKeyName": "AWS_SECRET_ACCESS_KEY"
+       }
+    }
+  explainers: |-
+    {
+        "alibi": {
+            "image" : "gcr.io/kfserving/alibi-explainer",
+            "defaultImageVersion": "v0.5.0"
+        },
+        "aix": {
+            "image" : "kfserving/aix-explainer",
+            "defaultImageVersion": "v0.5.0"
+        },
+        "art": {
+            "image" : "kfserving/art-explainer",
+            "defaultImageVersion": "v0.5.0"
+        }
+    }
+  ingress: |-
+    {
+        "ingressGateway" : "knative-ingress-gateway.knative-serving",
+        "ingressService" : "istio-ingressgateway.istio-system.svc.cluster.local",
+        "localGateway" : "cluster-local-gateway.knative-serving",
+        "localGatewayService" : "cluster-local-gateway.istio-system.svc.cluster.local"
+    }
+  logger: |-
+    {
+        "image" : "kfserving/agent:v0.5.0",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1",
+        "defaultUrl": "http://default-broker"
+    }
+  predictors: |-
+    {
+        "tensorflow": {
+            "image": "tensorflow/serving",
+            "defaultImageVersion": "1.14.0",
+            "defaultGpuImageVersion": "1.14.0-gpu",
+            "defaultTimeout": "60",
+            "supportedFrameworks": [
+              "tensorflow"
+            ],
+            "multiModelServer": false
+        },
+        "onnx": {
+            "image": "mcr.microsoft.com/onnxruntime/server",
+            "defaultImageVersion": "v1.0.0",
+            "supportedFrameworks": [
+              "onnx"
+            ],
+            "multiModelServer": false
+        },
+        "sklearn": {
+          "v1": {
+            "image": "gcr.io/kfserving/sklearnserver",
+            "defaultImageVersion": "v0.5.0",
+            "supportedFrameworks": [
+              "sklearn"
+            ],
+            "multiModelServer": false
+          },
+          "v2": {
+            "image": "docker.io/seldonio/mlserver",
+            "defaultImageVersion": "0.2.1",
+            "supportedFrameworks": [
+              "sklearn"
+            ],
+            "multiModelServer": false
+          }
+        },
+        "xgboost": {
+          "v1": {
+            "image": "gcr.io/kfserving/xgbserver",
+            "defaultImageVersion": "v0.5.0",
+            "supportedFrameworks": [
+              "xgboost"
+            ],
+            "multiModelServer": false
+          },
+          "v2": {
+            "image": "docker.io/seldonio/mlserver",
+            "defaultImageVersion": "0.2.1",
+            "supportedFrameworks": [
+              "xgboost"
+            ],
+            "multiModelServer": false
+          }
+        },
+        "pytorch": {
+          "v1" : {
+            "image": "gcr.io/kfserving/pytorchserver",
+            "defaultImageVersion": "v0.5.0",
+            "defaultGpuImageVersion": "v0.5.0-gpu",
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": false
+          },
+          "v2" : {
+            "image": "kfserving/torchserve-kfs",
+            "defaultImageVersion": "0.3.0",
+            "defaultGpuImageVersion": "0.3.0-gpu",
+            "supportedFrameworks": [
+              "pytorch"
+            ],
+            "multiModelServer": false
+          }
+        },
+        "triton": {
+            "image": "nvcr.io/nvidia/tritonserver",
+            "defaultImageVersion": "20.08-py3",
+            "supportedFrameworks": [
+              "tensorrt",
+              "tensorflow",
+              "onnx",
+              "pytorch",
+              "caffe2"
+            ],
+            "multiModelServer": false
+        },
+        "pmml": {
+            "image": "kfserving/pmmlserver",
+            "defaultImageVersion": "v0.5.0",
+            "supportedFrameworks": [
+              "pmml"
+            ],
+            "multiModelServer": false
+        },
+        "lightgbm": {
+            "image": "kfserving/lgbserver",
+            "defaultImageVersion": "v0.5.0",
+            "supportedFrameworks": [
+              "lightgbm"
+            ],
+            "multiModelServer": false
+        }
+    }
+  storageInitializer: |-
+    {
+        "image" : "gcr.io/kfserving/storage-initializer:v0.5.0",
+        "memoryRequest": "100Mi",
+        "memoryLimit": "1Gi",
+        "cpuRequest": "100m",
+        "cpuLimit": "1"
+    }
+  transformers: |-
+    {
+    }
+kind: ConfigMap
+metadata:
+  name: inferenceservice-config
+  namespace: kfserving-system
+---
+apiVersion: v1
+data:
+  ingressGateway: '"knative-ingress-gateway.knative-serving",'
+kind: ConfigMap
+metadata:
+  name: kfserving-config
+  namespace: kfserving-system
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kfserving-webhook-server-secret
+  namespace: kfserving-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    prometheus.io/port: "8443"
+    prometheus.io/scheme: https
+    prometheus.io/scrape: "true"
+  labels:
+    control-plane: kfserving-controller-manager
+    controller-tools.k8s.io: "1.0"
+  name: kfserving-controller-manager-metrics-service
+  namespace: kfserving-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    targetPort: https
+  selector:
+    control-plane: kfserving-controller-manager
+    controller-tools.k8s.io: "1.0"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    control-plane: kfserving-controller-manager
+    controller-tools.k8s.io: "1.0"
+  name: kfserving-controller-manager-service
+  namespace: kfserving-system
+spec:
+  ports:
+  - port: 443
+  selector:
+    control-plane: kfserving-controller-manager
+    controller-tools.k8s.io: "1.0"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kfserving-webhook-server-service
+  namespace: kfserving-system
+spec:
+  ports:
+  - port: 443
+    targetPort: webhook-server
+  selector:
+    control-plane: kfserving-controller-manager
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    control-plane: kfserving-controller-manager
+    controller-tools.k8s.io: "1.0"
+  name: kfserving-controller-manager
+  namespace: kfserving-system
+spec:
+  selector:
+    matchLabels:
+      control-plane: kfserving-controller-manager
+      controller-tools.k8s.io: "1.0"
+  serviceName: controller-manager-service
+  template:
+    metadata:
+      labels:
+        control-plane: kfserving-controller-manager
+        controller-tools.k8s.io: "1.0"
+    spec:
+      containers:
+      - args:
+        - --metrics-addr=127.0.0.1:8080
+        command:
+        - /manager
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: SECRET_NAME
+          value: kfserving-webhook-server-cert
+        image: gcr.io/kfserving/kfserving-controller:v0.5.0
+        imagePullPolicy: Always
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 100m
+            memory: 300Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8080/
+        - --logtostderr=true
+        - --v=10
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.4.0
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: kfserving-webhook-server-cert
+---
+apiVersion: cert-manager.io/v1alpha2
+kind: Certificate
+metadata:
+  name: serving-cert
+  namespace: kfserving-system
+spec:
+  commonName: kfserving-webhook-server-service.kfserving-system.svc
+  dnsNames:
+  - kfserving-webhook-server-service.kfserving-system.svc
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: kfserving-webhook-server-cert
+---
+apiVersion: cert-manager.io/v1alpha2
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: kfserving-system
+spec:
+  selfSigned: {}
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kfserving-system/serving-cert
+  name: inferenceservice.serving.kubeflow.org
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: kfserving-webhook-server-service
+      namespace: kfserving-system
+      path: /mutate-serving-kubeflow-org-v1alpha2-inferenceservice
+  failurePolicy: Fail
+  name: inferenceservice.kfserving-webhook-server.defaulter
+  rules:
+  - apiGroups:
+    - serving.kubeflow.org
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - inferenceservices
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: kfserving-webhook-server-service
+      namespace: kfserving-system
+      path: /mutate-serving-kubeflow-org-v1beta1-inferenceservice
+  failurePolicy: Fail
+  name: inferenceservice.kfserving-webhook-server.v1beta1.defaulter
+  rules:
+  - apiGroups:
+    - serving.kubeflow.org
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - inferenceservices
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: kfserving-webhook-server-service
+      namespace: kfserving-system
+      path: /mutate-pods
+  failurePolicy: Fail
+  name: inferenceservice.kfserving-webhook-server.pod-mutator
+  namespaceSelector:
+    matchExpressions:
+    - key: control-plane
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: serving.kubeflow.org/inferenceservice
+      operator: Exists
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - pods
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kfserving-system/serving-cert
+  name: inferenceservice.serving.kubeflow.org
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: kfserving-webhook-server-service
+      namespace: kfserving-system
+      path: /validate-serving-kubeflow-org-v1alpha2-inferenceservice
+  failurePolicy: Fail
+  name: inferenceservice.kfserving-webhook-server.validator
+  rules:
+  - apiGroups:
+    - serving.kubeflow.org
+    apiVersions:
+    - v1alpha2
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - inferenceservices
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: kfserving-webhook-server-service
+      namespace: kfserving-system
+      path: /validate-serving-kubeflow-org-v1beta1-inferenceservice
+  failurePolicy: Fail
+  name: inferenceservice.kfserving-webhook-server.v1beta1.validator
+  rules:
+  - apiGroups:
+    - serving.kubeflow.org
+    apiVersions:
+    - v1beta1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - inferenceservices
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kfserving-system/serving-cert
+  name: trainedmodel.serving.kubeflow.org
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: kfserving-webhook-server-service
+      namespace: kfserving-system
+      path: /validate-serving-kubeflow-org-v1alpha1-trainedmodel
+  failurePolicy: Fail
+  name: trainedmodel.kfserving-webhook-server.v1alpha1.validator
+  rules:
+    - apiGroups:
+        - serving.kubeflow.org
+      apiVersions:
+        - v1alpha1
+      operations:
+        - CREATE
+        - UPDATE
+      resources:
+        - trainedmodels

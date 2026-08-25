@@ -1,0 +1,9 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "torchserve"
+spec:
+  predictor:
+    canaryTrafficPercent: 20
+    pytorch:
+      storageUri: gs://kfserving-examples/models/torchserve/image_classifier/v2

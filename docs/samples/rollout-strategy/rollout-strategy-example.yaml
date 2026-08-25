@@ -1,0 +1,89 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: rollout-strategy-example
+  namespace: default
+  annotations:
+    serving.kserve.io/deploymentMode: "Standard"
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: sklearn
+      storageUri: "s3://my-bucket/model"
+    # Example 1: Availability Mode - Direct deployment strategy for high availability
+    # Configuration: maxUnavailable = 0, maxSurge = desired value
+    # Behavior: New pods are created first, then old pods are terminated (zero downtime)
+    deploymentStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: "0"      # No pods unavailable during rollout
+        maxSurge: "50%"          # Can create 50% more pods during rollout
+    
+  transformer:
+    custom:
+      container:
+        image: my-transformer:latest
+        env:
+          - name: MODEL_NAME
+            value: "my-model"
+    # Example 2: ResourceAware Mode - Resource-efficient deployment strategy  
+    # Configuration: maxSurge = 0, maxUnavailable = desired value
+    # Behavior: Old pods are terminated first, then new pods are created (resource efficient)
+    deploymentStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: "0"            # No extra pods during rollout
+        maxUnavailable: "25%"    # Up to 25% of pods can be unavailable
+
+---
+# Example 3: Using ConfigMap defaults (no deploymentStrategy specified)
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: configmap-defaults-example
+  namespace: default
+  annotations:
+    serving.kserve.io/deploymentMode: "Standard"
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: sklearn
+      storageUri: "s3://my-bucket/model"
+    # No deploymentStrategy specified - will use ConfigMap global defaults  
+    # when defaultDeploymentMode is "Standard"
+    # Allows administrators to set organization-wide rollout policies
+
+---
+# Example 4: Multinode deployment (Ray workload)
+# Note: KServe will automatically override ANY rollout strategy to:
+# maxUnavailable: "0%", maxSurge: "100%" for multinode deployments
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: multinode-example
+  namespace: default
+  annotations:
+    serving.kserve.io/deploymentMode: "Standard"
+spec:
+  predictor:
+    model:
+      modelFormat:
+        name: huggingface
+      storageUri: "s3://my-bucket/llm-model"
+    containers:
+    - name: kserve-container
+      image: my-ray-model-server:latest
+      env:
+      - name: RAY_NODE_COUNT    # This triggers multinode deployment
+        value: "4"              # 1 head + 3 worker nodes
+      - name: REQUEST_GPU_COUNT
+        value: "8"
+    # Even if you specify a different rollout strategy, KServe will override it
+    # for multinode deployments to ensure Ray cluster stability
+    deploymentStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: "50%"  # This will be overridden to "0%"
+        maxSurge: "25%"        # This will be overridden to "100%" 

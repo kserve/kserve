@@ -1,0 +1,9 @@
+apiVersion: "serving.kserve.io/v1alpha2"
+kind: "InferenceService"
+metadata:
+  name: "mnist-sample"
+spec:
+  default:
+    predictor:
+      tensorflow:
+        storageUri: "pvc://${PVC_NAME}/export"

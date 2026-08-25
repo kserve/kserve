@@ -1,0 +1,17 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "sklearn-iris-example"
+spec:
+  predictor:
+    minReplicas: 1
+    sklearn:
+      protocolVersion: v1
+      name: "sklearn-iris-predictor"
+      resources:
+        limits:
+          cpu: 100m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 512Mi

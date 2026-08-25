@@ -1,0 +1,12 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: message-dumper
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+    spec:
+      containers:
+      - image: gcr.io/knative-releases/knative.dev/eventing-contrib/cmd/event_display@sha256:d0ce1d63b4232707f96e018b57e566abbc1ad9cc7840e1e5e36443a05dd3a496

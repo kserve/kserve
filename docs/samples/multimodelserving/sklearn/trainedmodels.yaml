@@ -1,0 +1,21 @@
+apiVersion: "serving.kserve.io/v1alpha1"
+kind: "TrainedModel"
+metadata:
+  name: "model1-sklearn"
+spec:
+  inferenceService: "sklearn-iris-example"
+  model:
+    storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
+    framework: "sklearn"
+    memory: "256Mi"
+---
+apiVersion: "serving.kserve.io/v1alpha1"
+kind: "TrainedModel"
+metadata:
+  name: "model2-sklearn"
+spec:
+  inferenceService: "sklearn-iris-example"
+  model:
+    storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
+    framework: "sklearn"
+    memory: "256Mi"

@@ -1,0 +1,17 @@
+# Since HARD step will return non-200, so IG will return that step's output as IG's output
+apiVersion: serving.kserve.io/v1alpha1
+kind: InferenceGraph
+metadata:
+  name: {{ graph_name }}
+spec:
+  nodes:
+    root:
+      routerType: Ensemble
+      steps:
+      - name: "rootStep1"
+        serviceName: {{ error_404_isvc_id }}
+        dependency: Hard
+      - name: "rootStep2"
+        serviceName: {{ success_200_isvc_id }}
+      - name: "rootStep3"
+        serviceName: {{ success_200_isvc_id }}

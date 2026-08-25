@@ -1,0 +1,25 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "sklearn-driver-transformer"
+spec:
+  transformer:
+    containers:
+      - image: "kserve/driver-transformer:latest"
+        name: driver-container
+        command:
+          - "python"
+          - "-m"
+          - "driver_transformer"
+        args:
+          - --feast_serving_url
+          - "feature-server-service.default.svc.cluster.local:6566"
+          - --entity_id_name
+          - "driver_id"
+          - --feature_refs
+          - "driver_hourly_stats:conv_rate"
+          - "driver_hourly_stats:acc_rate"
+          - "driver_hourly_stats:avg_daily_trips"
+  predictor:
+    sklearn:
+      storageUri: "gs://kfserving-examples/models/feast/driver"

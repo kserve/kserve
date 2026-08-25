@@ -1,0 +1,10 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "flowers-sample"
+  annotations:
+    autoscaling.knative.dev/target: "1"
+spec:
+  predictor:
+    tensorflow:
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers"

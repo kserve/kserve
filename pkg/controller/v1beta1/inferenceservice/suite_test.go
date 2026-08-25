@@ -1,0 +1,219 @@
+/*
+Copyright 2021 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package inferenceservice
+
+import (
+	"context"
+	"encoding/json"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	pkgtest "github.com/kserve/kserve/pkg/testing"
+)
+
+// These tests use Ginkgo (BDD-style Go testing framework). Refer to
+// http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
+
+var (
+	cfg       *rest.Config
+	k8sClient client.Client
+	clientset *kubernetes.Clientset
+)
+
+func TestV1beta1APIs(t *testing.T) {
+	RegisterFailHandler(Fail)
+
+	RunSpecs(t, "v1beta1 Controller Suite")
+}
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	cacheOpts, err := NewCacheOptions()
+	Expect(err).ToNot(HaveOccurred())
+
+	ctrlFunc := func(restCfg *rest.Config, mgr ctrl.Manager) error {
+		var csErr error
+		clientset, csErr = kubernetes.NewForConfig(restCfg)
+		if csErr != nil {
+			return csErr
+		}
+
+		deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Knative"}
+		ingressConfig := &v1beta1.IngressConfig{
+			IngressGateway:          constants.KnativeIngressGateway,
+			LocalGateway:            constants.KnativeLocalGateway,
+			LocalGatewayServiceName: "knative-local-gateway.istio-system.svc.cluster.local",
+			DisableIstioVirtualHost: false,
+		}
+
+		return (&InferenceServiceReconciler{
+			Client:    mgr.GetClient(),
+			Clientset: clientset,
+			Scheme:    mgr.GetScheme(),
+			Log:       ctrl.Log.WithName("V1beta1InferenceServiceController"),
+			Recorder:  mgr.GetEventRecorderFor("V1beta1InferenceServiceController"),
+		}).SetupWithManager(mgr, deployConfig, ingressConfig)
+	}
+
+	envTest := pkgtest.NewEnvTest().
+		WithControllers(ctrlFunc).
+		WithManagerOptions(func(opts *ctrl.Options) {
+			opts.Cache = cacheOpts
+		}).
+		// The suite manager/webhook must outlive BeforeSuite node context.
+		Start(context.Background())
+
+	cfg = envTest.Config
+	k8sClient = envTest.Client
+
+	// Create namespaces
+	kserveNamespaceObj := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.KServeNamespace,
+		},
+	}
+	knativeServingNamespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.DefaultKnServingNamespace,
+		},
+	}
+	Expect(k8sClient.Create(ctx, kserveNamespaceObj)).Should(Succeed())
+	Expect(k8sClient.Create(ctx, knativeServingNamespace)).Should(Succeed())
+
+	// Create knative config-autoscaler configmap
+	configAutoscaler := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      constants.AutoscalerConfigmapName,
+			Namespace: constants.AutoscalerConfigmapNamespace,
+		},
+	}
+	Expect(k8sClient.Create(ctx, configAutoscaler)).Should(Succeed())
+})
+
+// getBaseTestConfigs returns the common test configuration shared by all deployment modes
+func getBaseTestConfigs() map[string]string {
+	return map[string]string{
+		"explainers": `{
+				"art": {
+					"image": "kserve/art-explainer",
+					"defaultImageVersion": "latest"
+				},
+				"alibi": {
+					"image": "kserve/alibi-explainer",
+					"defaultImageVersion": "latest"
+				}
+			}`,
+		"ingress": `{
+				"kserveIngressGateway": "kserve/kserve-ingress-gateway",
+				"ingressGateway": "knative-serving/knative-ingress-gateway",
+				"localGateway": "knative-serving/knative-local-gateway",
+				"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
+			}`,
+		"storageInitializer": `{
+				"image" : "kserve/storage-initializer:latest",
+				"memoryRequest": "100Mi",
+				"memoryLimit": "1Gi",
+				"cpuRequest": "100m",
+				"cpuLimit": "1",
+				"caBundleConfigMapName": "",
+				"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+				"cpuModelcar": "10m",
+				"memoryModelcar": "15Mi"
+			}`,
+		"deploy": `{
+				"defaultDeploymentMode": "Knative"
+			}`,
+		"inferenceService": `{}`,
+	}
+}
+
+// getKnativeTestConfigs returns the default test configuration for Knative deployment mode tests
+func getKnativeTestConfigs() map[string]string {
+	return getBaseTestConfigs()
+}
+
+// getRawKubeTestConfigs returns the default test configuration for RawKube deployment mode tests with Gateway API enabled
+func getRawKubeTestConfigs() map[string]string {
+	return mergeJSONField(getBaseTestConfigs(), "ingress", map[string]interface{}{
+		"enableGatewayApi":         true,
+		"additionalIngressDomains": []string{"additional.example.com"},
+	})
+}
+
+// mergeJSONField merges additional fields into a specific JSON field in configs.
+// This allows partial updates to JSON configs without rewriting the entire JSON string.
+// The key parameter can be any config key (e.g., "ingress", "explainers", "storageInitializer").
+//
+// Examples:
+//
+//	// Merge into ingress config
+//	configs := mergeJSONField(getRawKubeTestConfigs(), "ingress", map[string]interface{}{
+//	    "disableIngressCreation": true,
+//	})
+//
+//	// Merge into explainers config
+//	configs := mergeJSONField(getBaseTestConfigs(), "explainers", map[string]interface{}{
+//	    "custom": map[string]interface{}{
+//	        "image": "custom-explainer:v1",
+//	    },
+//	})
+//
+//nolint:unparam
+func mergeJSONField(base map[string]string, key string, updates map[string]interface{}) map[string]string {
+	result := make(map[string]string)
+	// Copy base configs
+	for k, v := range base {
+		result[k] = v
+	}
+
+	// Get the existing JSON value
+	existingJSON := base[key]
+	if existingJSON == "" {
+		existingJSON = "{}"
+	}
+
+	// Unmarshal existing JSON
+	var existingData map[string]interface{}
+	if err := json.Unmarshal([]byte(existingJSON), &existingData); err != nil {
+		// If unmarshal fails, just use updates
+		existingData = make(map[string]interface{})
+	}
+
+	// Merge updates into existing data
+	for k, v := range updates {
+		existingData[k] = v
+	}
+
+	// Marshal back to JSON
+	mergedJSON, err := json.Marshal(existingData)
+	if err != nil {
+		// If marshal fails, return original
+		return result
+	}
+
+	result[key] = string(mergedJSON)
+	return result
+}

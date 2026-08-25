@@ -1,0 +1,16 @@
+apiVersion: eventing.knative.dev/v1
+kind: Trigger
+metadata:
+  name: vaeoutlier-trigger
+  namespace: cifar10
+spec:
+  broker: default
+  filter:
+    attributes:
+      type: org.kubeflow.serving.inference.request
+  subscriber:
+    ref:
+      apiVersion: serving.knative.dev/v1
+      kind: Service
+      name: vae-outlier
+      namespace: cifar10

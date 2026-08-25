@@ -1,0 +1,21 @@
+apiVersion: v2
+name: kserve-crd
+version: v0.20.0
+appVersion: v0.20.0
+description: Helm chart for deploying kserve crds
+type: application
+keywords:
+  - kserve
+  - modelmesh
+  - crd
+  - kubernetes
+  - custom-resources
+home: https://kserve.github.io/website/
+sources:
+  - https://github.com/kserve/kserve
+maintainers:
+  - name: KServe Team
+    url: https://github.com/kserve/kserve
+icon: https://raw.githubusercontent.com/kserve/website/main/docs/images/logo.png
+annotations:
+  category: AI/Machine Learning

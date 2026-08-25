@@ -1,0 +1,999 @@
+/*
+Copyright 2025 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package v1alpha2
+
+import (
+	"cmp"
+	"context"
+	"fmt"
+	"regexp"
+	"slices"
+	"strconv"
+
+	"k8s.io/utils/ptr"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/kserve/kserve/pkg/utils"
+	kservevalidation "github.com/kserve/kserve/pkg/validation"
+)
+
+// variantCostPattern is compiled once at package init to avoid recompilation on every webhook call.
+var variantCostPattern = regexp.MustCompile(`^\d+(\.\d+)?$`)
+
+// Scaling mode and actuator backend names used in validation error messages.
+const (
+	scalingModeWVA        = "wva"
+	scalingModeDirectKEDA = "direct keda"
+	actuatorBackendHPA    = "hpa"
+	actuatorBackendKEDA   = "keda"
+)
+
+// +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha2-llminferenceservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha2,name=llminferenceservice.kserve-webhook-server.v1alpha2.validator,admissionReviewVersions=v1
+
+// LLMInferenceServiceValidator is responsible for validating the LLMInferenceService resource
+// when it is created, updated, or deleted.
+// +kubebuilder:object:generate=false
+type LLMInferenceServiceValidator struct{}
+
+var _ webhook.CustomValidator = &LLMInferenceServiceValidator{}
+
+func (l *LLMInferenceServiceValidator) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr).
+		For(&LLMInferenceService{}).
+		WithValidator(l).
+		Complete()
+}
+
+func (l *LLMInferenceServiceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+	llmSvc, err := utils.Convert[*LLMInferenceService](obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return l.validate(ctx, nil, llmSvc)
+}
+
+func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	llmSvc, err := utils.Convert[*LLMInferenceService](newObj)
+	if err != nil {
+		return nil, err
+	}
+	prev, err := utils.Convert[*LLMInferenceService](oldObj)
+	if err != nil {
+		return nil, err
+	}
+	if llmSvc.GetDeletionTimestamp() != nil {
+		return nil, nil
+	}
+
+	return l.validate(ctx, prev, llmSvc)
+}
+
+func (l *LLMInferenceServiceValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+	// No validation needed for deletion
+	return admission.Warnings{}, nil
+}
+
+func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMInferenceService, llmSvc *LLMInferenceService) (admission.Warnings, error) {
+	logger := log.FromContext(ctx)
+	logger.Info("Validating LLMInferenceService v1alpha2", "name", llmSvc.Name, "namespace", llmSvc.Namespace)
+
+	var allErrs field.ErrorList
+	var warnings admission.Warnings
+
+	routerWarnings, routerErrs := l.validateRouterCrossFieldConstraints(llmSvc)
+	warnings = append(warnings, routerWarnings...)
+	allErrs = append(allErrs, routerErrs...)
+
+	allErrs = append(allErrs, l.validateTrafficFields(llmSvc)...)
+
+	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
+	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
+
+	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
+	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
+	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
+	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
+	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
+
+	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
+
+	confidentialWarnings, confidentialErrs := l.validateConfidential(llmSvc)
+	warnings = append(warnings, confidentialWarnings...)
+	allErrs = append(allErrs, confidentialErrs...)
+
+	if len(allErrs) == 0 {
+		logger.V(2).Info("LLMInferenceService v1alpha2 is valid", "llmisvc", llmSvc)
+		return warnings, nil
+	}
+
+	return warnings, apierrors.NewInvalid(
+		LLMInferenceServiceGVK.GroupKind(),
+		llmSvc.Name, allErrs)
+}
+
+func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
+	router := llmSvc.Spec.Router
+	if router == nil || router.Route == nil {
+		return nil, nil
+	}
+
+	routerPath := field.NewPath("spec").Child("router")
+	gatewayPath := routerPath.Child("gateway")
+	gwRefsPath := gatewayPath.Child("refs")
+	routePath := routerPath.Child("route")
+	httpRoutePath := routePath.Child("http")
+	httpRouteRefs := httpRoutePath.Child("refs")
+	httpRouteSpec := httpRoutePath.Child("spec")
+
+	httpRoute := router.Route.HTTP
+	if httpRoute == nil {
+		return nil, nil
+	}
+
+	var allErrs field.ErrorList
+	var warnings admission.Warnings
+
+	// Both refs and spec cannot be used together
+	if len(httpRoute.Refs) > 0 && httpRoute.Spec != nil {
+		allErrs = append(allErrs, field.Invalid(
+			httpRoutePath,
+			httpRoute,
+			fmt.Sprintf("unsupported configuration: cannot use both custom HTTPRoute refs ('%s') and an inline route spec ('%s'); "+
+				"choose one",
+				httpRouteRefs, httpRouteSpec,
+			),
+		),
+		)
+	}
+
+	// User-defined routes (refs) cannot be used with managed gateway (empty gateway config)
+	if len(httpRoute.Refs) > 0 && router.Gateway != nil && len(router.Gateway.Refs) == 0 {
+		allErrs = append(allErrs, field.Invalid(
+			httpRouteRefs,
+			httpRoute.Refs,
+			fmt.Sprintf("unsupported configuration: custom HTTP routes ('%s') cannot be used with a managed gateway ('%s'); "+
+				"either remove '%s' or set '%s'",
+				httpRouteRefs, gatewayPath, httpRouteRefs, gwRefsPath,
+			),
+		))
+	}
+
+	// When both parentRefs and gateway refs are set, check for consistency.
+	// If they match, it's redundant but valid — the controller derives parentRefs from gateway.refs automatically.
+	// If they conflict, reject.
+	if httpRoute.Spec != nil && len(httpRoute.Spec.ParentRefs) > 0 &&
+		router.Gateway != nil && len(router.Gateway.Refs) > 0 {
+		if parentRefsMatchGatewayRefs(httpRoute.Spec.ParentRefs, router.Gateway.Refs) {
+			warnings = append(warnings,
+				fmt.Sprintf("%s.parentRefs can be omitted when %s is set; parentRefs will be derived automatically from gateway refs",
+					httpRouteSpec, gwRefsPath))
+		} else {
+			allErrs = append(allErrs, field.Invalid(
+				httpRoutePath.Child("spec"),
+				httpRoute.Spec,
+				fmt.Sprintf("unsupported configuration: managed HTTP route spec ('%s') has parentRefs that conflict with custom gateway refs ('%s'); "+
+					"either remove '%s' or '%s.parentRefs'",
+					httpRouteSpec, gwRefsPath, gwRefsPath, httpRouteSpec,
+				),
+			))
+		}
+	}
+
+	return warnings, allErrs
+}
+
+// parentRefsMatchGatewayRefs checks whether the parentRefs on an HTTPRoute are
+// consistent with the gateway refs. A parentRef matches a gateway ref if the
+// name, namespace, and sectionName are equal (Group and Kind are always Gateway).
+// Both slices are sorted before comparison so order does not matter.
+func parentRefsMatchGatewayRefs(parentRefs []gwapiv1.ParentReference, gatewayRefs []GatewayObjectReference) bool {
+	if len(parentRefs) != len(gatewayRefs) {
+		return false
+	}
+
+	// Build comparable keys and sort so that order-independent matching works.
+	type key struct{ ns, name, sectionName string }
+	toKey := func(name gwapiv1.ObjectName, ns gwapiv1.Namespace, sn *gwapiv1.SectionName) key {
+		sectionName := ""
+		if sn != nil {
+			sectionName = string(*sn)
+		}
+		return key{ns: string(ns), name: string(name), sectionName: sectionName}
+	}
+	cmpKey := func(a, b key) int {
+		if c := cmp.Compare(a.ns, b.ns); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.name, b.name); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.sectionName, b.sectionName)
+	}
+
+	pKeys := make([]key, len(parentRefs))
+	for i, ref := range parentRefs {
+		pKeys[i] = toKey(ref.Name, ptr.Deref(ref.Namespace, ""), ref.SectionName)
+	}
+	gKeys := make([]key, len(gatewayRefs))
+	for i, ref := range gatewayRefs {
+		gKeys[i] = toKey(ref.Name, ref.Namespace, ref.SectionName)
+	}
+
+	slices.SortFunc(pKeys, cmpKey)
+	slices.SortFunc(gKeys, cmpKey)
+
+	return slices.Equal(pKeys, gKeys)
+}
+
+func (l *LLMInferenceServiceValidator) validateParallelismConstraints(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+
+	allErrs = append(allErrs, l.validateWorkloadParallelism(field.NewPath("spec"), &llmSvc.Spec.WorkloadSpec)...)
+
+	if llmSvc.Spec.Prefill != nil {
+		allErrs = append(allErrs, l.validateWorkloadParallelism(field.NewPath("spec").Child("prefill"), llmSvc.Spec.Prefill)...)
+	}
+
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateWorkloadParallelism(basePath *field.Path, workload *WorkloadSpec) field.ErrorList {
+	var allErrs field.ErrorList
+
+	if workload.Worker != nil && workload.Parallelism == nil {
+		allErrs = append(allErrs, field.Invalid(
+			basePath.Child("worker"),
+			workload.Worker,
+			"when worker is specified, parallelism must be configured for either data parallelism or pipeline parallelism",
+		))
+		return allErrs
+	}
+
+	if workload.Parallelism == nil {
+		return field.ErrorList{}
+	}
+
+	parallelismPath := basePath.Child("parallelism")
+	parallelism := workload.Parallelism
+
+	if workload.Worker != nil && !parallelism.IsDataParallel() && !parallelism.IsPipelineParallel() {
+		allErrs = append(allErrs, field.Invalid(
+			basePath.Child("worker"),
+			workload.Worker,
+			"when worker is specified, parallelism must be configured for either data parallelism or pipeline parallelism",
+		))
+	}
+
+	if parallelism.IsPipelineParallel() && parallelism.IsDataParallel() {
+		allErrs = append(allErrs, field.Invalid(
+			parallelismPath,
+			parallelism,
+			"cannot set both pipeline parallelism and data parallelism (data or dataLocal) simultaneously",
+		))
+	}
+
+	// Data and DataLocal must always be set together
+	if (parallelism.Data != nil) != (parallelism.DataLocal != nil) {
+		if parallelism.Data != nil && parallelism.DataLocal == nil {
+			allErrs = append(allErrs, field.Invalid(
+				parallelismPath.Child("dataLocal"),
+				parallelism.DataLocal,
+				"dataLocal must be set when data is set",
+			))
+		}
+		if parallelism.DataLocal != nil && parallelism.Data == nil {
+			allErrs = append(allErrs, field.Invalid(
+				parallelismPath.Child("data"),
+				parallelism.Data,
+				"data must be set when dataLocal is set",
+			))
+		}
+	}
+
+	if parallelism.Pipeline != nil && *parallelism.Pipeline <= 0 {
+		allErrs = append(allErrs, field.Invalid(
+			parallelismPath.Child("pipeline"),
+			*parallelism.Pipeline,
+			"pipeline parallelism must be greater than 0",
+		))
+	}
+
+	if parallelism.Data != nil && *parallelism.Data <= 0 {
+		allErrs = append(allErrs, field.Invalid(
+			parallelismPath.Child("data"),
+			*parallelism.Data,
+			"data parallelism must be greater than 0",
+		))
+	}
+
+	if parallelism.DataLocal != nil && *parallelism.DataLocal <= 0 {
+		allErrs = append(allErrs, field.Invalid(
+			parallelismPath.Child("dataLocal"),
+			*parallelism.DataLocal,
+			"dataLocal parallelism must be greater than 0",
+		))
+	}
+
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateImmutable(prev *LLMInferenceService, curr *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+	if prev == nil {
+		return allErrs
+	}
+
+	specPath := field.NewPath("spec")
+
+	allErrs = append(allErrs, l.validateImmutableParallelism(specPath, prev.Spec.Parallelism, curr.Spec.Parallelism)...)
+	if curr.Spec.Prefill != nil && prev.Spec.Prefill != nil {
+		allErrs = append(allErrs, l.validateImmutableParallelism(specPath.Child("prefill"), prev.Spec.Prefill.Parallelism, curr.Spec.Prefill.Parallelism)...)
+	}
+
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateImmutableParallelism(basePath *field.Path, prev *ParallelismSpec, curr *ParallelismSpec) field.ErrorList {
+	var allErrs field.ErrorList
+	if pSize, cSize := ptr.Deref(prev.GetSize(), 1), ptr.Deref(curr.GetSize(), 1); cSize != pSize {
+		allErrs = append(allErrs, immutableField(
+			basePath.Child("parallelism"),
+			cSize,
+			fmt.Sprintf("total parallelism size is immutable, previous size %d, curr size %d", pSize, cSize),
+		))
+	}
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateSchedulerConfig(svc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+
+	if svc.Spec.Router == nil || svc.Spec.Router.Scheduler == nil {
+		return allErrs
+	}
+
+	schedulerPath := field.NewPath("spec", "router", "scheduler")
+
+	if svc.Spec.Router.Scheduler.Replicas != nil && *svc.Spec.Router.Scheduler.Replicas <= 0 {
+		allErrs = append(allErrs, field.Invalid(schedulerPath.Child("replicas"), *svc.Spec.Router.Scheduler.Replicas, "scheduler replicas must be greater than zero"))
+	}
+
+	if svc.Spec.Router.Scheduler.Config == nil {
+		return allErrs
+	}
+
+	configPath := schedulerPath.Child("config")
+
+	if svc.Spec.Router.Scheduler.Config.Ref == nil && svc.Spec.Router.Scheduler.Config.Inline == nil {
+		allErrs = append(allErrs, field.Invalid(
+			configPath,
+			svc.Spec.Router.Scheduler.Config,
+			"either inline or ref is required",
+		))
+	}
+
+	if svc.Spec.Router.Scheduler.Config.Inline != nil && svc.Spec.Router.Scheduler.Config.Ref != nil {
+		allErrs = append(allErrs, field.Invalid(
+			configPath,
+			svc.Spec.Router.Scheduler.Config,
+			"both inline and ref are set, either specify inline or ref",
+		))
+	}
+
+	if svc.Spec.Router.Scheduler.Config.Inline != nil && len(svc.Spec.Router.Scheduler.Config.Inline.Raw) < 3 /* we expect at least a few characters '{...}' */ {
+		allErrs = append(allErrs, field.Invalid(
+			configPath.Child("inline"),
+			svc.Spec.Router.Scheduler.Config.Inline,
+			"inline configuration is invalid",
+		))
+	}
+
+	if svc.Spec.Router.Scheduler.Config.Ref != nil {
+		if svc.Spec.Router.Scheduler.Config.Ref.Name == "" {
+			allErrs = append(allErrs, field.Invalid(
+				configPath.Child("ref", "name"),
+				svc.Spec.Router.Scheduler.Config.Ref,
+				"name is empty",
+			))
+		}
+	}
+
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateLoRAAdapters(llmSvc *LLMInferenceService) field.ErrorList {
+	return ValidateLoRAAdapters(llmSvc.Spec.Model.LoRA, ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.Name), field.NewPath("spec", "model", "lora"))
+}
+
+// ValidateLoRAAdapters validates a LoRA spec: numeric bounds, adapter name
+// uniqueness, path traversal, and base-model collision. It is exported so
+// v1alpha1 can convert its spoke type and call the same logic.
+func ValidateLoRAAdapters(loraSpec *LoRASpec, baseModelName string, loraPath *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+
+	if loraSpec == nil {
+		return allErrs
+	}
+
+	if loraSpec.MaxRank != nil && *loraSpec.MaxRank < 1 {
+		allErrs = append(allErrs, field.Invalid(loraPath.Child("maxRank"), *loraSpec.MaxRank, "maxRank must be at least 1"))
+	}
+	if loraSpec.MaxAdapters != nil && *loraSpec.MaxAdapters < 1 {
+		allErrs = append(allErrs, field.Invalid(loraPath.Child("maxAdapters"), *loraSpec.MaxAdapters, "maxAdapters must be at least 1"))
+	}
+	if loraSpec.MaxCpuAdapters != nil && *loraSpec.MaxCpuAdapters < 1 {
+		allErrs = append(allErrs, field.Invalid(loraPath.Child("maxCpuAdapters"), *loraSpec.MaxCpuAdapters, "maxCpuAdapters must be at least 1"))
+	}
+
+	if len(loraSpec.Adapters) == 0 {
+		return allErrs
+	}
+
+	adaptersPath := loraPath.Child("adapters")
+	seen := make(map[string]int, len(loraSpec.Adapters))
+
+	for i, adapter := range loraSpec.Adapters {
+		namePath := adaptersPath.Index(i).Child("name")
+
+		if adapter.Name == nil || *adapter.Name == "" {
+			allErrs = append(allErrs, field.Required(namePath, "adapter name is required"))
+			continue
+		}
+
+		adapterName := *adapter.Name
+
+		if adapterName == "." || adapterName == ".." {
+			allErrs = append(allErrs, field.Invalid(
+				namePath,
+				adapterName,
+				"adapter name must not include \".\" or \"..\" (path traversal risk)",
+			))
+			continue
+		}
+
+		if prevIdx, dup := seen[adapterName]; dup {
+			allErrs = append(allErrs, field.Invalid(
+				namePath,
+				adapterName,
+				fmt.Sprintf("duplicate name (same as adapters[%d])", prevIdx),
+			))
+		} else {
+			seen[adapterName] = i
+		}
+
+		if adapterName == baseModelName {
+			allErrs = append(allErrs, field.Invalid(
+				namePath,
+				adapterName,
+				fmt.Sprintf("adapter name must differ from base model name %q", baseModelName),
+			))
+		}
+	}
+
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateScaling(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+
+	// Validate scaling on the main (decode) workload
+	allErrs = append(allErrs, ValidateWorkloadScaling(field.NewPath("spec"), &llmSvc.Spec.WorkloadSpec)...)
+
+	// Validate scaling on the prefill workload, if present
+	if llmSvc.Spec.Prefill != nil {
+		allErrs = append(allErrs, ValidateWorkloadScaling(field.NewPath("spec").Child("prefill"), llmSvc.Spec.Prefill)...)
+	}
+
+	allErrs = append(allErrs, l.validateActuatorConsistency(llmSvc)...)
+
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateActuatorConsistency(llmSvc *LLMInferenceService) field.ErrorList {
+	return ValidateActuatorConsistency(&llmSvc.Spec.WorkloadSpec, llmSvc.Spec.Prefill)
+}
+
+// ValidateActuatorConsistency ensures that when both decode and prefill workloads
+// have autoscaling configured, they use the same scaling mode and actuator backend.
+// Mixing WVA with direct KEDA, or mixing HPA with KEDA under WVA, is not supported.
+//
+// It is exported so that v1alpha1 can reuse it via conversion.
+func ValidateActuatorConsistency(decode *WorkloadSpec, prefill *WorkloadSpec) field.ErrorList {
+	if prefill == nil {
+		return nil
+	}
+
+	decodeScaling := decode.Scaling
+	prefillScaling := prefill.Scaling
+	if decodeScaling == nil || prefillScaling == nil {
+		return nil
+	}
+
+	decodeUsesDirectKEDA := decodeScaling.KEDA != nil
+	prefillUsesDirectKEDA := prefillScaling.KEDA != nil
+	if decodeUsesDirectKEDA != prefillUsesDirectKEDA {
+		decodeMode := scalingModeWVA
+		prefillMode := scalingModeDirectKEDA
+		if decodeUsesDirectKEDA {
+			decodeMode = scalingModeDirectKEDA
+			prefillMode = scalingModeWVA
+		}
+		return field.ErrorList{
+			field.Invalid(
+				field.NewPath("spec").Child("prefill", "scaling"),
+				prefillScaling,
+				fmt.Sprintf(
+					"decode and prefill must use the same scaling mode; decode uses %s but prefill uses %s",
+					decodeMode, prefillMode,
+				),
+			),
+		}
+	}
+
+	// Both sides must have scaling.wva configured for an actuator mismatch to be possible.
+	if decodeScaling.WVA == nil || prefillScaling.WVA == nil {
+		return nil
+	}
+
+	decodeUsesHPA := decodeScaling.WVA.HPA != nil
+	prefillUsesHPA := prefillScaling.WVA.HPA != nil
+
+	if decodeUsesHPA == prefillUsesHPA {
+		return nil
+	}
+
+	decodeBackend := actuatorBackendKEDA
+	prefillBackend := actuatorBackendHPA
+	if decodeUsesHPA {
+		decodeBackend = actuatorBackendHPA
+		prefillBackend = actuatorBackendKEDA
+	}
+
+	return field.ErrorList{
+		field.Invalid(
+			field.NewPath("spec").Child("prefill", "scaling", "wva"),
+			prefillScaling.WVA,
+			fmt.Sprintf(
+				"decode and prefill must use the same actuator backend; "+
+					"decode uses %s but prefill uses %s — "+
+					"mixing backends requires two separate metric pipelines and leads to independent, unsynchronised scaling decisions",
+				decodeBackend, prefillBackend,
+			),
+		),
+	}
+}
+
+// ValidateWorkloadScaling validates the scaling configuration of a single workload
+// (decode or prefill). It is exported so that v1alpha1 can reuse it via conversion.
+func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field.ErrorList {
+	var allErrs field.ErrorList
+
+	scaling := workload.Scaling
+	if scaling == nil {
+		return allErrs
+	}
+
+	scalingPath := basePath.Child("scaling")
+
+	// Replicas and scaling are mutually exclusive
+	if workload.Replicas != nil {
+		allErrs = append(allErrs, field.Invalid(
+			scalingPath,
+			scaling,
+			"scaling and replicas are mutually exclusive; use scaling for autoscaled deployments or replicas for static deployments",
+		))
+	}
+
+	// Validate replica bounds
+	if scaling.MinReplicas != nil && *scaling.MinReplicas > scaling.MaxReplicas {
+		allErrs = append(allErrs, field.Invalid(
+			scalingPath.Child("minReplicas"),
+			*scaling.MinReplicas,
+			fmt.Sprintf("minReplicas (%d) cannot exceed maxReplicas (%d)", *scaling.MinReplicas, scaling.MaxReplicas),
+		))
+	}
+
+	// Must specify exactly one scaling mechanism.
+	if scaling.WVA != nil && scaling.KEDA != nil {
+		allErrs = append(allErrs, field.Invalid(
+			scalingPath,
+			scaling,
+			"wva and keda are mutually exclusive; choose one scaling mechanism",
+		))
+		return allErrs
+	}
+
+	if scaling.WVA == nil && scaling.KEDA == nil {
+		allErrs = append(allErrs, field.Required(
+			scalingPath,
+			"either wva or keda must be specified when scaling is configured",
+		))
+		return allErrs
+	}
+
+	if scaling.KEDA != nil {
+		return append(allErrs, validateDirectKEDA(scalingPath, scaling)...)
+	}
+
+	// Validate WVA configuration
+	wvaPath := scalingPath.Child("wva")
+
+	// HPA and KEDA are mutually exclusive
+	if scaling.WVA.HPA != nil && scaling.WVA.KEDA != nil {
+		allErrs = append(allErrs, field.Invalid(
+			wvaPath,
+			scaling.WVA,
+			"hpa and keda are mutually exclusive; choose one actuator backend",
+		))
+	}
+
+	// Must specify at least one actuator
+	if scaling.WVA.HPA == nil && scaling.WVA.KEDA == nil {
+		allErrs = append(allErrs, field.Required(
+			wvaPath,
+			"either hpa or keda must be specified as the actuator backend",
+		))
+	}
+
+	// Validate variantCost format (must be a non-negative numeric string, e.g., "10", "10.0", "0.5")
+	if scaling.WVA.VariantCost != "" {
+		if !variantCostPattern.MatchString(scaling.WVA.VariantCost) {
+			allErrs = append(allErrs, field.Invalid(
+				wvaPath.Child("variantCost"),
+				scaling.WVA.VariantCost,
+				"variantCost must be a non-negative numeric string (e.g., \"10\", \"10.0\", \"0.5\")",
+			))
+		}
+	}
+
+	if scaling.WVA.KEDA != nil {
+		// WVA path: forbid scalingModifiers (WVA owns the formula) and HPA name.
+		allErrs = append(allErrs, validateKEDAAdvancedFields(wvaPath.Child("keda"), scaling.WVA.KEDA, true)...)
+		allErrs = append(allErrs, validateKEDAIdleReplicaCount(scalingPath, wvaPath.Child("keda"), scaling, scaling.WVA.KEDA)...)
+	}
+
+	return allErrs
+}
+
+func validateDirectKEDA(scalingPath *field.Path, scaling *ScalingSpec) field.ErrorList {
+	var allErrs field.ErrorList
+	kedaPath := scalingPath.Child("keda")
+	keda := scaling.KEDA
+
+	if len(keda.Triggers) == 0 {
+		allErrs = append(allErrs, field.Required(
+			kedaPath.Child("triggers"),
+			"at least one trigger is required when using direct KEDA scaling",
+		))
+	}
+
+	// Direct KEDA path: allow scalingModifiers (no WVA formula to protect).
+	// Still forbid HPA name — the controller manages it.
+	allErrs = append(allErrs, validateKEDAAdvancedFields(kedaPath, &keda.KEDAScalingSpec, false)...)
+	allErrs = append(allErrs, validateKEDAIdleReplicaCount(scalingPath, kedaPath, scaling, &keda.KEDAScalingSpec)...)
+
+	return allErrs
+}
+
+// validateKEDAAdvancedFields validates Advanced ScaledObject settings.
+// forbidScalingModifiers should be true for the WVA actuator path (WVA owns the metric formula)
+// and false for direct KEDA (users may set their own scalingModifiers).
+func validateKEDAAdvancedFields(kedaPath *field.Path, keda *KEDAScalingSpec, forbidScalingModifiers bool) field.ErrorList {
+	var allErrs field.ErrorList
+	if keda == nil || keda.Advanced == nil {
+		return allErrs
+	}
+
+	if forbidScalingModifiers {
+		sm := keda.Advanced.ScalingModifiers
+		if sm.Formula != "" || sm.Target != "" || sm.ActivationTarget != "" || string(sm.MetricType) != "" {
+			allErrs = append(allErrs, field.Forbidden(
+				kedaPath.Child("advanced", "scalingModifiers"),
+				"scalingModifiers must not be set; WVA controls the scaling metric formula and logic",
+			))
+		}
+	}
+	if keda.Advanced.HorizontalPodAutoscalerConfig != nil &&
+		keda.Advanced.HorizontalPodAutoscalerConfig.Name != "" {
+		allErrs = append(allErrs, field.Forbidden(
+			kedaPath.Child("advanced", "horizontalPodAutoscalerConfig", "name"),
+			"horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name",
+		))
+	}
+
+	return allErrs
+}
+
+func validateKEDAIdleReplicaCount(
+	scalingPath *field.Path,
+	kedaPath *field.Path,
+	scaling *ScalingSpec,
+	keda *KEDAScalingSpec,
+) field.ErrorList {
+	var allErrs field.ErrorList
+	if keda == nil || keda.IdleReplicaCount == nil {
+		return allErrs
+	}
+
+	if scaling.MinReplicas == nil {
+		allErrs = append(allErrs, field.Required(
+			scalingPath.Child("minReplicas"),
+			fmt.Sprintf("minReplicas is required when idleReplicaCount is set; "+
+				"idleReplicaCount (%d) must be less than minReplicas",
+				*keda.IdleReplicaCount),
+		))
+	} else if *keda.IdleReplicaCount >= *scaling.MinReplicas {
+		allErrs = append(allErrs, field.Invalid(
+			kedaPath.Child("idleReplicaCount"),
+			*keda.IdleReplicaCount,
+			fmt.Sprintf("idleReplicaCount (%d) must be less than minReplicas (%d); "+
+				"idleReplicaCount defines the replica floor when no triggers are active",
+				*keda.IdleReplicaCount, *scaling.MinReplicas),
+		))
+	}
+
+	return allErrs
+}
+
+// immutableField returns a *Error indicating "unsupported mutation".
+// This is used to report unsupported mutation of values.
+func immutableField(path *field.Path, value interface{}, detail string) *field.Error {
+	return &field.Error{Type: field.ErrorTypeNotSupported, Field: path.String(), BadValue: value, Detail: detail}
+}
+
+// validateManagedDRAAnnotations performs admission-time validation of the
+// serving.kserve.io/exp-dra-* annotations to catch user mistakes early.
+func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLMInferenceService) field.ErrorList {
+	return kservevalidation.ValidateManagedDRAAnnotations(llmSvc.GetAnnotations())
+}
+
+// validateKVCacheOffloading validates KVCacheOffloading secondary tier specs.
+func (l *LLMInferenceServiceValidator) validateKVCacheOffloading(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+	allErrs = append(allErrs, validateKVCacheOffloadingSpec(llmSvc.Spec.KVCacheOffloading, field.NewPath("spec", "kvCacheOffloading"))...)
+	if llmSvc.Spec.Prefill != nil {
+		allErrs = append(allErrs, validateKVCacheOffloadingSpec(llmSvc.Spec.Prefill.KVCacheOffloading, field.NewPath("spec", "prefill", "kvCacheOffloading"))...)
+	}
+	return allErrs
+}
+
+func validateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Path) field.ErrorList {
+	if kv == nil || len(kv.Secondary) == 0 {
+		return nil
+	}
+	var allErrs field.ErrorList
+	if kv.CPU.IsZero() {
+		allErrs = append(allErrs, field.Required(fldPath.Child("cpu"),
+			"cpu must be set when secondary tiers are configured"))
+	}
+	for i, s := range kv.Secondary {
+		p := fldPath.Child("secondary").Index(i)
+		if s.FileSystem == nil {
+			allErrs = append(allErrs, field.Required(p.Child("fileSystem"),
+				"only fileSystem tiers are supported; fileSystem must be set"))
+			continue
+		}
+		fs := s.FileSystem
+		fsp := p.Child("fileSystem")
+		var backends []string
+		if fs.EmptyDir != nil {
+			backends = append(backends, "emptyDir")
+		}
+		if fs.PVC != nil {
+			backends = append(backends, "pvc")
+		}
+		switch len(backends) {
+		case 0:
+			allErrs = append(allErrs, field.Required(fsp,
+				"exactly one of emptyDir or pvc must be set"))
+		case 1:
+			if fs.PVC != nil {
+				pvcp := fsp.Child("pvc")
+				var pvcBackends []string
+				if fs.PVC.Spec != nil {
+					pvcBackends = append(pvcBackends, "spec")
+				}
+				if fs.PVC.Ref != nil {
+					pvcBackends = append(pvcBackends, "ref")
+				}
+				switch len(pvcBackends) {
+				case 0:
+					allErrs = append(allErrs, field.Required(pvcp,
+						"exactly one of spec or ref must be set"))
+				case 1:
+					if fs.PVC.Ref != nil && fs.PVC.Ref.Name == "" {
+						allErrs = append(allErrs, field.Required(pvcp.Child("ref").Child("name"), "name is required"))
+					}
+				default:
+					allErrs = append(allErrs, field.Invalid(pvcp, fs.PVC,
+						"exactly one of spec or ref must be set; multiple are set"))
+				}
+			}
+		default:
+			allErrs = append(allErrs, field.Invalid(fsp, fs,
+				"exactly one of emptyDir or pvc must be set; multiple are set"))
+		}
+	}
+	return allErrs
+}
+
+// validateConfidential validates the confidential spec on the model.
+func (l *LLMInferenceServiceValidator) validateConfidential(llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
+	confidential := llmSvc.Spec.Model.Confidential
+	if confidential == nil {
+		return nil, nil
+	}
+
+	var resourceId *string
+	if confidential.ResourceId != nil {
+		resourceId = confidential.ResourceId
+	}
+
+	return kservevalidation.ValidateConfidentialSpec(
+		confidential.Enabled,
+		resourceId,
+		llmSvc.Spec.Model.URI.String(),
+		field.NewPath("spec", "model"),
+	)
+}
+
+func (l *LLMInferenceServiceValidator) validateTrafficFields(
+	llmSvc *LLMInferenceService,
+) field.ErrorList {
+	router := llmSvc.Spec.Router
+	if router == nil || router.Route == nil {
+		return nil
+	}
+
+	route := router.Route
+	routePath := field.NewPath("spec", "router", "route")
+	var allErrs field.ErrorList
+
+	hasGroup := route.Group != nil
+	hasWeight := route.Weight != nil
+
+	if !hasGroup && !hasWeight {
+		return nil
+	}
+
+	if router.Ingress != nil {
+		return field.ErrorList{field.Invalid(
+			routePath.Child("group"),
+			ptr.Deref(route.Group, ""),
+			"traffic splitting requires Gateway API routing; the controller manages HTTPRoutes, not Ingress resources",
+		)}
+	}
+
+	if hasWeight && !hasGroup {
+		allErrs = append(allErrs, field.Required(
+			routePath.Child("group"),
+			"weight requires group",
+		))
+	}
+	if hasGroup && !hasWeight {
+		allErrs = append(allErrs, field.Required(
+			routePath.Child("weight"),
+			"group requires weight",
+		))
+	}
+
+	if len(allErrs) > 0 {
+		return allErrs
+	}
+
+	if route.HTTP != nil && route.HTTP.HasRefs() {
+		allErrs = append(allErrs, field.Invalid(
+			routePath.Child("group"),
+			*route.Group,
+			"traffic splitting cannot be used with custom HTTPRoute refs; controller-managed routes (route.http.spec or route.http: {}) are required",
+		))
+	}
+
+	return allErrs
+}
+
+func (l *LLMInferenceServiceValidator) validateRolloutStrategy(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+
+	isMultiNode := llmSvc.Spec.Worker != nil
+	allErrs = append(allErrs, ValidateWorkloadRolloutFields(field.NewPath("spec"), llmSvc.Spec.RolloutStrategy, isMultiNode)...)
+
+	if llmSvc.Spec.Prefill != nil {
+		prefillMultiNode := llmSvc.Spec.Prefill.Worker != nil
+		allErrs = append(allErrs, ValidateWorkloadRolloutFields(field.NewPath("spec", "prefill"), llmSvc.Spec.Prefill.RolloutStrategy, prefillMultiNode)...)
+	}
+
+	return allErrs
+}
+
+// ValidateWorkloadRolloutFields validates the rollout strategy fields of a single workload.
+// It is exported so that v1alpha1 can reuse it via conversion.
+func ValidateWorkloadRolloutFields(basePath *field.Path, rs *RolloutStrategy, isMultiNode bool) field.ErrorList {
+	var allErrs field.ErrorList
+
+	if rs == nil {
+		return allErrs
+	}
+
+	rsPath := basePath.Child("rolloutStrategy")
+
+	if rs.MaxUnavailable != nil {
+		allErrs = append(allErrs, validatePositiveIntOrPercent(rsPath.Child("maxUnavailable"), *rs.MaxUnavailable)...)
+	}
+
+	if rs.MaxSurge != nil {
+		allErrs = append(allErrs, validatePositiveIntOrPercent(rsPath.Child("maxSurge"), *rs.MaxSurge)...)
+	}
+
+	if len(allErrs) > 0 {
+		return allErrs
+	}
+
+	if rs.MaxUnavailable != nil && rs.MaxSurge != nil {
+		muVal, _ := intstr.GetScaledValueFromIntOrPercent(rs.MaxUnavailable, 1, false)
+		msVal, _ := intstr.GetScaledValueFromIntOrPercent(rs.MaxSurge, 1, true)
+		if muVal == 0 && msVal == 0 {
+			allErrs = append(allErrs, field.Invalid(
+				rsPath,
+				rs,
+				"maxUnavailable and maxSurge cannot both be zero; this would prevent any rolling update progress",
+			))
+		}
+	}
+
+	if isMultiNode && rs.MaxUnavailable != nil && rs.MaxSurge == nil {
+		muVal, _ := intstr.GetScaledValueFromIntOrPercent(rs.MaxUnavailable, 1, false)
+		if muVal == 0 {
+			allErrs = append(allErrs, field.Required(
+				rsPath.Child("maxSurge"),
+				"maxSurge is required for multi-node workloads when maxUnavailable is 0, otherwise no rolling update progress is possible",
+			))
+		}
+	}
+
+	return allErrs
+}
+
+func validatePositiveIntOrPercent(fldPath *field.Path, val intstr.IntOrString) field.ErrorList {
+	var allErrs field.ErrorList
+
+	switch val.Type {
+	case intstr.Int:
+		if val.IntValue() < 0 {
+			allErrs = append(allErrs, field.Invalid(fldPath, val.IntValue(), "must be greater than or equal to 0"))
+		}
+	case intstr.String:
+		if msgs := validation.IsValidPercent(val.StrVal); len(msgs) > 0 {
+			allErrs = append(allErrs, field.Invalid(fldPath, val.StrVal, msgs[0]))
+		} else if v, _ := strconv.Atoi(val.StrVal[:len(val.StrVal)-1]); v > 100 {
+			allErrs = append(allErrs, field.Invalid(fldPath, val.StrVal, "must not be greater than 100%"))
+		}
+	}
+
+	return allErrs
+}

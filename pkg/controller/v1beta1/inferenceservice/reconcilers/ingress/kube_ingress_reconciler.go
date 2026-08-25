@@ -1,0 +1,360 @@
+/*
+Copyright 2021 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package ingress
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+
+	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
+)
+
+// RawIngressReconciler reconciles the kubernetes ingress
+type RawIngressReconciler struct {
+	client        client.Client
+	scheme        *runtime.Scheme
+	ingressConfig *v1beta1.IngressConfig
+	isvcConfig    *v1beta1.InferenceServicesConfig
+}
+
+func NewRawIngressReconciler(client client.Client,
+	scheme *runtime.Scheme,
+	ingressConfig *v1beta1.IngressConfig,
+	isvcConfig *v1beta1.InferenceServicesConfig,
+) (*RawIngressReconciler, error) {
+	return &RawIngressReconciler{
+		client:        client,
+		scheme:        scheme,
+		ingressConfig: ingressConfig,
+		isvcConfig:    isvcConfig,
+	}, nil
+}
+
+func (r *RawIngressReconciler) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error) {
+	var err error
+	isInternal := false
+	// disable ingress creation if service is labelled with cluster local or kserve domain is cluster local
+	if val, ok := isvc.Labels[constants.NetworkVisibility]; ok && val == constants.ClusterLocalVisibility {
+		isInternal = true
+	}
+	if r.ingressConfig.IngressDomain == constants.ClusterLocalDomain {
+		isInternal = true
+	}
+
+	existingIngress := &netv1.Ingress{}
+	getExistingErr := r.client.Get(ctx, types.NamespacedName{
+		Namespace: isvc.Namespace,
+		Name:      isvc.Name,
+	}, existingIngress)
+	ingressIsNotFound := apierr.IsNotFound(getExistingErr)
+	if getExistingErr != nil && !ingressIsNotFound {
+		return ctrl.Result{}, fmt.Errorf("failed to get existing ingress: %w", getExistingErr)
+	}
+
+	// ISVC is stopped, delete the ingress if it exists, otherwise, do nothing
+	forceStopRuntime := utils.GetForceStopRuntime(isvc)
+	if (getExistingErr != nil && ingressIsNotFound) && forceStopRuntime {
+		return ctrl.Result{}, nil
+	}
+	if forceStopRuntime {
+		if controller := metav1.GetControllerOf(existingIngress); controller != nil && controller.UID == isvc.UID {
+			log.Info("The InferenceService is marked as stopped — deleting its associated ingress", "name", isvc.Name)
+			if err := r.client.Delete(ctx, existingIngress); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+			Type:   v1beta1.IngressReady,
+			Status: corev1.ConditionFalse,
+			Reason: v1beta1.StoppedISVCReason,
+		})
+
+		return ctrl.Result{}, nil
+	}
+
+	// Create or update ingress to match the desired state
+	if !isInternal && !r.ingressConfig.DisableIngressCreation {
+		ingress, err := createRawIngress(r.scheme, isvc, r.ingressConfig, r.isvcConfig)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+		if ingress == nil {
+			return ctrl.Result{}, nil
+		}
+
+		if getExistingErr != nil && ingressIsNotFound {
+			log.Info("creating ingress", "ingressName", isvc.Name)
+			if err := r.client.Create(ctx, ingress); err != nil {
+				log.Error(err, "Failed to create ingress", "name", ingress.Name)
+				return ctrl.Result{}, err
+			}
+		} else if !semanticIngressEquals(ingress, existingIngress) {
+			log.Info("updating ingress", "ingressName", isvc.Name)
+			if err := r.client.Update(ctx, ingress); err != nil {
+				log.Error(err, "Failed to update ingress", "name", ingress.Name)
+				return ctrl.Result{}, err
+			}
+		}
+	}
+
+	isvc.Status.URL, err = createRawURL(isvc, r.ingressConfig)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	isvc.Status.Address, err = createAddress(ctx, r.client, isvc)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+		Type:   v1beta1.IngressReady,
+		Status: corev1.ConditionTrue,
+	})
+
+	return ctrl.Result{}, nil
+}
+
+func createAddress(ctx context.Context, cl client.Client, isvc *v1beta1.InferenceService) (*duckv1.Addressable, error) {
+	host := getRawServiceHost(isvc)
+	// Determine the entry point service name.
+	// If a transformer exists, it becomes the entry point; otherwise, the predictor is.
+	entryPointSvcName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
+	if isvc.Spec.Transformer != nil {
+		entryPointSvcName = constants.TransformerServiceName(isvc.Name)
+	}
+	// Check if the entry point service is headless
+	entryPointSvc := &corev1.Service{}
+	if err := cl.Get(ctx, types.NamespacedName{
+		Namespace: isvc.Namespace,
+		Name:      entryPointSvcName,
+	}, entryPointSvc); err != nil {
+		return nil, fmt.Errorf("failed to get entry point service %s: %w", entryPointSvcName, err)
+	}
+	if entryPointSvc.Spec.ClusterIP == corev1.ClusterIPNone {
+		port := constants.InferenceServiceDefaultHttpPort
+		if p := httpTargetPort(entryPointSvc); p != "" {
+			port = p
+		} else {
+			log.Info("No HTTP target port found on service, defaulting to InferenceServiceDefaultHttpPort",
+				"defaultPort", constants.InferenceServiceDefaultHttpPort, "service", entryPointSvc.Name)
+		}
+		host = host + ":" + port
+	}
+	return &duckv1.Addressable{
+		URL: &apis.URL{
+			Host:   host,
+			Scheme: "http",
+			Path:   "",
+		},
+	}, nil
+}
+
+// httpTargetPort returns the target port (as a string) of the first non-gRPC
+// port on the Service, which is the port the container actually listens on.
+// For headless Services the address must use this port directly because there
+// is no ClusterIP to perform port remapping.
+func httpTargetPort(svc *corev1.Service) string {
+	for _, p := range svc.Spec.Ports {
+		if isGrpcPortByName(p.Name) {
+			continue
+		}
+		if p.AppProtocol != nil && *p.AppProtocol == "kubernetes.io/h2c" {
+			continue
+		}
+		if p.TargetPort.IntValue() > 0 {
+			return strconv.Itoa(p.TargetPort.IntValue())
+		}
+	}
+	return ""
+}
+
+func generateRule(ingressHost string, componentName string, path string, port int32) netv1.IngressRule { //nolint:unparam
+	pathType := netv1.PathTypePrefix
+	rule := netv1.IngressRule{
+		Host: ingressHost,
+		IngressRuleValue: netv1.IngressRuleValue{
+			HTTP: &netv1.HTTPIngressRuleValue{
+				Paths: []netv1.HTTPIngressPath{
+					{
+						Path:     path,
+						PathType: &pathType,
+						Backend: netv1.IngressBackend{
+							Service: &netv1.IngressServiceBackend{
+								Name: componentName,
+								Port: netv1.ServiceBackendPort{
+									Number: port,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return rule
+}
+
+func generateMetadata(isvc *v1beta1.InferenceService,
+	componentType constants.InferenceServiceComponent, name string,
+	isvcConfig *v1beta1.InferenceServicesConfig,
+) metav1.ObjectMeta {
+	// get annotations from isvc
+	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
+		return !utils.Includes(isvcConfig.ServiceAnnotationDisallowedList, key)
+	})
+	objectMeta := metav1.ObjectMeta{
+		Name:      name,
+		Namespace: isvc.Namespace,
+		Labels: utils.Union(isvc.Labels, map[string]string{
+			constants.InferenceServicePodLabelKey: isvc.Name,
+			constants.KServiceComponentLabel:      string(componentType),
+		}),
+		Annotations: annotations,
+	}
+	return objectMeta
+}
+
+// generateIngressHost return the config domain in configmap.IngressDomain
+func generateIngressHost(ingressConfig *v1beta1.IngressConfig,
+	isvc *v1beta1.InferenceService,
+	isvcConfig *v1beta1.InferenceServicesConfig,
+	componentType string,
+	topLevelFlag bool,
+	name string,
+) (string, error) {
+	metadata := generateMetadata(isvc, constants.InferenceServiceComponent(componentType), name, isvcConfig)
+	if !topLevelFlag {
+		return GenerateDomainName(metadata.Name, isvc.ObjectMeta, ingressConfig)
+	} else {
+		return GenerateDomainName(isvc.Name, isvc.ObjectMeta, ingressConfig)
+	}
+}
+
+func createRawIngress(scheme *runtime.Scheme, isvc *v1beta1.InferenceService,
+	ingressConfig *v1beta1.IngressConfig, isvcConfig *v1beta1.InferenceServicesConfig,
+) (*netv1.Ingress, error) {
+	if !isvc.Status.IsConditionReady(v1beta1.PredictorReady) {
+		isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+			Type:   v1beta1.IngressReady,
+			Status: corev1.ConditionFalse,
+			Reason: "Predictor ingress not created",
+		})
+		return nil, nil
+	}
+	var rules []netv1.IngressRule
+	predictorName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
+	switch {
+	case isvc.Spec.Transformer != nil:
+		if !isvc.Status.IsConditionReady(v1beta1.TransformerReady) {
+			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+				Type:   v1beta1.IngressReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Transformer ingress not created",
+			})
+			return nil, nil
+		}
+		transformerName := constants.TransformerServiceName(isvc.Name)
+		explainerName := constants.ExplainerServiceName(isvc.Name)
+		host, err := generateIngressHost(ingressConfig, isvc, isvcConfig, string(constants.Transformer), true, transformerName)
+		if err != nil {
+			return nil, fmt.Errorf("failed creating top level transformer ingress host: %w", err)
+		}
+		transformerHost, err := generateIngressHost(ingressConfig, isvc, isvcConfig, string(constants.Transformer), false, transformerName)
+		if err != nil {
+			return nil, fmt.Errorf("failed creating transformer ingress host: %w", err)
+		}
+		if isvc.Spec.Explainer != nil {
+			explainerHost, err := generateIngressHost(ingressConfig, isvc, isvcConfig, string(constants.Explainer), false, transformerName)
+			if err != nil {
+				return nil, fmt.Errorf("failed creating explainer ingress host: %w", err)
+			}
+			rules = append(rules, generateRule(explainerHost, explainerName, "/", constants.CommonDefaultHttpPort))
+		}
+		// :predict routes to the transformer when there are both predictor and transformer
+		rules = append(rules, generateRule(host, transformerName, "/", constants.CommonDefaultHttpPort))
+		rules = append(rules, generateRule(transformerHost, predictorName, "/", constants.CommonDefaultHttpPort))
+	case isvc.Spec.Explainer != nil:
+		if !isvc.Status.IsConditionReady(v1beta1.ExplainerReady) {
+			isvc.Status.SetCondition(v1beta1.IngressReady, &apis.Condition{
+				Type:   v1beta1.IngressReady,
+				Status: corev1.ConditionFalse,
+				Reason: "Explainer ingress not created",
+			})
+			return nil, nil
+		}
+		explainerName := constants.ExplainerServiceName(isvc.Name)
+		host, err := generateIngressHost(ingressConfig, isvc, isvcConfig, string(constants.Explainer), true, explainerName)
+		if err != nil {
+			return nil, fmt.Errorf("failed creating top level explainer ingress host: %w", err)
+		}
+		explainerHost, err := generateIngressHost(ingressConfig, isvc, isvcConfig, string(constants.Explainer), false, explainerName)
+		if err != nil {
+			return nil, fmt.Errorf("failed creating explainer ingress host: %w", err)
+		}
+		// :predict routes to the predictor when there is only predictor and explainer
+		rules = append(rules, generateRule(host, predictorName, "/", constants.CommonDefaultHttpPort))
+		rules = append(rules, generateRule(explainerHost, explainerName, "/", constants.CommonDefaultHttpPort))
+	default:
+		host, err := generateIngressHost(ingressConfig, isvc, isvcConfig, string(constants.Predictor), true, predictorName)
+		if err != nil {
+			return nil, fmt.Errorf("failed creating top level predictor ingress host: %w", err)
+		}
+		rules = append(rules, generateRule(host, predictorName, "/", constants.CommonDefaultHttpPort))
+	}
+	// add predictor rule
+	predictorHost, err := generateIngressHost(ingressConfig, isvc, isvcConfig, string(constants.Predictor), false, predictorName)
+	if err != nil {
+		return nil, fmt.Errorf("failed creating predictor ingress host: %w", err)
+	}
+	rules = append(rules, generateRule(predictorHost, predictorName, "/", constants.CommonDefaultHttpPort))
+
+	ingress := &netv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        isvc.Name,
+			Namespace:   isvc.Namespace,
+			Annotations: isvc.Annotations,
+		},
+		Spec: netv1.IngressSpec{
+			IngressClassName: ingressConfig.IngressClassName,
+			Rules:            rules,
+		},
+	}
+	if err := controllerutil.SetControllerReference(isvc, ingress, scheme); err != nil {
+		return nil, err
+	}
+	return ingress, nil
+}
+
+func semanticIngressEquals(desired, existing *netv1.Ingress) bool {
+	return equality.Semantic.DeepEqual(desired.Spec, existing.Spec)
+}

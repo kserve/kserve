@@ -1,0 +1,814 @@
+name: LLMInferenceService E2E Tests
+
+on:
+  pull_request:
+    paths:
+      - "pkg/apis/serving/v1alpha1/llm*"
+      - "pkg/apis/serving/v1alpha2/llm*"
+      - "pkg/controller/v1alpha1/llmisvc/**"
+      - "pkg/controller/v1alpha2/llmisvc/**"
+      - "charts/kserve-llmisvc-resources/**"
+      - "config/llmisvc/**"
+      - "config/llmisvcconfig/**"
+      - "config/rbac/llmisvc/**"
+      - "cmd/llmisvc/**"
+      - "test/e2e/llmisvc/**"
+      - ".github/workflows/e2e-test-llmisvc.yaml"
+      - ".github/actions/**"
+      - "hack/setup/quick-install/llmisvc-dependency-install.sh"
+      - "hack/setup/infra/manage.prometheus-helm.sh"
+      - "hack/setup/infra/manage.prometheus-adapter-helm.sh"
+      - "hack/setup/infra/manage.wva-kustomize.sh"
+      - "hack/setup/infra/manage.jaeger-helm.sh"
+      - "hack/setup/infra/manage.kserve-helm.sh"
+      - "hack/setup/quick-install/*-helm.sh"
+  merge_group:
+    types: [ checks_requested ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  TAG: ${{ github.sha }}
+  DOCKER_IMAGES_PATH: "/mnt/docker-images"
+  KO_DOCKER_REPO: "kserve"
+  ENABLE_LLMISVC: "true"
+  VLLM_CPU_IMAGE: "vllm/vllm-openai-cpu:v0.19.0"
+
+jobs:
+
+  detect-changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      install_methods: ${{ steps.set-matrix.outputs.install_methods }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: filter
+        with:
+          filters: |
+            charts:
+              - 'charts/**'
+            non_charts:
+              - '**'
+              - '!charts/**'
+      - id: set-matrix
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo 'install_methods=["kustomize","helm"]' >> $GITHUB_OUTPUT
+          elif [[ "${{ steps.filter.outputs.charts }}" == "true" && \
+                  "${{ steps.filter.outputs.non_charts }}" == "true" ]]; then
+            echo 'install_methods=["kustomize","helm"]' >> $GITHUB_OUTPUT
+          elif [[ "${{ steps.filter.outputs.charts }}" == "true" ]]; then
+            echo 'install_methods=["helm"]' >> $GITHUB_OUTPUT
+          else
+            echo 'install_methods=["kustomize"]' >> $GITHUB_OUTPUT
+          fi
+
+  llmisvc-image-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+
+      - name: Build LLMISvc image
+        run: |
+          sudo mkdir -p ${DOCKER_IMAGES_PATH}
+          sudo chown -R $USER ${DOCKER_IMAGES_PATH}
+          ./test/scripts/gh-actions/build-images.sh llmisvc
+          docker image ls
+          sudo ls -lh ${DOCKER_IMAGES_PATH}
+
+      - name: Upload LLMISvc controller image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload storage-initializer image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+  seed-model-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [llmisvc-image-build]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Download storage-initializer image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load storage-initializer image
+        run: docker load < ./tmp/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+
+      - name: Download opt-125m from HuggingFace
+        timeout-minutes: 30
+        run: |
+          mkdir -p /tmp/model-cache && chmod a+rwx /tmp/model-cache
+          docker run --rm \
+            --network host \
+            -v /tmp/model-cache:/mnt/models \
+            -e HF_HUB_DISABLE_PROGRESS_BARS=1 \
+            -e TOKIO_WORKER_THREADS=1 \
+            -e STORAGE_IGNORE_PATTERNS="*.msgpack,*.h5,flax_model*,tf_model*,rust_model*" \
+            ${{ env.KO_DOCKER_REPO }}/${{ env.STORAGE_INIT_IMG }}:${{ env.TAG }} \
+            hf://facebook/opt-125m /mnt/models
+
+      - name: Package model as OCI image
+        run: |
+          printf 'FROM busybox\nCOPY . /model\n' > /tmp/Dockerfile
+          docker build -t kserve/opt-125m-cache:${{ env.TAG }} -f /tmp/Dockerfile /tmp/model-cache
+          docker save kserve/opt-125m-cache:${{ env.TAG }} -o /tmp/opt-125m-cache.tar
+
+      - name: Package model as OCI modelcar image
+        run: |
+          printf 'FROM busybox\nCOPY . /models\n' > /tmp/Dockerfile.modelcar
+          docker build -t kserve/opt-125m-modelcar:${{ env.TAG }} -f /tmp/Dockerfile.modelcar /tmp/model-cache
+          docker save kserve/opt-125m-modelcar:${{ env.TAG }} -o /tmp/opt-125m-modelcar.tar
+
+      - name: Upload model cache artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: opt-125m-model-cache-${{ env.TAG }}
+          path: |
+            /tmp/opt-125m-cache.tar
+            /tmp/opt-125m-modelcar.tar
+          compression-level: 0
+          if-no-files-found: error
+
+  seed-image-cache:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Pull and save vLLM CPU image
+        run: |
+          docker pull --platform linux/amd64 ${{ env.VLLM_CPU_IMAGE }}
+          docker save ${{ env.VLLM_CPU_IMAGE }} -o /tmp/vllm-cpu.tar
+
+      - name: Upload vLLM CPU image artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vllm-cpu-image-${{ env.TAG }}
+          path: /tmp/vllm-cpu.tar
+          compression-level: 0
+          if-no-files-found: error
+
+  test-llmisvc:
+    runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 125
+    needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.9"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download LLMISvc controller image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download storage-initializer image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Download model cache artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: opt-125m-model-cache-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load model cache into minikube
+        run: |
+          minikube image load ./tmp/opt-125m-cache.tar
+          echo "OPT_125M_CACHE_IMAGE=kserve/opt-125m-cache:${{ env.TAG }}" >> $GITHUB_ENV
+          minikube image load ./tmp/opt-125m-modelcar.tar
+          echo "OPT_125M_OCI_MODEL_URI=oci://kserve/opt-125m-modelcar:${{ env.TAG }}" >> $GITHUB_ENV
+
+      - name: Download vLLM CPU image artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: vllm-cpu-image-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load vLLM CPU image into minikube
+        run: minikube image load ./tmp/vllm-cpu.tar
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+        with:
+          deploy-llmisvc: "true"
+          network-layer: "envoy-gateway"
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+      - name: Verify LLMISvc setup
+        run: |
+          echo "🔍 Verifying LLMISvc controller setup..."
+
+          echo "📋 LLMISvc Controller:"
+          kubectl get pods -n kserve -l app.kubernetes.io/component=controller || true
+
+          echo "📋 LLM Resources:"
+          kubectl get llminferenceserviceconfigs -A || true
+
+          echo "📋 Gateway API Resources:"
+          kubectl get crd | grep inference || true
+
+          echo "📋 Envoy Gateway:"
+          kubectl get pods -n envoy-gateway-system || true
+
+          echo "📋 AI Gateway:"
+          kubectl get pods -n envoy-ai-gateway-system || true
+
+          echo "✅ LLMISvc setup verification complete!"
+
+      - name: Run LLMInferenceService E2E tests
+        id: llmisvc-e2e-tests
+        timeout-minutes: 90
+        env:
+          OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
+        run: |
+          # Run only CPU tests for now using pytest markers (cluster_)
+          # Available GPU vendors: amd, nvidia, intel
+          export PYTEST_MAXFAIL=3
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and llmisvc_core and cluster_cpu" 0 "envoy-gateway"
+
+      - name: Run conversion & storage-migration E2E tests
+        id: conversion-e2e-tests
+        if: always() && steps.llmisvc-e2e-tests.conclusion != 'cancelled'
+        timeout-minutes: 90
+        env:
+          OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and conversion and cluster_cpu" 1 "envoy-gateway"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh "llmisvc"
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llmisvc-${{ matrix.install-method }}
+
+  test-llmisvc-istio:
+    runs-on: cncf-ubuntu-16-64-x86
+    needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.9"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+        with:
+          addons: metallb
+
+      - name: Download LLMISvc controller image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download storage-initializer image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Download model cache artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: opt-125m-model-cache-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load model cache into minikube
+        run: |
+          minikube image load ./tmp/opt-125m-cache.tar
+          echo "OPT_125M_CACHE_IMAGE=kserve/opt-125m-cache:${{ env.TAG }}" >> $GITHUB_ENV
+
+      - name: KServe dependency setup (Istio)
+        uses: ./.github/actions/kserve-dep-setup
+        with:
+          deploy-llmisvc: "true"
+          network-layer: "istio-gatewayapi"
+        env:
+          ISTIO_VERSION_OVERRIDE: "1.29.6"
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+      - name: Verify LLMISvc setup (Istio)
+        run: |
+          echo "Verifying LLMISvc controller setup (Istio)..."
+          kubectl get pods -n kserve -l app.kubernetes.io/component=controller || true
+          kubectl get pods -n istio-system || true
+          kubectl get gateways -A || true
+          kubectl get crd | grep inference || true
+
+      - name: Run LLMInferenceService E2E tests (Istio)
+        id: llmisvc-e2e-tests-istio
+        timeout-minutes: 90
+        run: |
+          export PYTEST_MAXFAIL=3
+          ./test/scripts/gh-actions/run-e2e-tests.sh "traffic and cluster_cpu" 0 "istio"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh "llmisvc"
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llmisvc-istio-${{ matrix.install-method }}
+
+  test-llmisvc-wva-autoscaling-hpa:
+    runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 25
+    needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.9"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download LLMISvc controller image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download storage-initializer image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Download model cache artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: opt-125m-model-cache-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load model cache into minikube
+        run: |
+          minikube image load ./tmp/opt-125m-cache.tar
+          echo "OPT_125M_CACHE_IMAGE=kserve/opt-125m-cache:${{ env.TAG }}" >> $GITHUB_ENV
+
+      - name: KServe dependency setup (HPA autoscaling)
+        uses: ./.github/actions/kserve-dep-setup
+        with:
+          deploy-llmisvc: "true"
+          network-layer: "envoy-gateway"
+          autoscaler: "hpa"
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+      - name: Verify HPA autoscaling pipeline health
+        run: |
+          ./test/scripts/gh-actions/verify-autoscaling-health.sh hpa
+
+      - name: Run HPA autoscaling E2E tests
+        id: autoscaling-hpa-tests
+        timeout-minutes: 60
+        env:
+          OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
+        run: |
+          export PYTEST_MAXFAIL=2
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_hpa and cluster_cpu" 0 "envoy-gateway"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh "llmisvc"
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llmisvc-autoscaling-hpa-${{ matrix.install-method }}
+
+  test-llmisvc-autoscaling-direct-keda-and-wva-with-keda:
+    runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 40
+    needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.9"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download LLMISvc controller image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download storage-initializer image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Download model cache artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: opt-125m-model-cache-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load model cache into minikube
+        run: |
+          minikube image load ./tmp/opt-125m-cache.tar
+          echo "OPT_125M_CACHE_IMAGE=kserve/opt-125m-cache:${{ env.TAG }}" >> $GITHUB_ENV
+
+      - name: KServe dependency setup (KEDA autoscaling)
+        uses: ./.github/actions/kserve-dep-setup
+        with:
+          deploy-llmisvc: "true"
+          autoscaler: "keda"
+          network-layer: "envoy-gateway"
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          export ENABLE_KEDA=true
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+      - name: Verify KEDA autoscaling pipeline health
+        run: |
+          ./test/scripts/gh-actions/verify-autoscaling-health.sh keda
+
+      - name: Run WVA-mediated KEDA autoscaling E2E tests
+        id: autoscaling-wva-keda-tests
+        timeout-minutes: 30
+        env:
+          OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
+        run: |
+          export PYTEST_MAXFAIL=2
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_wva and autoscaling_keda and cluster_cpu" 0 "envoy-gateway"
+
+      - name: Run direct KEDA autoscaling E2E tests
+        id: autoscaling-direct-keda-tests
+        if: always() && steps.autoscaling-wva-keda-tests.conclusion != 'cancelled'
+        timeout-minutes: 30
+        env:
+          OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
+        run: |
+          export PYTEST_MAXFAIL=2
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_direct_keda and cluster_cpu" 0 "envoy-gateway"
+
+      # Runs last and alone: scales the shared Prometheus instance to 0 to
+      # simulate an outage, so it must not overlap with the steps above.
+      - name: Run KEDA fallback E2E test
+        id: autoscaling-fallback-test
+        if: always() && steps.autoscaling-direct-keda-tests.conclusion != 'cancelled'
+        timeout-minutes: 10
+        env:
+          OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
+        run: |
+          export PYTEST_MAXFAIL=1
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_fallback and cluster_cpu" 0 "envoy-gateway"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh "llmisvc"
+
+      - name: Upload WVA-mediated KEDA test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llmisvc-autoscaling-wva-keda-${{ matrix.install-method }}
+          path: |
+            /tmp/junit_e2e*autoscaling_wva_and_autoscaling_keda*.xml
+            /tmp/e2e_results*autoscaling_wva_and_autoscaling_keda*.json
+
+      - name: Upload direct KEDA test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llmisvc-autoscaling-direct-keda-${{ matrix.install-method }}
+          path: |
+            /tmp/junit_e2e*autoscaling_direct_keda*.xml
+            /tmp/e2e_results*autoscaling_direct_keda*.json
+
+      - name: Upload KEDA fallback test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llmisvc-autoscaling-fallback-${{ matrix.install-method }}
+          path: |
+            /tmp/junit_e2e*autoscaling_fallback*.xml
+            /tmp/e2e_results*autoscaling_fallback*.json
+
+  test-llmisvc-tracing:
+    runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 25
+    needs: [detect-changes, llmisvc-image-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.9"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download LLMISvc controller image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.LLMISVC_CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download storage-initializer image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: KServe dependency setup (tracing)
+        uses: ./.github/actions/kserve-dep-setup
+        with:
+          deploy-llmisvc: "true"
+          observability: "jaeger"
+          network-layer: "envoy-gateway"
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+      - name: Verify Jaeger setup
+        run: |
+          echo "Verifying Jaeger All-in-One deployment..."
+          kubectl get pods -n observability
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=jaeger -n observability --timeout=120s
+          echo "Jaeger is ready!"
+
+      - name: Run tracing E2E tests
+        id: tracing-tests
+        timeout-minutes: 30
+        run: |
+          export PYTEST_MAXFAIL=2
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and tracing and cluster_cpu" 0 "envoy-gateway"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh "llmisvc"
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llmisvc-tracing-${{ matrix.install-method }}

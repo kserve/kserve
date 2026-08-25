@@ -1,0 +1,9 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: torchserve-custom
+spec:
+  predictor:
+    containers:
+    - image: {username}/torchserve:latest
+      name: torchserve-container

@@ -1,0 +1,703 @@
+/*
+Copyright 2025 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package utils
+
+import (
+	"fmt"
+	"path"
+	"strings"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/utils/ptr"
+
+	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/types"
+)
+
+type StorageMountParams struct {
+	MountPath  string
+	SubPath    string
+	VolumeName string
+	PVCName    string
+	ReadOnly   bool
+}
+
+// ParsePvcURI parses a PVC URI of the form "pvc://<name>[/path]" into its components.
+//
+// Parameters:
+//   - srcURI: The source URI string, which must begin with the "pvc://" prefix.
+//
+// Returns:
+//   - pvcName: The name of the PVC (<name> part).
+//   - pvcPath: The optional <path> component. If not provided, this will be an empty string.
+//   - err: An error if strings.Split would return zero.
+//
+// The function expects the input to follow the "pvc://<name>[/path]" format, however the pvc:// prefix is not validated.
+//
+// Examples:
+//
+//	"pvc://myclaim"           => pvcName: "myclaim", pvcPath: "", err: nil
+//	"pvc://myclaim/models"    => pvcName: "myclaim", pvcPath: "models", err: nil
+//	"pvc://myclaim/models/v1" => pvcName: "myclaim", pvcPath: "models/v1", err: nil
+//	"s3://bucket/path"        => pvcName: "s3:", pvcPath: "/bucket/path", err: nil
+//	"" (empty string)         => pvcName: "", pvcPath: "", err: nil
+func ParsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {
+	parts := strings.Split(strings.TrimPrefix(srcURI, constants.PvcURIPrefix), "/")
+	switch len(parts) {
+	case 0:
+		return "", "", fmt.Errorf("invalid URI must be pvc://<pvcname>/[path]: %s", srcURI)
+	case 1:
+		pvcName = parts[0]
+		pvcPath = ""
+	default:
+		pvcName = parts[0]
+		pvcPath = strings.Join(parts[1:], "/")
+	}
+
+	return pvcName, pvcPath, nil
+}
+
+// addVolumeMountToContainer adds a volume mount to a specific container
+func addVolumeMountToContainer(container *corev1.Container, storageMountParams StorageMountParams) bool {
+	// Check if mount already exists
+	for _, mount := range container.VolumeMounts {
+		if mount.Name == storageMountParams.VolumeName {
+			return false // Mount already exists
+		}
+	}
+
+	// Add the volume mount
+	sourceVolumeMount := corev1.VolumeMount{
+		Name:      storageMountParams.VolumeName,
+		MountPath: storageMountParams.MountPath,
+		SubPath:   storageMountParams.SubPath,
+		ReadOnly:  storageMountParams.ReadOnly,
+	}
+
+	container.VolumeMounts = append(container.VolumeMounts, sourceVolumeMount)
+	return true
+}
+
+// AddModelMount adds a mount to the specified container in the given PodSpec based on the provided modelUri.
+// If the mount or volume already exists, it will not be duplicated.
+//
+// Parameters:
+//   - modelUri: The URI specifying the PVC and optional sub-path to mount.
+//   - containerName: The name of the container within the PodSpec to which the model should be mounted.
+//   - readOnly: Whether the mount should be read-only.
+//   - podSpec: PodSpec to modify.
+//
+// Returns:
+//   - error: An error if the modelUri is invalid or if any other issue occurs; otherwise, nil.
+func AddModelMount(storageMountParams StorageMountParams, containerName string, podSpec *corev1.PodSpec) error {
+	var volumeSource corev1.VolumeSource
+
+	if storageMountParams.PVCName != "" {
+		volumeSource = corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: storageMountParams.PVCName,
+			},
+		}
+	} else {
+		volumeSource = corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		}
+	}
+
+	mountAdded := false
+
+	// Check regular containers first
+	for idx := range podSpec.Containers {
+		if podSpec.Containers[idx].Name == containerName {
+			mountAdded = addVolumeMountToContainer(&podSpec.Containers[idx], storageMountParams)
+			break
+		}
+	}
+
+	// If not found in regular containers, check init containers
+	if !mountAdded {
+		for idx := range podSpec.InitContainers {
+			if podSpec.InitContainers[idx].Name == containerName {
+				storageMountParams.ReadOnly = false // init containers need to write to the mount
+				mountAdded = addVolumeMountToContainer(&podSpec.InitContainers[idx], storageMountParams)
+				break
+			}
+		}
+	}
+
+	if mountAdded {
+		// add the volume on the pod
+		volumeExists := false
+		for _, volume := range podSpec.Volumes {
+			if volume.Name == storageMountParams.VolumeName {
+				volumeExists = true
+				break
+			}
+		}
+
+		if !volumeExists {
+			modelVolume := corev1.Volume{
+				Name:         storageMountParams.VolumeName,
+				VolumeSource: volumeSource,
+			}
+			podSpec.Volumes = append(podSpec.Volumes, modelVolume)
+		}
+	}
+
+	return nil
+}
+
+// AddEmptyDirVolumeIfNotPresent adds an emptyDir volume only if not present in the
+// list. pod and pod.Spec must not be nil
+func AddEmptyDirVolumeIfNotPresent(podSpec *corev1.PodSpec, name string) {
+	for _, v := range podSpec.Volumes {
+		if v.Name == name {
+			return
+		}
+	}
+	podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
+		Name: name,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
+}
+
+// findCommonParentPath finds the common parent directory of multiple paths
+func FindCommonParentPath(paths []string) string {
+	if len(paths) == 0 {
+		return ""
+	}
+
+	if len(paths) == 1 {
+		return paths[0]
+	}
+
+	// Split all paths into components
+	pathComponents := make([][]string, len(paths))
+	minLength := -1
+	for i, path := range paths {
+		// Clean the path and split by "/"
+		cleanPath := strings.Trim(path, "/")
+		if cleanPath == "" {
+			pathComponents[i] = []string{}
+		} else {
+			pathComponents[i] = strings.Split(cleanPath, "/")
+
+			if minLength == -1 {
+				minLength = len(pathComponents[i])
+			} else {
+				minLength = min(minLength, len(pathComponents[i]))
+			}
+		}
+	}
+
+	// Find common prefix
+	var commonComponents []string
+	for i := range minLength {
+		levelComponents := make(map[string]struct{})
+		var pathComponent string
+
+		for _, components := range pathComponents {
+			pathComponent = components[i]
+			levelComponents[pathComponent] = struct{}{}
+		}
+
+		if len(levelComponents) == 1 {
+			commonComponents = append(commonComponents, pathComponent)
+		} else {
+			break
+		}
+	}
+
+	if len(commonComponents) == 0 {
+		return "/"
+	}
+
+	return "/" + strings.Join(commonComponents, "/")
+}
+
+// Helper function to generate volume name from path
+func GetVolumeNameFromPath(path string) string {
+	// Convert path to valid volume name (remove slashes, etc.)
+	return strings.ReplaceAll(strings.Trim(path, "/"), "/", "-")
+}
+
+// AddDefaultHuggingFaceEnvVars adds default HuggingFace optimization environment variables
+// to the container if they are not already present. This prevents conflicts when merging
+// container specs where users may have defined these variables with different configurations.
+func AddDefaultHuggingFaceEnvVars(container *corev1.Container) {
+	defaultHFEnvVars := []corev1.EnvVar{
+		{
+			Name:  "HF_HUB_ENABLE_HF_TRANSFER",
+			Value: "1",
+		},
+		{
+			Name:  "HF_XET_HIGH_PERFORMANCE",
+			Value: "1",
+		},
+		{
+			Name:  "HF_XET_NUM_CONCURRENT_RANGE_GETS",
+			Value: "8",
+		},
+	}
+
+	AddEnvVars(container, defaultHFEnvVars)
+}
+
+func AddEnvVars(container *corev1.Container, vars []corev1.EnvVar) {
+	for _, envVar := range vars {
+		// Check if the environment variable already exists
+		exists := false
+		for _, existingEnvVar := range container.Env {
+			if existingEnvVar.Name == envVar.Name {
+				exists = true
+				break
+			}
+		}
+		// Only add if it doesn't already exist
+		if !exists {
+			container.Env = append(container.Env, envVar)
+		}
+	}
+}
+
+func GetStorageResources(storageURIs []string, storagePaths []string) ([]corev1.VolumeMount, []corev1.Volume, []string, error) {
+	initContainerArgs := make([]string, 0, len(storageURIs)*2)
+	volumeMounts := make([]corev1.VolumeMount, 0, 1)
+	volumes := make([]corev1.Volume, 0, 1)
+	mountPaths := make([]string, 0, len(storageURIs))
+
+	for i := range storageURIs {
+		initContainerArgs = append(initContainerArgs, storageURIs[i], storagePaths[i])
+		mountPaths = append(mountPaths, storagePaths[i])
+	}
+
+	mountPath := FindCommonParentPath(mountPaths)
+
+	volumeName := GetVolumeNameFromPath(mountPath)
+
+	volumeMounts = append(volumeMounts, corev1.VolumeMount{
+		Name:      volumeName,
+		MountPath: mountPath,
+		ReadOnly:  false,
+	})
+
+	volumes = append(volumes, corev1.Volume{
+		Name: volumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
+
+	return volumeMounts, volumes, initContainerArgs, nil
+}
+
+func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig, containerArgs []string) *corev1.Container {
+	storageInitializerImage := constants.StorageInitializerContainerImage + ":" + constants.StorageInitializerContainerImageVersion
+
+	if storageConfig.Image != "" {
+		storageInitializerImage = storageConfig.Image
+	}
+
+	return &corev1.Container{
+		Name:                     constants.StorageInitializerContainerName,
+		Image:                    storageInitializerImage,
+		Args:                     containerArgs,
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+		Resources: corev1.ResourceRequirements{
+			Limits: map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
+				corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryLimit),
+			},
+			Requests: map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuRequest),
+				corev1.ResourceMemory: resource.MustParse(storageConfig.MemoryRequest),
+			},
+		},
+	}
+}
+
+// ShellQuote returns s quoted for safe interpolation into a sh -c command
+// string. Strings that consist entirely of shell-safe characters (letters,
+// digits, '/', '.', '_', '-') are returned unchanged to avoid altering
+// previously generated command strings (which would cause unnecessary pod
+// restarts on upgrade). All other strings are wrapped in single quotes with
+// embedded single quotes escaped via the standard POSIX sequence.
+func ShellQuote(s string) string {
+	if len(s) == 0 {
+		return "''"
+	}
+	for _, c := range s {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+			c == '/' || c == '.' || c == '_' || c == '-') {
+			return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+		}
+	}
+	return s
+}
+
+// modelcarCommand returns the shell command for the modelcar container.
+// When modelPath differs from the default, it prepends "mkdir -p" to create
+// the parent directory so that the symlink target exists. For the default path
+// the command is kept identical to the original to avoid unnecessary pod restarts
+// on upgrade.
+//
+// Paths are shell-quoted using ShellQuote to prevent metacharacter injection.
+// The upstream validation (validateStorageURISpec) ensures paths are absolute
+// and contain no "..", but quoting provides defense-in-depth.
+func modelcarCommand(modelPath string) string {
+	// $$$$ gets escaped by YAML to $$, which is the current PID
+	if modelPath != constants.DefaultModelLocalMountPath {
+		return fmt.Sprintf("mkdir -p %s && ln -sf /proc/$$$$/root/models %s && sleep infinity",
+			ShellQuote(path.Dir(modelPath)), ShellQuote(modelPath))
+	}
+	return fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity", ShellQuote(modelPath))
+}
+
+// CreateModelcarContainer creates the definition of a container holding a model intended to be used as a sidecar (modelcar).
+// The container is configured with CPU, memory, and UID settings from the storage initializer configuration.
+//
+// Parameters:
+//   - containerName: The name to assign to the modelcar container.
+//   - image: The container image to use for the modelcar.
+//   - modelPath: The path where the model should be mounted inside the container.
+//   - volumeName: The name of the shared volume for model data.
+//   - storageConfig: The storage initializer configuration.
+//
+// Returns:
+//   - *corev1.Container: The modelcar container definition.
+func CreateModelcarContainer(containerName string, image string, modelPath string, volumeName string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
+	cpu := storageConfig.CpuModelcar
+	if cpu == "" {
+		cpu = constants.CpuModelcarDefault
+	}
+	memory := storageConfig.MemoryModelcar
+	if memory == "" {
+		memory = constants.MemoryModelcarDefault
+	}
+
+	modelContainer := &corev1.Container{
+		Name:  containerName,
+		Image: image,
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      volumeName,
+				MountPath: GetParentDirectory(modelPath),
+				ReadOnly:  false,
+			},
+		},
+		Args: []string{
+			"sh",
+			"-c",
+			modelcarCommand(modelPath),
+		},
+		Resources: corev1.ResourceRequirements{
+			Limits: map[corev1.ResourceName]resource.Quantity{
+				// Could possibly be reduced to even less
+				corev1.ResourceCPU:    resource.MustParse(cpu),
+				corev1.ResourceMemory: resource.MustParse(memory),
+			},
+			Requests: map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU:    resource.MustParse(cpu),
+				corev1.ResourceMemory: resource.MustParse(memory),
+			},
+		},
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+	}
+
+	if storageConfig.UidModelcar != nil {
+		modelContainer.SecurityContext = &corev1.SecurityContext{
+			RunAsUser: storageConfig.UidModelcar,
+		}
+	}
+
+	return modelContainer
+}
+
+// CreateModelcarInitContainer is similar to CreateModelcarContainer but returns an init container definition.
+// This init container is intended to run before the main containers to pre-fetch and validate the modelcar image.
+//
+// Parameters:
+//   - containerName: The name to assign to the modelcar init container.
+//   - image: The container image to use for the modelcar init container.
+//   - storageConfig: The storage initializer configuration.
+//
+// Returns:
+//   - *corev1.Container: The modelcar init container definition.
+func CreateModelcarInitContainer(containerName string, image string, storageConfig *types.StorageInitializerConfig) *corev1.Container {
+	cpu := storageConfig.CpuModelcar
+	if cpu == "" {
+		cpu = constants.CpuModelcarDefault
+	}
+	memory := storageConfig.MemoryModelcar
+	if memory == "" {
+		memory = constants.MemoryModelcarDefault
+	}
+
+	modelContainer := &corev1.Container{
+		Name:  containerName,
+		Image: image,
+		Args: []string{
+			"sh",
+			"-c",
+			// Check that the expected models directory exists
+			"echo 'Pre-fetching modelcar " + image + ": ' && [ -d /models ] && [ \"$$(ls -A /models)\" ] && echo 'OK ... Prefetched and valid (/models exists)' || (echo 'NOK ... Prefetched but modelcar is invalid (/models does not exist or is empty)' && exit 1)",
+		},
+		Resources: corev1.ResourceRequirements{
+			Limits: map[corev1.ResourceName]resource.Quantity{
+				// Could possibly be reduced to even less
+				corev1.ResourceCPU:    resource.MustParse(cpu),
+				corev1.ResourceMemory: resource.MustParse(memory),
+			},
+			Requests: map[corev1.ResourceName]resource.Quantity{
+				corev1.ResourceCPU:    resource.MustParse(cpu),
+				corev1.ResourceMemory: resource.MustParse(memory),
+			},
+		},
+		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+	}
+
+	return modelContainer
+}
+
+// MaxOCISourcesPerPod is the maximum number of OCI modelcar sidecars that can be
+// injected into a single pod. This prevents resource exhaustion from unbounded
+// sidecar injection — each OCI URI adds 2 containers (sidecar + init) and 1 volume.
+const MaxOCISourcesPerPod = 10
+
+// ModelcarNames generates unique container and volume names for a modelcar at the given OCI index.
+// When ociIndex is 0, the original constant names are returned for backward compatibility.
+func ModelcarNames(ociIndex int) (sidecarName, initName, volumeName string) {
+	if ociIndex == 0 {
+		return constants.ModelcarContainerName, constants.ModelcarInitContainerName, constants.StorageInitializerVolumeName
+	}
+	suffix := fmt.Sprintf("-%d", ociIndex)
+	return constants.ModelcarContainerName + suffix,
+		constants.ModelcarInitContainerName + suffix,
+		constants.StorageInitializerVolumeName + suffix
+}
+
+// ValidateOCIMountPaths checks that the given OCI mount paths will not cause volume
+// mount collisions when injected. The collision rules differ by mode:
+//
+//   - OciModelModeNative: the container runtime mounts OCI images directly at the
+//     requested path, so only exact-path duplicates are invalid; siblings under the
+//     same parent directory are perfectly fine.
+//
+//   - OciModelModeModelcar (and any other/empty mode, defensively): each modelcar
+//     sidecar mounts an emptyDir at the *parent directory* of its modelPath (via
+//     GetParentDirectory). Two URIs sharing a parent would mount volumes at the same
+//     path on the target container, causing the last mount to shadow all previous ones.
+//
+// Returns an error if a collision is detected.
+func ValidateOCIMountPaths(mountPaths []string, mode string) error {
+	if len(mountPaths) <= 1 {
+		return nil
+	}
+	if mode == types.OciModelModeNative {
+		// Native mode: only exact-path duplicates are invalid.
+		seen := make(map[string]struct{}, len(mountPaths))
+		for _, mp := range mountPaths {
+			if _, exists := seen[mp]; exists {
+				return fmt.Errorf(
+					"OCI mount path %q is specified more than once; each native ImageVolume must have a unique mount path",
+					mp,
+				)
+			}
+			seen[mp] = struct{}{}
+		}
+		return nil
+	}
+	// Modelcar mode (and defensive default): parent-directory collision check.
+	parentDirSeen := make(map[string]string, len(mountPaths)) // parentDir -> first modelPath that used it
+	for _, mp := range mountPaths {
+		parentDir := GetParentDirectory(mp)
+		if prev, exists := parentDirSeen[parentDir]; exists {
+			return fmt.Errorf(
+				"OCI mount paths %q and %q share parent directory %q, which would cause volume mount shadowing; "+
+					"use mount paths with distinct parent directories",
+				prev, mp, parentDir,
+			)
+		}
+		parentDirSeen[parentDir] = mp
+	}
+	return nil
+}
+
+// ConfigureModelcarToContainer configures the OCI image specified in modelUri as a modelcar to the
+// specified target container of a given PodSpec. The configuration includes:
+//   - Adding an environment variable `async` to indicate to the runtime that the model directory may not be available immediately.
+//   - Setting the user ID for the target container, if specified in storageConfig.
+//   - Adding a modelcar and init containers (for pre-fetching the model) if not already present.
+//   - Mounting a volume to the target container to access the model directory (via a shared volume).
+//   - Enabling process namespace sharing (because of the shared volume).
+//
+// Parameters:
+//   - modelUri: The URI specifying the model image location.
+//   - podSpec: The PodSpec to modify.
+//   - targetContainerName: The name of the container to configure the modelcar for.
+//   - modelPath: The path where the model symlink should be created inside the container
+//     (e.g. /mnt/models or /mnt/models/my-llama for a model-name subdirectory).
+//   - storageConfig: The storage initializer configuration.
+//   - ociIndex: The index of this OCI URI within the storageUris list. Used to generate
+//     unique container/volume names when multiple OCI URIs are specified. Use 0 for
+//     single-URI or legacy scenarios to preserve backward compatibility.
+//
+// Returns:
+//   - error: An error if the target container is not found or if configuration fails; otherwise, nil.
+func ConfigureModelcarToContainer(modelUri string, podSpec *corev1.PodSpec, targetContainerName string, modelPath string, storageConfig *types.StorageInitializerConfig, ociIndex int) error {
+	targetContainer := GetContainerWithName(podSpec, targetContainerName)
+	if targetContainer == nil {
+		return fmt.Errorf("no container found with name %s", targetContainerName)
+	}
+
+	sidecarName, initName, volumeName := ModelcarNames(ociIndex)
+
+	// Indicate to the runtime that it the model directory could be
+	// available a bit later only so that it should wait and retry when
+	// starting up
+	AddOrReplaceEnv(targetContainer, constants.ModelInitModeEnvVarKey, "async")
+
+	// Mount volume initialized by the modelcar container to the target container.
+	// Each OCI URI gets its own emptyDir volume because the modelcar sidecar creates
+	// a symlink (via /proc/<PID>/root) that is specific to its container image.
+	// Sharing a single volume between multiple modelcar sidecars would cause symlink
+	// conflicts.
+	modelParentDir := GetParentDirectory(modelPath)
+	AddEmptyDirVolumeIfNotPresent(podSpec, volumeName)
+	AddVolumeMountIfNotPresent(targetContainer, volumeName, modelParentDir, false)
+
+	// If configured, run as the given user. There might be certain installations
+	// of Kubernetes where sharing the filesystem via the process namespace only works
+	// when both containers are running as root
+	if storageConfig.UidModelcar != nil {
+		if targetContainer.SecurityContext == nil {
+			targetContainer.SecurityContext = &corev1.SecurityContext{}
+		}
+		targetContainer.SecurityContext.RunAsUser = storageConfig.UidModelcar
+	}
+
+	// Create the modelcar that is used as a sidecar in Pod and add it to the end
+	// of the containers (but only if not already have been added)
+	if GetContainerWithName(podSpec, sidecarName) == nil {
+		// Extract image reference for modelcar from URI
+		image := strings.TrimPrefix(modelUri, constants.OciURIPrefix)
+
+		modelContainer := CreateModelcarContainer(sidecarName, image, modelPath, volumeName, storageConfig)
+		podSpec.Containers = append(podSpec.Containers, *modelContainer)
+
+		// Add the model container as an init-container to pre-fetch the model before
+		// the runtimes starts.
+		modelInitContainer := CreateModelcarInitContainer(initName, image, storageConfig)
+		podSpec.InitContainers = append(podSpec.InitContainers, *modelInitContainer)
+	}
+
+	// Enable process namespace sharing so that the modelcar's root filesystem
+	// can be reached by the user container
+	podSpec.ShareProcessNamespace = ptr.To(true)
+
+	return nil
+}
+
+// ParseOciScheme splits any OCI storageUri into its mode, a normalized oci:// URI, and
+// whether it is an OCI URI at all.
+//
+//   - "oci+native://reg/img:tag" → ("native", "oci://reg/img:tag", true)
+//   - "oci+modelcar://reg/img:tag" → ("modelcar", "oci://reg/img:tag", true)
+//   - "oci+fetch://reg/img:tag"   → ("fetch",    "oci://reg/img:tag", true)
+//   - "oci://reg/img:tag"         → ("",         "oci://reg/img:tag", true)  // mode resolved later
+//   - "s3://bucket/key"           → ("",         "s3://bucket/key",  false)
+func ParseOciScheme(uri string) (mode string, normalizedURI string, isOci bool) {
+	const ociPlus = "oci+"
+	if strings.HasPrefix(uri, ociPlus) {
+		rest := uri[len(ociPlus):]
+		sepIdx := strings.Index(rest, "://")
+		if sepIdx > 0 {
+			return rest[:sepIdx], constants.OciURIPrefix + rest[sepIdx+3:], true
+		}
+	}
+	if strings.HasPrefix(uri, constants.OciURIPrefix) {
+		return "", uri, true
+	}
+	return "", uri, false
+}
+
+// ConfigureOciNativeToContainer mounts a Kubernetes ImageVolume (alpha/beta gated by
+// +featureGate=ImageVolume) for an oci:// storageUri onto targetContainerName at modelPath.
+//
+// The volume name is derived from modelPath so that multiple adapters at different paths
+// can coexist without collision (each path produces a unique name via GetVolumeNameFromPath).
+// If another VolumeMount already uses modelPath the call is rejected to avoid silent
+// mount shadowing.
+//
+// The mount uses subPath="models" so that existing modelcar OCI images (which store model
+// files under /models/ inside the image) continue to work without re-building. K8s 1.31–1.32
+// alpha does not support subPath on ImageVolume VolumeMounts; the controller's warn helper
+// surfaces an advisory condition on those clusters.
+func ConfigureOciNativeToContainer(modelUri string, podSpec *corev1.PodSpec, targetContainerName, modelPath string, _ *types.StorageInitializerConfig) error {
+	targetContainer := GetContainerWithName(podSpec, targetContainerName)
+	if targetContainer == nil {
+		return fmt.Errorf("no container found with name %s", targetContainerName)
+	}
+
+	imageRef := strings.TrimPrefix(modelUri, constants.OciURIPrefix)
+
+	volName := GetVolumeNameFromPath(modelPath)
+	if volName == "" {
+		volName = "oci-model"
+	}
+
+	// Reject if modelPath is already claimed by a different mount.
+	for _, m := range targetContainer.VolumeMounts {
+		if m.MountPath == modelPath && m.Name != volName {
+			return fmt.Errorf("mountPath %q already used by volume %q", modelPath, m.Name)
+		}
+	}
+
+	// Guard against duplicate pod-level Volume entries (the API server rejects them).
+	// There is no shared helper for pod-level Volumes; AddVolumeMountIfNotPresent only
+	// covers per-container VolumeMounts. Unlike the previous early-return, we always
+	// call AddVolumeMountIfNotPresent below so that a second call for a different
+	// targetContainer (e.g., transformer) gets its VolumeMount even when the Volume
+	// already exists from the first call.
+	volumeExists := false
+	for _, v := range podSpec.Volumes {
+		if v.Name == volName {
+			volumeExists = true
+			break
+		}
+	}
+	if !volumeExists {
+		podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
+			Name: volName,
+			VolumeSource: corev1.VolumeSource{
+				Image: &corev1.ImageVolumeSource{
+					Reference:  imageRef,
+					PullPolicy: corev1.PullIfNotPresent,
+				},
+			},
+		})
+	}
+
+	// Always add the VolumeMount; the helper skips if this container already has it.
+	// subPath="models" matches the modelcar OCI image layout convention (/models/ inside the image).
+	AddVolumeMountIfNotPresentWithSubPath(targetContainer, volName, modelPath, "models", true)
+
+	return nil
+}

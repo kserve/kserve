@@ -1,0 +1,21 @@
+{{ template "chart.header" . }}
+
+{{ template "chart.versionBadge" . }}{{ template "chart.typeBadge" . }}{{ template "chart.appVersionBadge" . }}
+
+{{ template "chart.description" . }}
+
+{{ template "chart.homepageLine" . }}
+
+## Installing the Chart
+
+To install the chart, run the following:
+
+```console
+$ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime-configs --set kserve.servingruntime.enabled=true --set kserve.llmisvcConfigs.enabled=true --version {{ template "chart.version" . }}
+```
+
+{{ template "chart.maintainersSection" . }}
+
+{{ template "chart.sourcesSection" . }}
+
+{{ template "chart.valuesSection" . }}

@@ -1,0 +1,16 @@
+# Call to this IG will stop at "rootStep1" itself as rootStep1 is a HARD dependency and it will return non-200
+apiVersion: serving.kserve.io/v1alpha1
+kind: InferenceGraph
+metadata:
+  name: {{ graph_name }}
+spec:
+  nodes:
+    root:
+      routerType: Sequence
+      steps:
+      - serviceName: {{ error_404_isvc_id }}
+        name: "rootStep1"
+        dependency: Hard
+      - serviceName: {{ success_200_isvc_id }}
+        name: "rootStep2"
+        dependency: Soft

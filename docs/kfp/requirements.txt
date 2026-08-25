@@ -1,0 +1,2 @@
+kserve==0.14.1
+protobuf~=3.19.0

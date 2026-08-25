@@ -1,0 +1,15 @@
+{
+    "model": "qwen-chat",
+    "messages": [
+        {
+            "role": "system",
+            "content": "Answer with just the number, nothing else."
+        },
+        {
+            "role": "user",
+            "content": "2+2="
+        }
+    ],
+    "temperature": 0,
+    "max_tokens": 20
+}

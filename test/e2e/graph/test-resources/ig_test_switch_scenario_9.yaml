@@ -1,0 +1,21 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: InferenceGraph
+metadata:
+  name: {{ graph_name }}
+spec:
+  nodes:
+    root:
+      routerType: Sequence
+      steps:
+      - name: "rootStep1"
+        nodeName: node1
+        dependency: Soft # This is the default setting but setting it explicitly for more clarity
+      - name: "rootStep2"
+        serviceName: {{ success_200_isvc_id }}
+    node1:
+      routerType: Splitter
+      steps:
+        - name: "node1Step1"
+          weight: 100
+          serviceName: {{ error_404_isvc_id }}
+          condition: "[@this].#(decision_picker==ERROR)"

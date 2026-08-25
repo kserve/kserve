@@ -1,0 +1,11 @@
+apiVersion: "serving.kubeflow.org/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "sklearn-iap"
+  namespace: <namespace> # Set the user namespace your profile is in.
+  labels:
+    app: kfserving-app
+spec:
+  predictor:
+    sklearn:
+      storageUri: "gs://kfserving-examples/models/sklearn/iris"

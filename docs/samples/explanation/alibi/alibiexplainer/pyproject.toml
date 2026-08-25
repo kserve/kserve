@@ -1,0 +1,53 @@
+[project]
+name = "alibiexplainer"
+version = "0.20.0"
+description = "Model Explanation Server. Not intended for use outside KServe Frameworks Images."
+readme = "README.md"
+requires-python = ">=3.10,<=3.12"
+license = { text = "Apache-2.0" }
+authors = [{ name = "cliveseldon", email = "cc@seldon.io" }]
+dependencies = [
+    "kserve",
+    "kserve-storage",
+    # From 0.9.5 alibi uses BSL license (removed tensorflow extra for newer tensorflow stacks)
+    "alibi[shap]>=0.9.4,<0.10",
+    "tensorflow>=2.15",
+    "dill>=0.3.8,<0.4",
+    "nest-asyncio>=1.4.0,<1.5",
+    # needed since resolvers may pick an older llvmlite not supported on newer Python
+    "llvmlite>0.38.1",
+    "tensorflow-io-gcs-filesystem==0.37.1",
+    "keras>=3.12.0",
+    "urllib3>=2.6.0",
+    "transformers>=4.53.0",
+]
+
+[project.urls]
+repository = "https://github.com/kserve/kserve/tree/master/docs/samples/explanation/alibi/alibiexplainer"
+
+[dependency-groups]
+test = [
+    "pytest>=7.2.0,<8.0.0",
+    "pytest-cov>=4.0.0,<5.0.0",
+    "mypy>=0.991,<1.0",
+]
+dev = [
+    "black[colorama]>=26.3.1,<27",
+]
+
+[tool.uv]
+# Force pillow>=12.3.0 to address CVE-2026-59200 (GHSA-jjj6-mw9f-p565).
+# alibi<0.10 declares pillow<11.0, but this override allows resolving to
+# the patched version. alibi's Pillow usage is compatible with 12.x.
+override-dependencies = ["pillow>=12.3.0"]
+
+[tool.uv.sources]
+kserve = { path = "../../../../../python/kserve", editable = true }
+kserve-storage = { path = "../../../../../python/storage", editable = true }
+
+[build-system]
+requires = ["hatchling>=1.18.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["alibiexplainer"]

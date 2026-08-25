@@ -1,0 +1,1647 @@
+name: E2E Tests
+
+on:
+  pull_request:
+    branches: [master, release*]
+    paths:
+      - "**"
+      - "!.github/**"
+      - "!docs/**"
+      - "!**.md"
+      - ".github/workflows/e2e-test.yml"
+      - ".github/actions/**"
+  merge_group:
+    types: [ checks_requested ]
+  workflow_dispatch:
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  TAG: ${{ github.sha }}
+  DOCKER_IMAGES_PATH: "/mnt/docker-images"
+  KO_DOCKER_REPO: "kserve"
+  # artifact prefixes for bulk download
+  PREDICTOR_ARTIFACT_PREFIX: "pred"
+  EXPLAINER_ARTIFACT_PREFIX: "exp"
+  TRANSFORMER_ARTIFACT_PREFIX: "trans"
+  GRAPH_ARTIFACT_PREFIX: "graph"
+  BASE_ARTIFACT_PREFIX: "base"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      install_methods: ${{ steps.set-matrix.outputs.install_methods }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: filter
+        with:
+          filters: |
+            charts:
+              - 'charts/**'
+            non_charts:
+              - '**'
+              - '!charts/**'
+      - id: set-matrix
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo 'install_methods=["kustomize","helm"]' >> $GITHUB_OUTPUT
+          elif [[ "${{ steps.filter.outputs.charts }}" == "true" && \
+                  "${{ steps.filter.outputs.non_charts }}" == "true" ]]; then
+            echo 'install_methods=["kustomize","helm"]' >> $GITHUB_OUTPUT
+          elif [[ "${{ steps.filter.outputs.charts }}" == "true" ]]; then
+            echo 'install_methods=["helm"]' >> $GITHUB_OUTPUT
+          else
+            echo 'install_methods=["kustomize"]' >> $GITHUB_OUTPUT
+          fi
+
+  kserve-image-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+
+      - name: Build KServe images
+        run: |
+          sudo mkdir -p ${DOCKER_IMAGES_PATH}
+          sudo chown -R $USER ${DOCKER_IMAGES_PATH}
+          ./test/scripts/gh-actions/build-images.sh
+          docker image ls
+          sudo ls -lh ${DOCKER_IMAGES_PATH}
+
+      - name: Upload controller image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CONTROLLER_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload localmodel controller image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LOCALMODEL_CONTROLLER_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload localmodel agent image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.LOCALMODEL_AGENT_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LOCALMODEL_AGENT_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload agent image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.AGENT_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.AGENT_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload storage initializer image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload router image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.ROUTER_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.ROUTER_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+  seed-sklearn-modelcar:
+    runs-on: ubuntu-latest
+    needs: [kserve-image-build]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Download storage-initializer image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load storage-initializer image
+        run: docker load < ./tmp/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+
+      - name: Download sklearn model
+        timeout-minutes: 10
+        run: |
+          mkdir -p /tmp/sklearn-model && chmod a+rwx /tmp/sklearn-model
+          docker run --rm \
+            --network host \
+            -v /tmp/sklearn-model:/mnt/models \
+            ${{ env.KO_DOCKER_REPO }}/${{ env.STORAGE_INIT_IMG }}:${{ env.TAG }} \
+            gs://kfserving-examples/models/sklearn/1.0/model /mnt/models
+
+      - name: Package model as OCI modelcar image
+        run: |
+          printf 'FROM busybox\nCOPY . /models\n' > /tmp/Dockerfile.modelcar
+          docker build -t kserve/sklearn-modelcar:${{ env.TAG }} -f /tmp/Dockerfile.modelcar /tmp/sklearn-model
+          docker save kserve/sklearn-modelcar:${{ env.TAG }} -o /tmp/sklearn-modelcar.tar
+
+      - name: Upload sklearn modelcar artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sklearn-modelcar-${{ env.TAG }}
+          path: /tmp/sklearn-modelcar.tar
+          compression-level: 0
+          if-no-files-found: error
+
+  predictor-runtime-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+
+      - name: Build runtime server images
+        run: |
+          sudo mkdir -p ${DOCKER_IMAGES_PATH}
+          sudo chown -R $USER ${DOCKER_IMAGES_PATH}
+          ./test/scripts/gh-actions/build-server-runtimes.sh predictor,transformer
+          docker image ls
+          sudo ls -lh ${DOCKER_IMAGES_PATH}
+
+      - name: Upload sklearn artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.SKLEARN_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload xgb server image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.XGB_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload lgb server image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.LGB_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.LGB_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload pmml server image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PMML_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.PMML_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload paddle image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PADDLE_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.PADDLE_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload predictiveserver image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload autogluon image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.AUTOGLUON_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.AUTOGLUON_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload image transformer image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.IMAGE_TRANSFORMER_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.IMAGE_TRANSFORMER_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload custom model grpc image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload custom model transformer grpc image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.CUSTOM_TRANSFORMER_GRPC_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.CUSTOM_TRANSFORMER_GRPC_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload huggingface image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.HUGGINGFACE_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.HUGGINGFACE_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+  explainer-runtime-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+
+      - name: Build runtime server images
+        run: |
+          sudo mkdir -p ${DOCKER_IMAGES_PATH}
+          sudo chown -R $USER ${DOCKER_IMAGES_PATH}
+          ./test/scripts/gh-actions/build-server-runtimes.sh explainer
+          docker image ls
+          sudo ls -lh ${DOCKER_IMAGES_PATH}
+
+      - name: Upload art explainer image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.EXPLAINER_ARTIFACT_PREFIX }}-${{ env.ART_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.ART_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+  graph-tests-images-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+
+      - name: Build test images needed for graph tests
+        run: |
+          sudo mkdir -p ${DOCKER_IMAGES_PATH}
+          sudo chown -R $USER ${DOCKER_IMAGES_PATH}
+          ./test/scripts/gh-actions/build-graph-tests-images.sh
+          docker image ls
+          sudo ls -lh ${DOCKER_IMAGES_PATH}
+
+      - name: Upload success_200_isvc predictor image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.GRAPH_ARTIFACT_PREFIX }}-${{ env.SUCCESS_200_ISVC_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.SUCCESS_200_ISVC_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Upload error_404_isvc predictor image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.GRAPH_ARTIFACT_PREFIX }}-${{ env.ERROR_404_ISVC_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.ERROR_404_ISVC_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
+  test-predictor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build, seed-sklearn-modelcar]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.10"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: Download predictor artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: ./tmp
+          pattern: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-*
+          merge-multiple: true
+
+      - name: Download sklearn modelcar artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: sklearn-modelcar-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Load sklearn modelcar into minikube
+        run: |
+          minikube image load ./tmp/sklearn-modelcar.tar
+          echo "SKLEARN_MODELCAR_URI=oci://kserve/sklearn-modelcar:${{ env.TAG }}" >> $GITHUB_ENV
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Run predictor E2E tests
+        timeout-minutes: 60
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "predictor" "6"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-predictor-${{ matrix.install-method }}
+
+  test-transformer-explainer-mms:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    needs:
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.10"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: Download transformer and explainer artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: ./tmp
+          pattern: +(${{ env.TRANSFORMER_ARTIFACT_PREFIX }}|${{ env.EXPLAINER_ARTIFACT_PREFIX }})-*
+          merge-multiple: true
+
+      - name: Download sklearn server image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download custom model grpc image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download xgb server image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download predictiveserver image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Run E2E tests
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "transformer or mms or collocation" "6"
+
+      - name: Run E2E tests - explainer
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "explainer" "1"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-transformer-explainer-mms-${{ matrix.install-method }}
+
+  test-graph:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs:
+      [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.10"
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download graph artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: ./tmp
+          pattern: ${{ env.GRAPH_ARTIFACT_PREFIX }}-*
+          merge-multiple: true
+
+      - name: Download sklearn server image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download xgb server image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download predictiveserver image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Run E2E tests for graph
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "graph" "6"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-graph-${{ matrix.install-method }}
+
+  test-path-based-routing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs:
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.10"
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download sklearn server image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download xgb server image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download lgb server image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.LGB_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download predictiveserver image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download transformer image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.TRANSFORMER_ARTIFACT_PREFIX }}-${{ env.IMAGE_TRANSFORMER_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download Art Explainer image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.EXPLAINER_ARTIFACT_PREFIX }}-${{ env.ART_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          if [ "${{ matrix.install-method }}" == "helm" ]; then
+            export INSTALL_METHOD="helm"
+            export SET_KSERVE_VERSION=${{ env.TAG }}
+            export KSERVE_CUSTOM_ISVC_CONFIGS='kserve.controller.gateway.pathTemplate=/serving/{{ .Namespace }}/{{ .Name }}|kserve.controller.gateway.domain=mydomain.com'
+          else
+            export KSERVE_CUSTOM_ISVC_CONFIGS='ingress.pathTemplate=/serving/{{ .Namespace }}/{{ .Name }}|ingress.ingressDomain=mydomain.com'
+          fi
+          export NETWORK_LAYER='istio-ingress'
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Run E2E tests with path-based routing
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "path_based_routing" "6"
+
+      - name: Run E2E tests with path-based routing - Explainer
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "explainer" "1"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-path-based-routing-${{ matrix.install-method }}
+
+  test-qpext:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.10"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: Build queue proxy extension image
+        run: |
+          ./test/scripts/gh-actions/build-qpext-image.sh
+          docker image ls
+
+      - name: Download sklearn server image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download predictiveserver image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+      - name: Patch qpext image
+        run: |
+          kubectl patch knativeserving knative-serving -n knative-serving --type=merge \
+            --patch '{"spec":{"config":{"deployment":{"queue-sidecar-image":"kserve/qpext:${{ env.TAG }}"},"observability":{"request-metrics-protocol":"prometheus"}}}}'
+          kubectl wait --for=condition=Ready -n knative-serving knativeserving knative-serving --timeout=120s
+          kubectl get configmap config-deployment -n knative-serving -o jsonpath='{.data.queue-sidecar-image}'
+          echo
+      - name: Run queue proxy extension E2E tests
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-qpext-test.sh
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+  test-with-helm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [kserve-image-build]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.10"
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install Kserve from helm
+        run: |
+          export INSTALL_METHOD="helm"
+          ./test/scripts/gh-actions/setup-kserve.sh
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Run E2E tests
+        timeout-minutes: 20
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "helm"
+          kubectl get pods -n kserve
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-helm
+
+  test-raw:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        # Test with Ingress and Gateway API
+        network-layer: ["istio-ingress", "envoy-gatewayapi", "istio-gatewayapi"]
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    needs:
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.10"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Enable metrics server
+        run: |
+          minikube addons enable metrics-server
+          kubectl rollout status deployment/metrics-server -n kube-system --timeout=180s
+          kubectl get pods -n kube-system | grep metrics-server
+
+      - name: Check Metrics Server Logs
+        run: |
+          kubectl logs -n kube-system deploy/metrics-server
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+        with:
+          deployment-mode: "raw"
+          enable-keda: "true"
+          network-layer: ${{ matrix.network-layer }}
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: Download sklearn server image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download xgb server image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download predictiveserver image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download custom model grpc image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.CUSTOM_MODEL_GRPC_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download transformer and explainer artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: ./tmp
+          pattern: +(${{ env.TRANSFORMER_ARTIFACT_PREFIX }}|${{ env.EXPLAINER_ARTIFACT_PREFIX }})-*
+          merge-multiple: true
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh "Standard" ${{ matrix.network-layer }}
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Log the config map
+        run: |
+          kubectl describe configmaps -n kserve inferenceservice-config
+
+      - name: Run E2E tests
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
+      
+      # Run dual protocol (gRPC/REST) test only for gatewayapi as it is the only one supporting it currently.
+      - name: Run E2E tests - Dual Protocol
+        if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
+        timeout-minutes: 10
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "dual_protocol" "6" ${{ matrix.network-layer }}
+
+      - name: Patch inferenceservice config for path based routing
+        if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
+        run: |
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-path-template.yaml
+          kubectl describe configmaps -n kserve inferenceservice-config
+
+      - name: Run E2E tests with path based routing
+        if: matrix.network-layer == 'envoy-gatewayapi' || matrix.network-layer == 'istio-gatewayapi'
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "raw" "6" ${{ matrix.network-layer }}
+
+      - name: Patch inferenceservice config for cluster ip none
+        run: |
+          kubectl patch configmaps -n kserve inferenceservice-config --patch-file config/overlays/test/configmap/inferenceservice-enable-cluster-ip.yaml
+          kubectl describe configmaps -n kserve inferenceservice-config
+
+      - name: Run E2E tests - cluster ip none
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "rawcipn" "1" ${{ matrix.network-layer }}
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-raw-${{ matrix.network-layer }}-${{ matrix.install-method }}
+
+  test-autoscaling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs:
+      [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.10"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Enable metrics server
+        run: |
+          minikube addons enable metrics-server
+          kubectl rollout status deployment/metrics-server -n kube-system --timeout=180s
+          kubectl get pods -n kube-system | grep metrics-server
+
+      - name: Check Metrics Server Logs
+        run: |
+          kubectl logs -n kube-system deploy/metrics-server
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+        with:
+          deployment-mode: "raw"
+          enable-keda: "true"
+          network-layer: "istio-ingress"
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: Download sklearn server image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download predictiveserver image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh "Standard" "istio-ingress"
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Log the config map
+        run: |
+          kubectl describe configmaps -n kserve inferenceservice-config
+
+      - name: Run E2E tests
+        timeout-minutes: 30
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "autoscaling and not llminferenceservice" "6" "istio-ingress"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-autoscaling-${{ matrix.install-method }}
+
+  test-kourier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs:
+      [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.10"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+        with:
+          network-layer: "kourier"
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: Download graph artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: ./tmp
+          pattern: ${{ env.GRAPH_ARTIFACT_PREFIX }}-*
+          merge-multiple: true
+
+      - name: Download sklearn server image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.SKLEARN_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download xgb server image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.XGB_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Download predictiveserver image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-${{ env.PREDICTIVE_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          if [ "${{ matrix.install-method }}" == "helm" ]; then
+            export INSTALL_METHOD="helm"
+            export SET_KSERVE_VERSION=${{ env.TAG }}
+            export KSERVE_CUSTOM_ISVC_CONFIGS='kserve.controller.gateway.disableIstioVirtualHost=true'
+          else
+            export KSERVE_CUSTOM_ISVC_CONFIGS='ingress.disableIstioVirtualHost=true'
+          fi
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Run E2E tests
+        timeout-minutes: 30
+        run: |
+          export KSERVE_INGRESS_HOST_PORT=$(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" \
+          --output=jsonpath="{.items[0].status.podIP}"):$(kubectl get pod -n knative-serving -l "app=3scale-kourier-gateway" \
+          --output=jsonpath="{.items[0].spec.containers[0].ports[0].containerPort}")
+
+          ./test/scripts/gh-actions/run-e2e-tests.sh "kourier" "6"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh "kourier"
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-kourier-${{ matrix.install-method }}
+
+  test-llm:
+    runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 65
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.10"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: Download huggingface server image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.HUGGINGFACE_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Run E2E tests
+        timeout-minutes: 45
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llm" "2"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llm-${{ matrix.install-method }}
+
+  test-huggingface-server-vllm:
+    runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 80
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.10"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: Download huggingface server image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.HUGGINGFACE_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load docker images
+        uses: ./.github/actions/load-docker-images
+        with:
+          directory: ./tmp
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Run E2E tests
+        timeout-minutes: 90
+        run: |
+          export PYTEST_MAXFAIL=3
+          ./test/scripts/gh-actions/run-e2e-tests.sh "vllm" "1"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-vllm-${{ matrix.install-method }}
+
+  test-vllm-runtime:
+    runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 25
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    strategy:
+      fail-fast: false
+      matrix:
+        install-method: ${{ fromJSON(needs.detect-changes.outputs.install_methods) }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.10"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: KServe dependency setup
+        uses: ./.github/actions/kserve-dep-setup
+
+      - name: Download base images
+        uses: ./.github/actions/base-download
+
+      - name: Install UV
+        run: ./test/scripts/gh-actions/setup-uv.sh
+
+      - name: Install KServe
+        run: |
+          ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
+          ${{ matrix.install-method == 'helm' && format('export SET_KSERVE_VERSION={0}', env.TAG) || '' }}
+          ./test/scripts/gh-actions/setup-kserve.sh
+
+          kubectl get pods -n kserve
+          kubectl describe pods -n kserve
+
+      - name: Run E2E tests
+        timeout-minutes: 65
+        run: |
+          export PYTEST_MAXFAIL=3
+          ./test/scripts/gh-actions/run-e2e-tests.sh "vllm_runtime" "1"
+
+      - name: Check system status
+        if: always()
+        run: |
+          ./test/scripts/gh-actions/status-check.sh
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-vllm-runtime-${{ matrix.install-method }}

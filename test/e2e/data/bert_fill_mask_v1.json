@@ -1,0 +1,6 @@
+{
+  "instances": [
+    "The capital of France is [MASK].",
+    "The capital of [MASK] is paris."
+  ]
+}

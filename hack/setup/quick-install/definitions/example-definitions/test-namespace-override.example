@@ -1,0 +1,14 @@
+# Test Definition for Namespace Override
+#
+# This tests that GLOBAL_ENV can override default namespaces from global-vars.env
+
+DESCRIPTION: Test namespace override with custom KSERVE_NAMESPACE
+
+# Override default namespace from global-vars.env
+GLOBAL_ENV:
+  KSERVE_NAMESPACE: my-custom-kserve
+
+COMPONENTS:
+  - name: kserve-kustomize
+    env:
+      DEPLOYMENT_MODE: Standard

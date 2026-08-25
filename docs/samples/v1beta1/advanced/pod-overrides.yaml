@@ -1,0 +1,9 @@
+apiVersion: "serving.kserve.io/v1beta1"
+kind: "InferenceService"
+metadata:
+  name: "tensorflow-pod-overrides"
+spec:
+  predictor:
+    serviceAccount: "serving-admin"
+    tensorflow:
+      storageUri: "gs://kfserving-examples/models/tensorflow/flowers"
