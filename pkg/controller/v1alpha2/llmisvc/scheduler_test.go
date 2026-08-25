@@ -755,6 +755,46 @@ schedulingProfiles:
 				g.Expect(profilePlugins[0].(map[string]interface{})["pluginRef"]).To(Equal("queue-scorer"))
 			},
 		},
+		{
+			name: "removes aliased pluginRef when plugin has a name",
+			configYAML: `
+plugins:
+- type: disagg-headers-handler
+  name: headers
+- type: queue-scorer
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: headers
+  - pluginRef: queue-scorer
+`,
+			pluginType: "disagg-headers-handler",
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(1))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("queue-scorer"))
+
+				profiles := obj["schedulingProfiles"].([]interface{})
+				profilePlugins := profiles[0].(map[string]interface{})["plugins"].([]interface{})
+				g.Expect(profilePlugins).To(HaveLen(1))
+				g.Expect(profilePlugins[0].(map[string]interface{})["pluginRef"]).To(Equal("queue-scorer"))
+			},
+		},
+		{
+			name: "no plugins field - still removes pluginRef from profiles",
+			configYAML: `
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: disagg-headers-handler
+`,
+			pluginType: "disagg-headers-handler",
+			validate: func(g Gomega, obj map[string]interface{}) {
+				profiles := obj["schedulingProfiles"].([]interface{})
+				profilePlugins := profiles[0].(map[string]interface{})["plugins"].([]interface{})
+				g.Expect(profilePlugins).To(BeEmpty())
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -764,7 +804,7 @@ schedulingProfiles:
 			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
 			u := unstructured.Unstructured{Object: obj}
 			fn := WithRemovePlugin(tt.pluginType)
-			g.Expect(fn(context.Background(), &u)).To(Succeed())
+			g.Expect(fn(t.Context(), &u)).To(Succeed())
 			tt.validate(g, u.Object)
 		})
 	}

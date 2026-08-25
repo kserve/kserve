@@ -1088,32 +1088,39 @@ func WithRenamePlugin(oldType, newType string) mutateSchedulerConfigFunc {
 // schedulingProfiles.
 func WithRemovePlugin(pluginType string) mutateSchedulerConfigFunc {
 	return func(_ context.Context, u *unstructured.Unstructured) error {
+		removedNames := map[string]bool{pluginType: true}
+
 		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
-		if err != nil || !found {
+		if err != nil {
 			return err
 		}
-		plugins, ok := val.([]interface{})
-		if !ok {
-			return nil
-		}
-
-		filtered := make([]interface{}, 0, len(plugins))
-		for _, plugin := range plugins {
-			pluginMap, ok := plugin.(map[string]interface{})
-			if !ok {
-				filtered = append(filtered, plugin)
-				continue
+		if found {
+			if plugins, ok := val.([]interface{}); ok {
+				filtered := make([]interface{}, 0, len(plugins))
+				for _, plugin := range plugins {
+					pluginMap, ok := plugin.(map[string]interface{})
+					if !ok {
+						filtered = append(filtered, plugin)
+						continue
+					}
+					if pluginMap["type"] == pluginType {
+						if name, ok := pluginMap["name"].(string); ok {
+							removedNames[name] = true
+						}
+						continue
+					}
+					filtered = append(filtered, plugin)
+				}
+				u.Object["plugins"] = filtered
 			}
-			if pluginMap["type"] == pluginType {
-				continue
-			}
-			filtered = append(filtered, plugin)
 		}
-		u.Object["plugins"] = filtered
 
 		profiles, found, err := unstructured.NestedFieldNoCopy(u.Object, "schedulingProfiles")
-		if err != nil || !found {
+		if err != nil {
 			return err
+		}
+		if !found {
+			return nil
 		}
 		profileList, ok := profiles.([]interface{})
 		if !ok {
@@ -1124,7 +1131,10 @@ func WithRemovePlugin(pluginType string) mutateSchedulerConfigFunc {
 			if !ok {
 				continue
 			}
-			pluginRefs, found, _ := unstructured.NestedFieldNoCopy(profileMap, "plugins")
+			pluginRefs, found, err := unstructured.NestedFieldNoCopy(profileMap, "plugins")
+			if err != nil {
+				return err
+			}
 			if !found {
 				continue
 			}
@@ -1139,7 +1149,7 @@ func WithRemovePlugin(pluginType string) mutateSchedulerConfigFunc {
 					filteredRefs = append(filteredRefs, ref)
 					continue
 				}
-				if refMap["pluginRef"] == pluginType {
+				if name, _ := refMap["pluginRef"].(string); removedNames[name] {
 					continue
 				}
 				filteredRefs = append(filteredRefs, ref)
