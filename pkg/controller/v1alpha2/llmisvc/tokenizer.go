@@ -285,3 +285,17 @@ func (r *LLMISVCReconciler) expectedTokenizerService(llmSvc *v1alpha2.LLMInferen
 		},
 	}
 }
+
+func hasPluginType(obj map[string]interface{}, pluginType string) bool {
+	val, _, err := unstructured.NestedFieldNoCopy(obj, "plugins")
+	if err != nil {
+		return false
+	}
+	plugins, _ := val.([]interface{})
+	for _, plugin := range plugins {
+		if pm, ok := plugin.(map[string]interface{}); ok && pm["type"] == pluginType {
+			return true
+		}
+	}
+	return false
+}
