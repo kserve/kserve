@@ -3751,6 +3751,11 @@ func TestApplyCanaryWeights(t *testing.T) {
 					},
 				},
 			},
+			Status: v1beta1.InferenceServiceStatus{
+				CanaryStatuses: []v1beta1.CanaryStatus{
+					{Name: "v2", Ready: true, TrafficPercent: 20},
+				},
+			},
 		}
 
 		httpRoute := &gwapiv1.HTTPRoute{
