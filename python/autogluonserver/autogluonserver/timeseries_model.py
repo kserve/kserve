@@ -30,6 +30,8 @@ from kserve.protocol.infer_type import InferRequest, InferResponse
 from kserve.utils.utils import get_predict_response
 from kserve_storage import Storage
 
+from autogluonserver.version_compat import load_predictor_tolerating_patch_mismatch
+
 PREDICTOR_METADATA_FILENAME = "predictor_metadata.json"
 
 # Inference ``target`` column name always comes from ``TimeSeriesPredictor.target`` (see
@@ -384,7 +386,9 @@ class AutoGluonTimeSeriesModel(Model):
         local = Storage.download(self.model_dir)
         if not os.path.isdir(local):
             raise ModelMissingError(local)
-        self._predictor = TimeSeriesPredictor.load(local)
+        self._predictor = load_predictor_tolerating_patch_mismatch(
+            TimeSeriesPredictor, local
+        )
         self._metadata = _load_ts_metadata(self._predictor, local)
         self.ready = True
         return self.ready
