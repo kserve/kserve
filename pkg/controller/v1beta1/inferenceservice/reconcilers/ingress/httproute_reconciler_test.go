@@ -3502,7 +3502,7 @@ func TestApplyCanaryWeights(t *testing.T) {
 			},
 		}
 
-		applyCanaryWeights(isvc, "my-model-predictor", httpRoute)
+		applyCanaryWeights(isvc, httpRoute)
 
 		backends := httpRoute.Spec.Rules[0].BackendRefs
 		g.Expect(backends).To(HaveLen(2))
@@ -3547,7 +3547,7 @@ func TestApplyCanaryWeights(t *testing.T) {
 			},
 		}
 
-		applyCanaryWeights(isvc, "my-model-predictor", httpRoute)
+		applyCanaryWeights(isvc, httpRoute)
 
 		backends := httpRoute.Spec.Rules[0].BackendRefs
 		g.Expect(backends).To(HaveLen(3))
@@ -3590,7 +3590,7 @@ func TestApplyCanaryWeights(t *testing.T) {
 			},
 		}
 
-		applyCanaryWeights(isvc, "my-model-predictor", httpRoute)
+		applyCanaryWeights(isvc, httpRoute)
 
 		// Both rules should get canary backends
 		for _, rule := range httpRoute.Spec.Rules {
@@ -3623,7 +3623,7 @@ func TestApplyCanaryWeights(t *testing.T) {
 			},
 		}
 
-		applyCanaryWeights(isvc, "my-model-predictor", httpRoute)
+		applyCanaryWeights(isvc, httpRoute)
 		g.Expect(httpRoute.Spec.Rules[0].BackendRefs).To(BeNil())
 	})
 
@@ -3656,7 +3656,7 @@ func TestApplyCanaryWeights(t *testing.T) {
 			},
 		}
 
-		applyCanaryWeights(isvc, "my-model-predictor", httpRoute)
+		applyCanaryWeights(isvc, httpRoute)
 
 		backends := httpRoute.Spec.Rules[0].BackendRefs
 		g.Expect(backends).To(HaveLen(1))
@@ -3695,7 +3695,7 @@ func TestApplyCanaryWeights(t *testing.T) {
 			},
 		}
 
-		applyCanaryWeights(isvc, "my-model-predictor", httpRoute)
+		applyCanaryWeights(isvc, httpRoute)
 
 		backends := httpRoute.Spec.Rules[0].BackendRefs
 		g.Expect(backends).To(HaveLen(2))
@@ -3729,7 +3729,7 @@ func TestApplyCanaryWeights(t *testing.T) {
 			},
 		}
 
-		applyCanaryWeights(isvc, "my-model-predictor", httpRoute)
+		applyCanaryWeights(isvc, httpRoute)
 
 		backends := httpRoute.Spec.Rules[0].BackendRefs
 		g.Expect(backends).To(HaveLen(1))
@@ -3801,7 +3801,7 @@ func TestApplyCanaryWeights(t *testing.T) {
 			},
 		}
 
-		applyCanaryWeights(isvc, "my-model-predictor", httpRoute)
+		applyCanaryWeights(isvc, httpRoute)
 
 		// Explainer rule: unchanged
 		g.Expect(httpRoute.Spec.Rules[0].BackendRefs).To(HaveLen(1))

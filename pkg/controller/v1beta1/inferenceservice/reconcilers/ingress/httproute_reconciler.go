@@ -330,7 +330,7 @@ func createRawPredictorHTTPRoute(ctx context.Context, client client.Client, isvc
 		},
 	}
 	if len(isvc.Spec.Canary) > 0 {
-		applyCanaryWeights(isvc, predictorName, &httpRoute)
+		applyCanaryWeights(isvc, &httpRoute)
 	}
 	return &httpRoute, nil
 }
@@ -676,7 +676,7 @@ func createRawTopLevelHTTPRoute(ctx context.Context, client client.Client, isvc 
 		},
 	}
 	if len(isvc.Spec.Canary) > 0 {
-		applyCanaryWeights(isvc, predictorName, &httpRoute)
+		applyCanaryWeights(isvc, &httpRoute)
 	}
 	return &httpRoute, nil
 }
@@ -686,7 +686,7 @@ func createRawTopLevelHTTPRoute(ctx context.Context, client client.Client, isvc 
 // Ready (as reported in isvc.Status.CanaryStatuses) receive traffic; not-ready
 // canaries are omitted so no traffic is routed to a backend without ready
 // endpoints.
-func applyCanaryWeights(isvc *v1beta1.InferenceService, predictorName string, httpRoute *gwapiv1.HTTPRoute) {
+func applyCanaryWeights(isvc *v1beta1.InferenceService, httpRoute *gwapiv1.HTTPRoute) {
 	readyMap := make(map[string]bool, len(isvc.Status.CanaryStatuses))
 	for _, cs := range isvc.Status.CanaryStatuses {
 		readyMap[cs.Name] = cs.Ready
@@ -700,6 +700,7 @@ func applyCanaryWeights(isvc *v1beta1.InferenceService, predictorName string, ht
 	}
 	stableWeight := int32(100) - totalReadyCanaryPercent
 
+	predictorName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 	for i := range httpRoute.Spec.Rules {
 		rule := &httpRoute.Spec.Rules[i]
 		if len(rule.BackendRefs) == 0 {
