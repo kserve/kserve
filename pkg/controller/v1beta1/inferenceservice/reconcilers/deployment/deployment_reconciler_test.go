@@ -1673,11 +1673,11 @@ func TestSetControllerReferences(t *testing.T) {
 
 func TestGetArgValue(t *testing.T) {
 	tests := []struct {
-		name     string
-		args     []string
-		flag     string
-		wantVal  string
-		wantOk   bool
+		name    string
+		args    []string
+		flag    string
+		wantVal string
+		wantOk  bool
 	}{
 		{
 			name:    "two-element form",

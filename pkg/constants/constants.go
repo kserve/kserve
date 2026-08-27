@@ -494,9 +494,9 @@ const (
 
 // Transformer-to-predictor TLS env var keys
 const (
-	PredictorHostEnvVar     = "PREDICTOR_HOST"
-	PredictorPortEnvVar     = "PREDICTOR_PORT"
-	PredictorProtocolEnvVar = "PREDICTOR_PROTOCOL"
+	PredictorHostEnvVar      = "PREDICTOR_HOST"
+	PredictorPortEnvVar      = "PREDICTOR_PORT"
+	PredictorProtocolEnvVar  = "PREDICTOR_PROTOCOL"
 	TransformerTLSCertEnvVar = "KSERVE_TLS_CERT_FILE"
 	TransformerTLSKeyEnvVar  = "KSERVE_TLS_KEY_FILE"
 )
