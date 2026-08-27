@@ -36,6 +36,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
 	knapis "knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -303,19 +304,13 @@ func (r *RawKubeReconciler) Reconcile(ctx context.Context, owner metav1.Object) 
 // CleanupOrphans deletes resources matching labels whose names are not in expectedNames,
 // delegating to each sub-reconciler.
 func (r *RawKubeReconciler) CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error {
-	if err := r.Workload.CleanupOrphans(ctx, namespace, labels, expectedNames); err != nil {
-		return err
-	}
-	if err := r.Service.CleanupOrphans(ctx, namespace, labels, expectedNames); err != nil {
-		return err
-	}
-	if err := r.Scaler.CleanupOrphans(ctx, namespace, labels, expectedNames); err != nil {
-		return err
+	errs := []error{
+		r.Workload.CleanupOrphans(ctx, namespace, labels, expectedNames),
+		r.Service.CleanupOrphans(ctx, namespace, labels, expectedNames),
+		r.Scaler.CleanupOrphans(ctx, namespace, labels, expectedNames),
 	}
 	if r.OtelCollector != nil {
-		if err := r.OtelCollector.CleanupOrphans(ctx, namespace, labels, expectedNames); err != nil {
-			return err
-		}
+		errs = append(errs, r.OtelCollector.CleanupOrphans(ctx, namespace, labels, expectedNames))
 	}
-	return nil
+	return utilerrors.NewAggregate(errs)
 }

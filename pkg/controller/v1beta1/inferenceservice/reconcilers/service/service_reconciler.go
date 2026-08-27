@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,6 +34,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -326,19 +326,5 @@ func (r *ServiceReconciler) SetControllerReferences(owner metav1.Object, scheme 
 
 // CleanupOrphans deletes Services matching labels whose names are not in expectedNames.
 func (r *ServiceReconciler) CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error {
-	list := &corev1.ServiceList{}
-	if err := r.client.List(ctx, list, client.InNamespace(namespace), labels); err != nil {
-		return fmt.Errorf("fails to list services for cleanup: %w", err)
-	}
-	for i := range list.Items {
-		obj := &list.Items[i]
-		if expectedNames[obj.Name] {
-			continue
-		}
-		log.Info("Deleting orphaned service", "name", obj.Name)
-		if err := r.client.Delete(ctx, obj); err != nil && !apierr.IsNotFound(err) {
-			return fmt.Errorf("fails to delete orphaned service %s: %w", obj.Name, err)
-		}
-	}
-	return nil
+	return isvcutils.DeleteOrphans(ctx, r.client, &corev1.ServiceList{}, namespace, labels, expectedNames)
 }

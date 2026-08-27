@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
@@ -305,22 +306,9 @@ func (o *OtelReconciler) SetControllerReferences(owner metav1.Object, scheme *ru
 
 // CleanupOrphans deletes OpenTelemetryCollectors matching labels whose names are not in expectedNames.
 func (o *OtelReconciler) CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error {
-	list := &otelv1beta1.OpenTelemetryCollectorList{}
-	if err := o.client.List(ctx, list, client.InNamespace(namespace), labels); err != nil {
-		if !apimeta.IsNoMatchError(err) {
-			return fmt.Errorf("fails to list OpenTelemetryCollectors for cleanup: %w", err)
-		}
+	err := isvcutils.DeleteOrphans(ctx, o.client, &otelv1beta1.OpenTelemetryCollectorList{}, namespace, labels, expectedNames)
+	if apimeta.IsNoMatchError(err) {
 		return nil
 	}
-	for i := range list.Items {
-		obj := &list.Items[i]
-		if expectedNames[obj.Name] {
-			continue
-		}
-		log.Info("Deleting orphaned OpenTelemetryCollector", "name", obj.Name)
-		if err := o.client.Delete(ctx, obj); err != nil && !apierr.IsNotFound(err) {
-			return fmt.Errorf("fails to delete orphaned OpenTelemetryCollector %s: %w", obj.Name, err)
-		}
-	}
-	return nil
+	return err
 }

@@ -15,7 +15,6 @@ package hpa
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -31,6 +30,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -295,19 +295,5 @@ func (r *HPAReconciler) SetControllerReferences(owner metav1.Object, scheme *run
 
 // CleanupOrphans deletes HPAs matching labels whose names are not in expectedNames.
 func (r *HPAReconciler) CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error {
-	list := &autoscalingv2.HorizontalPodAutoscalerList{}
-	if err := r.client.List(ctx, list, client.InNamespace(namespace), labels); err != nil {
-		return fmt.Errorf("fails to list HPAs for cleanup: %w", err)
-	}
-	for i := range list.Items {
-		obj := &list.Items[i]
-		if expectedNames[obj.Name] {
-			continue
-		}
-		log.Info("Deleting orphaned HPA", "name", obj.Name)
-		if err := r.client.Delete(ctx, obj); err != nil && !apierr.IsNotFound(err) {
-			return fmt.Errorf("fails to delete orphaned HPA %s: %w", obj.Name, err)
-		}
-	}
-	return nil
+	return isvcutils.DeleteOrphans(ctx, r.client, &autoscalingv2.HorizontalPodAutoscalerList{}, namespace, labels, expectedNames)
 }
