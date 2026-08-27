@@ -28,10 +28,59 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
+
+func TestSemanticInferencePoolIsEqualTargetPortsShrink(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	multi := []igwapi.Port{{Number: 8000}, {Number: 8001}, {Number: 8002}, {Number: 8003}, {Number: 8004}, {Number: 8005}, {Number: 8006}, {Number: 8007}}
+	single := []igwapi.Port{{Number: 8000}}
+
+	tests := []struct {
+		name     string
+		expected []igwapi.Port
+		curr     []igwapi.Port
+		want     bool
+	}{
+		{
+			name:     "identical single port is equal",
+			expected: single,
+			curr:     slices.Clone(single),
+			want:     true,
+		},
+		{
+			name:     "identical multi-port is equal",
+			expected: multi,
+			curr:     slices.Clone(multi),
+			want:     true,
+		},
+		{
+			name:     "shrinking from 8 ports to 1 (data-parallel-size 8 -> 1) must be detected as a change",
+			expected: single,
+			curr:     multi,
+			want:     false,
+		},
+		{
+			name:     "growing from 1 port to 8 (data-parallel-size 1 -> 8) must be detected as a change",
+			expected: multi,
+			curr:     single,
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expected := &igwapi.InferencePool{Spec: igwapi.InferencePoolSpec{TargetPorts: tt.expected}}
+			curr := &igwapi.InferencePool{Spec: igwapi.InferencePoolSpec{TargetPorts: tt.curr}}
+
+			g.Expect(semanticInferencePoolIsEqual(expected, curr)).To(Equal(tt.want))
+		})
+	}
+}
 
 func TestSchedulerConfigTextLoRA(t *testing.T) {
 	loraAdapters := []v1alpha2.LLMModelSpec{{}}

@@ -2109,7 +2109,8 @@ func semanticServiceIsEqual(expected *corev1.Service, current *corev1.Service) b
 }
 
 func semanticInferencePoolIsEqual(expected *igwapi.InferencePool, curr *igwapi.InferencePool) bool {
-	return equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
+	return slices.Equal(expected.Spec.TargetPorts, curr.Spec.TargetPorts) &&
+		equality.Semantic.DeepDerivative(expected.Spec, curr.Spec) &&
 		equality.Semantic.DeepDerivative(expected.Labels, curr.Labels) &&
 		equality.Semantic.DeepDerivative(expected.Annotations, curr.Annotations)
 }
