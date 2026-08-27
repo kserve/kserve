@@ -1838,7 +1838,7 @@ schedulingProfiles:
 			// and the controller automatically propagates the pool's matchLabels to AMD workload pods.
 			nvidiaSvcName := "test-llm-nvidia-poolref"
 			amdSvcName := "test-llm-amd-poolref"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(nvidiaSvcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create NVIDIA instance with managed scheduler (creates an InferencePool)
 			nvidiaLLMSvc := LLMInferenceService(nvidiaSvcName,
@@ -1915,7 +1915,7 @@ schedulingProfiles:
 		It("should propagate InferencePool ref matchLabels to single-node P/D workload pods (pool ref)", func(ctx SpecContext) {
 			nvidiaSvcName := "test-llm-nvidia-pd-sn"
 			amdSvcName := "test-llm-amd-pd-sn"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(nvidiaSvcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create NVIDIA instance with managed scheduler (creates an InferencePool)
 			nvidiaLLMSvc := LLMInferenceService(nvidiaSvcName,
@@ -1986,7 +1986,7 @@ schedulingProfiles:
 		It("should propagate InferencePool ref matchLabels to multi-node non-P/D workload pods (pool ref)", func(ctx SpecContext) {
 			nvidiaSvcName := "test-llm-nvidia-mn"
 			amdSvcName := "test-llm-amd-mn"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(nvidiaSvcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create NVIDIA instance with managed scheduler (creates an InferencePool)
 			nvidiaLLMSvc := LLMInferenceService(nvidiaSvcName,
@@ -2050,7 +2050,7 @@ schedulingProfiles:
 		It("should propagate InferencePool ref matchLabels to multi-node P/D workload pods (pool ref)", func(ctx SpecContext) {
 			nvidiaSvcName := "test-llm-nvidia-pd-mn"
 			amdSvcName := "test-llm-amd-pd-mn"
-			testNs := NewTestNamespace(ctx, envTest, WithIstioShadowService(nvidiaSvcName))
+			testNs := NewTestNamespace(ctx, envTest)
 
 			// Create NVIDIA instance with managed scheduler (creates an InferencePool)
 			nvidiaLLMSvc := LLMInferenceService(nvidiaSvcName,
