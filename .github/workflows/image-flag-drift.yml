@@ -1,0 +1,41 @@
+name: Image CLI flag drift
+
+# Bumping an image tag changes the binary behind our manifests. If upstream
+# retired a flag we still render, nothing fails until a pod crash-loops on a
+# cluster. This replays those flags against the new binary at review time.
+
+on:
+  pull_request:
+    paths:
+      - "config/**"
+      - "charts/**"
+      - "docs/samples/**"
+      - "test/**"
+      - "hack/verify-image-flag-drift.sh"
+      - ".github/workflows/image-flag-drift.yml"
+  merge_group:
+    types: [checks_requested]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flag-drift:
+    name: Verify bumped images accept our flags
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+
+      - name: Install yq
+        run: make yq
+
+      - name: Verify
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || 'origin/master' }}
+          YQ: ./bin/yq
+        run: ./hack/verify-image-flag-drift.sh

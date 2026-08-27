@@ -556,7 +556,6 @@ func schedulerConfigText(llmSvc *v1alpha2.LLMInferenceService) string {
 apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
-- type: disagg-headers-handler
 - type: prefill-filter
 - type: decode-filter
 - type: queue-scorer
@@ -1084,6 +1083,84 @@ func WithRenamePlugin(oldType, newType string) mutateSchedulerConfigFunc {
 	}
 }
 
+// WithRemovePlugin returns a mutateSchedulerConfigFunc that removes a plugin
+// by type from the plugins array and removes matching pluginRef entries from
+// schedulingProfiles.
+func WithRemovePlugin(pluginType string) mutateSchedulerConfigFunc {
+	return func(_ context.Context, u *unstructured.Unstructured) error {
+		removedNames := map[string]bool{pluginType: true}
+
+		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+		if err != nil {
+			return err
+		}
+		if found {
+			if plugins, ok := val.([]interface{}); ok {
+				filtered := make([]interface{}, 0, len(plugins))
+				for _, plugin := range plugins {
+					pluginMap, ok := plugin.(map[string]interface{})
+					if !ok {
+						filtered = append(filtered, plugin)
+						continue
+					}
+					if pluginMap["type"] == pluginType {
+						if name, ok := pluginMap["name"].(string); ok {
+							removedNames[name] = true
+						}
+						continue
+					}
+					filtered = append(filtered, plugin)
+				}
+				u.Object["plugins"] = filtered
+			}
+		}
+
+		profiles, found, err := unstructured.NestedFieldNoCopy(u.Object, "schedulingProfiles")
+		if err != nil {
+			return err
+		}
+		if !found {
+			return nil
+		}
+		profileList, ok := profiles.([]interface{})
+		if !ok {
+			return nil
+		}
+		for _, profile := range profileList {
+			profileMap, ok := profile.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			pluginRefs, found, err := unstructured.NestedFieldNoCopy(profileMap, "plugins")
+			if err != nil {
+				return err
+			}
+			if !found {
+				continue
+			}
+			refList, ok := pluginRefs.([]interface{})
+			if !ok {
+				continue
+			}
+			filteredRefs := make([]interface{}, 0, len(refList))
+			for _, ref := range refList {
+				refMap, ok := ref.(map[string]interface{})
+				if !ok {
+					filteredRefs = append(filteredRefs, ref)
+					continue
+				}
+				if name, _ := refMap["pluginRef"].(string); removedNames[name] {
+					continue
+				}
+				filteredRefs = append(filteredRefs, ref)
+			}
+			profileMap["plugins"] = filteredRefs
+		}
+
+		return nil
+	}
+}
+
 // WithMigrateDisaggProfileParams migrates the disagg-profile-handler (formerly
 // pd-profile-handler) from the old flat deciderPluginName/threshold parameters
 // to the new deciders map structure introduced in llm-d-router v0.7.0.
@@ -1371,6 +1448,9 @@ func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
 //  7. withMetricsDataSourceParams – move --model-server-metrics-{scheme,path,
 //     https-insecure-skip-verify} into the metrics-data-source plugin parameters
 //     and strip --model-server-metrics-port (v0.10.0+, flags removed in llm-d-router)
+//  8. WithRemovePlugin – strip disagg-headers-handler, prefill-header-handler,
+//     and pd-profile-handler (v0.11.0+, disagg-headers-handler removed from
+//     llm-d-router; the other two are legacy names from prior renames)
 func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService, enableTLS bool) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
@@ -1461,6 +1541,18 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 				opts = append(opts, withMetricsDataSourceParams(parameters))
 			}
 		}
+	}
+
+	// llm-d-router v0.11.0 removes the disagg-headers-handler plugin entirely:
+	// - prefill-header-handler  (pre-v0.7.0 name, renamed to disagg-headers-handler) to support upgrade from pre-v0.7 to 0.11
+	// - pd-profile-handler      (pre-v0.7.0 name, renamed to disagg-headers-handler) to support upgrade from pre-v0.7 to 0.11
+	// - disagg-headers-handler  (v0.7.0 name, no longer recognised by router after 0.11.0)
+	if v.Compare(*semver.New("0.11.0")) >= 0 {
+		opts = append(opts,
+			WithRemovePlugin("prefill-header-handler"),
+			WithRemovePlugin("disagg-headers-handler"),
+			WithRemovePlugin("pd-profile-handler"),
+		)
 	}
 
 	if err := mutateSchedulerConfig(ctx, d, opts...); err != nil {

@@ -135,9 +135,11 @@ type CombinedConfig struct {
 // reconcileBaseRefs resolves and merges the referenced configs, then checks the
 // merged spec by dry-running it against the API server.
 //
-// A missing config or a rejected spec returns reconcile.TerminalError: retrying
-// fixes neither, so the controller waits for a watch event instead. Any other
-// error is returned as-is and requeued with backoff.
+// A missing config, an unservable merged spec, or a spec the API server rejects
+// returns reconcile.TerminalError: each is a pure function of the spec and its
+// referenced configs, so retrying fixes none of them and the controller waits for a
+// watch event on either instead. Any other error is returned as-is and requeued with
+// backoff.
 func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
 	// Combine base configurations with service-specific overrides
 	// This includes default configs based on deployment pattern (single node, multi-node, etc.)
@@ -153,10 +155,21 @@ func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alp
 
 		llmSvc.Status.AppliedConfigRefs = nil
 
+		// Both are raised inside combineBaseRefsConfig but classified here, because that
+		// function also runs in the watch mapping handlers: an unrelated Gateway or
+		// ConfigMap change would otherwise mark the condition and fire the event for a
+		// service nothing is reconciling.
 		var cfgNotFound *configNotFoundError
 		if errors.As(err, &cfgNotFound) {
 			llmSvc.MarkPresetsCombinedNotReady("ConfigNotFound", "%s", cfgNotFound.Error())
 			return nil, reconcile.TerminalError(cfgNotFound)
+		}
+
+		var collision *loRAMountPathCollisionError
+		if errors.As(err, &collision) {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "LoRAMountPathCollision", "%s", collision.Error())
+			llmSvc.MarkPresetsCombinedNotReady("LoRAMountPathCollision", "%s", collision.Error())
+			return nil, reconcile.TerminalError(collision)
 		}
 
 		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", "%s", err.Error())

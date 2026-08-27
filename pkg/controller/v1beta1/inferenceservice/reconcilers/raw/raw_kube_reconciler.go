@@ -104,6 +104,14 @@ func NewRawKubeReconciler(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
+	// When KEDA is selected but the component has no autoScaling spec, the
+	// autoscaler reconciler returns a NoOpAutoscaler (no ScaledObject). Override
+	// the annotation to "none" so the deployment reconciler lets the Deployment
+	// own its own replica count instead of deferring to a non-existent scaler.
+	if _, isNoOp := as.Autoscaler.(*autoscaler.NoOpAutoscaler); isNoOp &&
+		componentMeta.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassKeda) {
+		componentMeta.Annotations[constants.AutoscalerClass] = string(constants.AutoscalerClassNone)
+	}
 	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
 	if err != nil {
 		return nil, err
