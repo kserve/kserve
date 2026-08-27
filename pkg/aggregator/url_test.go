@@ -108,3 +108,54 @@ func TestBackendFromLLMInferenceService(t *testing.T) {
 	_, ok = BackendFromLLMInferenceService(noURL)
 	assert.False(t, ok)
 }
+
+func TestBackendsFromLLMInferenceServiceKeepsPerModelAddresses(t *testing.T) {
+	svc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "llama", Namespace: "ns"},
+		Status: v1alpha2.LLMInferenceServiceStatus{
+			Status: duckv1.Status{
+				Conditions: duckv1.Conditions{{
+					Type:   apis.ConditionReady,
+					Status: corev1.ConditionTrue,
+				}},
+			},
+			Addresses: []v1alpha2.SourcedAddress{
+				{
+					Addressable: duckv1.Addressable{
+						Name: ptr("internal-model-routing"),
+						URL:  mustURL(t, "http://llama.ns.svc.cluster.local/"),
+					},
+					Models: []v1alpha2.ModelSourcedAddressStatus{{Name: "publishers/ns/models/llama"}},
+				},
+				{
+					Addressable: duckv1.Addressable{
+						Name: ptr("internal"),
+						URL:  mustURL(t, "http://llama.ns.svc.cluster.local/ns/llama"),
+					},
+					Models: []v1alpha2.ModelSourcedAddressStatus{
+						{Name: "publishers/ns/models/llama"},
+						{Name: "llama"},
+					},
+				},
+				{
+					Addressable: duckv1.Addressable{
+						Name: ptr("gateway-external"),
+						URL:  mustURL(t, "https://public.example.com/ns/llama"),
+					},
+					Models: []v1alpha2.ModelSourcedAddressStatus{{Name: "llama"}},
+				},
+			},
+		},
+	}
+
+	backends := BackendsFromLLMInferenceService(svc)
+	require.Len(t, backends, 2)
+	urls := []string{backends[0].URL, backends[1].URL}
+	ids := []string{backends[0].ID(), backends[1].ID()}
+	assert.ElementsMatch(t, []string{
+		"http://llama.ns.svc.cluster.local",
+		"http://llama.ns.svc.cluster.local/ns/llama",
+	}, urls)
+	assert.ElementsMatch(t, []string{"ns/llama@internal-model-routing", "ns/llama@internal"}, ids)
+	assert.NotContains(t, urls, "https://public.example.com/ns/llama")
+}

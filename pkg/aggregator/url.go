@@ -72,23 +72,102 @@ func ResolveBackendURL(svc *v1alpha2.LLMInferenceService) string {
 	}
 }
 
-// BackendFromLLMInferenceService converts a CR into a Backend when it is usable.
-// Returns ok=false when the service is stopped, not Ready, or has no resolvable URL.
+// BackendFromLLMInferenceService returns the first usable backend for svc.
+// Prefer BackendsFromLLMInferenceService: each status.addresses entry has its
+// own URL and model list.
 func BackendFromLLMInferenceService(svc *v1alpha2.LLMInferenceService) (Backend, bool) {
-	if svc == nil || utils.GetForceStopRuntime(svc) || !isLLMInferenceServiceReady(svc) {
+	backends := BackendsFromLLMInferenceService(svc)
+	if len(backends) == 0 {
 		return Backend{}, false
 	}
-	base := ResolveBackendURL(svc)
-	if base == "" {
-		return Backend{}, false
+	return backends[0], true
+}
+
+// BackendsFromLLMInferenceService maps a Ready, non-stopped LLMInferenceService
+// to one backend per reachable address.
+//
+// status.addresses is per-model: each entry has its own URL and model list.
+// When both cluster-local and public addresses exist, only the highest-preference
+// class is kept (cluster-local, then internal, then any) so the in-cluster
+// aggregator does not fan out to duplicate public URLs.
+func BackendsFromLLMInferenceService(svc *v1alpha2.LLMInferenceService) []Backend {
+	if svc == nil || utils.GetForceStopRuntime(svc) || !isLLMInferenceServiceReady(svc) {
+		return nil
 	}
 
-	return Backend{
-		Name:      svc.Name,
-		Namespace: svc.Namespace,
-		URL:       base,
-		Models:    collectModelNames(svc),
-	}, true
+	type candidate struct {
+		url     string
+		address string
+		models  []string
+		pref    int
+	}
+
+	best := -1
+	var cands []candidate
+	for i := range svc.Status.Addresses {
+		addr := svc.Status.Addresses[i]
+		if addr.URL == nil {
+			continue
+		}
+		pref := urlPreference(addr.URL)
+		if pref > best {
+			best = pref
+		}
+		name := ""
+		if addr.Name != nil {
+			name = *addr.Name
+		}
+		var models []string
+		for _, m := range addr.Models {
+			if m.Name != "" {
+				models = append(models, m.Name)
+			}
+		}
+		cands = append(cands, candidate{
+			url:     strings.TrimRight(addr.URL.String(), "/"),
+			address: name,
+			models:  models,
+			pref:    pref,
+		})
+	}
+
+	if len(cands) == 0 {
+		if svc.Status.URL == nil {
+			return nil
+		}
+		return []Backend{{
+			Name:      svc.Name,
+			Namespace: svc.Namespace,
+			URL:       strings.TrimRight(svc.Status.URL.String(), "/"),
+			Models:    collectModelNames(svc),
+		}}
+	}
+
+	out := make([]Backend, 0, len(cands))
+	for _, c := range cands {
+		if c.pref != best {
+			continue
+		}
+		out = append(out, Backend{
+			Name:      svc.Name,
+			Namespace: svc.Namespace,
+			URL:       c.url,
+			Models:    c.models,
+			Address:   c.address,
+		})
+	}
+	return out
+}
+
+func urlPreference(u *apis.URL) int {
+	switch {
+	case isClusterLocalURL(u):
+		return 2
+	case isInternalHostnameURL(u):
+		return 1
+	default:
+		return 0
+	}
 }
 
 func isLLMInferenceServiceReady(svc *v1alpha2.LLMInferenceService) bool {

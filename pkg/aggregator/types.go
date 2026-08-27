@@ -40,14 +40,21 @@ type Backend struct {
 	URL string
 	// Models are optional model identities associated with this backend.
 	Models []string
+	// Address is the status.addresses[].name this backend was mapped from
+	// (e.g. "internal", "gateway-external"). Empty when not from an address list.
+	Address string
 }
 
 // ID returns a stable backend identifier suitable for logs and merge labels.
 func (b Backend) ID() string {
-	if b.Namespace == "" {
-		return b.Name
+	id := b.Name
+	if b.Namespace != "" {
+		id = b.Namespace + "/" + b.Name
 	}
-	return b.Namespace + "/" + b.Name
+	if b.Address != "" {
+		return id + "@" + b.Address
+	}
+	return id
 }
 
 // BackendResult is the outcome of querying one backend for one path.

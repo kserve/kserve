@@ -56,3 +56,9 @@ func TestChainFilters(t *testing.T) {
 	got = ChainFilters(nil, byNamespace)(&http.Request{}, backends)
 	require.Len(t, got, 2)
 }
+
+func TestBackendIDIncludesAddress(t *testing.T) {
+	assert.Equal(t, "llama", Backend{Name: "llama"}.ID())
+	assert.Equal(t, "ns/llama", Backend{Name: "llama", Namespace: "ns"}.ID())
+	assert.Equal(t, "ns/llama@internal", Backend{Name: "llama", Namespace: "ns", Address: "internal"}.ID())
+}

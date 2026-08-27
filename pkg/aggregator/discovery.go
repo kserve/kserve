@@ -100,9 +100,7 @@ func (d InformerDiscovery) List(_ context.Context) ([]Backend, error) {
 func backendsFromLLMInferenceServices(items []*v1alpha2.LLMInferenceService) []Backend {
 	backends := make([]Backend, 0, len(items))
 	for _, svc := range items {
-		if b, ok := BackendFromLLMInferenceService(svc); ok {
-			backends = append(backends, b)
-		}
+		backends = append(backends, BackendsFromLLMInferenceService(svc)...)
 	}
 	return backends
 }
