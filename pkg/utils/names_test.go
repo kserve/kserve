@@ -66,3 +66,27 @@ func TestSanitizeDNS1123Label(t *testing.T) {
 	assert.Equal(t, "my-adapter", sanitizeDNS1123Label("my-adapter"))
 	assert.Equal(t, "", sanitizeDNS1123Label("///"))
 }
+
+// The 8-character width is a compatibility contract: SafeObjectName derives its
+// truncation budget from it, and loraMountSegments relies on a fixed width for two
+// suffixed segments to be unable to collide. Widening it renames live objects.
+func TestShortHash(t *testing.T) {
+	t.Parallel()
+
+	for _, in := range []string{"", "sql/v2", "sql-v2", strings.Repeat("x", 512)} {
+		got := ShortHash(in)
+		if len(got) != 8 {
+			t.Errorf("ShortHash(%q) = %q, want 8 characters", in, got)
+		}
+		if got != ShortHash(in) {
+			t.Errorf("ShortHash(%q) is not stable", in)
+		}
+		if strings.Trim(got, "0123456789abcdef") != "" {
+			t.Errorf("ShortHash(%q) = %q, want lowercase hex", in, got)
+		}
+	}
+
+	if a, b := ShortHash("sql/v2"), ShortHash("sql-v2"); a == b {
+		t.Errorf("distinct inputs share a digest: %q", a)
+	}
+}
