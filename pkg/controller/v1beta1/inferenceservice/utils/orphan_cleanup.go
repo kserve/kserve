@@ -16,13 +16,13 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -63,5 +63,5 @@ func DeleteOrphans(ctx context.Context, c client.Client, list client.ObjectList,
 		errs = append(errs, fmt.Errorf("fails to iterate %s resources for cleanup: %w", resourceKind, err))
 	}
 
-	return utilerrors.NewAggregate(errs)
+	return errors.Join(errs...)
 }

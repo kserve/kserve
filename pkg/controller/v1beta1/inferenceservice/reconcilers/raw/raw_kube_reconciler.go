@@ -36,7 +36,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
 	knapis "knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -312,5 +311,5 @@ func (r *RawKubeReconciler) CleanupOrphans(ctx context.Context, namespace string
 	if r.OtelCollector != nil {
 		errs = append(errs, r.OtelCollector.CleanupOrphans(ctx, namespace, labels, expectedNames))
 	}
-	return utilerrors.NewAggregate(errs)
+	return errors.Join(errs...)
 }
