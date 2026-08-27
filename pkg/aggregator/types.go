@@ -31,6 +31,7 @@ const (
 )
 
 // Backend is one model server that can be queried by the aggregator.
+// It is not limited to LLMInferenceService; Kind records the source type when known.
 type Backend struct {
 	// Name is a short identifier for the backend (e.g. service name).
 	Name string
@@ -40,6 +41,9 @@ type Backend struct {
 	URL string
 	// Models are optional model identities associated with this backend.
 	Models []string
+	// Kind is the source object kind when discovered from Kubernetes
+	// (e.g. "LLMInferenceService"). Empty for generic backends.
+	Kind string
 	// Address is the status.addresses[].name this backend was mapped from
 	// (e.g. "internal", "gateway-external"). Empty when not from an address list.
 	Address string

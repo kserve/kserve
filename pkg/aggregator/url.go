@@ -140,6 +140,7 @@ func BackendsFromLLMInferenceService(svc *v1alpha2.LLMInferenceService) []Backen
 			Namespace: svc.Namespace,
 			URL:       strings.TrimRight(svc.Status.URL.String(), "/"),
 			Models:    collectModelNames(svc),
+			Kind:      "LLMInferenceService",
 		}}
 	}
 
@@ -153,6 +154,7 @@ func BackendsFromLLMInferenceService(svc *v1alpha2.LLMInferenceService) []Backen
 			Namespace: svc.Namespace,
 			URL:       c.url,
 			Models:    c.models,
+			Kind:      "LLMInferenceService",
 			Address:   c.address,
 		})
 	}

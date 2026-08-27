@@ -88,6 +88,7 @@ func TestBackendFromLLMInferenceService(t *testing.T) {
 	assert.Equal(t, "ns", b.Namespace)
 	assert.Equal(t, "http://llama.ns.svc.cluster.local", b.URL)
 	assert.Equal(t, []string{"llama"}, b.Models)
+	assert.Equal(t, "LLMInferenceService", b.Kind)
 
 	stopped := ready.DeepCopy()
 	stopped.Annotations = map[string]string{constants.StopAnnotationKey: "true"}
