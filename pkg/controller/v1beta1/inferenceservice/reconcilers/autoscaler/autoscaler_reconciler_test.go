@@ -135,9 +135,9 @@ func TestCreateAutoscaler(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name:        "Return KedaReconciler for keda annotation",
+			name:        "Return NoOpAutoscaler for keda annotation without autoScaling spec",
 			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "keda"},
-			wantType:    "*keda.KedaReconciler",
+			wantType:    "*autoscaler.NoOpAutoscaler",
 			wantErr:     false,
 		},
 		{
@@ -227,9 +227,9 @@ func TestNewAutoscalerReconciler(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name:        "Return AutoscalerReconciler with KedaReconciler for keda annotation",
+			name:        "Return AutoscalerReconciler with NoOpAutoscaler for keda annotation without autoScaling spec",
 			annotations: map[string]string{"serving.kserve.io/autoscalerClass": "keda"},
-			wantType:    "*keda.KedaReconciler",
+			wantType:    "*autoscaler.NoOpAutoscaler",
 			wantErr:     false,
 		},
 		{
@@ -403,5 +403,118 @@ func TestNoneAutoscalerWithNilComponentExt(t *testing.T) {
 	expectedType := "*hpa.HPAReconciler"
 	if gotType != expectedType {
 		t.Errorf("Expected autoscaler type %s, got %s", expectedType, gotType)
+	}
+}
+
+// TestKedaIndependentComponentAutoscaling verifies that when the ISVC-level
+// autoscalerClass annotation is set to "keda", only components that explicitly
+// declare an autoScaling spec get a KedaReconciler. Components without one
+// get a NoOpAutoscaler, allowing predictor, transformer, and explainer to
+// scale independently.
+func TestKedaIndependentComponentAutoscaling(t *testing.T) {
+	namespace := "test"
+	serviceName := "my-model"
+	kedaAnnotations := map[string]string{"serving.kserve.io/autoscalerClass": "keda"}
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "dummy-config", Namespace: "default"},
+		Data:       map[string]string{},
+	}
+	utilization := int32(50)
+	autoScalingSpec := &v1beta1.AutoScalingSpec{
+		Metrics: []v1beta1.MetricsSpec{
+			{
+				Type: v1beta1.ResourceMetricSourceType,
+				Resource: &v1beta1.ResourceMetricSource{
+					Name: v1beta1.ResourceMetricCPU,
+					Target: v1beta1.MetricTarget{
+						Type:               v1beta1.UtilizationMetricType,
+						AverageUtilization: &utilization,
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name         string
+		componentExt *v1beta1.ComponentExtensionSpec
+		wantType     string
+	}{
+		{
+			name:         "component without autoScaling gets NoOpAutoscaler",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				// No AutoScaling field
+			},
+			wantType: "*autoscaler.NoOpAutoscaler",
+		},
+		{
+			name:         "component with nil componentExt gets NoOpAutoscaler",
+			componentExt: nil,
+			wantType:     "*autoscaler.NoOpAutoscaler",
+		},
+		{
+			name: "component with autoScaling spec gets KedaReconciler",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: autoScalingSpec,
+			},
+			wantType: "*keda.KedaReconciler",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			meta := metav1.ObjectMeta{
+				Name:        serviceName,
+				Namespace:   namespace,
+				Annotations: kedaAnnotations,
+			}
+
+			as, err := createAutoscaler(nil, nil, meta, tt.componentExt, configMap)
+			if err != nil {
+				t.Fatalf("createAutoscaler() unexpected error: %v", err)
+			}
+			gotType := fmt.Sprintf("%T", as)
+			if gotType != tt.wantType {
+				t.Errorf("Expected %s, got %s", tt.wantType, gotType)
+			}
+		})
+	}
+}
+
+// TestKedaNoOpAnnotationOverride verifies that when createAutoscaler returns a
+// NoOpAutoscaler for a KEDA component without autoScaling, callers can detect
+// it via type assertion and override the annotation to "none" so the deployment
+// reconciler lets the Deployment own its replica count.
+func TestKedaNoOpAnnotationOverride(t *testing.T) {
+	meta := metav1.ObjectMeta{
+		Name:      "my-model-predictor",
+		Namespace: "test",
+		Annotations: map[string]string{
+			constants.AutoscalerClass: string(constants.AutoscalerClassKeda),
+		},
+	}
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "dummy-config", Namespace: "default"},
+		Data:       map[string]string{},
+	}
+
+	as, err := createAutoscaler(nil, nil, meta, &v1beta1.ComponentExtensionSpec{}, configMap)
+	if err != nil {
+		t.Fatalf("createAutoscaler() unexpected error: %v", err)
+	}
+
+	// Verify NoOpAutoscaler is returned
+	_, isNoOp := as.(*NoOpAutoscaler)
+	if !isNoOp {
+		t.Fatalf("Expected NoOpAutoscaler, got %T", as)
+	}
+
+	// Simulate the annotation override that raw_kube_reconciler performs
+	if isNoOp && meta.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassKeda) {
+		meta.Annotations[constants.AutoscalerClass] = string(constants.AutoscalerClassNone)
+	}
+
+	if got := meta.Annotations[constants.AutoscalerClass]; got != string(constants.AutoscalerClassNone) {
+		t.Errorf("Expected annotation to be overridden to %q, got %q", constants.AutoscalerClassNone, got)
 	}
 }
