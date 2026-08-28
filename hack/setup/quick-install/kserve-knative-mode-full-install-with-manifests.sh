@@ -2785,7 +2785,7 @@ spec:
             # raise RuntimeError("NIXL is not available") and never finish starting.
             NIXL_PY=$(command -v python3 || command -v python || true)
             if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
-              KV_TRANSFER_ARGS="{{ nixlDecodeTransferConfig }}"
+              KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
               echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_consumer)"
             else
               echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
@@ -3139,7 +3139,7 @@ spec:
             # raise RuntimeError("NIXL is not available") and never finish starting.
             NIXL_PY=$(command -v python3 || command -v python || true)
             if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
-              KV_TRANSFER_ARGS="{{ nixlDecodeTransferConfig }}"
+              KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
               echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_consumer)"
             else
               echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
@@ -3497,7 +3497,7 @@ spec:
             # raise RuntimeError("NIXL is not available") and never finish starting.
             NIXL_PY=$(command -v python3 || command -v python || true)
             if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
-              KV_TRANSFER_ARGS="{{ nixlDecodeTransferConfig }}"
+              KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
               echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_consumer)"
             else
               echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
@@ -3761,7 +3761,7 @@ spec:
               # raise RuntimeError("NIXL is not available") and never finish starting.
               NIXL_PY=$(command -v python3 || command -v python || true)
               if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
-                KV_TRANSFER_ARGS="{{ nixlPrefillTransferConfig }}"
+                KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
                 echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_producer)"
               else
                 echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
@@ -4056,7 +4056,7 @@ spec:
               # raise RuntimeError("NIXL is not available") and never finish starting.
               NIXL_PY=$(command -v python3 || command -v python || true)
               if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
-                KV_TRANSFER_ARGS="{{ nixlPrefillTransferConfig }}"
+                KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
                 echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_producer)"
               else
                 echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
@@ -4353,7 +4353,7 @@ spec:
               # raise RuntimeError("NIXL is not available") and never finish starting.
               NIXL_PY=$(command -v python3 || command -v python || true)
               if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
-                KV_TRANSFER_ARGS="{{ nixlPrefillTransferConfig }}"
+                KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
                 echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_producer)"
               else
                 echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"

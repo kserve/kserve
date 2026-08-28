@@ -2123,60 +2123,6 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
-			name: "nixlTransferConfig renders the decode-side NixlConnector consumer role",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{`{{ nixlDecodeTransferConfig }}`}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								// Same escaping contract as kvTransferConfig: quotes stay as \" so the
-								// value survives the KV_TRANSFER_ARGS="..." bash assignment.
-								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'`}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "nixlTransferConfig renders the prefill-side NixlConnector producer role",
-			cfg: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{`{{ nixlPrefillTransferConfig }}`}},
-							},
-						},
-					},
-				},
-			},
-			llmSvc: &v1alpha2.LLMInferenceService{},
-			want: &v1alpha2.LLMInferenceServiceConfig{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{
-								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'`}},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
 			name: "kvTransferConfig includes eviction policy when set",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
@@ -2416,11 +2362,12 @@ printf '%s' "$2"`
 }
 
 // TestReplaceVariables_NixlTransferConfigBashSafe runs the P/D templates' actual
-// KV_TRANSFER_ARGS shape through bash, with VLLM_VERSION pinned to the dev string llm-d
-// images report so the NixlConnector branch (not the 0.22.0 OffloadingConnector gate) is
-// under test. It covers both sides of the NIXL probe: unconditional injection kills
-// non-NIXL images ("RuntimeError: NIXL is not available"), so "no NIXL, no injection" is
-// asserted here rather than left to e2e.
+// KV_TRANSFER_ARGS shape through bash, with the same inlined connector constant the presets
+// carry and VLLM_VERSION pinned to the dev string llm-d images report so the NixlConnector
+// branch (not the 0.22.0 OffloadingConnector gate) is under test. It covers both sides of
+// the NIXL probe: unconditional injection kills non-NIXL images ("RuntimeError: NIXL is not
+// available"), so "no NIXL, no injection" is asserted here rather than left to e2e.
+// TestPresetsInlineNixlConnector proves the constant used here is the one the presets render.
 func TestReplaceVariables_NixlTransferConfigBashSafe(t *testing.T) {
 	bashPath, err := exec.LookPath("bash")
 	if err != nil {
@@ -2441,7 +2388,7 @@ func TestReplaceVariables_NixlTransferConfigBashSafe(t *testing.T) {
 		`  if [ -z "${KV_TRANSFER_ARGS}" ]; then`,
 		`    NIXL_PY=$(command -v python3 || command -v python || true)`,
 		`    if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then`,
-		`      KV_TRANSFER_ARGS="{{ KV_HELPER }}"`,
+		`      KV_TRANSFER_ARGS="KV_CONNECTOR_ARG"`,
 		`    fi`,
 		`  fi`,
 		`fi`,
@@ -2464,12 +2411,12 @@ func TestReplaceVariables_NixlTransferConfigBashSafe(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		name   string
-		helper string
-		role   string
+		name string
+		arg  string // the literal --kv-transfer-config the preset inlines for this side
+		role string
 	}{
-		{name: "decode consumes KV", helper: "nixlDecodeTransferConfig", role: "kv_consumer"},
-		{name: "prefill produces KV", helper: "nixlPrefillTransferConfig", role: "kv_producer"},
+		{name: "decode consumes KV", arg: `--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'`, role: "kv_consumer"},
+		{name: "prefill produces KV", arg: `--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'`, role: "kv_producer"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
@@ -2479,7 +2426,7 @@ func TestReplaceVariables_NixlTransferConfigBashSafe(t *testing.T) {
 					WorkloadSpec: v1alpha2.WorkloadSpec{
 						Template: &corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Command: []string{"/bin/bash", "-c", strings.ReplaceAll(scriptTmpl, "KV_HELPER", tc.helper)}},
+								{Command: []string{"/bin/bash", "-c", strings.ReplaceAll(scriptTmpl, "KV_CONNECTOR_ARG", tc.arg)}},
 							},
 						},
 					},
@@ -2517,6 +2464,70 @@ func TestReplaceVariables_NixlTransferConfigBashSafe(t *testing.T) {
 			// A user-supplied connector must still win over the injected default.
 			g.Expect(run(stubPython(t, true), `VLLM_ADDITIONAL_ARGS=--kv-transfer-config '{"kv_connector":"MyConnector"}'`)).To(BeEmpty(),
 				"KServe overrode a user-supplied --kv-transfer-config")
+		})
+	}
+}
+
+// TestPresetsInlineNixlConnector renders the real decode/prefill presets and asserts the
+// engine-side NixlConnector --kv-transfer-config is inlined in the container command with the
+// role each side owns. The connector is a preset constant (not a controller template func), so
+// changing it can only come from editing the preset — a pinned preset never re-renders behind
+// the user. Follows the preset-rendering pattern of TestSingleNodeTensorParallelRendered.
+func TestPresetsInlineNixlConnector(t *testing.T) {
+	presetsDir := filepath.Join(ktesting.ProjectRoot(), "config", "llmisvcconfig")
+
+	tests := []struct {
+		name    string
+		file    string
+		llmSvc  *v1alpha2.LLMInferenceService
+		wantArg string
+	}{
+		{
+			name: "decode template inlines the consumer connector",
+			file: "config-llm-decode-template.yaml",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+				},
+			},
+			wantArg: `--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'`,
+		},
+		{
+			name: "prefill template inlines the producer connector",
+			file: "config-llm-prefill-template.yaml",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model:   v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			},
+			wantArg: `--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			data, err := os.ReadFile(filepath.Clean(filepath.Join(presetsDir, tt.file)))
+			g.Expect(err).ToNot(HaveOccurred())
+			config := loadConfig(t, data, tt.file)
+
+			got, err := llmisvc.ReplaceVariables(tt.llmSvc, config, &llmisvc.Config{})
+			g.Expect(err).ToNot(HaveOccurred())
+
+			var containers []corev1.Container
+			switch {
+			case got.Spec.Prefill != nil && got.Spec.Prefill.Template != nil:
+				containers = got.Spec.Prefill.Template.Containers
+			case got.Spec.Template != nil:
+				containers = got.Spec.Template.Containers
+			}
+			g.Expect(containers).ToNot(BeEmpty())
+
+			g.Expect(strings.Join(containers[0].Command, " ")).To(ContainSubstring(tt.wantArg))
 		})
 	}
 }
