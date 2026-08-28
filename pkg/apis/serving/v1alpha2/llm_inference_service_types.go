@@ -355,8 +355,10 @@ type LLMModelSpec struct {
 // LoRASpec defines the configuration for LoRA adapters.
 type LoRASpec struct {
 	// Adapters is a list of LoRA (Low-Rank Adaptation) adapters to attach to the base model.
-	// Each adapter is specified by name and URI (supports hf://, s3://, and pvc:// schemes).
-	// The controller automatically downloads adapters and configures the runtime to use them.
+	// Each adapter is specified by name and URI (supports hf://, s3://, pvc://,
+	// oci://, and oci+native:// schemes). OCI adapters require an immutable
+	// SHA-256 digest and are mounted as ImageVolumes; other adapters use their
+	// existing materialization paths.
 	// +optional
 	// This type is recursive https://github.com/kubernetes-sigs/controller-tools/issues/585
 	// +kubebuilder:pruning:PreserveUnknownFields
