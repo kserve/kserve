@@ -48,12 +48,10 @@ class V1alpha1KernelCacheSpec(object):
     """
     openapi_types = {
         'access_modes': 'list[str]',
-        'framework': 'str',
-        'framework_version': 'str',
-        'gpu_type': 'str',
         'image': 'str',
-        'min_cuda_version': 'str',
-        'min_driver_version': 'str',
+        'image_pull_policy': 'str',
+        'mount_path': 'str',
+        'mount_type': 'str',
         'pod_template': 'V1alpha1KernelCachePodTemplate',
         'storage_class_name': 'str',
         'storage_size': 'ResourceQuantity'
@@ -61,30 +59,26 @@ class V1alpha1KernelCacheSpec(object):
 
     attribute_map = {
         'access_modes': 'accessModes',
-        'framework': 'framework',
-        'framework_version': 'frameworkVersion',
-        'gpu_type': 'gpuType',
         'image': 'image',
-        'min_cuda_version': 'minCUDAVersion',
-        'min_driver_version': 'minDriverVersion',
+        'image_pull_policy': 'imagePullPolicy',
+        'mount_path': 'mountPath',
+        'mount_type': 'mountType',
         'pod_template': 'podTemplate',
         'storage_class_name': 'storageClassName',
         'storage_size': 'storageSize'
     }
 
-    def __init__(self, access_modes=None, framework=None, framework_version=None, gpu_type=None, image='', min_cuda_version=None, min_driver_version=None, pod_template=None, storage_class_name=None, storage_size=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, access_modes=None, image='', image_pull_policy=None, mount_path=None, mount_type=None, pod_template=None, storage_class_name=None, storage_size=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1KernelCacheSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._access_modes = None
-        self._framework = None
-        self._framework_version = None
-        self._gpu_type = None
         self._image = None
-        self._min_cuda_version = None
-        self._min_driver_version = None
+        self._image_pull_policy = None
+        self._mount_path = None
+        self._mount_type = None
         self._pod_template = None
         self._storage_class_name = None
         self._storage_size = None
@@ -92,17 +86,13 @@ class V1alpha1KernelCacheSpec(object):
 
         if access_modes is not None:
             self.access_modes = access_modes
-        if framework is not None:
-            self.framework = framework
-        if framework_version is not None:
-            self.framework_version = framework_version
-        if gpu_type is not None:
-            self.gpu_type = gpu_type
         self.image = image
-        if min_cuda_version is not None:
-            self.min_cuda_version = min_cuda_version
-        if min_driver_version is not None:
-            self.min_driver_version = min_driver_version
+        if image_pull_policy is not None:
+            self.image_pull_policy = image_pull_policy
+        if mount_path is not None:
+            self.mount_path = mount_path
+        if mount_type is not None:
+            self.mount_type = mount_type
         if pod_template is not None:
             self.pod_template = pod_template
         if storage_class_name is not None:
@@ -114,7 +104,7 @@ class V1alpha1KernelCacheSpec(object):
     def access_modes(self):
         """Gets the access_modes of this V1alpha1KernelCacheSpec.  # noqa: E501
 
-        AccessModes for PV/PVC (optional, default: [ReadWriteMany] for Phase 1)  # noqa: E501
+        AccessModes for PV/PVC (only used when mountType=pvc)  # noqa: E501
 
         :return: The access_modes of this V1alpha1KernelCacheSpec.  # noqa: E501
         :rtype: list[str]
@@ -125,78 +115,13 @@ class V1alpha1KernelCacheSpec(object):
     def access_modes(self, access_modes):
         """Sets the access_modes of this V1alpha1KernelCacheSpec.
 
-        AccessModes for PV/PVC (optional, default: [ReadWriteMany] for Phase 1)  # noqa: E501
+        AccessModes for PV/PVC (only used when mountType=pvc)  # noqa: E501
 
         :param access_modes: The access_modes of this V1alpha1KernelCacheSpec.  # noqa: E501
         :type: list[str]
         """
 
         self._access_modes = access_modes
-
-    @property
-    def framework(self):
-        """Gets the framework of this V1alpha1KernelCacheSpec.  # noqa: E501
-
-
-        :return: The framework of this V1alpha1KernelCacheSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._framework
-
-    @framework.setter
-    def framework(self, framework):
-        """Sets the framework of this V1alpha1KernelCacheSpec.
-
-
-        :param framework: The framework of this V1alpha1KernelCacheSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._framework = framework
-
-    @property
-    def framework_version(self):
-        """Gets the framework_version of this V1alpha1KernelCacheSpec.  # noqa: E501
-
-
-        :return: The framework_version of this V1alpha1KernelCacheSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._framework_version
-
-    @framework_version.setter
-    def framework_version(self, framework_version):
-        """Sets the framework_version of this V1alpha1KernelCacheSpec.
-
-
-        :param framework_version: The framework_version of this V1alpha1KernelCacheSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._framework_version = framework_version
-
-    @property
-    def gpu_type(self):
-        """Gets the gpu_type of this V1alpha1KernelCacheSpec.  # noqa: E501
-
-        GPU metadata for automatic ISVC matching (Phase 2 webhook uses this) Populated from MCV GPU detection or sidecar auto-creation  # noqa: E501
-
-        :return: The gpu_type of this V1alpha1KernelCacheSpec.  # noqa: E501
-        :rtype: str
-        """
-        return self._gpu_type
-
-    @gpu_type.setter
-    def gpu_type(self, gpu_type):
-        """Sets the gpu_type of this V1alpha1KernelCacheSpec.
-
-        GPU metadata for automatic ISVC matching (Phase 2 webhook uses this) Populated from MCV GPU detection or sidecar auto-creation  # noqa: E501
-
-        :param gpu_type: The gpu_type of this V1alpha1KernelCacheSpec.  # noqa: E501
-        :type: str
-        """
-
-        self._gpu_type = gpu_type
 
     @property
     def image(self):
@@ -224,46 +149,73 @@ class V1alpha1KernelCacheSpec(object):
         self._image = image
 
     @property
-    def min_cuda_version(self):
-        """Gets the min_cuda_version of this V1alpha1KernelCacheSpec.  # noqa: E501
+    def image_pull_policy(self):
+        """Gets the image_pull_policy of this V1alpha1KernelCacheSpec.  # noqa: E501
 
+        ImagePullPolicy for pulling the cache image specified in spec.image. For imageVolume mode: controls when Kubernetes pulls the image for volume mounting. For pvc mode: controls when the extraction job pulls the image to extract.  # noqa: E501
 
-        :return: The min_cuda_version of this V1alpha1KernelCacheSpec.  # noqa: E501
+        :return: The image_pull_policy of this V1alpha1KernelCacheSpec.  # noqa: E501
         :rtype: str
         """
-        return self._min_cuda_version
+        return self._image_pull_policy
 
-    @min_cuda_version.setter
-    def min_cuda_version(self, min_cuda_version):
-        """Sets the min_cuda_version of this V1alpha1KernelCacheSpec.
+    @image_pull_policy.setter
+    def image_pull_policy(self, image_pull_policy):
+        """Sets the image_pull_policy of this V1alpha1KernelCacheSpec.
 
+        ImagePullPolicy for pulling the cache image specified in spec.image. For imageVolume mode: controls when Kubernetes pulls the image for volume mounting. For pvc mode: controls when the extraction job pulls the image to extract.  # noqa: E501
 
-        :param min_cuda_version: The min_cuda_version of this V1alpha1KernelCacheSpec.  # noqa: E501
+        :param image_pull_policy: The image_pull_policy of this V1alpha1KernelCacheSpec.  # noqa: E501
         :type: str
         """
 
-        self._min_cuda_version = min_cuda_version
+        self._image_pull_policy = image_pull_policy
 
     @property
-    def min_driver_version(self):
-        """Gets the min_driver_version of this V1alpha1KernelCacheSpec.  # noqa: E501
+    def mount_path(self):
+        """Gets the mount_path of this V1alpha1KernelCacheSpec.  # noqa: E501
 
+        MountPath in the container filesystem where the cache should be mounted. If empty (recommended), automatically computed from OCI image labels to maintain framework compatibility. The webhook determines the optimal mount path based on labels like io.kserve.km/cache-root-env.  Override only when automatic detection is insufficient. When set, SubPath within the volume (PVC or OCI image) is still auto-computed from labels.  Example: \"/custom/cache/location\" mounts the cache at this path instead of the label-derived path.  # noqa: E501
 
-        :return: The min_driver_version of this V1alpha1KernelCacheSpec.  # noqa: E501
+        :return: The mount_path of this V1alpha1KernelCacheSpec.  # noqa: E501
         :rtype: str
         """
-        return self._min_driver_version
+        return self._mount_path
 
-    @min_driver_version.setter
-    def min_driver_version(self, min_driver_version):
-        """Sets the min_driver_version of this V1alpha1KernelCacheSpec.
+    @mount_path.setter
+    def mount_path(self, mount_path):
+        """Sets the mount_path of this V1alpha1KernelCacheSpec.
 
+        MountPath in the container filesystem where the cache should be mounted. If empty (recommended), automatically computed from OCI image labels to maintain framework compatibility. The webhook determines the optimal mount path based on labels like io.kserve.km/cache-root-env.  Override only when automatic detection is insufficient. When set, SubPath within the volume (PVC or OCI image) is still auto-computed from labels.  Example: \"/custom/cache/location\" mounts the cache at this path instead of the label-derived path.  # noqa: E501
 
-        :param min_driver_version: The min_driver_version of this V1alpha1KernelCacheSpec.  # noqa: E501
+        :param mount_path: The mount_path of this V1alpha1KernelCacheSpec.  # noqa: E501
         :type: str
         """
 
-        self._min_driver_version = min_driver_version
+        self._mount_path = mount_path
+
+    @property
+    def mount_type(self):
+        """Gets the mount_type of this V1alpha1KernelCacheSpec.  # noqa: E501
+
+        MountType specifies how to mount the cache (pvc or imageVolume)  # noqa: E501
+
+        :return: The mount_type of this V1alpha1KernelCacheSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._mount_type
+
+    @mount_type.setter
+    def mount_type(self, mount_type):
+        """Sets the mount_type of this V1alpha1KernelCacheSpec.
+
+        MountType specifies how to mount the cache (pvc or imageVolume)  # noqa: E501
+
+        :param mount_type: The mount_type of this V1alpha1KernelCacheSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._mount_type = mount_type
 
     @property
     def pod_template(self):
@@ -290,7 +242,7 @@ class V1alpha1KernelCacheSpec(object):
     def storage_class_name(self):
         """Gets the storage_class_name of this V1alpha1KernelCacheSpec.  # noqa: E501
 
-        Phase 1 simple mode storage fields (removed in Phase 2 when NodeGroups added) StorageClassName for PV/PVC (optional, uses cluster default if unset)  # noqa: E501
+        StorageClassName for PV/PVC (only used when mountType=pvc)  # noqa: E501
 
         :return: The storage_class_name of this V1alpha1KernelCacheSpec.  # noqa: E501
         :rtype: str
@@ -301,7 +253,7 @@ class V1alpha1KernelCacheSpec(object):
     def storage_class_name(self, storage_class_name):
         """Sets the storage_class_name of this V1alpha1KernelCacheSpec.
 
-        Phase 1 simple mode storage fields (removed in Phase 2 when NodeGroups added) StorageClassName for PV/PVC (optional, uses cluster default if unset)  # noqa: E501
+        StorageClassName for PV/PVC (only used when mountType=pvc)  # noqa: E501
 
         :param storage_class_name: The storage_class_name of this V1alpha1KernelCacheSpec.  # noqa: E501
         :type: str

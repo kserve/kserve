@@ -45,6 +45,18 @@ import (
 const (
 	PvcSourceMountPath = "/mnt/pvc"
 	CaBundleVolumeName = "cabundle-cert"
+
+	// KernelCache volume names used by both the PVC and image-volume mount paths.
+	kernelCacheVolumeName         = "kernel-cache"
+	kernelCacheWritableVolumeName = "kernel-cache-writable"
+
+	// kernelCacheCopyContainerName is the init container that copies the RO cache
+	// into a writable emptyDir for cache types that require write access (e.g. Habana).
+	kernelCacheCopyContainerName = "kernel-cache-copy"
+
+	// kernelCacheStagingMountPath is where the init container mounts the RO source volume
+	// before copying its contents into the writable emptyDir.
+	kernelCacheStagingMountPath = "/mnt/kernel-cache-src"
 )
 
 type StorageInitializerInjector struct {

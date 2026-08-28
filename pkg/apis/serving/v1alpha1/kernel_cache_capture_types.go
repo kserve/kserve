@@ -115,6 +115,14 @@ type SecretKeySelector struct {
 	Key string `json:"key,omitempty"`
 }
 
+// ValidCachePresets is the canonical list of accepted CachePreset values.
+// Must stay in sync with the +kubebuilder:validation:Enum marker on CachePreset.
+var ValidCachePresets = []string{"vllm", "tgi", "triton-python"}
+
+// ValidVolumeStrategies is the canonical list of accepted VolumeStrategy values.
+// Must stay in sync with the +kubebuilder:validation:Enum marker on VolumeStrategy.
+var ValidVolumeStrategies = []string{"shared", "copy"}
+
 // KernelCacheCapturePhase represents the current phase of capture
 type KernelCacheCapturePhase string
 

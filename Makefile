@@ -134,7 +134,7 @@ verify-pinned-actions:
 validate-infra-scripts:
 	@python3 hack/setup/scripts/validate-install-scripts.py
 
-generate-quick-install-scripts: validate-infra-scripts $(PYTHON_VENV)
+generate-quick-install-scripts: validate-infra-scripts kernelcache-webhook-secret-file $(PYTHON_VENV)
 	@$(PYTHON_BIN)/pip install -q -r hack/setup/scripts/install-script-generator/requirements.txt
 	@$(PYTHON_BIN)/python hack/setup/scripts/install-script-generator/generator.py
 

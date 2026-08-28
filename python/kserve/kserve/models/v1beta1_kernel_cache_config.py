@@ -47,6 +47,8 @@ class V1beta1KernelCacheConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'allow_unsigned': 'bool',
+        'capture_image': 'str',
         'enable_permission_init_container': 'bool',
         'enabled': 'bool',
         'extract_image': 'str',
@@ -58,6 +60,8 @@ class V1beta1KernelCacheConfig(object):
     }
 
     attribute_map = {
+        'allow_unsigned': 'allowUnsigned',
+        'capture_image': 'captureImage',
         'enable_permission_init_container': 'enablePermissionInitContainer',
         'enabled': 'enabled',
         'extract_image': 'extractImage',
@@ -68,12 +72,14 @@ class V1beta1KernelCacheConfig(object):
         'reconcile_interval_seconds': 'reconcileIntervalSeconds'
     }
 
-    def __init__(self, enable_permission_init_container=None, enabled=False, extract_image=None, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, no_gpu=None, reconcile_interval_seconds=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, allow_unsigned=None, capture_image=None, enable_permission_init_container=None, enabled=False, extract_image=None, fs_group=None, job_namespace='', job_ttl_seconds_after_finished=None, no_gpu=None, reconcile_interval_seconds=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1KernelCacheConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._allow_unsigned = None
+        self._capture_image = None
         self._enable_permission_init_container = None
         self._enabled = None
         self._extract_image = None
@@ -84,6 +90,10 @@ class V1beta1KernelCacheConfig(object):
         self._reconcile_interval_seconds = None
         self.discriminator = None
 
+        if allow_unsigned is not None:
+            self.allow_unsigned = allow_unsigned
+        if capture_image is not None:
+            self.capture_image = capture_image
         if enable_permission_init_container is not None:
             self.enable_permission_init_container = enable_permission_init_container
         self.enabled = enabled
@@ -98,6 +108,48 @@ class V1beta1KernelCacheConfig(object):
             self.no_gpu = no_gpu
         if reconcile_interval_seconds is not None:
             self.reconcile_interval_seconds = reconcile_interval_seconds
+
+    @property
+    def allow_unsigned(self):
+        """Gets the allow_unsigned of this V1beta1KernelCacheConfig.  # noqa: E501
+
+
+        :return: The allow_unsigned of this V1beta1KernelCacheConfig.  # noqa: E501
+        :rtype: bool
+        """
+        return self._allow_unsigned
+
+    @allow_unsigned.setter
+    def allow_unsigned(self, allow_unsigned):
+        """Sets the allow_unsigned of this V1beta1KernelCacheConfig.
+
+
+        :param allow_unsigned: The allow_unsigned of this V1beta1KernelCacheConfig.  # noqa: E501
+        :type: bool
+        """
+
+        self._allow_unsigned = allow_unsigned
+
+    @property
+    def capture_image(self):
+        """Gets the capture_image of this V1beta1KernelCacheConfig.  # noqa: E501
+
+
+        :return: The capture_image of this V1beta1KernelCacheConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._capture_image
+
+    @capture_image.setter
+    def capture_image(self, capture_image):
+        """Sets the capture_image of this V1beta1KernelCacheConfig.
+
+
+        :param capture_image: The capture_image of this V1beta1KernelCacheConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._capture_image = capture_image
 
     @property
     def enable_permission_init_container(self):

@@ -4577,6 +4577,9 @@
         "allowUnsigned": {
           "type": "boolean"
         },
+        "captureImage": {
+          "type": "string"
+        },
         "enablePermissionInitContainer": {
           "type": "boolean"
         },

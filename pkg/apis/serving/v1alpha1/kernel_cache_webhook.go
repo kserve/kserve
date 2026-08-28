@@ -60,6 +60,7 @@ const (
 	AnnotationCacheHash         = "internal.serving.kserve.io/cache-hash"          // Hash(es) identifying cached kernels
 	AnnotationCacheMountSubpath = "internal.serving.kserve.io/cache-mount-subpath" // Relative path from cache root
 	AnnotationCacheRootEnv      = "internal.serving.kserve.io/cache-root-env"      // Environment variable assignment (NAME=VALUE)
+	AnnotationCacheType         = "internal.serving.kserve.io/cache-type"          // Cache type (e.g. "vllm", "habana-recipe")
 
 	// AnnotationDigestError stores digest resolution error for debugging
 	// Set when digest resolution fails (non-fatal in mutating webhook)

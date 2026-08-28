@@ -15,5 +15,4 @@ patches:
 - path: manager_image_patch.yaml
 - path: localmodel_manager_image_patch.yaml
 - path: localmodelnode_agent_image_patch.yaml
-- path: kernelcache_manager_image_patch.yaml
 - path: kernelcachenode_agent_image_patch.yaml

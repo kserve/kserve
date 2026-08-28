@@ -139,9 +139,8 @@ func (kcc *KernelCacheCapture) ValidateCreate(ctx context.Context, obj runtime.O
 
 	// Validate cachePreset is a known value if set
 	if capture.Spec.CachePreset != "" {
-		validPresets := []string{"vllm", "tgi", "triton-python"}
 		valid := false
-		for _, p := range validPresets {
+		for _, p := range ValidCachePresets {
 			if capture.Spec.CachePreset == p {
 				valid = true
 				break
@@ -149,7 +148,7 @@ func (kcc *KernelCacheCapture) ValidateCreate(ctx context.Context, obj runtime.O
 		}
 		if !valid {
 			return nil, fmt.Errorf("spec.cachePreset must be one of %v, got %s",
-				validPresets, capture.Spec.CachePreset)
+				ValidCachePresets, capture.Spec.CachePreset)
 		}
 	}
 

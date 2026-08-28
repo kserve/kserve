@@ -1020,6 +1020,16 @@ install_kserve_kustomize() {
     else
         log_info "Installing KServe via Kustomize..."
 
+        # Ensure the kernelcache webhook signing key exists (required by config/secret/kustomization.yaml
+        # which is pulled in by the localmodel overlay; not committed to git).
+        local secret_dir="${TARGET_CONFIG_ROOT_DIR}/config/secret"
+        local mutation_env="${secret_dir}/mutation.env"
+        mkdir -p "${secret_dir}"
+        if [ ! -s "${mutation_env}" ]; then
+            log_info "Generating ${mutation_env}"
+            printf 'MUTATION_SIGNING_KEY=%s\n' "$(head -c 32 /dev/urandom | base64 | tr -d '\n')" > "${mutation_env}"
+        fi
+
         # Install CRDs and wait for them
         log_info "Installing KServe CRDs..."
         for i in "${!TARGET_CRD_DIRS[@]}"; do
@@ -6426,6 +6436,17 @@ kind: ServiceAccount
 metadata:
   labels:
     app.kubernetes.io/component: localmodel
+    app.kubernetes.io/instance: kserve-kernelcache-controller-manager
+    app.kubernetes.io/managed-by: kserve-kernelcache-controller-manager
+    app.kubernetes.io/name: kserve
+  name: kserve-kernelcache-controller-manager
+  namespace: kserve
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
     app.kubernetes.io/instance: kserve-localmodel-controller-manager
     app.kubernetes.io/managed-by: kserve-localmodel-controller-manager
     app.kubernetes.io/name: kserve
@@ -6449,7 +6470,7 @@ metadata:
   labels:
     app.kubernetes.io/component: localmodel
     app.kubernetes.io/name: kserve
-  name: kserve-localmodel-manager-role
+  name: kserve-kernelcache-manager-role
 rules:
 - apiGroups:
   - ""
@@ -6461,6 +6482,7 @@ rules:
   - ""
   resources:
   - nodes
+  - pods
   verbs:
   - get
   - list
@@ -6486,6 +6508,121 @@ rules:
   - update
   - watch
 - apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs/status
+  verbs:
+  - get
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachenodes
+  - kernelcaches
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachenodes/status
+  - kernelcaches/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-localmodel-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes/status
+  verbs:
+  - get
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  - persistentvolumes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  verbs:
+  - create
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs/status
+  verbs:
+  - get
+- apiGroups:
   - serving.kserve.io
   resources:
   - inferenceservices
@@ -6498,6 +6635,9 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - kernelcachecaptures
+  - kernelcachenodes
+  - kernelcaches
   - localmodelcaches
   - localmodelnamespacecaches
   - localmodelnodes
@@ -6512,6 +6652,15 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - kernelcachecaptures/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachecaptures/status
+  - kernelcachenodes/status
+  - kernelcaches/status
   - localmodelcaches/status
   - localmodelnamespacecaches/status
   verbs:
@@ -6611,6 +6760,22 @@ metadata:
   labels:
     app.kubernetes.io/component: localmodel
     app.kubernetes.io/name: kserve
+  name: kserve-kernelcache-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kserve-kernelcache-manager-role
+subjects:
+- kind: ServiceAccount
+  name: kserve-kernelcache-controller-manager
+  namespace: kserve
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
   name: kserve-localmodel-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -6636,6 +6801,18 @@ subjects:
 - kind: ServiceAccount
   name: kserve-localmodelnode-agent
   namespace: kserve
+---
+apiVersion: v1
+data:
+  MUTATION_SIGNING_KEY: b3YwL1RyUjhDMTNPN0Y4MXFuVy85bmhmUnlac0hHOGdRd2tRRExOdkw4VT0=
+kind: Secret
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcache-webhook-key
+  namespace: kserve
+type: Opaque
 ---
 apiVersion: v1
 kind: Service
@@ -6680,10 +6857,21 @@ spec:
       - command:
         - /manager
         env:
+        - name: HOME
+          value: /tmp
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: KYVERNO_VERIFICATION_ENABLED
+          value: "false"
+        - name: MUTATION_SIGNING_KEY
+          valueFrom:
+            secretKeyRef:
+              key: MUTATION_SIGNING_KEY
+              name: kernelcache-webhook-key
+        - name: SIGSTORE_ROOT_DIR
+          value: /tmp/.sigstore
         image: kserve/kserve-localmodel-controller:latest
         imagePullPolicy: Always
         livenessProbe:
@@ -6722,6 +6910,8 @@ spec:
           readOnlyRootFilesystem: true
           runAsNonRoot: true
         volumeMounts:
+        - mountPath: /tmp
+          name: tmp
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
@@ -6732,6 +6922,8 @@ spec:
       serviceAccountName: kserve-localmodel-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
+      - emptyDir: {}
+        name: tmp
       - name: cert
         secret:
           defaultMode: 420
@@ -6815,6 +7007,23 @@ metadata:
   labels:
     app.kubernetes.io/component: localmodel
     app.kubernetes.io/name: kserve
+  name: kernelcache-serving-cert
+  namespace: kserve
+spec:
+  commonName: $(webhookServiceName).$(kserveNamespace).svc
+  dnsNames:
+  - $(webhookServiceName).$(kserveNamespace).svc
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: kernelcache-webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
   name: localmodel-serving-cert
   namespace: kserve
 spec:
@@ -6825,6 +7034,139 @@ spec:
     kind: Issuer
     name: selfsigned-issuer
   secretName: localmodel-webhook-server-cert
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kserve/localmodel-serving-cert
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcache.serving.kserve.io
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: localmodel-webhook-server-service
+      namespace: kserve
+      path: /mutate-serving-kserve-io-v1alpha1-kernelcache
+  failurePolicy: Fail
+  name: kernelcache.kserve-webhook-server.defaulter
+  reinvocationPolicy: Never
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - kernelcaches
+    scope: '*'
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kserve/localmodel-serving-cert
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcachecapture.serving.kserve.io
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: localmodel-webhook-server-service
+      namespace: kserve
+      path: /mutate-serving-kserve-io-v1alpha1-kernelcachecapture
+  failurePolicy: Fail
+  name: kernelcachecapture.kserve-webhook-server.defaulter
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - kernelcachecaptures
+    scope: '*'
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kserve/localmodel-serving-cert
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcache.serving.kserve.io
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: localmodel-webhook-server-service
+      namespace: kserve
+      path: /validate-serving-kserve-io-v1alpha1-kernelcache
+  failurePolicy: Fail
+  name: kernelcache.kserve-webhook-server.validator
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - kernelcaches
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kserve/localmodel-serving-cert
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcachecapture.serving.kserve.io
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: localmodel-webhook-server-service
+      namespace: kserve
+      path: /validate-serving-kserve-io-v1alpha1-kernelcachecapture
+  failurePolicy: Fail
+  name: kernelcachecapture.kserve-webhook-server.validator
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - kernelcachecaptures
+    scope: '*'
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration

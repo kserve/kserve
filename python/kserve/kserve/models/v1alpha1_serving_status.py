@@ -109,7 +109,7 @@ class V1alpha1ServingStatus(object):
     def total_namespaces(self):
         """Gets the total_namespaces of this V1alpha1ServingStatus.  # noqa: E501
 
-        Aggregate counts across all nodes/namespaces (Phase 2)  # noqa: E501
+        Aggregate counts across all nodes/namespaces  # noqa: E501
 
         :return: The total_namespaces of this V1alpha1ServingStatus.  # noqa: E501
         :rtype: int
@@ -120,7 +120,7 @@ class V1alpha1ServingStatus(object):
     def total_namespaces(self, total_namespaces):
         """Sets the total_namespaces of this V1alpha1ServingStatus.
 
-        Aggregate counts across all nodes/namespaces (Phase 2)  # noqa: E501
+        Aggregate counts across all nodes/namespaces  # noqa: E501
 
         :param total_namespaces: The total_namespaces of this V1alpha1ServingStatus.  # noqa: E501
         :type: int

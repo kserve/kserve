@@ -3,6 +3,8 @@
 ## Properties
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
+**allow_unsigned** | **bool** |  | [optional] 
+**capture_image** | **str** |  | [optional] 
 **enable_permission_init_container** | **bool** |  | [optional] 
 **enabled** | **bool** |  | [default to False]
 **extract_image** | **str** |  | [optional] 

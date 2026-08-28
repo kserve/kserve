@@ -49,7 +49,7 @@ class V1alpha1KernelCacheStatus(object):
     openapi_types = {
         'counts': 'V1alpha1CacheCounts',
         'gpu_compatibility': 'V1alpha1GPUCompatibilitySummary',
-        'inference_services': 'list[V1alpha1NamespacedName]',
+        'mount_type': 'str',
         'resolved_digest': 'str',
         'serving_status': 'V1alpha1ServingStatus',
         'state': 'str'
@@ -58,13 +58,13 @@ class V1alpha1KernelCacheStatus(object):
     attribute_map = {
         'counts': 'counts',
         'gpu_compatibility': 'gpuCompatibility',
-        'inference_services': 'inferenceServices',
+        'mount_type': 'mountType',
         'resolved_digest': 'resolvedDigest',
         'serving_status': 'servingStatus',
         'state': 'state'
     }
 
-    def __init__(self, counts=None, gpu_compatibility=None, inference_services=None, resolved_digest=None, serving_status=None, state=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, counts=None, gpu_compatibility=None, mount_type=None, resolved_digest=None, serving_status=None, state=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1KernelCacheStatus - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -72,7 +72,7 @@ class V1alpha1KernelCacheStatus(object):
 
         self._counts = None
         self._gpu_compatibility = None
-        self._inference_services = None
+        self._mount_type = None
         self._resolved_digest = None
         self._serving_status = None
         self._state = None
@@ -82,8 +82,8 @@ class V1alpha1KernelCacheStatus(object):
             self.counts = counts
         if gpu_compatibility is not None:
             self.gpu_compatibility = gpu_compatibility
-        if inference_services is not None:
-            self.inference_services = inference_services
+        if mount_type is not None:
+            self.mount_type = mount_type
         if resolved_digest is not None:
             self.resolved_digest = resolved_digest
         if serving_status is not None:
@@ -134,27 +134,27 @@ class V1alpha1KernelCacheStatus(object):
         self._gpu_compatibility = gpu_compatibility
 
     @property
-    def inference_services(self):
-        """Gets the inference_services of this V1alpha1KernelCacheStatus.  # noqa: E501
+    def mount_type(self):
+        """Gets the mount_type of this V1alpha1KernelCacheStatus.  # noqa: E501
 
-        Phase 2: ISVCs referencing this cache  # noqa: E501
+        MountType tracks the active mount type (pvc or imageVolume) Reflects the spec.mountType value for observability  # noqa: E501
 
-        :return: The inference_services of this V1alpha1KernelCacheStatus.  # noqa: E501
-        :rtype: list[V1alpha1NamespacedName]
+        :return: The mount_type of this V1alpha1KernelCacheStatus.  # noqa: E501
+        :rtype: str
         """
-        return self._inference_services
+        return self._mount_type
 
-    @inference_services.setter
-    def inference_services(self, inference_services):
-        """Sets the inference_services of this V1alpha1KernelCacheStatus.
+    @mount_type.setter
+    def mount_type(self, mount_type):
+        """Sets the mount_type of this V1alpha1KernelCacheStatus.
 
-        Phase 2: ISVCs referencing this cache  # noqa: E501
+        MountType tracks the active mount type (pvc or imageVolume) Reflects the spec.mountType value for observability  # noqa: E501
 
-        :param inference_services: The inference_services of this V1alpha1KernelCacheStatus.  # noqa: E501
-        :type: list[V1alpha1NamespacedName]
+        :param mount_type: The mount_type of this V1alpha1KernelCacheStatus.  # noqa: E501
+        :type: str
         """
 
-        self._inference_services = inference_services
+        self._mount_type = mount_type
 
     @property
     def resolved_digest(self):
