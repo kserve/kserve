@@ -1,0 +1,57 @@
+/*
+Copyright 2026 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package security
+
+import (
+	"context"
+	"fmt"
+)
+
+// NewVerifier builds the Verifier for the configured mode. The config is
+// defaulted and validated first. Only the disabled mode is wired here; each
+// real mode adds its own case (and any dependencies its constructor needs)
+// when it lands.
+func NewVerifier(cfg SecurityConfig) (Verifier, error) {
+	cfg.Default()
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
+	switch cfg.Mode {
+	case ModeDisabled:
+		return noopVerifier{}, nil
+	default:
+		// Unreachable after Validate, kept as a defensive guard.
+		return nil, fmt.Errorf("%w: %q", ErrUnknownMode, cfg.Mode)
+	}
+}
+
+// noopVerifier performs no signature check. It backs the disabled mode.
+type noopVerifier struct{}
+
+var _ Verifier = noopVerifier{}
+
+// Verify reports the image as not verified without contacting any registry.
+// Digest resolution for the disabled mode is added together with the shared
+// registry helper used by the real verifiers.
+func (noopVerifier) Verify(_ context.Context, _ VerifyRequest) (VerifyResult, error) {
+	return VerifyResult{
+		Mode:     ModeDisabled,
+		Verified: false,
+		Reason:   "verification disabled",
+	}, nil
+}
