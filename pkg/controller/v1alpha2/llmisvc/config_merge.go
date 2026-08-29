@@ -741,13 +741,6 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 				if !ok || kv == nil {
 					return ""
 				}
-				extraConfig := map[string]any{
-					"spec_name":        "TieringOffloadingSpec",
-					"cpu_bytes_to_use": kv.CPU.Value(),
-				}
-				if kv.EvictionPolicy != "" {
-					extraConfig["eviction_policy"] = kv.EvictionPolicy
-				}
 				var secondaryTiers []map[string]any
 				for i, s := range kv.Secondary {
 					if s.FileSystem == nil {
@@ -759,7 +752,17 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 					}
 					secondaryTiers = append(secondaryTiers, entry)
 				}
+				// CPUOffloadingSpec for CPU-only
+				// use  multi-tier TieringOffloadingSpec only when a secondary tier is configured.
+				extraConfig := map[string]any{
+					"spec_name":        "CPUOffloadingSpec",
+					"cpu_bytes_to_use": kv.CPU.Value(),
+				}
+				if kv.EvictionPolicy != "" {
+					extraConfig["eviction_policy"] = kv.EvictionPolicy
+				}
 				if len(secondaryTiers) > 0 {
+					extraConfig["spec_name"] = "TieringOffloadingSpec"
 					extraConfig["secondary_tiers"] = secondaryTiers
 				}
 				kvConfig := map[string]any{
