@@ -5,6 +5,7 @@ on:
     paths:
       - "config/**"
       - "test/**"
+      - "docs/samples/**"
       - "hack/validate-manifests.sh"
       - ".github/workflows/validate-manifests.yml"
   push:
@@ -12,6 +13,7 @@ on:
     paths:
       - "config/**"
       - "test/**"
+      - "docs/samples/**"
   merge_group:
     types: [checks_requested]
 
