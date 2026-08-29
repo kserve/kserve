@@ -25,25 +25,27 @@ import (
 )
 
 func TestNewVerifier(t *testing.T) {
+	ctx := context.Background()
+
 	t.Run("disabled returns a working no-op", func(t *testing.T) {
-		v, err := NewVerifier(SecurityConfig{Mode: ModeDisabled})
+		v, err := NewVerifier(ctx, SecurityConfig{Mode: ModeDisabled}, nil)
 		require.NoError(t, err)
 		require.NotNil(t, v)
 
-		res, err := v.Verify(context.Background(), VerifyRequest{ImageRef: "registry/img:tag"})
+		res, err := v.Verify(ctx, VerifyRequest{ImageRef: "registry/img:tag"})
 		require.NoError(t, err)
 		assert.False(t, res.Verified)
 		assert.Equal(t, ModeDisabled, res.Mode)
 	})
 
 	t.Run("empty mode defaults to disabled", func(t *testing.T) {
-		v, err := NewVerifier(SecurityConfig{})
+		v, err := NewVerifier(ctx, SecurityConfig{}, nil)
 		require.NoError(t, err)
 		assert.IsType(t, noopVerifier{}, v)
 	})
 
 	t.Run("unknown mode errors", func(t *testing.T) {
-		v, err := NewVerifier(SecurityConfig{Mode: "bogus"})
+		v, err := NewVerifier(ctx, SecurityConfig{Mode: "bogus"}, nil)
 		assert.Nil(t, v)
 		assert.ErrorIs(t, err, ErrUnknownMode)
 	})
