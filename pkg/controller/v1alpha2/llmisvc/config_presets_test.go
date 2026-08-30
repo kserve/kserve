@@ -100,11 +100,11 @@ func TestPresetFiles(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Name:  "llm-d-routing-sidecar",
-									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0",
+									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.10.0",
 									Command: []string{
 										"/app/pd-sidecar",
 										"--port=8000",
-										"--vllm-port=8001",
+										"--model-server-port=8001",
 										"--kv-connector=nixlv2",
 										"--enable-ssrf-protection=true",
 										"--pool-group=inference.networking.x-k8s.io",
@@ -187,7 +187,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-cuda:v0.8.0",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.9.0",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8001,
@@ -336,7 +336,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-cuda:v0.8.0",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.9.0",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8001,
@@ -394,6 +394,14 @@ func TestPresetFiles(t *testing.T) {
 										{
 											Name:  "HF_HUB_CACHE",
 											Value: "/models",
+										},
+										{
+											Name: "VLLM_NIXL_SIDE_CHANNEL_HOST",
+											ValueFrom: &corev1.EnvVarSource{
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: "status.podIP",
+												},
+											},
 										},
 										{
 											Name:  "VLLM_RANDOMIZE_DP_DUMMY_INPUTS",
@@ -465,7 +473,7 @@ func TestPresetFiles(t *testing.T) {
 							Containers: []corev1.Container{
 								{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-cuda:v0.8.0",
+									Image: "ghcr.io/llm-d/llm-d-cuda:v0.9.0",
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8000,

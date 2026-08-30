@@ -1335,6 +1335,7 @@ dependencies = [
     { name = "pyasn1" },
     { name = "pyjwt" },
     { name = "requests" },
+    { name = "urllib3" },
 ]
 
 [package.metadata]
@@ -1357,6 +1358,7 @@ requires-dist = [
     { name = "pyasn1", specifier = ">=0.6.4" },
     { name = "pyjwt", specifier = ">=2.12.0" },
     { name = "requests", specifier = ">=2.32.2,<3.0.0" },
+    { name = "urllib3", specifier = ">=2.6.3" },
 ]
 provides-extras = ["confidential"]
 

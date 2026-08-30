@@ -13,6 +13,7 @@ KUSTOMIZE = $(LOCALBIN)/kustomize
 YQ = $(LOCALBIN)/yq
 HELM_DOCS = $(LOCALBIN)/helm-docs
 PINACT = $(LOCALBIN)/pinact
+SHELLCHECK = $(LOCALBIN)/shellcheck
 UV = $(PYTHON_BIN)/uv
 RUFF = $(PYTHON_BIN)/ruff
 PYTEST = $(PYTHON_BIN)/pytest
@@ -55,6 +56,16 @@ $(YQ): $(LOCALBIN) $(DEPS_ENV)
 	mv $(LOCALBIN)/yq $(YQ)-$(YQ_VERSION) ; \
 	} ; \
 	ln -sf "$$(basename $(YQ)-$(YQ_VERSION))" "$(YQ)"
+
+## Download shellcheck locally if necessary.
+.PHONY: shellcheck
+shellcheck: $(SHELLCHECK)
+$(SHELLCHECK): $(LOCALBIN) $(DEPS_ENV)
+	@[ -f "$(SHELLCHECK)-$(SHELLCHECK_VERSION)" ] || { \
+	BIN_DIR=$(LOCALBIN) hack/setup/cli/install-shellcheck.sh && \
+	mv $(LOCALBIN)/shellcheck $(SHELLCHECK)-$(SHELLCHECK_VERSION) ; \
+	} ; \
+	ln -sf "$$(basename $(SHELLCHECK)-$(SHELLCHECK_VERSION))" "$(SHELLCHECK)"
 
 ## Download helm-docs locally if necessary.
 .PHONY: helm-docs

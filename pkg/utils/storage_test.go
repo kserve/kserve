@@ -17,6 +17,7 @@ limitations under the License.
 package utils
 
 import (
+	"regexp"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -213,6 +214,15 @@ func TestGetVolumeNameFromPath(t *testing.T) {
 			g.Expect(result).To(gomega.Equal(scenario.expected))
 		})
 	}
+
+	// Path segments may carry characters that are valid in paths but not in
+	// volume names; the result must still be a valid name and distinct paths
+	// must not collapse into the same one.
+	validLabel := regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+	for _, path := range []string{"/mnt/lora/Qwen2.5-SQL", "/mnt/lora/adapter.v1"} {
+		g.Expect(GetVolumeNameFromPath(path)).To(gomega.MatchRegexp(validLabel.String()), "path %s", path)
+	}
+	g.Expect(GetVolumeNameFromPath("/mnt/a/b")).ToNot(gomega.Equal(GetVolumeNameFromPath("/mnt/a.b")))
 }
 
 func TestAddDefaultHuggingFaceEnvVars(t *testing.T) {

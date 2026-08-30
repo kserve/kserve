@@ -12,6 +12,10 @@ on:
           - "!.github/**"
           - "!docs/**"
           - "!**.md"
+          # Re-included after the docs exclusions above: the LLMInferenceService
+          # samples are admission-checked by pkg/controller/v1alpha2/llmisvc/docsamples,
+          # and that suite also verifies the links in the surrounding READMEs.
+          - "docs/samples/llmisvc/**"
           - ".github/workflows/go.yml"
     merge_group:
       types: [ checks_requested ]
