@@ -466,6 +466,49 @@ func SetObjectDefaults_InferenceService(in *InferenceService) {
 			}
 		}
 	}
+	if in.Spec.Predictor.OpenVINO != nil {
+		for i := range in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.Ports {
+			a := &in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.Ports[i]
+			if a.Protocol == "" {
+				a.Protocol = "TCP"
+			}
+		}
+		for i := range in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.Env {
+			a := &in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.Env[i]
+			if a.ValueFrom != nil {
+				if a.ValueFrom.FileKeyRef != nil {
+					if a.ValueFrom.FileKeyRef.Optional == nil {
+						var ptrVar1 bool = false
+						a.ValueFrom.FileKeyRef.Optional = &ptrVar1
+					}
+				}
+			}
+		}
+		if in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.LivenessProbe != nil {
+			if in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC != nil {
+				if in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+					var ptrVar1 string = ""
+					in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+				}
+			}
+		}
+		if in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.ReadinessProbe != nil {
+			if in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC != nil {
+				if in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+					var ptrVar1 string = ""
+					in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+				}
+			}
+		}
+		if in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.StartupProbe != nil {
+			if in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC != nil {
+				if in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service == nil {
+					var ptrVar1 string = ""
+					in.Spec.Predictor.OpenVINO.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+				}
+			}
+		}
+	}
 	if in.Spec.Predictor.Model != nil {
 		for i := range in.Spec.Predictor.Model.PredictorExtensionSpec.Container.Ports {
 			a := &in.Spec.Predictor.Model.PredictorExtensionSpec.Container.Ports[i]
@@ -1694,6 +1737,49 @@ func SetObjectDefaults_InferenceService(in *InferenceService) {
 					if a.Predictor.Paddle.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service == nil {
 						var ptrVar1 string = ""
 						a.Predictor.Paddle.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+		}
+		if a.Predictor.OpenVINO != nil {
+			for j := range a.Predictor.OpenVINO.PredictorExtensionSpec.Container.Ports {
+				b := &a.Predictor.OpenVINO.PredictorExtensionSpec.Container.Ports[j]
+				if b.Protocol == "" {
+					b.Protocol = "TCP"
+				}
+			}
+			for j := range a.Predictor.OpenVINO.PredictorExtensionSpec.Container.Env {
+				b := &a.Predictor.OpenVINO.PredictorExtensionSpec.Container.Env[j]
+				if b.ValueFrom != nil {
+					if b.ValueFrom.FileKeyRef != nil {
+						if b.ValueFrom.FileKeyRef.Optional == nil {
+							var ptrVar1 bool = false
+							b.ValueFrom.FileKeyRef.Optional = &ptrVar1
+						}
+					}
+				}
+			}
+			if a.Predictor.OpenVINO.PredictorExtensionSpec.Container.LivenessProbe != nil {
+				if a.Predictor.OpenVINO.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.OpenVINO.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.OpenVINO.PredictorExtensionSpec.Container.LivenessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.OpenVINO.PredictorExtensionSpec.Container.ReadinessProbe != nil {
+				if a.Predictor.OpenVINO.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.OpenVINO.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.OpenVINO.PredictorExtensionSpec.Container.ReadinessProbe.ProbeHandler.GRPC.Service = &ptrVar1
+					}
+				}
+			}
+			if a.Predictor.OpenVINO.PredictorExtensionSpec.Container.StartupProbe != nil {
+				if a.Predictor.OpenVINO.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC != nil {
+					if a.Predictor.OpenVINO.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service == nil {
+						var ptrVar1 string = ""
+						a.Predictor.OpenVINO.PredictorExtensionSpec.Container.StartupProbe.ProbeHandler.GRPC.Service = &ptrVar1
 					}
 				}
 			}

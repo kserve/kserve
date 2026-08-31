@@ -56,6 +56,8 @@ type PredictorSpec struct {
 	LightGBM *LightGBMSpec `json:"lightgbm,omitempty"`
 	// Spec for Paddle model server (https://github.com/PaddlePaddle/Serving)
 	Paddle *PaddleServerSpec `json:"paddle,omitempty"`
+	// Spec for OpenVINO Model Server (https://github.com/openvinotoolkit/model_server)
+	OpenVINO *OpenVINOSpec `json:"openvino,omitempty"`
 
 	// Model spec for any arbitrary framework.
 	Model *ModelSpec `json:"model,omitempty"`
@@ -177,6 +179,7 @@ func (s *PredictorSpec) GetImplementations() []ComponentImplementation {
 		s.LightGBM,
 		s.Paddle,
 		s.HuggingFace,
+		s.OpenVINO,
 		s.Model,
 	})
 	// This struct is not a pointer, so it will never be nil; include if containers are specified

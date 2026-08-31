@@ -338,6 +338,64 @@ func TestInferenceServiceDefaults(t *testing.T) {
 				"Annotations": gomega.HaveKeyWithValue(constants.ModelFormatAnnotationKey, constants.SupportedModelPaddle),
 			},
 		},
+		"OpenVINO": {
+			config: &InferenceServicesConfig{
+				Explainers: ExplainersConfig{
+					ARTExplainer: ExplainerConfig{
+						ContainerImage:      "art",
+						DefaultImageVersion: "v0.4.0",
+					},
+				},
+				Resource: ResourceConfig{
+					CPULimit:      "1",
+					MemoryLimit:   "2Gi",
+					CPURequest:    "1",
+					MemoryRequest: "2Gi",
+				},
+			},
+			deployConfig: &DeployConfig{
+				DefaultDeploymentMode: string(constants.Knative),
+			},
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						OpenVINO: &OpenVINOSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI: proto.String("gs://testbucket/testmodel"),
+							},
+						},
+					},
+					Transformer: &TransformerSpec{
+						PodSpec: PodSpec{
+							Containers: []corev1.Container{
+								{
+									Env: []corev1.EnvVar{
+										{
+											Name:  "STORAGE_URI",
+											Value: "s3://transformer",
+										},
+									},
+								},
+							},
+						},
+					},
+					Explainer: &ExplainerSpec{
+						ART: &ARTExplainerSpec{
+							ExplainerExtensionSpec: ExplainerExtensionSpec{
+								StorageURI: "gs://testbucket/testmodel",
+							},
+						},
+					},
+				},
+			},
+			matcher: map[string]types.GomegaMatcher{
+				"Annotations": gomega.HaveKeyWithValue(constants.ModelFormatAnnotationKey, constants.SupportedModelOpenVINO),
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -349,6 +407,7 @@ func TestInferenceServiceDefaults(t *testing.T) {
 		g.Expect(scenario.isvc.Spec.Predictor.ONNX).To(gomega.BeNil())
 		g.Expect(scenario.isvc.Spec.Predictor.PMML).To(gomega.BeNil())
 		g.Expect(scenario.isvc.Spec.Predictor.Paddle).To(gomega.BeNil())
+		g.Expect(scenario.isvc.Spec.Predictor.OpenVINO).To(gomega.BeNil())
 		g.Expect(scenario.isvc.ObjectMeta.Annotations).To(scenario.matcher["Annotations"])
 		g.Expect(scenario.isvc.Spec.Predictor.Model).NotTo(gomega.BeNil())
 		g.Expect(scenario.isvc.Spec.Transformer.PodSpec.Containers[0].Resources).To(gomega.Equal(resources))

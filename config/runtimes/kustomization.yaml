@@ -17,6 +17,7 @@ resources:
 - kserve-autogluonserver.yaml
 - kserve-vllmserver.yaml
 - kserve-llm-sglang.yaml
+- kserve-openvino.yaml
 
 images:
   # SMS Only Runtimes
@@ -74,4 +75,8 @@ images:
   
 - name: vllmserver
   newName: vllm/vllm-openai
+  newTag: latest
+
+- name: kserve-openvino
+  newName: openvino/model_server
   newTag: latest
