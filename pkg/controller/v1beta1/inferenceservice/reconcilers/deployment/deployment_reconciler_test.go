@@ -1670,3 +1670,154 @@ func TestSetControllerReferences(t *testing.T) {
 	assert.Len(t, deployment2.GetOwnerReferences(), 1)
 	assert.Equal(t, owner.Name, deployment2.GetOwnerReferences()[0].Name)
 }
+
+func TestGetArgValue(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		flag    string
+		wantVal string
+		wantOk  bool
+	}{
+		{
+			name:    "two-element form",
+			args:    []string{"--model_name", "foo", "--http_port", "9090"},
+			flag:    "--http_port",
+			wantVal: "9090",
+			wantOk:  true,
+		},
+		{
+			name:    "equals form",
+			args:    []string{"--model_name=foo", "--http_port=9090"},
+			flag:    "--http_port",
+			wantVal: "9090",
+			wantOk:  true,
+		},
+		{
+			name:   "flag not present",
+			args:   []string{"--model_name", "foo"},
+			flag:   "--http_port",
+			wantOk: false,
+		},
+		{
+			name:   "flag at end without value",
+			args:   []string{"--http_port"},
+			flag:   "--http_port",
+			wantOk: false,
+		},
+		{
+			name:   "empty args",
+			args:   nil,
+			flag:   "--http_port",
+			wantOk: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			val, ok := getArgValue(tt.args, tt.flag)
+			assert.Equal(t, tt.wantOk, ok)
+			if ok {
+				assert.Equal(t, tt.wantVal, val)
+			}
+		})
+	}
+}
+
+func TestSetArgValue(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		flag     string
+		value    string
+		expected []string
+	}{
+		{
+			name:     "replace two-element form",
+			args:     []string{"--http_port", "8080"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443"},
+		},
+		{
+			name:     "replace equals form",
+			args:     []string{"--http_port=8080"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port=8443"},
+		},
+		{
+			name:     "append when absent",
+			args:     []string{"--model_name", "foo"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--model_name", "foo", "--http_port", "8443"},
+		},
+		{
+			name:     "append to nil",
+			args:     nil,
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := setArgValue(tt.args, tt.flag, tt.value)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestSetDefaultPodSpec_ReadinessProbeRespectsHttpPort(t *testing.T) {
+	tests := []struct {
+		name         string
+		args         []string
+		ports        []corev1.ContainerPort
+		expectedPort int32
+	}{
+		{
+			name:         "no ports no args defaults to 8080",
+			expectedPort: 8080,
+		},
+		{
+			name:         "port defined takes precedence over default",
+			ports:        []corev1.ContainerPort{{ContainerPort: 9090}},
+			expectedPort: 9090,
+		},
+		{
+			name:         "--http_port arg overrides default",
+			args:         []string{"--http_port", "8443"},
+			expectedPort: 8443,
+		},
+		{
+			name:         "--http_port= arg overrides default",
+			args:         []string{"--http_port=7070"},
+			expectedPort: 7070,
+		},
+		{
+			name:         "--http_port overrides container port",
+			ports:        []corev1.ContainerPort{{ContainerPort: 9090}},
+			args:         []string{"--http_port", "8443"},
+			expectedPort: 8443,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			podSpec := &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "kserve-container",
+						Image: "test:latest",
+						Args:  tt.args,
+						Ports: tt.ports,
+					},
+				},
+			}
+			setDefaultPodSpec(podSpec)
+			probe := podSpec.Containers[0].ReadinessProbe
+			require.NotNil(t, probe)
+			require.NotNil(t, probe.TCPSocket)
+			assert.Equal(t, tt.expectedPort, probe.TCPSocket.Port.IntVal)
+		})
+	}
+}

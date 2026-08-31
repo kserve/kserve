@@ -78,6 +78,8 @@ class RESTServer:
         grace_period: int = 30,
         event_loop: str = "auto",
         timeout_keep_alive: int = 65,
+        ssl_certfile: Optional[str] = None,
+        ssl_keyfile: Optional[str] = None,
     ):
         self.dataplane = data_plane
         self.model_repository_extension = model_repository_extension
@@ -100,6 +102,8 @@ class RESTServer:
             timeout_graceful_shutdown=grace_period,
             timeout_keep_alive=timeout_keep_alive,
             loop=event_loop,
+            ssl_certfile=ssl_certfile,
+            ssl_keyfile=ssl_keyfile,
         )
         self._server = uvicorn.Server(self.config)
 
