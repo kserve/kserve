@@ -16,7 +16,6 @@ spec:
             --served-model-name "{{ .Spec.Model.Name }}"
             --port 8000
             --disable-access-log-for-endpoints /health,/metrics,/ping
-            --disable-log-requests
             $VLLM_ADDITIONAL_ARGS
         # Override security context
         securityContext:
@@ -30,10 +29,6 @@ spec:
           periodSeconds: 10
   router:
     scheduler:
-      pool:
-        spec:
-          endpointPickerRef:
-            group: ""
       template:
         containers:
           - name: main

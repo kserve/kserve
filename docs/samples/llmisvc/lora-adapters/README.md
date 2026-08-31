@@ -38,14 +38,14 @@ For the base model itself, KServe also supports `oci+native://` which mounts the
 
 ## Examples
 
-### 1. Single HuggingFace LoRA Adapter ([llm-inference-service-lora-hf.yaml](llm-inference-service-lora-hf.yaml))
+### 1. Single HuggingFace LoRA Adapter ([test-examples/01-lora-hf-cpu.yaml](test-examples/01-lora-hf-cpu.yaml))
 
 Deploy a base model with one LoRA adapter from HuggingFace Hub.
 
 **Configuration:**
-- Base Model: Qwen2.5-7B-Instruct
+- Base Model: facebook/opt-125m (CPU, small enough to run without a GPU)
 - Adapter: Single HuggingFace adapter
-- Replicas: 2
+- Replicas: 1
 
 **Use Case:**
 - Public HuggingFace adapters
@@ -54,32 +54,31 @@ Deploy a base model with one LoRA adapter from HuggingFace Hub.
 
 **Deployment:**
 ```bash
-kubectl apply -f llm-inference-service-lora-hf.yaml
+kubectl apply -f test-examples/01-lora-hf-cpu.yaml
 ```
 
 **YAML snippet:**
 ```yaml
 spec:
   model:
-    uri: hf://Qwen/Qwen2.5-7B-Instruct
-    name: Qwen/Qwen2.5-7B-Instruct
+    uri: hf://facebook/opt-125m
+    name: facebook/opt-125m
     lora:
       adapters:
-        - name: sql-adapter
-          uri: hf://my-org/qwen-sql-lora
+        - name: lora-adapter-1
+          uri: hf://edbeeching/opt-125m-lora
 ```
 
-### 2. Multiple LoRA Adapters ([llm-inference-service-lora-multi.yaml](llm-inference-service-lora-multi.yaml))
+### 2. Multiple LoRA Adapters ([test-examples/02-lora-multi-hf-cpu.yaml](test-examples/02-lora-multi-hf-cpu.yaml))
 
-Deploy a base model with multiple LoRA adapters from different sources.
+Deploy a base model with multiple LoRA adapters. Adapters are independent, so
+each `uri` can use any scheme from the table above - mix `hf://`, `s3://` and
+`pvc://` in one list if that is what your setup needs.
 
 **Configuration:**
-- Base Model: Qwen2.5-7B-Instruct
-- Adapters:
-  - HuggingFace adapter for SQL generation
-  - S3 adapter for code translation
-  - PVC adapter for domain-specific tasks
-- Replicas: 2
+- Base Model: facebook/opt-125m (CPU, small enough to run without a GPU)
+- Adapters: two HuggingFace adapters
+- Replicas: 1
 
 **Use Case:**
 - Multi-tenant deployments
@@ -88,43 +87,39 @@ Deploy a base model with multiple LoRA adapters from different sources.
 
 **Deployment:**
 ```bash
-# Ensure S3 credentials are configured (if using s3://)
-kubectl create secret generic s3-creds \
-  --from-literal=AWS_ACCESS_KEY_ID=<key> \
-  --from-literal=AWS_SECRET_ACCESS_KEY=<secret>
-
-# Create PVC with adapter weights (if using pvc://)
-kubectl apply -f adapter-pvc.yaml
-
-# Deploy service
-kubectl apply -f llm-inference-service-lora-multi.yaml
+kubectl apply -f test-examples/02-lora-multi-hf-cpu.yaml
 ```
 
 **YAML snippet:**
 ```yaml
 spec:
   model:
-    uri: hf://Qwen/Qwen2.5-7B-Instruct
-    name: Qwen/Qwen2.5-7B-Instruct
+    uri: hf://facebook/opt-125m
+    name: facebook/opt-125m
     lora:
       adapters:
-        - name: sql-adapter
-          uri: hf://my-org/qwen-sql-lora
-        - name: code-adapter
-          uri: s3://my-bucket/adapters/code-lora
-        - name: domain-adapter
-          uri: pvc://adapter-pvc/domain-lora
+        - name: adapter-1
+          uri: hf://edbeeching/opt-125m-lora
+        - name: adapter-2
+          uri: hf://edbeeching/opt-125m-lora
+      # Optional: override vLLM LoRA runtime settings. Leave them unset and vLLM's
+      # own defaults apply (--max-lora-rank 16, --max-loras 1) - the controller
+      # only passes these through when they are set explicitly.
+      maxRank: 64
+      maxAdapters: 2
+      maxCpuAdapters: 4
 ```
 
-### 3. S3 LoRA Adapter with Custom Endpoint ([llm-inference-service-lora-s3.yaml](llm-inference-service-lora-s3.yaml))
+### 3. S3 LoRA Adapter with Custom Endpoint
 
 Deploy with a LoRA adapter from S3-compatible storage (MinIO, Ceph, etc.).
+No ready-made manifest ships for this one - it needs an S3 endpoint and
+credentials that are specific to your cluster. Take example 1 and swap the
+adapter URI for an `s3://` one.
 
 **Configuration:**
-- Base Model: Qwen2.5-7B-Instruct
 - Adapter: S3-compatible storage
 - Custom S3 endpoint configured
-- Replicas: 2
 
 **Use Case:**
 - Private object storage
@@ -139,8 +134,6 @@ kubectl create secret generic s3-config \
   --from-literal=AWS_SECRET_ACCESS_KEY=<secret> \
   --from-literal=S3_ENDPOINT=https://minio.example.com \
   --from-literal=S3_USE_HTTPS=1
-
-kubectl apply -f llm-inference-service-lora-s3.yaml
 ```
 
 ### 4. LocalModelCache LoRA Adapter ([llm-inference-service-lora-localmodelcache.yaml](llm-inference-service-lora-localmodelcache.yaml))
@@ -180,14 +173,14 @@ When the URIs match LocalModelCache CRs, the controller:
 - Skips storage-initializer downloads for cached URIs
 - Blocks LocalModelCache deletion while the service references cached adapters
 
-### 5. PVC-Based LoRA Adapter ([llm-inference-service-lora-pvc.yaml](llm-inference-service-lora-pvc.yaml))
+### 5. PVC-Based LoRA Adapter ([test-examples/04-lora-pvc-cpu.yaml](test-examples/04-lora-pvc-cpu.yaml))
 
 Deploy with a LoRA adapter stored in a PersistentVolumeClaim.
 
 **Configuration:**
-- Base Model: Qwen2.5-7B-Instruct
+- Base Model: facebook/opt-125m (CPU, small enough to run without a GPU)
 - Adapter: PVC storage
-- Replicas: 2
+- Replicas: 1
 
 **Use Case:**
 - Pre-downloaded adapters
@@ -197,27 +190,24 @@ Deploy with a LoRA adapter stored in a PersistentVolumeClaim.
 
 **Deployment:**
 ```bash
-# Create PVC and populate with adapter weights
-kubectl apply -f adapter-pvc.yaml
-
-# Copy adapter weights to PVC (example using a job)
-kubectl run -it --rm copy-adapter --image=busybox --restart=Never -- sh
-# Inside pod: download and extract adapter to /mnt/adapter
+# Create the PVC and populate it with adapter weights.
+# The sample ships a Job that downloads the adapter for you.
+kubectl apply -f test-examples/03-setup-lora-pvc.yaml
 
 # Deploy service
-kubectl apply -f llm-inference-service-lora-pvc.yaml
+kubectl apply -f test-examples/04-lora-pvc-cpu.yaml
 ```
 
 **YAML snippet:**
 ```yaml
 spec:
   model:
-    uri: hf://Qwen/Qwen2.5-7B-Instruct
-    name: Qwen/Qwen2.5-7B-Instruct
+    uri: hf://facebook/opt-125m
+    name: facebook/opt-125m
     lora:
       adapters:
-        - name: my-adapter
-          uri: pvc://adapter-pvc/my-lora-adapter
+        - name: pvc-adapter
+          uri: pvc://lora-adapters-pvc/opt-125m-lora
 ```
 
 ## How It Works
@@ -268,13 +258,13 @@ For `pvc://` adapters:
 Use the `model` parameter in requests to select which adapter to use:
 
 ```bash
-# Request using the sql-adapter
+# Request using the adapter (example 1 above)
 curl -k https://<route-url>/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "sql-adapter",
+    "model": "lora-adapter-1",
     "messages": [
-      {"role": "user", "content": "Generate SQL for: show all users"}
+      {"role": "user", "content": "What is Kubernetes?"}
     ]
   }'
 
@@ -282,7 +272,7 @@ curl -k https://<route-url>/v1/chat/completions \
 curl -k https://<route-url>/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "Qwen/Qwen2.5-7B-Instruct",
+    "model": "facebook/opt-125m",
     "messages": [
       {"role": "user", "content": "What is Kubernetes?"}
     ]

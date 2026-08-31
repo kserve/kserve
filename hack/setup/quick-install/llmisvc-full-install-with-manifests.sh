@@ -642,6 +642,7 @@ HELM_DOCS_VERSION=v1.12.0
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
 RUFF_VERSION=0.14.13
+SHELLCHECK_VERSION=v0.11.0
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
@@ -2745,11 +2746,25 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
             KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          fi
+          # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+          # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
+          if [ -z "${KV_TRANSFER_ARGS}" ]; then
+            # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+            # raise RuntimeError("NIXL is not available") and never finish starting.
+            NIXL_PY=$(command -v python3 || command -v python || true)
+            if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+              KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
+              echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_consumer)"
+            else
+              echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+            fi
           fi
         fi
 
@@ -2773,6 +2788,10 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
+      - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
       image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
       imagePullPolicy: IfNotPresent
       lifecycle:
@@ -3081,11 +3100,25 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
             KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          fi
+          # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+          # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
+          if [ -z "${KV_TRANSFER_ARGS}" ]; then
+            # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+            # raise RuntimeError("NIXL is not available") and never finish starting.
+            NIXL_PY=$(command -v python3 || command -v python || true)
+            if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+              KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
+              echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_consumer)"
+            else
+              echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+            fi
           fi
         fi
 
@@ -3117,6 +3150,10 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
+      - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
       image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
       imagePullPolicy: IfNotPresent
       lifecycle:
@@ -3421,11 +3458,25 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Worker 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
             KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          fi
+          # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+          # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
+          if [ -z "${KV_TRANSFER_ARGS}" ]; then
+            # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+            # raise RuntimeError("NIXL is not available") and never finish starting.
+            NIXL_PY=$(command -v python3 || command -v python || true)
+            if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+              KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
+              echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_consumer)"
+            else
+              echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+            fi
           fi
         fi
 
@@ -3457,6 +3508,10 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
+      - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
       - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
         value: "1"
       image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
@@ -3667,11 +3722,25 @@ spec:
             SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
           fi
 
-          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
           KV_TRANSFER_ARGS=""
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-            if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
               KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            fi
+            # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+            # Prefill is the KV producer; without a connector here decode has nothing to fetch.
+            if [ -z "${KV_TRANSFER_ARGS}" ]; then
+              # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+              # raise RuntimeError("NIXL is not available") and never finish starting.
+              NIXL_PY=$(command -v python3 || command -v python || true)
+              if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+                KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+                echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_producer)"
+              else
+                echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+              fi
             fi
           fi
 
@@ -3695,6 +3764,10 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
+        - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
         imagePullPolicy: IfNotPresent
         lifecycle:
@@ -3944,11 +4017,25 @@ spec:
             SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
           fi
 
-          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
           KV_TRANSFER_ARGS=""
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-            if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
               KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            fi
+            # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+            # Prefill is the KV producer; without a connector here decode has nothing to fetch.
+            if [ -z "${KV_TRANSFER_ARGS}" ]; then
+              # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+              # raise RuntimeError("NIXL is not available") and never finish starting.
+              NIXL_PY=$(command -v python3 || command -v python || true)
+              if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+                KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+                echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_producer)"
+              else
+                echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+              fi
             fi
           fi
 
@@ -3980,6 +4067,10 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
+        - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
         imagePullPolicy: IfNotPresent
         lifecycle:
@@ -4223,11 +4314,25 @@ spec:
             SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Worker 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
           fi
 
-          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
           KV_TRANSFER_ARGS=""
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-            if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
               KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            fi
+            # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+            # Prefill is the KV producer; without a connector here decode has nothing to fetch.
+            if [ -z "${KV_TRANSFER_ARGS}" ]; then
+              # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+              # raise RuntimeError("NIXL is not available") and never finish starting.
+              NIXL_PY=$(command -v python3 || command -v python || true)
+              if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+                KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+                echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_producer)"
+              else
+                echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+              fi
             fi
           fi
 
@@ -4259,6 +4364,10 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
+        - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
         imagePullPolicy: IfNotPresent
         lifecycle:
