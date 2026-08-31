@@ -259,6 +259,9 @@ func (isvc *InferenceService) setPredictorModelDefaults() {
 
 	case isvc.Spec.Predictor.Paddle != nil:
 		isvc.assignPaddleRuntime()
+
+	case isvc.Spec.Predictor.OpenVINO != nil:
+		isvc.assignOpenVINORuntime()
 	}
 
 	if isvc.Spec.Predictor.Model != nil {
@@ -387,6 +390,20 @@ func (isvc *InferenceService) assignPaddleRuntime() {
 	}
 	// remove paddle spec
 	isvc.Spec.Predictor.Paddle = nil
+}
+
+func (isvc *InferenceService) assignOpenVINORuntime() {
+	// assign protocol version 'v2' if not provided
+	if isvc.Spec.Predictor.OpenVINO.ProtocolVersion == nil {
+		protocolV2 := constants.ProtocolV2
+		isvc.Spec.Predictor.OpenVINO.ProtocolVersion = &protocolV2
+	}
+	isvc.Spec.Predictor.Model = &ModelSpec{
+		ModelFormat:            ModelFormat{Name: constants.SupportedModelOpenVINO},
+		PredictorExtensionSpec: isvc.Spec.Predictor.OpenVINO.PredictorExtensionSpec,
+	}
+	// remove openvino spec
+	isvc.Spec.Predictor.OpenVINO = nil
 }
 
 func (isvc *InferenceService) SetRuntimeDefaults(runtimeAnnotations map[string]string) {

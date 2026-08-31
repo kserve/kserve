@@ -293,6 +293,8 @@ func validatePredictor(isvc *InferenceService) error {
 		return errors.New("the 'name' field is not allowed in standard predictor")
 	case predictor.Paddle != nil && predictor.Paddle.Name != "":
 		return errors.New("the 'name' field is not allowed in standard predictor")
+	case predictor.OpenVINO != nil && predictor.OpenVINO.Name != "":
+		return errors.New("the 'name' field is not allowed in standard predictor")
 	case predictor.Model != nil && predictor.Model.Name != "":
 		return errors.New("the 'name' field is not allowed in standard predictor")
 	}
@@ -377,6 +379,8 @@ func predictorFrameworkContainer(p *PredictorSpec) *corev1.Container {
 		return &p.LightGBM.Container
 	case p.Paddle != nil:
 		return &p.Paddle.Container
+	case p.OpenVINO != nil:
+		return &p.OpenVINO.Container
 	default:
 		return nil
 	}
@@ -910,6 +914,8 @@ func GetConfidentialSpecFromPredictor(predictor *PredictorSpec) *ConfidentialSpe
 		return predictor.LightGBM.Confidential
 	case predictor.Paddle != nil:
 		return predictor.Paddle.Confidential
+	case predictor.OpenVINO != nil:
+		return predictor.OpenVINO.Confidential
 	case predictor.Model != nil:
 		return predictor.Model.Confidential
 	default:
