@@ -2806,3 +2806,93 @@ func TestValidatePredictorNameChange(t *testing.T) {
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	})
 }
+
+func TestValidateInferenceServiceTracing(t *testing.T) {
+	tests := map[string]struct {
+		tracing    *TracingSpec
+		errorField string
+	}{
+		"omitted tracing is valid": {
+			tracing: nil,
+		},
+		"empty tracing is valid": {
+			tracing: &TracingSpec{},
+		},
+		"default tracing values are valid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String(DefaultTracingExporterEndpoint),
+				Sampler:          proto.String(DefaultTracingSampler),
+			},
+		},
+		"unsupported sampler is invalid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String(DefaultTracingExporterEndpoint),
+				Sampler:          proto.String("sometimes"),
+			},
+			errorField: "spec.tracing.sampler",
+		},
+		"endpoint without scheme is invalid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String("otel-collector:4317"),
+				Sampler:          proto.String(DefaultTracingSampler),
+			},
+			errorField: "spec.tracing.exporterEndpoint",
+		},
+		"endpoint with unsupported scheme is invalid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String("grpc://otel-collector:4317"),
+				Sampler:          proto.String(DefaultTracingSampler),
+			},
+			errorField: "spec.tracing.exporterEndpoint",
+		},
+		"endpoint without host is invalid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String("http:///v1/traces"),
+				Sampler:          proto.String(DefaultTracingSampler),
+			},
+			errorField: "spec.tracing.exporterEndpoint",
+		},
+		"malformed endpoint is invalid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String("://collector"),
+				Sampler:          proto.String(DefaultTracingSampler),
+			},
+			errorField: "spec.tracing.exporterEndpoint",
+		},
+	}
+	for _, sampler := range []string{
+		"always_on",
+		"always_off",
+		"traceidratio",
+		"parentbased_always_on",
+		"parentbased_always_off",
+		"parentbased_traceidratio",
+	} {
+		tests["supported sampler "+sampler] = struct {
+			tracing    *TracingSpec
+			errorField string
+		}{
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String("https://collector.example.com:4317/v1/traces"),
+				Sampler:          proto.String(sampler),
+			},
+		}
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			isvc := makeTestInferenceService()
+			isvc.Spec.Tracing = tt.tracing
+
+			_, err := (&InferenceServiceValidator{}).ValidateCreate(t.Context(), &isvc)
+			if tt.errorField == "" {
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				return
+			}
+
+			g.Expect(err).To(gomega.HaveOccurred())
+			g.Expect(err.Error()).To(gomega.ContainSubstring(tt.errorField))
+		})
+	}
+}

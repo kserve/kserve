@@ -22,6 +22,11 @@ import (
 
 // InferenceServiceSpec is the top level type for this resource
 type InferenceServiceSpec struct {
+	// Tracing configures distributed tracing across InferenceService components.
+	// When present, even as an empty object, tracing is enabled with defaults.
+	// When omitted, tracing is disabled.
+	// +optional
+	Tracing *TracingSpec `json:"tracing,omitempty"`
 	// Predictor defines the model serving spec
 	// +required
 	Predictor PredictorSpec `json:"predictor"`
