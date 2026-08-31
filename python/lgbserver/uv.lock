@@ -1278,6 +1278,7 @@ dependencies = [
     { name = "timing-asgi" },
     { name = "urllib3" },
     { name = "uvicorn", extra = ["standard"] },
+    { name = "watchfiles" },
 ]
 
 [package.metadata]
@@ -1315,6 +1316,7 @@ requires-dist = [
     { name = "urllib3", specifier = ">=2.7.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.6,<1.0.0" },
     { name = "vllm", marker = "extra == 'llm'", specifier = "==0.24.0" },
+    { name = "watchfiles", specifier = ">=1.0.4,<2.0.0" },
 ]
 provides-extras = ["storage", "logging", "ray", "llm"]
 
