@@ -44,9 +44,7 @@ async def test_ssl_cert_refresher_reloads_changed_certificate(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_ssl_cert_refresher_keeps_watching_after_reload_error(
-    monkeypatch, caplog
-):
+async def test_ssl_cert_refresher_keeps_watching_after_reload_error(monkeypatch):
     cert_path = "/etc/tls/tls.crt"
     key_path = "/etc/tls/tls.key"
 
@@ -55,6 +53,8 @@ async def test_ssl_cert_refresher_keeps_watching_after_reload_error(
         yield {(Change.modified, key_path)}
 
     monkeypatch.setattr(ssl_cert_refresher, "awatch", changes)
+    exception_logger = Mock()
+    monkeypatch.setattr(ssl_cert_refresher.logger, "exception", exception_logger)
     ssl_context = Mock()
     ssl_context.load_cert_chain.side_effect = [ValueError("invalid certificate"), None]
 
@@ -66,7 +66,7 @@ async def test_ssl_cert_refresher_keeps_watching_after_reload_error(
     await refresher._watch_task
 
     assert ssl_context.load_cert_chain.call_count == 2
-    assert "Failed to reload SSL certificate chain" in caplog.text
+    exception_logger.assert_called_once_with("Failed to reload SSL certificate chain")
 
 
 @pytest.mark.asyncio
@@ -90,4 +90,6 @@ async def test_ssl_cert_refresher_stop_cancels_watcher(monkeypatch):
     refresher.stop()
 
     assert refresher._watch_task is None
-    assert watch_task.cancelling()
+    with pytest.raises(asyncio.CancelledError):
+        await watch_task
+    assert watch_task.cancelled()
