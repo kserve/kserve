@@ -360,6 +360,16 @@ install() {
     else
         log_info "Installing KServe via Kustomize..."
 
+        # Ensure the kernelcache webhook signing key exists (required by config/secret/kustomization.yaml
+        # which is pulled in by the localmodel overlay; not committed to git).
+        local secret_dir="${TARGET_CONFIG_ROOT_DIR}/config/secret"
+        local mutation_env="${secret_dir}/mutation.env"
+        mkdir -p "${secret_dir}"
+        if [ ! -s "${mutation_env}" ]; then
+            log_info "Generating ${mutation_env}"
+            printf 'MUTATION_SIGNING_KEY=%s\n' "$(head -c 32 /dev/urandom | base64 | tr -d '\n')" > "${mutation_env}"
+        fi
+
         # Install CRDs and wait for them
         log_info "Installing KServe CRDs..."
         for i in "${!TARGET_CRD_DIRS[@]}"; do

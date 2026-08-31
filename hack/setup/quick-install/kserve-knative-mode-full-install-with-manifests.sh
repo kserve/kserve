@@ -1434,6 +1434,16 @@ install_kserve_kustomize() {
     else
         log_info "Installing KServe via Kustomize..."
 
+        # Ensure the kernelcache webhook signing key exists (required by config/secret/kustomization.yaml
+        # which is pulled in by the localmodel overlay; not committed to git).
+        local secret_dir="${TARGET_CONFIG_ROOT_DIR}/config/secret"
+        local mutation_env="${secret_dir}/mutation.env"
+        mkdir -p "${secret_dir}"
+        if [ ! -s "${mutation_env}" ]; then
+            log_info "Generating ${mutation_env}"
+            printf 'MUTATION_SIGNING_KEY=%s\n' "$(head -c 32 /dev/urandom | base64 | tr -d '\n')" > "${mutation_env}"
+        fi
+
         # Install CRDs and wait for them
         log_info "Installing KServe CRDs..."
         for i in "${!TARGET_CRD_DIRS[@]}"; do
@@ -55362,6 +55372,14 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - kernelcachecaptures
+  verbs:
+  - get
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachenodes
+  - kernelcaches
   - localmodelcaches
   - localmodelnamespacecaches
   verbs:
@@ -56075,6 +56093,31 @@ data:
          # This is to disable localmodel pv and pvc management for namespaces without isvcs
          "disableVolumeManagement": false
        }
+
+     # ====================================== KERNELCACHE CONFIGURATION ======================================
+     # Example
+     kernelcache: |-
+       {
+         "enabled": false,
+         # jobNamespace specifies the namespace where the kernel cache extraction jobs and download PV/PVC will be created.
+         "jobNamespace": "kserve",
+         # extractImage specifies the image used for the kernel cache extraction job.
+         "extractImage" : "quay.io/gkm/gkm-extract:latest",
+         # captureImage specifies the image used for the kernel cache capture sidecar.
+         "captureImage" : "quay.io/gkm/mcv:latest",
+         # Kubernetes modifies the filesystem group ID on the attached volume.
+         "fsGroup": 1000,
+         # TTL for the extraction job after it is finished.
+         "jobTTLSecondsAfterFinished": 3600,
+         # The frequency at which the kernel cache agent reconciles the kernel caches
+         "reconcileIntervalSeconds": 60,
+         # Disable GPU detection for testing (uses MCV GPU detection by default)
+         "noGPU": false,
+         # Enable permission fix init container for extraction Jobs (needed for KIND clusters and environments where kubelet can't change volume ownership)
+         "enablePermissionInitContainer": false,
+         # Allow unsigned images (images that fail cosign verification are allowed with digest resolved without verification)
+         "allowUnsigned": false
+       }
   agent: |-
     {
         "image" : "kserve/agent:latest",
@@ -56153,6 +56196,18 @@ data:
         "disableIstioVirtualHost": false,
         "disableIngressCreation": false,
         "disableHTTPRouteTimeout": false
+    }
+  kernelcache: |-
+    {
+      "enabled": false,
+      "jobNamespace": "kserve",
+      "extractImage": "quay.io/gkm/gkm-extract:latest",
+      "fsGroup": 1000,
+      "jobTTLSecondsAfterFinished": 3600,
+      "reconcileIntervalSeconds": 60,
+      "noGPU": false,
+      "enablePermissionInitContainer": false,
+      "allowUnsigned": false
     }
   localModel: |-
     {

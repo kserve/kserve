@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +35,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcachecommon"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/credentials/s3"
 	"github.com/kserve/kserve/pkg/types"
@@ -43,6 +45,18 @@ import (
 const (
 	PvcSourceMountPath = "/mnt/pvc"
 	CaBundleVolumeName = "cabundle-cert"
+
+	// KernelCache volume names used by both the PVC and image-volume mount paths.
+	kernelCacheVolumeName         = "kernel-cache"
+	kernelCacheWritableVolumeName = "kernel-cache-writable"
+
+	// kernelCacheCopyContainerName is the init container that copies the RO cache
+	// into a writable emptyDir for cache types that require write access (e.g. Habana).
+	kernelCacheCopyContainerName = "kernel-cache-copy"
+
+	// kernelCacheStagingMountPath is where the init container mounts the RO source volume
+	// before copying its contents into the writable emptyDir.
+	kernelCacheStagingMountPath = "/mnt/kernel-cache-src"
 )
 
 type StorageInitializerInjector struct {
@@ -794,6 +808,366 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 	}
 
 	return CommonStorageInitialization(ctx, storageInitializerParams)
+}
+
+// InjectKernelCache mounts KernelCache PVC into predictor pod when KC label is present
+// Uses framework-agnostic mounting metadata from KernelCache annotations
+func (mi *StorageInitializerInjector) InjectKernelCache(pod *corev1.Pod) error {
+	// Skip if no KernelCache label
+	kcName, hasLabel := pod.Labels[constants.KernelCacheLabel]
+	if !hasLabel {
+		return nil
+	}
+
+	// Get PVC name from annotation, or auto-derive from KC name
+	// The serving PVC has the same name as the KernelCache CR
+	pvcName, hasPVC := pod.Annotations[constants.KernelCachePVCNameAnnotationKey]
+	if !hasPVC {
+		// Auto-derive PVC name from KernelCache name (serving PVC = KC name)
+		pvcName = kcName
+		// Add annotation so it's visible for debugging/introspection
+		if pod.Annotations == nil {
+			pod.Annotations = make(map[string]string)
+		}
+		pod.Annotations[constants.KernelCachePVCNameAnnotationKey] = pvcName
+		log.Info("Auto-derived KernelCache PVC name from label",
+			"kernelcache", kcName,
+			"pvc", pvcName,
+			"pod", pod.Name)
+	}
+
+	// Check if volume already exists (webhook may be called multiple times)
+	for _, vol := range pod.Spec.Volumes {
+		if vol.Name == "kernel-cache" {
+			log.Info("KernelCache volume already mounted, skipping",
+				"kernelcache", kcName,
+				"pod", pod.Name)
+			return nil
+		}
+	}
+
+	// Fetch KernelCache CR to read mounting metadata annotations
+	// Use a short timeout context to avoid blocking the webhook
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	var kcCR v1alpha1.KernelCache
+	if err := mi.client.Get(ctx, k8stypes.NamespacedName{
+		Name:      kcName,
+		Namespace: pod.Namespace,
+	}, &kcCR); err != nil {
+		// If we can't fetch the KC, fall back to legacy mounting
+		// This can happen if:
+		// - KernelCache CRD is not installed (KC feature disabled)
+		// - Client cache/informer isn't ready yet
+		// - RBAC permissions missing
+		// - KernelCache CR doesn't exist
+		// In all cases, we gracefully fall back to legacy mounting instead of failing
+		if apierrors.IsNotFound(err) {
+			log.Info("KernelCache CR not found, falling back to legacy mounting",
+				"kernelcache", kcName)
+		} else {
+			log.Info("Failed to fetch KernelCache CR, falling back to legacy mounting",
+				"kernelcache", kcName,
+				"error", err.Error())
+		}
+		// Continue with legacy mounting instead of erroring
+		kcCR.Annotations = map[string]string{} // Empty annotations triggers legacy mode
+	}
+
+	// Extract mounting metadata from KC annotations (set by KC webhook)
+	cacheHash := kcCR.Annotations[v1alpha1.AnnotationCacheHash]
+	cacheMountSubpath := kcCR.Annotations[v1alpha1.AnnotationCacheMountSubpath]
+	cacheRootEnv := kcCR.Annotations[v1alpha1.AnnotationCacheRootEnv]
+	resolvedDigest := kcCR.Annotations[v1alpha1.AnnotationResolvedDigest]
+
+	// Branch based on mount type from spec
+	mountType := kcCR.Spec.MountType
+	if mountType == "" {
+		mountType = v1alpha1.KernelCacheMountTypePVC // Default
+	}
+
+	if mountType == v1alpha1.KernelCacheMountTypeImageVolume {
+		return mi.injectImageVolumeMount(pod, &kcCR, kcName, cacheHash, cacheMountSubpath, cacheRootEnv, resolvedDigest)
+	}
+
+	// Default to PVC mode
+	return mi.injectPVCMount(pod, &kcCR, kcName, pvcName, cacheHash, cacheMountSubpath, cacheRootEnv, resolvedDigest)
+}
+
+// injectPVCMount injects KernelCache as PVC volume (traditional method)
+func (mi *StorageInitializerInjector) injectPVCMount(
+	pod *corev1.Pod,
+	kcCR *v1alpha1.KernelCache,
+	kcName string,
+	pvcName string,
+	cacheHash string,
+	cacheMountSubpath string,
+	cacheRootEnv string,
+	resolvedDigest string,
+) error {
+	// Determine mount path, subpath, and environment variable based on mounting metadata
+	var mountPath string
+	var subPath string
+	var envName string
+	var envValue string
+
+	if cacheMountSubpath == "" || cacheRootEnv == "" {
+		// Fallback to legacy behavior for backwards compatibility
+		// (older cache images without mounting metadata labels)
+		log.Info("Missing mounting metadata in KernelCache, falling back to legacy mount",
+			"kernelcache", kcName,
+			"subpath", cacheMountSubpath,
+			"rootEnv", cacheRootEnv)
+		mountPath = "/mnt/kernel-cache"
+		subPath = ""
+		// No env var set in legacy mode
+	} else {
+		// Parse cache root environment variable: "VLLM_CACHE_ROOT=/home/kserve/.cache/vllm"
+		parts := strings.SplitN(cacheRootEnv, "=", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid cache-root-env format in KernelCache %s: expected NAME=VALUE, got %s",
+				kcName, cacheRootEnv)
+		}
+		envName = parts[0]  // e.g., "VLLM_CACHE_ROOT"
+		envValue = parts[1] // e.g., "/home/kserve/.cache/vllm"
+
+		// Compute full mount path: /home/kserve/.cache/vllm/torch_compile_cache/abc123
+		mountPath = filepath.Join(envValue, cacheMountSubpath)
+
+		// Compute SubPath to skip KC extraction job's nesting
+		// PVC structure: kernel-cache/<storageKey>/<OCI-contents>
+		// We need SubPath: kernel-cache/<storageKey>/<cacheMountSubpath>
+		// to mount directly at the cache files location
+		//
+		// IMPORTANT: Must use the SAME storageKey calculation as the extraction job!
+		// The extraction job uses GetKernelCacheStorageKey(imageWithDigest) where
+		// imageWithDigest is the full URL with digest (e.g., registry/image:tag@sha256:abc123)
+		if resolvedDigest != "" && kcCR.Spec.Image != "" {
+			// Compute imageWithDigest the same way as extraction job
+			imageWithDigest := kernelcachecommon.ReplaceUrlTag(kcCR.Spec.Image, resolvedDigest)
+			if imageWithDigest == "" {
+				log.Info("Failed to compute imageWithDigest, mounting without SubPath",
+					"kernelcache", kcName,
+					"image", kcCR.Spec.Image,
+					"digest", resolvedDigest)
+				subPath = ""
+			} else {
+				storageKey := v1alpha1.GetKernelCacheStorageKey(imageWithDigest)
+				subPath = filepath.Join("kernel-cache", storageKey, cacheMountSubpath)
+			}
+		} else {
+			// Fallback: no SubPath (mounts PVC root, will have extra nesting)
+			log.Info("Missing resolved digest or image spec in KernelCache, mounting without SubPath",
+				"kernelcache", kcName)
+			subPath = ""
+		}
+
+		log.Info("Mounting KernelCache with framework-agnostic mounting metadata",
+			"kernelcache", kcName,
+			"pvc", pvcName,
+			"mountPath", mountPath,
+			"subPath", subPath,
+			"envName", envName,
+			"envValue", envValue,
+			"hash", cacheHash)
+	}
+
+	// Apply user override for mountPath if provided (user override)
+	if kcCR.Spec.MountPath != "" {
+		mountPath = kcCR.Spec.MountPath
+		log.Info("Using user-provided mountPath override",
+			"kernelcache", kcName,
+			"mountPath", mountPath,
+			"subPath", subPath)
+		// Note: SubPath remains auto-computed, only mountPath is overridden
+	}
+
+	// Add volume to pod spec
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+		Name: "kernel-cache",
+		VolumeSource: corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: pvcName,
+				ReadOnly:  true,
+			},
+		},
+	})
+
+	// Mount in kserve-container and add env var
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == constants.InferenceServiceContainerName {
+			// Add volume mount at framework-specific path
+			volumeMount := corev1.VolumeMount{
+				Name:      "kernel-cache",
+				MountPath: mountPath,
+				ReadOnly:  true,
+			}
+			if subPath != "" {
+				volumeMount.SubPath = subPath
+			}
+			pod.Spec.Containers[i].VolumeMounts = append(
+				pod.Spec.Containers[i].VolumeMounts,
+				volumeMount,
+			)
+
+			// Set framework's cache root environment variable (if metadata present)
+			if envName != "" && envValue != "" {
+				pod.Spec.Containers[i].Env = append(
+					pod.Spec.Containers[i].Env,
+					corev1.EnvVar{
+						Name:  envName,
+						Value: envValue,
+					},
+				)
+			}
+
+			log.Info("KernelCache mounted successfully",
+				"container", pod.Spec.Containers[i].Name,
+				"mountPath", mountPath)
+			break
+		}
+	}
+
+	return nil
+}
+
+// injectImageVolumeMount injects KernelCache as image volume (Kubernetes 1.33+)
+func (mi *StorageInitializerInjector) injectImageVolumeMount(
+	pod *corev1.Pod,
+	kcCR *v1alpha1.KernelCache,
+	kcName string,
+	cacheHash string,
+	cacheMountSubpath string,
+	cacheRootEnv string,
+	resolvedDigest string,
+) error {
+	// Determine image reference and subPath
+	var imageRef string
+	var subPath string
+	var mountPath string
+	var envName string
+	var envValue string
+
+	// Use resolved digest for immutability (prefer digest over tag)
+	if resolvedDigest != "" && kcCR.Spec.Image != "" {
+		imageRef = kernelcachecommon.ReplaceUrlTag(kcCR.Spec.Image, resolvedDigest)
+		if imageRef == "" {
+			// Fallback to original image if digest replacement fails
+			log.Info("Failed to compute imageWithDigest, using original image reference",
+				"kernelcache", kcName,
+				"image", kcCR.Spec.Image,
+				"digest", resolvedDigest)
+			imageRef = kcCR.Spec.Image
+		}
+	} else {
+		imageRef = kcCR.Spec.Image
+	}
+
+	// Determine subPath and mountPath
+	// Priority: 1) Computed from labels (recommended), 2) User-provided MountPath override
+	if cacheMountSubpath != "" && cacheRootEnv != "" && cacheHash != "" {
+		// Compute from OCI image labels
+		// Parse cache root environment variable: "VLLM_CACHE_ROOT=/home/kserve/.cache/vllm"
+		parts := strings.SplitN(cacheRootEnv, "=", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("invalid cache-root-env format in KernelCache %s: expected NAME=VALUE, got %s",
+				kcName, cacheRootEnv)
+		}
+		envName = parts[0]  // e.g., "VLLM_CACHE_ROOT"
+		envValue = parts[1] // e.g., "/home/kserve/.cache/vllm"
+
+		// Image volume structure (from MCV): io.vllm.cache/<cacheMountSubpath>/<cacheHash>
+		// We hardcode the "io.vllm.cache" prefix based on MCV's OCI image structure
+		subPath = filepath.Join("io.vllm.cache", cacheMountSubpath, cacheHash)
+
+		// Mount at the specific cache hash directory
+		// Parent directory remains writable (container FS) for cache-miss writes
+		mountPath = filepath.Join(envValue, cacheMountSubpath, cacheHash)
+
+		log.Info("Computed image volume subPath from labels",
+			"kernelcache", kcName,
+			"subPath", subPath,
+			"mountPath", mountPath,
+			"cacheHash", cacheHash)
+	} else {
+		// Legacy fallback: mount entire image
+		subPath = ""
+		mountPath = "/mnt/kernel-cache"
+		log.Info("Missing mounting metadata, mounting entire image",
+			"kernelcache", kcName,
+			"subpath", cacheMountSubpath,
+			"rootEnv", cacheRootEnv,
+			"hash", cacheHash)
+	}
+
+	// Apply user override for mountPath if provided (user override)
+	if kcCR.Spec.MountPath != "" {
+		mountPath = kcCR.Spec.MountPath
+		log.Info("Using user-provided mountPath override",
+			"kernelcache", kcName,
+			"mountPath", mountPath,
+			"subPath", subPath)
+		// Note: SubPath remains auto-computed, only mountPath is overridden
+	}
+
+	// Determine pull policy
+	pullPolicy := kcCR.Spec.ImagePullPolicy
+	if pullPolicy == "" {
+		pullPolicy = corev1.PullIfNotPresent // Default
+	}
+
+	// Add image volume to pod spec
+	volume := corev1.Volume{
+		Name: "kernel-cache",
+		VolumeSource: corev1.VolumeSource{
+			Image: &corev1.ImageVolumeSource{
+				Reference:  imageRef,
+				PullPolicy: pullPolicy,
+			},
+		},
+	}
+	pod.Spec.Volumes = append(pod.Spec.Volumes, volume)
+
+	// Mount in kserve-container and add env var
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == constants.InferenceServiceContainerName {
+			// Add volume mount
+			volumeMount := corev1.VolumeMount{
+				Name:      "kernel-cache",
+				MountPath: mountPath,
+				ReadOnly:  true, // Image volumes are always read-only
+			}
+			if subPath != "" {
+				volumeMount.SubPath = subPath
+			}
+			pod.Spec.Containers[i].VolumeMounts = append(
+				pod.Spec.Containers[i].VolumeMounts,
+				volumeMount,
+			)
+
+			// Set framework's cache root environment variable (if metadata present)
+			if envName != "" && envValue != "" {
+				pod.Spec.Containers[i].Env = append(
+					pod.Spec.Containers[i].Env,
+					corev1.EnvVar{
+						Name:  envName,
+						Value: envValue,
+					},
+				)
+			}
+
+			log.Info("KernelCache mounted as image volume",
+				"container", pod.Spec.Containers[i].Name,
+				"imageRef", imageRef,
+				"mountPath", mountPath,
+				"subPath", subPath,
+				"pullPolicy", pullPolicy)
+			break
+		}
+	}
+
+	return nil
 }
 
 // SetIstioCniSecurityContext determines if Istio is installed in using the CNI plugin. If so,

@@ -128,12 +128,18 @@ func (mutator *Mutator) mutate(ctx context.Context, pod *corev1.Pod, configMap *
 
 	metricsAggregator := newMetricsAggregator(configMap)
 
+	cacheCaptureInjector := NewCacheCaptureInjector(mutator.Client, mutator.Clientset)
+
 	mutators := []func(pod *corev1.Pod) error{
 		InjectGKEAcceleratorSelector,
 		func(pod *corev1.Pod) error {
 			return storageInitializer.InjectStorageInitializer(ctx, pod)
 		},
 		storageInitializer.SetIstioCniSecurityContext,
+		storageInitializer.InjectKernelCache,
+		func(pod *corev1.Pod) error {
+			return cacheCaptureInjector.InjectCacheCaptureSidecar(ctx, pod, configMap)
+		},
 		agentInjector.InjectAgent,
 		metricsAggregator.InjectMetricsAggregator,
 	}

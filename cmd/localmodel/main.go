@@ -21,6 +21,7 @@ import (
 	"flag"
 	"os"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -35,6 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	kernelcachecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcache"
+	kernelcachecapturecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcachecapture"
 	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
 	kservetls "github.com/kserve/kserve/pkg/tls"
@@ -165,6 +168,36 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Setup KernelCache controller
+	kernelCacheEventBroadcaster := record.NewBroadcaster()
+	setupLog.Info("Setting up v1alpha1 KernelCache controller")
+	kernelCacheEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+	if err = (&kernelcachecontroller.KernelCacheReconciler{
+		Client:    mgr.GetClient(),
+		Clientset: clientSet,
+		Log:       ctrl.Log.WithName("v1alpha1Controllers").WithName("KernelCache"),
+		Scheme:    mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCache")
+		os.Exit(1)
+	}
+
+	// Setup KernelCacheCapture controller
+	kccEventBroadcaster := record.NewBroadcaster()
+	setupLog.Info("Setting up v1alpha1 KernelCacheCapture controller")
+	kccEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+	if err = (&kernelcachecapturecontroller.KernelCacheCaptureReconciler{
+		Client:       mgr.GetClient(),
+		Clientset:    clientSet,
+		ClientConfig: cfg,
+		Log:          ctrl.Log.WithName("v1alpha1Controllers").WithName("KernelCacheCapture"),
+		Scheme:       mgr.GetScheme(),
+		Recorder:     kccEventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "KernelCacheCaptureController"}),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCacheCapture")
+		os.Exit(1)
+	}
+
 	// Setup webhook
 	setupLog.Info("setting up webhook server")
 	if err = ctrl.NewWebhookManagedBy(mgr).
@@ -180,6 +213,24 @@ func main() {
 		WithValidator(&localmodelnamespacecachewebhook.LocalModelNamespaceCacheValidator{Client: mgr.GetClient()}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "LocalModelNamespaceCache")
+		os.Exit(1)
+	}
+
+	// Setup KernelCache webhook
+	setupLog.Info("Setting up v1alpha1 KernelCache webhook")
+	if err = (&v1alpha1.KernelCache{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha1.KernelCache")
+		os.Exit(1)
+	}
+
+	// Setup KernelCacheCapture webhook
+	setupLog.Info("Setting up v1alpha1 KernelCacheCapture webhook")
+	if err = ctrl.NewWebhookManagedBy(mgr).
+		For(&v1alpha1.KernelCacheCapture{}).
+		WithDefaulter(&v1alpha1.KernelCacheCapture{}).
+		WithValidator(&v1alpha1.KernelCacheCapture{}).
+		Complete(); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "v1alpha1.KernelCacheCapture")
 		os.Exit(1)
 	}
 

@@ -1,0 +1,55 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: kernelcache.serving.kserve.io
+webhooks:
+  - clientConfig:
+      service:
+        name: $(webhookServiceName)
+        namespace: $(kserveNamespace)
+        path: /mutate-serving-kserve-io-v1alpha1-kernelcache
+    failurePolicy: Fail
+    name: kernelcache.kserve-webhook-server.defaulter
+    sideEffects: None
+    reinvocationPolicy: Never
+    admissionReviewVersions: ["v1"]
+    rules:
+      - apiGroups:
+          - serving.kserve.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - kernelcaches
+        scope: "*"
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: kernelcache.serving.kserve.io
+webhooks:
+  - clientConfig:
+      service:
+        name: $(webhookServiceName)
+        namespace: $(kserveNamespace)
+        path: /validate-serving-kserve-io-v1alpha1-kernelcache
+    failurePolicy: Fail
+    name: kernelcache.kserve-webhook-server.validator
+    sideEffects: None
+    admissionReviewVersions: ["v1"]
+    rules:
+      - apiGroups:
+          - serving.kserve.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+          - DELETE
+        resources:
+          - kernelcaches

@@ -59,4 +59,7 @@ func init() {
 	SchemeBuilder.Register(&InferenceGraph{}, &InferenceGraphList{})
 	SchemeBuilder.Register(&LLMInferenceService{}, &LLMInferenceServiceList{})
 	SchemeBuilder.Register(&LLMInferenceServiceConfig{}, &LLMInferenceServiceConfigList{})
+	SchemeBuilder.Register(&KernelCache{}, &KernelCacheList{})
+	SchemeBuilder.Register(&KernelCacheNode{}, &KernelCacheNodeList{})
+	SchemeBuilder.Register(&KernelCacheCapture{}, &KernelCacheCaptureList{})
 }

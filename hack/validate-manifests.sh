@@ -56,6 +56,15 @@ validate_all() {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
 
+    # Ensure the kernelcache webhook signing key exists before running kustomize build.
+    # config/secret/mutation.env is not committed to git; generate a throwaway key if missing.
+    _mutation_env="${PROJECT_ROOT}/config/secret/mutation.env"
+    mkdir -p "$(dirname "${_mutation_env}")"
+    if [[ ! -s "${_mutation_env}" ]]; then
+        printf 'MUTATION_SIGNING_KEY=%s\n' "$(head -c 32 /dev/urandom | base64 | tr -d '\n')" > "${_mutation_env}"
+    fi
+    unset _mutation_env
+
     ignore_paths=()
     while [[ $# -gt 0 ]]; do
         case "$1" in

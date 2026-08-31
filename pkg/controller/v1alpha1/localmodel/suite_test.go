@@ -77,6 +77,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 				},
 				Data: map[string]string{
 					"localModel": `{
+						"enabled": true,
 						"jobNamespace": "kserve-localmodel-jobs",
 						"defaultJobImage": "kserve/storage-initializer:latest"
 					}`,

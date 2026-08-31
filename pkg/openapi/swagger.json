@@ -39,6 +39,106 @@
         }
       }
     },
+    "v1alpha1.CacheCounts": {
+      "description": "CacheCounts tracks aggregate node counts for state calculation",
+      "type": "object",
+      "required": [
+        "nodeCnt",
+        "nodeErrorCnt",
+        "nodeInUseCnt",
+        "nodeNotInUseCnt"
+      ],
+      "properties": {
+        "nodeCnt": {
+          "description": "NodeCnt - total nodes with this cache tracked",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "nodeErrorCnt": {
+          "description": "NodeErrorCnt - nodes with extraction errors",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "nodeInUseCnt": {
+          "description": "NodeInUseCnt - nodes with cache mounted by pods",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "nodeNotInUseCnt": {
+          "description": "NodeNotInUseCnt - nodes with cache extracted but not mounted",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        }
+      }
+    },
+    "v1alpha1.CacheNodeCacheInfo": {
+      "description": "CacheNodeCacheInfo tracks full cache information and status on one node Combines cache identity (name/namespace/image/digest) with extraction state Agent populates all fields by watching KernelCache CRs and tracking extraction jobs",
+      "type": "object",
+      "required": [
+        "name",
+        "namespace",
+        "image"
+      ],
+      "properties": {
+        "compatibleGPUs": {
+          "description": "GPU compatibility (from MCV validation during extraction) Lists GPU IDs that are compatible/incompatible with this cache",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          }
+        },
+        "digest": {
+          "type": "string"
+        },
+        "image": {
+          "type": "string",
+          "default": ""
+        },
+        "incompatibleGPUs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          }
+        },
+        "lastUpdate": {
+          "description": "LastUpdate timestamp",
+          "$ref": "#/definitions/v1.Time"
+        },
+        "message": {
+          "description": "Message provides details about current state (e.g., error messages)",
+          "type": "string"
+        },
+        "name": {
+          "description": "Cache identity (agent reads from KernelCache CR)",
+          "type": "string",
+          "default": ""
+        },
+        "namespace": {
+          "type": "string",
+          "default": ""
+        },
+        "servingNamespaces": {
+          "description": "Serving PVC usage on this node (per-namespace counts)",
+          "type": "object",
+          "additionalProperties": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.NamespaceServingCounts"
+          }
+        },
+        "state": {
+          "description": "State represents this cache's state on this specific node",
+          "type": "string"
+        }
+      }
+    },
     "v1alpha1.ClusterServingRuntime": {
       "description": "ClusterServingRuntime is the Schema for the servingruntimes API",
       "type": "object",
@@ -141,6 +241,101 @@
         "metadata": {
           "default": {},
           "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.CreateKernelCacheConfig": {
+      "description": "CreateKernelCacheConfig controls auto-creation of KernelCache after successful capture",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Enabled controls whether to auto-create KernelCache",
+          "type": "boolean"
+        },
+        "mountType": {
+          "description": "MountType for the auto-created KernelCache",
+          "type": "string"
+        },
+        "name": {
+          "description": "Name for the auto-created KernelCache (defaults to KCC name)",
+          "type": "string"
+        },
+        "pullSecretRef": {
+          "description": "PullSecretRef for pulling the captured image (can differ from push secret)",
+          "$ref": "#/definitions/v1.LocalObjectReference"
+        }
+      }
+    },
+    "v1alpha1.GPUCompatibilitySummary": {
+      "description": "GPUCompatibilitySummary aggregates GPU compatibility across all nodes",
+      "type": "object",
+      "required": [
+        "totalCompatibleGPUs",
+        "totalIncompatibleGPUs"
+      ],
+      "properties": {
+        "compatibleTypes": {
+          "description": "GPU types this cache is compatible with (from all nodes)",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "incompatibleTypes": {
+          "description": "GPU types this cache is incompatible with",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "totalCompatibleGPUs": {
+          "description": "Total compatible GPU count across all nodes",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "totalIncompatibleGPUs": {
+          "description": "Total incompatible GPU count",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        }
+      }
+    },
+    "v1alpha1.GPUTypeInfo": {
+      "description": "GPUTypeInfo describes GPU hardware on a node",
+      "type": "object",
+      "required": [
+        "gpuType",
+        "ids"
+      ],
+      "properties": {
+        "cudaVersion": {
+          "description": "CUDA or ROCm version",
+          "type": "string"
+        },
+        "driverVersion": {
+          "description": "Driver version for this GPU type",
+          "type": "string"
+        },
+        "gpuType": {
+          "description": "GPU type identifier (from MCV detection) Examples: \"Aldebaran/MI200\", \"nvidia-a100-80gb\"",
+          "type": "string",
+          "default": ""
+        },
+        "ids": {
+          "description": "GPU device IDs for this type (0-indexed) Example: [0, 1, 2, 3] means GPUs 0-3 are this type Supports heterogeneous nodes with mixed GPU types",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32",
+            "default": 0
+          }
+        },
+        "rocmVersion": {
+          "type": "string"
         }
       }
     },
@@ -415,6 +610,356 @@
         },
         "serviceUrl": {
           "description": "InferenceService URL, mutually exclusive with ServiceName",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha1.KernelCache": {
+      "description": "KernelCache packages GPU kernel caches (PyTorch, Triton, vLLM JIT-compiled kernels) into OCI images and extracts them to PVCs for accelerated workload startup.",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheStatus"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheCapture": {
+      "description": "KernelCacheCapture captures JIT-compiled kernel caches from running InferenceServices and packages them as OCI images for reuse in other deployments.",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheCaptureSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheCaptureStatus"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheCaptureSpec": {
+      "description": "KernelCacheCaptureSpec defines the desired state of KernelCacheCapture",
+      "type": "object",
+      "required": [
+        "targetImage"
+      ],
+      "properties": {
+        "cachePath": {
+          "description": "CachePath specifies an explicit cache directory path Overrides CachePreset if both are specified",
+          "type": "string"
+        },
+        "cachePreset": {
+          "description": "CachePreset specifies a known cache location preset (vllm, tgi, triton-python) Mutually exclusive with CachePath",
+          "type": "string"
+        },
+        "createKernelCache": {
+          "description": "CreateKernelCache controls auto-creation of KernelCache CR",
+          "$ref": "#/definitions/v1alpha1.CreateKernelCacheConfig"
+        },
+        "registrySecretRef": {
+          "description": "RegistrySecretRef references a Secret containing registry push credentials Optional for insecure/unauthenticated registries (e.g., kind-registry, localhost)",
+          "$ref": "#/definitions/v1alpha1.SecretKeySelector"
+        },
+        "targetImage": {
+          "description": "TargetImage is the OCI image URL where captured cache will be pushed",
+          "type": "string",
+          "default": ""
+        },
+        "trigger": {
+          "description": "Trigger initiates the cache capture when set to true",
+          "type": "boolean"
+        },
+        "volumeStrategy": {
+          "description": "VolumeStrategy specifies how to access the cache shared: inject shared emptyDir volume (default) copy: use kubectl cp to copy cache from main container",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheCaptureStatus": {
+      "description": "KernelCacheCaptureStatus defines the observed state of KernelCacheCapture",
+      "type": "object",
+      "properties": {
+        "capturedAt": {
+          "description": "CapturedAt is the timestamp when capture completed",
+          "$ref": "#/definitions/v1.Time"
+        },
+        "capturedCacheSizeBytes": {
+          "description": "CapturedCacheSizeBytes is the size of the captured cache in bytes",
+          "type": "integer",
+          "format": "int64"
+        },
+        "conditions": {
+          "description": "Conditions represent the latest available observations",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.Condition"
+          },
+          "x-kubernetes-patch-merge-key": "type",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "detectedCachePath": {
+          "description": "DetectedCachePath is the resolved cache path used for capture",
+          "type": "string"
+        },
+        "imageDigest": {
+          "description": "ImageDigest is the sha256 digest of the captured image",
+          "type": "string"
+        },
+        "kernelCacheRef": {
+          "description": "KernelCacheRef references the auto-created KernelCache",
+          "$ref": "#/definitions/v1alpha1.NamespacedName"
+        },
+        "phase": {
+          "description": "Phase indicates current state of the capture",
+          "type": "string"
+        },
+        "podName": {
+          "description": "PodName is the pod from which cache was captured",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheList": {
+      "description": "KernelCacheList contains a list of KernelCache",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.KernelCache"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheNode": {
+      "description": "KernelCacheNode tracks per-node kernel cache extraction status. Operator-created CRD pattern uses Status only (no Spec). Cluster-scoped like LocalModelNode - one per physical node, tracks caches from all namespaces.",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "status": {
+          "description": "Spec removed - operator-created CRD pattern uses Status only",
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheNodeStatus"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheNodeList": {
+      "description": "KernelCacheNodeList contains a list of KernelCacheNode",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.KernelCacheNode"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheNodeStatus": {
+      "description": "KernelCacheNodeStatus defines per-node extraction and GPU compatibility status Agent owns all writes to this structure",
+      "type": "object",
+      "required": [
+        "nodeName"
+      ],
+      "properties": {
+        "cacheStatus": {
+          "description": "CacheStatus maps cache name (unique within namespace) to full cache info and status Agent discovers caches by watching KernelCache CRs and populates this map Key format: \"{namespace}/{name}\" for uniqueness across namespaces",
+          "type": "object",
+          "additionalProperties": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.CacheNodeCacheInfo"
+          }
+        },
+        "counts": {
+          "description": "Aggregate counts across all caches on this node (for kubectl get display)",
+          "$ref": "#/definitions/v1alpha1.NodeCacheCounts"
+        },
+        "gpuInfo": {
+          "description": "GPU info: list of GPU types detected on this node (from MCV) Can be empty (CPU-only node) or heterogeneous (mixed GPU types)",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.GPUTypeInfo"
+          }
+        },
+        "nodeName": {
+          "description": "NodeName is the Kubernetes node this tracks",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "v1alpha1.KernelCachePodTemplate": {
+      "description": "KernelCachePodTemplate customizes extraction Job pods",
+      "type": "object",
+      "properties": {
+        "nodeSelector": {
+          "description": "NodeSelector for extraction Jobs",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "priorityClassName": {
+          "description": "PriorityClassName for extraction Jobs",
+          "type": "string"
+        },
+        "tolerations": {
+          "description": "Tolerations for extraction Jobs",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.Toleration"
+          }
+        }
+      }
+    },
+    "v1alpha1.KernelCacheSpec": {
+      "description": "KernelCacheSpec defines the desired state of KernelCache",
+      "type": "object",
+      "required": [
+        "image"
+      ],
+      "properties": {
+        "accessModes": {
+          "description": "AccessModes for PV/PVC (only used when mountType=pvc)",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "image": {
+          "description": "Image is the OCI image URL containing kernel cache",
+          "type": "string",
+          "default": ""
+        },
+        "imagePullPolicy": {
+          "description": "ImagePullPolicy for pulling the cache image specified in spec.image. For imageVolume mode: controls when Kubernetes pulls the image for volume mounting. For pvc mode: controls when the extraction job pulls the image to extract.",
+          "type": "string"
+        },
+        "mountPath": {
+          "description": "MountPath in the container filesystem where the cache should be mounted. If empty (recommended), automatically computed from OCI image labels to maintain framework compatibility. The webhook determines the optimal mount path based on labels like io.kserve.km/cache-root-env.\n\nOverride only when automatic detection is insufficient. When set, SubPath within the volume (PVC or OCI image) is still auto-computed from labels.\n\nExample: \"/custom/cache/location\" mounts the cache at this path instead of the label-derived path.",
+          "type": "string"
+        },
+        "mountType": {
+          "description": "MountType specifies how to mount the cache (pvc or imageVolume)",
+          "type": "string"
+        },
+        "podTemplate": {
+          "description": "PodTemplate for extraction Job customization (only used when mountType=pvc)",
+          "$ref": "#/definitions/v1alpha1.KernelCachePodTemplate"
+        },
+        "storageClassName": {
+          "description": "StorageClassName for PV/PVC (only used when mountType=pvc)",
+          "type": "string"
+        },
+        "storageSize": {
+          "description": "StorageSize for PV/PVC (only used when mountType=pvc)",
+          "$ref": "#/definitions/resource.Quantity"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheStatus": {
+      "description": "KernelCacheStatus defines the observed state of KernelCache",
+      "type": "object",
+      "properties": {
+        "counts": {
+          "description": "Counts tracks aggregate node and pod counts for state calculation",
+          "$ref": "#/definitions/v1alpha1.CacheCounts"
+        },
+        "gpuCompatibility": {
+          "description": "GPU compatibility summary (aggregate from all nodes)",
+          "$ref": "#/definitions/v1alpha1.GPUCompatibilitySummary"
+        },
+        "mountType": {
+          "description": "MountType tracks the active mount type (pvc or imageVolume) Reflects the spec.mountType value for observability",
+          "type": "string"
+        },
+        "resolvedDigest": {
+          "description": "ResolvedDigest is the image digest (sha256:...) resolved by mutating webhook This field is immutable once set - copied from annotation on first reconcile Controller ALWAYS uses this field (not annotation) to prevent tampering",
+          "type": "string"
+        },
+        "servingStatus": {
+          "description": "Serving PVC usage (aggregate across all nodes/namespaces)",
+          "$ref": "#/definitions/v1alpha1.ServingStatus"
+        },
+        "state": {
+          "description": "State represents overall cache state across all nodes Hierarchy: Error \u003e Running \u003e Extracted \u003e Downloading \u003e Pending",
           "type": "string"
         }
       }
@@ -893,6 +1438,92 @@
         }
       }
     },
+    "v1alpha1.NamespaceServingCounts": {
+      "description": "NamespaceServingCounts tracks pod usage per namespace",
+      "type": "object",
+      "required": [
+        "podsUsing",
+        "podsReady",
+        "podsTerminating"
+      ],
+      "properties": {
+        "podsReady": {
+          "description": "Total pods mounting cache in this namespace",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "podsTerminating": {
+          "description": "Pods in Ready state",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "podsUsing": {
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        }
+      }
+    },
+    "v1alpha1.NodeCacheCounts": {
+      "description": "NodeCacheCounts aggregates cache and pod counts across all caches on a node",
+      "type": "object",
+      "required": [
+        "cachesInUse",
+        "cachesNotInUse",
+        "cachesError",
+        "totalPodsUsing",
+        "totalPodsTerminating"
+      ],
+      "properties": {
+        "cachesError": {
+          "description": "CachesError - caches in Error state",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "cachesInUse": {
+          "description": "CachesInUse - caches in Running state (mounted by pods)",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "cachesNotInUse": {
+          "description": "CachesNotInUse - caches in Extracted state (available but not mounted)",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "totalPodsTerminating": {
+          "description": "TotalPodsTerminating - total pods terminating",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "totalPodsUsing": {
+          "description": "TotalPodsUsing - total pods using any cache on this node (any phase)",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        }
+      }
+    },
+    "v1alpha1.SecretKeySelector": {
+      "description": "SecretKeySelector references a key in a Secret",
+      "type": "object",
+      "properties": {
+        "key": {
+          "description": "Key in the secret (defaults to .dockerconfigjson)",
+          "type": "string"
+        },
+        "name": {
+          "description": "Name of the secret",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
     "v1alpha1.ServingRuntime": {
       "description": "ServingRuntime is the Schema for the servingruntimes API",
       "type": "object",
@@ -1196,6 +1827,50 @@
     "v1alpha1.ServingRuntimeStatus": {
       "description": "ServingRuntimeStatus defines the observed state of ServingRuntime",
       "type": "object"
+    },
+    "v1alpha1.ServingStatus": {
+      "description": "ServingStatus tracks serving PVC usage across namespaces",
+      "type": "object",
+      "required": [
+        "totalNamespaces",
+        "totalPodsUsing",
+        "totalPodsReady",
+        "totalPodsTerminating"
+      ],
+      "properties": {
+        "namespaceCounts": {
+          "description": "Per-namespace breakdown (for debugging)",
+          "type": "object",
+          "additionalProperties": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.NamespaceServingCounts"
+          }
+        },
+        "totalNamespaces": {
+          "description": "Aggregate counts across all nodes/namespaces",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "totalPodsReady": {
+          "description": "Total pods using cache (any phase)",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "totalPodsTerminating": {
+          "description": "Total ready pods",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "totalPodsUsing": {
+          "description": "Namespaces with serving PVCs",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        }
+      }
     },
     "v1alpha1.StorageContainerSpec": {
       "description": "StorageContainerSpec defines the container spec for the storage initializer init container, and the protocols it supports.",
@@ -3889,6 +4564,50 @@
         },
         "urlScheme": {
           "type": "string"
+        }
+      }
+    },
+    "v1beta1.KernelCacheConfig": {
+      "type": "object",
+      "required": [
+        "enabled",
+        "jobNamespace"
+      ],
+      "properties": {
+        "allowUnsigned": {
+          "type": "boolean"
+        },
+        "captureImage": {
+          "type": "string"
+        },
+        "enablePermissionInitContainer": {
+          "type": "boolean"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "extractImage": {
+          "type": "string"
+        },
+        "fsGroup": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "jobNamespace": {
+          "type": "string",
+          "default": ""
+        },
+        "jobTTLSecondsAfterFinished": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "noGPU": {
+          "type": "boolean"
+        },
+        "reconcileIntervalSeconds": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
