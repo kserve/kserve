@@ -158,7 +158,7 @@ schedulingProfiles:
 						Containers: []corev1.Container{
 							{
 								Name:  "main",
-								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
+								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.10.0",
 								Args: []string{
 									"--config-text",
 									"existing-config-from-template",
@@ -482,8 +482,7 @@ schedulingProfiles:
 			// Verify P/D config (should contain prefill-filter, decode-filter, disagg-profile-handler, etc.)
 			configText, found := getSchedulerConfigText(expectedDeployment)
 			Expect(found).To(BeTrue(), "Expected P/D config in scheduler deployment")
-			// P/D config should contain these plugins (using new v0.7.0 names)
-			Expect(configText).To(ContainSubstring("disagg-headers-handler"))
+			// P/D config should contain these plugins
 			Expect(configText).To(ContainSubstring("prefill-filter"))
 			Expect(configText).To(ContainSubstring("decode-filter"))
 			Expect(configText).To(ContainSubstring("disagg-profile-handler"))
@@ -910,7 +909,7 @@ schedulingProfiles:
 						Containers: []corev1.Container{
 							{
 								Name:  "main",
-								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
+								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.10.0",
 								Args: []string{
 									"--ha-enable-leader-election",
 									"--poolName",
@@ -1681,8 +1680,10 @@ schedulingProfiles:
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
 				g.Expect(configText).NotTo(ContainSubstring("blockSizeTokens"))
-				g.Expect(configText).NotTo(ContainSubstring("parameters"))
 				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+				hasParams, err := pluginHasParameters(configText, "prefix-cache-scorer")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(hasParams).To(BeFalse(), "prefix-cache-scorer should have no parameters after removing deprecated blockSizeTokens")
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -1974,6 +1975,24 @@ func pluginTypesFromConfig(configText string) ([]string, error) {
 		pluginTypes[i] = p.Type
 	}
 	return pluginTypes, nil
+}
+
+func pluginHasParameters(configText, pluginType string) (bool, error) {
+	var parsed struct {
+		Plugins []struct {
+			Type       string                 `json:"type"`
+			Parameters map[string]interface{} `json:"parameters,omitempty"`
+		} `json:"plugins"`
+	}
+	if err := yaml.Unmarshal([]byte(configText), &parsed); err != nil {
+		return false, err
+	}
+	for _, p := range parsed.Plugins {
+		if p.Type == pluginType {
+			return len(p.Parameters) > 0, nil
+		}
+	}
+	return false, fmt.Errorf("plugin %q not found", pluginType)
 }
 
 // assertPipelineOrder verifies that the 3-plugin pipeline appears in the

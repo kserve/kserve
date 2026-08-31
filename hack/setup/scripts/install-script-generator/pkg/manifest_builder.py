@@ -100,48 +100,68 @@ def filter_out_crds(manifest: str) -> str:
     return YAML_SEPARATOR.join(filtered_documents)
 
 
-def get_llmisvc_value(config: dict[str, Any], components: list[dict[str, Any]]) -> str:
-    """Extract ENABLE_LLMISVC value from definition config.
+def _get_component_env_value(
+    config: dict[str, Any],
+    components: list[dict[str, Any]],
+    env_key: str,
+    default: str = "false",
+) -> str:
+    """Extract a single env value from definition config.
 
     Priority:
-    1. kserve-helm component env
-    2. kserve-kustomize component env
-    3. GLOBAL_ENV
-    4. Default: "false"
+    1. kserve-helm / kserve-kustomize component env (first match wins)
+    2. GLOBAL_ENV
+    3. default
+
+    Args:
+        config: Parsed definition config
+        components: List of component configs
+        env_key: Environment variable name to resolve
+        default: Default value if not found
+
+    Returns:
+        Normalized boolean string ("true" or "false")
+    """
+    for comp in components:
+        comp_name = comp.get("name", "")
+        if comp_name in ["kserve-helm", "kserve-kustomize"]:
+            comp_env = comp.get("env", {})
+            if env_key in comp_env:
+                return to_bool_string(comp_env[env_key])
+
+    global_env = config.get("global_env", {})
+    if env_key in global_env:
+        return to_bool_string(global_env[env_key])
+
+    return default
+
+
+def get_embed_component_values(
+    config: dict[str, Any], components: list[dict[str, Any]]
+) -> tuple[str, str]:
+    """Extract ENABLE_LLMISVC and ENABLE_LOCALMODEL from definition config.
 
     Args:
         config: Parsed definition config
         components: List of component configs
 
     Returns:
-        ENABLE_LLMISVC value ("true" or "false")
+        Tuple of (ENABLE_LLMISVC, ENABLE_LOCALMODEL) as "true" or "false"
     """
-    # Check kserve-helm or kserve-kustomize component env first (priority order)
-    for comp in components:
-        comp_name = comp.get("name", "")
-        if comp_name in ["kserve-helm", "kserve-kustomize"]:
-            comp_env = comp.get("env", {})
-            if "ENABLE_LLMISVC" in comp_env:
-                # Found in component env - use it and stop (first match wins)
-                return to_bool_string(comp_env["ENABLE_LLMISVC"])
-
-    # If not found in any component, check GLOBAL_ENV
-    global_env = config.get("global_env", {})
-    if "ENABLE_LLMISVC" in global_env:
-        return to_bool_string(global_env["ENABLE_LLMISVC"])
-
-    # Default
-    return "false"
+    llmisvc = _get_component_env_value(config, components, "ENABLE_LLMISVC")
+    localmodel = _get_component_env_value(config, components, "ENABLE_LOCALMODEL")
+    return llmisvc, localmodel
 
 
 def select_kserve_directories(
-    repo_root: Path, llmisvc: str
+    repo_root: Path, llmisvc: str, localmodel: str
 ) -> tuple[list[Path], list[Path]]:
     """Select KServe CRD and config directories based on ENABLE_LLMISVC.
 
     Args:
         repo_root: Repository root path
         llmisvc: ENABLE_LLMISVC value ("true" or "false")
+        localmodel: ENABLE_LOCALMODEL value ("true" or "false")
 
     Returns:
         Tuple of (crd_dirs, config_dirs)
@@ -152,6 +172,9 @@ def select_kserve_directories(
             repo_root / "config/crd/full/llmisvc",
         ]
         config_dirs = [repo_root / "config/overlays/standalone/llmisvc"]
+    elif localmodel == "true":
+        crd_dirs = [repo_root / "config/crd/full/localmodel"]
+        config_dirs = [repo_root / "config/overlays/addons/localmodel"]
     else:
         crd_dirs = [repo_root / "config/crd/full"]
         config_dirs = [repo_root / "config/overlays/standalone/kserve"]
@@ -172,8 +195,8 @@ def build_kserve_manifests(
     Returns:
         Tuple of (crd_manifest, core_manifest, runtime_manifest, llmisvcconfig_manifest)
     """
-    llmisvc = get_llmisvc_value(config, components)
-    crd_dirs, config_dirs = select_kserve_directories(repo_root, llmisvc)
+    llmisvc, localmodel = get_embed_component_values(config, components)
+    crd_dirs, config_dirs = select_kserve_directories(repo_root, llmisvc, localmodel)
 
     # Build CRD manifests from all CRD directories
     crd_manifests = []

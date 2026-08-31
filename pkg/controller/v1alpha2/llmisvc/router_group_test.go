@@ -186,50 +186,6 @@ func TestFilterEligibleMembers(t *testing.T) {
 	})
 }
 
-func TestIsGroupRoute(t *testing.T) {
-	tests := []struct {
-		name  string
-		route *gwapiv1.HTTPRoute
-		want  bool
-	}{
-		{
-			name:  "nil route",
-			route: nil,
-			want:  false,
-		},
-		{
-			name:  "no labels",
-			route: &gwapiv1.HTTPRoute{},
-			want:  false,
-		},
-		{
-			name: "no group label",
-			route: &gwapiv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"other": "label"},
-				},
-			},
-			want: false,
-		},
-		{
-			name: "has group label",
-			route: &gwapiv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						constants.LLMRoutingGroupLabelKey: "llama-70b",
-					},
-				},
-			},
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, isGroupRoute(tt.route))
-		})
-	}
-}
-
 func TestUpdateGroupStatus(t *testing.T) {
 	t.Run("populates group status from resolved members", func(t *testing.T) {
 		llmSvc := &v1alpha2.LLMInferenceService{
@@ -554,6 +510,42 @@ func TestTrafficFieldsChanged(t *testing.T) {
 			new: func() *v1alpha2.LLMInferenceService {
 				s := routableMember("v1", "g", 9, now)
 				s.Status.Workloads.Primary.ReadyReplicas = ptr.To(int32(3))
+				return &s
+			}(),
+			want: false,
+		},
+		{
+			name: "status addresses model names changed",
+			old: func() *v1alpha2.LLMInferenceService {
+				s := memberSvc("v1", "g", 9, false, now)
+				s.Status.Addresses = []v1alpha2.SourcedAddress{{
+					Models: []v1alpha2.ModelSourcedAddressStatus{{Name: "model-beta"}},
+				}}
+				return &s
+			}(),
+			new: func() *v1alpha2.LLMInferenceService {
+				s := memberSvc("v1", "g", 9, false, now)
+				s.Status.Addresses = []v1alpha2.SourcedAddress{{
+					Models: []v1alpha2.ModelSourcedAddressStatus{{Name: "model-alpha"}},
+				}}
+				return &s
+			}(),
+			want: true,
+		},
+		{
+			name: "status addresses model names unchanged",
+			old: func() *v1alpha2.LLMInferenceService {
+				s := memberSvc("v1", "g", 9, false, now)
+				s.Status.Addresses = []v1alpha2.SourcedAddress{{
+					Models: []v1alpha2.ModelSourcedAddressStatus{{Name: "model-alpha"}},
+				}}
+				return &s
+			}(),
+			new: func() *v1alpha2.LLMInferenceService {
+				s := memberSvc("v1", "g", 9, false, now)
+				s.Status.Addresses = []v1alpha2.SourcedAddress{{
+					Models: []v1alpha2.ModelSourcedAddressStatus{{Name: "model-alpha"}},
+				}}
 				return &s
 			}(),
 			want: false,

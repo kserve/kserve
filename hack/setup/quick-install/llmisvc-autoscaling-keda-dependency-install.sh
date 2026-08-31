@@ -642,6 +642,7 @@ HELM_DOCS_VERSION=v1.12.0
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
 RUFF_VERSION=0.14.13
+SHELLCHECK_VERSION=v0.11.0
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
@@ -653,15 +654,15 @@ KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
 JAEGER_VERSION=4.7.0
-KSERVE_VERSION=v0.20.0-rc0
+KSERVE_VERSION=v0.20.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.18.0
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.5.0
-LLMD_ROUTER_VERSION=v0.9.0
-WVA_VERSION=v0.8.0
+LLMD_ROUTER_VERSION=v0.10.0
+WVA_VERSION=v0.9.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -952,7 +953,6 @@ uninstall_wva_kustomize() {
     kubectl delete clusterrole -l app.kubernetes.io/name=workload-variant-autoscaler 2>/dev/null || true
     kubectl delete clusterrolebinding -l app.kubernetes.io/name=workload-variant-autoscaler 2>/dev/null || true
     kubectl delete namespace "${WVA_NAMESPACE}" --wait=true --timeout=60s --force --grace-period=0 2>/dev/null || true
-    kubectl delete crd variantautoscalings.llmd.ai 2>/dev/null || true
 
     log_success "WVA uninstalled"
 }
@@ -971,12 +971,6 @@ install_wva_kustomize() {
     local wva_version="${WVA_VERSION}"
 
     log_info "Installing WVA ${wva_version} via Kustomize..."
-
-    # WVA's controller requires the VariantAutoscaling CRD registered for its
-    # internal informers, even though KServe no longer creates VA instances.
-    log_info "Installing WVA CRDs..."
-    kubectl apply --server-side --force-conflicts \
-        -k "${WVA_REPO_URL}/config/base/crd?ref=${wva_version}"
 
     local tmp_overlay
     tmp_overlay=$(mktemp -d)

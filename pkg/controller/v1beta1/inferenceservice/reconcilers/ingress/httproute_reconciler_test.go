@@ -3461,3 +3461,396 @@ func TestCreateRawPredictorHTTPRouteDisableTimeout(t *testing.T) {
 		}
 	})
 }
+
+func TestApplyCanaryWeights(t *testing.T) {
+	t.Run("single canary ready", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "default"},
+			Spec: v1beta1.InferenceServiceSpec{
+				Canary: []v1beta1.CanarySpec{
+					{
+						TrafficPercent: 20,
+						Predictor:      v1beta1.PredictorSpec{Name: "v2"},
+					},
+				},
+			},
+			Status: v1beta1.InferenceServiceStatus{
+				CanaryStatuses: []v1beta1.CanaryStatus{
+					{Name: "v2", Ready: true, TrafficPercent: 20},
+				},
+			},
+		}
+		httpRoute := &gwapiv1.HTTPRoute{
+			Spec: gwapiv1.HTTPRouteSpec{
+				Rules: []gwapiv1.HTTPRouteRule{
+					{
+						BackendRefs: []gwapiv1.HTTPBackendRef{
+							{
+								BackendRef: gwapiv1.BackendRef{
+									BackendObjectReference: gwapiv1.BackendObjectReference{
+										Kind:      ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+										Name:      "my-model-predictor",
+										Namespace: (*gwapiv1.Namespace)(ptr.To("default")),
+										Port:      ptr.To(int32(80)),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		applyCanaryWeights(isvc, httpRoute)
+
+		backends := httpRoute.Spec.Rules[0].BackendRefs
+		g.Expect(backends).To(HaveLen(2))
+		g.Expect(*backends[0].Weight).To(Equal(int32(80)))
+		g.Expect(string(backends[0].Name)).To(Equal("my-model-predictor"))
+		g.Expect(*backends[1].Weight).To(Equal(int32(20)))
+		g.Expect(string(backends[1].Name)).To(Equal("my-model-v2-predictor"))
+	})
+
+	t.Run("multiple canaries all ready", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "default"},
+			Spec: v1beta1.InferenceServiceSpec{
+				Canary: []v1beta1.CanarySpec{
+					{TrafficPercent: 20, Predictor: v1beta1.PredictorSpec{Name: "v2"}},
+					{TrafficPercent: 30, Predictor: v1beta1.PredictorSpec{Name: "v3"}},
+				},
+			},
+			Status: v1beta1.InferenceServiceStatus{
+				CanaryStatuses: []v1beta1.CanaryStatus{
+					{Name: "v2", Ready: true, TrafficPercent: 20},
+					{Name: "v3", Ready: true, TrafficPercent: 30},
+				},
+			},
+		}
+		httpRoute := &gwapiv1.HTTPRoute{
+			Spec: gwapiv1.HTTPRouteSpec{
+				Rules: []gwapiv1.HTTPRouteRule{
+					{
+						BackendRefs: []gwapiv1.HTTPBackendRef{
+							{BackendRef: gwapiv1.BackendRef{
+								BackendObjectReference: gwapiv1.BackendObjectReference{
+									Kind: ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+									Name: "my-model-predictor",
+									Port: ptr.To(int32(80)),
+								},
+							}},
+						},
+					},
+				},
+			},
+		}
+
+		applyCanaryWeights(isvc, httpRoute)
+
+		backends := httpRoute.Spec.Rules[0].BackendRefs
+		g.Expect(backends).To(HaveLen(3))
+		g.Expect(*backends[0].Weight).To(Equal(int32(50)))
+		g.Expect(*backends[1].Weight).To(Equal(int32(20)))
+		g.Expect(string(backends[1].Name)).To(Equal("my-model-v2-predictor"))
+		g.Expect(*backends[2].Weight).To(Equal(int32(30)))
+		g.Expect(string(backends[2].Name)).To(Equal("my-model-v3-predictor"))
+	})
+
+	t.Run("dual-protocol rules all ready", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "default"},
+			Spec: v1beta1.InferenceServiceSpec{
+				Canary: []v1beta1.CanarySpec{
+					{TrafficPercent: 25, Predictor: v1beta1.PredictorSpec{Name: "v2"}},
+				},
+			},
+			Status: v1beta1.InferenceServiceStatus{
+				CanaryStatuses: []v1beta1.CanaryStatus{
+					{Name: "v2", Ready: true, TrafficPercent: 25},
+				},
+			},
+		}
+		httpRoute := &gwapiv1.HTTPRoute{
+			Spec: gwapiv1.HTTPRouteSpec{
+				Rules: []gwapiv1.HTTPRouteRule{
+					{BackendRefs: []gwapiv1.HTTPBackendRef{
+						{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+							Name: "my-model-predictor", Port: ptr.To(int32(9090)),
+						}}},
+					}},
+					{BackendRefs: []gwapiv1.HTTPBackendRef{
+						{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+							Name: "my-model-predictor", Port: ptr.To(int32(80)),
+						}}},
+					}},
+				},
+			},
+		}
+
+		applyCanaryWeights(isvc, httpRoute)
+
+		// Both rules should get canary backends
+		for _, rule := range httpRoute.Spec.Rules {
+			g.Expect(rule.BackendRefs).To(HaveLen(2))
+			g.Expect(*rule.BackendRefs[0].Weight).To(Equal(int32(75)))
+			g.Expect(*rule.BackendRefs[1].Weight).To(Equal(int32(25)))
+		}
+	})
+
+	t.Run("skips rules with no backends", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-model"},
+			Spec: v1beta1.InferenceServiceSpec{
+				Canary: []v1beta1.CanarySpec{
+					{TrafficPercent: 10, Predictor: v1beta1.PredictorSpec{Name: "v2"}},
+				},
+			},
+			Status: v1beta1.InferenceServiceStatus{
+				CanaryStatuses: []v1beta1.CanaryStatus{
+					{Name: "v2", Ready: true, TrafficPercent: 10},
+				},
+			},
+		}
+		httpRoute := &gwapiv1.HTTPRoute{
+			Spec: gwapiv1.HTTPRouteSpec{
+				Rules: []gwapiv1.HTTPRouteRule{
+					{BackendRefs: nil},
+				},
+			},
+		}
+
+		applyCanaryWeights(isvc, httpRoute)
+		g.Expect(httpRoute.Spec.Rules[0].BackendRefs).To(BeNil())
+	})
+
+	t.Run("canary not ready - excluded from backends", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "default"},
+			Spec: v1beta1.InferenceServiceSpec{
+				Canary: []v1beta1.CanarySpec{
+					{TrafficPercent: 20, Predictor: v1beta1.PredictorSpec{Name: "v2"}},
+				},
+			},
+			Status: v1beta1.InferenceServiceStatus{
+				CanaryStatuses: []v1beta1.CanaryStatus{
+					{Name: "v2", Ready: false, TrafficPercent: 20},
+				},
+			},
+		}
+		httpRoute := &gwapiv1.HTTPRoute{
+			Spec: gwapiv1.HTTPRouteSpec{
+				Rules: []gwapiv1.HTTPRouteRule{
+					{BackendRefs: []gwapiv1.HTTPBackendRef{
+						{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+							Kind: ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+							Name: "my-model-predictor",
+							Port: ptr.To(int32(80)),
+						}}},
+					}},
+				},
+			},
+		}
+
+		applyCanaryWeights(isvc, httpRoute)
+
+		backends := httpRoute.Spec.Rules[0].BackendRefs
+		g.Expect(backends).To(HaveLen(1))
+		g.Expect(*backends[0].Weight).To(Equal(int32(100)))
+		g.Expect(string(backends[0].Name)).To(Equal("my-model-predictor"))
+	})
+
+	t.Run("mixed readiness - only ready canary gets traffic", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "default"},
+			Spec: v1beta1.InferenceServiceSpec{
+				Canary: []v1beta1.CanarySpec{
+					{TrafficPercent: 20, Predictor: v1beta1.PredictorSpec{Name: "v2"}},
+					{TrafficPercent: 30, Predictor: v1beta1.PredictorSpec{Name: "v3"}},
+				},
+			},
+			Status: v1beta1.InferenceServiceStatus{
+				CanaryStatuses: []v1beta1.CanaryStatus{
+					{Name: "v2", Ready: true, TrafficPercent: 20},
+					{Name: "v3", Ready: false, TrafficPercent: 30},
+				},
+			},
+		}
+		httpRoute := &gwapiv1.HTTPRoute{
+			Spec: gwapiv1.HTTPRouteSpec{
+				Rules: []gwapiv1.HTTPRouteRule{
+					{BackendRefs: []gwapiv1.HTTPBackendRef{
+						{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+							Kind: ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+							Name: "my-model-predictor",
+							Port: ptr.To(int32(80)),
+						}}},
+					}},
+				},
+			},
+		}
+
+		applyCanaryWeights(isvc, httpRoute)
+
+		backends := httpRoute.Spec.Rules[0].BackendRefs
+		g.Expect(backends).To(HaveLen(2))
+		g.Expect(*backends[0].Weight).To(Equal(int32(80)))
+		g.Expect(string(backends[0].Name)).To(Equal("my-model-predictor"))
+		g.Expect(*backends[1].Weight).To(Equal(int32(20)))
+		g.Expect(string(backends[1].Name)).To(Equal("my-model-v2-predictor"))
+	})
+
+	t.Run("no canary statuses - all canaries excluded", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "default"},
+			Spec: v1beta1.InferenceServiceSpec{
+				Canary: []v1beta1.CanarySpec{
+					{TrafficPercent: 20, Predictor: v1beta1.PredictorSpec{Name: "v2"}},
+				},
+			},
+		}
+		httpRoute := &gwapiv1.HTTPRoute{
+			Spec: gwapiv1.HTTPRouteSpec{
+				Rules: []gwapiv1.HTTPRouteRule{
+					{BackendRefs: []gwapiv1.HTTPBackendRef{
+						{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+							Kind: ptr.To(gwapiv1.Kind(constants.ServiceKind)),
+							Name: "my-model-predictor",
+							Port: ptr.To(int32(80)),
+						}}},
+					}},
+				},
+			},
+		}
+
+		applyCanaryWeights(isvc, httpRoute)
+
+		backends := httpRoute.Spec.Rules[0].BackendRefs
+		g.Expect(backends).To(HaveLen(1))
+		g.Expect(*backends[0].Weight).To(Equal(int32(100)))
+		g.Expect(string(backends[0].Name)).To(Equal("my-model-predictor"))
+	})
+
+	t.Run("skips explainer and transformer rules", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "my-model", Namespace: "default"},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{},
+				Canary: []v1beta1.CanarySpec{
+					{
+						Predictor:      v1beta1.PredictorSpec{Name: "v2"},
+						TrafficPercent: 20,
+					},
+				},
+			},
+			Status: v1beta1.InferenceServiceStatus{
+				CanaryStatuses: []v1beta1.CanaryStatus{
+					{Name: "v2", Ready: true, TrafficPercent: 20},
+				},
+			},
+		}
+
+		httpRoute := &gwapiv1.HTTPRoute{
+			Spec: gwapiv1.HTTPRouteSpec{
+				Rules: []gwapiv1.HTTPRouteRule{
+					{
+						BackendRefs: []gwapiv1.HTTPBackendRef{
+							{
+								BackendRef: gwapiv1.BackendRef{
+									BackendObjectReference: gwapiv1.BackendObjectReference{
+										Name: "my-model-explainer",
+										Port: ptr.To(gwapiv1.PortNumber(80)),
+									},
+								},
+							},
+						},
+					},
+					{
+						BackendRefs: []gwapiv1.HTTPBackendRef{
+							{
+								BackendRef: gwapiv1.BackendRef{
+									BackendObjectReference: gwapiv1.BackendObjectReference{
+										Name: "my-model-transformer",
+										Port: ptr.To(gwapiv1.PortNumber(80)),
+									},
+								},
+							},
+						},
+					},
+					{
+						BackendRefs: []gwapiv1.HTTPBackendRef{
+							{
+								BackendRef: gwapiv1.BackendRef{
+									BackendObjectReference: gwapiv1.BackendObjectReference{
+										Name: "my-model-predictor",
+										Port: ptr.To(gwapiv1.PortNumber(80)),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		applyCanaryWeights(isvc, httpRoute)
+
+		// Explainer rule: unchanged
+		g.Expect(httpRoute.Spec.Rules[0].BackendRefs).To(HaveLen(1))
+		g.Expect(string(httpRoute.Spec.Rules[0].BackendRefs[0].Name)).To(Equal("my-model-explainer"))
+		g.Expect(httpRoute.Spec.Rules[0].BackendRefs[0].Weight).To(BeNil())
+
+		// Transformer rule: unchanged
+		g.Expect(httpRoute.Spec.Rules[1].BackendRefs).To(HaveLen(1))
+		g.Expect(string(httpRoute.Spec.Rules[1].BackendRefs[0].Name)).To(Equal("my-model-transformer"))
+		g.Expect(httpRoute.Spec.Rules[1].BackendRefs[0].Weight).To(BeNil())
+
+		// Predictor rule: canary weights applied
+		g.Expect(httpRoute.Spec.Rules[2].BackendRefs).To(HaveLen(2))
+		g.Expect(*httpRoute.Spec.Rules[2].BackendRefs[0].Weight).To(Equal(int32(80)))
+		g.Expect(string(httpRoute.Spec.Rules[2].BackendRefs[0].Name)).To(Equal("my-model-predictor"))
+		g.Expect(*httpRoute.Spec.Rules[2].BackendRefs[1].Weight).To(Equal(int32(20)))
+		g.Expect(string(httpRoute.Spec.Rules[2].BackendRefs[1].Name)).To(Equal("my-model-v2-predictor"))
+	})
+}
+
+func TestSemanticHttpRouteEquals_BackendRefCount(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	makeRoute := func(backendCount int) *gwapiv1.HTTPRoute {
+		backends := make([]gwapiv1.HTTPBackendRef, backendCount)
+		for i := range backends {
+			w := int32(100 / backendCount) //nolint:gosec // test-only, backendCount is always small
+			backends[i] = gwapiv1.HTTPBackendRef{
+				BackendRef: gwapiv1.BackendRef{
+					BackendObjectReference: gwapiv1.BackendObjectReference{
+						Name: gwapiv1.ObjectName("svc"),
+						Port: ptr.To(int32(80)),
+					},
+					Weight: &w,
+				},
+			}
+		}
+		return &gwapiv1.HTTPRoute{
+			Spec: gwapiv1.HTTPRouteSpec{
+				Rules: []gwapiv1.HTTPRouteRule{{BackendRefs: backends}},
+			},
+		}
+	}
+
+	t.Run("different backend count is not equal", func(t *testing.T) {
+		g.Expect(semanticHttpRouteEquals(makeRoute(1), makeRoute(2))).To(BeFalse())
+	})
+
+	t.Run("same backend count is equal", func(t *testing.T) {
+		g.Expect(semanticHttpRouteEquals(makeRoute(2), makeRoute(2))).To(BeTrue())
+	})
+}

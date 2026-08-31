@@ -24,6 +24,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,6 +80,32 @@ var _ = Describe("Canary deployment controller", func() {
 		}
 	}
 
+	// markCanaryAvailable simulates the Deployment controller by setting
+	// AvailableReplicas on the canary Deployment so that the KServe controller
+	// marks the canary as Ready and reduces the stable minReplicas accordingly.
+	markCanaryAvailable := func(ctx context.Context, key types.NamespacedName) {
+		Eventually(func() error {
+			deploy := &appsv1.Deployment{}
+			if err := k8sClient.Get(ctx, key, deploy); err != nil {
+				return err
+			}
+			replicas := int32(1)
+			if deploy.Spec.Replicas != nil {
+				replicas = *deploy.Spec.Replicas
+			}
+			updated := deploy.DeepCopy()
+			updated.Status.AvailableReplicas = replicas
+			updated.Status.ReadyReplicas = replicas
+			updated.Status.Replicas = replicas
+			updated.Status.UpdatedReplicas = replicas
+			updated.Status.Conditions = []appsv1.DeploymentCondition{
+				{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+				{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+			}
+			return k8sClient.Status().Update(ctx, updated)
+		}, timeout, interval).Should(Succeed())
+	}
+
 	Context("When creating an InferenceService with a canary", func() {
 		It("Should create separate Deployments for stable and canary", func() {
 			configMap := createInferenceServiceConfigMap(configs)
@@ -94,12 +121,15 @@ var _ = Describe("Canary deployment controller", func() {
 
 			isvc := makeCanaryISVC(serviceName, "default", "s3://test/model-v1", 4,
 				[]v1beta1.CanarySpec{makeCanary("v2", 25, "s3://test/model-v2")})
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
 			stableKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceName), Namespace: "default"}
 			canaryKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceName, "v2"), Namespace: "default"}
+
+			// Mark canary as available so the controller reduces stable minReplicas.
+			markCanaryAvailable(ctx, canaryKey)
 
 			// Stable gets 3 replicas (4 - 1), canary gets 1 (25% of 4)
 			Eventually(func() int32 {
@@ -149,7 +179,7 @@ var _ = Describe("Canary deployment controller", func() {
 
 			isvc := makeCanaryISVC(serviceName, "default", "s3://test/model-v1", 4,
 				[]v1beta1.CanarySpec{makeCanary("v2", 25, "s3://test/model-v2")})
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
@@ -160,6 +190,9 @@ var _ = Describe("Canary deployment controller", func() {
 			Eventually(func() error {
 				return k8sClient.Get(ctx, canaryKey, &appsv1.Deployment{})
 			}, timeout, interval).Should(Succeed())
+
+			// Mark canary as available so the controller reduces stable minReplicas.
+			markCanaryAvailable(ctx, canaryKey)
 
 			// Bump traffic to 50%
 			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -206,7 +239,7 @@ var _ = Describe("Canary deployment controller", func() {
 
 			isvc := makeCanaryISVC(serviceName, "default", "s3://test/model-v1", 4,
 				[]v1beta1.CanarySpec{makeCanary("v2", 25, "s3://test/model-v2")})
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
@@ -270,7 +303,7 @@ var _ = Describe("Canary deployment controller", func() {
 
 			isvc := makeCanaryISVC(serviceName, "default", "s3://test/model-v1", 4,
 				[]v1beta1.CanarySpec{makeCanary("v2", 25, "s3://test/model-v2")})
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
@@ -333,13 +366,17 @@ var _ = Describe("Canary deployment controller", func() {
 					makeCanary("v2", 25, "s3://test/model-v2"),
 					makeCanary("v3", 25, "s3://test/model-v3"),
 				})
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 
 			stableKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceName), Namespace: "default"}
 			canaryV2Key := types.NamespacedName{Name: constants.PredictorServiceName(serviceName, "v2"), Namespace: "default"}
 			canaryV3Key := types.NamespacedName{Name: constants.PredictorServiceName(serviceName, "v3"), Namespace: "default"}
+
+			// Mark both canaries as available so the controller reduces stable minReplicas.
+			markCanaryAvailable(ctx, canaryV2Key)
+			markCanaryAvailable(ctx, canaryV3Key)
 
 			// 4 total: 2 stable, 1 v2 (25%), 1 v3 (25%)
 			Eventually(func() int32 {
@@ -368,6 +405,44 @@ var _ = Describe("Canary deployment controller", func() {
 		})
 	})
 
+	Context("When the canary uses an HPA autoscaler", func() {
+		It("Should set an owner reference on the canary HPA so it is garbage-collected with the ISVC", func() {
+			configMap := createInferenceServiceConfigMap(configs)
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			servingRuntime := getServingRuntime("tf-canary-hpa", "default")
+			Expect(k8sClient.Create(context.TODO(), &servingRuntime)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), &servingRuntime)
+
+			serviceName := "canary-hpa-test"
+			ctx := context.Background()
+
+			isvc := makeCanaryISVC(serviceName, "default", "s3://test/model-v1", 4,
+				[]v1beta1.CanarySpec{makeCanary("v2", 25, "s3://test/model-v2")})
+			// Use the HPA autoscaler class so an HPA is actually created for the canary.
+			isvc.Annotations = getDefaultAnnotations(constants.AutoscalerClassHPA)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			canaryHPAKey := types.NamespacedName{Name: constants.PredictorServiceName(serviceName, "v2"), Namespace: "default"}
+
+			// Wait for the canary HPA to be created.
+			actualHPA := &autoscalingv2.HorizontalPodAutoscaler{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, canaryHPAKey, actualHPA)
+			}, timeout, interval).Should(Succeed())
+
+			// The canary HPA must be owned by the InferenceService; otherwise it is
+			// orphaned and never garbage-collected when the ISVC is deleted.
+			controllerRef := metav1.GetControllerOf(actualHPA)
+			Expect(controllerRef).NotTo(BeNil(), "canary HPA has no controller owner reference (orphaned)")
+			Expect(controllerRef.Kind).To(Equal("InferenceService"))
+			Expect(controllerRef.Name).To(Equal(serviceName))
+		})
+	})
+
 	Context("When force stopping an InferenceService with canary", func() {
 		It("Should delete both stable and canary Deployments", func() {
 			configMap := createInferenceServiceConfigMap(configs)
@@ -384,7 +459,7 @@ var _ = Describe("Canary deployment controller", func() {
 
 			isvc := makeCanaryISVC(serviceName, "default", "s3://test/model-v1", 4,
 				[]v1beta1.CanarySpec{makeCanary("v2", 25, "s3://test/model-v2")})
-			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil, nil)
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
 

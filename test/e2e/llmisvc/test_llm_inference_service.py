@@ -291,6 +291,19 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
         pytest.param(
             TestCase(
                 base_refs=[
+                    "router-managed",
+                    "workload-single-cpu",
+                    "model-fb-opt-125m-oci",
+                ],
+                prompt="KServe is a",
+                payload_formatter=completions_payload,
+                response_assertion=assert_200_with_choices,
+            ),
+            marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
+        ),
+        pytest.param(
+            TestCase(
+                base_refs=[
                     "router-custom-route-timeout",
                     "scheduler-managed",
                     "workload-single-cpu",
@@ -622,6 +635,25 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 ],
                 prompt="KServe is a",
                 service_name="tokenizer-migration-path-test",
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.cluster_single_node,
+                pytest.mark.llmd_simulator,
+            ],
+        ),
+        # Same migration path, but with the legacy plugin config supplied via
+        # spec.router.scheduler.template.containers[].args instead of
+        # spec.router.scheduler.config.inline.
+        pytest.param(
+            TestCase(
+                base_refs=[
+                    "router-managed",
+                    "scheduler-with-precise-prefix-cache-template-args-config",
+                    "workload-llmd-simulator-kvcache",
+                ],
+                prompt="KServe is a",
+                service_name="tokenizer-template-args-test",
             ),
             marks=[
                 pytest.mark.cluster_cpu,

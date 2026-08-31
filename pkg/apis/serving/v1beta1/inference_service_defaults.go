@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"slices"
 	"strconv"
 
 	"google.golang.org/protobuf/proto"
@@ -37,6 +36,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/localmodelcache"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -157,7 +157,7 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 		}
 		nodeGroups = &v1alpha1.LocalModelNodeGroupList{}
 		if err := c.List(ctx, nodeGroups); err != nil {
-			mutatorLogger.Error(err, "Cannot list local model node groups")
+			mutatorLogger.Error(err, "Cannot List local model node groups")
 			return err
 		}
 	}
@@ -166,7 +166,7 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 	return nil
 }
 
-func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList, nodeGroups *v1alpha1.LocalModelNodeGroupList) {
+func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList, nodeGroups ...*v1alpha1.LocalModelNodeGroupList) {
 	deploymentMode, ok := isvc.Annotations[constants.DeploymentMode]
 
 	// Normalize deprecated annotation values
@@ -213,7 +213,11 @@ func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesC
 		}
 	}
 
-	isvc.setLocalModelLabel(models, nsModels, nodeGroups)
+	var availableNodeGroups *v1alpha1.LocalModelNodeGroupList
+	if len(nodeGroups) > 0 {
+		availableNodeGroups = nodeGroups[0]
+	}
+	isvc.setLocalModelLabel(models, nsModels, availableNodeGroups)
 	if securityConfig != nil && !securityConfig.AutoMountServiceAccountToken {
 		disableAutomountServiceAccountToken(isvc)
 	}
@@ -509,7 +513,7 @@ func deleteLocalModelMetadata(isvc *InferenceService) {
 
 // setLocalModelLabel sets local model labels on the ISVC if a matching cache exists.
 // Namespace-scoped LocalModelNamespaceCache takes precedence over cluster-scoped LocalModelCache.
-func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList, nodeGroups *v1alpha1.LocalModelNodeGroupList) {
+func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList, nodeGroups ...*v1alpha1.LocalModelNodeGroupList) {
 	var predictor ComponentImplementation
 	if predictor = isvc.Spec.Predictor.GetImplementation(); predictor == nil {
 		return
@@ -520,84 +524,20 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	isvcStorageUri := *isvc.Spec.Predictor.GetImplementation().GetStorageUri()
 	isvcNodeGroup, isvcNodeGroupExists := isvc.Annotations[constants.NodeGroupAnnotationKey]
 
-	// Build node group lookup map once
-	var ngMap map[string]*v1alpha1.LocalModelNodeGroup
-	if nodeGroups != nil {
-		ngMap = make(map[string]*v1alpha1.LocalModelNodeGroup, len(nodeGroups.Items))
-		for i := range nodeGroups.Items {
-			ngMap[nodeGroups.Items[i].Name] = &nodeGroups.Items[i]
-		}
+	var availableNodeGroups *v1alpha1.LocalModelNodeGroupList
+	if len(nodeGroups) > 0 {
+		availableNodeGroups = nodeGroups[0]
 	}
-
-	// Check namespace-scoped LocalModelNamespaceCache first (higher priority)
-	if nsModels != nil {
-		for i, nsModel := range nsModels.Items {
-			if nsModel.Spec.MatchStorageURI(isvcStorageUri) {
-				var localModelPVCName string
-				if isvcNodeGroupExists {
-					if slices.Contains(nsModel.Spec.NodeGroups, isvcNodeGroup) {
-						localModelPVCName = nsModel.Name + "-" + isvcNodeGroup
-					} else {
-						continue
-					}
-				} else {
-					ngName := selectNodeGroupForISVC(isvc, nsModel.Spec.NodeGroups, ngMap)
-					if ngName == "" {
-						mutatorLogger.Info("No compatible node group for namespace-scoped cache, skipping", "cache", nsModel.Name, "nodeGroups", nsModel.Spec.NodeGroups)
-						continue
-					}
-					localModelPVCName = nsModel.Name + "-" + ngName
-				}
-				if isvc.Labels == nil {
-					isvc.Labels = make(map[string]string)
-				}
-				if isvc.Annotations == nil {
-					isvc.Annotations = make(map[string]string)
-				}
-				isvc.Labels[constants.LocalModelLabel] = nsModels.Items[i].Name
-				isvc.Labels[constants.LocalModelNamespaceLabel] = nsModels.Items[i].Namespace
-				isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = nsModels.Items[i].Spec.SourceModelUri
-				isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModelPVCName
-
-				mutatorLogger.Info("LocalModelNamespaceCache found", "model", nsModels.Items[i].Name, "modelNamespace", nsModels.Items[i].Namespace, "isvcNamespace", isvc.Namespace, "isvc", isvc.Name)
-				return
-			}
-		}
-	}
-
-	// Fall back to cluster-scoped LocalModelCache
-	if models == nil {
-		deleteLocalModelMetadata(isvc)
-		return
-	}
-	var localModel *v1alpha1.LocalModelCache
-	var localModelPVCName string
-	for i, model := range models.Items {
-		// both storage URI and node group have to match for the isvc to be considered cached
-		if model.Spec.MatchStorageURI(isvcStorageUri) {
-			if isvcNodeGroupExists {
-				if slices.Contains(model.Spec.NodeGroups, isvcNodeGroup) {
-					// isvc has the nodegroup annotation and it's in the node groups this model is cached on
-					localModelPVCName = model.Name + "-" + isvcNodeGroup
-				} else {
-					// isvc has the nodegroup annotation, but it's not in node groups this model is cached on
-					// isvc is not considered cached in this case
-					continue
-				}
-			} else {
-				ngName := selectNodeGroupForISVC(isvc, model.Spec.NodeGroups, ngMap)
-				if ngName == "" {
-					mutatorLogger.Info("No compatible node group for cluster-scoped cache, skipping", "cache", model.Name, "nodeGroups", model.Spec.NodeGroups)
-					continue
-				}
-				localModelPVCName = model.Name + "-" + ngName
-			}
-			// found matched local model cache for isvc
-			localModel = &models.Items[i]
-			break
-		}
-	}
-	if localModel == nil {
+	match := localmodelcache.MatchCacheForURIWithNodeSelector(
+		isvcStorageUri,
+		isvcNodeGroup,
+		isvcNodeGroupExists,
+		isvc.Spec.Predictor.NodeSelector,
+		availableNodeGroups,
+		models,
+		nsModels,
+	)
+	if match == nil {
 		deleteLocalModelMetadata(isvc)
 		return
 	}
@@ -607,97 +547,14 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 	if isvc.Annotations == nil {
 		isvc.Annotations = make(map[string]string)
 	}
-	isvc.Labels[constants.LocalModelLabel] = localModel.Name
-	// Remove namespace label for cluster-scoped model (in case it was previously set)
-	delete(isvc.Labels, constants.LocalModelNamespaceLabel)
-	isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = localModel.Spec.SourceModelUri
-	isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModelPVCName
-
-	mutatorLogger.Info("LocalModelCache found", "model", localModel.Name, "namespace", isvc.Namespace, "isvc", isvc.Name)
-}
-
-// selectNodeGroupForISVC picks a compatible node group for the InferenceService workload.
-// When the workload has a nodeSelector and node group metadata is available, it finds a group
-// whose PV node affinity is compatible with the workload's scheduling constraints.
-// Returns the node group name or empty string if no compatible group is found.
-// In that case, the caller should skip local model binding rather than silently
-// picking an incompatible group.
-func selectNodeGroupForISVC(isvc *InferenceService, cacheNodeGroups []string, ngMap map[string]*v1alpha1.LocalModelNodeGroup) string {
-	if len(cacheNodeGroups) == 0 {
-		return ""
+	isvc.Labels[constants.LocalModelLabel] = match.Cache
+	if match.Namespace != "" {
+		isvc.Labels[constants.LocalModelNamespaceLabel] = match.Namespace
+	} else {
+		delete(isvc.Labels, constants.LocalModelNamespaceLabel)
 	}
+	isvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = match.SourceURI
+	isvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = match.PVCName
 
-	nodeSelector := isvc.Spec.Predictor.NodeSelector
-	if len(nodeSelector) == 0 {
-		return cacheNodeGroups[0]
-	}
-
-	if ngMap == nil {
-		return cacheNodeGroups[0]
-	}
-
-	for _, ngName := range cacheNodeGroups {
-		if ng, ok := ngMap[ngName]; ok {
-			if isNodeGroupCompatible(nodeSelector, ng.Spec.PersistentVolumeSpec) {
-				return ngName
-			}
-		}
-	}
-
-	mutatorLogger.Info("No compatible node group found for workload nodeSelector",
-		"nodeSelector", nodeSelector, "cacheNodeGroups", cacheNodeGroups)
-	return ""
-}
-
-// isNodeGroupCompatible checks if a node group's PV node affinity is compatible with the workload's nodeSelector.
-func isNodeGroupCompatible(nodeSelector map[string]string, pvSpec corev1.PersistentVolumeSpec) bool {
-	if pvSpec.NodeAffinity == nil || pvSpec.NodeAffinity.Required == nil {
-		return true
-	}
-	for _, term := range pvSpec.NodeAffinity.Required.NodeSelectorTerms {
-		if isNodeSelectorTermCompatibleForISVC(term, nodeSelector) {
-			return true
-		}
-	}
-	return false
-}
-
-func isNodeSelectorTermCompatibleForISVC(term corev1.NodeSelectorTerm, nodeSelector map[string]string) bool {
-	for _, expr := range term.MatchExpressions {
-		switch expr.Operator {
-		case corev1.NodeSelectorOpIn:
-			if val, ok := nodeSelector[expr.Key]; ok && !slices.Contains(expr.Values, val) {
-				return false
-			}
-		case corev1.NodeSelectorOpNotIn:
-			if val, ok := nodeSelector[expr.Key]; ok && slices.Contains(expr.Values, val) {
-				return false
-			}
-		case corev1.NodeSelectorOpDoesNotExist:
-			if _, ok := nodeSelector[expr.Key]; ok {
-				return false
-			}
-		case corev1.NodeSelectorOpGt:
-			if val, ok := nodeSelector[expr.Key]; ok {
-				intVal, err := strconv.Atoi(val)
-				if err == nil {
-					minVal, _ := strconv.Atoi(expr.Values[0])
-					if intVal <= minVal {
-						return false
-					}
-				}
-			}
-		case corev1.NodeSelectorOpLt:
-			if val, ok := nodeSelector[expr.Key]; ok {
-				intVal, err := strconv.Atoi(val)
-				if err == nil {
-					maxVal, _ := strconv.Atoi(expr.Values[0])
-					if intVal >= maxVal {
-						return false
-					}
-				}
-			}
-		}
-	}
-	return true
+	mutatorLogger.Info("Local model cache found", "model", match.Cache, "namespace", match.Namespace, "isvcNamespace", isvc.Namespace, "isvc", isvc.Name)
 }

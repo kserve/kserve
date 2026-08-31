@@ -224,13 +224,16 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 	if p.deploymentMode == constants.Standard {
 		rawDeployment = true
 		podLabelKey = constants.RawDeploymentAppLabel
+		// Reconcile canary first so CanaryStatuses is fresh when the stable
+		// minReplicas reduction decision is made below. This ensures the
+		// stable Deployment is not scaled down until canary pods are Ready.
+		if err := p.reconcileCanaryDeployments(ctx, isvc); err != nil {
+			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile canary deployments")
+		}
 		// This is main RawKubeReconciler to create objects (deployment, svc, scaler)
 		if err := p.reconcileRawDeployment(ctx, isvc, objectMeta, workerObjectMeta, &podSpec, workerPodSpec); err != nil {
 			isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
-		}
-		if err := p.reconcileCanaryDeployments(ctx, isvc); err != nil {
-			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile canary deployments")
 		}
 	} else {
 		var err error
@@ -792,15 +795,7 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 	}
 
 	componentExt := isvc.Spec.Predictor.ComponentExtensionSpec
-	if len(isvc.Spec.Canary) > 0 && componentExt.MinReplicas != nil {
-		var totalCanaryReplicas int32
-		for i := range isvc.Spec.Canary {
-			totalCanaryReplicas += canaryReplicaCount(isvc, &isvc.Spec.Canary[i])
-		}
-		adjusted := *componentExt.MinReplicas - totalCanaryReplicas
-		adjusted = max(adjusted, 1)
-		componentExt.MinReplicas = &adjusted
-	}
+	adjustStableMinReplicasForCanaries(isvc, &componentExt)
 
 	r, err := raw.NewRawKubeReconciler(ctx, p.client, p.clientset, p.scheme, objectMeta, workerObjectMeta, &componentExt,
 		podSpec, workerPodSpec, &isvc.Spec.Predictor.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec)
@@ -808,27 +803,7 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for predictor")
 	}
 
-	// set Workload Controller
-	if err := r.Workload.SetControllerReferences(isvc, p.scheme); err != nil {
-		return errors.Wrapf(err, "fails to set workload owner reference for predictor")
-	}
-
-	// set Service Controller
-	if err := r.Service.SetControllerReferences(isvc, p.scheme); err != nil {
-		return errors.Wrapf(err, "fails to set service owner reference for predictor")
-	}
-	// set Otel Controller
-	if r.OtelCollector != nil {
-		if err := r.OtelCollector.SetControllerReferences(isvc, p.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set otel owner references for predictor")
-		}
-	}
-	// set autoscaler Controller
-	if err := r.Scaler.Autoscaler.SetControllerReferences(isvc, p.scheme); err != nil {
-		return errors.Wrapf(err, "fails to set autoscaler owner references for predictor")
-	}
-
-	deploymentList, err := r.Reconcile(ctx)
+	deploymentList, err := r.Reconcile(ctx, isvc)
 	if err != nil {
 		return errors.Wrapf(err, "fails to reconcile predictor")
 	}
@@ -894,6 +869,36 @@ func canaryReplicaCount(isvc *v1beta1.InferenceService, canary *v1beta1.CanarySp
 	return int32(math.Ceil(float64(stableReplicas) * float64(canary.TrafficPercent) / 100))
 }
 
+// adjustStableMinReplicasForCanaries reduces the stable predictor's minReplicas
+// by the replica count of canaries that are actually Ready (as reported in
+// isvc.Status.CanaryStatuses). Not-ready canaries are not counted, so the
+// stable Deployment is not scaled down until canary pods can serve traffic.
+// This prevents a transient capacity gap during canary rollout.
+func adjustStableMinReplicasForCanaries(isvc *v1beta1.InferenceService, componentExt *v1beta1.ComponentExtensionSpec) {
+	if len(isvc.Spec.Canary) == 0 || componentExt.MinReplicas == nil {
+		return
+	}
+
+	readyMap := make(map[string]bool, len(isvc.Status.CanaryStatuses))
+	for _, cs := range isvc.Status.CanaryStatuses {
+		readyMap[cs.Name] = cs.Ready
+	}
+
+	var readyCanaryReplicas int32
+	for i := range isvc.Spec.Canary {
+		canary := &isvc.Spec.Canary[i]
+		if !readyMap[canary.Predictor.Name] {
+			continue
+		}
+		readyCanaryReplicas += canaryReplicaCount(isvc, canary)
+	}
+
+	if readyCanaryReplicas > 0 {
+		adjusted := max(*componentExt.MinReplicas-readyCanaryReplicas, 1)
+		componentExt.MinReplicas = &adjusted
+	}
+}
+
 func buildCanaryPredictor(stable v1beta1.PredictorSpec, canary v1beta1.CanarySpec, replicas int32) (v1beta1.PredictorSpec, error) {
 	canaryPredictor := *stable.DeepCopy()
 	if err := mergo.Merge(&canaryPredictor, canary.Predictor, mergo.WithOverride); err != nil {
@@ -943,14 +948,7 @@ func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta
 			return errors.Wrapf(err, "fails to create canary reconciler for %s", canary.Predictor.Name)
 		}
 
-		if err := r.Workload.SetControllerReferences(isvc, p.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set canary workload owner reference for %s", canary.Predictor.Name)
-		}
-		if err := r.Service.SetControllerReferences(isvc, p.scheme); err != nil {
-			return errors.Wrapf(err, "fails to set canary service owner reference for %s", canary.Predictor.Name)
-		}
-
-		if _, err := r.Reconcile(ctx); err != nil {
+		if _, err := r.Reconcile(ctx, isvc); err != nil {
 			return errors.Wrapf(err, "fails to reconcile canary %s", canary.Predictor.Name)
 		}
 		p.Log.Info("Reconciled canary deployment", "canary", canary.Predictor.Name, "trafficPercent", canary.TrafficPercent)

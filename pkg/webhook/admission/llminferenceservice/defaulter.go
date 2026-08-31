@@ -19,10 +19,7 @@ package llminferenceservice
 import (
 	"context"
 	"fmt"
-	"slices"
-	"strconv"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,6 +30,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/localmodelcache"
 )
 
 var defaulterLogger = logf.Log.WithName("llminferenceservice-defaulter")
@@ -180,195 +178,94 @@ func applyDefaults(
 
 // SetLocalModelLabel sets local model labels on the LLMInferenceService if a matching cache exists.
 // Namespace-scoped LocalModelNamespaceCache takes precedence over cluster-scoped LocalModelCache.
-func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList, nodeGroups *v1alpha1.LocalModelNodeGroupList) {
-	modelUri := llmSvc.Spec.Model.URI.String()
-	if modelUri == "" {
-		return
-	}
-
+// LoRA adapter URIs are matched independently and recorded in the LoRA JSON annotation.
+func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList, nodeGroups ...*v1alpha1.LocalModelNodeGroupList) {
 	isvcNodeGroup, isvcNodeGroupExists := llmSvc.Annotations[constants.NodeGroupAnnotationKey]
-
-	// Build node group lookup map once
-	var ngMap map[string]*v1alpha1.LocalModelNodeGroup
-	if nodeGroups != nil {
-		ngMap = make(map[string]*v1alpha1.LocalModelNodeGroup, len(nodeGroups.Items))
-		for i := range nodeGroups.Items {
-			ngMap[nodeGroups.Items[i].Name] = &nodeGroups.Items[i]
-		}
+	var availableNodeGroups *v1alpha1.LocalModelNodeGroupList
+	if len(nodeGroups) > 0 {
+		availableNodeGroups = nodeGroups[0]
+	}
+	var nodeSelector map[string]string
+	if llmSvc.Spec.Template != nil {
+		nodeSelector = llmSvc.Spec.Template.NodeSelector
 	}
 
-	// Check namespace-scoped LocalModelNamespaceCache first (higher priority)
-	if nsModels != nil {
-		for i, nsModel := range nsModels.Items {
-			if nsModel.Spec.MatchStorageURI(modelUri) {
-				var localModelPVCName string
-				if isvcNodeGroupExists {
-					if slices.Contains(nsModel.Spec.NodeGroups, isvcNodeGroup) {
-						localModelPVCName = nsModel.Name + "-" + isvcNodeGroup
-					} else {
-						continue
-					}
-				} else {
-					ngName := selectNodeGroupForWorkload(llmSvc, nsModel.Spec.NodeGroups, ngMap)
-					if ngName == "" {
-						defaulterLogger.Info("No compatible node group for namespace-scoped cache, skipping", "cache", nsModel.Name, "nodeGroups", nsModel.Spec.NodeGroups)
-						continue
-					}
-					localModelPVCName = nsModel.Name + "-" + ngName
-				}
-				if llmSvc.Labels == nil {
-					llmSvc.Labels = make(map[string]string)
-				}
-				if llmSvc.Annotations == nil {
-					llmSvc.Annotations = make(map[string]string)
-				}
-				llmSvc.Labels[constants.LocalModelLabel] = nsModels.Items[i].Name
-				llmSvc.Labels[constants.LocalModelNamespaceLabel] = nsModels.Items[i].Namespace
-				llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = nsModels.Items[i].Spec.SourceModelUri
-				llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModelPVCName
-
-				defaulterLogger.Info("LocalModelNamespaceCache found", "model", nsModels.Items[i].Name,
-					"modelNamespace", nsModels.Items[i].Namespace, "llmSvcNamespace", llmSvc.Namespace, "llmSvc", llmSvc.Name)
-				return
-			}
-		}
+	modelUri := llmSvc.Spec.Model.URI.String()
+	if match := localmodelcache.MatchCacheForURIWithNodeSelector(modelUri, isvcNodeGroup, isvcNodeGroupExists, nodeSelector, availableNodeGroups, models, nsModels); match != nil {
+		applyBaseLocalModelCache(llmSvc, match)
+	} else {
+		clearBaseLocalModelMetadata(llmSvc)
 	}
 
-	// Fall back to cluster-scoped LocalModelCache
-	if models == nil {
-		DeleteLocalModelMetadata(llmSvc)
-		return
-	}
-	var localModel *v1alpha1.LocalModelCache
-	var localModelPVCName string
-	for i, model := range models.Items {
-		if model.Spec.MatchStorageURI(modelUri) {
-			if isvcNodeGroupExists {
-				if slices.Contains(model.Spec.NodeGroups, isvcNodeGroup) {
-					localModelPVCName = model.Name + "-" + isvcNodeGroup
-				} else {
-					continue
-				}
-			} else {
-				ngName := selectNodeGroupForWorkload(llmSvc, model.Spec.NodeGroups, ngMap)
-				if ngName == "" {
-					defaulterLogger.Info("No compatible node group for cluster-scoped cache, skipping", "cache", model.Name, "nodeGroups", model.Spec.NodeGroups)
-					continue
-				}
-				localModelPVCName = model.Name + "-" + ngName
-			}
-			localModel = &models.Items[i]
-			break
-		}
-	}
-	if localModel == nil {
-		DeleteLocalModelMetadata(llmSvc)
-		return
-	}
+	setLoRALocalModelMetadata(llmSvc, models, nsModels, isvcNodeGroup, isvcNodeGroupExists, nodeSelector, availableNodeGroups)
+}
+
+func applyBaseLocalModelCache(llmSvc *v1alpha2.LLMInferenceService, match *localmodelcache.CacheEntry) {
 	if llmSvc.Labels == nil {
 		llmSvc.Labels = make(map[string]string)
 	}
 	if llmSvc.Annotations == nil {
 		llmSvc.Annotations = make(map[string]string)
 	}
-	llmSvc.Labels[constants.LocalModelLabel] = localModel.Name
-	// Remove namespace label for cluster-scoped model (in case it was previously set)
-	delete(llmSvc.Labels, constants.LocalModelNamespaceLabel)
-	llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = localModel.Spec.SourceModelUri
-	llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = localModelPVCName
-
-	defaulterLogger.Info("LocalModelCache found", "model", localModel.Name, "namespace", llmSvc.Namespace, "llmSvc", llmSvc.Name)
+	llmSvc.Labels[constants.LocalModelLabel] = match.Cache
+	if match.Namespace != "" {
+		llmSvc.Labels[constants.LocalModelNamespaceLabel] = match.Namespace
+		defaulterLogger.Info("LocalModelNamespaceCache found", "model", match.Cache,
+			"modelNamespace", match.Namespace, "llmSvcNamespace", llmSvc.Namespace, "llmSvc", llmSvc.Name)
+	} else {
+		delete(llmSvc.Labels, constants.LocalModelNamespaceLabel)
+		defaulterLogger.Info("LocalModelCache found", "model", match.Cache, "namespace", llmSvc.Namespace, "llmSvc", llmSvc.Name)
+	}
+	llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey] = match.SourceURI
+	llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey] = match.PVCName
 }
 
-// selectNodeGroupForWorkload picks a compatible node group for the workload.
-// When the workload has a nodeSelector and node group metadata is available, it finds a group
-// whose PV node affinity is compatible with the workload's scheduling constraints.
-// Returns the node group name or empty string if no compatible group is found.
-// In that case, the caller should skip local model binding rather than silently
-// picking an incompatible group.
-func selectNodeGroupForWorkload(llmSvc *v1alpha2.LLMInferenceService, cacheNodeGroups []string, ngMap map[string]*v1alpha1.LocalModelNodeGroup) string {
-	if len(cacheNodeGroups) == 0 {
-		return ""
+func setLoRALocalModelMetadata(
+	llmSvc *v1alpha2.LLMInferenceService,
+	models *v1alpha1.LocalModelCacheList,
+	nsModels *v1alpha1.LocalModelNamespaceCacheList,
+	nodeGroup string,
+	nodeGroupExists bool,
+	nodeSelector map[string]string,
+	nodeGroups *v1alpha1.LocalModelNodeGroupList,
+) {
+	if llmSvc.Spec.Model.LoRA == nil || len(llmSvc.Spec.Model.LoRA.Adapters) == 0 {
+		clearLoRALocalModelMetadata(llmSvc)
+		return
 	}
 
-	if llmSvc.Spec.Template == nil || len(llmSvc.Spec.Template.NodeSelector) == 0 {
-		return cacheNodeGroups[0]
-	}
-	nodeSelector := llmSvc.Spec.Template.NodeSelector
-
-	if ngMap == nil {
-		return cacheNodeGroups[0]
-	}
-
-	for _, ngName := range cacheNodeGroups {
-		if ng, ok := ngMap[ngName]; ok {
-			if isNodeGroupCompatibleWithWorkload(nodeSelector, ng.Spec.PersistentVolumeSpec) {
-				return ngName
-			}
+	entries := make(map[string]localmodelcache.CacheEntry)
+	for _, adapter := range llmSvc.Spec.Model.LoRA.Adapters {
+		if adapter.Name == nil {
+			continue
+		}
+		adapterURI := adapter.URI.String()
+		if match := localmodelcache.MatchCacheForURIWithNodeSelector(adapterURI, nodeGroup, nodeGroupExists, nodeSelector, nodeGroups, models, nsModels); match != nil {
+			// json:"-" omits sourceUri/PVC from the annotation; reconcile-time Get derives them.
+			entries[*adapter.Name] = *match
+			defaulterLogger.Info("LocalModelCache found for LoRA adapter", "adapter", *adapter.Name,
+				"cache", match.Cache, "llmSvc", llmSvc.Name)
 		}
 	}
 
-	defaulterLogger.Info("No compatible node group found for workload nodeSelector",
-		"nodeSelector", nodeSelector, "cacheNodeGroups", cacheNodeGroups)
-	return ""
+	if len(entries) == 0 {
+		clearLoRALocalModelMetadata(llmSvc)
+		return
+	}
+
+	raw, err := localmodelcache.MarshalLoRACacheAnnotation(entries)
+	if err != nil {
+		defaulterLogger.Error(err, "Failed to marshal LoRA local model cache annotation", "llmSvc", llmSvc.Name)
+		clearLoRALocalModelMetadata(llmSvc)
+		return
+	}
+	if llmSvc.Annotations == nil {
+		llmSvc.Annotations = make(map[string]string)
+	}
+	llmSvc.Annotations[constants.LocalModelLoRAAnnotationKey] = raw
 }
 
-// isNodeGroupCompatibleWithWorkload checks if a local model node group's PV node affinity
-// is compatible with the workload's nodeSelector. Returns true if no obvious conflict exists.
-func isNodeGroupCompatibleWithWorkload(nodeSelector map[string]string, pvSpec corev1.PersistentVolumeSpec) bool {
-	if pvSpec.NodeAffinity == nil || pvSpec.NodeAffinity.Required == nil {
-		return true
-	}
-	for _, term := range pvSpec.NodeAffinity.Required.NodeSelectorTerms {
-		if isTermCompatibleWithNodeSelector(term, nodeSelector) {
-			return true
-		}
-	}
-	return false
-}
-
-func isTermCompatibleWithNodeSelector(term corev1.NodeSelectorTerm, nodeSelector map[string]string) bool {
-	for _, expr := range term.MatchExpressions {
-		switch expr.Operator {
-		case corev1.NodeSelectorOpIn:
-			if val, ok := nodeSelector[expr.Key]; ok && !slices.Contains(expr.Values, val) {
-				return false
-			}
-		case corev1.NodeSelectorOpNotIn:
-			if val, ok := nodeSelector[expr.Key]; ok && slices.Contains(expr.Values, val) {
-				return false
-			}
-		case corev1.NodeSelectorOpDoesNotExist:
-			if _, ok := nodeSelector[expr.Key]; ok {
-				return false
-			}
-		case corev1.NodeSelectorOpGt:
-			if val, ok := nodeSelector[expr.Key]; ok {
-				intVal, err := strconv.Atoi(val)
-				if err == nil {
-					minVal, _ := strconv.Atoi(expr.Values[0])
-					if intVal <= minVal {
-						return false
-					}
-				}
-			}
-		case corev1.NodeSelectorOpLt:
-			if val, ok := nodeSelector[expr.Key]; ok {
-				intVal, err := strconv.Atoi(val)
-				if err == nil {
-					maxVal, _ := strconv.Atoi(expr.Values[0])
-					if intVal >= maxVal {
-						return false
-					}
-				}
-			}
-		}
-	}
-	return true
-}
-
-// DeleteLocalModelMetadata removes local model cache internal labels and annotations
-func DeleteLocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
+func clearBaseLocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
 	if llmSvc.Labels != nil {
 		delete(llmSvc.Labels, constants.LocalModelLabel)
 		delete(llmSvc.Labels, constants.LocalModelNamespaceLabel)
@@ -377,4 +274,16 @@ func DeleteLocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
 		delete(llmSvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
 		delete(llmSvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
 	}
+}
+
+func clearLoRALocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
+	if llmSvc.Annotations != nil {
+		delete(llmSvc.Annotations, constants.LocalModelLoRAAnnotationKey)
+	}
+}
+
+// DeleteLocalModelMetadata removes local model cache internal labels and annotations.
+func DeleteLocalModelMetadata(llmSvc *v1alpha2.LLMInferenceService) {
+	clearBaseLocalModelMetadata(llmSvc)
+	clearLoRALocalModelMetadata(llmSvc)
 }

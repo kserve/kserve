@@ -18,6 +18,7 @@ package raw
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -102,6 +103,14 @@ func NewRawKubeReconciler(ctx context.Context,
 	as, err := autoscaler.NewAutoscalerReconciler(client, scheme, componentMeta, componentExt, isvcConfigMap)
 	if err != nil {
 		return nil, err
+	}
+	// When KEDA is selected but the component has no autoScaling spec, the
+	// autoscaler reconciler returns a NoOpAutoscaler (no ScaledObject). Override
+	// the annotation to "none" so the deployment reconciler lets the Deployment
+	// own its own replica count instead of deferring to a non-existent scaler.
+	if _, isNoOp := as.Autoscaler.(*autoscaler.NoOpAutoscaler); isNoOp &&
+		componentMeta.Annotations[constants.AutoscalerClass] == string(constants.AutoscalerClassKeda) {
+		componentMeta.Annotations[constants.AutoscalerClass] = string(constants.AutoscalerClassNone)
 	}
 	ingressConfig, err := v1beta1.NewIngressConfig(isvcConfigMap)
 	if err != nil {
@@ -234,8 +243,32 @@ func createRawURL(ingressConfig *v1beta1.IngressConfig, metadata metav1.ObjectMe
 	return url, nil
 }
 
-// Reconcile ...
-func (r *RawKubeReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deployment, error) {
+// Reconcile stamps owner references (with owner as the controller) on every
+// desired resource and then applies them. Setting refs here rather than in each
+// caller means a component can never accidentally create an orphaned resource.
+func (r *RawKubeReconciler) Reconcile(ctx context.Context, owner metav1.Object) ([]*appsv1.Deployment, error) {
+	// Set owner references on all desired objects before applying them, so nothing
+	// is orphaned if a caller forgets a separate call. Each sub-reconciler stamps
+	// refs on its own resource type (Deployment/Rollout CR, Service, HPA, ...), so
+	// this stays polymorphic across workload types.
+	if owner == nil {
+		return nil, errors.New("owner must not be nil: raw resources would be created orphaned")
+	}
+	if err := r.Service.SetControllerReferences(owner, r.scheme); err != nil {
+		return nil, fmt.Errorf("fails to set service owner reference: %w", err)
+	}
+	if r.OtelCollector != nil {
+		if err := r.OtelCollector.SetControllerReferences(owner, r.scheme); err != nil {
+			return nil, fmt.Errorf("fails to set otel owner reference: %w", err)
+		}
+	}
+	if err := r.Workload.SetControllerReferences(owner, r.scheme); err != nil {
+		return nil, fmt.Errorf("fails to set workload owner reference: %w", err)
+	}
+	if err := r.Scaler.Autoscaler.SetControllerReferences(owner, r.scheme); err != nil {
+		return nil, fmt.Errorf("fails to set autoscaler owner reference: %w", err)
+	}
+
 	// reconcile Service first to avoid transient pod startup delays when
 	// platform-specific service annotations (e.g. serving-cert) trigger
 	// secret creation that the deployment's pods mount.

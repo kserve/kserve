@@ -39,7 +39,7 @@ Basic multi-node deployment with high-throughput all-to-all backend.
 - GPU memory utilization: 0.95
 - RoCE networking with GID index 3
 
-### 2. Prefill-Decode Separation with High-Throughput Backend ([`llm-inference-service-dp-ep-pd-deepseek-r1-gpu-p-deepep-ht-d-deepep-ht.yaml`](llm-inference-service-dp-ep-pd-deepseek-r1-gpu-p-deepep-ht-d-deepep-ht.yaml))
+### 2. Prefill-Decode Separation with High-Throughput Backend ([`llm-inference-service-dp-ep-deepseek-r1-pd-gpu-p-deepep-ht-d-deepep-ht.yaml`](llm-inference-service-dp-ep-deepseek-r1-pd-gpu-p-deepep-ht-d-deepep-ht.yaml))
 
 Optimized configuration that separates prefill and decode workloads for better resource utilization.
 
@@ -67,7 +67,7 @@ Optimized configuration that separates prefill and decode workloads for better r
 - GPU memory utilization: 0.99 (main/decode), 0.97 (prefill)
 - Max sequence length: 4096
 
-### 3. Prefill-Decode with Mixed Backend ([`llm-inference-service-dp-ep-pd-deepseek-r1-gpu-p-deepep-ht-d-pplx.yaml`](llm-inference-service-dp-ep-pd-deepseek-r1-gpu-p-deepep-ht-d-pplx.yaml))
+### 3. Prefill-Decode with Mixed Backend ([`llm-inference-service-dp-ep-deepseek-r1-pd-gpu-p-deepep-ht-d-pplx.yaml`](llm-inference-service-dp-ep-deepseek-r1-pd-gpu-p-deepep-ht-d-pplx.yaml))
 
 Hybrid configuration using different all-to-all backends for prefill and decode phases.
 
