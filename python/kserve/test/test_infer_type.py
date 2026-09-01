@@ -997,7 +997,8 @@ class TestInferResponse:
 
     def test_infer_response_from_bytes_happy_path(self):
         model_name = "test_model"
-        response_bytes = b'{"id": "1", "model_name": "test_model", "outputs": [{"name": "output1", "shape": [1], "datatype": "INT32", "data": [1]}]}'
+        model_version = "v1"
+        response_bytes = b'{"id": "1", "model_name": "test_model", "model_version": "v1", "outputs": [{"name": "output1", "shape": [1], "datatype": "INT32", "data": [1]}]}'
         json_length = len(response_bytes)
 
         infer_response = InferResponse.from_bytes(
@@ -1007,6 +1008,7 @@ class TestInferResponse:
 
         assert infer_response.id == "1"
         assert infer_response.model_name == model_name
+        assert infer_response.model_version == model_version
         assert len(infer_response.outputs) == 1
         assert infer_response.outputs[0].name == "output1"
         assert infer_response.outputs[0].shape == [1]
