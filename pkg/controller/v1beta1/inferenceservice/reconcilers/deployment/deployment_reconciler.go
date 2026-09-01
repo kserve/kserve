@@ -571,7 +571,7 @@ func (r *DeploymentReconciler) SetControllerReferences(owner metav1.Object, sche
 	return nil
 }
 
-// CleanupOrphans deletes Deployments matching labels whose names are not in expectedNames.
-func (r *DeploymentReconciler) CleanupOrphans(ctx context.Context, namespace string, labels kclient.MatchingLabels, expectedNames map[string]bool) error {
-	return isvcutils.DeleteOrphans(ctx, r.client, &appsv1.DeploymentList{}, namespace, labels, expectedNames)
+// CleanupOrphans deletes Deployments selected by scope whose names are not retained.
+func (r *DeploymentReconciler) CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error {
+	return isvcutils.DeleteOrphans[*appsv1.DeploymentList](ctx, r.client, scope)
 }

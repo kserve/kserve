@@ -32,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
@@ -239,11 +240,15 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		// Clean up orphaned resources (deployments, services, HPAs, OTel collectors)
 		// whose names no longer match expected stable + canary deployment names.
 		if expectedNames != nil {
-			predictorLabels := client.MatchingLabels{
-				constants.InferenceServicePodLabelKey: isvc.Name,
-				constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
+			scope := isvcutils.OrphanScope{
+				Namespace: isvc.Namespace,
+				Labels: client.MatchingLabels{
+					constants.InferenceServicePodLabelKey: isvc.Name,
+					constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
+				},
+				RetainNames: expectedNames,
 			}
-			if err := r.CleanupOrphans(ctx, isvc.Namespace, predictorLabels, expectedNames); err != nil {
+			if err := r.CleanupOrphans(ctx, scope); err != nil {
 				return ctrl.Result{}, errors.Wrapf(err, "fails to clean up orphaned predictor resources")
 			}
 		}
@@ -927,19 +932,19 @@ func buildCanaryPredictor(stable v1beta1.PredictorSpec, canary v1beta1.CanarySpe
 	return canaryPredictor, nil
 }
 
-func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta1.InferenceService) (map[string]bool, error) {
+func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta1.InferenceService) (sets.Set[string], error) {
 	stableName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
-	expectedNames := map[string]bool{stableName: true}
+	expectedNames := sets.New(stableName)
 
 	// Add stable worker deployment and services if multi-node is enabled
 	if isvc.Spec.Predictor.WorkerSpec != nil {
 		isvcGeneration := strconv.FormatInt(isvc.Generation, 10)
 		// Worker deployment
-		expectedNames[constants.PredictorWorkerServiceName(isvc.Name)] = true
+		expectedNames.Insert(constants.PredictorWorkerServiceName(isvc.Name))
 		// Head headless service
-		expectedNames[constants.GetHeadServiceName(stableName, isvcGeneration)] = true
+		expectedNames.Insert(constants.GetHeadServiceName(stableName, isvcGeneration))
 		// Worker headless service
-		expectedNames[constants.GetWorkerServiceName(stableName, isvcGeneration)] = true
+		expectedNames.Insert(constants.GetWorkerServiceName(stableName, isvcGeneration))
 	}
 
 	stablePredictor := isvc.Spec.Predictor
@@ -947,7 +952,7 @@ func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta
 	for i := range isvc.Spec.Canary {
 		canary := &isvc.Spec.Canary[i]
 		canaryName := constants.PredictorServiceName(isvc.Name, canary.Predictor.Name)
-		expectedNames[canaryName] = true
+		expectedNames.Insert(canaryName)
 
 		replicas := canaryReplicaCount(isvc, canary)
 		canaryPredictor, err := buildCanaryPredictor(stablePredictor, *canary, replicas)

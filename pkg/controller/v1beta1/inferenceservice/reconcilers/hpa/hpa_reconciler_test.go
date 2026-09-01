@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -36,6 +37,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 )
 
 func TestCreateHPA(t *testing.T) {
@@ -1274,8 +1276,10 @@ func TestCleanupOrphans(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(expected, orphan, unrelated).Build()
 	reconciler := &HPAReconciler{client: fakeClient, scheme: scheme}
 
-	expectedNames := map[string]bool{"my-isvc-predictor": true}
-	err := reconciler.CleanupOrphans(t.Context(), "default", client.MatchingLabels(labels), expectedNames)
+	expectedNames := sets.New("my-isvc-predictor")
+	err := reconciler.CleanupOrphans(t.Context(), isvcutils.OrphanScope{
+		Namespace: "default", Labels: client.MatchingLabels(labels), RetainNames: expectedNames,
+	})
 	require.NoError(t, err)
 
 	// Orphan should be deleted

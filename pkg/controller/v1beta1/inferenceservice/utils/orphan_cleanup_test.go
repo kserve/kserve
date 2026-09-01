@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -77,7 +78,11 @@ func TestDeleteOrphansContinuesAfterDeleteErrors(t *testing.T) {
 		},
 	}
 
-	err := DeleteOrphans(t.Context(), c, &corev1.ServiceList{}, "default", client.MatchingLabels(labels), map[string]bool{"expected": true})
+	err := DeleteOrphans[*corev1.ServiceList](t.Context(), c, OrphanScope{
+		Namespace:   "default",
+		Labels:      client.MatchingLabels(labels),
+		RetainNames: sets.New("expected"),
+	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "fails to delete orphaned Service failed-one: first failure")
 	assert.Contains(t, err.Error(), "fails to delete orphaned Service failed-two: second failure")
@@ -97,7 +102,9 @@ func TestDeleteOrphansReturnsListError(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	baseClient := fake.NewClientBuilder().WithScheme(scheme).Build()
-	err := DeleteOrphans(t.Context(), &listErrorClient{Client: baseClient, err: wantErr}, &corev1.ServiceList{}, "default", nil, nil)
+	err := DeleteOrphans[*corev1.ServiceList](t.Context(), &listErrorClient{Client: baseClient, err: wantErr}, OrphanScope{
+		Namespace: "default",
+	})
 
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, wantErr))
@@ -106,7 +113,7 @@ func TestDeleteOrphansReturnsListError(t *testing.T) {
 
 func TestDeleteOrphansReturnsGVKError(t *testing.T) {
 	baseClient := fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build()
-	err := DeleteOrphans(t.Context(), baseClient, &corev1.ServiceList{}, "default", nil, nil)
+	err := DeleteOrphans[*corev1.ServiceList](t.Context(), baseClient, OrphanScope{Namespace: "default"})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "fails to determine resource kind for orphan cleanup")

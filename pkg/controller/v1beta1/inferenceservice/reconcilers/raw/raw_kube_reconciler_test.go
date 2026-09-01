@@ -25,9 +25,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/autoscaler"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 )
 
 type cleanupWorkload struct {
@@ -47,7 +47,7 @@ func (r *cleanupWorkload) SetControllerReferences(metav1.Object, *runtime.Scheme
 	return nil
 }
 
-func (r *cleanupWorkload) CleanupOrphans(context.Context, string, client.MatchingLabels, map[string]bool) error {
+func (r *cleanupWorkload) CleanupOrphans(context.Context, isvcutils.OrphanScope) error {
 	r.called = true
 	return r.err
 }
@@ -69,7 +69,7 @@ func (r *cleanupService) SetControllerReferences(metav1.Object, *runtime.Scheme)
 	return nil
 }
 
-func (r *cleanupService) CleanupOrphans(context.Context, string, client.MatchingLabels, map[string]bool) error {
+func (r *cleanupService) CleanupOrphans(context.Context, isvcutils.OrphanScope) error {
 	r.called = true
 	return r.err
 }
@@ -87,7 +87,7 @@ func (r *cleanupAutoscaler) SetControllerReferences(metav1.Object, *runtime.Sche
 	return nil
 }
 
-func (r *cleanupAutoscaler) CleanupOrphans(context.Context, string, client.MatchingLabels, map[string]bool) error {
+func (r *cleanupAutoscaler) CleanupOrphans(context.Context, isvcutils.OrphanScope) error {
 	r.called = true
 	return r.err
 }
@@ -105,7 +105,7 @@ func TestCleanupOrphansAggregatesSubReconcilerErrors(t *testing.T) {
 		Scaler:   &autoscaler.AutoscalerReconciler{Autoscaler: scaler},
 	}
 
-	err := reconciler.CleanupOrphans(t.Context(), "default", nil, nil)
+	err := reconciler.CleanupOrphans(t.Context(), isvcutils.OrphanScope{Namespace: "default"})
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, workloadErr)

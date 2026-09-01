@@ -304,9 +304,9 @@ func (o *OtelReconciler) SetControllerReferences(owner metav1.Object, scheme *ru
 	return controllerutil.SetControllerReference(owner, o.OTelCollector, scheme)
 }
 
-// CleanupOrphans deletes OpenTelemetryCollectors matching labels whose names are not in expectedNames.
-func (o *OtelReconciler) CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error {
-	err := isvcutils.DeleteOrphans(ctx, o.client, &otelv1beta1.OpenTelemetryCollectorList{}, namespace, labels, expectedNames)
+// CleanupOrphans deletes OpenTelemetryCollectors selected by scope whose names are not retained.
+func (o *OtelReconciler) CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error {
+	err := isvcutils.DeleteOrphans[*otelv1beta1.OpenTelemetryCollectorList](ctx, o.client, scope)
 	if apimeta.IsNoMatchError(err) {
 		return nil
 	}

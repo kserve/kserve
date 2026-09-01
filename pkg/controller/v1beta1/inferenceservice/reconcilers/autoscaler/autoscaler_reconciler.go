@@ -29,13 +29,14 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	hpa "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/hpa"
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/keda"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 )
 
 // Autoscaler Interface implemented by all autoscalers
 type Autoscaler interface {
 	Reconcile(ctx context.Context) error
 	SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error
-	CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error
+	CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error
 }
 
 // NoOpAutoscaler Autoscaler that does nothing. Can be used to disable creation of autoscaler resources.
@@ -49,7 +50,7 @@ func (a *NoOpAutoscaler) SetControllerReferences(owner metav1.Object, scheme *ru
 	return nil
 }
 
-func (a *NoOpAutoscaler) CleanupOrphans(_ context.Context, _ string, _ client.MatchingLabels, _ map[string]bool) error {
+func (a *NoOpAutoscaler) CleanupOrphans(_ context.Context, _ isvcutils.OrphanScope) error {
 	return nil
 }
 
@@ -124,6 +125,6 @@ func (r *AutoscalerReconciler) Reconcile(ctx context.Context) error {
 }
 
 // CleanupOrphans delegates orphan cleanup to the underlying autoscaler implementation.
-func (r *AutoscalerReconciler) CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error {
-	return r.Autoscaler.CleanupOrphans(ctx, namespace, labels, expectedNames)
+func (r *AutoscalerReconciler) CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error {
+	return r.Autoscaler.CleanupOrphans(ctx, scope)
 }

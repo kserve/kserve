@@ -293,7 +293,7 @@ func (r *HPAReconciler) SetControllerReferences(owner metav1.Object, scheme *run
 	return controllerutil.SetControllerReference(owner, r.HPA, scheme)
 }
 
-// CleanupOrphans deletes HPAs matching labels whose names are not in expectedNames.
-func (r *HPAReconciler) CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error {
-	return isvcutils.DeleteOrphans(ctx, r.client, &autoscalingv2.HorizontalPodAutoscalerList{}, namespace, labels, expectedNames)
+// CleanupOrphans deletes HPAs selected by scope whose names are not retained.
+func (r *HPAReconciler) CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error {
+	return isvcutils.DeleteOrphans[*autoscalingv2.HorizontalPodAutoscalerList](ctx, r.client, scope)
 }

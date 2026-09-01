@@ -27,11 +27,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 )
 
 var emptyServiceConfig = &v1beta1.ServiceConfig{}
@@ -370,8 +372,10 @@ func TestCleanupOrphans(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(expected, orphan).Build()
 	reconciler := &ServiceReconciler{client: fakeClient, scheme: scheme}
 
-	expectedNames := map[string]bool{"my-isvc-predictor": true}
-	err := reconciler.CleanupOrphans(t.Context(), "default", client.MatchingLabels(labels), expectedNames)
+	expectedNames := sets.New("my-isvc-predictor")
+	err := reconciler.CleanupOrphans(t.Context(), isvcutils.OrphanScope{
+		Namespace: "default", Labels: client.MatchingLabels(labels), RetainNames: expectedNames,
+	})
 	require.NoError(t, err)
 
 	// Orphan should be deleted
@@ -410,12 +414,10 @@ func TestCleanupOrphansWithMultiNode(t *testing.T) {
 	reconciler := &ServiceReconciler{client: fakeClient, scheme: scheme}
 
 	// expectedNames should include all three multi-node service names
-	expectedNames := map[string]bool{
-		"my-isvc-predictor": true,
-		"my-isvc-head-1":    true,
-		"my-isvc-workers-1": true,
-	}
-	err := reconciler.CleanupOrphans(t.Context(), "default", client.MatchingLabels(labels), expectedNames)
+	expectedNames := sets.New("my-isvc-predictor", "my-isvc-head-1", "my-isvc-workers-1")
+	err := reconciler.CleanupOrphans(t.Context(), isvcutils.OrphanScope{
+		Namespace: "default", Labels: client.MatchingLabels(labels), RetainNames: expectedNames,
+	})
 	require.NoError(t, err)
 
 	// Old service should be deleted

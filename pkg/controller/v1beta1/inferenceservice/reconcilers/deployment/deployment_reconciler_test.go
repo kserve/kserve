@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -1692,8 +1693,10 @@ func TestCleanupOrphans(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(expected, orphan).Build()
 	reconciler := &DeploymentReconciler{client: fakeClient, scheme: scheme}
 
-	expectedNames := map[string]bool{"my-isvc-v2-predictor": true}
-	err := reconciler.CleanupOrphans(t.Context(), "default", kclient.MatchingLabels(labels), expectedNames)
+	expectedNames := sets.New("my-isvc-v2-predictor")
+	err := reconciler.CleanupOrphans(t.Context(), isvcutils.OrphanScope{
+		Namespace: "default", Labels: kclient.MatchingLabels(labels), RetainNames: expectedNames,
+	})
 	require.NoError(t, err)
 
 	// Orphan should be deleted
@@ -1728,11 +1731,10 @@ func TestCleanupOrphansWithWorker(t *testing.T) {
 	reconciler := &DeploymentReconciler{client: fakeClient, scheme: scheme}
 
 	// expectedNames should include both head and worker deployment names
-	expectedNames := map[string]bool{
-		"my-isvc-predictor":        true,
-		"my-isvc-predictor-worker": true,
-	}
-	err := reconciler.CleanupOrphans(t.Context(), "default", kclient.MatchingLabels(labels), expectedNames)
+	expectedNames := sets.New("my-isvc-predictor", "my-isvc-predictor-worker")
+	err := reconciler.CleanupOrphans(t.Context(), isvcutils.OrphanScope{
+		Namespace: "default", Labels: kclient.MatchingLabels(labels), RetainNames: expectedNames,
+	})
 	require.NoError(t, err)
 
 	// Old deployment should be deleted

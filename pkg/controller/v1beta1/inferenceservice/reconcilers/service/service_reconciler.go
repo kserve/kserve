@@ -324,7 +324,7 @@ func (r *ServiceReconciler) SetControllerReferences(owner metav1.Object, scheme 
 	return nil
 }
 
-// CleanupOrphans deletes Services matching labels whose names are not in expectedNames.
-func (r *ServiceReconciler) CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error {
-	return isvcutils.DeleteOrphans(ctx, r.client, &corev1.ServiceList{}, namespace, labels, expectedNames)
+// CleanupOrphans deletes Services selected by scope whose names are not retained.
+func (r *ServiceReconciler) CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error {
+	return isvcutils.DeleteOrphans[*corev1.ServiceList](ctx, r.client, scope)
 }

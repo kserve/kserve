@@ -346,9 +346,9 @@ func (r *KedaReconciler) SetControllerReferences(owner metav1.Object, scheme *ru
 	return controllerutil.SetControllerReference(owner, r.ScaledObject, scheme)
 }
 
-// CleanupOrphans deletes ScaledObjects matching labels whose names are not in expectedNames.
-func (r *KedaReconciler) CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error {
-	err := isvcutils.DeleteOrphans(ctx, r.client, &kedav1alpha1.ScaledObjectList{}, namespace, labels, expectedNames)
+// CleanupOrphans deletes ScaledObjects selected by scope whose names are not retained.
+func (r *KedaReconciler) CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error {
+	err := isvcutils.DeleteOrphans[*kedav1alpha1.ScaledObjectList](ctx, r.client, scope)
 	if apimeta.IsNoMatchError(err) {
 		return nil
 	}

@@ -22,9 +22,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 )
 
 // WorkloadReconciler reconciles workload resources (Deployment or Rollout)
@@ -38,8 +38,8 @@ type WorkloadReconciler interface {
 	// SetControllerReferences sets owner references on all workloads
 	SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error
 
-	// CleanupOrphans deletes resources matching labels whose names are not in expectedNames
-	CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error
+	// CleanupOrphans deletes resources selected by scope whose names are not retained.
+	CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error
 }
 
 // ServiceReconciler reconciles service resources
@@ -53,8 +53,8 @@ type ServiceReconciler interface {
 	// SetControllerReferences sets owner references on all services
 	SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error
 
-	// CleanupOrphans deletes resources matching labels whose names are not in expectedNames
-	CleanupOrphans(ctx context.Context, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error
+	// CleanupOrphans deletes resources selected by scope whose names are not retained.
+	CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error
 }
 
 // IngressReconciler reconciles ingress/routing resources

@@ -23,6 +23,7 @@ import (
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -30,16 +31,34 @@ import (
 
 var log = logf.Log.WithName("OrphanCleanup")
 
-// DeleteOrphans deletes objects matching labels whose names are not in expectedNames.
+// OrphanScope selects the resources owned by a component and names those that
+// must survive orphan cleanup.
+type OrphanScope struct {
+	Namespace   string
+	Labels      client.MatchingLabels
+	RetainNames sets.Set[string]
+}
+
+// objectListPtr constrains PL to a pointer to L that implements client.ObjectList.
+type objectListPtr[L any] interface {
+	client.ObjectList
+	*L
+}
+
+// DeleteOrphans deletes objects matching the scope whose names are not retained.
 // All matching objects are processed before any deletion errors are returned.
-func DeleteOrphans(ctx context.Context, c client.Client, list client.ObjectList, namespace string, labels client.MatchingLabels, expectedNames map[string]bool) error {
+// Callers provide the typed list pointer as the type argument, for example:
+//
+//	DeleteOrphans[*corev1.ServiceList](ctx, c, scope)
+func DeleteOrphans[PL objectListPtr[L], L any](ctx context.Context, c client.Client, scope OrphanScope) error {
+	list := PL(new(L))
 	gvk, err := apiutil.GVKForObject(list, c.Scheme())
 	if err != nil {
 		return fmt.Errorf("fails to determine resource kind for orphan cleanup: %w", err)
 	}
 	resourceKind := strings.TrimSuffix(gvk.Kind, "List")
 
-	if err := c.List(ctx, list, client.InNamespace(namespace), labels); err != nil {
+	if err := c.List(ctx, list, client.InNamespace(scope.Namespace), scope.Labels); err != nil {
 		return fmt.Errorf("fails to list %s resources for cleanup: %w", resourceKind, err)
 	}
 
@@ -50,7 +69,7 @@ func DeleteOrphans(ctx context.Context, c client.Client, list client.ObjectList,
 			errs = append(errs, fmt.Errorf("fails to clean up %s resources: list item %T is not a client object", resourceKind, item))
 			return nil
 		}
-		if expectedNames[obj.GetName()] {
+		if scope.RetainNames.Has(obj.GetName()) {
 			return nil
 		}
 
