@@ -55,6 +55,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+	"github.com/kserve/kserve/pkg/oteljson"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
 	kservetls "github.com/kserve/kserve/pkg/tls"
 	llmisvcwebhook "github.com/kserve/kserve/pkg/webhook/admission/llminferenceservice"
@@ -90,6 +91,7 @@ type Options struct {
 	tlsMinVersion         string
 	tlsCipherSuites       string
 	zapOpts               zap.Options
+	logFormat             oteljson.Format
 }
 
 func DefaultOptions() Options {
@@ -102,6 +104,7 @@ func DefaultOptions() Options {
 		migrationTimeout:      1 * time.Hour,
 		migrationPollInterval: 30 * time.Second,
 		zapOpts:               zap.Options{},
+		logFormat:             oteljson.FormatZap,
 	}
 }
 
@@ -121,6 +124,7 @@ func GetOptions() Options {
 	flag.DurationVar(&opts.migrationTimeout, "storage-migration-timeout", opts.migrationTimeout, "Total retry budget for storage version migration.")
 	flag.DurationVar(&opts.migrationPollInterval, "storage-migration-poll-interval", opts.migrationPollInterval, "Polling interval for storage version migration retries after initial backoff.")
 	opts.zapOpts.BindFlags(flag.CommandLine)
+	oteljson.BindFlags(flag.CommandLine, &opts.logFormat)
 	flag.Parse()
 	return opts
 }
@@ -128,6 +132,9 @@ func GetOptions() Options {
 func main() {
 	ctx := signals.SetupSignalHandler()
 	options := GetOptions()
+	if options.logFormat == oteljson.FormatOTelJSON {
+		oteljson.Apply(&options.zapOpts, "kserve-llmisvc-controller", os.Stdout)
+	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&options.zapOpts)))
 
 	defaults := DefaultOptions()
