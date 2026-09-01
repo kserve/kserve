@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -38,6 +38,18 @@ func (c *FakeServingV1alpha1) ClusterStorageContainers(namespace string) v1alpha
 
 func (c *FakeServingV1alpha1) InferenceGraphs(namespace string) v1alpha1.InferenceGraphInterface {
 	return newFakeInferenceGraphs(c, namespace)
+}
+
+func (c *FakeServingV1alpha1) KernelCaches(namespace string) v1alpha1.KernelCacheInterface {
+	return newFakeKernelCaches(c, namespace)
+}
+
+func (c *FakeServingV1alpha1) KernelCacheCaptures(namespace string) v1alpha1.KernelCacheCaptureInterface {
+	return newFakeKernelCacheCaptures(c, namespace)
+}
+
+func (c *FakeServingV1alpha1) KernelCacheNodes() v1alpha1.KernelCacheNodeInterface {
+	return newFakeKernelCacheNodes(c)
 }
 
 func (c *FakeServingV1alpha1) LLMInferenceServices(namespace string) v1alpha1.LLMInferenceServiceInterface {

@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -41,6 +41,26 @@ type InferenceGraphListerExpansion interface{}
 // InferenceGraphNamespaceListerExpansion allows custom methods to be added to
 // InferenceGraphNamespaceLister.
 type InferenceGraphNamespaceListerExpansion interface{}
+
+// KernelCacheListerExpansion allows custom methods to be added to
+// KernelCacheLister.
+type KernelCacheListerExpansion interface{}
+
+// KernelCacheNamespaceListerExpansion allows custom methods to be added to
+// KernelCacheNamespaceLister.
+type KernelCacheNamespaceListerExpansion interface{}
+
+// KernelCacheCaptureListerExpansion allows custom methods to be added to
+// KernelCacheCaptureLister.
+type KernelCacheCaptureListerExpansion interface{}
+
+// KernelCacheCaptureNamespaceListerExpansion allows custom methods to be added to
+// KernelCacheCaptureNamespaceLister.
+type KernelCacheCaptureNamespaceListerExpansion interface{}
+
+// KernelCacheNodeListerExpansion allows custom methods to be added to
+// KernelCacheNodeLister.
+type KernelCacheNodeListerExpansion interface{}
 
 // LLMInferenceServiceListerExpansion allows custom methods to be added to
 // LLMInferenceServiceLister.
