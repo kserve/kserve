@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -246,6 +247,16 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
+
+	// Register custom Prometheus metrics collectors for LLMInferenceService operational metrics.
+	// All replicas emit the same cluster-level series from LLMInferenceService status. When
+	// Prometheus scrapes llmisvc-controller-manager-service, kube-proxy load-balances across
+	// pods but each scrape produces one target sample, so series are not duplicated. If
+	// scraping individual pods, aggregate with max() rather than sum(). Metrics are served
+	// with controller-runtime TLS and the built-in auth filter on the metrics port.
+	setupLog.Info("Registering custom Prometheus metrics collectors")
+	workloadMetrics := llmisvc.NewWorkloadMetricsCollector(mgr.GetClient())
+	ctrlmetrics.Registry.MustRegister(workloadMetrics)
 
 	// Register webhooks: validation (v1alpha1, v1alpha2) and conversion
 	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
