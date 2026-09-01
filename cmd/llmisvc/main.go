@@ -255,7 +255,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctrlmetrics.Registry.MustRegister(llmisvc.NewInfoMetricsCollector(mgr.GetClient()))
+	// Register custom Prometheus metrics collectors for LLMInferenceService metrics.
+	// All replicas emit the same cluster-level series from LLMInferenceService status. When
+	// Prometheus scrapes llmisvc-controller-manager-service, kube-proxy load-balances across
+	// pods but each scrape produces one target sample, so series are not duplicated. If
+	// scraping individual pods, aggregate with max() rather than sum(). Metrics are served
+	// with controller-runtime TLS and the built-in auth filter on the metrics port.
+	setupLog.Info("Registering custom Prometheus metrics collectors")
+	client := mgr.GetClient()
+	ctrlmetrics.Registry.MustRegister(llmisvc.NewInfoMetricsCollector(client))
+	ctrlmetrics.Registry.MustRegister(llmisvc.NewWorkloadMetricsCollector(client))
 
 	// Register webhooks: validation (v1alpha1, v1alpha2) and conversion
 	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
