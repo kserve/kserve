@@ -30,8 +30,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/sets"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -1669,6 +1672,82 @@ func TestSetControllerReferences(t *testing.T) {
 	assert.Equal(t, owner.Name, deployment1.GetOwnerReferences()[0].Name)
 	assert.Len(t, deployment2.GetOwnerReferences(), 1)
 	assert.Equal(t, owner.Name, deployment2.GetOwnerReferences()[0].Name)
+}
+
+func TestCleanupOrphans(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = appsv1.AddToScheme(scheme)
+
+	labels := map[string]string{
+		constants.InferenceServicePodLabelKey: "my-isvc",
+		constants.KServiceComponentLabel:      "predictor",
+	}
+
+	expected := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-v2-predictor", Namespace: "default", Labels: labels},
+	}
+	orphan := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-predictor", Namespace: "default", Labels: labels},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(expected, orphan).Build()
+	reconciler := &DeploymentReconciler{client: fakeClient, scheme: scheme}
+
+	expectedNames := sets.New("my-isvc-v2-predictor")
+	err := reconciler.CleanupOrphans(t.Context(), isvcutils.OrphanScope{
+		Namespace: "default", Labels: kclient.MatchingLabels(labels), RetainNames: expectedNames,
+	})
+	require.NoError(t, err)
+
+	// Orphan should be deleted
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-predictor", Namespace: "default"}, &appsv1.Deployment{})
+	assert.True(t, errors.IsNotFound(err))
+
+	// Expected should be kept
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-v2-predictor", Namespace: "default"}, &appsv1.Deployment{})
+	assert.NoError(t, err)
+}
+
+func TestCleanupOrphansWithWorker(t *testing.T) {
+	scheme := runtime.NewScheme()
+	_ = appsv1.AddToScheme(scheme)
+
+	labels := map[string]string{
+		constants.InferenceServicePodLabelKey: "my-isvc",
+		constants.KServiceComponentLabel:      "predictor",
+	}
+
+	headDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-predictor", Namespace: "default", Labels: labels},
+	}
+	workerDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-predictor-worker", Namespace: "default", Labels: labels},
+	}
+	oldDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-isvc-old-predictor", Namespace: "default", Labels: labels},
+	}
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(headDeployment, workerDeployment, oldDeployment).Build()
+	reconciler := &DeploymentReconciler{client: fakeClient, scheme: scheme}
+
+	// expectedNames should include both head and worker deployment names
+	expectedNames := sets.New("my-isvc-predictor", "my-isvc-predictor-worker")
+	err := reconciler.CleanupOrphans(t.Context(), isvcutils.OrphanScope{
+		Namespace: "default", Labels: kclient.MatchingLabels(labels), RetainNames: expectedNames,
+	})
+	require.NoError(t, err)
+
+	// Old deployment should be deleted
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-old-predictor", Namespace: "default"}, &appsv1.Deployment{})
+	assert.True(t, errors.IsNotFound(err))
+
+	// Head deployment should be kept
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-predictor", Namespace: "default"}, &appsv1.Deployment{})
+	assert.NoError(t, err)
+
+	// Worker deployment should be kept (not deleted as orphan)
+	err = fakeClient.Get(t.Context(), types.NamespacedName{Name: "my-isvc-predictor-worker", Namespace: "default"}, &appsv1.Deployment{})
+	assert.NoError(t, err)
 }
 
 func TestGetArgValue(t *testing.T) {

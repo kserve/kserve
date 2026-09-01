@@ -42,6 +42,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -568,4 +569,9 @@ func (r *DeploymentReconciler) SetControllerReferences(owner metav1.Object, sche
 		}
 	}
 	return nil
+}
+
+// CleanupOrphans deletes Deployments selected by scope whose names are not retained.
+func (r *DeploymentReconciler) CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error {
+	return isvcutils.DeleteOrphans[*appsv1.DeploymentList](ctx, r.client, scope)
 }
