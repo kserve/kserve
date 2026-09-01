@@ -4855,6 +4855,68 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  name: kserve-config-llm-scheduler-eppconfig-default
+  namespace: kserve
+spec:
+  router:
+    scheduler:
+      config:
+        inline:
+          apiVersion: llm-d.ai/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+          - type: approx-prefix-cache-producer
+          - type: inflight-load-producer
+          - type: prefix-cache-affinity-filter
+          - type: token-load-scorer
+          schedulingProfiles:
+          - name: default
+            plugins:
+            - pluginRef: prefix-cache-affinity-filter
+            - pluginRef: token-load-scorer
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-scheduler-eppconfig-default-pd
+  namespace: kserve
+spec:
+  router:
+    scheduler:
+      config:
+        inline:
+          apiVersion: llm-d.ai/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+          - type: always-disagg-pd-decider
+          - parameters:
+              deciders:
+                prefill: always-disagg-pd-decider
+            type: disagg-profile-handler
+          - type: prefill-filter
+          - type: decode-filter
+          - type: approx-prefix-cache-producer
+          - type: inflight-load-producer
+          - type: prefix-cache-affinity-filter
+          - type: token-load-scorer
+          - type: active-request-scorer
+          - type: max-score-picker
+          schedulingProfiles:
+          - name: prefill
+            plugins:
+            - pluginRef: prefill-filter
+            - pluginRef: prefix-cache-affinity-filter
+            - pluginRef: token-load-scorer
+            - pluginRef: max-score-picker
+          - name: decode
+            plugins:
+            - pluginRef: decode-filter
+            - pluginRef: active-request-scorer
+            - pluginRef: max-score-picker
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
   name: kserve-config-llm-scheduler-latency-predictor
   namespace: kserve
 spec:
