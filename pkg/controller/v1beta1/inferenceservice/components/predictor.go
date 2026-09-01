@@ -50,6 +50,7 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/kserve/kserve/pkg/oteljson"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
@@ -182,6 +183,10 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 
 // Reconcile observes the predictor and attempts to drive the status towards the desired state.
 func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error) {
+	predictor := *p
+	predictor.Log = oteljson.WithContext(ctx, p.Log)
+	p = &predictor
+
 	var workerPodSpec *corev1.PodSpec
 	var workerObjectMeta metav1.ObjectMeta
 	multiNodeEnabled := isvc.Spec.Predictor.WorkerSpec != nil

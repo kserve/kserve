@@ -49,6 +49,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	v1beta1utils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/oteljson"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -72,6 +73,11 @@ type TrainedModelReconciler struct {
 }
 
 func (r *TrainedModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = oteljson.IntoContext(ctx)
+	reconciler := *r
+	reconciler.Log = oteljson.WithContext(ctx, r.Log)
+	r = &reconciler
+
 	// Fetch the TrainedModel instance
 	tm := &v1alpha1.TrainedModel{}
 	if err := r.Get(ctx, req.NamespacedName, tm); err != nil {

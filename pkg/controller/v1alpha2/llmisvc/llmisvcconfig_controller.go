@@ -39,6 +39,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/oteljson"
 )
 
 // LLMISVCConfigReconciler reconciles LLMInferenceServiceConfig objects.
@@ -59,6 +60,7 @@ type LLMISVCConfigReconciler struct {
 // It also updates the config's status conditions to surface why deletion is blocked,
 // similar to how Kubernetes namespaces report finalizer status during termination.
 func (r *LLMISVCConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = oteljson.IntoContext(ctx)
 	logger := log.FromContext(ctx).WithName("LLMInferenceServiceConfig").
 		WithValues("Namespace", req.Namespace, "Name", req.Name)
 	ctx = log.IntoContext(ctx, logger)

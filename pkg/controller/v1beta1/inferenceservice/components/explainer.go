@@ -38,6 +38,7 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/kserve/kserve/pkg/oteljson"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
@@ -69,13 +70,17 @@ func NewExplainer(client client.Client, clientset kubernetes.Interface, scheme *
 
 // Reconcile observes the explainer and attempts to drive the status towards the desired state.
 func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error) {
+	explainer := *e
+	explainer.Log = oteljson.WithContext(ctx, e.Log)
+	e = &explainer
+
 	e.Log.Info("Reconciling Explainer", "ExplainerSpec", isvc.Spec.Explainer)
-	explainer := isvc.Spec.Explainer.GetImplementation()
+	explainerSpec := isvc.Spec.Explainer.GetImplementation()
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(e.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
 	})
 
-	sourceURI := explainer.GetStorageUri()
+	sourceURI := explainerSpec.GetStorageUri()
 
 	// Knative does not support INIT containers or mounting, so we add annotations that trigger the
 	// StorageInitializer injector to mutate the underlying deployment to provision model data
@@ -118,7 +123,7 @@ func (e *Explainer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		),
 	}
 
-	container := explainer.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig, predictorName)
+	container := explainerSpec.GetContainer(isvc.ObjectMeta, isvc.Spec.Explainer.GetExtensions(), e.inferenceServiceConfig, predictorName)
 	if len(isvc.Spec.Explainer.Containers) == 0 {
 		isvc.Spec.Explainer.Containers = []corev1.Container{
 			*container,

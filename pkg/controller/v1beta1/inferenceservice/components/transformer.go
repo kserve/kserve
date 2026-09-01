@@ -40,6 +40,7 @@ import (
 	raw "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/reconcilers/raw"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/kserve/kserve/pkg/oteljson"
 	"github.com/kserve/kserve/pkg/utils"
 	"github.com/kserve/kserve/pkg/webhook/admission/pod"
 )
@@ -71,9 +72,13 @@ func NewTransformer(client client.Client, clientset kubernetes.Interface, scheme
 
 // Reconcile observes the world and attempts to drive the status towards the desired state.
 func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceService) (ctrl.Result, error) {
+	transformer := *p
+	transformer.Log = oteljson.WithContext(ctx, p.Log)
+	p = &transformer
+
 	p.Log.Info("Reconciling Transformer", "TransformerSpec", isvc.Spec.Transformer)
-	transformer := isvc.Spec.Transformer.GetImplementation()
-	sourceURI := transformer.GetStorageUri()
+	transformerSpec := isvc.Spec.Transformer.GetImplementation()
+	sourceURI := transformerSpec.GetStorageUri()
 
 	annotations := utils.Filter(isvc.Annotations, func(key string) bool {
 		return !utils.Includes(p.inferenceServiceConfig.ServiceAnnotationDisallowedList, key)
@@ -145,14 +150,14 @@ func (p *Transformer) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServ
 	}
 
 	if len(isvc.Spec.Transformer.Containers) == 0 {
-		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig, predictorName)
+		container := transformerSpec.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig, predictorName)
 		isvc.Spec.Transformer.PodSpec = v1beta1.PodSpec{
 			Containers: []corev1.Container{
 				*container,
 			},
 		}
 	} else {
-		container := transformer.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig, predictorName)
+		container := transformerSpec.GetContainer(isvc.ObjectMeta, isvc.Spec.Transformer.GetExtensions(), p.inferenceServiceConfig, predictorName)
 		isvc.Spec.Transformer.Containers[0] = *container
 	}
 
