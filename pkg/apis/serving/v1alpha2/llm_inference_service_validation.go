@@ -26,6 +26,7 @@ import (
 
 	"k8s.io/utils/ptr"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -117,6 +118,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
 	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
+	warnings = append(warnings, l.warnKVCacheMemoryBudget(llmSvc)...)
 	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
 	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
 
@@ -774,19 +776,77 @@ func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLM
 
 // validateKVCacheOffloading validates KVCacheOffloading secondary tier specs.
 func (l *LLMInferenceServiceValidator) validateKVCacheOffloading(llmSvc *LLMInferenceService) field.ErrorList {
-	var allErrs field.ErrorList
-	allErrs = append(allErrs, validateKVCacheOffloadingSpec(llmSvc.Spec.KVCacheOffloading, field.NewPath("spec", "kvCacheOffloading"))...)
+	allErrs := validateKVCacheOffloadingSpec(llmSvc.Spec.KVCacheOffloading, field.NewPath("spec", "kvCacheOffloading"))
 	if llmSvc.Spec.Prefill != nil {
 		allErrs = append(allErrs, validateKVCacheOffloadingSpec(llmSvc.Spec.Prefill.KVCacheOffloading, field.NewPath("spec", "prefill", "kvCacheOffloading"))...)
 	}
 	return allErrs
 }
 
+// mainContainerName is the container the model server runs in, and therefore the
+// one the KV cache is charged to.
+const mainContainerName = "main"
+
+// warnKVCacheMemoryBudget reports memory limits that cannot hold the KV cache
+// tier they are paired with. The tier is charged to the container's memory
+// cgroup and, with swap disabled, stays resident, so a limit no larger than the
+// tier cannot work whatever the model needs.
+//
+// A warning rather than an error: admission can prove a contradiction but not
+// adequacy, and the rendered spec is re-validated as a fresh create on every
+// reconcile, so rejecting one would stop services that are running today.
+func (l *LLMInferenceServiceValidator) warnKVCacheMemoryBudget(llmSvc *LLMInferenceService) admission.Warnings {
+	var warnings admission.Warnings
+	check := func(kv *KVCacheOffloadingSpec, podSpec *corev1.PodSpec, podPath, kvPath string) {
+		if podSpec == nil {
+			return
+		}
+		// Only the container that writes the cache is charged for it, so a sidecar
+		// with a smaller limit is not evidence of anything.
+		c := utils.GetContainerWithName(podSpec, mainContainerName)
+		if c == nil {
+			return
+		}
+		limit, ok := c.Resources.Limits[corev1.ResourceMemory]
+		if !ok || limit.Cmp(kv.CPU) > 0 {
+			return
+		}
+		warnings = append(warnings, fmt.Sprintf(
+			"%s.containers[%s].resources.limits.memory (%s) is not larger than %s.kvCacheOffloading.cpu (%s); "+
+				"the cache is memory-backed and charged to that limit, which must also cover the model",
+			podPath, c.Name, limit.String(), kvPath, kv.CPU.String()))
+	}
+	add := func(kv *KVCacheOffloadingSpec, workload *WorkloadSpec, path string) {
+		if kv == nil {
+			return
+		}
+		// The tier is charged on every pod that runs an engine, workers included.
+		check(kv, workload.Template, path+".template", path)
+		check(kv, workload.Worker, path+".worker", path)
+	}
+	add(llmSvc.Spec.KVCacheOffloading, &llmSvc.Spec.WorkloadSpec, "spec")
+	if llmSvc.Spec.Prefill != nil {
+		add(llmSvc.Spec.Prefill.KVCacheOffloading, llmSvc.Spec.Prefill, "spec.prefill")
+	}
+	return warnings
+}
+
+// validateKVCacheOffloadingSpec validates one kvCacheOffloading block.
 func validateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Path) field.ErrorList {
-	if kv == nil || len(kv.Secondary) == 0 {
+	if kv == nil {
 		return nil
 	}
 	var allErrs field.ErrorList
+	// A negative size is always a mistake. Not ratcheted: the rendered spec is
+	// re-validated as a create on every reconcile, so a stored negative already
+	// fails there, and correcting the field is accepted either way.
+	if kv.CPU.Sign() < 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("cpu"), kv.CPU.String(),
+			"cpu must not be negative"))
+	}
+	if len(kv.Secondary) == 0 {
+		return allErrs
+	}
 	if kv.CPU.IsZero() {
 		allErrs = append(allErrs, field.Required(fldPath.Child("cpu"),
 			"cpu must be set when secondary tiers are configured"))

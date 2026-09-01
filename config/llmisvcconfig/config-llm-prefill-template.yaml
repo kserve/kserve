@@ -2,6 +2,12 @@ apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-prefill-template
+  annotations:
+    # Percentage of kvCacheOffloading.cpu added to the dshm sizeLimit below. The
+    # connector maps a file the size of the tier there, and the literal covers
+    # NCCL only. Retuning this ships as a new preset, so nothing already running
+    # moves until it is re-pinned.
+    internal.serving.kserve.io/kv-cache-shm-headroom-percent: "120"
 spec:
   prefill:
     annotations:
@@ -159,9 +165,13 @@ spec:
               # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
               KV_TRANSFER_ARGS=""
               if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-                # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
-                if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-                  KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+                # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+                # it is empty (no-op) when KV cache offloading is not configured.
+                if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+                  # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+                  if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+                    KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+                  fi
                 fi
                 # This template is only composed for a disaggregated P/D topology (spec.prefill set).
                 # Prefill is the KV producer; without a connector here decode has nothing to fetch.
@@ -193,6 +203,8 @@ spec:
             # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve
             - "--"
           env:
+            - name: KSERVE_KV_TRANSFER_ARGS
+              value: ''
             - name: HOME
               value: /home
             - name: VLLM_LOGGING_LEVEL

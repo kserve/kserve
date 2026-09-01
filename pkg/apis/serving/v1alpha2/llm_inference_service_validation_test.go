@@ -1890,6 +1890,45 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 	})
 }
 
+func TestValidateKVCacheOffloadingNegativeCPU(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	makeSvc := func(kv *KVCacheOffloadingSpec) *LLMInferenceService {
+		return &LLMInferenceService{
+			Spec: LLMInferenceServiceSpec{
+				WorkloadSpec: WorkloadSpec{KVCacheOffloading: kv},
+			},
+		}
+	}
+	negative := &KVCacheOffloadingSpec{CPU: resource.MustParse("-1Gi")}
+
+	t.Run("rejected", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(negative))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "cpu")
+	})
+
+	// Correcting the field is accepted, so a stored negative is not stranded even
+	// though the rule is not ratcheted against the previous object.
+	t.Run("correcting it is accepted", func(t *testing.T) {
+		assert.Empty(t, validator.validateKVCacheOffloading(
+			makeSvc(&KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi")})))
+	})
+
+	t.Run("zero is left alone", func(t *testing.T) {
+		assert.Empty(t, validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{})))
+	})
+
+	t.Run("prefill is checked too", func(t *testing.T) {
+		svc := makeSvc(&KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi")})
+		svc.Spec.Prefill = &WorkloadSpec{KVCacheOffloading: negative}
+		errs := validator.validateKVCacheOffloading(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "prefill")
+	})
+}
+
 func TestValidateRolloutStrategy(t *testing.T) {
 	validator := &LLMInferenceServiceValidator{}
 
@@ -2020,5 +2059,88 @@ func TestValidateRolloutStrategy(t *testing.T) {
 		require.Len(t, errs, 1)
 		assert.Contains(t, errs[0].Field, "prefill")
 		assert.Contains(t, errs[0].Field, "maxUnavailable")
+	})
+}
+
+func TestWarnKVCacheMemoryBudget(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	svc := func(cpu string, limit *string) *LLMInferenceService {
+		c := corev1.Container{Name: "main"}
+		if limit != nil {
+			c.Resources.Limits = corev1.ResourceList{corev1.ResourceMemory: resource.MustParse(*limit)}
+		}
+		return &LLMInferenceService{Spec: LLMInferenceServiceSpec{WorkloadSpec: WorkloadSpec{
+			KVCacheOffloading: &KVCacheOffloadingSpec{CPU: resource.MustParse(cpu)},
+			Template:          &corev1.PodSpec{Containers: []corev1.Container{c}},
+		}}}
+	}
+
+	t.Run("warns when the limit cannot hold the tier", func(t *testing.T) {
+		for _, tc := range []struct{ cpu, limit string }{
+			{"200Gi", "64Gi"}, // limit far below the tier
+			{"64Gi", "64Gi"},  // exactly equal leaves nothing for the model
+		} {
+			w := validator.warnKVCacheMemoryBudget(svc(tc.cpu, &tc.limit))
+			require.Len(t, w, 1, "cpu=%s limit=%s", tc.cpu, tc.limit)
+			assert.Contains(t, w[0], "limits.memory")
+			assert.Contains(t, w[0], tc.cpu)
+		}
+	})
+
+	// Admission can prove a contradiction, not adequacy: this one still OOMs once
+	// the model's own footprint is counted, and nothing in the spec reveals that.
+	t.Run("stays silent when the limit merely looks plausible", func(t *testing.T) {
+		limit := "64Gi"
+		assert.Empty(t, validator.warnKVCacheMemoryBudget(svc("50Gi", &limit)))
+	})
+
+	t.Run("stays silent when no limit is set", func(t *testing.T) {
+		assert.Empty(t, validator.warnKVCacheMemoryBudget(svc("200Gi", nil)))
+	})
+
+	t.Run("stays silent without offloading", func(t *testing.T) {
+		s := svc("200Gi", ptr.To("64Gi"))
+		s.Spec.KVCacheOffloading = nil
+		assert.Empty(t, validator.warnKVCacheMemoryBudget(s))
+	})
+
+	// The cache is charged to the container that writes it, so a sidecar with a
+	// tighter limit says nothing about whether the tier fits.
+	t.Run("ignores containers other than the model server", func(t *testing.T) {
+		s := svc("10Gi", ptr.To("64Gi"))
+		s.Spec.Template.Containers = append(s.Spec.Template.Containers, corev1.Container{
+			Name:      "routing-sidecar",
+			Resources: corev1.ResourceRequirements{Limits: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("1Gi")}},
+		})
+		assert.Empty(t, validator.warnKVCacheMemoryBudget(s))
+	})
+
+	// kvCacheTargets charges the tier on workers too, so a limit set there is
+	// worth the same check as one on the template.
+	t.Run("covers workers", func(t *testing.T) {
+		s := svc("200Gi", nil)
+		s.Spec.Worker = &corev1.PodSpec{Containers: []corev1.Container{{
+			Name:      "main",
+			Resources: corev1.ResourceRequirements{Limits: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("64Gi")}},
+		}}}
+		w := validator.warnKVCacheMemoryBudget(s)
+		require.Len(t, w, 1)
+		assert.Contains(t, w[0], "spec.worker.containers[main]")
+		assert.Contains(t, w[0], "spec.kvCacheOffloading.cpu")
+	})
+
+	t.Run("covers prefill independently", func(t *testing.T) {
+		s := svc("10Gi", ptr.To("64Gi"))
+		s.Spec.Prefill = &WorkloadSpec{
+			KVCacheOffloading: &KVCacheOffloadingSpec{CPU: resource.MustParse("200Gi")},
+			Template: &corev1.PodSpec{Containers: []corev1.Container{{
+				Name:      "main",
+				Resources: corev1.ResourceRequirements{Limits: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("64Gi")}},
+			}}},
+		}
+		w := validator.warnKVCacheMemoryBudget(s)
+		require.Len(t, w, 1)
+		assert.Contains(t, w[0], "spec.prefill")
 	})
 }

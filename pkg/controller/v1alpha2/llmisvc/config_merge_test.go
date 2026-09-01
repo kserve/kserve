@@ -2087,6 +2087,42 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
+			// Zero cpu was accepted before cpu became a validated field, so pinned
+			// presets exist that render it. The frozen function must keep emitting
+			// the same flag; returning empty here would drop --kv-transfer-config
+			// from the entrypoint and roll the workload on a controller upgrade.
+			name: "kvTransferConfig renders a zero cpu rather than failing",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":0,\"spec_name\":\"TieringOffloadingSpec\"},\"kv_role\":\"kv_both\"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "kvTransferConfig renders --kv-transfer-config from kvCacheOffloading",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
@@ -2281,6 +2317,30 @@ func TestReplaceVariables(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "legacy pinned template input is unchanged by baseRef-only kvCacheOffloading",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi")},
+						Template: &corev1.PodSpec{Containers: []corev1.Container{{
+							Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"},
+						}}},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi")},
+						Template: &corev1.PodSpec{Containers: []corev1.Container{{
+							Args: []string{""},
+						}}},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2361,6 +2421,56 @@ printf '%s' "$2"`
 	))
 }
 
+// The slot path writes raw JSON into an env var value rather than into the
+// entrypoint text, so it needs none of the escaping the template contract does.
+// Both must survive eval and come out as JSON vLLM can parse.
+func TestKVTransferSlotBashSafe(t *testing.T) {
+	g := NewWithT(t)
+
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available")
+	}
+
+	cfg := &v1alpha2.LLMInferenceServiceConfig{
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					CPU:            resource.MustParse("10Gi"),
+					EvictionPolicy: "lru",
+				},
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "main",
+						Env:  []corev1.EnvVar{{Name: llmisvc.KVTransferArgsEnvVarForTest}},
+					}},
+				},
+			},
+		},
+	}
+	g.Expect(llmisvc.ApplyKVCacheCarriersForTest(cfg)).To(Succeed())
+
+	slot := cfg.Spec.Template.Containers[0].Env[0]
+	g.Expect(slot.Value).To(ContainSubstring(`--kv-transfer-config '`))
+
+	// Same shape as the config template: the env value is expanded inside eval,
+	// where the wrapping single quotes protect the JSON's double quotes.
+	script := `eval "set -- ${` + slot.Name + `}"
+printf '%s' "$2"`
+	cmd := exec.CommandContext(t.Context(), bashPath, "-c", script) // #nosec G204 -- test input, not user data
+	cmd.Env = append(cmd.Environ(), slot.Name+"="+slot.Value)
+	out, err := cmd.CombinedOutput()
+	g.Expect(err).ToNot(HaveOccurred(), "bash execution failed: %s", string(out))
+
+	var parsed map[string]any
+	g.Expect(json.Unmarshal(out, &parsed)).To(Succeed(), "vllm would reject: %q", string(out))
+	g.Expect(parsed).To(HaveKeyWithValue("kv_connector", "OffloadingConnector"))
+	g.Expect(parsed["kv_connector_extra_config"]).To(And(
+		HaveKeyWithValue("spec_name", "CPUOffloadingSpec"),
+		HaveKeyWithValue("eviction_policy", "lru"),
+	))
+}
+
 // TestReplaceVariables_NixlTransferConfigBashSafe runs the P/D templates' actual
 // KV_TRANSFER_ARGS shape through bash, with the same inlined connector constant the presets
 // carry and VLLM_VERSION pinned to the dev string llm-d images report so the NixlConnector
@@ -2375,15 +2485,18 @@ func TestReplaceVariables_NixlTransferConfigBashSafe(t *testing.T) {
 	}
 
 	// Mirrors the decode/prefill templates: user-supplied config wins, then the
-	// version-gated OffloadingConnector, then the NIXL-gated P/D fallback.
+	// version-gated carrier slot, then the NIXL-gated P/D fallback. The slot is left
+	// unset here, which is a P/D topology without kvCacheOffloading.
 	// Kept as joined lines rather than one raw literal: golangci-lint's --fix rewrites a
 	// multi-line raw string here and drops a line in the process, leaving unbalanced if/fi.
 	scriptTmpl := strings.Join([]string{
 		`VLLM_VERSION="0.1.dev1+g51f799c1a"`,
 		`KV_TRANSFER_ARGS=""`,
 		`if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then`,
-		`  if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then`,
-		`    KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"`,
+		`  if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then`,
+		`    if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then`,
+		`      KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"`,
+		`    fi`,
 		`  fi`,
 		`  if [ -z "${KV_TRANSFER_ARGS}" ]; then`,
 		`    NIXL_PY=$(command -v python3 || command -v python || true)`,
