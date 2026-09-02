@@ -556,7 +556,86 @@ func schedulerConfigText(llmSvc *v1alpha2.LLMInferenceService) string {
 	}
 
 	switch {
-	case llmSvc.Spec.Prefill != nil:
+	case llmSvc.Spec.Encode != nil && llmSvc.Spec.Prefill != nil: // E/P/D topology
+		return fmt.Sprintf(`
+apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: encode-filter
+- type: prefill-filter
+- type: decode-filter
+- type: queue-scorer
+- type: kv-cache-utilization-scorer
+- type: active-request-scorer
+- type: prefix-cache-scorer
+- type: max-score-picker
+- type: always-disagg-multimodal-decider
+- type: always-disagg-pd-decider
+- type: disagg-profile-handler
+  parameters:
+    deciders:
+      encode: always-disagg-multimodal-decider
+      prefill: always-disagg-pd-decider
+%sschedulingProfiles:
+- name: encode
+  plugins:
+  - pluginRef: encode-filter
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: max-score-picker
+- name: prefill
+  plugins:
+  - pluginRef: prefill-filter
+%s  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: kv-cache-utilization-scorer
+    weight: 2
+  - pluginRef: max-score-picker
+- name: decode
+  plugins:
+  - pluginRef: decode-filter
+%s  - pluginRef: active-request-scorer
+    weight: 2
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`, loraPlugin, loraProfileEntry, loraProfileEntry)
+	case llmSvc.Spec.Encode != nil: // E/PD topology
+		return fmt.Sprintf(`
+apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: encode-filter
+- type: decode-filter
+- type: queue-scorer
+- type: kv-cache-utilization-scorer
+- type: active-request-scorer
+- type: prefix-cache-scorer
+- type: max-score-picker
+- type: always-disagg-multimodal-decider
+- type: disagg-profile-handler
+  parameters:
+    deciders:
+      encode: always-disagg-multimodal-decider
+%sschedulingProfiles:
+- name: encode
+  plugins:
+  - pluginRef: encode-filter
+  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: max-score-picker
+- name: decode
+  plugins:
+  - pluginRef: decode-filter
+%s  - pluginRef: active-request-scorer
+    weight: 2
+  - pluginRef: prefix-cache-scorer
+    weight: 3
+  - pluginRef: max-score-picker
+`, loraPlugin, loraProfileEntry)
+	case llmSvc.Spec.Prefill != nil: // P/D topology
 		return fmt.Sprintf(`
 apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
