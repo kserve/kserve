@@ -65,11 +65,17 @@ const (
 	configWorkerDataParallelNameSuffix        = "config-llm-worker-data-parallel"
 	configDecodeWorkerDataParallelNameSuffix  = "config-llm-decode-worker-data-parallel"
 	configPrefillWorkerDataParallelNameSuffix = "config-llm-prefill-worker-data-parallel"
+	// Encode disaggregation templates (E/PD and E/P/D topologies)
+	configEncodeTemplateNameSuffix      = "config-llm-encode-template"
+	configEncodeWorkerPipelineParallelNameSuffix = "config-llm-encode-worker-pipeline-parallel"
+	configEncodeWorkerDataParallelNameSuffix     = "config-llm-encode-worker-data-parallel"
 	// Router and scheduler configurations
-	configRouterSchedulerNameSuffix                   = "config-llm-scheduler"
-	configRouterSchedulerDefaultEPPConfigNameSuffix   = "config-llm-scheduler-eppconfig-default"    // default EPPConfig
-	configRouterSchedulerDefaultPDEPPConfigNameSuffix = "config-llm-scheduler-eppconfig-default-pd" // default EPPConfig for P/D
-	configRouterRouteNameSuffix                       = "config-llm-router-route"
+	configRouterSchedulerNameSuffix                    = "config-llm-scheduler"
+	configRouterSchedulerDefaultEPPConfigNameSuffix    = "config-llm-scheduler-eppconfig-default"     // default EPPConfig
+	configRouterSchedulerDefaultPDEPPConfigNameSuffix  = "config-llm-scheduler-eppconfig-default-pd"  // default EPPConfig for P/D
+	configRouterSchedulerDefaultEPDEPPConfigNameSuffix = "config-llm-scheduler-eppconfig-default-epd" // default EPPConfig for E/PD
+	configRouterSchedulerDefaultEPPDEPPConfigNameSuffix = "config-llm-scheduler-eppconfig-default-eppd" // default EPPConfig for E/P/D
+	configRouterRouteNameSuffix                        = "config-llm-router-route"
 	configSchedulerLatencyPredictorNameSuffix         = "config-llm-scheduler-latency-predictor"
 	configTokenizerNameSuffix                         = "config-llm-tokenizer" // #nosec G101
 	// Tracing configurations
@@ -84,13 +90,18 @@ var (
 	configWorkerPipelineParallelName            = configPrefix + configWorkerPipelineParallelNameSuffix
 	configWorkerDataParallelName                = configPrefix + configWorkerDataParallelNameSuffix
 	configDecodeWorkerDataParallelName          = configPrefix + configDecodeWorkerDataParallelNameSuffix
-	configPrefillTemplateName                   = configPrefix + configPrefillTemplateNameSuffix
-	configPrefillWorkerPipelineParallelName     = configPrefix + configPrefillWorkerPipelineParallelNameSuffix
-	configPrefillWorkerDataParallelName         = configPrefix + configPrefillWorkerDataParallelNameSuffix
-	configRouterSchedulerName                   = configPrefix + configRouterSchedulerNameSuffix
-	configRouterSchedulerDefaultEPPConfigName   = configPrefix + configRouterSchedulerDefaultEPPConfigNameSuffix
-	configRouterSchedulerDefaultPDEPPConfigName = configPrefix + configRouterSchedulerDefaultPDEPPConfigNameSuffix
-	configRouterRouteName                       = configPrefix + configRouterRouteNameSuffix
+	configPrefillTemplateName                    = configPrefix + configPrefillTemplateNameSuffix
+	configPrefillWorkerPipelineParallelName      = configPrefix + configPrefillWorkerPipelineParallelNameSuffix
+	configPrefillWorkerDataParallelName          = configPrefix + configPrefillWorkerDataParallelNameSuffix
+	configEncodeTemplateName                     = configPrefix + configEncodeTemplateNameSuffix
+	configEncodeWorkerPipelineParallelName       = configPrefix + configEncodeWorkerPipelineParallelNameSuffix
+	configEncodeWorkerDataParallelName           = configPrefix + configEncodeWorkerDataParallelNameSuffix
+	configRouterSchedulerName                    = configPrefix + configRouterSchedulerNameSuffix
+	configRouterSchedulerDefaultEPPConfigName    = configPrefix + configRouterSchedulerDefaultEPPConfigNameSuffix
+	configRouterSchedulerDefaultPDEPPConfigName  = configPrefix + configRouterSchedulerDefaultPDEPPConfigNameSuffix
+	configRouterSchedulerDefaultEPDEPPConfigName  = configPrefix + configRouterSchedulerDefaultEPDEPPConfigNameSuffix
+	configRouterSchedulerDefaultEPPDEPPConfigName = configPrefix + configRouterSchedulerDefaultEPPDEPPConfigNameSuffix
+	configRouterRouteName                        = configPrefix + configRouterRouteNameSuffix
 	configSchedulerLatencyPredictorName         = configPrefix + configSchedulerLatencyPredictorNameSuffix
 	configTokenizerName                         = configPrefix + configTokenizerNameSuffix
 	configTracingName                           = configPrefix + configTracingNameSuffix
@@ -112,9 +123,14 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configDecodeWorkerDataParallelName,
 	configPrefillTemplateName,
 	configPrefillWorkerDataParallelName,
+	configEncodeTemplateName,
+	configEncodeWorkerDataParallelName,
+	configEncodeWorkerPipelineParallelName,
 	configRouterSchedulerName,
 	configRouterSchedulerDefaultEPPConfigName,
 	configRouterSchedulerDefaultPDEPPConfigName,
+	configRouterSchedulerDefaultEPDEPPConfigName,
+	configRouterSchedulerDefaultEPPDEPPConfigName,
 	configRouterRouteName,
 	configSchedulerLatencyPredictorName,
 	configTokenizerName,
@@ -438,9 +454,14 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			// The presets require llm-d-router image version >= routerPresetMinVersion.
 			// Older images fall back to the hardcoded schedulerConfigText().
 			if injectDefaultSchedulerConfig && routerVersionSupportsPreset(ctx, schedulerCfg) {
-				if resolvedSpec.Prefill != nil { // P/D disagg.
+				switch {
+				case resolvedSpec.Encode != nil && resolvedSpec.Prefill != nil: // E/P/D
+					refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerDefaultEPPDEPPConfigName)})
+				case resolvedSpec.Encode != nil: // E/PD
+					refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerDefaultEPDEPPConfigName)})
+				case resolvedSpec.Prefill != nil: // P/D
 					refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerDefaultPDEPPConfigName)})
-				} else {
+				default:
 					refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerDefaultEPPConfigName)})
 				}
 			}
@@ -463,7 +484,22 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTracingName)})
 	}
 
-	if resolvedSpec.Prefill != nil { // P/D
+	if resolvedSpec.Encode != nil { // Encode disaggregation (E/PD or E/P/D)
+		// Encode workload preset
+		switch {
+		case resolvedSpec.Encode.Worker == nil:
+			// single-node encode
+			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configEncodeTemplateName)})
+		case resolvedSpec.Encode.Worker != nil && resolvedSpec.Encode.Parallelism.IsDataParallel():
+			// multi-node Data Parallel encode
+			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configEncodeWorkerDataParallelName)})
+		case resolvedSpec.Encode.Worker != nil && resolvedSpec.Encode.Parallelism.IsPipelineParallel():
+			// multi-node Pipeline Parallel encode
+			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configEncodeWorkerPipelineParallelName)})
+		}
+	}
+
+	if resolvedSpec.Prefill != nil { // P/D or E/P/D
 		// Prefill
 		switch {
 		case resolvedSpec.Prefill.Worker == nil:
@@ -476,7 +512,9 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			// multi-node Pipeline Parallel prefill
 			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configPrefillWorkerPipelineParallelName)})
 		}
-		// Decode
+	}
+
+	if resolvedSpec.Prefill != nil || resolvedSpec.Encode != nil { // Disaggregated (P/D, E/PD, or E/P/D) — decode workload
 		switch {
 		case resolvedSpec.Worker == nil:
 			// single-node decode
@@ -488,7 +526,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			// multi-node Pipeline Parallel decode
 			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configDecodeWorkerPipelineParallelName)})
 		}
-	} else { // Non P/D
+	} else { // Non-disaggregated (single workload)
 		switch {
 		case resolvedSpec.Worker == nil:
 			// single-node
