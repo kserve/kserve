@@ -30,11 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
-	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	localmodelnodecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodelnode"
+	kservemetrics "github.com/kserve/kserve/pkg/metrics"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
 	kservetls "github.com/kserve/kserve/pkg/tls"
 )
@@ -76,7 +75,7 @@ func GetOptions() Options {
 	flag.BoolVar(&opts.enableLeaderElection, "leader-elect", opts.enableLeaderElection,
 		"Enable leader election for kserve controller manager. "+
 			"Enabling this will ensure there is only one active kserve controller manager.")
-	flag.BoolVar(&opts.metricsSecure, "metrics-secure", opts.metricsSecure, "Whether to serve metrics via HTTPS.")
+	flag.BoolVar(&opts.metricsSecure, "metrics-secure", opts.metricsSecure, "Serve metrics over HTTPS with Kubernetes authentication and authorization.")
 	flag.StringVar(&opts.metricsCertPath, "metrics-cert-path", opts.metricsCertPath, "Directory containing tls.crt and tls.key for the metrics server. If empty, self-signed certificates are generated.")
 	flag.StringVar(&opts.tlsMinVersion, "tls-min-version", opts.tlsMinVersion, "Minimum TLS version (VersionTLS12, VersionTLS13). Defaults to VersionTLS12.")
 	flag.StringVar(&opts.tlsCipherSuites, "tls-cipher-suites", opts.tlsCipherSuites, "Comma-separated list of TLS cipher suites (Go names). If empty, Go defaults are used.")
@@ -112,16 +111,10 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	setupLog.Info("Setting up manager")
-	metricsServerOptions := metricsserver.Options{
-		BindAddress:   options.metricsAddr,
-		SecureServing: options.metricsSecure,
-		TLSOpts:       tlsResult,
-	}
-	if options.metricsSecure {
-		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
-	}
-	if options.metricsCertPath != "" {
-		metricsServerOptions.CertDir = options.metricsCertPath
+	metricsServerOptions, err := kservemetrics.NewServerOptions(options.metricsAddr, options.metricsSecure, options.metricsCertPath, tlsResult)
+	if err != nil {
+		setupLog.Error(err, "unable to configure metrics server")
+		os.Exit(1)
 	}
 
 	mgr, err := manager.New(cfg, manager.Options{
