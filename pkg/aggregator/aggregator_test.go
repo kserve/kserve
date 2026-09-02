@@ -39,13 +39,13 @@ func TestAggregatorHandlerModels(t *testing.T) {
 	}))
 	defer backendB.Close()
 
-	agg, err := New(Options{
-		Discovery: StaticDiscovery{Backends: []Backend{
+	agg, err := New(
+		StaticDiscovery{Backends: []Backend{
 			{Name: "a", Namespace: "ns", URL: backendA.URL},
 			{Name: "b", Namespace: "ns", URL: backendB.URL},
 		}},
-		Timeout: time.Second,
-	})
+		WithTimeout(time.Second),
+	)
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, PathModels, nil)
@@ -68,12 +68,10 @@ func TestAggregatorHandlerHealthAllMustPass(t *testing.T) {
 	}))
 	defer badServer.Close()
 
-	agg, err := New(Options{
-		Discovery: StaticDiscovery{Backends: []Backend{
-			{Name: "ok", Namespace: "ns", URL: okServer.URL},
-			{Name: "bad", Namespace: "ns", URL: badServer.URL},
-		}},
-	})
+	agg, err := New(StaticDiscovery{Backends: []Backend{
+		{Name: "ok", Namespace: "ns", URL: okServer.URL},
+		{Name: "bad", Namespace: "ns", URL: badServer.URL},
+	}})
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, PathHealth, nil)
@@ -108,4 +106,26 @@ func TestFanOutForwardsAuthorization(t *testing.T) {
 	results := FanOut(t.Context(), http.DefaultClient, []Backend{{Name: "a", URL: srv.URL}}, PathHealth, header)
 	require.Len(t, results, 1)
 	assert.True(t, results[0].OK())
+}
+
+func TestNewRequiresDiscovery(t *testing.T) {
+	_, err := New(nil)
+	require.Error(t, err)
+}
+
+func TestNewAppliesOptions(t *testing.T) {
+	filter := func(_ *http.Request, backends []Backend) []Backend { return backends[:1] }
+	client := &http.Client{}
+	agg, err := New(
+		StaticDiscovery{Backends: []Backend{{Name: "a"}, {Name: "b"}}},
+		WithFilter(filter),
+		WithTimeout(time.Second),
+		WithHTTPClient(client),
+		nil,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, agg)
+	assert.Equal(t, time.Second, agg.timeout)
+	assert.Equal(t, client, agg.client)
+	assert.Len(t, agg.filter(nil, []Backend{{Name: "a"}, {Name: "b"}}), 1)
 }

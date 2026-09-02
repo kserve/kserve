@@ -100,27 +100,3 @@ func ChainFilters(filters ...BackendFilter) BackendFilter {
 
 // Merger combines per-backend results into a single HTTP response body and status.
 type Merger func(results []BackendResult) (body []byte, statusCode int, err error)
-
-// Options configures an Aggregator.
-type Options struct {
-	// Discovery lists backends. Required.
-	Discovery BackendDiscovery
-	// Filter optionally narrows backends per request. Nil means include all.
-	// Use ChainFilters to compose auth, tenancy, or label selectors into one Filter.
-	Filter BackendFilter
-	// Timeout is the per-backend request timeout applied via context. Zero defaults to 3s.
-	Timeout time.Duration
-	// HTTPClient is used for backend requests. Nil uses a default client with no
-	// client-level timeout; Timeout is enforced on the request context instead.
-	HTTPClient *http.Client
-	// Mergers overrides default merge strategies keyed by request path.
-	// Missing paths fall back to built-in mergers.
-	Mergers map[string]Merger
-}
-
-func (o Options) timeout() time.Duration {
-	if o.Timeout > 0 {
-		return o.Timeout
-	}
-	return 3 * time.Second
-}

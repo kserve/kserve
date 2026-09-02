@@ -29,7 +29,7 @@ import (
 // Aggregator lists backends via BackendDiscovery and serves aggregated endpoints.
 type Aggregator struct {
 	discovery BackendDiscovery
-	// filter is a single func; compose several with ChainFilters before passing Options.Filter.
+	// filter is a single func; compose several with ChainFilters and WithFilter.
 	filter  BackendFilter
 	client  *http.Client
 	timeout time.Duration
@@ -37,38 +37,78 @@ type Aggregator struct {
 	log     logr.Logger
 }
 
-// New builds an Aggregator from Options.
-func New(opts Options) (*Aggregator, error) {
-	if opts.Discovery == nil {
+// Option configures an Aggregator. Nil options are ignored.
+type Option func(*Aggregator)
+
+// WithFilter sets the per-request backend filter. Use ChainFilters to compose several.
+func WithFilter(filter BackendFilter) Option {
+	return func(a *Aggregator) {
+		if filter != nil {
+			a.filter = filter
+		}
+	}
+}
+
+// WithTimeout sets the per-backend request timeout applied via context.
+func WithTimeout(timeout time.Duration) Option {
+	return func(a *Aggregator) {
+		if timeout > 0 {
+			a.timeout = timeout
+		}
+	}
+}
+
+// WithHTTPClient sets the client used for backend requests.
+func WithHTTPClient(client *http.Client) Option {
+	return func(a *Aggregator) {
+		if client != nil {
+			a.client = client
+		}
+	}
+}
+
+// WithMergers overrides built-in merge strategies for the given paths.
+func WithMergers(mergers map[string]Merger) Option {
+	return func(a *Aggregator) {
+		for path, merger := range mergers {
+			a.mergers[path] = merger
+		}
+	}
+}
+
+// WithLogger sets the aggregator logger.
+func WithLogger(log logr.Logger) Option {
+	return func(a *Aggregator) {
+		a.log = log
+	}
+}
+
+func passthroughFilter(_ *http.Request, backends []Backend) []Backend {
+	return backends
+}
+
+// New builds an Aggregator. Discovery is required; remaining settings use Option funcs.
+func New(discovery BackendDiscovery, opts ...Option) (*Aggregator, error) {
+	if discovery == nil {
 		return nil, errors.New("discovery is required")
 	}
 
-	timeout := opts.timeout()
-	client := opts.HTTPClient
-	if client == nil {
+	a := &Aggregator{
+		discovery: discovery,
+		filter:    passthroughFilter,
 		// Do not set Client.Timeout: each backend request is already bounded
 		// by context.WithTimeout in the handler.
-		client = &http.Client{}
+		client:  &http.Client{},
+		timeout: 3 * time.Second,
+		mergers: defaultMergers(),
+		log:     logf.Log.WithName("aggregator"),
 	}
-
-	mergers := defaultMergers()
-	for path, merger := range opts.Mergers {
-		mergers[path] = merger
+	for _, opt := range opts {
+		if opt != nil {
+			opt(a)
+		}
 	}
-
-	filter := opts.Filter
-	if filter == nil {
-		filter = func(_ *http.Request, backends []Backend) []Backend { return backends }
-	}
-
-	return &Aggregator{
-		discovery: opts.Discovery,
-		filter:    filter,
-		client:    client,
-		timeout:   timeout,
-		mergers:   mergers,
-		log:       logf.Log.WithName("aggregator"),
-	}, nil
+	return a, nil
 }
 
 // Handler returns an http.Handler that serves aggregated paths.
