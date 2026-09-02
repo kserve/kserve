@@ -158,7 +158,7 @@ schedulingProfiles:
 						Containers: []corev1.Container{
 							{
 								Name:  "main",
-								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
+								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.10.0",
 								Args: []string{
 									"--config-text",
 									"existing-config-from-template",
@@ -429,18 +429,15 @@ schedulingProfiles:
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
-			// Verify default config for non-prefill mode. The default single-profile
-			// config follows the llm-d optimized baseline: queue-scorer,
-			// kv-cache-utilization-scorer, prefix-cache-scorer, no-hit-lru-scorer, max-score-picker.
+			// The scheduler template carries llm-d-router version 0.10.0 which is
+			// below routerPresetMinVersion (0.11.0), so the controller falls back
+			// to the hardcoded schedulerConfigText() with the legacy plugin set.
 			configText, found := getSchedulerConfigText(expectedDeployment)
 			Expect(found).To(BeTrue(), "Expected default config in scheduler deployment")
-			// Default non-prefill config should contain these plugins
+			Expect(configText).To(ContainSubstring("single-profile-handler"))
 			Expect(configText).To(ContainSubstring("queue-scorer"))
-			Expect(configText).To(ContainSubstring("kv-cache-utilization-scorer"))
 			Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
-			Expect(configText).To(ContainSubstring("no-hit-lru-scorer"))
-			Expect(configText).To(ContainSubstring("max-score-picker"))
-			Expect(configText).To(ContainSubstring("name: default"))
+			Expect(schedulerProfileNames(configText)).To(ConsistOf("default"))
 		})
 
 		It("should use prefill/decode scheduler config when prefill is configured", func(ctx SpecContext) {
@@ -479,20 +476,144 @@ schedulingProfiles:
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
-			// Verify P/D config (should contain prefill-filter, decode-filter, disagg-profile-handler, etc.)
+			// llm-d-router version 0.10.0 < routerPresetMinVersion (0.11.0), so
+			// the controller falls back to schedulerConfigText() with legacy P/D plugins.
 			configText, found := getSchedulerConfigText(expectedDeployment)
 			Expect(found).To(BeTrue(), "Expected P/D config in scheduler deployment")
-			// P/D config should contain these plugins (using new v0.7.0 names)
-			Expect(configText).To(ContainSubstring("disagg-headers-handler"))
 			Expect(configText).To(ContainSubstring("prefill-filter"))
 			Expect(configText).To(ContainSubstring("decode-filter"))
 			Expect(configText).To(ContainSubstring("disagg-profile-handler"))
-			Expect(configText).To(ContainSubstring("name: prefill"))
-			Expect(configText).To(ContainSubstring("name: decode"))
-			// Upstream optimized P/D baseline: prefill adds kv-cache-utilization-scorer,
-			// decode swaps queue-scorer for active-request-scorer.
-			Expect(configText).To(ContainSubstring("kv-cache-utilization-scorer"))
-			Expect(configText).To(ContainSubstring("active-request-scorer"))
+			Expect(configText).To(ContainSubstring("queue-scorer"))
+			Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+			Expect(schedulerProfileNames(configText)).To(ConsistOf("prefill", "decode"))
+		})
+	})
+
+	Context("Default scheduler config with llm-d-router >= 0.11.0", func() {
+		It("should use default preset plugins (non-prefill)", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-preset-default"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			// Override the scheduler template in the test namespace with version 0.11.0
+			// so routerVersionSupportsPreset returns true and the controller injects
+			// the default EPPConfig preset instead of the legacy schedulerConfigText().
+			schedulerCfg := LLMInferenceServiceConfig("kserve-config-llm-scheduler",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigSchedulerTemplate("0.11.0"),
+			)
+			Expect(envTest.Client.Create(ctx, schedulerCfg)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify the scheduler deployment uses preset plugins from
+			// config-llm-scheduler-eppconfig-default.yaml
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, expectedDeployment)).To(Succeed())
+
+				configText, found := getSchedulerConfigText(expectedDeployment)
+				g.Expect(found).To(BeTrue(), "Expected preset config in scheduler deployment")
+
+				pluginTypes, err := pluginTypesFromConfig(configText)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				g.Expect(pluginTypes).To(ContainElements(
+					"approx-prefix-cache-producer",
+					"inflight-load-producer",
+					"prefix-cache-affinity-filter",
+					"token-load-scorer",
+				))
+				g.Expect(pluginTypes).NotTo(ContainElement("single-profile-handler"),
+					"legacy plugin should not appear when using presets")
+				g.Expect(pluginTypes).NotTo(ContainElement("queue-scorer"),
+					"legacy plugin should not appear when using presets")
+
+				g.Expect(schedulerProfileNames(configText)).To(ConsistOf("default"))
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should use P/D disaggregation preset plugins when prefill is configured", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-preset-pd"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			schedulerCfg := LLMInferenceServiceConfig("kserve-config-llm-scheduler",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigSchedulerTemplate("0.11.0"),
+			)
+			Expect(envTest.Client.Create(ctx, schedulerCfg)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithPrefill(&corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "main",
+							Image: "quay.io/pierdipi/vllm-cpu:latest",
+						},
+					},
+				}),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - verify the scheduler deployment uses preset plugins from
+			// config-llm-scheduler-eppconfig-default-pd.yaml
+			expectedDeployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, expectedDeployment)).To(Succeed())
+
+				configText, found := getSchedulerConfigText(expectedDeployment)
+				g.Expect(found).To(BeTrue(), "Expected P/D preset config in scheduler deployment")
+
+				pluginTypes, err := pluginTypesFromConfig(configText)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				g.Expect(pluginTypes).To(ContainElements(
+					"always-disagg-pd-decider",
+					"disagg-profile-handler",
+					"prefill-filter",
+					"decode-filter",
+					"approx-prefix-cache-producer",
+					"inflight-load-producer",
+					"prefix-cache-affinity-filter",
+					"token-load-scorer",
+					"active-request-scorer",
+				))
+				g.Expect(pluginTypes).NotTo(ContainElement("disagg-headers-handler"),
+					"deprecated plugin should not appear in preset")
+				g.Expect(pluginTypes).NotTo(ContainElement("queue-scorer"),
+					"legacy plugin should not appear when using presets")
+
+				g.Expect(schedulerProfileNames(configText)).To(ConsistOf("prefill", "decode"))
+			}).WithContext(ctx).Should(Succeed())
 		})
 	})
 
@@ -910,7 +1031,7 @@ schedulingProfiles:
 						Containers: []corev1.Container{
 							{
 								Name:  "main",
-								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0",
+								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.10.0",
 								Args: []string{
 									"--ha-enable-leader-election",
 									"--poolName",
@@ -1681,8 +1802,10 @@ schedulingProfiles:
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected to find --config-text in scheduler deployment")
 				g.Expect(configText).NotTo(ContainSubstring("blockSizeTokens"))
-				g.Expect(configText).NotTo(ContainSubstring("parameters"))
 				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+				hasParams, err := pluginHasParameters(configText, "prefix-cache-scorer")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(hasParams).To(BeFalse(), "prefix-cache-scorer should have no parameters after removing deprecated blockSizeTokens")
 				return nil
 			}).WithContext(ctx).Should(Succeed())
 		})
@@ -1922,6 +2045,26 @@ func getSchedulerConfigText(deployment *appsv1.Deployment) (configText string, f
 	return "", false
 }
 
+// schedulerProfileNames parses a --config-text EndpointPickerConfig (JSON or YAML)
+// and returns the names of its scheduling profiles. This keeps assertions
+// independent of the serialization format the controller emits.
+func schedulerProfileNames(configText string) []string {
+	obj := map[string]interface{}{}
+	if err := yaml.Unmarshal([]byte(configText), &obj); err != nil {
+		return nil
+	}
+	profiles, _ := obj["schedulingProfiles"].([]interface{})
+	names := make([]string, 0, len(profiles))
+	for _, p := range profiles {
+		if pm, ok := p.(map[string]interface{}); ok {
+			if name, ok := pm["name"].(string); ok {
+				names = append(names, name)
+			}
+		}
+	}
+	return names
+}
+
 // countConfigTextArgs counts how many --config-text arguments exist in the scheduler deployment.
 // Used to verify that config is not duplicated.
 func countConfigTextArgs(deployment *appsv1.Deployment) int {
@@ -1974,6 +2117,24 @@ func pluginTypesFromConfig(configText string) ([]string, error) {
 		pluginTypes[i] = p.Type
 	}
 	return pluginTypes, nil
+}
+
+func pluginHasParameters(configText, pluginType string) (bool, error) {
+	var parsed struct {
+		Plugins []struct {
+			Type       string                 `json:"type"`
+			Parameters map[string]interface{} `json:"parameters,omitempty"`
+		} `json:"plugins"`
+	}
+	if err := yaml.Unmarshal([]byte(configText), &parsed); err != nil {
+		return false, err
+	}
+	for _, p := range parsed.Plugins {
+		if p.Type == pluginType {
+			return len(p.Parameters) > 0, nil
+		}
+	}
+	return false, fmt.Errorf("plugin %q not found", pluginType)
 }
 
 // assertPipelineOrder verifies that the 3-plugin pipeline appears in the

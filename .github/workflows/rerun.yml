@@ -17,6 +17,7 @@ jobs:
        github.event.comment.author_association == 'CONTRIBUTOR' ||
        github.event.comment.author_association == 'MEMBER')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       actions: write
       pull-requests: read

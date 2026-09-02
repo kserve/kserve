@@ -176,5 +176,14 @@ func trafficFieldsChanged(old, new *v1alpha2.LLMInferenceService) bool {
 		return true
 	}
 
+	// Peers evaluate group membership against a member's resolved model
+	// identity (status.addresses[].models), so a status-only change to that
+	// set must fan out. Without this, fixing a divergent model name resolves
+	// via a status write that this predicate would otherwise drop, leaving
+	// peers stuck with a stale GroupDegraded condition.
+	if !slices.Equal(resolvedModelNames(old), resolvedModelNames(new)) {
+		return true
+	}
+
 	return false
 }

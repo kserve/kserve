@@ -500,6 +500,30 @@ func TestExpectedScaledObject(t *testing.T) {
 			},
 		},
 		{
+			name:   "TriggerAuthName without AuthModes is wired into trigger without authModes metadata",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: 5,
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
+			},
+			config: &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{
+				Prometheus: PrometheusConfig{
+					URL:             "https://prom.monitoring:9090",
+					TriggerAuthName: "aws-managed-prometheus-auth",
+					TriggerAuthKind: "TriggerAuthentication",
+				},
+			}},
+			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				trigger := so.Spec.Triggers[0]
+				assert.NotContains(t, trigger.Metadata, "authModes")
+				require.NotNil(t, trigger.AuthenticationRef)
+				assert.Equal(t, "aws-managed-prometheus-auth", trigger.AuthenticationRef.Name)
+				assert.Equal(t, "TriggerAuthentication", trigger.AuthenticationRef.Kind)
+			},
+		},
+		{
 			name:   "ClusterTriggerAuthentication auth fields are wired into trigger",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
@@ -661,6 +685,99 @@ func TestExpectedScaledObject(t *testing.T) {
 	}
 }
 
+func TestExpectedDirectScaledObject(t *testing.T) {
+	tests := []struct {
+		name           string
+		llmSvc         *v1alpha2.LLMInferenceService
+		scaling        *v1alpha2.ScalingSpec
+		scaleTargetRef autoscalingv2.CrossVersionObjectReference
+		soName         string
+		validate       func(t *testing.T, so *kedav1alpha1.ScaledObject)
+	}{
+		{
+			name:   "uses user-defined triggers",
+			llmSvc: newTestLLMISVC("my-model", "prod"),
+			scaling: &v1alpha2.ScalingSpec{
+				MinReplicas: ptr.To(int32(1)),
+				MaxReplicas: 5,
+				KEDA: &v1alpha2.DirectKEDAScalingSpec{
+					KEDAScalingSpec: v1alpha2.KEDAScalingSpec{
+						PollingInterval: ptr.To(int32(30)),
+					},
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{
+							Type: "cpu",
+							Metadata: map[string]string{
+								"value": "80",
+							},
+						},
+					},
+				},
+			},
+			scaleTargetRef: deploymentScaleTargetRef("my-model-kserve"),
+			soName:         "my-model-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				require.Len(t, so.Spec.Triggers, 1)
+				assert.Equal(t, "cpu", so.Spec.Triggers[0].Type)
+				assert.Equal(t, "80", so.Spec.Triggers[0].Metadata["value"])
+				assert.NotEqual(t, "prometheus", so.Spec.Triggers[0].Type)
+				assert.Equal(t, int32(30), *so.Spec.PollingInterval)
+				assert.Equal(t, int32(1), *so.Spec.MinReplicaCount)
+				assert.Equal(t, int32(5), *so.Spec.MaxReplicaCount)
+				assert.Empty(t, so.Annotations)
+			},
+		},
+		{
+			name:   "scale target ref points to deployment",
+			llmSvc: newTestLLMISVC("sim-llama", "default"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: 3,
+				KEDA: &v1alpha2.DirectKEDAScalingSpec{
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{Type: "prometheus", Metadata: map[string]string{"serverAddress": "http://prom:9090", "query": "up", "threshold": "1"}},
+					},
+				},
+			},
+			scaleTargetRef: deploymentScaleTargetRef("sim-llama-kserve"),
+			soName:         "sim-llama-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				assert.Equal(t, "apps/v1", so.Spec.ScaleTargetRef.APIVersion)
+				assert.Equal(t, "Deployment", so.Spec.ScaleTargetRef.Kind)
+				assert.Equal(t, "sim-llama-kserve", so.Spec.ScaleTargetRef.Name)
+			},
+		},
+		{
+			name:   "scale target ref points to LeaderWorkerSet for multi-node",
+			llmSvc: newTestLLMISVC("sim-llama", "default"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: 3,
+				KEDA: &v1alpha2.DirectKEDAScalingSpec{
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+					},
+				},
+			},
+			scaleTargetRef: lwsScaleTargetRef("sim-llama-kserve-mn"),
+			soName:         "sim-llama-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				require.NotNil(t, so.Spec.ScaleTargetRef)
+				assert.Equal(t, lwsapi.GroupVersion.String(), so.Spec.ScaleTargetRef.APIVersion)
+				assert.Equal(t, "LeaderWorkerSet", so.Spec.ScaleTargetRef.Kind)
+				assert.Equal(t, "sim-llama-kserve-mn", so.Spec.ScaleTargetRef.Name)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			so := expectedDirectScaledObject(tt.llmSvc, tt.scaling, tt.scaleTargetRef, tt.soName)
+			assert.Equal(t, tt.soName, so.Name)
+			assert.Equal(t, tt.llmSvc.Namespace, so.Namespace)
+			tt.validate(t, so)
+		})
+	}
+}
+
 func TestValidateAutoscalingConfig(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -699,17 +816,16 @@ func TestValidateAutoscalingConfig(t *testing.T) {
 					AuthModes: "bearer",
 				},
 			},
-			wantErr: "autoscaling-wva-controller-config.prometheus.authModes and autoscaling-wva-controller-config.prometheus.triggerAuthName must both be set or both be empty",
+			wantErr: "autoscaling-wva-controller-config.prometheus.triggerAuthName is required in inferenceservice-config when autoscaling-wva-controller-config.prometheus.authModes is set",
 		},
 		{
-			name: "triggerAuthName set without authModes returns error",
+			name: "triggerAuthName set without authModes is valid (pod identity / managed Prometheus)",
 			cfg: &WVAAutoscalingConfig{
 				Prometheus: PrometheusConfig{
 					URL:             "https://prom:9090",
-					TriggerAuthName: "prom-auth",
+					TriggerAuthName: "aws-managed-prometheus-auth",
 				},
 			},
-			wantErr: "autoscaling-wva-controller-config.prometheus.authModes and autoscaling-wva-controller-config.prometheus.triggerAuthName must both be set or both be empty",
 		},
 		{
 			name: "ClusterTriggerAuthentication kind with both auth fields is valid",

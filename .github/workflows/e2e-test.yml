@@ -33,6 +33,7 @@ concurrency:
 jobs:
   detect-changes:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       install_methods: ${{ steps.set-matrix.outputs.install_methods }}
     steps:
@@ -69,6 +70,7 @@ jobs:
 
   kserve-image-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -149,8 +151,52 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+  seed-sklearn-modelcar:
+    runs-on: ubuntu-latest
+    needs: [kserve-image-build]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Download storage-initializer image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+          path: ./tmp
+
+      - name: Load storage-initializer image
+        run: docker load < ./tmp/${{ env.STORAGE_INIT_IMG }}-${{ env.TAG }}
+
+      - name: Download sklearn model
+        timeout-minutes: 10
+        run: |
+          mkdir -p /tmp/sklearn-model && chmod a+rwx /tmp/sklearn-model
+          docker run --rm \
+            --network host \
+            -v /tmp/sklearn-model:/mnt/models \
+            ${{ env.KO_DOCKER_REPO }}/${{ env.STORAGE_INIT_IMG }}:${{ env.TAG }} \
+            gs://kfserving-examples/models/sklearn/1.0/model /mnt/models
+
+      - name: Package model as OCI modelcar image
+        run: |
+          printf 'FROM busybox\nCOPY . /models\n' > /tmp/Dockerfile.modelcar
+          docker build -t kserve/sklearn-modelcar:${{ env.TAG }} -f /tmp/Dockerfile.modelcar /tmp/sklearn-model
+          docker save kserve/sklearn-modelcar:${{ env.TAG }} -o /tmp/sklearn-modelcar.tar
+
+      - name: Upload sklearn modelcar artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sklearn-modelcar-${{ env.TAG }}
+          path: /tmp/sklearn-modelcar.tar
+          compression-level: 0
+          if-no-files-found: error
+
   predictor-runtime-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 70
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -273,6 +319,7 @@ jobs:
 
   explainer-runtime-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -312,6 +359,7 @@ jobs:
 
   graph-tests-images-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -362,7 +410,8 @@ jobs:
 
   test-predictor:
     runs-on: ubuntu-latest
-    needs: [detect-changes, kserve-image-build, predictor-runtime-build]
+    timeout-minutes: 90
+    needs: [detect-changes, kserve-image-build, predictor-runtime-build, seed-sklearn-modelcar]
     strategy:
       fail-fast: false
       matrix:
@@ -412,10 +461,21 @@ jobs:
           pattern: ${{ env.PREDICTOR_ARTIFACT_PREFIX }}-*
           merge-multiple: true
 
+      - name: Download sklearn modelcar artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: sklearn-modelcar-${{ env.TAG }}
+          path: ./tmp
+
       - name: Load docker images
         uses: ./.github/actions/load-docker-images
         with:
           directory: ./tmp
+
+      - name: Load sklearn modelcar into minikube
+        run: |
+          minikube image load ./tmp/sklearn-modelcar.tar
+          echo "SKLEARN_MODELCAR_URI=oci://kserve/sklearn-modelcar:${{ env.TAG }}" >> $GITHUB_ENV
 
       - name: Install UV
         run: ./test/scripts/gh-actions/setup-uv.sh
@@ -447,6 +507,7 @@ jobs:
 
   test-transformer-explainer-mms:
     runs-on: ubuntu-latest
+    timeout-minutes: 50
     needs:
       [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     strategy:
@@ -562,6 +623,7 @@ jobs:
 
   test-graph:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     needs:
       [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
     strategy:
@@ -666,6 +728,7 @@ jobs:
 
   test-path-based-routing:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     needs:
       [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     strategy:
@@ -792,6 +855,7 @@ jobs:
 
   test-qpext:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
@@ -885,6 +949,7 @@ jobs:
 
   test-with-helm:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: [kserve-image-build]
     steps:
       - name: Checkout source
@@ -953,6 +1018,7 @@ jobs:
 
   test-raw:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       max-parallel: 3
@@ -1113,6 +1179,7 @@ jobs:
 
   test-autoscaling:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     needs:
       [detect-changes, kserve-image-build, predictor-runtime-build, explainer-runtime-build]
     strategy:
@@ -1222,6 +1289,7 @@ jobs:
 
   test-kourier:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     needs:
       [detect-changes, kserve-image-build, predictor-runtime-build, graph-tests-images-build]
     strategy:
@@ -1337,6 +1405,7 @@ jobs:
 
   test-llm:
     runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 65
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
@@ -1420,6 +1489,7 @@ jobs:
 
   test-huggingface-server-vllm:
     runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 80
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false
@@ -1504,6 +1574,7 @@ jobs:
 
   test-vllm-runtime:
     runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 25
     needs: [detect-changes, kserve-image-build, predictor-runtime-build]
     strategy:
       fail-fast: false

@@ -13,7 +13,11 @@ on:
   # Run tests for any PRs.
   pull_request:
     paths:
-      - "**"
+      - "cmd/**"
+      - "pkg/**"
+      - "go.mod"
+      - "go.sum"
+      - "llmisvc-controller.Dockerfile"
       - "!python/**"
       - "!.github/**"
       - "!docs/**"
@@ -36,6 +40,7 @@ jobs:
   # See also https://docs.docker.com/docker-hub/builds/automated-testing/
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout source
@@ -69,6 +74,7 @@ jobs:
     needs: test
 
     runs-on: ubuntu-latest
+    timeout-minutes: 220
     if: github.event_name == 'push'
 
     steps:

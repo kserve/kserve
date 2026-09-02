@@ -101,8 +101,23 @@ if [[ $ENABLE_LLMISVC == "false" ]]; then
     NETWORK_LAYER="${NETWORK_LAYER}" ${REPO_ROOT}/hack/setup/infra/knative/manage.knative-operator-helm.sh
   fi
 else
-  ${REPO_ROOT}/hack/setup/quick-install/llmisvc-dependency-install.sh  
-  
+  if [[ $USES_ISTIO == true ]]; then
+    echo "Installing LLMISvc dependencies with Istio gateway..."
+    ${REPO_ROOT}/hack/setup/cli/install-yq.sh
+    ${REPO_ROOT}/hack/setup/cli/install-helm.sh
+    ${REPO_ROOT}/hack/setup/infra/manage.cert-manager-helm.sh
+    ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-crd.sh
+    ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-extension-crd.sh
+    export ISTIOD_EXTRA_ARGS="--set resources.requests.cpu=5m --set resources.requests.memory=32Mi --set meshConfig.accessLogFile=/dev/stdout"
+    export ISTIO_GATEWAY_EXTRA_ARGS="--set resources.requests.cpu=5m --set resources.requests.memory=32Mi --set resources.limits.cpu=100m --set resources.limits.memory=128Mi"
+    ${REPO_ROOT}/hack/setup/infra/manage.istio-helm.sh
+    export GATEWAYCLASS_NAME="istio"
+    ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-gw.sh
+    ${REPO_ROOT}/hack/setup/infra/manage.lws-operator.sh
+  else
+    ${REPO_ROOT}/hack/setup/quick-install/llmisvc-dependency-install.sh
+  fi
+
   # reduce lws operator resources
   kubectl scale deployment lws-controller-manager -n lws-system --replicas=1
   kubectl patch deployment lws-controller-manager -n lws-system --type=json -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/resources", "value": {"requests": {"cpu": "20m", "memory": "64Mi"}, "limits": {"cpu": "100m", "memory": "256Mi"}}}]'

@@ -104,7 +104,20 @@ class JWEDecryptor:
         # memory.  For very large models this may be a concern; consider splitting
         # large files before encryption or increasing container memory limits.
         key_bytes = self._resolver.resolve_key(rid)
-        symmetric_key = jwk.JWK(kty="oct", k=jwk.base64url_encode(key_bytes))
+        try:
+            # the kubernetes secret likely returns a utf-8 encoded value.
+            # so try to decode utf-8.
+            key_str = key_bytes.decode("utf-8")
+            try:
+                # if kubernetes secret was created from the full encryption key file,
+                # the value should be the full json.
+                symmetric_key = jwk.JWK.from_json(key_str)
+            except (ValueError, jwk.InvalidJWKValue):
+                # Not a JWK object - treat as raw key value
+                symmetric_key = jwk.JWK(kty="oct", k=key_str)
+        except UnicodeDecodeError:
+            # if we fail to decode, then the key is likely raw-bytes and should be encoded.
+            symmetric_key = jwk.JWK(kty="oct", k=jwe.base64url_encode(key_bytes))
 
         jwe_token = jwe.JWE()
         jwe_token.deserialize(path.read_text())

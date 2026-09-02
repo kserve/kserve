@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -179,7 +180,8 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 				RestartPolicy: lwsapi.RecreateGroupOnPodRestart,
 			},
 			RolloutStrategy: lwsapi.RolloutStrategy{
-				Type: lwsapi.RollingUpdateStrategyType,
+				Type:                       lwsapi.RollingUpdateStrategyType,
+				RollingUpdateConfiguration: rollingUpdateConfigFromWorkloadSpec(&llmSvc.Spec.WorkloadSpec),
 			},
 			StartupPolicy: lwsapi.LeaderCreatedStartupPolicy,
 		},
@@ -318,7 +320,8 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 				RestartPolicy: lwsapi.RecreateGroupOnPodRestart,
 			},
 			RolloutStrategy: lwsapi.RolloutStrategy{
-				Type: lwsapi.RollingUpdateStrategyType,
+				Type:                       lwsapi.RollingUpdateStrategyType,
+				RollingUpdateConfiguration: rollingUpdateConfigFromPrefill(llmSvc.Spec.Prefill),
 			},
 			StartupPolicy: lwsapi.LeaderCreatedStartupPolicy,
 		},
@@ -666,6 +669,31 @@ func mainLWSName(llmSvc *v1alpha2.LLMInferenceService) string {
 
 func prefillLWSName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return kmeta.ChildName(llmSvc.GetName(), "-kserve-mn-prefill")
+}
+
+func rollingUpdateConfigFromWorkloadSpec(workload *v1alpha2.WorkloadSpec) *lwsapi.RollingUpdateConfiguration {
+	if workload == nil || workload.RolloutStrategy == nil {
+		return nil
+	}
+	rs := workload.RolloutStrategy
+	if rs.MaxUnavailable == nil && rs.MaxSurge == nil {
+		return nil
+	}
+	config := &lwsapi.RollingUpdateConfiguration{
+		MaxUnavailable: intstr.FromInt32(1),
+		MaxSurge:       intstr.FromInt32(0),
+	}
+	if rs.MaxUnavailable != nil {
+		config.MaxUnavailable = *rs.MaxUnavailable
+	}
+	if rs.MaxSurge != nil {
+		config.MaxSurge = *rs.MaxSurge
+	}
+	return config
+}
+
+func rollingUpdateConfigFromPrefill(prefill *v1alpha2.WorkloadSpec) *lwsapi.RollingUpdateConfiguration {
+	return rollingUpdateConfigFromWorkloadSpec(prefill)
 }
 
 func semanticLWSIsEqual(expected *lwsapi.LeaderWorkerSet, curr *lwsapi.LeaderWorkerSet) bool {

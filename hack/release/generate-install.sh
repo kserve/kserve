@@ -82,12 +82,25 @@ RELEASES=(
     "v0.19.0-rc0"
     "v0.19.0"
     "v0.20.0-rc0"
+    "v0.20.0-rc1"
+    "v0.20.0"
 )
 
 TAG=$1
 
-if [[ ! " ${RELEASES[@]} " =~ " ${TAG} " ]]; then
-    echo "Expected \$1 to be one of $RELEASES"
+# Exact element-wise membership check. The previous `[[ " ${RELEASES[@]} " =~ " ${TAG} " ]]`
+# form concatenated the whole array into one string, so a $TAG spanning an element
+# boundary (e.g. "0.1.0 0.2.0") was wrongly accepted as a valid release.
+release_is_known=false
+for release in "${RELEASES[@]}"; do
+    if [[ "${release}" == "${TAG}" ]]; then
+        release_is_known=true
+        break
+    fi
+done
+
+if [[ "${release_is_known}" != "true" ]]; then
+    echo "Expected \$1 to be one of: ${RELEASES[*]}"
     exit 1
 fi
 

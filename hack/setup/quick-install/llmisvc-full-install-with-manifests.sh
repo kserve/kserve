@@ -642,6 +642,7 @@ HELM_DOCS_VERSION=v1.12.0
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
 RUFF_VERSION=0.14.13
+SHELLCHECK_VERSION=v0.11.0
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
@@ -653,15 +654,15 @@ KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
 JAEGER_VERSION=4.7.0
-KSERVE_VERSION=v0.20.0-rc0
+KSERVE_VERSION=v0.20.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.18.0
 OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.5.0
-LLMD_ROUTER_VERSION=v0.9.0
-WVA_VERSION=v0.8.0
+LLMD_ROUTER_VERSION=v0.10.0
+WVA_VERSION=v0.9.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -709,6 +710,11 @@ LLMISVC_INSTALLED="${LLMISVC_INSTALLED:-0}"
 INSTALL_RUNTIMES="${INSTALL_RUNTIMES:-${ENABLE_KSERVE:-false}}"
 INSTALL_LLMISVC_CONFIGS="${INSTALL_LLMISVC_CONFIGS:-${ENABLE_LLMISVC:-false}}"
 FORCE_UPGRADE="${FORCE_UPGRADE:-false}"
+USE_CUSTOM_MANIFESTS="${USE_CUSTOM_MANIFESTS:-false}"
+UPDATE_CONFIGMAP_IMAGES="${UPDATE_CONFIGMAP_IMAGES:-true}"
+KSERVE_INSTALL_CI="${KSERVE_INSTALL_CI:-false}"
+TARGET_CONFIG_ROOT_DIR=${REPO_ROOT}
+TEMP_TARGET_CONFIG_DIR="${TEMP_TARGET_CONFIG_DIR:-/tmp/kserve_customization}"
 TARGET_CRD_DIRS=()
 TARGET_DEPLOYMENT_NAMES=()
 TARGET_OVERLAY_DIRS=()
@@ -1508,12 +1514,11 @@ install_kserve_kustomize() {
         fi
     fi
 
-    # Cleanup temporary overlay after all resources are installed
-    if [ "${KSERVE_OVERLAY_DIR}" = "temp" ]; then
-        rm -rf "${REPO_ROOT}/config/overlays/temp"
-        log_info "Temporary overlay directory cleaned up"
+    # Cleanup temporary manifests after all resources are installed
+    if is_positive "${USE_CUSTOM_MANIFESTS}"; then
+        rm -rf "${TEMP_TARGET_CONFIG_DIR}"
+        log_info "Customized KServe config directory cleaned up"
     fi
-
 }
 
 
@@ -1572,52 +1577,59 @@ main() {
         KSERVE_CRDS="inferenceservices.serving.kserve.io servingruntimes.serving.kserve.io clusterservingruntimes.serving.kserve.io inferencegraphs.serving.kserve.io trainedmodels.serving.kserve.io"
         LLMISVC_CRDS="llminferenceservices.serving.kserve.io llminferenceserviceconfigs.serving.kserve.io"
         LOCALMODEL_CRDS="localmodelcaches.serving.kserve.io localmodelnodegroups.serving.kserve.io localmodelnodes.serving.kserve.io"
-        KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/standalone/kserve"
-        LLMISVC_CONFIG_DIR="${REPO_ROOT}/config/overlays/standalone/llmisvc"
-        LOCALMODEL_CONFIG_DIR="${REPO_ROOT}/config/overlays/addons/localmodel"
-        RUNTIMES_DIR="${REPO_ROOT}/config/runtimes"
         
         # Override KSERVE_VERSION if SET_KSERVE_VERSION is provided
         if [ -n "${SET_KSERVE_VERSION}" ]; then
             KSERVE_VERSION="${SET_KSERVE_VERSION}"
         fi
         
-        # Create temporary overlay if version/registry override is needed
+        # Copy config folder to  if version/registry override is needed
         if ! is_positive "$EMBED_MANIFESTS" && [ -z "${KSERVE_OVERLAY_DIR}" ] && ([ -n "${SET_KSERVE_VERSION}" ] || [ -n "${SET_KSERVE_REGISTRY}" ]); then
-            TEMP_OVERLAY_DIR="${REPO_ROOT}/config/overlays/temp"
-            TEMPLATE_DIR="${REPO_ROOT}/config/overlays/version-template"
+            # Clean up temporary config directory if it exists
+            if [ -d "${TEMP_TARGET_CONFIG_DIR}" ]; then
+                rm -rf ${TEMP_TARGET_CONFIG_DIR}
+            fi
+            mkdir -p ${TEMP_TARGET_CONFIG_DIR}
+            cp -r ${REPO_ROOT}/config ${TEMP_TARGET_CONFIG_DIR}/config
+            TARGET_CONFIG_ROOT_DIR="${TEMP_TARGET_CONFIG_DIR}"
         
-            log_info "Creating temporary overlay from template: ${TEMP_OVERLAY_DIR}"
-        
-            # Copy template
-            rm -rf "${TEMP_OVERLAY_DIR}"
-            cp -r "${TEMPLATE_DIR}" "${TEMP_OVERLAY_DIR}"
-        
-            # Replace version/registry placeholders
-            VERSION="${SET_KSERVE_VERSION:-latest}"
-            REGISTRY="${SET_KSERVE_REGISTRY:-kserve}"
-        
-            find "${TEMP_OVERLAY_DIR}" -type f -name "*.yaml" -exec sed -i \
-                -e "s/latest/${VERSION}/g" \
-                -e "s|kserve/|${REGISTRY}/|g" {} \;
-        
-            # Uncomment components/patches based on ENABLE_* flags
-            if is_positive "${ENABLE_KSERVE}"; then
-                sed -i 's/#ENABLE_KSERVE //' "${TEMP_OVERLAY_DIR}/kustomization.yaml"
+            FIND_PRUNE=()
+            if ! is_positive "${UPDATE_CONFIGMAP_IMAGES}"; then
+                FIND_PRUNE+=( ! -path '*/configmap/*' )
             fi
         
-            if is_positive "${ENABLE_LLMISVC}"; then
-                sed -i 's/#ENABLE_LLMISVC //' "${TEMP_OVERLAY_DIR}/kustomization.yaml"
+            # Update image registry if SET_KSERVE_REGISTRY is provided
+            if [ -n "${SET_KSERVE_REGISTRY}" ]; then
+                find "${TARGET_CONFIG_ROOT_DIR}/config" -type f -name "*.yaml" \
+                    "${FIND_PRUNE[@]}" \
+                    -exec sed -i \
+                    -e "s|\"image\": \"kserve/|\"image\": \"${SET_KSERVE_REGISTRY}/|g" \
+                    -e "s|image: kserve/|image: ${SET_KSERVE_REGISTRY}/|g" \
+                    -e "s|image: ko://github.com/kserve/|image: ${SET_KSERVE_REGISTRY}/|g" {} \;
+            fi
+            # Update image version if SET_KSERVE_VERSION is provided
+            if [ -n "${SET_KSERVE_VERSION}" ]; then
+                find "${TARGET_CONFIG_ROOT_DIR}/config" -type f -name "*.yaml" \
+                    "${FIND_PRUNE[@]}" \
+                    -exec sed -i \
+                -e "s/:latest/:${SET_KSERVE_VERSION}/g" {} \;
             fi
         
-            if is_positive "${ENABLE_LOCALMODEL}"; then
-                sed -i 's/#ENABLE_LOCALMODEL //' "${TEMP_OVERLAY_DIR}/kustomization.yaml"
+            # Customized images are loaded onto the node, not pushed to a registry, so
+            # force IfNotPresent to avoid registry pulls for locally-built image tags.
+            if is_positive ${KSERVE_INSTALL_CI}; then
+                find "${TARGET_CONFIG_ROOT_DIR}/config" -type f -name "*.yaml" \
+                    "${FIND_PRUNE[@]}" \
+                    -exec sed -i \
+                    -e "s/imagePullPolicy: Always/imagePullPolicy: IfNotPresent/g" {} \;
             fi
-        
-            # Use temporary overlay
-            KSERVE_OVERLAY_DIR="temp"
-            log_success "Temporary overlay created successfully"
+            USE_CUSTOM_MANIFESTS="true"
         fi
+        
+        KSERVE_CONFIG_DIR="${TARGET_CONFIG_ROOT_DIR}/config/overlays/standalone/kserve"
+        LLMISVC_CONFIG_DIR="${TARGET_CONFIG_ROOT_DIR}/config/overlays/standalone/llmisvc"
+        LOCALMODEL_CONFIG_DIR="${TARGET_CONFIG_ROOT_DIR}/config/overlays/addons/localmodel"
+        RUNTIMES_DIR="${TARGET_CONFIG_ROOT_DIR}/config/runtimes"
         
         if [ -n "${KSERVE_OVERLAY_DIR}" ]; then
             TARGET_OVERLAY_DIRS+=("${REPO_ROOT}/config/overlays/${KSERVE_OVERLAY_DIR}")
@@ -1685,27 +1697,27 @@ main() {
             fi
         else
             if is_positive "${ENABLE_KSERVE}"; then
-                TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full")
+                TARGET_CRD_DIRS+=("${TARGET_CONFIG_ROOT_DIR}/config/crd/full")
                 TARGET_CRDS_TO_VERIFY+=("${KSERVE_CRDS}")
                 TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager")
                 if [ "${LLMISVC_INSTALLED}" = "1" ]; then
-                    KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/addons/kserve"
+                    KSERVE_CONFIG_DIR="${TARGET_CONFIG_ROOT_DIR}/config/overlays/addons/kserve"
                 fi
                 TARGET_OVERLAY_DIRS+=("${KSERVE_CONFIG_DIR}")
             fi
         
             if is_positive "${ENABLE_LLMISVC}"; then
-                TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/llmisvc")
+                TARGET_CRD_DIRS+=("${TARGET_CONFIG_ROOT_DIR}/config/crd/full/llmisvc")
                 TARGET_CRDS_TO_VERIFY+=("${LLMISVC_CRDS}")
                 TARGET_DEPLOYMENT_NAMES+=("llmisvc-controller-manager")
                 if [ "${KSERVE_INSTALLED}" = "1" ]; then
-                    LLMISVC_CONFIG_DIR="${REPO_ROOT}/config/overlays/addons/llmisvc"
+                    LLMISVC_CONFIG_DIR="${TARGET_CONFIG_ROOT_DIR}/config/overlays/addons/llmisvc"
                 fi
                 TARGET_OVERLAY_DIRS+=("${LLMISVC_CONFIG_DIR}")
             fi
         
             if is_positive "${ENABLE_LOCALMODEL}"; then
-                TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/localmodel")
+                TARGET_CRD_DIRS+=("${TARGET_CONFIG_ROOT_DIR}/config/crd/full/localmodel")
                 TARGET_CRDS_TO_VERIFY+=("${LOCALMODEL_CRDS}")
                 TARGET_OVERLAY_DIRS+=("${LOCALMODEL_CONFIG_DIR}")
                 TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
@@ -2734,11 +2746,25 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
             KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          fi
+          # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+          # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
+          if [ -z "${KV_TRANSFER_ARGS}" ]; then
+            # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+            # raise RuntimeError("NIXL is not available") and never finish starting.
+            NIXL_PY=$(command -v python3 || command -v python || true)
+            if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+              KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
+              echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_consumer)"
+            else
+              echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+            fi
           fi
         fi
 
@@ -2763,7 +2789,11 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+      - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
+      image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -2825,7 +2855,7 @@ spec:
     - command:
       - /app/pd-sidecar
       - --port=8000
-      - --vllm-port=8001
+      - --model-server-port=8001
       - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
       - --pool-group=inference.networking.x-k8s.io
@@ -2846,7 +2876,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.10.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3075,11 +3105,25 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
             KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          fi
+          # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+          # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
+          if [ -z "${KV_TRANSFER_ARGS}" ]; then
+            # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+            # raise RuntimeError("NIXL is not available") and never finish starting.
+            NIXL_PY=$(command -v python3 || command -v python || true)
+            if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+              KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
+              echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_consumer)"
+            else
+              echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+            fi
           fi
         fi
 
@@ -3112,7 +3156,11 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+      - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
+      image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -3178,7 +3226,7 @@ spec:
     - command:
       - /app/pd-sidecar
       - --port=8000
-      - --vllm-port=8001
+      - --model-server-port=8001
       - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
       - --pool-group=inference.networking.x-k8s.io
@@ -3199,7 +3247,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.10.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3420,11 +3468,25 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Worker 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
             KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          fi
+          # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+          # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
+          if [ -z "${KV_TRANSFER_ARGS}" ]; then
+            # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+            # raise RuntimeError("NIXL is not available") and never finish starting.
+            NIXL_PY=$(command -v python3 || command -v python || true)
+            if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+              KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
+              echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_consumer)"
+            else
+              echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+            fi
           fi
         fi
 
@@ -3457,9 +3519,13 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
+      - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
       - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
         value: "1"
-      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -3667,11 +3733,25 @@ spec:
             SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
           fi
 
-          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
           KV_TRANSFER_ARGS=""
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-            if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
               KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            fi
+            # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+            # Prefill is the KV producer; without a connector here decode has nothing to fetch.
+            if [ -z "${KV_TRANSFER_ARGS}" ]; then
+              # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+              # raise RuntimeError("NIXL is not available") and never finish starting.
+              NIXL_PY=$(command -v python3 || command -v python || true)
+              if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+                KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+                echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_producer)"
+              else
+                echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+              fi
             fi
           fi
 
@@ -3696,7 +3776,11 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+        - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -3945,11 +4029,25 @@ spec:
             SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
           fi
 
-          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
           KV_TRANSFER_ARGS=""
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-            if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
               KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            fi
+            # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+            # Prefill is the KV producer; without a connector here decode has nothing to fetch.
+            if [ -z "${KV_TRANSFER_ARGS}" ]; then
+              # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+              # raise RuntimeError("NIXL is not available") and never finish starting.
+              NIXL_PY=$(command -v python3 || command -v python || true)
+              if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+                KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+                echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_producer)"
+              else
+                echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+              fi
             fi
           fi
 
@@ -3982,7 +4080,11 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+        - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -4225,11 +4327,25 @@ spec:
             SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Worker 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
           fi
 
-          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
           KV_TRANSFER_ARGS=""
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-            if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
               KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            fi
+            # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+            # Prefill is the KV producer; without a connector here decode has nothing to fetch.
+            if [ -z "${KV_TRANSFER_ARGS}" ]; then
+              # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+              # raise RuntimeError("NIXL is not available") and never finish starting.
+              NIXL_PY=$(command -v python3 || command -v python || true)
+              if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+                KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+                echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_producer)"
+              else
+                echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+              fi
             fi
           fi
 
@@ -4262,7 +4378,11 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+        - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -4636,7 +4756,7 @@ spec:
   router:
     scheduler:
       annotations:
-        app.kubernetes.io/version: 0.9.0
+        app.kubernetes.io/version: 0.10.0
       pool:
         spec:
           endpointPickerRef:
@@ -4679,7 +4799,7 @@ spec:
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.10.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -4753,6 +4873,68 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  name: kserve-config-llm-scheduler-eppconfig-default
+  namespace: kserve
+spec:
+  router:
+    scheduler:
+      config:
+        inline:
+          apiVersion: llm-d.ai/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+          - type: approx-prefix-cache-producer
+          - type: inflight-load-producer
+          - type: prefix-cache-affinity-filter
+          - type: token-load-scorer
+          schedulingProfiles:
+          - name: default
+            plugins:
+            - pluginRef: prefix-cache-affinity-filter
+            - pluginRef: token-load-scorer
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-scheduler-eppconfig-default-pd
+  namespace: kserve
+spec:
+  router:
+    scheduler:
+      config:
+        inline:
+          apiVersion: llm-d.ai/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+          - type: always-disagg-pd-decider
+          - parameters:
+              deciders:
+                prefill: always-disagg-pd-decider
+            type: disagg-profile-handler
+          - type: prefill-filter
+          - type: decode-filter
+          - type: approx-prefix-cache-producer
+          - type: inflight-load-producer
+          - type: prefix-cache-affinity-filter
+          - type: token-load-scorer
+          - type: active-request-scorer
+          - type: max-score-picker
+          schedulingProfiles:
+          - name: prefill
+            plugins:
+            - pluginRef: prefill-filter
+            - pluginRef: prefix-cache-affinity-filter
+            - pluginRef: token-load-scorer
+            - pluginRef: max-score-picker
+          - name: decode
+            plugins:
+            - pluginRef: decode-filter
+            - pluginRef: active-request-scorer
+            - pluginRef: max-score-picker
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
   name: kserve-config-llm-scheduler-latency-predictor
   namespace: kserve
 spec:
@@ -4795,7 +4977,7 @@ spec:
             value: "500"
           - name: LATENCY_OBJECTIVE_TYPE
             value: mean
-          image: ghcr.io/llm-d/llm-d-latency-predictor-training-server:v0.8.0
+          image: ghcr.io/llm-d/llm-d-latency-predictor-training-server:0.9.0
           imagePullPolicy: IfNotPresent
           livenessProbe:
             httpGet:
@@ -4871,7 +5053,7 @@ spec:
             value: "30"
           - name: LATENCY_OBJECTIVE_TYPE
             value: mean
-          image: ghcr.io/llm-d/llm-d-latency-predictor-prediction-server:v0.8.0
+          image: ghcr.io/llm-d/llm-d-latency-predictor-prediction-server:0.9.0
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 5
@@ -5117,7 +5299,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -5493,7 +5675,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -5773,7 +5955,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -6777,8 +6959,190 @@ spec:
                     format: int32
                     minimum: 0
                     type: integer
+                  rolloutStrategy:
+                    properties:
+                      maxSurge:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                      maxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                    type: object
                   scaling:
                     properties:
+                      keda:
+                        properties:
+                          advanced:
+                            properties:
+                              horizontalPodAutoscalerConfig:
+                                properties:
+                                  behavior:
+                                    properties:
+                                      scaleDown:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                      scaleUp:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                    type: object
+                                  name:
+                                    type: string
+                                type: object
+                              restoreToOriginalReplicaCount:
+                                type: boolean
+                              scalingModifiers:
+                                properties:
+                                  activationTarget:
+                                    type: string
+                                  formula:
+                                    type: string
+                                  metricType:
+                                    enum:
+                                    - AverageValue
+                                    - Value
+                                    type: string
+                                  target:
+                                    type: string
+                                type: object
+                            type: object
+                          cooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          fallback:
+                            properties:
+                              behavior:
+                                default: static
+                                enum:
+                                - static
+                                - currentReplicas
+                                - currentReplicasIfHigher
+                                - currentReplicasIfLower
+                                type: string
+                              failureThreshold:
+                                format: int32
+                                type: integer
+                              replicas:
+                                format: int32
+                                type: integer
+                            required:
+                            - failureThreshold
+                            - replicas
+                            type: object
+                          idleReplicaCount:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          initialCooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          pollingInterval:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          triggers:
+                            items:
+                              properties:
+                                authenticationRef:
+                                  properties:
+                                    kind:
+                                      type: string
+                                    name:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                metadata:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                                metricType:
+                                  type: string
+                                name:
+                                  type: string
+                                type:
+                                  type: string
+                                useCachedMetrics:
+                                  type: boolean
+                              required:
+                              - metadata
+                              - type
+                              type: object
+                            minItems: 1
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        required:
+                        - triggers
+                        type: object
+                        x-kubernetes-validations:
+                        - message: horizontalPodAutoscalerConfig.name must not be
+                            set; the controller manages the HPA name
+                          rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                            == 0'
                       maxReplicas:
                         format: int32
                         minimum: 1
@@ -6979,7 +7343,7 @@ spec:
                                 type: object
                               idleReplicaCount:
                                 format: int32
-                                minimum: 1
+                                minimum: 0
                                 type: integer
                               initialCooldownPeriod:
                                 format: int32
@@ -6991,13 +7355,6 @@ spec:
                                 type: integer
                             type: object
                             x-kubernetes-validations:
-                            - message: scalingModifiers must not be set; WVA controls
-                                the scaling metric formula and logic
-                              rule: '!has(self.advanced) || (size(self.advanced.scalingModifiers.formula)
-                                == 0 && size(self.advanced.scalingModifiers.target)
-                                == 0 && size(self.advanced.scalingModifiers.activationTarget)
-                                == 0 && size(self.advanced.scalingModifiers.metricType)
-                                == 0)'
                             - message: horizontalPodAutoscalerConfig.name must not
                                 be set; the controller manages the HPA name
                               rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
@@ -7009,6 +7366,13 @@ spec:
                             type: string
                         type: object
                         x-kubernetes-validations:
+                        - message: scalingModifiers must not be set; WVA controls
+                            the scaling metric formula and logic
+                          rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                            == 0 && size(self.keda.advanced.scalingModifiers.target)
+                            == 0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                            == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                            == 0)'
                         - message: hpa and keda are mutually exclusive; choose one
                             actuator backend
                           rule: '!(has(self.hpa) && has(self.keda))'
@@ -7019,13 +7383,17 @@ spec:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: wva is required when scaling is configured; it provides
-                        the autoscaling mechanism
-                      rule: has(self.wva)
+                    - message: either wva or keda must be specified when scaling is
+                        configured
+                      rule: has(self.wva) || has(self.keda)
+                    - message: wva and keda are mutually exclusive
+                      rule: '!(has(self.wva) && has(self.keda))'
+                    - message: at least one trigger is required when using direct
+                        KEDA scaling
+                      rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                     - message: minReplicas cannot exceed maxReplicas
                       rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                    - message: minReplicas is required when idleReplicaCount is set;
-                        idleReplicaCount must be less than minReplicas
+                    - message: minReplicas is required when idleReplicaCount is set
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -7033,6 +7401,13 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
                         < self.minReplicas'
+                    - message: minReplicas is required when idleReplicaCount is set
+                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
+                        has(self.minReplicas)'
+                    - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                        defines the replica floor when no triggers are active
+                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
+                        !has(self.minReplicas) || self.keda.idleReplicaCount < self.minReplicas'
                   template:
                     properties:
                       activeDeadlineSeconds:
@@ -14544,6 +14919,19 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              rolloutStrategy:
+                properties:
+                  maxSurge:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                  maxUnavailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                type: object
               router:
                 properties:
                   gateway:
@@ -23133,6 +23521,175 @@ spec:
                 type: object
               scaling:
                 properties:
+                  keda:
+                    properties:
+                      advanced:
+                        properties:
+                          horizontalPodAutoscalerConfig:
+                            properties:
+                              behavior:
+                                properties:
+                                  scaleDown:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                  scaleUp:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                type: object
+                              name:
+                                type: string
+                            type: object
+                          restoreToOriginalReplicaCount:
+                            type: boolean
+                          scalingModifiers:
+                            properties:
+                              activationTarget:
+                                type: string
+                              formula:
+                                type: string
+                              metricType:
+                                enum:
+                                - AverageValue
+                                - Value
+                                type: string
+                              target:
+                                type: string
+                            type: object
+                        type: object
+                      cooldownPeriod:
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      fallback:
+                        properties:
+                          behavior:
+                            default: static
+                            enum:
+                            - static
+                            - currentReplicas
+                            - currentReplicasIfHigher
+                            - currentReplicasIfLower
+                            type: string
+                          failureThreshold:
+                            format: int32
+                            type: integer
+                          replicas:
+                            format: int32
+                            type: integer
+                        required:
+                        - failureThreshold
+                        - replicas
+                        type: object
+                      idleReplicaCount:
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      initialCooldownPeriod:
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      pollingInterval:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      triggers:
+                        items:
+                          properties:
+                            authenticationRef:
+                              properties:
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            metadata:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            metricType:
+                              type: string
+                            name:
+                              type: string
+                            type:
+                              type: string
+                            useCachedMetrics:
+                              type: boolean
+                          required:
+                          - metadata
+                          - type
+                          type: object
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-type: atomic
+                    required:
+                    - triggers
+                    type: object
+                    x-kubernetes-validations:
+                    - message: horizontalPodAutoscalerConfig.name must not be set;
+                        the controller manages the HPA name
+                      rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                        || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                        == 0'
                   maxReplicas:
                     format: int32
                     minimum: 1
@@ -23333,7 +23890,7 @@ spec:
                             type: object
                           idleReplicaCount:
                             format: int32
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           initialCooldownPeriod:
                             format: int32
@@ -23345,13 +23902,6 @@ spec:
                             type: integer
                         type: object
                         x-kubernetes-validations:
-                        - message: scalingModifiers must not be set; WVA controls
-                            the scaling metric formula and logic
-                          rule: '!has(self.advanced) || (size(self.advanced.scalingModifiers.formula)
-                            == 0 && size(self.advanced.scalingModifiers.target) ==
-                            0 && size(self.advanced.scalingModifiers.activationTarget)
-                            == 0 && size(self.advanced.scalingModifiers.metricType)
-                            == 0)'
                         - message: horizontalPodAutoscalerConfig.name must not be
                             set; the controller manages the HPA name
                           rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
@@ -23363,6 +23913,13 @@ spec:
                         type: string
                     type: object
                     x-kubernetes-validations:
+                    - message: scalingModifiers must not be set; WVA controls the
+                        scaling metric formula and logic
+                      rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                        == 0 && size(self.keda.advanced.scalingModifiers.target) ==
+                        0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                        == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                        == 0)'
                     - message: hpa and keda are mutually exclusive; choose one actuator
                         backend
                       rule: '!(has(self.hpa) && has(self.keda))'
@@ -23373,13 +23930,16 @@ spec:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: wva is required when scaling is configured; it provides
-                    the autoscaling mechanism
-                  rule: has(self.wva)
+                - message: either wva or keda must be specified when scaling is configured
+                  rule: has(self.wva) || has(self.keda)
+                - message: wva and keda are mutually exclusive
+                  rule: '!(has(self.wva) && has(self.keda))'
+                - message: at least one trigger is required when using direct KEDA
+                    scaling
+                  rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                 - message: minReplicas cannot exceed maxReplicas
                   rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount
-                    must be less than minReplicas
+                - message: minReplicas is required when idleReplicaCount is set
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -23387,6 +23947,12 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
+                - message: minReplicas is required when idleReplicaCount is set
+                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
+                - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                    defines the replica floor when no triggers are active
+                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas)
+                    || self.keda.idleReplicaCount < self.minReplicas'
               storageInitializer:
                 properties:
                   enabled:
@@ -31357,8 +31923,190 @@ spec:
                     format: int32
                     minimum: 0
                     type: integer
+                  rolloutStrategy:
+                    properties:
+                      maxSurge:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                      maxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                    type: object
                   scaling:
                     properties:
+                      keda:
+                        properties:
+                          advanced:
+                            properties:
+                              horizontalPodAutoscalerConfig:
+                                properties:
+                                  behavior:
+                                    properties:
+                                      scaleDown:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                      scaleUp:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                    type: object
+                                  name:
+                                    type: string
+                                type: object
+                              restoreToOriginalReplicaCount:
+                                type: boolean
+                              scalingModifiers:
+                                properties:
+                                  activationTarget:
+                                    type: string
+                                  formula:
+                                    type: string
+                                  metricType:
+                                    enum:
+                                    - AverageValue
+                                    - Value
+                                    type: string
+                                  target:
+                                    type: string
+                                type: object
+                            type: object
+                          cooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          fallback:
+                            properties:
+                              behavior:
+                                default: static
+                                enum:
+                                - static
+                                - currentReplicas
+                                - currentReplicasIfHigher
+                                - currentReplicasIfLower
+                                type: string
+                              failureThreshold:
+                                format: int32
+                                type: integer
+                              replicas:
+                                format: int32
+                                type: integer
+                            required:
+                            - failureThreshold
+                            - replicas
+                            type: object
+                          idleReplicaCount:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          initialCooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          pollingInterval:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          triggers:
+                            items:
+                              properties:
+                                authenticationRef:
+                                  properties:
+                                    kind:
+                                      type: string
+                                    name:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                metadata:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                                metricType:
+                                  type: string
+                                name:
+                                  type: string
+                                type:
+                                  type: string
+                                useCachedMetrics:
+                                  type: boolean
+                              required:
+                              - metadata
+                              - type
+                              type: object
+                            minItems: 1
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        required:
+                        - triggers
+                        type: object
+                        x-kubernetes-validations:
+                        - message: horizontalPodAutoscalerConfig.name must not be
+                            set; the controller manages the HPA name
+                          rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                            == 0'
                       maxReplicas:
                         format: int32
                         minimum: 1
@@ -31559,7 +32307,7 @@ spec:
                                 type: object
                               idleReplicaCount:
                                 format: int32
-                                minimum: 1
+                                minimum: 0
                                 type: integer
                               initialCooldownPeriod:
                                 format: int32
@@ -31571,13 +32319,6 @@ spec:
                                 type: integer
                             type: object
                             x-kubernetes-validations:
-                            - message: scalingModifiers must not be set; WVA controls
-                                the scaling metric formula and logic
-                              rule: '!has(self.advanced) || (size(self.advanced.scalingModifiers.formula)
-                                == 0 && size(self.advanced.scalingModifiers.target)
-                                == 0 && size(self.advanced.scalingModifiers.activationTarget)
-                                == 0 && size(self.advanced.scalingModifiers.metricType)
-                                == 0)'
                             - message: horizontalPodAutoscalerConfig.name must not
                                 be set; the controller manages the HPA name
                               rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
@@ -31589,6 +32330,13 @@ spec:
                             type: string
                         type: object
                         x-kubernetes-validations:
+                        - message: scalingModifiers must not be set; WVA controls
+                            the scaling metric formula and logic
+                          rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                            == 0 && size(self.keda.advanced.scalingModifiers.target)
+                            == 0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                            == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                            == 0)'
                         - message: hpa and keda are mutually exclusive; choose one
                             actuator backend
                           rule: '!(has(self.hpa) && has(self.keda))'
@@ -31599,13 +32347,17 @@ spec:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: wva is required when scaling is configured; it provides
-                        the autoscaling mechanism
-                      rule: has(self.wva)
+                    - message: either wva or keda must be specified when scaling is
+                        configured
+                      rule: has(self.wva) || has(self.keda)
+                    - message: wva and keda are mutually exclusive
+                      rule: '!(has(self.wva) && has(self.keda))'
+                    - message: at least one trigger is required when using direct
+                        KEDA scaling
+                      rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                     - message: minReplicas cannot exceed maxReplicas
                       rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                    - message: minReplicas is required when idleReplicaCount is set;
-                        idleReplicaCount must be less than minReplicas
+                    - message: minReplicas is required when idleReplicaCount is set
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -31613,6 +32365,13 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
                         < self.minReplicas'
+                    - message: minReplicas is required when idleReplicaCount is set
+                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
+                        has(self.minReplicas)'
+                    - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                        defines the replica floor when no triggers are active
+                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
+                        !has(self.minReplicas) || self.keda.idleReplicaCount < self.minReplicas'
                   template:
                     properties:
                       activeDeadlineSeconds:
@@ -39124,6 +39883,19 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              rolloutStrategy:
+                properties:
+                  maxSurge:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                  maxUnavailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                type: object
               router:
                 properties:
                   gateway:
@@ -47744,6 +48516,175 @@ spec:
                 type: object
               scaling:
                 properties:
+                  keda:
+                    properties:
+                      advanced:
+                        properties:
+                          horizontalPodAutoscalerConfig:
+                            properties:
+                              behavior:
+                                properties:
+                                  scaleDown:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                  scaleUp:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                type: object
+                              name:
+                                type: string
+                            type: object
+                          restoreToOriginalReplicaCount:
+                            type: boolean
+                          scalingModifiers:
+                            properties:
+                              activationTarget:
+                                type: string
+                              formula:
+                                type: string
+                              metricType:
+                                enum:
+                                - AverageValue
+                                - Value
+                                type: string
+                              target:
+                                type: string
+                            type: object
+                        type: object
+                      cooldownPeriod:
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      fallback:
+                        properties:
+                          behavior:
+                            default: static
+                            enum:
+                            - static
+                            - currentReplicas
+                            - currentReplicasIfHigher
+                            - currentReplicasIfLower
+                            type: string
+                          failureThreshold:
+                            format: int32
+                            type: integer
+                          replicas:
+                            format: int32
+                            type: integer
+                        required:
+                        - failureThreshold
+                        - replicas
+                        type: object
+                      idleReplicaCount:
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      initialCooldownPeriod:
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      pollingInterval:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      triggers:
+                        items:
+                          properties:
+                            authenticationRef:
+                              properties:
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            metadata:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            metricType:
+                              type: string
+                            name:
+                              type: string
+                            type:
+                              type: string
+                            useCachedMetrics:
+                              type: boolean
+                          required:
+                          - metadata
+                          - type
+                          type: object
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-type: atomic
+                    required:
+                    - triggers
+                    type: object
+                    x-kubernetes-validations:
+                    - message: horizontalPodAutoscalerConfig.name must not be set;
+                        the controller manages the HPA name
+                      rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                        || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                        == 0'
                   maxReplicas:
                     format: int32
                     minimum: 1
@@ -47944,7 +48885,7 @@ spec:
                             type: object
                           idleReplicaCount:
                             format: int32
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           initialCooldownPeriod:
                             format: int32
@@ -47956,13 +48897,6 @@ spec:
                             type: integer
                         type: object
                         x-kubernetes-validations:
-                        - message: scalingModifiers must not be set; WVA controls
-                            the scaling metric formula and logic
-                          rule: '!has(self.advanced) || (size(self.advanced.scalingModifiers.formula)
-                            == 0 && size(self.advanced.scalingModifiers.target) ==
-                            0 && size(self.advanced.scalingModifiers.activationTarget)
-                            == 0 && size(self.advanced.scalingModifiers.metricType)
-                            == 0)'
                         - message: horizontalPodAutoscalerConfig.name must not be
                             set; the controller manages the HPA name
                           rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
@@ -47974,6 +48908,13 @@ spec:
                         type: string
                     type: object
                     x-kubernetes-validations:
+                    - message: scalingModifiers must not be set; WVA controls the
+                        scaling metric formula and logic
+                      rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                        == 0 && size(self.keda.advanced.scalingModifiers.target) ==
+                        0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                        == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                        == 0)'
                     - message: hpa and keda are mutually exclusive; choose one actuator
                         backend
                       rule: '!(has(self.hpa) && has(self.keda))'
@@ -47984,13 +48925,16 @@ spec:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: wva is required when scaling is configured; it provides
-                    the autoscaling mechanism
-                  rule: has(self.wva)
+                - message: either wva or keda must be specified when scaling is configured
+                  rule: has(self.wva) || has(self.keda)
+                - message: wva and keda are mutually exclusive
+                  rule: '!(has(self.wva) && has(self.keda))'
+                - message: at least one trigger is required when using direct KEDA
+                    scaling
+                  rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                 - message: minReplicas cannot exceed maxReplicas
                   rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount
-                    must be less than minReplicas
+                - message: minReplicas is required when idleReplicaCount is set
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -47998,6 +48942,12 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
+                - message: minReplicas is required when idleReplicaCount is set
+                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
+                - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                    defines the replica floor when no triggers are active
+                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas)
+                    || self.keda.idleReplicaCount < self.minReplicas'
               storageInitializer:
                 properties:
                   enabled:
@@ -55746,8 +56696,190 @@ spec:
                     format: int32
                     minimum: 0
                     type: integer
+                  rolloutStrategy:
+                    properties:
+                      maxSurge:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                      maxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                    type: object
                   scaling:
                     properties:
+                      keda:
+                        properties:
+                          advanced:
+                            properties:
+                              horizontalPodAutoscalerConfig:
+                                properties:
+                                  behavior:
+                                    properties:
+                                      scaleDown:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                      scaleUp:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                    type: object
+                                  name:
+                                    type: string
+                                type: object
+                              restoreToOriginalReplicaCount:
+                                type: boolean
+                              scalingModifiers:
+                                properties:
+                                  activationTarget:
+                                    type: string
+                                  formula:
+                                    type: string
+                                  metricType:
+                                    enum:
+                                    - AverageValue
+                                    - Value
+                                    type: string
+                                  target:
+                                    type: string
+                                type: object
+                            type: object
+                          cooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          fallback:
+                            properties:
+                              behavior:
+                                default: static
+                                enum:
+                                - static
+                                - currentReplicas
+                                - currentReplicasIfHigher
+                                - currentReplicasIfLower
+                                type: string
+                              failureThreshold:
+                                format: int32
+                                type: integer
+                              replicas:
+                                format: int32
+                                type: integer
+                            required:
+                            - failureThreshold
+                            - replicas
+                            type: object
+                          idleReplicaCount:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          initialCooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          pollingInterval:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          triggers:
+                            items:
+                              properties:
+                                authenticationRef:
+                                  properties:
+                                    kind:
+                                      type: string
+                                    name:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                metadata:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                                metricType:
+                                  type: string
+                                name:
+                                  type: string
+                                type:
+                                  type: string
+                                useCachedMetrics:
+                                  type: boolean
+                              required:
+                              - metadata
+                              - type
+                              type: object
+                            minItems: 1
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        required:
+                        - triggers
+                        type: object
+                        x-kubernetes-validations:
+                        - message: horizontalPodAutoscalerConfig.name must not be
+                            set; the controller manages the HPA name
+                          rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                            == 0'
                       maxReplicas:
                         format: int32
                         minimum: 1
@@ -55948,7 +57080,7 @@ spec:
                                 type: object
                               idleReplicaCount:
                                 format: int32
-                                minimum: 1
+                                minimum: 0
                                 type: integer
                               initialCooldownPeriod:
                                 format: int32
@@ -55960,13 +57092,6 @@ spec:
                                 type: integer
                             type: object
                             x-kubernetes-validations:
-                            - message: scalingModifiers must not be set; WVA controls
-                                the scaling metric formula and logic
-                              rule: '!has(self.advanced) || (size(self.advanced.scalingModifiers.formula)
-                                == 0 && size(self.advanced.scalingModifiers.target)
-                                == 0 && size(self.advanced.scalingModifiers.activationTarget)
-                                == 0 && size(self.advanced.scalingModifiers.metricType)
-                                == 0)'
                             - message: horizontalPodAutoscalerConfig.name must not
                                 be set; the controller manages the HPA name
                               rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
@@ -55978,6 +57103,13 @@ spec:
                             type: string
                         type: object
                         x-kubernetes-validations:
+                        - message: scalingModifiers must not be set; WVA controls
+                            the scaling metric formula and logic
+                          rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                            == 0 && size(self.keda.advanced.scalingModifiers.target)
+                            == 0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                            == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                            == 0)'
                         - message: hpa and keda are mutually exclusive; choose one
                             actuator backend
                           rule: '!(has(self.hpa) && has(self.keda))'
@@ -55988,13 +57120,17 @@ spec:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: wva is required when scaling is configured; it provides
-                        the autoscaling mechanism
-                      rule: has(self.wva)
+                    - message: either wva or keda must be specified when scaling is
+                        configured
+                      rule: has(self.wva) || has(self.keda)
+                    - message: wva and keda are mutually exclusive
+                      rule: '!(has(self.wva) && has(self.keda))'
+                    - message: at least one trigger is required when using direct
+                        KEDA scaling
+                      rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                     - message: minReplicas cannot exceed maxReplicas
                       rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                    - message: minReplicas is required when idleReplicaCount is set;
-                        idleReplicaCount must be less than minReplicas
+                    - message: minReplicas is required when idleReplicaCount is set
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -56002,6 +57138,13 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
                         < self.minReplicas'
+                    - message: minReplicas is required when idleReplicaCount is set
+                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
+                        has(self.minReplicas)'
+                    - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                        defines the replica floor when no triggers are active
+                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
+                        !has(self.minReplicas) || self.keda.idleReplicaCount < self.minReplicas'
                   template:
                     properties:
                       activeDeadlineSeconds:
@@ -63547,6 +64690,19 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              rolloutStrategy:
+                properties:
+                  maxSurge:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                  maxUnavailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                type: object
               router:
                 properties:
                   gateway:
@@ -72800,6 +73956,175 @@ spec:
                 type: object
               scaling:
                 properties:
+                  keda:
+                    properties:
+                      advanced:
+                        properties:
+                          horizontalPodAutoscalerConfig:
+                            properties:
+                              behavior:
+                                properties:
+                                  scaleDown:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                  scaleUp:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                type: object
+                              name:
+                                type: string
+                            type: object
+                          restoreToOriginalReplicaCount:
+                            type: boolean
+                          scalingModifiers:
+                            properties:
+                              activationTarget:
+                                type: string
+                              formula:
+                                type: string
+                              metricType:
+                                enum:
+                                - AverageValue
+                                - Value
+                                type: string
+                              target:
+                                type: string
+                            type: object
+                        type: object
+                      cooldownPeriod:
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      fallback:
+                        properties:
+                          behavior:
+                            default: static
+                            enum:
+                            - static
+                            - currentReplicas
+                            - currentReplicasIfHigher
+                            - currentReplicasIfLower
+                            type: string
+                          failureThreshold:
+                            format: int32
+                            type: integer
+                          replicas:
+                            format: int32
+                            type: integer
+                        required:
+                        - failureThreshold
+                        - replicas
+                        type: object
+                      idleReplicaCount:
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      initialCooldownPeriod:
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      pollingInterval:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      triggers:
+                        items:
+                          properties:
+                            authenticationRef:
+                              properties:
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            metadata:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            metricType:
+                              type: string
+                            name:
+                              type: string
+                            type:
+                              type: string
+                            useCachedMetrics:
+                              type: boolean
+                          required:
+                          - metadata
+                          - type
+                          type: object
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-type: atomic
+                    required:
+                    - triggers
+                    type: object
+                    x-kubernetes-validations:
+                    - message: horizontalPodAutoscalerConfig.name must not be set;
+                        the controller manages the HPA name
+                      rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                        || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                        == 0'
                   maxReplicas:
                     format: int32
                     minimum: 1
@@ -73000,7 +74325,7 @@ spec:
                             type: object
                           idleReplicaCount:
                             format: int32
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           initialCooldownPeriod:
                             format: int32
@@ -73012,13 +74337,6 @@ spec:
                             type: integer
                         type: object
                         x-kubernetes-validations:
-                        - message: scalingModifiers must not be set; WVA controls
-                            the scaling metric formula and logic
-                          rule: '!has(self.advanced) || (size(self.advanced.scalingModifiers.formula)
-                            == 0 && size(self.advanced.scalingModifiers.target) ==
-                            0 && size(self.advanced.scalingModifiers.activationTarget)
-                            == 0 && size(self.advanced.scalingModifiers.metricType)
-                            == 0)'
                         - message: horizontalPodAutoscalerConfig.name must not be
                             set; the controller manages the HPA name
                           rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
@@ -73030,6 +74348,13 @@ spec:
                         type: string
                     type: object
                     x-kubernetes-validations:
+                    - message: scalingModifiers must not be set; WVA controls the
+                        scaling metric formula and logic
+                      rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                        == 0 && size(self.keda.advanced.scalingModifiers.target) ==
+                        0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                        == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                        == 0)'
                     - message: hpa and keda are mutually exclusive; choose one actuator
                         backend
                       rule: '!(has(self.hpa) && has(self.keda))'
@@ -73040,13 +74365,16 @@ spec:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: wva is required when scaling is configured; it provides
-                    the autoscaling mechanism
-                  rule: has(self.wva)
+                - message: either wva or keda must be specified when scaling is configured
+                  rule: has(self.wva) || has(self.keda)
+                - message: wva and keda are mutually exclusive
+                  rule: '!(has(self.wva) && has(self.keda))'
+                - message: at least one trigger is required when using direct KEDA
+                    scaling
+                  rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                 - message: minReplicas cannot exceed maxReplicas
                   rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount
-                    must be less than minReplicas
+                - message: minReplicas is required when idleReplicaCount is set
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -73054,6 +74382,12 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
+                - message: minReplicas is required when idleReplicaCount is set
+                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
+                - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                    defines the replica floor when no triggers are active
+                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas)
+                    || self.keda.idleReplicaCount < self.minReplicas'
               storageInitializer:
                 properties:
                   enabled:
@@ -81211,8 +82545,190 @@ spec:
                     format: int32
                     minimum: 0
                     type: integer
+                  rolloutStrategy:
+                    properties:
+                      maxSurge:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                      maxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                    type: object
                   scaling:
                     properties:
+                      keda:
+                        properties:
+                          advanced:
+                            properties:
+                              horizontalPodAutoscalerConfig:
+                                properties:
+                                  behavior:
+                                    properties:
+                                      scaleDown:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                      scaleUp:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                    type: object
+                                  name:
+                                    type: string
+                                type: object
+                              restoreToOriginalReplicaCount:
+                                type: boolean
+                              scalingModifiers:
+                                properties:
+                                  activationTarget:
+                                    type: string
+                                  formula:
+                                    type: string
+                                  metricType:
+                                    enum:
+                                    - AverageValue
+                                    - Value
+                                    type: string
+                                  target:
+                                    type: string
+                                type: object
+                            type: object
+                          cooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          fallback:
+                            properties:
+                              behavior:
+                                default: static
+                                enum:
+                                - static
+                                - currentReplicas
+                                - currentReplicasIfHigher
+                                - currentReplicasIfLower
+                                type: string
+                              failureThreshold:
+                                format: int32
+                                type: integer
+                              replicas:
+                                format: int32
+                                type: integer
+                            required:
+                            - failureThreshold
+                            - replicas
+                            type: object
+                          idleReplicaCount:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          initialCooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          pollingInterval:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                          triggers:
+                            items:
+                              properties:
+                                authenticationRef:
+                                  properties:
+                                    kind:
+                                      type: string
+                                    name:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                metadata:
+                                  additionalProperties:
+                                    type: string
+                                  type: object
+                                metricType:
+                                  type: string
+                                name:
+                                  type: string
+                                type:
+                                  type: string
+                                useCachedMetrics:
+                                  type: boolean
+                              required:
+                              - metadata
+                              - type
+                              type: object
+                            minItems: 1
+                            type: array
+                            x-kubernetes-list-type: atomic
+                        required:
+                        - triggers
+                        type: object
+                        x-kubernetes-validations:
+                        - message: horizontalPodAutoscalerConfig.name must not be
+                            set; the controller manages the HPA name
+                          rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                            == 0'
                       maxReplicas:
                         format: int32
                         minimum: 1
@@ -81413,7 +82929,7 @@ spec:
                                 type: object
                               idleReplicaCount:
                                 format: int32
-                                minimum: 1
+                                minimum: 0
                                 type: integer
                               initialCooldownPeriod:
                                 format: int32
@@ -81425,13 +82941,6 @@ spec:
                                 type: integer
                             type: object
                             x-kubernetes-validations:
-                            - message: scalingModifiers must not be set; WVA controls
-                                the scaling metric formula and logic
-                              rule: '!has(self.advanced) || (size(self.advanced.scalingModifiers.formula)
-                                == 0 && size(self.advanced.scalingModifiers.target)
-                                == 0 && size(self.advanced.scalingModifiers.activationTarget)
-                                == 0 && size(self.advanced.scalingModifiers.metricType)
-                                == 0)'
                             - message: horizontalPodAutoscalerConfig.name must not
                                 be set; the controller manages the HPA name
                               rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
@@ -81443,6 +82952,13 @@ spec:
                             type: string
                         type: object
                         x-kubernetes-validations:
+                        - message: scalingModifiers must not be set; WVA controls
+                            the scaling metric formula and logic
+                          rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                            == 0 && size(self.keda.advanced.scalingModifiers.target)
+                            == 0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                            == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                            == 0)'
                         - message: hpa and keda are mutually exclusive; choose one
                             actuator backend
                           rule: '!(has(self.hpa) && has(self.keda))'
@@ -81453,13 +82969,17 @@ spec:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: wva is required when scaling is configured; it provides
-                        the autoscaling mechanism
-                      rule: has(self.wva)
+                    - message: either wva or keda must be specified when scaling is
+                        configured
+                      rule: has(self.wva) || has(self.keda)
+                    - message: wva and keda are mutually exclusive
+                      rule: '!(has(self.wva) && has(self.keda))'
+                    - message: at least one trigger is required when using direct
+                        KEDA scaling
+                      rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                     - message: minReplicas cannot exceed maxReplicas
                       rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                    - message: minReplicas is required when idleReplicaCount is set;
-                        idleReplicaCount must be less than minReplicas
+                    - message: minReplicas is required when idleReplicaCount is set
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -81467,6 +82987,13 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
                         < self.minReplicas'
+                    - message: minReplicas is required when idleReplicaCount is set
+                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
+                        has(self.minReplicas)'
+                    - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                        defines the replica floor when no triggers are active
+                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
+                        !has(self.minReplicas) || self.keda.idleReplicaCount < self.minReplicas'
                   template:
                     properties:
                       activeDeadlineSeconds:
@@ -89012,6 +90539,19 @@ spec:
                 format: int32
                 minimum: 0
                 type: integer
+              rolloutStrategy:
+                properties:
+                  maxSurge:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                  maxUnavailable:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
+                type: object
               router:
                 properties:
                   gateway:
@@ -98307,6 +99847,175 @@ spec:
                 type: object
               scaling:
                 properties:
+                  keda:
+                    properties:
+                      advanced:
+                        properties:
+                          horizontalPodAutoscalerConfig:
+                            properties:
+                              behavior:
+                                properties:
+                                  scaleDown:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                  scaleUp:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                type: object
+                              name:
+                                type: string
+                            type: object
+                          restoreToOriginalReplicaCount:
+                            type: boolean
+                          scalingModifiers:
+                            properties:
+                              activationTarget:
+                                type: string
+                              formula:
+                                type: string
+                              metricType:
+                                enum:
+                                - AverageValue
+                                - Value
+                                type: string
+                              target:
+                                type: string
+                            type: object
+                        type: object
+                      cooldownPeriod:
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      fallback:
+                        properties:
+                          behavior:
+                            default: static
+                            enum:
+                            - static
+                            - currentReplicas
+                            - currentReplicasIfHigher
+                            - currentReplicasIfLower
+                            type: string
+                          failureThreshold:
+                            format: int32
+                            type: integer
+                          replicas:
+                            format: int32
+                            type: integer
+                        required:
+                        - failureThreshold
+                        - replicas
+                        type: object
+                      idleReplicaCount:
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      initialCooldownPeriod:
+                        format: int32
+                        minimum: 0
+                        type: integer
+                      pollingInterval:
+                        format: int32
+                        minimum: 1
+                        type: integer
+                      triggers:
+                        items:
+                          properties:
+                            authenticationRef:
+                              properties:
+                                kind:
+                                  type: string
+                                name:
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            metadata:
+                              additionalProperties:
+                                type: string
+                              type: object
+                            metricType:
+                              type: string
+                            name:
+                              type: string
+                            type:
+                              type: string
+                            useCachedMetrics:
+                              type: boolean
+                          required:
+                          - metadata
+                          - type
+                          type: object
+                        minItems: 1
+                        type: array
+                        x-kubernetes-list-type: atomic
+                    required:
+                    - triggers
+                    type: object
+                    x-kubernetes-validations:
+                    - message: horizontalPodAutoscalerConfig.name must not be set;
+                        the controller manages the HPA name
+                      rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                        || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                        == 0'
                   maxReplicas:
                     format: int32
                     minimum: 1
@@ -98507,7 +100216,7 @@ spec:
                             type: object
                           idleReplicaCount:
                             format: int32
-                            minimum: 1
+                            minimum: 0
                             type: integer
                           initialCooldownPeriod:
                             format: int32
@@ -98519,13 +100228,6 @@ spec:
                             type: integer
                         type: object
                         x-kubernetes-validations:
-                        - message: scalingModifiers must not be set; WVA controls
-                            the scaling metric formula and logic
-                          rule: '!has(self.advanced) || (size(self.advanced.scalingModifiers.formula)
-                            == 0 && size(self.advanced.scalingModifiers.target) ==
-                            0 && size(self.advanced.scalingModifiers.activationTarget)
-                            == 0 && size(self.advanced.scalingModifiers.metricType)
-                            == 0)'
                         - message: horizontalPodAutoscalerConfig.name must not be
                             set; the controller manages the HPA name
                           rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
@@ -98537,6 +100239,13 @@ spec:
                         type: string
                     type: object
                     x-kubernetes-validations:
+                    - message: scalingModifiers must not be set; WVA controls the
+                        scaling metric formula and logic
+                      rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                        == 0 && size(self.keda.advanced.scalingModifiers.target) ==
+                        0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                        == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                        == 0)'
                     - message: hpa and keda are mutually exclusive; choose one actuator
                         backend
                       rule: '!(has(self.hpa) && has(self.keda))'
@@ -98547,13 +100256,16 @@ spec:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: wva is required when scaling is configured; it provides
-                    the autoscaling mechanism
-                  rule: has(self.wva)
+                - message: either wva or keda must be specified when scaling is configured
+                  rule: has(self.wva) || has(self.keda)
+                - message: wva and keda are mutually exclusive
+                  rule: '!(has(self.wva) && has(self.keda))'
+                - message: at least one trigger is required when using direct KEDA
+                    scaling
+                  rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                 - message: minReplicas cannot exceed maxReplicas
                   rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
-                - message: minReplicas is required when idleReplicaCount is set; idleReplicaCount
-                    must be less than minReplicas
+                - message: minReplicas is required when idleReplicaCount is set
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
@@ -98561,6 +100273,12 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
+                - message: minReplicas is required when idleReplicaCount is set
+                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
+                - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                    defines the replica floor when no triggers are active
+                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas)
+                    || self.keda.idleReplicaCount < self.minReplicas'
               storageInitializer:
                 properties:
                   enabled:
@@ -106530,10 +108248,12 @@ rules:
   - ""
   resources:
   - configmaps
-  - pods
   verbs:
+  - create
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - ""
@@ -106543,6 +108263,14 @@ rules:
   - create
   - patch
   - update
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
@@ -107779,6 +109507,7 @@ spec:
   - prefix: s3://
   - prefix: hdfs://
   - prefix: hf://
+  - prefix: modelscope://
   - prefix: webhdfs://
   - regex: https://(.+?).blob.core.windows.net/(.+)
   - regex: https://(.+?).file.core.windows.net/(.+)

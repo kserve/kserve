@@ -19,6 +19,8 @@ package llmisvc
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -31,159 +33,111 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	pkgtesting "github.com/kserve/kserve/pkg/testing"
 )
 
-func TestSchedulerConfigTextLoRA(t *testing.T) {
-	loraAdapters := []v1alpha2.LLMModelSpec{{}}
+// loadSchedulerPresetInline reads a scheduler preset from config/llmisvcconfig and
+// returns its resolved EPPConfig inline as a parsed map.
+func loadSchedulerPresetInline(g *WithT, filename string) (*v1alpha2.LLMInferenceServiceConfig, map[string]interface{}) {
+	path := filepath.Join(pkgtesting.ProjectRoot(), "config", "llmisvcconfig", filename)
+	data, err := os.ReadFile(filepath.Clean(path))
+	g.Expect(err).NotTo(HaveOccurred())
 
-	tests := []struct {
-		name     string
-		llmSvc   *v1alpha2.LLMInferenceService
-		wantLoRA bool
-	}{
-		{
-			name:     "no LoRA - standard default config",
-			llmSvc:   &v1alpha2.LLMInferenceService{},
-			wantLoRA: false,
-		},
-		{
-			name: "LoRA nil pointer - no scorer",
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Model: v1alpha2.LLMModelSpec{LoRA: nil},
-				},
-			},
-			wantLoRA: false,
-		},
-		{
-			name: "LoRA spec with empty adapters - no scorer",
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Model: v1alpha2.LLMModelSpec{LoRA: &v1alpha2.LoRASpec{}},
-				},
-			},
-			wantLoRA: false,
-		},
-		{
-			name: "LoRA adapters present - scorer included",
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Model: v1alpha2.LLMModelSpec{
-						LoRA: &v1alpha2.LoRASpec{Adapters: loraAdapters},
-					},
-				},
-			},
-			wantLoRA: true,
-		},
-	}
+	cfg := &v1alpha2.LLMInferenceServiceConfig{}
+	g.Expect(yaml.Unmarshal(data, cfg)).To(Succeed())
+	g.Expect(cfg.Spec.Router).NotTo(BeNil())
+	g.Expect(cfg.Spec.Router.Scheduler).NotTo(BeNil())
+	g.Expect(cfg.Spec.Router.Scheduler.Config).NotTo(BeNil())
+	g.Expect(cfg.Spec.Router.Scheduler.Config.Inline).NotTo(BeNil())
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
-			text := schedulerConfigText(tt.llmSvc)
-
-			var obj map[string]interface{}
-			g.Expect(yaml.Unmarshal([]byte(text), &obj)).To(Succeed())
-
-			plugins := obj["plugins"].([]interface{})
-			types := make([]string, 0, len(plugins))
-			for _, p := range plugins {
-				types = append(types, p.(map[string]interface{})["type"].(string))
-			}
-
-			profiles := obj["schedulingProfiles"].([]interface{})
-			defaultProfile := profiles[0].(map[string]interface{})
-			refs := defaultProfile["plugins"].([]interface{})
-			refNames := make([]string, 0, len(refs))
-			for _, r := range refs {
-				refNames = append(refNames, r.(map[string]interface{})["pluginRef"].(string))
-			}
-
-			if tt.wantLoRA {
-				g.Expect(types).To(ContainElement(loraAffinityScorerPlugin))
-				g.Expect(refNames[0]).To(Equal(loraAffinityScorerPlugin))
-				g.Expect(refs[0].(map[string]interface{})["weight"]).To(BeNumerically("==", 4))
-			} else {
-				g.Expect(types).NotTo(ContainElement(loraAffinityScorerPlugin))
-				g.Expect(refNames).NotTo(ContainElement(loraAffinityScorerPlugin))
-			}
-		})
-	}
+	obj := map[string]interface{}{}
+	g.Expect(yaml.Unmarshal(cfg.Spec.Router.Scheduler.Config.Inline.Raw, &obj)).To(Succeed())
+	return cfg, obj
 }
 
-func TestSchedulerConfigTextPDLoRA(t *testing.T) {
-	loraAdapters := []v1alpha2.LLMModelSpec{{}}
+// TestInjectLoRAAffinityScorerDefault asserts the LoRA affinity scorer is injected
+// into the single-profile default preset: added to the top-level plugins
+// list and referenced (weight 4) in the default profile. The baseline has no picker,
+// so the scorer is appended at the end of the profile.
+func TestInjectLoRAAffinityScorerDefault(t *testing.T) {
+	g := NewGomegaWithT(t)
 
-	tests := []struct {
-		name     string
-		llmSvc   *v1alpha2.LLMInferenceService
-		wantLoRA bool
-	}{
-		{
-			name: "P/D without LoRA - no scorer",
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Prefill: &v1alpha2.WorkloadSpec{},
-				},
-			},
-			wantLoRA: false,
-		},
-		{
-			name: "P/D with LoRA adapters - scorer in both profiles",
-			llmSvc: &v1alpha2.LLMInferenceService{
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					Prefill: &v1alpha2.WorkloadSpec{},
-					Model: v1alpha2.LLMModelSpec{
-						LoRA: &v1alpha2.LoRASpec{Adapters: loraAdapters},
-					},
-				},
-			},
-			wantLoRA: true,
-		},
-	}
+	// Before injection the preset must not reference the scorer.
+	_, before := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-default.yaml")
+	g.Expect(pluginTypeSet(before)).NotTo(HaveKey(loraAffinityScorerPlugin))
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
-			text := schedulerConfigText(tt.llmSvc)
+	cfg, _ := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-default.yaml")
+	g.Expect(injectLoRAAffinityScorer(cfg)).To(Succeed())
 
-			var obj map[string]interface{}
-			g.Expect(yaml.Unmarshal([]byte(text), &obj)).To(Succeed())
+	after := map[string]interface{}{}
+	g.Expect(yaml.Unmarshal(cfg.Spec.Router.Scheduler.Config.Inline.Raw, &after)).To(Succeed())
 
-			plugins := obj["plugins"].([]interface{})
-			types := make([]string, 0, len(plugins))
-			for _, p := range plugins {
-				types = append(types, p.(map[string]interface{})["type"].(string))
-			}
+	g.Expect(pluginTypeSet(after)).To(HaveKey(loraAffinityScorerPlugin))
 
-			profiles := obj["schedulingProfiles"].([]interface{})
-			g.Expect(profiles).To(HaveLen(2))
-
-			for _, profile := range profiles {
-				refs := profile.(map[string]interface{})["plugins"].([]interface{})
-				refNames := make([]string, 0, len(refs))
-				for _, r := range refs {
-					refNames = append(refNames, r.(map[string]interface{})["pluginRef"].(string))
-				}
-
-				if tt.wantLoRA {
-					g.Expect(types).To(ContainElement(loraAffinityScorerPlugin))
-					// scorer is second (after the profile's filter plugin)
-					g.Expect(refNames[1]).To(Equal(loraAffinityScorerPlugin))
-					g.Expect(refs[1].(map[string]interface{})["weight"]).To(BeNumerically("==", 4))
-				} else {
-					g.Expect(refNames).NotTo(ContainElement(loraAffinityScorerPlugin))
-				}
-			}
-
-			if !tt.wantLoRA {
-				g.Expect(types).NotTo(ContainElement(loraAffinityScorerPlugin))
-			}
-		})
-	}
+	refs, found := profilePluginRefs(after, "default")
+	g.Expect(found).To(BeTrue())
+	g.Expect(refs).To(Equal([]pluginRefWeight{
+		{Ref: "prefix-cache-affinity-filter"},
+		{Ref: "token-load-scorer"},
+		{Ref: loraAffinityScorerPlugin, Weight: 4},
+	}))
 }
 
+// TestInjectLoRAAffinityScorerPD asserts the scorer is injected into both P/D
+// profiles. The picker aggregates all scorers regardless of list position, so
+// the scorer ref is appended at the end of each profile.
+func TestInjectLoRAAffinityScorerPD(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	cfg, _ := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-default-pd.yaml")
+	g.Expect(injectLoRAAffinityScorer(cfg)).To(Succeed())
+
+	after := map[string]interface{}{}
+	g.Expect(yaml.Unmarshal(cfg.Spec.Router.Scheduler.Config.Inline.Raw, &after)).To(Succeed())
+
+	g.Expect(pluginTypeSet(after)).To(HaveKey(loraAffinityScorerPlugin))
+
+	prefill, found := profilePluginRefs(after, "prefill")
+	g.Expect(found).To(BeTrue())
+	g.Expect(prefill).To(Equal([]pluginRefWeight{
+		{Ref: "prefill-filter"},
+		{Ref: "prefix-cache-affinity-filter"},
+		{Ref: "token-load-scorer"},
+		{Ref: "max-score-picker"},
+		{Ref: loraAffinityScorerPlugin, Weight: 4},
+	}))
+
+	decode, found := profilePluginRefs(after, "decode")
+	g.Expect(found).To(BeTrue())
+	g.Expect(decode).To(Equal([]pluginRefWeight{
+		{Ref: "decode-filter"},
+		{Ref: "active-request-scorer"},
+		{Ref: "max-score-picker"},
+		{Ref: loraAffinityScorerPlugin, Weight: 4},
+	}))
+}
+
+// TestInjectLoRAAffinityScorerIdempotent asserts a second injection is a no-op so
+// repeated reconciliations don't accumulate duplicate scorer references.
+func TestInjectLoRAAffinityScorerIdempotent(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	cfg, _ := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-default.yaml")
+	g.Expect(injectLoRAAffinityScorer(cfg)).To(Succeed())
+	once := cfg.Spec.Router.Scheduler.Config.Inline.Raw
+
+	g.Expect(injectLoRAAffinityScorer(cfg)).To(Succeed())
+	g.Expect(cfg.Spec.Router.Scheduler.Config.Inline.Raw).To(Equal(once))
+}
+
+// TestPreserveSchedulerConfig covers the config resolution priorities:
+//  1. Inline config wins.
+//  2. Template carries its own config flag - return nil.
+//  3. Current deployment has a config flag - preserve it.
+//  4. No config anywhere - fall back to schedulerConfigText().
 func TestPreserveSchedulerConfig(t *testing.T) {
+	emptyCurr := &appsv1.Deployment{}
+
 	defaultSvc := &v1alpha2.LLMInferenceService{}
 	inlineSvc := &v1alpha2.LLMInferenceService{
 		Spec: v1alpha2.LLMInferenceServiceSpec{
@@ -198,16 +152,17 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		llmSvc   *v1alpha2.LLMInferenceService
-		curr     *appsv1.Deployment
-		expected []string
+		name          string
+		llmSvc        *v1alpha2.LLMInferenceService
+		curr          *appsv1.Deployment
+		expected      []string
+		wantGenerated bool
 	}{
 		{
-			name:     "no current deployment - generates fresh config",
-			llmSvc:   defaultSvc,
-			curr:     &appsv1.Deployment{},
-			expected: []string{"--config-text", schedulerConfigText(defaultSvc)},
+			name:          "no config anywhere - fallback generated",
+			llmSvc:        defaultSvc,
+			curr:          emptyCurr,
+			wantGenerated: true,
 		},
 		{
 			name:   "current deployment with --config-text - preserves it",
@@ -283,7 +238,7 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 					},
 				},
 			},
-			expected: []string{"--config-text", schedulerConfigText(defaultSvc)},
+			wantGenerated: true,
 		},
 		{
 			name:   "inline config overrides existing deployment config",
@@ -307,7 +262,7 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 		{
 			name:     "inline config used when no existing deployment",
 			llmSvc:   inlineSvc,
-			curr:     &appsv1.Deployment{},
+			curr:     emptyCurr,
 			expected: []string{"--config-text", "updated-inline-config"},
 		},
 		{
@@ -328,7 +283,7 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 					},
 				},
 			},
-			curr:     &appsv1.Deployment{},
+			curr:     emptyCurr,
 			expected: nil,
 		},
 		{
@@ -352,7 +307,7 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 					},
 				},
 			},
-			curr:     &appsv1.Deployment{},
+			curr:     emptyCurr,
 			expected: []string{"--config-text", "inline-override"},
 		},
 		{
@@ -372,7 +327,7 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 					},
 				},
 			},
-			expected: []string{"--config-text", schedulerConfigText(defaultSvc)},
+			wantGenerated: true,
 		},
 	}
 
@@ -380,61 +335,44 @@ func TestPreserveSchedulerConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
 			result := preserveSchedulerConfig(tt.llmSvc, tt.curr)
-			g.Expect(result).To(Equal(tt.expected))
+			switch {
+			case tt.expected != nil:
+				g.Expect(result).To(Equal(tt.expected))
+			case tt.wantGenerated:
+				g.Expect(result).To(HaveLen(2))
+				g.Expect(result[0]).To(Equal("--config-text"))
+				g.Expect(result[1]).NotTo(BeEmpty())
+			default:
+				g.Expect(result).To(BeNil())
+			}
 		})
 	}
 }
 
-// TestSchedulerConfigTextDefault asserts the default (non-prefill, single-profile)
-// scheduler config matches the llm-d optimized baseline: queue + kv-cache-utilization +
-// prefix-cache + no-hit-lru scorers. Kept self-contained (no shared helpers) so it does
-// not collide with the P/D config test added in a separate change.
-func TestSchedulerConfigTextDefault(t *testing.T) {
+// TestSchedulerDefaultPreset asserts the single-profile preset shipped in
+// config/llmisvcconfig contains the expected plugins:
+// approx-prefix-cache-producer, inflight-load-producer, prefix-cache-affinity-filter,
+// token-load-scorer with a single default profile.
+func TestSchedulerDefaultPreset(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	// No Prefill selects the default branch of schedulerConfigText.
-	svc := &v1alpha2.LLMInferenceService{}
+	_, cfg := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-default.yaml")
 
-	var cfg map[string]interface{}
-	g.Expect(yaml.Unmarshal([]byte(schedulerConfigText(svc)), &cfg)).To(Succeed())
-
-	// Every profile pluginRef must be declared in the top-level plugins list.
-	topLevel := map[string]struct{}{}
-	for _, p := range cfg["plugins"].([]interface{}) {
-		topLevel[p.(map[string]interface{})["type"].(string)] = struct{}{}
-	}
-	g.Expect(topLevel).To(SatisfyAll(
-		HaveKey("single-profile-handler"),
-		HaveKey("queue-scorer"),
-		HaveKey("kv-cache-utilization-scorer"),
-		HaveKey("prefix-cache-scorer"),
-		HaveKey("no-hit-lru-scorer"),
-		HaveKey("max-score-picker"),
+	g.Expect(pluginTypeSet(cfg)).To(SatisfyAll(
+		HaveKey("approx-prefix-cache-producer"),
+		HaveKey("inflight-load-producer"),
+		HaveKey("prefix-cache-affinity-filter"),
+		HaveKey("token-load-scorer"),
 	))
 
-	// Exactly one "default" profile with the baseline pluginRef/weight sequence.
-	// sigs.k8s.io/yaml decodes numbers as float64; an absent weight is nil.
 	profiles := cfg["schedulingProfiles"].([]interface{})
 	g.Expect(profiles).To(HaveLen(1))
-	def := profiles[0].(map[string]interface{})
-	g.Expect(def["name"]).To(Equal("default"))
 
-	type refWeight struct {
-		ref    string
-		weight interface{}
-	}
-	defPlugins := def["plugins"].([]interface{})
-	got := make([]refWeight, 0, len(defPlugins))
-	for _, r := range defPlugins {
-		rm := r.(map[string]interface{})
-		got = append(got, refWeight{ref: rm["pluginRef"].(string), weight: rm["weight"]})
-	}
-	g.Expect(got).To(Equal([]refWeight{
-		{ref: "queue-scorer", weight: float64(2)},
-		{ref: "kv-cache-utilization-scorer", weight: float64(2)},
-		{ref: "prefix-cache-scorer", weight: float64(3)},
-		{ref: "no-hit-lru-scorer", weight: float64(2)},
-		{ref: "max-score-picker", weight: nil},
+	refs, found := profilePluginRefs(cfg, "default")
+	g.Expect(found).To(BeTrue())
+	g.Expect(refs).To(Equal([]pluginRefWeight{
+		{Ref: "prefix-cache-affinity-filter"},
+		{Ref: "token-load-scorer"},
 	}))
 }
 
@@ -519,8 +457,10 @@ func TestFilterArgs(t *testing.T) {
 }
 
 // pluginRefWeight is an ordered (pluginRef, weight) pair from a scheduling
-// profile. Weight is 0 when unset; the P/D baseline only uses weights 2 and 3,
-// so 0 unambiguously means "no weight".
+// profile. Weight is 0 when the profile entry omits it; no preset entry sets an
+// explicit weight, so the only non-zero weight is 4, added by LoRA injection.
+// (EPP itself treats an omitted weight as 1 at scheduling time, but this helper
+// records the absence as 0.)
 type pluginRefWeight struct {
 	Ref    string
 	Weight int
@@ -558,53 +498,42 @@ func profilePluginRefs(cfg map[string]interface{}, name string) (refs []pluginRe
 	return nil, false
 }
 
-// TestSchedulerConfigTextPD asserts the default prefill/decode (P/D) scheduling
-// profiles match the upstream llm-d optimized baseline: prefill gains
-// kv-cache-utilization-scorer, decode swaps queue-scorer for active-request-scorer.
-func TestSchedulerConfigTextPD(t *testing.T) {
+// TestSchedulerPDDisaggPreset asserts the default prefill/decode (P/D) preset
+// shipped in config/llmisvcconfig matches the llm-d pd-disaggregation guide:
+// always-disagg-pd-decider for P/D routing, prefix-cache-affinity-filter +
+// token-load-scorer for prefill, active-request-scorer for decode.
+func TestSchedulerPDDisaggPreset(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	// A non-nil Prefill selects the P/D branch of schedulerConfigText.
-	svc := &v1alpha2.LLMInferenceService{
-		Spec: v1alpha2.LLMInferenceServiceSpec{
-			Prefill: &v1alpha2.WorkloadSpec{},
-		},
-	}
+	_, cfg := loadSchedulerPresetInline(g, "config-llm-scheduler-eppconfig-default-pd.yaml")
 
-	var cfg map[string]interface{}
-	g.Expect(yaml.Unmarshal([]byte(schedulerConfigText(svc)), &cfg)).To(Succeed())
-
-	// Every profile pluginRef must be declared in the top-level plugins list. The
-	// two new scorers are added there; queue-scorer stays (prefill still uses it).
 	g.Expect(pluginTypeSet(cfg)).To(SatisfyAll(
-		HaveKey("kv-cache-utilization-scorer"),
+		HaveKey("always-disagg-pd-decider"),
+		HaveKey("disagg-profile-handler"),
+		HaveKey("approx-prefix-cache-producer"),
+		HaveKey("inflight-load-producer"),
+		HaveKey("prefix-cache-affinity-filter"),
+		HaveKey("token-load-scorer"),
 		HaveKey("active-request-scorer"),
-		HaveKey("queue-scorer"),
-		HaveKey("prefix-cache-scorer"),
 		HaveKey("prefill-filter"),
 		HaveKey("decode-filter"),
 		HaveKey("max-score-picker"),
 	))
 
-	// Prefill profile: prefix-cache(3) + queue(2) + kv-cache-utilization(2).
 	prefill, found := profilePluginRefs(cfg, "prefill")
 	g.Expect(found).To(BeTrue(), "prefill profile should exist")
 	g.Expect(prefill).To(Equal([]pluginRefWeight{
 		{Ref: "prefill-filter"},
-		{Ref: "prefix-cache-scorer", Weight: 3},
-		{Ref: "queue-scorer", Weight: 2},
-		{Ref: "kv-cache-utilization-scorer", Weight: 2},
+		{Ref: "prefix-cache-affinity-filter"},
+		{Ref: "token-load-scorer"},
 		{Ref: "max-score-picker"},
 	}))
 
-	// Decode profile: active-request(2) replaces queue-scorer; prefix-cache(3).
-	// The exact match also guarantees queue-scorer is no longer referenced here.
 	decode, found := profilePluginRefs(cfg, "decode")
 	g.Expect(found).To(BeTrue(), "decode profile should exist")
 	g.Expect(decode).To(Equal([]pluginRefWeight{
 		{Ref: "decode-filter"},
-		{Ref: "active-request-scorer", Weight: 2},
-		{Ref: "prefix-cache-scorer", Weight: 3},
+		{Ref: "active-request-scorer"},
 		{Ref: "max-score-picker"},
 	}))
 }
@@ -663,22 +592,22 @@ plugins:
 			name: "renames pluginRef in schedulingProfiles",
 			configYAML: `
 plugins:
-- type: pd-profile-handler
+- type: prefill-header-handler
 schedulingProfiles:
 - name: default
   plugins:
-  - pluginRef: pd-profile-handler
+  - pluginRef: prefill-header-handler
   - pluginRef: queue-scorer
 `,
-			oldType: "pd-profile-handler",
-			newType: "disagg-profile-handler",
+			oldType: "prefill-header-handler",
+			newType: "disagg-headers-handler",
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
-				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("disagg-profile-handler"))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("disagg-headers-handler"))
 
 				profiles := obj["schedulingProfiles"].([]interface{})
 				profilePlugins := profiles[0].(map[string]interface{})["plugins"].([]interface{})
-				g.Expect(profilePlugins[0].(map[string]interface{})["pluginRef"]).To(Equal("disagg-profile-handler"))
+				g.Expect(profilePlugins[0].(map[string]interface{})["pluginRef"]).To(Equal("disagg-headers-handler"))
 				g.Expect(profilePlugins[1].(map[string]interface{})["pluginRef"]).To(Equal("queue-scorer"))
 			},
 		},
@@ -692,6 +621,119 @@ schedulingProfiles:
 			u := unstructured.Unstructured{Object: obj}
 			fn := WithRenamePlugin(tt.oldType, tt.newType)
 			g.Expect(fn(context.Background(), &u)).To(Succeed())
+			tt.validate(g, u.Object)
+		})
+	}
+}
+
+func TestWithRemovePlugin(t *testing.T) {
+	tests := []struct {
+		name       string
+		configYAML string
+		pluginType string
+		validate   func(g Gomega, obj map[string]interface{})
+	}{
+		{
+			name: "removes matching plugin",
+			configYAML: `
+plugins:
+- type: disagg-headers-handler
+- type: queue-scorer
+`,
+			pluginType: "disagg-headers-handler",
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(1))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("queue-scorer"))
+			},
+		},
+		{
+			name: "no match - no change",
+			configYAML: `
+plugins:
+- type: queue-scorer
+`,
+			pluginType: "disagg-headers-handler",
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(1))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("queue-scorer"))
+			},
+		},
+		{
+			name: "removes plugin and matching pluginRef from schedulingProfiles",
+			configYAML: `
+plugins:
+- type: prefill-header-handler
+- type: queue-scorer
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: prefill-header-handler
+  - pluginRef: queue-scorer
+`,
+			pluginType: "prefill-header-handler",
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(1))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("queue-scorer"))
+
+				profiles := obj["schedulingProfiles"].([]interface{})
+				profilePlugins := profiles[0].(map[string]interface{})["plugins"].([]interface{})
+				g.Expect(profilePlugins).To(HaveLen(1))
+				g.Expect(profilePlugins[0].(map[string]interface{})["pluginRef"]).To(Equal("queue-scorer"))
+			},
+		},
+		{
+			name: "removes aliased pluginRef when plugin has a name",
+			configYAML: `
+plugins:
+- type: disagg-headers-handler
+  name: headers
+- type: queue-scorer
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: headers
+  - pluginRef: queue-scorer
+`,
+			pluginType: "disagg-headers-handler",
+			validate: func(g Gomega, obj map[string]interface{}) {
+				plugins := obj["plugins"].([]interface{})
+				g.Expect(plugins).To(HaveLen(1))
+				g.Expect(plugins[0].(map[string]interface{})["type"]).To(Equal("queue-scorer"))
+
+				profiles := obj["schedulingProfiles"].([]interface{})
+				profilePlugins := profiles[0].(map[string]interface{})["plugins"].([]interface{})
+				g.Expect(profilePlugins).To(HaveLen(1))
+				g.Expect(profilePlugins[0].(map[string]interface{})["pluginRef"]).To(Equal("queue-scorer"))
+			},
+		},
+		{
+			name: "no plugins field - still removes pluginRef from profiles",
+			configYAML: `
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: disagg-headers-handler
+`,
+			pluginType: "disagg-headers-handler",
+			validate: func(g Gomega, obj map[string]interface{}) {
+				profiles := obj["schedulingProfiles"].([]interface{})
+				profilePlugins := profiles[0].(map[string]interface{})["plugins"].([]interface{})
+				g.Expect(profilePlugins).To(BeEmpty())
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			var obj map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
+			u := unstructured.Unstructured{Object: obj}
+			fn := WithRemovePlugin(tt.pluginType)
+			g.Expect(fn(t.Context(), &u)).To(Succeed())
 			tt.validate(g, u.Object)
 		})
 	}
@@ -1459,6 +1501,18 @@ plugins:
 				g.Expect(configText).To(ContainSubstring("hashBlockSize"))
 			},
 		},
+		{
+			name:    "v0.11.0 strips all legacy disagg plugin names",
+			version: "0.11.0",
+			validateConfig: func(g Gomega, configText string) {
+				g.Expect(configText).NotTo(ContainSubstring("prefill-header-handler"))
+				g.Expect(configText).NotTo(ContainSubstring("disagg-headers-handler"))
+				g.Expect(configText).NotTo(ContainSubstring("pd-profile-handler"))
+				g.Expect(configText).To(ContainSubstring("disagg-profile-handler"))
+				g.Expect(configText).NotTo(ContainSubstring("hashBlockSize"))
+				g.Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1487,6 +1541,136 @@ plugins:
 			configText := d.Spec.Template.Spec.Containers[0].Args[1]
 			tt.validateConfig(g, configText)
 		})
+	}
+}
+
+// TestSchedulerTransformDecomposesPrecisePrefixCacheFromTemplateArgs verifies
+// the >=0.9.0 decompose migration applies when the scheduler config is
+// supplied via spec.router.scheduler.template.containers[].args (a literal
+// "--config-text <yaml>" pair) instead of spec.router.scheduler.config.inline.
+func TestSchedulerTransformDecomposesPrecisePrefixCacheFromTemplateArgs(t *testing.T) {
+	legacyConfigYAML := `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- parameters:
+    indexerConfig:
+      kvBlockIndexConfig:
+        enableMetrics: true
+      tokenProcessorConfig:
+        blockSize: 64
+        hashSeed: "42"
+      tokenizersPoolConfig:
+        hf:
+          tokenizersCacheDir: /mnt/tokenizers
+    kvEventsConfig:
+      topicFilter: kv
+      zmqEndpoint: tcp://*:5557
+  type: precise-prefix-cache-scorer
+- type: load-aware-scorer
+- type: max-score-picker
+schedulingProfiles:
+- name: default
+  plugins:
+  - pluginRef: precise-prefix-cache-scorer
+    weight: 2.0
+  - pluginRef: load-aware-scorer
+    weight: 1.0
+  - pluginRef: max-score-picker
+`
+
+	g := NewGomegaWithT(t)
+
+	mainContainer := corev1.Container{
+		Name: "main",
+		Args: []string{
+			"--v=4",
+			"--secure-serving",
+			"--config-text",
+			legacyConfigYAML,
+		},
+	}
+
+	// The Deployment being reconciled: its pod template spec is a verbatim
+	// copy of llmSvc.Spec.Router.Scheduler.Template, exactly as
+	// expectedSchedulerDeployment builds it.
+	d := &appsv1.Deployment{
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"app.kubernetes.io/version": "0.10.0",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{mainContainer},
+				},
+			},
+		},
+	}
+
+	// The LLMInferenceService carries the config only via
+	// spec.router.scheduler.template.containers[].args; spec.router.scheduler.config
+	// is intentionally left unset.
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "llmisvc-precise-prefix-scorer",
+			Namespace: "llmd-singlenode-precise-prefix-cache",
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{mainContainer},
+					},
+				},
+			},
+		},
+	}
+
+	g.Expect(hasPrecisePrefixCachePlugin(llmSvc.Spec)).To(BeTrue(),
+		"plugin detection must see the legacy plugin declared in template args, not just config.inline")
+	g.Expect(isTokenizerEnabled(llmSvc.Spec)).To(BeTrue())
+
+	g.Expect(schedulerTransform(context.Background(), d, llmSvc, false)).To(Succeed())
+
+	configText := d.Spec.Template.Spec.Containers[0].Args[3]
+
+	// The legacy monolithic plugin must be fully decomposed.
+	g.Expect(configText).NotTo(ContainSubstring(precisePrefixCacheScorerPlugin))
+	g.Expect(configText).To(ContainSubstring(tokenProducerPlugin))
+	g.Expect(configText).To(ContainSubstring(precisePrefixCacheProducerPlugin))
+	g.Expect(configText).To(ContainSubstring(prefixCacheScorerPlugin))
+	g.Expect(configText).To(ContainSubstring("prefixMatchInfoProducerName"))
+
+	// apiVersion must be migrated to the current llm-d.ai group.
+	g.Expect(configText).To(ContainSubstring("apiVersion: llm-d.ai/v1alpha1"))
+	g.Expect(configText).NotTo(ContainSubstring("inference.networking.x-k8s.io/v1alpha1"))
+
+	// tokenProcessorConfig must be promoted to the producer's top-level
+	// parameters, not left nested inside indexerConfig.
+	u := unstructured.Unstructured{}
+	g.Expect(yaml.Unmarshal([]byte(configText), &u)).To(Succeed())
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(found).To(BeTrue())
+	plugins := val.([]interface{})
+
+	var producerPlugin map[string]interface{}
+	for _, p := range plugins {
+		pm := p.(map[string]interface{})
+		if pm["type"] == precisePrefixCacheProducerPlugin {
+			producerPlugin = pm
+		}
+	}
+	g.Expect(producerPlugin).NotTo(BeNil(), "expected a precise-prefix-cache-producer plugin in the decomposed pipeline")
+
+	params, _ := producerPlugin["parameters"].(map[string]interface{})
+	g.Expect(params).To(HaveKey("tokenProcessorConfig"), "tokenProcessorConfig must be promoted to top-level parameters")
+
+	if indexerConfig, ok := params["indexerConfig"].(map[string]interface{}); ok {
+		g.Expect(indexerConfig).NotTo(HaveKey("tokenProcessorConfig"), "tokenProcessorConfig must no longer be nested inside indexerConfig")
+		g.Expect(indexerConfig).NotTo(HaveKey("tokenizersPoolConfig"), "tokenizersPoolConfig is replaced by the standalone token-producer")
 	}
 }
 
@@ -2228,27 +2412,95 @@ plugins:
 	}
 }
 
-func TestWithMetricsDataSourceScheme(t *testing.T) {
+func TestMetricsDataSourceParameters(t *testing.T) {
+	tests := []struct {
+		name         string
+		extracted    map[string]string
+		expectErr    bool
+		errSubstring string
+		expected     map[string]interface{}
+	}{
+		{
+			name: "converts scheme, path and insecureSkipVerify",
+			extracted: map[string]string{
+				modelServerMetricsSchemeFlag:             "https",
+				modelServerMetricsPathFlag:               "/custom/metrics",
+				modelServerMetricsInsecureSkipVerifyFlag: "false",
+			},
+			expected: map[string]interface{}{
+				"scheme":             "https",
+				"path":               "/custom/metrics",
+				"insecureSkipVerify": false,
+			},
+		},
+		{
+			name:      "bare insecureSkipVerify flag means true",
+			extracted: map[string]string{modelServerMetricsInsecureSkipVerifyFlag: ""},
+			expected:  map[string]interface{}{"insecureSkipVerify": true},
+		},
+		{
+			name: "empty scheme and path values are dropped",
+			extracted: map[string]string{
+				modelServerMetricsSchemeFlag: "",
+				modelServerMetricsPathFlag:   "",
+			},
+			expected: map[string]interface{}{},
+		},
+		{
+			name:      "no flags returns empty parameters",
+			extracted: map[string]string{},
+			expected:  map[string]interface{}{},
+		},
+		{
+			name:         "invalid insecureSkipVerify value returns error",
+			extracted:    map[string]string{modelServerMetricsInsecureSkipVerifyFlag: "notabool"},
+			expectErr:    true,
+			errSubstring: "invalid value",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			parameters, err := metricsDataSourceParameters(tt.extracted)
+			if tt.expectErr {
+				g.Expect(err).To(HaveOccurred())
+				g.Expect(err.Error()).To(ContainSubstring(tt.errSubstring))
+				return
+			}
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(parameters).To(Equal(tt.expected))
+		})
+	}
+}
+
+func TestWithMetricsDataSourceParams(t *testing.T) {
 	tests := []struct {
 		name       string
 		configYAML string
-		scheme     string
+		parameters map[string]interface{}
 		validate   func(g Gomega, obj map[string]interface{})
 	}{
 		{
-			name: "injects plugin with scheme",
+			name: "injects plugin with the given parameters",
 			configYAML: `
 plugins:
 - type: queue-scorer
 `,
-			scheme: "https",
+			parameters: map[string]interface{}{
+				"scheme":             "https",
+				"path":               "/custom/metrics",
+				"insecureSkipVerify": false,
+			},
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
 				g.Expect(plugins).To(HaveLen(2))
 				pluginMap := plugins[1].(map[string]interface{})
 				g.Expect(pluginMap["type"]).To(Equal(metricsDataSourcePlugin))
 				params := pluginMap["parameters"].(map[string]interface{})
-				g.Expect(params["scheme"]).To(Equal("https"))
+				g.Expect(params).To(HaveKeyWithValue("scheme", "https"))
+				g.Expect(params).To(HaveKeyWithValue("path", "/custom/metrics"))
+				g.Expect(params).To(HaveKeyWithValue("insecureSkipVerify", false))
 			},
 		},
 		{
@@ -2259,7 +2511,7 @@ plugins:
   parameters:
     scheme: http
 `,
-			scheme: "https",
+			parameters: map[string]interface{}{"scheme": "https"},
 			validate: func(g Gomega, obj map[string]interface{}) {
 				plugins := obj["plugins"].([]interface{})
 				g.Expect(plugins).To(HaveLen(1))
@@ -2276,27 +2528,31 @@ plugins:
 			var obj map[string]interface{}
 			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
 			u := unstructured.Unstructured{Object: obj}
-			fn := withMetricsDataSourceScheme(tt.scheme)
+			fn := withMetricsDataSourceParams(tt.parameters)
 			g.Expect(fn(context.Background(), &u)).To(Succeed())
 			tt.validate(g, u.Object)
 		})
 	}
 }
 
-func TestExtractModelServerMetricsScheme(t *testing.T) {
+func TestExtractModelServerMetricsFlags(t *testing.T) {
 	tests := []struct {
 		name            string
 		command         []string
 		args            []string
 		expectedCommand []string
 		expectedArgs    []string
-		expectedScheme  string
+		expectedParams  map[string]string
 	}{
 		{
-			name:            "extracts from command with equals form",
-			command:         []string{"/app/epp", "--model-server-metrics-scheme=https", "--grpc-port=9002"},
+			name:            "extracts scheme, path and insecureSkipVerify from command",
+			command:         []string{"/app/epp", "--model-server-metrics-scheme=https", "--model-server-metrics-path=/custom/metrics", "--model-server-metrics-https-insecure-skip-verify=false", "--grpc-port=9002"},
 			expectedCommand: []string{"/app/epp", "--grpc-port=9002"},
-			expectedScheme:  "https",
+			expectedParams: map[string]string{
+				modelServerMetricsSchemeFlag:             "https",
+				modelServerMetricsPathFlag:               "/custom/metrics",
+				modelServerMetricsInsecureSkipVerifyFlag: "false",
+			},
 		},
 		{
 			name:            "extracts from args with equals form",
@@ -2304,13 +2560,19 @@ func TestExtractModelServerMetricsScheme(t *testing.T) {
 			args:            []string{"--model-server-metrics-scheme=https", "--grpc-port=9002"},
 			expectedCommand: []string{"/app/epp"},
 			expectedArgs:    []string{"--grpc-port=9002"},
-			expectedScheme:  "https",
+			expectedParams:  map[string]string{modelServerMetricsSchemeFlag: "https"},
 		},
 		{
-			name:            "no flag returns empty scheme",
+			name:            "strips port without returning it",
+			command:         []string{"/app/epp", "--model-server-metrics-port=8000", "--grpc-port=9002"},
+			expectedCommand: []string{"/app/epp", "--grpc-port=9002"},
+			expectedParams:  map[string]string{},
+		},
+		{
+			name:            "no flag returns empty params",
 			command:         []string{"/app/epp", "--grpc-port=9002"},
 			expectedCommand: []string{"/app/epp", "--grpc-port=9002"},
-			expectedScheme:  "",
+			expectedParams:  map[string]string{},
 		},
 	}
 
@@ -2328,8 +2590,8 @@ func TestExtractModelServerMetricsScheme(t *testing.T) {
 					},
 				},
 			}
-			scheme := extractModelServerMetricsScheme(d)
-			g.Expect(scheme).To(Equal(tt.expectedScheme))
+			params := extractModelServerMetricsFlags(context.Background(), d)
+			g.Expect(params).To(Equal(tt.expectedParams))
 			if tt.expectedCommand != nil {
 				g.Expect(d.Spec.Template.Spec.Containers[0].Command).To(Equal(tt.expectedCommand))
 			}
@@ -2354,40 +2616,65 @@ plugins:
 		args         []string
 		expectErr    bool
 		errSubstring string
-		expectFlag   bool
-		expectPlugin bool
+		flag         string                 // the deprecated flag literal to check on Command/Args
+		expectFlag   bool                   // whether flag still survives on Command
+		expectParams map[string]interface{} // nil => no metrics-data-source plugin
 	}{
 		{
 			name:         "0.9.0 leaves flag and config untouched",
 			version:      "0.9.0",
 			command:      []string{"/app/epp", "--model-server-metrics-scheme=https"},
 			args:         []string{"--config-text", configYAML},
+			flag:         "--model-server-metrics-scheme=https",
 			expectFlag:   true,
-			expectPlugin: false,
+			expectParams: nil,
 		},
 		{
-			name:         "0.10.0 strips flag from command and injects plugin",
+			name:         "0.10.0 strips scheme from command and injects plugin",
 			version:      "0.10.0",
 			command:      []string{"/app/epp", "--model-server-metrics-scheme=https"},
 			args:         []string{"--config-text", configYAML},
-			expectFlag:   false,
-			expectPlugin: true,
+			flag:         "--model-server-metrics-scheme=https",
+			expectParams: map[string]interface{}{"scheme": "https"},
 		},
 		{
-			name:         "0.10.0 strips flag from args and injects plugin",
+			name:         "0.10.0 strips scheme from args and injects plugin",
 			version:      "0.10.0",
 			command:      []string{"/app/epp"},
 			args:         []string{"--model-server-metrics-scheme=https", "--config-text", configYAML},
-			expectFlag:   false,
-			expectPlugin: true,
+			flag:         "--model-server-metrics-scheme=https",
+			expectParams: map[string]interface{}{"scheme": "https"},
+		},
+		{
+			name:         "0.10.0 strips path and injects plugin",
+			version:      "0.10.0",
+			command:      []string{"/app/epp", "--model-server-metrics-path=/custom/metrics"},
+			args:         []string{"--config-text", configYAML},
+			flag:         "--model-server-metrics-path=/custom/metrics",
+			expectParams: map[string]interface{}{"path": "/custom/metrics"},
+		},
+		{
+			name:         "0.10.0 strips insecureSkipVerify and injects plugin",
+			version:      "0.10.0",
+			command:      []string{"/app/epp", "--model-server-metrics-https-insecure-skip-verify=false"},
+			args:         []string{"--config-text", configYAML},
+			flag:         "--model-server-metrics-https-insecure-skip-verify=false",
+			expectParams: map[string]interface{}{"insecureSkipVerify": false},
+		},
+		{
+			name:         "0.10.0 strips port without injecting a plugin",
+			version:      "0.10.0",
+			command:      []string{"/app/epp", "--model-server-metrics-port=8000"},
+			args:         []string{"--config-text", configYAML},
+			flag:         "--model-server-metrics-port=8000",
+			expectParams: nil,
 		},
 		{
 			name:         "0.10.0 without flag leaves config untouched",
 			version:      "0.10.0",
 			command:      []string{"/app/epp"},
 			args:         []string{"--config-text", configYAML},
-			expectFlag:   false,
-			expectPlugin: false,
+			expectParams: nil,
 		},
 		{
 			name:         "0.10.0 with flag but non-writable config-file returns error",
@@ -2396,6 +2683,43 @@ plugins:
 			args:         []string{"--config-file", "/etc/scheduler/config.yaml"},
 			expectErr:    true,
 			errSubstring: "no inline --config-text",
+		},
+		{
+			// multiple flags on a non-writable config: the error must list the
+			// actual flags that were set, in a deterministic (sorted) order.
+			name:    "0.10.0 non-writable config-file lists the set flags sorted",
+			version: "0.10.0",
+			command: []string{
+				"/app/epp",
+				"--model-server-metrics-scheme=https",
+				"--model-server-metrics-path=/metrics",
+				"--model-server-metrics-https-insecure-skip-verify=true",
+			},
+			args:      []string{"--config-file", "/etc/scheduler/config.yaml"},
+			expectErr: true,
+			errSubstring: "--model-server-metrics-https-insecure-skip-verify, " +
+				"--model-server-metrics-path, --model-server-metrics-scheme",
+		},
+		{
+			// an invalid boolean fails the reconcile up front (with a writable
+			// config-text), before any config mutation happens.
+			name:         "0.10.0 invalid insecureSkipVerify value returns error",
+			version:      "0.10.0",
+			command:      []string{"/app/epp", "--model-server-metrics-https-insecure-skip-verify=notabool"},
+			args:         []string{"--config-text", configYAML},
+			expectErr:    true,
+			errSubstring: "invalid value",
+		},
+		{
+			// port has no plugin parameter, so stripping it needs no config
+			// rewrite: a non-writable config-file must not block its removal.
+			name:         "0.10.0 strips port even with non-writable config-file",
+			version:      "0.10.0",
+			command:      []string{"/app/epp", "--model-server-metrics-port=8000"},
+			args:         []string{"--config-file", "/etc/scheduler/config.yaml"},
+			flag:         "--model-server-metrics-port=8000",
+			expectFlag:   false,
+			expectParams: nil,
 		},
 	}
 
@@ -2431,11 +2755,13 @@ plugins:
 			g.Expect(err).NotTo(HaveOccurred())
 
 			command := d.Spec.Template.Spec.Containers[0].Command
-			g.Expect(slices.Contains(command, "--model-server-metrics-scheme=https")).To(Equal(tt.expectFlag))
-
 			args := d.Spec.Template.Spec.Containers[0].Args
-			// The flag must never survive on Args either, regardless of where it started.
-			g.Expect(slices.Contains(args, "--model-server-metrics-scheme=https")).To(BeFalse())
+			if tt.flag != "" {
+				g.Expect(slices.Contains(command, tt.flag)).To(Equal(tt.expectFlag))
+				// The flag must never survive on Args, regardless of where it started.
+				g.Expect(slices.Contains(args, tt.flag)).To(BeFalse())
+			}
+
 			configText := ""
 			for i, a := range args {
 				if a == "--config-text" && i+1 < len(args) {
@@ -2454,11 +2780,13 @@ plugins:
 				}
 			}
 
-			if tt.expectPlugin {
+			if tt.expectParams != nil {
 				g.Expect(metricsPlugin).NotTo(BeNil(), "expected a metrics-data-source plugin to be injected")
 				params, ok := metricsPlugin["parameters"].(map[string]interface{})
 				g.Expect(ok).To(BeTrue(), "metrics-data-source plugin must carry parameters")
-				g.Expect(params).To(HaveKeyWithValue("scheme", "https"))
+				for k, v := range tt.expectParams {
+					g.Expect(params).To(HaveKeyWithValue(k, v))
+				}
 			} else {
 				g.Expect(metricsPlugin).To(BeNil(), "did not expect a metrics-data-source plugin")
 			}
