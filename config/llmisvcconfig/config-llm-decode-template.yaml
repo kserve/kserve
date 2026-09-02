@@ -166,6 +166,7 @@ spec:
             eval "exec vllm serve /mnt/models \
               --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
               --port 8001 \
+              --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
               ${ACCESS_LOG_ARGS} \
               ${SHUTDOWN_TIMEOUT_ARGS} \
               ${KV_TRANSFER_ARGS} \
