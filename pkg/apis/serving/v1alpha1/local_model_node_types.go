@@ -74,7 +74,3 @@ type LocalModelNodeList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []LocalModelNode `json:"items" validate:"required"`
 }
-
-func init() {
-	SchemeBuilder.Register(&LocalModelNode{}, &LocalModelNodeList{})
-}

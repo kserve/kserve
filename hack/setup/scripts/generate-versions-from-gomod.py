@@ -17,7 +17,7 @@ DEPENDENCIES = {
     "KEDA_VERSION": ("github.com/kedacore/keda/v2", "kedacore", "keda", None),
     "ISTIO_VERSION": ("istio.io/api", "istio", "base", None),
     "OPENTELEMETRY_OPERATOR_VERSION": (
-        "github.com/open-telemetry/opentelemetry-operator",
+        "github.com/open-telemetry/opentelemetry-operator/apis",
         "open-telemetry",
         "opentelemetry-operator",
         None,
