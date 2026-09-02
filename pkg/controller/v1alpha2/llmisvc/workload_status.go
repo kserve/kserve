@@ -81,6 +81,14 @@ func (r *LLMISVCReconciler) observeWorkloadStatus(ctx context.Context, llmSvc *v
 		}
 	}
 
+	if llmSvc.Spec.Encode != nil {
+		if llmSvc.Spec.Encode.Worker != nil {
+			ws.Encode = observedLWS(encodeLWSName(llmSvc))
+		} else {
+			ws.Encode = observedDeployment(encodeDeploymentName(llmSvc))
+		}
+	}
+
 	ws.Service = &corev1.TypedLocalObjectReference{
 		Kind: "Service",
 		Name: workloadServiceName(llmSvc),
@@ -92,7 +100,7 @@ func (r *LLMISVCReconciler) observeWorkloadStatus(ctx context.Context, llmSvc *v
 
 	llmSvc.Status.Workloads = ws
 
-	for _, w := range []*v1alpha2.ObservedWorkloadStatus{ws.Primary, ws.Prefill, ws.Scheduler} {
+	for _, w := range []*v1alpha2.ObservedWorkloadStatus{ws.Primary, ws.Prefill, ws.Encode, ws.Scheduler} {
 		if w == nil {
 			continue
 		}
