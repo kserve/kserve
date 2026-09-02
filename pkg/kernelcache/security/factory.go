@@ -22,10 +22,10 @@ import (
 )
 
 // NewVerifier builds the Verifier for the configured mode. The config is
-// defaulted and validated first. Only the disabled mode is wired here; each
-// real mode adds its own case (and any dependencies its constructor needs)
-// when it lands.
-func NewVerifier(cfg SecurityConfig) (Verifier, error) {
+// defaulted and validated first. ctx bounds any construction-time I/O (such as
+// loading a trust bundle); src provides key and trust material to the mode
+// implementations and is unused by the disabled mode.
+func NewVerifier(ctx context.Context, cfg SecurityConfig, src SecretSource) (Verifier, error) {
 	cfg.Default()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -34,6 +34,14 @@ func NewVerifier(cfg SecurityConfig) (Verifier, error) {
 	switch cfg.Mode {
 	case ModeDisabled:
 		return noopVerifier{}, nil
+	case ModeCert:
+		// Assign through a concrete error check so a nil *certVerifier is never
+		// wrapped in a non-nil Verifier interface (typed-nil trap).
+		cv, err := newCertVerifier(ctx, cfg.Cert, src)
+		if err != nil {
+			return nil, err
+		}
+		return cv, nil
 	default:
 		// Unreachable after Validate, kept as a defensive guard.
 		return nil, fmt.Errorf("%w: %q", ErrUnknownMode, cfg.Mode)
