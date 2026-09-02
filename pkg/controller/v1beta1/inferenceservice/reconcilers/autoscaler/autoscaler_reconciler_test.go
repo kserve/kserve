@@ -30,6 +30,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 )
 
 func TestGetAutoscalerClass(t *testing.T) {
@@ -298,6 +299,10 @@ func (f *fakeAutoscaler) Reconcile(ctx context.Context) error {
 }
 
 func (f *fakeAutoscaler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
+	return nil
+}
+
+func (f *fakeAutoscaler) CleanupOrphans(_ context.Context, _ isvcutils.OrphanScope) error {
 	return nil
 }
 

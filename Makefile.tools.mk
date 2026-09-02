@@ -108,3 +108,10 @@ mv $(1) $(1)-$(3) ;\
 } ;\
 ln -sf $(1)-$(3) $(1)
 endef
+
+# This clears all the installed binaries.
+#
+# Whenever you run into issues with the target like `precommit` or `test`, try running this target.
+.PHONY: clean
+clean:
+	rm -rf $(LOCALBIN)
