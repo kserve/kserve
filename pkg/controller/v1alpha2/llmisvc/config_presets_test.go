@@ -765,3 +765,40 @@ func loadConfig(t *testing.T, data []byte, filePath string) *v1alpha2.LLMInferen
 
 	return config
 }
+
+// TestSingleNodePipelineParallelRendered verifies that spec.parallelism.pipeline is rendered into --pipeline-parallel-size for single-node (no Worker) templates.
+// Regression test for https://github.com/kserve/kserve/issues/6044.
+func TestSingleNodePipelineParallelRendered(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	filePath := filepath.Join(presetsDir, "config-llm-template.yaml")
+	data, err := os.ReadFile(filepath.Clean(filePath))
+	if err != nil {
+		t.Fatalf("read %s: %v", filePath, err)
+	}
+	config := loadConfig(t, data, filePath)
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				Parallelism: &v1alpha2.ParallelismSpec{
+					Tensor:   ptr.To[int32](2),
+					Pipeline: ptr.To[int32](2),
+				},
+			},
+		},
+	}
+	got, err := llmisvc.ReplaceVariables(llmSvc, config, &llmisvc.Config{})
+	if err != nil {
+		t.Fatalf("ReplaceVariables: %v", err)
+	}
+	if got.Spec.Template == nil || len(got.Spec.Template.Containers) == 0 {
+		t.Fatal("expected at least one container")
+	}
+	cmd := strings.Join(got.Spec.Template.Containers[0].Command, " ")
+	for _, want := range []string{"--tensor-parallel-size 2", "--pipeline-parallel-size 2"} {
+		if !strings.Contains(cmd, want) {
+			t.Errorf("rendered command does not contain %q:\n%s", want, cmd)
+		}
+	}
+}
