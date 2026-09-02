@@ -19,12 +19,36 @@ package metrics
 import (
 	"crypto/tls"
 	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
+
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
-func TestNewServerOptions(t *testing.T) {
+func TestConfigureServerOptionsPreservesExistingOptions(t *testing.T) {
+	extraHandler := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
+	input := metricsserver.Options{
+		BindAddress: ":8443",
+		ExtraHandlers: map[string]http.Handler{
+			"/debug": extraHandler,
+		},
+	}
+
+	options, err := ConfigureServerOptions(input)
+	if err != nil {
+		t.Fatalf("ConfigureServerOptions() error = %v", err)
+	}
+	if options.BindAddress != input.BindAddress {
+		t.Errorf("BindAddress = %q, want %q", options.BindAddress, input.BindAddress)
+	}
+	if options.ExtraHandlers["/debug"] == nil {
+		t.Error("ExtraHandlers does not contain /debug")
+	}
+}
+
+func TestConfigureServerOptions(t *testing.T) {
 	tlsOpt := func(config *tls.Config) {
 		config.MinVersion = tls.VersionTLS13
 	}
@@ -64,7 +88,7 @@ func TestNewServerOptions(t *testing.T) {
 			withCertPath:      true,
 			wantErr:           true,
 			wantNotExistError: true,
-			certFiles:         []string{certFileName},
+			certFiles:         []string{defaultCertName},
 		},
 	}
 
@@ -80,12 +104,17 @@ func TestNewServerOptions(t *testing.T) {
 				}
 			}
 
-			options, err := NewServerOptions(":8443", tt.secureServing, certPath, []func(*tls.Config){tlsOpt})
+			options, err := ConfigureServerOptions(metricsserver.Options{
+				BindAddress:   ":8443",
+				SecureServing: tt.secureServing,
+				CertDir:       certPath,
+				TLSOpts:       []func(*tls.Config){tlsOpt},
+			})
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("NewServerOptions() error = %v, wantErr %v", err, tt.wantErr)
+				t.Fatalf("ConfigureServerOptions() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.wantNotExistError && !errors.Is(err, os.ErrNotExist) {
-				t.Fatalf("NewServerOptions() error = %v, want os.ErrNotExist", err)
+				t.Fatalf("ConfigureServerOptions() error = %v, want os.ErrNotExist", err)
 			}
 			if tt.wantErr {
 				return
@@ -107,17 +136,17 @@ func TestNewServerOptions(t *testing.T) {
 	}
 }
 
-func TestNewServerOptionsWithCertificateFiles(t *testing.T) {
+func TestConfigureServerOptionsWithCertificateFiles(t *testing.T) {
 	certPath := t.TempDir()
-	for _, fileName := range []string{certFileName, keyFileName} {
+	for _, fileName := range []string{defaultCertName, defaultKeyName} {
 		if err := os.WriteFile(filepath.Join(certPath, fileName), []byte("test"), 0o600); err != nil {
 			t.Fatalf("write %s: %v", fileName, err)
 		}
 	}
 
-	options, err := NewServerOptions(":8443", true, certPath, nil)
+	options, err := ConfigureServerOptions(metricsserver.Options{BindAddress: ":8443", SecureServing: true, CertDir: certPath})
 	if err != nil {
-		t.Fatalf("NewServerOptions() error = %v", err)
+		t.Fatalf("ConfigureServerOptions() error = %v", err)
 	}
 	if options.CertDir != certPath {
 		t.Errorf("CertDir = %q, want %q", options.CertDir, certPath)
@@ -127,14 +156,43 @@ func TestNewServerOptionsWithCertificateFiles(t *testing.T) {
 	}
 }
 
-func TestNewServerOptionsRejectsCertificateDirectory(t *testing.T) {
+func TestConfigureServerOptionsWithCustomCertificateFiles(t *testing.T) {
 	certPath := t.TempDir()
-	if err := os.Mkdir(filepath.Join(certPath, certFileName), 0o700); err != nil {
+	const (
+		certName = "metrics.crt"
+		keyName  = "metrics.key"
+	)
+	for _, fileName := range []string{certName, keyName} {
+		if err := os.WriteFile(filepath.Join(certPath, fileName), []byte("test"), 0o600); err != nil {
+			t.Fatalf("write %s: %v", fileName, err)
+		}
+	}
+
+	options, err := ConfigureServerOptions(metricsserver.Options{
+		SecureServing: true,
+		CertDir:       certPath,
+		CertName:      certName,
+		KeyName:       keyName,
+	})
+	if err != nil {
+		t.Fatalf("ConfigureServerOptions() error = %v", err)
+	}
+	if options.CertName != certName {
+		t.Errorf("CertName = %q, want %q", options.CertName, certName)
+	}
+	if options.KeyName != keyName {
+		t.Errorf("KeyName = %q, want %q", options.KeyName, keyName)
+	}
+}
+
+func TestConfigureServerOptionsRejectsCertificateDirectory(t *testing.T) {
+	certPath := t.TempDir()
+	if err := os.Mkdir(filepath.Join(certPath, defaultCertName), 0o700); err != nil {
 		t.Fatalf("create certificate directory: %v", err)
 	}
 
-	_, err := NewServerOptions(":8443", true, certPath, nil)
+	_, err := ConfigureServerOptions(metricsserver.Options{BindAddress: ":8443", SecureServing: true, CertDir: certPath})
 	if err == nil {
-		t.Fatal("NewServerOptions() error = nil, want certificate file error")
+		t.Fatal("ConfigureServerOptions() error = nil, want certificate file error")
 	}
 }

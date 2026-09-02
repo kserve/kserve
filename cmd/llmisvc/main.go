@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -189,7 +190,12 @@ func main() {
 		}
 	}
 
-	metricsServerOptions, err := kservemetrics.NewServerOptions(options.metricsAddr, options.metricsSecure, options.metricsCertPath, tlsOpts)
+	metricsServerOptions, err := kservemetrics.ConfigureServerOptions(metricsserver.Options{
+		BindAddress:   options.metricsAddr,
+		SecureServing: options.metricsSecure,
+		CertDir:       options.metricsCertPath,
+		TLSOpts:       tlsOpts,
+	})
 	if err != nil {
 		setupLog.Error(err, "unable to configure metrics server")
 		os.Exit(1)

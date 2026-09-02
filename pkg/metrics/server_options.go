@@ -17,7 +17,7 @@ limitations under the License.
 package metrics
 
 import (
-	"crypto/tls"
+	"cmp"
 	"errors"
 	"fmt"
 	"os"
@@ -28,34 +28,28 @@ import (
 )
 
 const (
-	certFileName = "tls.crt"
-	keyFileName  = "tls.key"
+	defaultCertName = "tls.crt"
+	defaultKeyName  = "tls.key"
 )
 
-// NewServerOptions configures the controller-runtime metrics server and
+// ConfigureServerOptions configures the controller-runtime metrics server and
 // validates any user-provided certificate directory.
-func NewServerOptions(bindAddress string, secureServing bool, certPath string, tlsOpts []func(*tls.Config)) (metricsserver.Options, error) {
-	options := metricsserver.Options{
-		BindAddress:   bindAddress,
-		SecureServing: secureServing,
-		TLSOpts:       tlsOpts,
-	}
-
-	if certPath != "" && !secureServing {
+func ConfigureServerOptions(options metricsserver.Options) (metricsserver.Options, error) {
+	if options.CertDir != "" && !options.SecureServing {
 		return metricsserver.Options{}, errors.New("metrics certificate path requires secure serving")
 	}
 
-	if !secureServing {
+	if !options.SecureServing {
 		return options, nil
 	}
 
 	options.FilterProvider = filters.WithAuthenticationAndAuthorization
-	if certPath == "" {
+	if options.CertDir == "" {
 		return options, nil
 	}
 
-	for _, fileName := range []string{certFileName, keyFileName} {
-		path := filepath.Join(certPath, fileName)
+	for _, fileName := range []string{cmp.Or(options.CertName, defaultCertName), cmp.Or(options.KeyName, defaultKeyName)} {
+		path := filepath.Join(options.CertDir, fileName)
 		fileInfo, err := os.Stat(path)
 		if err != nil {
 			return metricsserver.Options{}, fmt.Errorf("validate metrics certificate file %q: %w", path, err)
@@ -65,6 +59,5 @@ func NewServerOptions(bindAddress string, secureServing bool, certPath string, t
 		}
 	}
 
-	options.CertDir = certPath
 	return options, nil
 }
