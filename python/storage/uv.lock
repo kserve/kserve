@@ -847,10 +847,12 @@ dependencies = [
     { name = "google-cloud-storage" },
     { name = "hf-xet" },
     { name = "huggingface-hub", extra = ["hf-transfer"] },
+    { name = "modelscope-hub" },
     { name = "oras" },
     { name = "pyasn1" },
     { name = "pyjwt" },
     { name = "requests" },
+    { name = "urllib3" },
 ]
 
 [package.optional-dependencies]
@@ -873,12 +875,29 @@ requires-dist = [
     { name = "hf-xet", specifier = ">=1.5.0" },
     { name = "huggingface-hub", extras = ["hf-transfer"], specifier = ">=0.32.0" },
     { name = "jwcrypto", marker = "extra == 'confidential'", specifier = ">=1.5.0" },
+    { name = "modelscope-hub", specifier = ">=0.1.4" },
     { name = "oras", specifier = ">=0.2.42,<1.0.0" },
-    { name = "pyasn1", specifier = ">=0.6.3" },
+    { name = "pyasn1", specifier = ">=0.6.4" },
     { name = "pyjwt", specifier = ">=2.12.0" },
     { name = "requests", specifier = ">=2.32.2,<3.0.0" },
+    { name = "urllib3", specifier = ">=2.6.3" },
 ]
 provides-extras = ["confidential"]
+
+[[package]]
+name = "modelscope-hub"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "filelock" },
+    { name = "requests" },
+    { name = "tqdm" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/76/9d/3fabfd2b147d94e1980d670fecd3c183999db04a71b80a546bcf37cc6f89/modelscope_hub-0.2.0.tar.gz", hash = "sha256:00288d3e08ad7fadfdd7539f4dffa9d75f9006c43c73abd33ea51767317f001c", size = 163316, upload-time = "2026-08-01T15:00:08.694Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ab/be/3b0e14c296a622c920287fc6d2c1b5a8668c8e0d98662f7b2bd8f3fcc779/modelscope_hub-0.2.0-py3-none-any.whl", hash = "sha256:84668c80c1d36d1fb1ea1ce17b707d77e044b92255288618c3b7de5b13834418", size = 156023, upload-time = "2026-08-01T15:00:07.335Z" },
+]
 
 [[package]]
 name = "msal"
@@ -1147,11 +1166,11 @@ wheels = [
 
 [[package]]
 name = "pyasn1"
-version = "0.6.3"
+version = "0.6.4"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5c/5f/6583902b6f79b399c9c40674ac384fd9cd77805f9e6205075f828ef11fb2/pyasn1-0.6.3.tar.gz", hash = "sha256:697a8ecd6d98891189184ca1fa05d1bb00e2f84b5977c481452050549c8a72cf", size = 148685, upload-time = "2026-03-17T01:06:53.382Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/a4/9a/23310166d960def5897e91fe20e5b724601b02a22e84ba1f94232c0b7f67/pyasn1-0.6.4.tar.gz", hash = "sha256:9c447d8431c947fe4c8febc4ed9e760bc29011a5b01e5c74b67025bd9fb8ce81", size = 151262, upload-time = "2026-07-09T01:12:33.988Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5d/a0/7d793dce3fa811fe047d6ae2431c672364b462850c6235ae306c0efd025f/pyasn1-0.6.3-py3-none-any.whl", hash = "sha256:a80184d120f0864a52a073acc6fc642847d0be408e7c7252f31390c0f4eadcde", size = 83997, upload-time = "2026-03-17T01:06:52.036Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/3b/6163796d69c3977d1e4287bea4a6979161cbbdd170ebb430511e8e1999ce/pyasn1-0.6.4-py3-none-any.whl", hash = "sha256:deda9277cfd454080ec40b207fb6df82206a3a2688735233cdcd8d3d565f088b", size = 84410, upload-time = "2026-07-09T01:12:32.92Z" },
 ]
 
 [[package]]
@@ -1499,11 +1518,11 @@ wheels = [
 
 [[package]]
 name = "urllib3"
-version = "2.4.0"
+version = "2.7.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/8a/78/16493d9c386d8e60e442a35feac5e00f0913c0f4b7c217c11e8ec2ff53e0/urllib3-2.4.0.tar.gz", hash = "sha256:414bc6535b787febd7567804cc015fee39daab8ad86268f1310a9250697de466", size = 390672, upload-time = "2025-04-10T15:23:39.232Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c", size = 433602, upload-time = "2026-05-07T16:13:18.596Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6b/11/cc635220681e93a0183390e26485430ca2c7b5f9d33b15c74c2861cb8091/urllib3-2.4.0-py3-none-any.whl", hash = "sha256:4e16665048960a0900c702d4a66415956a584919c03361cac9f1df5c5dd7e813", size = 128680, upload-time = "2025-04-10T15:23:37.377Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897", size = 131087, upload-time = "2026-05-07T16:13:17.151Z" },
 ]
 
 [[package]]

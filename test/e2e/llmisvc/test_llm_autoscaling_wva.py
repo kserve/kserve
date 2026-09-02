@@ -145,12 +145,24 @@ def _child_name(parent, suffix):
 # --- Pod count helpers ---
 
 
-def get_pod_count(service_name, namespace):
-    """Count Running or Pending pods for this LLMISVC workload."""
+WORKLOAD_COMPONENT_MAIN = "llminferenceservice-workload"
+WORKLOAD_COMPONENT_PREFILL = "llminferenceservice-workload-prefill"
+
+
+def get_pod_count(service_name, namespace, component=None):
+    """Count Running or Pending pods for this LLMISVC workload.
+
+    When component is set (e.g. WORKLOAD_COMPONENT_PREFILL), only counts pods
+    for that role, so prefill and decode/main pod counts can be tracked
+    independently for P/D disaggregated deployments.
+    """
     v1 = client.CoreV1Api()
+    label_selector = f"app.kubernetes.io/name={service_name}"
+    if component:
+        label_selector += f",app.kubernetes.io/component={component}"
     pods = v1.list_namespaced_pod(
         namespace=namespace,
-        label_selector=f"app.kubernetes.io/name={service_name}",
+        label_selector=label_selector,
     )
     count = 0
     for pod in pods.items:
@@ -159,11 +171,11 @@ def get_pod_count(service_name, namespace):
     return count
 
 
-def wait_for_pod_count(service_name, min_count, namespace, timeout=300):
+def wait_for_pod_count(service_name, min_count, namespace, timeout=300, component=None):
     """Poll until the pod count reaches at least min_count."""
 
     def _check():
-        current = get_pod_count(service_name, namespace)
+        current = get_pod_count(service_name, namespace, component=component)
         assert current >= min_count, (
             f"Pod count for {service_name}: {current}, expected >= {min_count}"
         )
@@ -171,13 +183,29 @@ def wait_for_pod_count(service_name, min_count, namespace, timeout=300):
     wait_for(_check, timeout=timeout, interval=5.0)
 
 
-def wait_for_pod_count_exact(service_name, count, namespace, timeout=300):
+def wait_for_pod_count_exact(
+    service_name, count, namespace, timeout=300, component=None
+):
     """Poll until the pod count is exactly count."""
 
     def _check():
-        current = get_pod_count(service_name, namespace)
+        current = get_pod_count(service_name, namespace, component=component)
         assert current == count, (
             f"Pod count for {service_name}: {current}, expected {count}"
+        )
+
+    wait_for(_check, timeout=timeout, interval=5.0)
+
+
+def wait_for_pod_count_at_most(
+    service_name, max_count, namespace, timeout=300, component=None
+):
+    """Poll until the pod count drops to at most max_count (e.g. scale-to-zero)."""
+
+    def _check():
+        current = get_pod_count(service_name, namespace, component=component)
+        assert current <= max_count, (
+            f"Pod count for {service_name}: {current}, expected <= {max_count}"
         )
 
     wait_for(_check, timeout=timeout, interval=5.0)
@@ -186,8 +214,15 @@ def wait_for_pod_count_exact(service_name, count, namespace, timeout=300):
 # --- Load generation ---
 
 
-def send_load(service_url, model_name, concurrency=5, duration_seconds=30):
-    """Send concurrent requests to the service to trigger scale-up."""
+def send_load(
+    service_url, model_name, concurrency=5, duration_seconds=30, tolerate_failures=False
+):
+    """Send concurrent requests to the service to trigger scale-up.
+
+    When tolerate_failures is True, skip the "at least one request delivered"
+    assertion, since KEDA has no request-buffering activator and requests
+    sent at a scaled-to-zero deployment are expected to fail until it's up.
+    """
     endpoint = service_url + "/v1/completions"
     payload = {
         "model": model_name,
@@ -228,9 +263,10 @@ def send_load(service_url, model_name, concurrency=5, duration_seconds=30):
         f"{counters['server_error']} server errors to {endpoint}"
     )
     total_delivered = counters["success"] + counters["client_error"]
-    assert total_delivered > 0, (
-        f"send_load: all {counters['server_error']} requests failed to {endpoint}"
-    )
+    if not tolerate_failures:
+        assert total_delivered > 0, (
+            f"send_load: all {counters['server_error']} requests failed to {endpoint}"
+        )
 
 
 # --- Patching helpers ---
@@ -391,7 +427,7 @@ def assert_hpa_active(service_name, namespace):
     wait_for(_check, timeout=60, interval=5.0)
 
 
-def assert_scaled_object_active(service_name, namespace):
+def assert_scaled_object_ready(service_name, namespace):
     """Verify KEDA ScaledObject has Ready=True condition (polls for up to 60s)."""
 
     def _check():
@@ -412,6 +448,39 @@ def assert_scaled_object_active(service_name, namespace):
         )
 
     wait_for(_check, timeout=60, interval=5.0)
+
+
+def assert_scaled_object_condition(
+    service_name,
+    namespace,
+    condition_type,
+    expected_status="True",
+    prefill=False,
+    timeout=120,
+):
+    """Verify a KEDA ScaledObject status condition matches the expected status.
+
+    Generalizes assert_scaled_object_ready to any condition type (e.g.
+    "Active", "Fallback") so callers can prove a trigger actually fired
+    (Active=True) or that a Prometheus outage tripped fallback
+    (Fallback=True), not just that the object exists and is Ready.
+    """
+    name = scaled_object_name(service_name, prefill)
+
+    def _check():
+        so = _get_custom_resource(
+            KEDA_GROUP, KEDA_VERSION, KEDA_PLURAL, name, namespace
+        )
+        assert so is not None, f"ScaledObject {name} not found"
+        conditions = so.get("status", {}).get("conditions", [])
+        cond = next((c for c in conditions if c["type"] == condition_type), None)
+        assert cond and cond["status"] == expected_status, (
+            f"ScaledObject {name} condition {condition_type} is "
+            f"{cond['status'] if cond else 'missing'}, expected {expected_status}: "
+            f"{conditions}"
+        )
+
+    wait_for(_check, timeout=timeout, interval=5.0)
 
 
 def assert_lws_replicas(service_name, min_replicas, namespace):
@@ -622,7 +691,7 @@ def test_llm_autoscaling_keda_deployment(test_case: TestCase):
 
         assert_wva_annotations_on_actuator(service_name, actuator="keda", namespace=ns)
         wait_for_pod_count(service_name, min_count=2, namespace=ns, timeout=300)
-        assert_scaled_object_active(service_name, namespace=ns)
+        assert_scaled_object_ready(service_name, namespace=ns)
         assert_scaling_ready_condition(service_name, namespace=ns)
     finally:
         _cleanup(kserve_client, test_case)
@@ -737,7 +806,7 @@ def test_llm_autoscaling_keda_lws(test_case: TestCase):
 
         assert_wva_annotations_on_actuator(service_name, actuator="keda", namespace=ns)
         wait_for_pod_count(service_name, min_count=2, namespace=ns, timeout=300)
-        assert_scaled_object_active(service_name, namespace=ns)
+        assert_scaled_object_ready(service_name, namespace=ns)
         assert_lws_replicas(service_name, min_replicas=1, namespace=ns)
         assert_scaling_ready_condition(service_name, namespace=ns)
     finally:

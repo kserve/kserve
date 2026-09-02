@@ -34,6 +34,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -321,4 +322,9 @@ func (r *ServiceReconciler) SetControllerReferences(owner metav1.Object, scheme 
 		}
 	}
 	return nil
+}
+
+// CleanupOrphans deletes Services selected by scope whose names are not retained.
+func (r *ServiceReconciler) CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error {
+	return isvcutils.DeleteOrphans[*corev1.ServiceList](ctx, r.client, scope)
 }

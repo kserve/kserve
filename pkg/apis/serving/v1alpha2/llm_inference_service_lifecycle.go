@@ -26,9 +26,10 @@ import (
 const (
 	// PresetsCombined is True when all referenced LLMInferenceServiceConfig resources
 	// have been found, merged and checked. False with reason ConfigNotFound when a
-	// referenced config does not exist, CombineBaseError on merge failure, or
-	// InvalidRenderedConfig when the API server rejects the merged spec. Unknown with
-	// reason ValidationUnavailable when the merged spec could not be checked at all.
+	// referenced config does not exist, LoRAMountPathCollision when two adapters resolve
+	// to the same mount path, CombineBaseError on merge failure, or InvalidRenderedConfig
+	// when the API server rejects the merged spec. Unknown with reason
+	// ValidationUnavailable when the merged spec could not be checked at all.
 	// Set by the config reconciler (config_merge.go). Always present.
 	//
 	// Counts towards Ready: when this is not True the controller stops before creating

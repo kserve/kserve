@@ -8,6 +8,7 @@ license = {text = "Apache-2.0"}
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "uvicorn[standard]<1.0.0,>=0.30.6",
+    "watchfiles<2.0.0,>=1.0.4",
     "fastapi>=0.115.3,<1.0.0",
     "starlette>=1.0.1", # CVE-2026-48710 Starlette: Security restriction bypass via malformed HTTP Host header
     "cloudevents<2.0.0,>=1.6.2",
@@ -35,10 +36,10 @@ dependencies = [
     # workspace's resolver only and is stripped from the published wheel.
     "aiohttp>=3.13.4", # CVE-2026-34520
     "h11>=0.16.0", # CVE-2025-43859
-    "cryptography>=48.0.1", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36
+    "cryptography>=50.0.0", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36, GHSA-g6cj-pr64-35w5
     "python-multipart>=0.0.27", # CVE-2026-42561
     "pyjwt>=2.13.0", # CVE-2026-48526
-    "pyasn1>=0.6.3", # CVE-2026-30922
+    "pyasn1>=0.6.4", # CVE-2026-30922, CVE-2026-59885
     "pillow>=12.3.0", # CVE-2026-40192
 ]
 name = "kserve"
@@ -113,15 +114,15 @@ override-dependencies = [
     "urllib3>=2.7.0", # CVE-2026-21441
     "aiohttp>=3.13.4", # CVE-2026-34520
     "h11>=0.16.0", # CVE-2025-43859
-    "cryptography>=48.0.1", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36
+    "cryptography>=50.0.0", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36, GHSA-g6cj-pr64-35w5
     "python-multipart>=0.0.27", # CVE-2026-42561
     "pyjwt>=2.13.0", # CVE-2026-48526
-    "pyasn1>=0.6.3", # CVE-2026-30922
+    "pyasn1>=0.6.4", # CVE-2026-30922, CVE-2026-59885
     "pillow>=12.3.0", # CVE-2026-40192
 ]
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=78.1.1"] # CVE-2025-47273
 build-backend = "setuptools.build_meta"
 
 # UV workspace source for local dependency resolution

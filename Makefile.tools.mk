@@ -13,6 +13,7 @@ KUSTOMIZE = $(LOCALBIN)/kustomize
 YQ = $(LOCALBIN)/yq
 HELM_DOCS = $(LOCALBIN)/helm-docs
 PINACT = $(LOCALBIN)/pinact
+SHELLCHECK = $(LOCALBIN)/shellcheck
 UV = $(PYTHON_BIN)/uv
 RUFF = $(PYTHON_BIN)/ruff
 PYTEST = $(PYTHON_BIN)/pytest
@@ -56,6 +57,16 @@ $(YQ): $(LOCALBIN) $(DEPS_ENV)
 	} ; \
 	ln -sf "$$(basename $(YQ)-$(YQ_VERSION))" "$(YQ)"
 
+## Download shellcheck locally if necessary.
+.PHONY: shellcheck
+shellcheck: $(SHELLCHECK)
+$(SHELLCHECK): $(LOCALBIN) $(DEPS_ENV)
+	@[ -f "$(SHELLCHECK)-$(SHELLCHECK_VERSION)" ] || { \
+	BIN_DIR=$(LOCALBIN) hack/setup/cli/install-shellcheck.sh && \
+	mv $(LOCALBIN)/shellcheck $(SHELLCHECK)-$(SHELLCHECK_VERSION) ; \
+	} ; \
+	ln -sf "$$(basename $(SHELLCHECK)-$(SHELLCHECK_VERSION))" "$(SHELLCHECK)"
+
 ## Download helm-docs locally if necessary.
 .PHONY: helm-docs
 helm-docs: $(HELM_DOCS)
@@ -97,3 +108,10 @@ mv $(1) $(1)-$(3) ;\
 } ;\
 ln -sf $(1)-$(3) $(1)
 endef
+
+# This clears all the installed binaries.
+#
+# Whenever you run into issues with the target like `precommit` or `test`, try running this target.
+.PHONY: clean
+clean:
+	rm -rf $(LOCALBIN)

@@ -36,10 +36,22 @@ jobs:
         with:
             python-version: "3.12"
 
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgpgme-dev \
+            libbtrfs-dev \
+            build-essential \
+            pkg-config \
+            libassuan-dev \
+            libgpg-error-dev
+
       - name: Install dependencies
         run: |
           go mod download
-          cd qpext && go mod download
+          (cd qpext && go mod download)
+          (cd kernelcache/mcv && go mod download)
 
       - name: Cache openapi-generator JAR
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
