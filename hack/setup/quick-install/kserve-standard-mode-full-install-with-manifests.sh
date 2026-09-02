@@ -2443,6 +2443,10 @@ spec:
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
+      - '{{ if .GlobalConfig.TLSMinVersion }}--tls-min-version={{ .GlobalConfig.TLSMinVersion
+        }}{{- end }}'
+      - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites
+        }}{{- end }}'
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
@@ -2792,6 +2796,10 @@ spec:
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
+      - '{{ if .GlobalConfig.TLSMinVersion }}--tls-min-version={{ .GlobalConfig.TLSMinVersion
+        }}{{- end }}'
+      - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites
+        }}{{- end }}'
       env:
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
