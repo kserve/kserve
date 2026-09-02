@@ -22,7 +22,10 @@ import uuid
 from google.protobuf.internal.containers import MessageMap
 
 from .rest.v2_datamodels import InferenceRequest
-from ..constants.constants import GRPC_CONTENT_DATATYPE_MAPPINGS
+from ..constants.constants import (
+    GRPC_CONTENT_DATATYPE_MAPPINGS,
+    MAX_BYTES_TENSOR_ELEMENTS,
+)
 from ..errors import InvalidInput, InferenceError
 from ..protocol.grpc.grpc_predict_v2_pb2 import (
     ModelInferRequest,
@@ -83,7 +86,29 @@ def serialize_byte_tensor(input_tensor: np.ndarray) -> np.ndarray:
     return flattened_array
 
 
-def deserialize_bytes_tensor(encoded_tensor: bytes) -> np.ndarray:
+def _expected_bytes_element_count(shape: List[int]) -> Optional[int]:
+    """Return the number of elements implied by a fully specified tensor shape.
+
+    Returns None when the shape is empty or contains a wildcard / non-positive
+    dimension (for example the numpy ``-1`` placeholder), in which case the
+    exact element count is not pinned by the shape and the caller falls back to
+    the configured maximum.
+    """
+    if not shape:
+        return None
+    count = 1
+    for dim in shape:
+        if dim is None or dim < 0:
+            return None
+        count *= dim
+    return count
+
+
+def deserialize_bytes_tensor(
+    encoded_tensor: bytes,
+    expected_element_count: Optional[int] = None,
+    max_element_count: int = MAX_BYTES_TENSOR_ELEMENTS,
+) -> np.ndarray:
     """
     Deserializes an encoded bytes tensor into a
     numpy array of dtype of python objects
@@ -93,20 +118,67 @@ def deserialize_bytes_tensor(encoded_tensor: bytes) -> np.ndarray:
             The encoded bytes tensor where each element
             has its length in first 4 bytes followed by
             the content
+        expected_element_count : Optional[int]
+            The number of elements the tensor shape requires, when it is fully
+            specified. When provided, decoding is bounded to that count and a
+            buffer that encodes a different number of elements is rejected.
+        max_element_count : int
+            Absolute upper bound on the number of decoded elements, applied when
+            the shape does not pin the count (for example a wildcard dimension).
+            Defaults to ``MAX_BYTES_TENSOR_ELEMENTS``.
     Returns:
         string_tensor : np.array
             The 1-D numpy array of type object containing the
             deserialized bytes in row-major form.
+
+    Raises:
+        InvalidInput: If the buffer is malformed (a length prefix or element
+            body runs past the end of the buffer) or if the number of encoded
+            elements exceeds the allowed bound or does not match
+            expected_element_count.
     """
+    if (
+        expected_element_count is not None
+        and expected_element_count > max_element_count
+    ):
+        raise InvalidInput(
+            f"BYTES tensor shape requires {expected_element_count} elements, "
+            f"which exceeds the maximum of {max_element_count}"
+        )
+    limit = (
+        expected_element_count
+        if expected_element_count is not None
+        else max_element_count
+    )
     strs = list()
     offset = 0
     val_buf = encoded_tensor
-    while offset < len(val_buf):
+    buf_len = len(val_buf)
+    while offset < buf_len:
+        if offset + 4 > buf_len:
+            raise InvalidInput(
+                "Unable to deserialize BYTES tensor: truncated 4-byte length prefix"
+            )
         length = struct.unpack_from("<I", val_buf, offset)[0]
         offset += 4
+        if offset + length > buf_len:
+            raise InvalidInput(
+                f"Unable to deserialize BYTES tensor: element length {length} "
+                "exceeds the remaining buffer"
+            )
+        if len(strs) >= limit:
+            raise InvalidInput(
+                "Unable to deserialize BYTES tensor: number of elements exceeds "
+                f"the allowed maximum of {limit}"
+            )
         sb = struct.unpack_from("<{}s".format(length), val_buf, offset)[0]
         offset += length
         strs.append(sb)
+    if expected_element_count is not None and len(strs) != expected_element_count:
+        raise InvalidInput(
+            f"Unable to deserialize BYTES tensor: decoded {len(strs)} elements "
+            f"but the tensor shape requires {expected_element_count}"
+        )
     return np.array(strs, dtype=np.object_)
 
 
@@ -238,7 +310,8 @@ class InferInput:
         Returns:
             A numpy array of the inference input data
         Raises:
-            InvalidInput: If the datatype of the inference input is not recognized.
+            InvalidInput: If the datatype of the inference input is not recognized
+                or the raw BYTES tensor is malformed or larger than allowed.
         """
         dtype = to_np_dtype(self.datatype)
         if dtype is None:
@@ -249,7 +322,10 @@ class InferInput:
                 # followed by the actual string characters. Hence,
                 # need to decode the raw bytes to convert into
                 # array elements.
-                np_array = deserialize_bytes_tensor(self._raw_data)
+                np_array = deserialize_bytes_tensor(
+                    self._raw_data,
+                    expected_element_count=_expected_bytes_element_count(self._shape),
+                )
             else:
                 np_array = np.frombuffer(self._raw_data, dtype=dtype)
             return np_array.reshape(self._shape)

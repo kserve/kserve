@@ -98,6 +98,15 @@ LLM_STATS_KEY = "llm-stats"
 # Default GRPC max message length
 MAX_GRPC_MESSAGE_LENGTH = 8388608
 
+# Upper bound on the number of elements decoded from a single BYTES (string)
+# tensor. Each element on the wire is at least a 4-byte length prefix, so the
+# default GRPC message limit already bounds a gRPC request to
+# MAX_GRPC_MESSAGE_LENGTH // 4 elements. The REST binary path has no such limit,
+# so this constant brings it to parity and prevents an unbounded blob of
+# zero-length prefixes from expanding into an unbounded object array. Operators
+# serving genuinely larger string tensors can raise it.
+MAX_BYTES_TENSOR_ELEMENTS = MAX_GRPC_MESSAGE_LENGTH // 4
+
 V2_ROUTE_PREFIX = "/v2"
 V1_ROUTE_PREFIX = "/v1"
 
