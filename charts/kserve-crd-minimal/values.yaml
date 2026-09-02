@@ -1,0 +1,4 @@
+clusterStorageContainerCRD:
+  # Set to false if the ClusterStorageContainer CRD is already managed by another chart
+  # (e.g., kserve-llmisvc-crd-minimal) to avoid conflicts.
+  install: true
