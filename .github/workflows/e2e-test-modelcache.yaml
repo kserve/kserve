@@ -426,9 +426,9 @@ jobs:
         run: |
           kubectl label nodes -l '!node-role.kubernetes.io/control-plane' kserve/localmodel=worker
 
-      - name: Enable nodeselector in knative
+      - name: Enable pod scheduling features in knative
         run: |
-          kubectl patch configmaps -n knative-serving config-features --patch '{"data": {"kubernetes.podspec-nodeselector": "enabled"}}'
+          kubectl patch configmaps -n knative-serving config-features --patch '{"data": {"kubernetes.podspec-nodeselector": "enabled", "kubernetes.podspec-affinity": "enabled"}}'
 
       - name: Run E2E tests
         timeout-minutes: 25
