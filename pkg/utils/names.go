@@ -52,7 +52,7 @@ func SafeObjectName(candidate string) string {
 		return candidate
 	}
 
-	digest := fmt.Sprintf("%x", sha256.Sum256([]byte(candidate)))[:8]
+	digest := ShortHash(candidate)
 	budget := validation.DNS1123LabelMaxLength - len(digest) - 1
 	if len(sanitized) > budget {
 		sanitized = strings.TrimRight(sanitized[:budget], "-")
@@ -61,4 +61,18 @@ func SafeObjectName(candidate string) string {
 		return digest
 	}
 	return sanitized + "-" + digest
+}
+
+// ShortHash returns exactly 8 lowercase hex characters derived from s. It disambiguates
+// names that a lossy sanitizer would otherwise collapse together; the digest is taken
+// over the raw input, before any sanitizer runs, so callers sanitizing for different
+// character sets derive the same suffix for the same name.
+//
+// The 8-character width is a compatibility contract, not an implementation detail.
+// SafeObjectName derives its truncation budget from it, so widening it renames every
+// sanitized object and restarts the pods holding them, and loraMountSegments relies on
+// a fixed width for two suffixed segments to be unable to collide. Not for security
+// use: 32 bits.
+func ShortHash(s string) string {
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(s)))[:8]
 }

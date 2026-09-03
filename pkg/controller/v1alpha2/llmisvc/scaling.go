@@ -340,15 +340,19 @@ func (r *LLMISVCReconciler) propagateScaledObjectStatus(ctx context.Context, exp
 }
 
 // validateAutoscalingConfig checks that the WVAAutoscalingConfig is valid for use with KEDA.
-// It returns an error if the config is nil, if prometheus.url is missing, or if the auth
-// fields are only partially configured (both prometheus.authModes and prometheus.triggerAuthName
-// must be set together or both left empty).
+// It returns an error if the config is nil, if prometheus.url is missing, or if
+// prometheus.authModes is set without a prometheus.triggerAuthName to source credentials
+// from. The reverse (triggerAuthName set without authModes) is valid and required for
+// pod-identity-based auth against managed Prometheus (AWS, Azure, GCP): KEDA's Prometheus
+// scaler rejects authModes combined with pod identity, so those TriggerAuthentication CRs
+// carry no secret-backed auth fields and authModes must stay empty.
+// See: https://keda.sh/docs/latest/scalers/prometheus/#authentication-parameters
 func validateAutoscalingConfig(cfg *WVAAutoscalingConfig) error {
 	if cfg == nil || cfg.Prometheus.URL == "" {
 		return fmt.Errorf("%s.prometheus.url is required in inferenceservice-config when using KEDA", autoscalingConfigName)
 	}
-	if (cfg.Prometheus.TriggerAuthName == "") != (cfg.Prometheus.AuthModes == "") {
-		return fmt.Errorf("%s.prometheus.authModes and %s.prometheus.triggerAuthName must both be set or both be empty", autoscalingConfigName, autoscalingConfigName)
+	if cfg.Prometheus.AuthModes != "" && cfg.Prometheus.TriggerAuthName == "" {
+		return fmt.Errorf("%s.prometheus.triggerAuthName is required in inferenceservice-config when %s.prometheus.authModes is set", autoscalingConfigName, autoscalingConfigName)
 	}
 	return nil
 }

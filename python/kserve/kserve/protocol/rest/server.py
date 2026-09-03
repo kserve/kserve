@@ -50,6 +50,7 @@ from kserve.protocol.rest.timeseries.config import maybe_register_time_series_en
 
 from .v1_endpoints import register_v1_endpoints
 from .v2_endpoints import register_v2_endpoints
+from .ssl_cert_refresher import SSLCertRefresher
 from ..model_repository_extension import ModelRepositoryExtension
 
 
@@ -66,6 +67,36 @@ class PrintTimings(TimingClient):
 VALID_UVICORN_LOOPS = {"auto", "asyncio", "uvloop"}
 
 
+class _RefreshingServer(uvicorn.Server):
+    """Uvicorn server that refreshes its SSL context when certificates change."""
+
+    def __init__(self, config: uvicorn.Config):
+        super().__init__(config)
+        self._ssl_cert_refresher: Optional[SSLCertRefresher] = None
+
+    async def serve(self, sockets: Optional[List[socket]] = None) -> None:
+        if not self.config.loaded:
+            self.config.load()
+
+        if (
+            self.config.ssl is not None
+            and self.config.ssl_keyfile is not None
+            and self.config.ssl_certfile is not None
+        ):
+            self._ssl_cert_refresher = SSLCertRefresher(
+                ssl_context=self.config.ssl,
+                key_path=str(self.config.ssl_keyfile),
+                cert_path=str(self.config.ssl_certfile),
+            )
+
+        try:
+            await super().serve(sockets=sockets)
+        finally:
+            if self._ssl_cert_refresher is not None:
+                self._ssl_cert_refresher.stop()
+                self._ssl_cert_refresher = None
+
+
 class RESTServer:
     def __init__(
         self,
@@ -78,6 +109,8 @@ class RESTServer:
         grace_period: int = 30,
         event_loop: str = "auto",
         timeout_keep_alive: int = 65,
+        ssl_certfile: Optional[str] = None,
+        ssl_keyfile: Optional[str] = None,
     ):
         self.dataplane = data_plane
         self.model_repository_extension = model_repository_extension
@@ -100,8 +133,10 @@ class RESTServer:
             timeout_graceful_shutdown=grace_period,
             timeout_keep_alive=timeout_keep_alive,
             loop=event_loop,
+            ssl_certfile=ssl_certfile,
+            ssl_keyfile=ssl_keyfile,
         )
-        self._server = uvicorn.Server(self.config)
+        self._server = _RefreshingServer(self.config)
 
     def _register_endpoints(self, app: fastapi.FastAPI):
         root_router = APIRouter()

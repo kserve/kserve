@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,6 +38,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -342,4 +344,13 @@ func (r *KedaReconciler) Reconcile(ctx context.Context) error {
 
 func (r *KedaReconciler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
 	return controllerutil.SetControllerReference(owner, r.ScaledObject, scheme)
+}
+
+// CleanupOrphans deletes ScaledObjects selected by scope whose names are not retained.
+func (r *KedaReconciler) CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error {
+	err := isvcutils.DeleteOrphans[*kedav1alpha1.ScaledObjectList](ctx, r.client, scope)
+	if apimeta.IsNoMatchError(err) {
+		return nil
+	}
+	return err
 }

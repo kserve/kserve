@@ -15,7 +15,6 @@ spec:
             --served-model-name "{{ .Spec.Model.Name }}"
             --port 8000
             --disable-access-log-for-endpoints /health,/metrics,/ping
-            --disable-log-requests
             --prefix-caching-hash-algo sha256_cbor
             --block-size 64
             --kv-events-config "$KV_EVENTS_CONFIG"
@@ -85,7 +84,3 @@ spec:
                 - pluginRef: active-request-scorer
                   weight: 3
                 - pluginRef: max-score-picker
-      pool:
-        spec:
-          endpointPickerRef:
-            group: ""
