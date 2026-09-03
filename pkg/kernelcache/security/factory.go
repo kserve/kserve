@@ -48,6 +48,36 @@ func NewVerifier(ctx context.Context, cfg SecurityConfig, src SecretSource) (Ver
 	}
 }
 
+// NewSigner builds the Signer for the configured mode, mirroring NewVerifier.
+// The config is defaulted and validated first; ctx bounds any construction-time
+// I/O and src provides key material to the signing modes. Only the disabled
+// mode is wired here -- the signing modes (cert, keyless) add their own cases.
+func NewSigner(ctx context.Context, cfg SecurityConfig, src SecretSource) (Signer, error) {
+	cfg.Default()
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
+	switch cfg.Mode {
+	case ModeDisabled:
+		return noopSigner{}, nil
+	default:
+		// Validate accepts every known mode, so a mode reaching here is valid
+		// but has no signer wired yet (cert, keyless) or never signs (kyverno).
+		return nil, fmt.Errorf("signing not implemented for mode %q", cfg.Mode)
+	}
+}
+
+// noopSigner signs nothing. It backs the disabled mode.
+type noopSigner struct{}
+
+var _ Signer = noopSigner{}
+
+// Sign is a no-op that reports the disabled mode without contacting a registry.
+func (noopSigner) Sign(_ context.Context, _ SignRequest) (SignResult, error) {
+	return SignResult{Mode: ModeDisabled}, nil
+}
+
 // noopVerifier performs no signature check. It backs the disabled mode.
 type noopVerifier struct{}
 
