@@ -57,6 +57,9 @@ type SecurityConfig struct {
 
 	// FailurePolicy controls consumer behaviour on verification failure.
 	FailurePolicy FailurePolicy `json:"failurePolicy,omitempty"`
+
+	// Cert holds settings for ModeCert.
+	Cert CertConfig `json:"cert"`
 }
 
 // ErrUnknownMode is returned when the configured mode is not recognised.
@@ -79,6 +82,10 @@ func (c *SecurityConfig) Default() {
 func (c *SecurityConfig) Validate() error {
 	switch c.Mode {
 	case ModeDisabled:
+	case ModeCert:
+		if err := c.Cert.validate(); err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("%w: %q", ErrUnknownMode, c.Mode)
 	}
