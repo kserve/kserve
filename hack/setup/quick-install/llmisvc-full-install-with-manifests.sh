@@ -23935,7 +23935,12 @@ spec:
                 properties:
                   enabled:
                     type: boolean
+                  storageContainerName:
+                    type: string
                 type: object
+                x-kubernetes-validations:
+                - message: storageContainerName cannot be set when enabled is false
+                  rule: '!(has(self.enabled) && self.enabled == false && has(self.storageContainerName))'
               template:
                 properties:
                   activeDeadlineSeconds:
@@ -48930,7 +48935,12 @@ spec:
                 properties:
                   enabled:
                     type: boolean
+                  storageContainerName:
+                    type: string
                 type: object
+                x-kubernetes-validations:
+                - message: storageContainerName cannot be set when enabled is false
+                  rule: '!(has(self.enabled) && self.enabled == false && has(self.storageContainerName))'
               template:
                 properties:
                   activeDeadlineSeconds:
@@ -74370,7 +74380,12 @@ spec:
                 properties:
                   enabled:
                     type: boolean
+                  storageContainerName:
+                    type: string
                 type: object
+                x-kubernetes-validations:
+                - message: storageContainerName cannot be set when enabled is false
+                  rule: '!(has(self.enabled) && self.enabled == false && has(self.storageContainerName))'
               template:
                 properties:
                   activeDeadlineSeconds:
@@ -100261,7 +100276,12 @@ spec:
                 properties:
                   enabled:
                     type: boolean
+                  storageContainerName:
+                    type: string
                 type: object
+                x-kubernetes-validations:
+                - message: storageContainerName cannot be set when enabled is false
+                  rule: '!(has(self.enabled) && self.enabled == false && has(self.storageContainerName))'
               template:
                 properties:
                   activeDeadlineSeconds:
@@ -108467,6 +108487,16 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - clusterstoragecontainers
+  - localmodelcaches
+  - localmodelnamespacecaches
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
   - llminferenceserviceconfigs
   - llminferenceservices
   verbs:
@@ -108493,15 +108523,6 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - localmodelcaches
-  - localmodelnamespacecaches
-  verbs:
-  - get
-  - list
-  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
