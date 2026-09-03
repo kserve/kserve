@@ -50237,6 +50237,7 @@ spec:
                         - message: horizontalPodAutoscalerConfig.name must not be
                             set; the controller manages the HPA name
                           rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                             || size(self.advanced.horizontalPodAutoscalerConfig.name)
                             == 0'
                       maxReplicas:
@@ -50454,6 +50455,7 @@ spec:
                             - message: horizontalPodAutoscalerConfig.name must not
                                 be set; the controller manages the HPA name
                               rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                                || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                                 || size(self.advanced.horizontalPodAutoscalerConfig.name)
                                 == 0'
                           variantCost:
@@ -66784,6 +66786,7 @@ spec:
                     - message: horizontalPodAutoscalerConfig.name must not be set;
                         the controller manages the HPA name
                       rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                        || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                         || size(self.advanced.horizontalPodAutoscalerConfig.name)
                         == 0'
                   maxReplicas:
@@ -67001,6 +67004,7 @@ spec:
                         - message: horizontalPodAutoscalerConfig.name must not be
                             set; the controller manages the HPA name
                           rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                             || size(self.advanced.horizontalPodAutoscalerConfig.name)
                             == 0'
                       variantCost:
@@ -75201,6 +75205,7 @@ spec:
                         - message: horizontalPodAutoscalerConfig.name must not be
                             set; the controller manages the HPA name
                           rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                             || size(self.advanced.horizontalPodAutoscalerConfig.name)
                             == 0'
                       maxReplicas:
@@ -75418,6 +75423,7 @@ spec:
                             - message: horizontalPodAutoscalerConfig.name must not
                                 be set; the controller manages the HPA name
                               rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                                || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                                 || size(self.advanced.horizontalPodAutoscalerConfig.name)
                                 == 0'
                           variantCost:
@@ -91779,6 +91785,7 @@ spec:
                     - message: horizontalPodAutoscalerConfig.name must not be set;
                         the controller manages the HPA name
                       rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                        || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                         || size(self.advanced.horizontalPodAutoscalerConfig.name)
                         == 0'
                   maxReplicas:
@@ -91996,6 +92003,7 @@ spec:
                         - message: horizontalPodAutoscalerConfig.name must not be
                             set; the controller manages the HPA name
                           rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                             || size(self.advanced.horizontalPodAutoscalerConfig.name)
                             == 0'
                       variantCost:
@@ -99974,6 +99982,7 @@ spec:
                         - message: horizontalPodAutoscalerConfig.name must not be
                             set; the controller manages the HPA name
                           rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                             || size(self.advanced.horizontalPodAutoscalerConfig.name)
                             == 0'
                       maxReplicas:
@@ -100191,6 +100200,7 @@ spec:
                             - message: horizontalPodAutoscalerConfig.name must not
                                 be set; the controller manages the HPA name
                               rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                                || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                                 || size(self.advanced.horizontalPodAutoscalerConfig.name)
                                 == 0'
                           variantCost:
@@ -117219,6 +117229,7 @@ spec:
                     - message: horizontalPodAutoscalerConfig.name must not be set;
                         the controller manages the HPA name
                       rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                        || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                         || size(self.advanced.horizontalPodAutoscalerConfig.name)
                         == 0'
                   maxReplicas:
@@ -117436,6 +117447,7 @@ spec:
                         - message: horizontalPodAutoscalerConfig.name must not be
                             set; the controller manages the HPA name
                           rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                             || size(self.advanced.horizontalPodAutoscalerConfig.name)
                             == 0'
                       variantCost:
@@ -125823,6 +125835,7 @@ spec:
                         - message: horizontalPodAutoscalerConfig.name must not be
                             set; the controller manages the HPA name
                           rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                             || size(self.advanced.horizontalPodAutoscalerConfig.name)
                             == 0'
                       maxReplicas:
@@ -126040,6 +126053,7 @@ spec:
                             - message: horizontalPodAutoscalerConfig.name must not
                                 be set; the controller manages the HPA name
                               rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                                || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                                 || size(self.advanced.horizontalPodAutoscalerConfig.name)
                                 == 0'
                           variantCost:
@@ -143110,6 +143124,7 @@ spec:
                     - message: horizontalPodAutoscalerConfig.name must not be set;
                         the controller manages the HPA name
                       rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                        || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                         || size(self.advanced.horizontalPodAutoscalerConfig.name)
                         == 0'
                   maxReplicas:
@@ -143327,6 +143342,7 @@ spec:
                         - message: horizontalPodAutoscalerConfig.name must not be
                             set; the controller manages the HPA name
                           rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                             || size(self.advanced.horizontalPodAutoscalerConfig.name)
                             == 0'
                       variantCost:

@@ -340,7 +340,7 @@ spec:
                           type: object
                           x-kubernetes-validations:
                             - message: horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name
-                              rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
+                              rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || !has(self.advanced.horizontalPodAutoscalerConfig.name) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
                         maxReplicas:
                           format: int32
                           minimum: 1
@@ -554,7 +554,7 @@ spec:
                               type: object
                               x-kubernetes-validations:
                                 - message: horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name
-                                  rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
+                                  rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || !has(self.advanced.horizontalPodAutoscalerConfig.name) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
                             variantCost:
                               default: "10.0"
                               pattern: ^\d+(\.\d+)?$
@@ -17273,7 +17273,7 @@ spec:
                       type: object
                       x-kubernetes-validations:
                         - message: horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name
-                          rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
+                          rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || !has(self.advanced.horizontalPodAutoscalerConfig.name) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
                     maxReplicas:
                       format: int32
                       minimum: 1
@@ -17487,7 +17487,7 @@ spec:
                           type: object
                           x-kubernetes-validations:
                             - message: horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name
-                              rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
+                              rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || !has(self.advanced.horizontalPodAutoscalerConfig.name) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
                         variantCost:
                           default: "10.0"
                           pattern: ^\d+(\.\d+)?$
@@ -25856,7 +25856,7 @@ spec:
                           type: object
                           x-kubernetes-validations:
                             - message: horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name
-                              rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
+                              rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || !has(self.advanced.horizontalPodAutoscalerConfig.name) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
                         maxReplicas:
                           format: int32
                           minimum: 1
@@ -26070,7 +26070,7 @@ spec:
                               type: object
                               x-kubernetes-validations:
                                 - message: horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name
-                                  rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
+                                  rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || !has(self.advanced.horizontalPodAutoscalerConfig.name) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
                             variantCost:
                               default: "10.0"
                               pattern: ^\d+(\.\d+)?$
@@ -42830,7 +42830,7 @@ spec:
                       type: object
                       x-kubernetes-validations:
                         - message: horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name
-                          rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
+                          rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || !has(self.advanced.horizontalPodAutoscalerConfig.name) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
                     maxReplicas:
                       format: int32
                       minimum: 1
@@ -43044,7 +43044,7 @@ spec:
                           type: object
                           x-kubernetes-validations:
                             - message: horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name
-                              rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
+                              rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || !has(self.advanced.horizontalPodAutoscalerConfig.name) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0'
                         variantCost:
                           default: "10.0"
                           pattern: ^\d+(\.\d+)?$
