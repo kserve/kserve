@@ -19,6 +19,7 @@ package llmisvc_test
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -828,11 +829,9 @@ func TestDataParallelPresetsWithoutParallelism(t *testing.T) {
 	}
 }
 
-// TestPresetRenderingIsIndifferentToEmptyParallelism pins the invariant that lets the
-// reconciler materialize an absent parallelism block before rendering: for every shipped
-// preset, an unset parallelism must render exactly what an empty one renders. If a preset
-// ever starts branching on the block's presence rather than on the sizes inside it, this
-// fails and the materialization stops being transparent.
+// TestPresetRenderingIsIndifferentToEmptyParallelism pins the invariant behind the
+// nil-safe parallelism guards: for every shipped preset, an unset parallelism block
+// must render exactly what an empty one renders.
 func TestPresetRenderingIsIndifferentToEmptyParallelism(t *testing.T) {
 	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
 
@@ -900,4 +899,93 @@ func TestPresetRenderingIsIndifferentToEmptyParallelism(t *testing.T) {
 			})
 		}
 	}
+}
+
+// TestPresetRenderingInvariants asserts the properties that keep rendering against the
+// merged spec equivalent to rendering against the service alone. Each one holds across
+// the shipped presets today; each would change the command of already-running workloads
+// if a future preset broke it, so they are checked here rather than left implicit.
+func TestPresetRenderingInvariants(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("read presets dir: %v", err)
+	}
+
+	// Matches a template action that reaches into a container command or args. Those
+	// fields still hold unrendered template text when the merged spec is handed to the
+	// renderer, so substituting one leaks "{{ ... }}" into a real command, or breaks the
+	// JSON re-parse on its unescaped quotes.
+	readsTemplateText := regexp.MustCompile(`{{[^}]*\.(Command|Args)\b`)
+
+	checked := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "config-llm-") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Clean(filepath.Join(presetsDir, entry.Name())))
+		if err != nil {
+			t.Fatalf("read %s: %v", entry.Name(), err)
+		}
+		config := loadConfig(t, data, entry.Name())
+		checked++
+
+		t.Run(entry.Name(), func(t *testing.T) {
+			if match := readsTemplateText.FindString(string(data)); match != "" {
+				t.Errorf("preset reads a field holding unrendered template text: %q", match)
+			}
+
+			// A preset supplying either of these would put a value into every service's
+			// command that the service never asked for.
+			for _, w := range []struct {
+				name string
+				spec *v1alpha2.WorkloadSpec
+			}{{"spec", &config.Spec.WorkloadSpec}, {"spec.prefill", config.Spec.Prefill}} {
+				if w.spec == nil {
+					continue
+				}
+				if w.spec.Parallelism != nil {
+					t.Errorf("%s.parallelism is set; rendering reads it from the merged spec", w.name)
+				}
+				if w.spec.KVCacheOffloading != nil {
+					t.Errorf("%s.kvCacheOffloading is set; rendering reads it from the merged spec", w.name)
+				}
+			}
+
+			// shutdownTimeout falls back to 60 when a service sets no grace period. A
+			// preset carrying anything else would change --shutdown-timeout for every
+			// service that relies on that fallback.
+			for path, pod := range podSpecs(config) {
+				if pod.TerminationGracePeriodSeconds == nil {
+					continue
+				}
+				if got := *pod.TerminationGracePeriodSeconds; got != 60 {
+					t.Errorf("%s.terminationGracePeriodSeconds is %d, not the 60 shutdownTimeout falls back to", path, got)
+				}
+			}
+		})
+	}
+
+	if checked == 0 {
+		t.Fatal("no presets checked")
+	}
+}
+
+func podSpecs(config *v1alpha2.LLMInferenceServiceConfig) map[string]*corev1.PodSpec {
+	out := map[string]*corev1.PodSpec{}
+	add := func(name string, pod *corev1.PodSpec) {
+		if pod != nil {
+			out[name] = pod
+		}
+	}
+	add("spec.template", config.Spec.Template)
+	add("spec.worker", config.Spec.Worker)
+	if p := config.Spec.Prefill; p != nil {
+		add("spec.prefill.template", p.Template)
+		add("spec.prefill.worker", p.Worker)
+	}
+	if r := config.Spec.Router; r != nil && r.Scheduler != nil {
+		add("spec.router.scheduler.template", r.Scheduler.Template)
+	}
+	return out
 }

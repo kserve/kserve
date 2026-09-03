@@ -382,20 +382,25 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	wr := &WellKnownConfigResolver{}
 	wr.Attach(llmSvc)
 
-	// Creates the initial spec with the merged BaseRefs, so that we know what's "Enabled".
-	resolvedSpec := *llmSvc.Spec.DeepCopy()
+	baseRefSpecs := make([]v1alpha2.LLMInferenceServiceSpec, 0, len(llmSvc.Spec.BaseRefs))
 	for _, ref := range llmSvc.Spec.BaseRefs {
 		cfg, err := r.getConfig(ctx, llmSvc, ref.Name)
 		if err != nil {
 			return nil, err
 		}
 		if cfg != nil {
-			var resolvedErr error
-			resolvedSpec, resolvedErr = mergeSpecs(ctx, resolvedSpec, cfg.Spec)
-			if resolvedErr != nil {
-				return nil, fmt.Errorf("failed to merge specs: %w", resolvedErr)
-			}
+			baseRefSpecs = append(baseRefSpecs, cfg.Spec)
 		}
+	}
+
+	// Applied with baseRefs last, so a config that supplies a field replaces the
+	// service's own. That order is what the model name copy-back below relies on:
+	// webhook defaulting always leaves one set on the service, so a config that
+	// supplies one could not otherwise take effect. The spec that gets applied
+	// merges the other way round, with the service last.
+	resolvedSpec, err := MergeSpecs(ctx, append([]v1alpha2.LLMInferenceServiceSpec{*llmSvc.Spec.DeepCopy()}, baseRefSpecs...)...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to merge specs: %w", err)
 	}
 
 	if resolvedSpec.Model.Name != nil {
@@ -558,7 +563,12 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		llmSvcCfg.Spec.Router.Scheduler.Template.ServiceAccountName = kmeta.ChildName(llmSvc.GetName(), "-epp-sa")
 	}
 
-	llmSvcCfg, err = ReplaceVariables(llmSvc, llmSvcCfg, reconcilerConfig)
+	// Render against the merged spec so templates see the values that get applied.
+	// Shallow copies suffice: ReplaceVariables only reads the service.
+	effectiveSvc := *llmSvc
+	effectiveSvc.Spec = llmSvcCfg.Spec
+
+	llmSvcCfg, err = ReplaceVariables(&effectiveSvc, llmSvcCfg, reconcilerConfig)
 	if err != nil {
 		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 	}
