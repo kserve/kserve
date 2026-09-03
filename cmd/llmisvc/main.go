@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"strconv"
 	"time"
@@ -44,7 +45,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -299,6 +299,11 @@ func main() {
 		Config:        mgr.GetConfig(),
 		Clientset:     clientSet,
 		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceController"}),
+		Validator: func(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+			_, err := v1alpha2LLMValidator.ValidateCreate(ctx, llmSvc)
+			return err
+		},
+		IsWebhookReady: func() error { return mgr.GetWebhookServer().StartedChecker()(nil) },
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceService")
 		os.Exit(1)
@@ -325,18 +330,24 @@ func main() {
 
 	setupLog.Info("Setting up LLMInferenceServiceConfig controller")
 	if err = (&llmisvc.LLMISVCConfigReconciler{
-		Client:        mgr.GetClient(),
-		EventRecorder: llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceConfigController"}),
+		Client:         mgr.GetClient(),
+		EventRecorder:  llmEventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "LLMInferenceServiceConfigController"}),
+		IsWebhookReady: func() error { return mgr.GetWebhookServer().StartedChecker()(nil) },
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "LLMInferenceServiceConfig")
 		os.Exit(1)
 	}
 
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+	// Gate health/ready checks on the webhook server having started.
+	if err := mgr.AddHealthzCheck("healthz", func(req *http.Request) error {
+		return mgr.GetWebhookServer().StartedChecker()(req)
+	}); err != nil {
 		setupLog.Error(err, "unable to set up health check")
 		os.Exit(1)
 	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+	if err := mgr.AddReadyzCheck("readyz", func(req *http.Request) error {
+		return mgr.GetWebhookServer().StartedChecker()(req)
+	}); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
