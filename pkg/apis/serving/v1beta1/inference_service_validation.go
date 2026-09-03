@@ -448,13 +448,16 @@ func validateAutoScalingCompExtension(annotations map[string]string, compExtSpec
 	annotationClass := annotations[autoscaling.ClassAnnotationKey]
 	autoscalerClass := annotations[constants.AutoscalerClass]
 
-	switch deploymentMode {
+	switch string(constants.ParseDeploymentMode(deploymentMode)) {
 	case string(constants.Standard):
 		switch autoscalerClass {
-		case string(constants.AutoscalerClassHPA):
-			return validateScalingHPACompExtension(compExtSpec)
 		case string(constants.AutoscalerClassKeda):
 			return validateScalingKedaCompExtension(compExtSpec)
+		case string(constants.AutoscalerClassHPA), "":
+			// Default autoscaler class is HPA. Run HPA validation so that
+			// unsupported metric sources (e.g. External without KEDA) are
+			// rejected with a clear error instead of causing a controller panic.
+			return validateScalingHPACompExtension(compExtSpec)
 		}
 	default:
 		if annotationClass == autoscaling.HPA {

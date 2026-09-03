@@ -361,6 +361,45 @@ func TestAutoscalerClassHPA(t *testing.T) {
 			},
 			errMatcher: gomega.MatchError("[test] is not a supported autoscaler class type"),
 		},
+		"External metric without autoscalerClass keda is rejected (RawDeployment)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": "RawDeployment",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							AutoScaling: &AutoScalingSpec{
+								Metrics: []MetricsSpec{
+									{
+										Type: ExternalMetricSourceType,
+										External: &ExternalMetricSource{
+											Metric: ExternalMetrics{},
+											Target: MetricTarget{
+												Type:  ValueMetricType,
+												Value: NewMetricQuantity("10"),
+											},
+										},
+									},
+								},
+							},
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("invalid HPA metric source type with value [External]," +
+				"valid metric source types are Resource"),
+		},
 	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
