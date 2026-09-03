@@ -765,3 +765,139 @@ func loadConfig(t *testing.T, data []byte, filePath string) *v1alpha2.LLMInferen
 
 	return config
 }
+
+// TestDataParallelPresetsWithoutParallelism guards the data-parallel presets
+// against a nil .spec.parallelism. The controller only selects them when
+// parallelism is set, but nothing stops a user from listing one in baseRefs
+// directly, and a nil dereference in a template aborts the whole merge.
+func TestDataParallelPresetsWithoutParallelism(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+
+	files := []string{
+		"config-llm-worker-data-parallel.yaml",
+		"config-llm-decode-worker-data-parallel.yaml",
+		"config-llm-prefill-worker-data-parallel.yaml",
+	}
+
+	for _, file := range files {
+		t.Run(file, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Clean(filepath.Join(presetsDir, file)))
+			if err != nil {
+				t.Fatalf("read %s: %v", file, err)
+			}
+			config := loadConfig(t, data, file)
+
+			// given: neither .spec.parallelism nor .spec.prefill is set
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+				},
+			}
+
+			// when
+			got, err := llmisvc.ReplaceVariables(llmSvc, config, &llmisvc.Config{})
+			// then
+			if err != nil {
+				t.Fatalf("ReplaceVariables: %v", err)
+			}
+
+			var containers []corev1.Container
+			switch {
+			case got.Spec.Prefill != nil && got.Spec.Prefill.Template != nil:
+				containers = got.Spec.Prefill.Template.Containers
+			case got.Spec.Template != nil:
+				containers = got.Spec.Template.Containers
+			}
+			if len(containers) == 0 {
+				t.Fatal("expected at least one container")
+			}
+
+			cmd := strings.Join(containers[0].Command, " ")
+			for _, want := range []string{"--data-parallel-size 1", "--data-parallel-size-local 1", "--data-parallel-rpc-port 5555"} {
+				if !strings.Contains(cmd, want) {
+					t.Errorf("rendered command does not contain %q", want)
+				}
+			}
+			for _, unwanted := range []string{"--enable-expert-parallel", "--tensor-parallel-size"} {
+				if strings.Contains(cmd, unwanted) {
+					t.Errorf("rendered command should not contain %q", unwanted)
+				}
+			}
+		})
+	}
+}
+
+// TestPresetRenderingIsIndifferentToEmptyParallelism pins the invariant that lets the
+// reconciler materialize an absent parallelism block before rendering: for every shipped
+// preset, an unset parallelism must render exactly what an empty one renders. If a preset
+// ever starts branching on the block's presence rather than on the sizes inside it, this
+// fails and the materialization stops being transparent.
+func TestPresetRenderingIsIndifferentToEmptyParallelism(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("read presets dir: %v", err)
+	}
+
+	// A prefill block only exists on disaggregated services, so cover both shapes:
+	// a preset that reads .Spec.Prefill.Parallelism is only exercised by the second.
+	shapes := map[string]func() *v1alpha2.LLMInferenceService{
+		"single-node": func() *v1alpha2.LLMInferenceService {
+			return &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+				},
+			}
+		},
+		"disaggregated": func() *v1alpha2.LLMInferenceService {
+			return &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model:   v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+		},
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "config-llm-") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Clean(filepath.Join(presetsDir, entry.Name())))
+		if err != nil {
+			t.Fatalf("read %s: %v", entry.Name(), err)
+		}
+
+		for shapeName, newSvc := range shapes {
+			t.Run(entry.Name()+"/"+shapeName, func(t *testing.T) {
+				// given: the same service twice, once with parallelism absent and once
+				// with it present but empty
+				unset := newSvc()
+				empty := newSvc()
+				empty.Spec.Parallelism = &v1alpha2.ParallelismSpec{}
+				if empty.Spec.Prefill != nil {
+					empty.Spec.Prefill.Parallelism = &v1alpha2.ParallelismSpec{}
+				}
+
+				// when
+				fromUnset, err := llmisvc.ReplaceVariables(unset, loadConfig(t, data, entry.Name()), &llmisvc.Config{})
+				if err != nil {
+					t.Fatalf("ReplaceVariables with parallelism unset: %v", err)
+				}
+				fromEmpty, err := llmisvc.ReplaceVariables(empty, loadConfig(t, data, entry.Name()), &llmisvc.Config{})
+				if err != nil {
+					t.Fatalf("ReplaceVariables with empty parallelism: %v", err)
+				}
+
+				// then
+				if diff := cmp.Diff(fromEmpty, fromUnset); diff != "" {
+					t.Errorf("rendering differs between unset and empty parallelism (-empty +unset):\n%s", diff)
+				}
+			})
+		}
+	}
+}
