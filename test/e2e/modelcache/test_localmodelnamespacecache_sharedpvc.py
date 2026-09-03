@@ -52,6 +52,24 @@ def _cache_ready_reason(kserve_client, name, namespace):
     return None, None
 
 
+def _delete_custom_object_if_exists(
+    api_instance, *, name, namespace, plural, version
+) -> bool:
+    try:
+        api_instance.delete_namespaced_custom_object(
+            constants.KSERVE_GROUP,
+            version,
+            namespace,
+            plural,
+            name,
+        )
+    except ApiException as err:
+        if err.status != 404:
+            raise
+        return False
+    return True
+
+
 async def _wait_shared_cache_ready(
     kserve_client, name, namespace, timeout_seconds=600, polling_interval=10
 ):
@@ -161,7 +179,7 @@ async def test_sklearn_modelnamespacecache_sharedpvc(rest_v1_client, network_lay
         cache = kserve_client.get_local_model_namespace_cache(
             cache_name, KSERVE_TEST_NAMESPACE
         )
-        model_copies = cache.get("status", {}).get("modelCopies", {})
+        model_copies = cache.get("status", {}).get("copies", {})
         assert model_copies.get("total") == 1
         assert model_copies.get("available") == 1
         assert not cache.get("status", {}).get("nodeStatus")
@@ -203,18 +221,22 @@ async def test_sklearn_modelnamespacecache_sharedpvc(rest_v1_client, network_lay
         )
         assert res["predictions"] == [1, 1]
     finally:
-        try:
-            kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+        if _delete_custom_object_if_exists(
+            kserve_client.api_instance,
+            name=service_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            plural=constants.KSERVE_PLURAL_INFERENCESERVICE,
+            version=constants.KSERVE_V1BETA1_VERSION,
+        ):
             # Let the isvc release the cache before deleting it.
             await asyncio.sleep(30)
-        except ApiException:
-            pass
-        try:
-            kserve_client.delete_local_model_namespace_cache(
-                cache_name, namespace=KSERVE_TEST_NAMESPACE
-            )
-        except ApiException:
-            pass
+        _delete_custom_object_if_exists(
+            kserve_client.api_instance,
+            name=cache_name,
+            namespace=KSERVE_TEST_NAMESPACE,
+            plural=constants.KSERVE_PLURAL_LOCALMODELNAMESPACECACHE,
+            version=constants.KSERVE_V1ALPHA1_VERSION,
+        )
 
         # The user-owned PVC is never deleted by the controller: it survives cache
         # deletion. Clean it up explicitly.
