@@ -14,20 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package security
+package types
 
-import (
-	"context"
+// SignRequest describes the image to sign.
+type SignRequest struct {
+	// ImageRef is the image to sign, by tag or digest.
+	ImageRef string
+}
 
-	"github.com/kserve/kserve/pkg/kernelcache/types"
-)
+// SignResult reports the outcome of a signing operation.
+type SignResult struct {
+	// Digest is the resolved image digest the signature was bound to.
+	Digest string
 
-// Verifier verifies a kernel cache image according to a configured mode.
-//
-// The returned error is reserved for operational failures (network, registry,
-// misconfiguration) that a caller may retry. A completed check that fails is
-// reported as types.VerifyResult{Verified: false} with a nil error, so the
-// caller can apply its FailurePolicy uniformly.
-type Verifier interface {
-	Verify(ctx context.Context, req types.VerifyRequest) (types.VerifyResult, error)
+	// Mode is the signing mode that produced the result.
+	Mode Mode
 }
