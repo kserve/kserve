@@ -742,6 +742,52 @@ func TestSingleNodeTensorParallelRendered(t *testing.T) {
 	}
 }
 
+// TestVLLMPresetsRenderRootPath verifies that every built-in vLLM preset
+// supplies a service-specific root path for routes served through the gateway.
+func TestVLLMPresetsRenderRootPath(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	llmSvc := llmisvc.LLMInferenceServiceSample()
+	wantRootPath := "--root-path /" + llmSvc.Namespace + "/" + llmSvc.Name
+
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("read presets directory: %v", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+			continue
+		}
+
+		filename := entry.Name()
+		filePath := filepath.Join(presetsDir, filename)
+		data, err := os.ReadFile(filepath.Clean(filePath))
+		if err != nil {
+			t.Fatalf("read %s: %v", filename, err)
+		}
+		if !strings.Contains(string(data), `eval "exec vllm serve`) {
+			continue
+		}
+
+		t.Run(filename, func(t *testing.T) {
+			config := loadConfig(t, data, filePath)
+			rendered, err := llmisvc.ReplaceVariables(llmSvc, config, &llmisvc.Config{})
+			if err != nil {
+				t.Fatalf("render preset: %v", err)
+			}
+			renderedYAML, err := yaml.Marshal(rendered)
+			if err != nil {
+				t.Fatalf("marshal rendered preset: %v", err)
+			}
+
+			wantCount := strings.Count(string(data), `eval "exec vllm serve`)
+			if gotCount := strings.Count(string(renderedYAML), wantRootPath); gotCount != wantCount {
+				t.Errorf("rendered %d root-path flags, want %d:\n%s", gotCount, wantCount, renderedYAML)
+			}
+		})
+	}
+}
+
 func loadConfig(t *testing.T, data []byte, filePath string) *v1alpha2.LLMInferenceServiceConfig {
 	config := &v1alpha2.LLMInferenceServiceConfig{}
 	if err := yaml.Unmarshal(data, config); err != nil {
