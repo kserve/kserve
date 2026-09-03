@@ -178,4 +178,5 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.storage.tag | string | `""` |  |
 | kserve.storage.uidModelcar | int | `1010` |  |
 | kserve.storagecontainer.enabled | string | `""` |  |
+| kserve.template.llmInferenceServiceConfigRenderStrategy | string | `"JSON"` |  |
 | kserve.version | string | `"v0.20.0"` |  |

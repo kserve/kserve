@@ -97,6 +97,20 @@
                             }
                         }
                     }
+                },
+                "template": {
+                    "type": "object",
+                    "properties": {
+                        "llmInferenceServiceConfigRenderStrategy": {
+                            "type": "string",
+                            "enum": [
+                                "JSON",
+                                "Recursive"
+                            ],
+                            "default": "JSON",
+                            "description": "Engine used to render LLMInferenceServiceConfig templates. \"JSON\" marshals the config to JSON, runs it through the template engine, then unmarshals the result. \"Recursive\" (experimental) walks the config tree and templates each string field in place instead, avoiding JSON-escaping issues in rendered output."
+                        }
+                    }
                 }
             }
         }
