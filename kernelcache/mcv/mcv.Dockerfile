@@ -1,5 +1,5 @@
 # Build the mcv binary
-FROM golang:1.25-bookworm AS deps
+FROM golang:1.26.8-bookworm AS deps
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgpgme-dev \
