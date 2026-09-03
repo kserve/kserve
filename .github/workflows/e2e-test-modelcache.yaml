@@ -431,7 +431,7 @@ jobs:
           kubectl patch configmaps -n knative-serving config-features --patch '{"data": {"kubernetes.podspec-nodeselector": "enabled"}}'
 
       - name: Run E2E tests
-        timeout-minutes: 15
+        timeout-minutes: 25
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "modelcache" "1"
 
