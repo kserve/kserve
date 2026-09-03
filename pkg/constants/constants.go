@@ -165,6 +165,7 @@ var (
 	LoggerModeInternalAnnotationKey                  = InferenceServiceInternalAnnotationsPrefix + "/logger-mode"
 	LoggerMetadataHeadersInternalAnnotationKey       = InferenceServiceInternalAnnotationsPrefix + "/logger-metadata-headers"
 	LoggerMetadataAnnotationsInternalAnnotationKey   = InferenceServiceInternalAnnotationsPrefix + "/logger-metadata-annotations"
+	LoggerLogAllResponsesInternalAnnotationKey       = InferenceServiceInternalAnnotationsPrefix + "/logger-log-all-responses"
 	BatcherInternalAnnotationKey                     = InferenceServiceInternalAnnotationsPrefix + "/batcher"
 	BatcherMaxBatchSizeInternalAnnotationKey         = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-batchsize"
 	BatcherMaxLatencyInternalAnnotationKey           = InferenceServiceInternalAnnotationsPrefix + "/batcher-max-latency"

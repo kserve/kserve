@@ -7542,6 +7542,13 @@ func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) co
 							Format:      "",
 						},
 					},
+					"logAllResponses": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Log responses regardless of their status code, and add a statuscode extension attribute to the response cloud event. Only 200 responses are logged when this is unset. Defaults to false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

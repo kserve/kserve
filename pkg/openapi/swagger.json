@@ -4134,6 +4134,10 @@
           "type": "integer",
           "format": "int32"
         },
+        "logAllResponses": {
+          "description": "Log responses regardless of their status code, and add a statuscode extension attribute to the response cloud event. Only 200 responses are logged when this is unset. Defaults to false.",
+          "type": "boolean"
+        },
         "marshallerUrl": {
           "description": "URL of the log marshaller service that transforms log records before storage. Defaults to the embedded JSON marshaller at http://localhost:9083/marshal.",
           "type": "string"
