@@ -28,6 +28,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/sigstore/cosign/v3/pkg/cosign"
 	ociremote "github.com/sigstore/cosign/v3/pkg/oci/remote"
+
+	"github.com/kserve/kserve/pkg/kernelcache/types"
 )
 
 // trustBundleTimeout bounds the one-time load of the CA bundle at construction.
@@ -46,7 +48,7 @@ type certVerifier struct {
 // newCertVerifier loads the CA bundle from src and prepares the identity match.
 // It fails fast on a missing or invalid trust bundle. The load is bounded by a
 // timeout derived from the caller's context.
-func newCertVerifier(ctx context.Context, cfg CertConfig, src SecretSource) (*certVerifier, error) {
+func newCertVerifier(ctx context.Context, cfg types.CertConfig, src SecretSource) (*certVerifier, error) {
 	// Anchor the operator's regexp so it must match the whole SAN, not just a
 	// substring (cosign matches identity regexps unanchored). The pattern itself
 	// was already validated by SecurityConfig.Validate.
@@ -75,7 +77,7 @@ func loadTrustBundle(ctx context.Context, src SecretSource, ref, key string) ([]
 		return nil, fmt.Errorf("trust bundle %q: no secret source configured", ref)
 	}
 	if key == "" {
-		key = DefaultTrustBundleKey
+		key = types.DefaultTrustBundleKey
 	}
 
 	var problems []string
@@ -106,8 +108,8 @@ func loadTrustBundle(ctx context.Context, src SecretSource, ref, key string) ([]
 // is operational (retryable) and returns an error, whereas a completed check
 // that fails returns VerifyResult{Verified: false} with the digest still set so
 // a warn policy can pin it.
-func (v *certVerifier) Verify(ctx context.Context, req VerifyRequest) (VerifyResult, error) {
-	res := VerifyResult{Mode: ModeCert}
+func (v *certVerifier) Verify(ctx context.Context, req types.VerifyRequest) (types.VerifyResult, error) {
+	res := types.VerifyResult{Mode: types.ModeCert}
 
 	ref, err := name.ParseReference(req.ImageRef)
 	if err != nil {

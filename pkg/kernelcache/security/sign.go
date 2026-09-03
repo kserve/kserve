@@ -16,25 +16,14 @@ limitations under the License.
 
 package security
 
-import "context"
+import (
+	"context"
 
-// SignRequest describes the image to sign.
-type SignRequest struct {
-	// ImageRef is the image to sign, by tag or digest.
-	ImageRef string
-}
-
-// SignResult reports the outcome of a signing operation.
-type SignResult struct {
-	// Digest is the resolved image digest the signature was bound to.
-	Digest string
-
-	// Mode is the signing mode that produced the result.
-	Mode Mode
-}
+	"github.com/kserve/kserve/pkg/kernelcache/types"
+)
 
 // Signer attaches a signature to a container image so a matching Verifier can
 // later confirm it. Implementations sign by digest, never by mutable tag.
 type Signer interface {
-	Sign(ctx context.Context, req SignRequest) (SignResult, error)
+	Sign(ctx context.Context, req types.SignRequest) (types.SignResult, error)
 }
