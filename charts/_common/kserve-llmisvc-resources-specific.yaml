@@ -96,5 +96,6 @@ kserve:
         kserveGateway: kserve/kserve-ingress-gateway
         createGateway: false
         gateway: knative-serving/knative-ingress-gateway
+        gateways: []
         className: istio
 
