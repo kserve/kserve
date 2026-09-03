@@ -418,6 +418,10 @@ jobs:
         run: |
           kubectl create ns kserve-localmodel-jobs
 
+      - name: Setup RWX storage (csi-driver-nfs) for shared-PVC modelcache
+        run: |
+          ./test/scripts/gh-actions/setup-nfs-csi.sh
+
       - name: Label worker nodes for modelcache
         run: |
           kubectl label nodes -l '!node-role.kubernetes.io/control-plane' kserve/localmodel=worker

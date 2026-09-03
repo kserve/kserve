@@ -1,0 +1,34 @@
+# Shared-PVC import for a namespace-scoped model cache.
+#
+# The model is imported once onto a pre-created RWX PVC and shared read-only by all
+# serving replicas. No per-node fan-out (LocalModelNode / per-node PV/PVC) occurs.
+#
+# The PVC must already exist in the same namespace as the cache, use Filesystem
+# volume mode, include the ReadWriteMany access mode, and request at least modelSize.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: shared-models
+  namespace: my-models
+spec:
+  accessModes:
+    - ReadWriteMany
+  volumeMode: Filesystem
+  resources:
+    requests:
+      storage: 20Gi
+  # Replace with an RWX-capable StorageClass in your cluster (NFS, CephFS,
+  # Filestore, Azure Files, etc.).
+  storageClassName: nfs-csi
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: LocalModelNamespaceCache
+metadata:
+  name: llama3-8b
+  namespace: my-models
+spec:
+  sourceModelUri: "hf://meta-llama/Meta-Llama-3-8B"
+  modelSize: 16Gi
+  # pvcRef and nodeGroups are mutually exclusive; exactly one must be set.
+  # pvcRef is immutable once set.
+  pvcRef: shared-models

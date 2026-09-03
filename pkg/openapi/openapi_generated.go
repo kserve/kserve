@@ -1323,7 +1323,7 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelNamespaceCacheSpec(ref common.Re
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "LocalModelNamespaceCacheSpec defines the spec for namespace-scoped local model cache",
+				Description: "LocalModelNamespaceCacheSpec defines the spec for namespace-scoped local model cache.\n\nExactly one storage mode must be selected: either node-local caching via nodeGroups, or shared-PVC import via pvcRef. The two are mutually exclusive.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"sourceModelUri": {
@@ -1342,7 +1342,7 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelNamespaceCacheSpec(ref common.Re
 					},
 					"nodeGroups": {
 						SchemaProps: spec.SchemaProps{
-							Description: "group of nodes to cache the model on.",
+							Description: "group of nodes to cache the model on. Selects the legacy node-local caching mode. Mutually exclusive with pvcRef.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1353,6 +1353,13 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelNamespaceCacheSpec(ref common.Re
 									},
 								},
 							},
+						},
+					},
+					"pvcRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PVCRef is the name of a pre-created PersistentVolumeClaim in the cache CR's namespace. Selects shared-PVC import mode: the model is imported once onto the referenced claim and shared read-only by serving replicas. The claim must be ReadWriteMany with filesystem volume mode. It is immutable; changing the destination requires a new cache CR. Mutually exclusive with nodeGroups.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"serviceAccountName": {
@@ -1368,7 +1375,7 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelNamespaceCacheSpec(ref common.Re
 						},
 					},
 				},
-				Required: []string{"sourceModelUri", "modelSize", "nodeGroups"},
+				Required: []string{"sourceModelUri", "modelSize"},
 			},
 		},
 		Dependencies: []string{
@@ -2365,7 +2372,6 @@ func schema_pkg_apis_serving_v1alpha1_SupportedModelFormat(ref common.ReferenceC
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -3097,7 +3103,6 @@ func schema_pkg_apis_serving_v1beta1_AuthenticationRef(ref common.ReferenceCallb
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -5422,7 +5427,6 @@ func schema_pkg_apis_serving_v1beta1_ExplainerExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -6552,7 +6556,6 @@ func schema_pkg_apis_serving_v1beta1_HuggingFaceRuntimeSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -7399,7 +7402,6 @@ func schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref common.ReferenceCallback) 
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -7732,7 +7734,6 @@ func schema_pkg_apis_serving_v1beta1_ModelFormat(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 	}
@@ -8589,7 +8590,6 @@ func schema_pkg_apis_serving_v1beta1_ONNXRuntimeSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -8978,7 +8978,6 @@ func schema_pkg_apis_serving_v1beta1_PMMLSpec(ref common.ReferenceCallback) comm
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -9328,7 +9327,6 @@ func schema_pkg_apis_serving_v1beta1_PaddleServerSpec(ref common.ReferenceCallba
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -10227,7 +10225,6 @@ func schema_pkg_apis_serving_v1beta1_PredictorExtensionSpec(ref common.Reference
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -11353,7 +11350,6 @@ func schema_pkg_apis_serving_v1beta1_SKLearnSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -11814,7 +11810,6 @@ func schema_pkg_apis_serving_v1beta1_TFServingSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -12165,7 +12160,6 @@ func schema_pkg_apis_serving_v1beta1_TorchServeSpec(ref common.ReferenceCallback
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -13109,7 +13103,6 @@ func schema_pkg_apis_serving_v1beta1_TritonSpec(ref common.ReferenceCallback) co
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{
@@ -13935,7 +13928,6 @@ func schema_pkg_apis_serving_v1beta1_XGBoostSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				
 			},
 		},
 		Dependencies: []string{

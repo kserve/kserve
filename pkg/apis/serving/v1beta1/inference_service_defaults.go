@@ -519,13 +519,21 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 		for i, nsModel := range nsModels.Items {
 			if nsModel.Spec.MatchStorageURI(isvcStorageUri) {
 				var localModelPVCName string
-				if isvcNodeGroupExists {
+				switch {
+				case nsModel.Spec.SharedPVCMode():
+					// Shared-PVC mode: select only once Ready=True; the serving PVC is the
+					// referenced claim itself (node groups do not apply).
+					if !nsModel.IsReady() {
+						continue
+					}
+					localModelPVCName = *nsModel.Spec.PVCRef
+				case isvcNodeGroupExists:
 					if slices.Contains(nsModel.Spec.NodeGroups, isvcNodeGroup) {
 						localModelPVCName = nsModel.Name + "-" + isvcNodeGroup
 					} else {
 						continue
 					}
-				} else {
+				default:
 					localModelPVCName = nsModel.Name + "-" + nsModel.Spec.NodeGroups[0]
 				}
 				if isvc.Labels == nil {
