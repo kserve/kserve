@@ -12,7 +12,12 @@ on:
   # Run tests for any PRs.
   pull_request:
     paths:
-      - "python/**"
+      - "python/huggingfaceserver/**"
+      - "python/kserve/**"
+      - "python/storage/**"
+      - "python/pyproject.toml"
+      - "python/third_party/**"
+      - "python/huggingface_server.Dockerfile"
       - "!.github/**"
       - "!docs/**"
       - "!**.md"

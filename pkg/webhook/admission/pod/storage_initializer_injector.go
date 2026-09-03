@@ -223,6 +223,8 @@ func (mi *StorageInitializerInjector) InjectModelcar(pod *corev1.Pod) error {
 		switch effectiveMode {
 		case types.OciModelModeNative:
 			return utils.ConfigureOciNativeToContainer(normalizedURI, &pod.Spec, containerName, constants.DefaultModelLocalMountPath, mi.config)
+		case types.OciModelModeFetch:
+			return ConfigureOciFetchToContainer(normalizedURI, &pod.Spec, containerName, constants.DefaultModelLocalMountPath, mi.config, pod.Namespace)
 		default:
 			return utils.ConfigureModelcarToContainer(normalizedURI, &pod.Spec, containerName, constants.DefaultModelLocalMountPath, mi.config, 0)
 		}
@@ -329,7 +331,9 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 			// Collect OCI mount paths for collision check and count validation
 			var ociMountPaths []string
 			for _, storageUri := range params.StorageURIs {
-				if strings.HasPrefix(storageUri.Uri, constants.OciURIPrefix) {
+				// Match any OCI variant (bare oci://, oci+native://, oci+fetch://) so the
+				// collision/count checks below cover fetch sources too, not just bare oci://.
+				if _, _, isOci := utils.ParseOciScheme(storageUri.Uri); isOci {
 					ociMountPaths = append(ociMountPaths, storageUri.MountPath)
 				}
 			}
@@ -369,7 +373,16 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 							return err
 						}
 					}
-				default: // "modelcar" (and "fetch" handled in a future commit)
+				case types.OciModelModeFetch:
+					if err := ConfigureOciFetchToContainer(normalizedURI, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config, params.Namespace); err != nil {
+						return err
+					}
+					if utils.GetContainerWithName(params.PodSpec, constants.TransformerContainerName) != nil {
+						if err := ConfigureOciFetchToContainer(normalizedURI, params.PodSpec, constants.TransformerContainerName, storageUri.MountPath, params.Config, params.Namespace); err != nil {
+							return err
+						}
+					}
+				default: // "modelcar"
 					if err := utils.ConfigureModelcarToContainer(normalizedURI, params.PodSpec, targetContainerName, storageUri.MountPath, params.Config, ociIndex); err != nil {
 						return err
 					}

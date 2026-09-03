@@ -1257,6 +1257,62 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				Expect(expectedHTTPRoute).To(HaveHeaderMatch(headerName, adapterAHeaderValue))
 				Expect(expectedHTTPRoute).To(HaveHeaderMatch(headerName, adapterBHeaderValue))
 			})
+
+			It("should prune HTTPRoute adapter matches when all LoRA adapters are removed", func(ctx SpecContext) {
+				// given
+				svcName := "test-llm-lora-removal"
+				testNs := NewTestNamespace(ctx, envTest)
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithModelURI("hf://facebook/opt-125m"),
+					WithModelName("base-model"),
+					WithLoRAAdapters("lora-adapter-a", "lora-adapter-b"),
+					WithManagedRoute(),
+					WithManagedGateway(),
+					WithManagedScheduler(),
+				)
+
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer func() {
+					testNs.DeleteAndWait(ctx, llmSvc)
+				}()
+
+				headerName := "X-Gateway-Model-Name"
+				baseHeaderValue := publisherModel(testNs.Name, "base-model")
+
+				Eventually(func(g Gomega, ctx context.Context) error {
+					routes, errList := managedRoutes(ctx, llmSvc)
+					g.Expect(errList).ToNot(HaveOccurred())
+					g.Expect(routes).To(HaveLen(1))
+					g.Expect(&routes[0]).To(HaveHeaderMatch(headerName, publisherModel(testNs.Name, "lora-adapter-a")))
+					g.Expect(&routes[0]).To(HaveHeaderMatch(headerName, publisherModel(testNs.Name, "lora-adapter-b")))
+
+					return nil
+				}).WithContext(ctx).Should(Succeed(), "adapter matches should be expanded before removal")
+
+				// when - every adapter is removed
+				errRetry := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					_, errUpdate := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+						llmSvc.Spec.Model.LoRA = nil
+						return nil
+					})
+					return errUpdate
+				})
+				Expect(errRetry).ToNot(HaveOccurred())
+
+				// then - the route matches on the base model and nothing else
+				Eventually(func(g Gomega, ctx context.Context) error {
+					routes, errList := managedRoutes(ctx, llmSvc)
+					g.Expect(errList).ToNot(HaveOccurred())
+					g.Expect(routes).To(HaveLen(1))
+					g.Expect(modelRoutingHeaderValues(&routes[0], headerName)).To(HaveEach(baseHeaderValue))
+
+					return nil
+				}).WithContext(ctx).Should(Succeed(), "adapter matches should be pruned once the adapters are gone")
+
+				expectRouteConverged(ctx, llmSvc)
+			})
 		})
 
 		When("transitioning from managed to unmanaged router", func() {
@@ -2169,6 +2225,45 @@ func managedRoutes(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) ([
 	}
 	err := envTest.List(ctx, httpRoutes, listOpts)
 	return httpRoutes.Items, ignoreNoMatch(err)
+}
+
+func publisherModel(namespace, model string) string {
+	return fmt.Sprintf("publishers/%s/models/%s", namespace, model)
+}
+
+// modelRoutingHeaderValues returns all values matched by the named header.
+func modelRoutingHeaderValues(route *gwapiv1.HTTPRoute, headerName string) []string {
+	var values []string
+	for _, rule := range route.Spec.Rules {
+		for _, match := range rule.Matches {
+			for _, h := range match.Headers {
+				if string(h.Name) == headerName {
+					values = append(values, h.Value)
+				}
+			}
+		}
+	}
+
+	return values
+}
+
+// expectRouteConverged verifies that reconciliation stops updating the route spec.
+// The generation changes only when the spec changes.
+func expectRouteConverged(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) {
+	routes, err := managedRoutes(ctx, llmSvc)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(routes).To(HaveLen(1))
+	generation := routes[0].Generation
+
+	Consistently(func(g Gomega, ctx context.Context) error {
+		current, errList := managedRoutes(ctx, llmSvc)
+		g.Expect(errList).ToNot(HaveOccurred())
+		g.Expect(current).To(HaveLen(1))
+		g.Expect(current[0].Generation).To(Equal(generation))
+
+		return nil
+	}).WithContext(ctx).WithTimeout(2*time.Second).WithPolling(250*time.Millisecond).
+		Should(Succeed(), "HTTPRoute should converge instead of being rewritten on every reconcile")
 }
 
 func ignoreNoMatch(err error) error {

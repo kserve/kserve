@@ -642,6 +642,7 @@ HELM_DOCS_VERSION=v1.12.0
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
 RUFF_VERSION=0.14.13
+SHELLCHECK_VERSION=v0.11.0
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
@@ -660,8 +661,8 @@ OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.5.0
-LLMD_ROUTER_VERSION=v0.9.0
-WVA_VERSION=v0.8.0
+LLMD_ROUTER_VERSION=v0.10.0
+WVA_VERSION=v0.9.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -1148,6 +1149,9 @@ install_istio() {
     log_info "Adding Istio Helm repository..."
     helm repo add istio https://istio-release.storage.googleapis.com/charts --force-update
 
+    # Allow callers to override the version from kserve-deps.env
+    ISTIO_VERSION="${ISTIO_VERSION_OVERRIDE:-$ISTIO_VERSION}"
+
     log_info "Installing istio-base ${ISTIO_VERSION}..."
     helm install istio-base istio/base \
         --namespace "${ISTIO_NAMESPACE}" \
@@ -1163,6 +1167,7 @@ install_istio() {
         --version "${ISTIO_VERSION}" \
         --set proxy.autoInject=disabled \
         --set pilot.env.ENABLE_GATEWAY_API_INFERENCE_EXTENSION=true \
+        --set pilot.env.SUPPORT_GATEWAY_API_INFERENCE_EXTENSION=true `# Istio <1.28 uses SUPPORT_, >=1.28 uses ENABLE_` \
         --set-string pilot.podAnnotations."cluster-autoscaler\.kubernetes\.io/safe-to-evict"=true \
         --wait \
         ${ISTIOD_EXTRA_ARGS:-}

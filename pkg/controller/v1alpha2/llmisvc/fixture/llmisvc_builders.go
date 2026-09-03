@@ -289,6 +289,22 @@ func KEDAScaling(minReplicas int32, maxReplicas int32) *v1alpha2.ScalingSpec {
 	}
 }
 
+// KEDAScalingWithIdleReplicaCount builds scaling.wva.keda with an idleReplicaCount,
+// e.g. idleReplicaCount=0 for true scale-to-zero.
+func KEDAScalingWithIdleReplicaCount(minReplicas int32, maxReplicas int32, idleReplicaCount int32) *v1alpha2.ScalingSpec {
+	return &v1alpha2.ScalingSpec{
+		MinReplicas: &minReplicas,
+		MaxReplicas: maxReplicas,
+		WVA: &v1alpha2.WVASpec{
+			ActuatorSpec: v1alpha2.ActuatorSpec{
+				KEDA: &v1alpha2.KEDAScalingSpec{
+					IdleReplicaCount: &idleReplicaCount,
+				},
+			},
+		},
+	}
+}
+
 // DirectKEDAScaling builds scaling.keda with user-defined triggers (no WVA).
 func DirectKEDAScaling(minReplicas int32, maxReplicas int32, triggers ...kedav1alpha1.ScaleTriggers) *v1alpha2.ScalingSpec {
 	if len(triggers) == 0 {
@@ -300,6 +316,26 @@ func DirectKEDAScaling(minReplicas int32, maxReplicas int32, triggers ...kedav1a
 		MinReplicas: &minReplicas,
 		MaxReplicas: maxReplicas,
 		KEDA: &v1alpha2.DirectKEDAScalingSpec{
+			Triggers: triggers,
+		},
+	}
+}
+
+// DirectKEDAScalingWithIdleReplicaCount builds scaling.keda with user-defined triggers and an
+// idleReplicaCount (no WVA), e.g. idleReplicaCount=0 for true scale-to-zero.
+func DirectKEDAScalingWithIdleReplicaCount(minReplicas int32, maxReplicas int32, idleReplicaCount int32, triggers ...kedav1alpha1.ScaleTriggers) *v1alpha2.ScalingSpec {
+	if len(triggers) == 0 {
+		triggers = []kedav1alpha1.ScaleTriggers{
+			{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+		}
+	}
+	return &v1alpha2.ScalingSpec{
+		MinReplicas: &minReplicas,
+		MaxReplicas: maxReplicas,
+		KEDA: &v1alpha2.DirectKEDAScalingSpec{
+			KEDAScalingSpec: v1alpha2.KEDAScalingSpec{
+				IdleReplicaCount: &idleReplicaCount,
+			},
 			Triggers: triggers,
 		},
 	}
@@ -649,6 +685,26 @@ func WithConfigSchedulerReplicas(replicas int32) LLMInferenceServiceConfigOption
 	return func(config *v1alpha2.LLMInferenceServiceConfig) {
 		ensureSchedulerSpec(&config.Spec)
 		config.Spec.Router.Scheduler.Replicas = &replicas
+	}
+}
+
+func WithConfigSchedulerTemplate(version string) LLMInferenceServiceConfigOption {
+	return func(config *v1alpha2.LLMInferenceServiceConfig) {
+		ensureSchedulerSpec(&config.Spec)
+		config.Spec.Router.Scheduler.Annotations = map[string]string{
+			"app.kubernetes.io/version": version,
+		}
+		config.Spec.Router.Scheduler.Template = &corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:  "main",
+				Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v" + version,
+				Ports: []corev1.ContainerPort{
+					{Name: "grpc", ContainerPort: 9002, Protocol: corev1.ProtocolTCP},
+					{Name: "grpc-health", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
+					{Name: "metrics", ContainerPort: 9090, Protocol: corev1.ProtocolTCP},
+				},
+			}},
+		}
 	}
 }
 

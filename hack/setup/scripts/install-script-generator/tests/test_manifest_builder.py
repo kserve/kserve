@@ -26,6 +26,45 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from pkg import manifest_builder  # noqa: E402
 
 
+def test_get_embed_component_values_from_component_env():
+    """Test resolving ENABLE_LLMISVC and ENABLE_LOCALMODEL from component env."""
+    config = {"global_env": {}}
+    components = [
+        {
+            "name": "kserve-kustomize",
+            "env": {"ENABLE_LLMISVC": "true", "ENABLE_LOCALMODEL": "False"},
+        }
+    ]
+
+    llmisvc, localmodel = manifest_builder.get_embed_component_values(
+        config, components
+    )
+
+    assert llmisvc == "true"
+    assert localmodel == "false"
+
+
+def test_get_embed_component_values_from_global_env():
+    """Test resolving values from GLOBAL_ENV when not in component env."""
+    config = {"global_env": {"ENABLE_LLMISVC": "yes", "ENABLE_LOCALMODEL": "1"}}
+    components = [{"name": "kserve-helm", "env": {}}]
+
+    llmisvc, localmodel = manifest_builder.get_embed_component_values(
+        config, components
+    )
+
+    assert llmisvc == "true"
+    assert localmodel == "true"
+
+
+def test_get_embed_component_values_defaults():
+    """Test default false when env keys are missing."""
+    llmisvc, localmodel = manifest_builder.get_embed_component_values({}, [])
+
+    assert llmisvc == "false"
+    assert localmodel == "false"
+
+
 def test_build_kserve_runtime_manifests_success(tmp_path, monkeypatch):
     """Test building runtime manifests successfully."""
     runtime_dir = tmp_path / "config/runtimes"

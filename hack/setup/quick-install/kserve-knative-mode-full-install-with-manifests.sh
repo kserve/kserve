@@ -642,6 +642,7 @@ HELM_DOCS_VERSION=v1.12.0
 POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
 RUFF_VERSION=0.14.13
+SHELLCHECK_VERSION=v0.11.0
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
@@ -660,8 +661,8 @@ OPENTELEMETRY_OPERATOR_VERSION=0.74.3
 LWS_VERSION=v0.8.0
 GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.5.0
-LLMD_ROUTER_VERSION=v0.9.0
-WVA_VERSION=v0.8.0
+LLMD_ROUTER_VERSION=v0.10.0
+WVA_VERSION=v0.9.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -706,6 +707,11 @@ LLMISVC_INSTALLED="${LLMISVC_INSTALLED:-0}"
 INSTALL_RUNTIMES="${INSTALL_RUNTIMES:-${ENABLE_KSERVE:-false}}"
 INSTALL_LLMISVC_CONFIGS="${INSTALL_LLMISVC_CONFIGS:-${ENABLE_LLMISVC:-false}}"
 FORCE_UPGRADE="${FORCE_UPGRADE:-false}"
+USE_CUSTOM_MANIFESTS="${USE_CUSTOM_MANIFESTS:-false}"
+UPDATE_CONFIGMAP_IMAGES="${UPDATE_CONFIGMAP_IMAGES:-true}"
+KSERVE_INSTALL_CI="${KSERVE_INSTALL_CI:-false}"
+TARGET_CONFIG_ROOT_DIR=${REPO_ROOT}
+TEMP_TARGET_CONFIG_DIR="${TEMP_TARGET_CONFIG_DIR:-/tmp/kserve_customization}"
 TARGET_CRD_DIRS=()
 TARGET_DEPLOYMENT_NAMES=()
 TARGET_OVERLAY_DIRS=()
@@ -1164,6 +1170,9 @@ install_istio() {
     log_info "Adding Istio Helm repository..."
     helm repo add istio https://istio-release.storage.googleapis.com/charts --force-update
 
+    # Allow callers to override the version from kserve-deps.env
+    ISTIO_VERSION="${ISTIO_VERSION_OVERRIDE:-$ISTIO_VERSION}"
+
     log_info "Installing istio-base ${ISTIO_VERSION}..."
     helm install istio-base istio/base \
         --namespace "${ISTIO_NAMESPACE}" \
@@ -1179,6 +1188,7 @@ install_istio() {
         --version "${ISTIO_VERSION}" \
         --set proxy.autoInject=disabled \
         --set pilot.env.ENABLE_GATEWAY_API_INFERENCE_EXTENSION=true \
+        --set pilot.env.SUPPORT_GATEWAY_API_INFERENCE_EXTENSION=true `# Istio <1.28 uses SUPPORT_, >=1.28 uses ENABLE_` \
         --set-string pilot.podAnnotations."cluster-autoscaler\.kubernetes\.io/safe-to-evict"=true \
         --wait \
         ${ISTIOD_EXTRA_ARGS:-}
@@ -1538,12 +1548,11 @@ install_kserve_kustomize() {
         fi
     fi
 
-    # Cleanup temporary overlay after all resources are installed
-    if [ "${KSERVE_OVERLAY_DIR}" = "temp" ]; then
-        rm -rf "${REPO_ROOT}/config/overlays/temp"
-        log_info "Temporary overlay directory cleaned up"
+    # Cleanup temporary manifests after all resources are installed
+    if is_positive "${USE_CUSTOM_MANIFESTS}"; then
+        rm -rf "${TEMP_TARGET_CONFIG_DIR}"
+        log_info "Customized KServe config directory cleaned up"
     fi
-
 }
 
 
@@ -1594,52 +1603,59 @@ main() {
         KSERVE_CRDS="inferenceservices.serving.kserve.io servingruntimes.serving.kserve.io clusterservingruntimes.serving.kserve.io inferencegraphs.serving.kserve.io trainedmodels.serving.kserve.io"
         LLMISVC_CRDS="llminferenceservices.serving.kserve.io llminferenceserviceconfigs.serving.kserve.io"
         LOCALMODEL_CRDS="localmodelcaches.serving.kserve.io localmodelnodegroups.serving.kserve.io localmodelnodes.serving.kserve.io"
-        KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/standalone/kserve"
-        LLMISVC_CONFIG_DIR="${REPO_ROOT}/config/overlays/standalone/llmisvc"
-        LOCALMODEL_CONFIG_DIR="${REPO_ROOT}/config/overlays/addons/localmodel"
-        RUNTIMES_DIR="${REPO_ROOT}/config/runtimes"
         
         # Override KSERVE_VERSION if SET_KSERVE_VERSION is provided
         if [ -n "${SET_KSERVE_VERSION}" ]; then
             KSERVE_VERSION="${SET_KSERVE_VERSION}"
         fi
         
-        # Create temporary overlay if version/registry override is needed
+        # Copy config folder to  if version/registry override is needed
         if ! is_positive "$EMBED_MANIFESTS" && [ -z "${KSERVE_OVERLAY_DIR}" ] && ([ -n "${SET_KSERVE_VERSION}" ] || [ -n "${SET_KSERVE_REGISTRY}" ]); then
-            TEMP_OVERLAY_DIR="${REPO_ROOT}/config/overlays/temp"
-            TEMPLATE_DIR="${REPO_ROOT}/config/overlays/version-template"
+            # Clean up temporary config directory if it exists
+            if [ -d "${TEMP_TARGET_CONFIG_DIR}" ]; then
+                rm -rf ${TEMP_TARGET_CONFIG_DIR}
+            fi
+            mkdir -p ${TEMP_TARGET_CONFIG_DIR}
+            cp -r ${REPO_ROOT}/config ${TEMP_TARGET_CONFIG_DIR}/config
+            TARGET_CONFIG_ROOT_DIR="${TEMP_TARGET_CONFIG_DIR}"
         
-            log_info "Creating temporary overlay from template: ${TEMP_OVERLAY_DIR}"
-        
-            # Copy template
-            rm -rf "${TEMP_OVERLAY_DIR}"
-            cp -r "${TEMPLATE_DIR}" "${TEMP_OVERLAY_DIR}"
-        
-            # Replace version/registry placeholders
-            VERSION="${SET_KSERVE_VERSION:-latest}"
-            REGISTRY="${SET_KSERVE_REGISTRY:-kserve}"
-        
-            find "${TEMP_OVERLAY_DIR}" -type f -name "*.yaml" -exec sed -i \
-                -e "s/latest/${VERSION}/g" \
-                -e "s|kserve/|${REGISTRY}/|g" {} \;
-        
-            # Uncomment components/patches based on ENABLE_* flags
-            if is_positive "${ENABLE_KSERVE}"; then
-                sed -i 's/#ENABLE_KSERVE //' "${TEMP_OVERLAY_DIR}/kustomization.yaml"
+            FIND_PRUNE=()
+            if ! is_positive "${UPDATE_CONFIGMAP_IMAGES}"; then
+                FIND_PRUNE+=( ! -path '*/configmap/*' )
             fi
         
-            if is_positive "${ENABLE_LLMISVC}"; then
-                sed -i 's/#ENABLE_LLMISVC //' "${TEMP_OVERLAY_DIR}/kustomization.yaml"
+            # Update image registry if SET_KSERVE_REGISTRY is provided
+            if [ -n "${SET_KSERVE_REGISTRY}" ]; then
+                find "${TARGET_CONFIG_ROOT_DIR}/config" -type f -name "*.yaml" \
+                    "${FIND_PRUNE[@]}" \
+                    -exec sed -i \
+                    -e "s|\"image\": \"kserve/|\"image\": \"${SET_KSERVE_REGISTRY}/|g" \
+                    -e "s|image: kserve/|image: ${SET_KSERVE_REGISTRY}/|g" \
+                    -e "s|image: ko://github.com/kserve/|image: ${SET_KSERVE_REGISTRY}/|g" {} \;
+            fi
+            # Update image version if SET_KSERVE_VERSION is provided
+            if [ -n "${SET_KSERVE_VERSION}" ]; then
+                find "${TARGET_CONFIG_ROOT_DIR}/config" -type f -name "*.yaml" \
+                    "${FIND_PRUNE[@]}" \
+                    -exec sed -i \
+                -e "s/:latest/:${SET_KSERVE_VERSION}/g" {} \;
             fi
         
-            if is_positive "${ENABLE_LOCALMODEL}"; then
-                sed -i 's/#ENABLE_LOCALMODEL //' "${TEMP_OVERLAY_DIR}/kustomization.yaml"
+            # Customized images are loaded onto the node, not pushed to a registry, so
+            # force IfNotPresent to avoid registry pulls for locally-built image tags.
+            if is_positive ${KSERVE_INSTALL_CI}; then
+                find "${TARGET_CONFIG_ROOT_DIR}/config" -type f -name "*.yaml" \
+                    "${FIND_PRUNE[@]}" \
+                    -exec sed -i \
+                    -e "s/imagePullPolicy: Always/imagePullPolicy: IfNotPresent/g" {} \;
             fi
-        
-            # Use temporary overlay
-            KSERVE_OVERLAY_DIR="temp"
-            log_success "Temporary overlay created successfully"
+            USE_CUSTOM_MANIFESTS="true"
         fi
+        
+        KSERVE_CONFIG_DIR="${TARGET_CONFIG_ROOT_DIR}/config/overlays/standalone/kserve"
+        LLMISVC_CONFIG_DIR="${TARGET_CONFIG_ROOT_DIR}/config/overlays/standalone/llmisvc"
+        LOCALMODEL_CONFIG_DIR="${TARGET_CONFIG_ROOT_DIR}/config/overlays/addons/localmodel"
+        RUNTIMES_DIR="${TARGET_CONFIG_ROOT_DIR}/config/runtimes"
         
         if [ -n "${KSERVE_OVERLAY_DIR}" ]; then
             TARGET_OVERLAY_DIRS+=("${REPO_ROOT}/config/overlays/${KSERVE_OVERLAY_DIR}")
@@ -1707,27 +1723,27 @@ main() {
             fi
         else
             if is_positive "${ENABLE_KSERVE}"; then
-                TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full")
+                TARGET_CRD_DIRS+=("${TARGET_CONFIG_ROOT_DIR}/config/crd/full")
                 TARGET_CRDS_TO_VERIFY+=("${KSERVE_CRDS}")
                 TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager")
                 if [ "${LLMISVC_INSTALLED}" = "1" ]; then
-                    KSERVE_CONFIG_DIR="${REPO_ROOT}/config/overlays/addons/kserve"
+                    KSERVE_CONFIG_DIR="${TARGET_CONFIG_ROOT_DIR}/config/overlays/addons/kserve"
                 fi
                 TARGET_OVERLAY_DIRS+=("${KSERVE_CONFIG_DIR}")
             fi
         
             if is_positive "${ENABLE_LLMISVC}"; then
-                TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/llmisvc")
+                TARGET_CRD_DIRS+=("${TARGET_CONFIG_ROOT_DIR}/config/crd/full/llmisvc")
                 TARGET_CRDS_TO_VERIFY+=("${LLMISVC_CRDS}")
                 TARGET_DEPLOYMENT_NAMES+=("llmisvc-controller-manager")
                 if [ "${KSERVE_INSTALLED}" = "1" ]; then
-                    LLMISVC_CONFIG_DIR="${REPO_ROOT}/config/overlays/addons/llmisvc"
+                    LLMISVC_CONFIG_DIR="${TARGET_CONFIG_ROOT_DIR}/config/overlays/addons/llmisvc"
                 fi
                 TARGET_OVERLAY_DIRS+=("${LLMISVC_CONFIG_DIR}")
             fi
         
             if is_positive "${ENABLE_LOCALMODEL}"; then
-                TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/localmodel")
+                TARGET_CRD_DIRS+=("${TARGET_CONFIG_ROOT_DIR}/config/crd/full/localmodel")
                 TARGET_CRDS_TO_VERIFY+=("${LOCALMODEL_CRDS}")
                 TARGET_OVERLAY_DIRS+=("${LOCALMODEL_CONFIG_DIR}")
                 TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
@@ -2756,11 +2772,25 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
             KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          fi
+          # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+          # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
+          if [ -z "${KV_TRANSFER_ARGS}" ]; then
+            # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+            # raise RuntimeError("NIXL is not available") and never finish starting.
+            NIXL_PY=$(command -v python3 || command -v python || true)
+            if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+              KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
+              echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_consumer)"
+            else
+              echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+            fi
           fi
         fi
 
@@ -2784,7 +2814,11 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+      - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
+      image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -2846,7 +2880,7 @@ spec:
     - command:
       - /app/pd-sidecar
       - --port=8000
-      - --vllm-port=8001
+      - --model-server-port=8001
       - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
       - --pool-group=inference.networking.x-k8s.io
@@ -2863,7 +2897,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.10.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3092,11 +3126,25 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
             KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          fi
+          # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+          # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
+          if [ -z "${KV_TRANSFER_ARGS}" ]; then
+            # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+            # raise RuntimeError("NIXL is not available") and never finish starting.
+            NIXL_PY=$(command -v python3 || command -v python || true)
+            if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+              KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
+              echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_consumer)"
+            else
+              echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+            fi
           fi
         fi
 
@@ -3128,7 +3176,11 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+      - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
+      image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -3194,7 +3246,7 @@ spec:
     - command:
       - /app/pd-sidecar
       - --port=8000
-      - --vllm-port=8001
+      - --model-server-port=8001
       - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
       - --pool-group=inference.networking.x-k8s.io
@@ -3211,7 +3263,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.9.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.10.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3432,11 +3484,25 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Worker 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
             KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          fi
+          # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+          # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
+          if [ -z "${KV_TRANSFER_ARGS}" ]; then
+            # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+            # raise RuntimeError("NIXL is not available") and never finish starting.
+            NIXL_PY=$(command -v python3 || command -v python || true)
+            if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+              KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
+              echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_consumer)"
+            else
+              echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+            fi
           fi
         fi
 
@@ -3468,9 +3534,13 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
+      - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
       - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
         value: "1"
-      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -3678,11 +3748,25 @@ spec:
             SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
           fi
 
-          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
           KV_TRANSFER_ARGS=""
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-            if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
               KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            fi
+            # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+            # Prefill is the KV producer; without a connector here decode has nothing to fetch.
+            if [ -z "${KV_TRANSFER_ARGS}" ]; then
+              # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+              # raise RuntimeError("NIXL is not available") and never finish starting.
+              NIXL_PY=$(command -v python3 || command -v python || true)
+              if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+                KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+                echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_producer)"
+              else
+                echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+              fi
             fi
           fi
 
@@ -3706,7 +3790,11 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+        - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -3955,11 +4043,25 @@ spec:
             SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
           fi
 
-          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
           KV_TRANSFER_ARGS=""
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-            if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
               KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            fi
+            # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+            # Prefill is the KV producer; without a connector here decode has nothing to fetch.
+            if [ -z "${KV_TRANSFER_ARGS}" ]; then
+              # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+              # raise RuntimeError("NIXL is not available") and never finish starting.
+              NIXL_PY=$(command -v python3 || command -v python || true)
+              if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+                KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+                echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_producer)"
+              else
+                echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+              fi
             fi
           fi
 
@@ -3991,7 +4093,11 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+        - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -4234,11 +4340,25 @@ spec:
             SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Worker 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
           fi
 
-          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+          # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
           KV_TRANSFER_ARGS=""
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-            if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
               KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            fi
+            # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+            # Prefill is the KV producer; without a connector here decode has nothing to fetch.
+            if [ -z "${KV_TRANSFER_ARGS}" ]; then
+              # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+              # raise RuntimeError("NIXL is not available") and never finish starting.
+              NIXL_PY=$(command -v python3 || command -v python || true)
+              if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+                KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+                echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_producer)"
+              else
+                echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+              fi
             fi
           fi
 
@@ -4270,7 +4390,11 @@ spec:
           value: INFO
         - name: HF_HUB_CACHE
           value: /models
-        image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+        - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
         imagePullPolicy: IfNotPresent
         lifecycle:
           preStop:
@@ -4644,7 +4768,7 @@ spec:
   router:
     scheduler:
       annotations:
-        app.kubernetes.io/version: 0.9.0
+        app.kubernetes.io/version: 0.10.0
       pool:
         spec:
           endpointPickerRef:
@@ -4683,7 +4807,7 @@ spec:
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.9.0
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.10.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -4757,6 +4881,68 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  name: kserve-config-llm-scheduler-eppconfig-default
+  namespace: kserve
+spec:
+  router:
+    scheduler:
+      config:
+        inline:
+          apiVersion: llm-d.ai/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+          - type: approx-prefix-cache-producer
+          - type: inflight-load-producer
+          - type: prefix-cache-affinity-filter
+          - type: token-load-scorer
+          schedulingProfiles:
+          - name: default
+            plugins:
+            - pluginRef: prefix-cache-affinity-filter
+            - pluginRef: token-load-scorer
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-scheduler-eppconfig-default-pd
+  namespace: kserve
+spec:
+  router:
+    scheduler:
+      config:
+        inline:
+          apiVersion: llm-d.ai/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+          - type: always-disagg-pd-decider
+          - parameters:
+              deciders:
+                prefill: always-disagg-pd-decider
+            type: disagg-profile-handler
+          - type: prefill-filter
+          - type: decode-filter
+          - type: approx-prefix-cache-producer
+          - type: inflight-load-producer
+          - type: prefix-cache-affinity-filter
+          - type: token-load-scorer
+          - type: active-request-scorer
+          - type: max-score-picker
+          schedulingProfiles:
+          - name: prefill
+            plugins:
+            - pluginRef: prefill-filter
+            - pluginRef: prefix-cache-affinity-filter
+            - pluginRef: token-load-scorer
+            - pluginRef: max-score-picker
+          - name: decode
+            plugins:
+            - pluginRef: decode-filter
+            - pluginRef: active-request-scorer
+            - pluginRef: max-score-picker
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
   name: kserve-config-llm-scheduler-latency-predictor
   namespace: kserve
 spec:
@@ -4799,7 +4985,7 @@ spec:
             value: "500"
           - name: LATENCY_OBJECTIVE_TYPE
             value: mean
-          image: ghcr.io/llm-d/llm-d-latency-predictor-training-server:v0.8.0
+          image: ghcr.io/llm-d/llm-d-latency-predictor-training-server:0.9.0
           imagePullPolicy: IfNotPresent
           livenessProbe:
             httpGet:
@@ -4875,7 +5061,7 @@ spec:
             value: "30"
           - name: LATENCY_OBJECTIVE_TYPE
             value: mean
-          image: ghcr.io/llm-d/llm-d-latency-predictor-prediction-server:v0.8.0
+          image: ghcr.io/llm-d/llm-d-latency-predictor-prediction-server:0.9.0
           imagePullPolicy: IfNotPresent
           livenessProbe:
             failureThreshold: 5
@@ -5120,7 +5306,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -5494,7 +5680,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -5773,7 +5959,7 @@ spec:
         value: INFO
       - name: HF_HUB_CACHE
         value: /models
-      image: ghcr.io/llm-d/llm-d-cuda:v0.8.0
+      image: ghcr.io/llm-d/llm-d-cuda:v0.9.0
       imagePullPolicy: IfNotPresent
       lifecycle:
         preStop:
@@ -56320,6 +56506,7 @@ spec:
   - prefix: s3://
   - prefix: hdfs://
   - prefix: hf://
+  - prefix: modelscope://
   - prefix: webhdfs://
   - regex: https://(.+?).blob.core.windows.net/(.+)
   - regex: https://(.+?).file.core.windows.net/(.+)

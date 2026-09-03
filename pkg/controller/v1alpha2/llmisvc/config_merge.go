@@ -27,6 +27,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/coreos/go-semver/semver"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,8 +39,10 @@ import (
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -63,30 +66,34 @@ const (
 	configDecodeWorkerDataParallelNameSuffix  = "config-llm-decode-worker-data-parallel"
 	configPrefillWorkerDataParallelNameSuffix = "config-llm-prefill-worker-data-parallel"
 	// Router and scheduler configurations
-	configRouterSchedulerNameSuffix           = "config-llm-scheduler"
-	configRouterRouteNameSuffix               = "config-llm-router-route"
-	configSchedulerLatencyPredictorNameSuffix = "config-llm-scheduler-latency-predictor"
-	configTokenizerNameSuffix                 = "config-llm-tokenizer" // #nosec G101
+	configRouterSchedulerNameSuffix                   = "config-llm-scheduler"
+	configRouterSchedulerDefaultEPPConfigNameSuffix   = "config-llm-scheduler-eppconfig-default"    // default EPPConfig
+	configRouterSchedulerDefaultPDEPPConfigNameSuffix = "config-llm-scheduler-eppconfig-default-pd" // default EPPConfig for P/D
+	configRouterRouteNameSuffix                       = "config-llm-router-route"
+	configSchedulerLatencyPredictorNameSuffix         = "config-llm-scheduler-latency-predictor"
+	configTokenizerNameSuffix                         = "config-llm-tokenizer" // #nosec G101
 	// Tracing configurations
 	configTracingNameSuffix = "config-llm-tracing"
 )
 
 var (
-	configPrefix                            = constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_CONFIG_PREFIX", "kserve-")
-	configTemplateName                      = configPrefix + configTemplateNameSuffix
-	configDecodeTemplateName                = configPrefix + configDecodeTemplateNameSuffix
-	configDecodeWorkerPipelineParallelName  = configPrefix + configDecodeWorkerPipelineParallelNameSuffix
-	configWorkerPipelineParallelName        = configPrefix + configWorkerPipelineParallelNameSuffix
-	configWorkerDataParallelName            = configPrefix + configWorkerDataParallelNameSuffix
-	configDecodeWorkerDataParallelName      = configPrefix + configDecodeWorkerDataParallelNameSuffix
-	configPrefillTemplateName               = configPrefix + configPrefillTemplateNameSuffix
-	configPrefillWorkerPipelineParallelName = configPrefix + configPrefillWorkerPipelineParallelNameSuffix
-	configPrefillWorkerDataParallelName     = configPrefix + configPrefillWorkerDataParallelNameSuffix
-	configRouterSchedulerName               = configPrefix + configRouterSchedulerNameSuffix
-	configRouterRouteName                   = configPrefix + configRouterRouteNameSuffix
-	configSchedulerLatencyPredictorName     = configPrefix + configSchedulerLatencyPredictorNameSuffix
-	configTokenizerName                     = configPrefix + configTokenizerNameSuffix
-	configTracingName                       = configPrefix + configTracingNameSuffix
+	configPrefix                                = constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_CONFIG_PREFIX", "kserve-")
+	configTemplateName                          = configPrefix + configTemplateNameSuffix
+	configDecodeTemplateName                    = configPrefix + configDecodeTemplateNameSuffix
+	configDecodeWorkerPipelineParallelName      = configPrefix + configDecodeWorkerPipelineParallelNameSuffix
+	configWorkerPipelineParallelName            = configPrefix + configWorkerPipelineParallelNameSuffix
+	configWorkerDataParallelName                = configPrefix + configWorkerDataParallelNameSuffix
+	configDecodeWorkerDataParallelName          = configPrefix + configDecodeWorkerDataParallelNameSuffix
+	configPrefillTemplateName                   = configPrefix + configPrefillTemplateNameSuffix
+	configPrefillWorkerPipelineParallelName     = configPrefix + configPrefillWorkerPipelineParallelNameSuffix
+	configPrefillWorkerDataParallelName         = configPrefix + configPrefillWorkerDataParallelNameSuffix
+	configRouterSchedulerName                   = configPrefix + configRouterSchedulerNameSuffix
+	configRouterSchedulerDefaultEPPConfigName   = configPrefix + configRouterSchedulerDefaultEPPConfigNameSuffix
+	configRouterSchedulerDefaultPDEPPConfigName = configPrefix + configRouterSchedulerDefaultPDEPPConfigNameSuffix
+	configRouterRouteName                       = configPrefix + configRouterRouteNameSuffix
+	configSchedulerLatencyPredictorName         = configPrefix + configSchedulerLatencyPredictorNameSuffix
+	configTokenizerName                         = configPrefix + configTokenizerNameSuffix
+	configTracingName                           = configPrefix + configTracingNameSuffix
 )
 
 // FIXME move those presets to well-known when they're finally known :)
@@ -106,6 +113,8 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configPrefillTemplateName,
 	configPrefillWorkerDataParallelName,
 	configRouterSchedulerName,
+	configRouterSchedulerDefaultEPPConfigName,
+	configRouterSchedulerDefaultPDEPPConfigName,
 	configRouterRouteName,
 	configSchedulerLatencyPredictorName,
 	configTokenizerName,
@@ -116,14 +125,12 @@ const (
 	precisePrefixCacheScorerName = "precise-prefix-cache-scorer"
 )
 
+// routerPresetMinVersion is the minimum llm-d-router version that supports the
+// preset-based EPPConfig plugins. Services running older router images fall
+// back to the hardcoded schedulerConfigText().
+var routerPresetMinVersion = semver.New("0.11.0")
+
 var useVersionedConfig, _ = strconv.ParseBool(constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_VERSIONED_CONFIG", "true"))
-
-// CombineOption is a functional option for combineBaseRefsConfig
-type CombineOption func(*combineOptions)
-
-type combineOptions struct {
-	skipClearSchedulerConfigRef bool
-}
 
 // CombinedConfig holds the output of combineBaseRefsConfig.
 type CombinedConfig struct {
@@ -132,16 +139,104 @@ type CombinedConfig struct {
 	// AppliedConfigRefs is the ordered list of configs that were applied, tagged by source.
 	// May be incomplete when returned alongside a non-nil error.
 	AppliedConfigRefs []v1alpha2.AppliedConfigRef
+	// ResolvedSchedulerConfigMap identifies the ConfigMap resolved from the
+	// scheduler's Config.Ref. Nil when no ConfigMap was referenced.
+	ResolvedSchedulerConfigMap *types.NamespacedName
 }
 
-// WithSkipClearSchedulerConfigRef prevents clearing the scheduler config ref after resolving.
-// This is useful when the caller needs to check which ConfigMap was referenced.
-func WithSkipClearSchedulerConfigRef() CombineOption {
-	return func(o *combineOptions) {
-		o.skipClearSchedulerConfigRef = true
+// routerVersionSupportsPreset reports whether the scheduler config's declared
+// llm-d-router version (app.kubernetes.io/version annotation) is >=
+// routerPresetMinVersion. Returns false when the annotation is absent or
+// unparseable, so the caller falls back to the hardcoded schedulerConfigText().
+func routerVersionSupportsPreset(ctx context.Context, cfg *v1alpha2.LLMInferenceServiceConfig) bool {
+	if cfg.Spec.Router == nil || cfg.Spec.Router.Scheduler == nil {
+		return false
 	}
+	versionStr, ok := cfg.Spec.Router.Scheduler.Annotations["app.kubernetes.io/version"]
+	if !ok || versionStr == "" {
+		return false
+	}
+	v, err := semver.NewVersion(versionStr)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "Failed to parse llm-d-router version from scheduler config", "version", versionStr)
+		return false
+	}
+	return v.Compare(*routerPresetMinVersion) >= 0
 }
 
+// hasSchedulerEPPConfig reports whether a spec already supplies an EPPConfig for
+// the scheduler, either inline via .router.scheduler.config or as a
+// --config-text/--config-file flag on the "main" container. Such a config is
+// user-owned, so no preset is injected on top of it.
+func hasSchedulerEPPConfig(spec v1alpha2.LLMInferenceServiceSpec) bool {
+	if spec.Router == nil || spec.Router.Scheduler == nil {
+		return false
+	}
+	return spec.Router.Scheduler.Config != nil || hasMainContainerConfigFlag(spec)
+}
+
+// hasMainContainerConfigFlag reports whether the scheduler's "main" container
+// already carries a config flag (--config-text/--config-file). If so, the user
+// supplies the EPPConfig and we skip injecting a default llmisvcconfig preset.
+func hasMainContainerConfigFlag(spec v1alpha2.LLMInferenceServiceSpec) bool {
+	if spec.Router == nil || spec.Router.Scheduler == nil || spec.Router.Scheduler.Template == nil {
+		return false
+	}
+	return configFlagFromContainers(spec.Router.Scheduler.Template.Containers) != nil
+}
+
+// injectLoRAAffinityScorer adds lora-affinity-scorer to the scheduler config
+// so requests go to pods that already have the adapter loaded. Skips if this plugin already present.
+func injectLoRAAffinityScorer(cfg *v1alpha2.LLMInferenceServiceConfig) error {
+	if cfg.Spec.Router == nil || cfg.Spec.Router.Scheduler == nil ||
+		cfg.Spec.Router.Scheduler.Config == nil || cfg.Spec.Router.Scheduler.Config.Inline == nil {
+		return nil
+	}
+
+	epp := map[string]interface{}{}
+	if err := yaml.Unmarshal(cfg.Spec.Router.Scheduler.Config.Inline.Raw, &epp); err != nil {
+		return fmt.Errorf("failed to parse scheduler config for LoRA injection: %w", err)
+	}
+
+	// Append the scorer to the plugins list, skip if already there.
+	plugins, _ := epp["plugins"].([]interface{})
+	for _, p := range plugins {
+		if m, ok := p.(map[string]interface{}); ok {
+			if t, _ := m["type"].(string); t == loraAffinityScorerPlugin {
+				return nil
+			}
+		}
+	}
+	epp["plugins"] = append(plugins, map[string]interface{}{"type": loraAffinityScorerPlugin})
+
+	// Add lora-affinity-scorer with weight 4 into each scheduling profile's plugins.
+	profiles, _ := epp["schedulingProfiles"].([]interface{})
+	for _, pr := range profiles {
+		profile, ok := pr.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		entries, _ := profile["plugins"].([]interface{})
+		profile["plugins"] = append(entries,
+			map[string]interface{}{"pluginRef": loraAffinityScorerPlugin, "weight": int64(4)})
+	}
+
+	raw, err := json.Marshal(epp)
+	if err != nil {
+		return fmt.Errorf("failed to marshal scheduler config after lora-affinity-scorer injection: %w", err)
+	}
+	cfg.Spec.Router.Scheduler.Config.Inline = &runtime.RawExtension{Raw: raw}
+	return nil
+}
+
+// reconcileBaseRefs resolves and merges the referenced configs, then checks the
+// merged spec by dry-running it against the API server.
+//
+// A missing config, an unservable merged spec, or a spec the API server rejects
+// returns reconcile.TerminalError: each is a pure function of the spec and its
+// referenced configs, so retrying fixes none of them and the controller waits for a
+// watch event on either instead. Any other error is returned as-is and requeued with
+// backoff.
 func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
 	// Combine base configurations with service-specific overrides
 	// This includes default configs based on deployment pattern (single node, multi-node, etc.)
@@ -157,32 +252,131 @@ func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alp
 
 		llmSvc.Status.AppliedConfigRefs = nil
 
+		// Both are raised inside combineBaseRefsConfig but classified here, because that
+		// function also runs in the watch mapping handlers: an unrelated Gateway or
+		// ConfigMap change would otherwise mark the condition and fire the event for a
+		// service nothing is reconciling.
 		var cfgNotFound *configNotFoundError
 		if errors.As(err, &cfgNotFound) {
-			llmSvc.MarkPresetsCombinedNotReady("ConfigNotFound", cfgNotFound.Error())
-			return nil, nil // watch on LLMInferenceServiceConfig re-triggers when the config is recreated
+			llmSvc.MarkPresetsCombinedNotReady("ConfigNotFound", "%s", cfgNotFound.Error())
+			return nil, reconcile.TerminalError(cfgNotFound)
 		}
 
-		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", err.Error())
+		var collision *loRAMountPathCollisionError
+		if errors.As(err, &collision) {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "LoRAMountPathCollision", "%s", collision.Error())
+			llmSvc.MarkPresetsCombinedNotReady("LoRAMountPathCollision", "%s", collision.Error())
+			return nil, reconcile.TerminalError(collision)
+		}
+
+		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", "%s", err.Error())
 		return nil, fmt.Errorf("failed to combine base-configurations: %w", err)
 	}
 
-	// Persist only the applied configs from successful reconciliation.
+	// The LLMInferenceServiceConfig CRD's OpenAPI constraints are relaxed
+	// to allow Go templating. Validate the rendered spec through the
+	// LLMInferenceService CRD's full admission chain: OpenAPI/CEL schema
+	// rules and KServe's validating webhook.
+	validationSpec := *result.Config.Spec.DeepCopy()
+	normalizeRawExtensionsToJSON(&validationSpec)
+	if err = r.Create(ctx, &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: kmeta.ChildName(llmSvc.Name, "-validation-"),
+			Namespace:    llmSvc.GetNamespace(),
+		},
+		Spec: validationSpec,
+	}, client.DryRunAll); err != nil {
+		if utils.GetForceStopRuntime(llmSvc) {
+			llmSvc.MarkPresetsCombinedNotReady("Stopped", "Service is stopped with warning: %v", err.Error())
+
+			return &v1alpha2.LLMInferenceServiceConfig{
+				Spec: *llmSvc.Spec.DeepCopy(),
+			}, nil
+		}
+
+		llmSvc.Status.AppliedConfigRefs = result.AppliedConfigRefs
+
+		// Anything other than Invalid means the spec was never checked: the API server
+		// timed out, the webhook was unreachable, RBAC was revoked. Nothing about the
+		// service changed, so no watch event will fire when it recovers - requeue
+		// instead. Unknown, not False: the service may still be serving.
+		if !apierrors.IsInvalid(err) {
+			llmSvc.MarkPresetsCombinedUnknown("ValidationUnavailable", "%s",
+				renderedConfigConditionMessage(err, result.AppliedConfigRefs))
+
+			return nil, fmt.Errorf("failed to dry-run validate rendered config: %w", err)
+		}
+
+		llmSvc.MarkPresetsCombinedNotReady("InvalidRenderedConfig", "%s",
+			renderedConfigConditionMessage(err, result.AppliedConfigRefs))
+
+		return nil, reconcile.TerminalError(fmt.Errorf("rendered config rejected: %w", err))
+	}
+
 	llmSvc.Status.AppliedConfigRefs = result.AppliedConfigRefs
 	llmSvc.MarkPresetsCombinedReady()
 
 	return result.Config, nil
 }
 
+// normalizeRawExtensionsToJSON converts YAML-encoded RawExtension fields to
+// JSON so the spec can be sent to the apiserver (which expects JSON in
+// RawExtension.Raw). This is needed because scheduler Config.Ref resolution
+// stores the ConfigMap value as-is (which may be YAML).
+func normalizeRawExtensionsToJSON(spec *v1alpha2.LLMInferenceServiceSpec) {
+	if spec.Router == nil || spec.Router.Scheduler == nil ||
+		spec.Router.Scheduler.Config == nil || spec.Router.Scheduler.Config.Inline == nil {
+		return
+	}
+	raw := spec.Router.Scheduler.Config.Inline.Raw
+	if len(raw) > 0 && raw[0] != '{' {
+		if jsonBytes, err := yaml.YAMLToJSON(raw); err == nil {
+			spec.Router.Scheduler.Config.Inline.Raw = jsonBytes
+		}
+	}
+}
+
+func renderedConfigConditionMessage(err error, refs []v1alpha2.AppliedConfigRef) string {
+	refNames := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		refNames = append(refNames, fmt.Sprintf("%s:%s/%s", ref.Source, ref.Namespace, ref.Name))
+	}
+
+	return fmt.Sprintf("dry-run validation failed after merging configs [%s]: %s",
+		strings.Join(refNames, ", "), validationDetail(err))
+}
+
+// validationDetail lists the rejected fields from a validation error. The full
+// error text is only a fallback: it starts with the name of the throwaway object
+// the dry-run creates, which the user never wrote and cannot look up.
+func validationDetail(err error) string {
+	var statusErr apierrors.APIStatus
+	if !errors.As(err, &statusErr) {
+		return err.Error()
+	}
+
+	details := statusErr.Status().Details
+	if details == nil || len(details.Causes) == 0 {
+		return err.Error()
+	}
+
+	msgs := make([]string, 0, len(details.Causes))
+	for _, cause := range details.Causes {
+		if cause.Field == "" {
+			msgs = append(msgs, cause.Message)
+			continue
+		}
+		msgs = append(msgs, fmt.Sprintf("%s: %s", cause.Field, cause.Message))
+	}
+
+	return strings.Join(msgs, "; ")
+}
+
 // combineBaseRefsConfig applies well-known config overlays to inject default values for various components, when some components are
 // enabled. These LLMInferenceServiceConfig resources must exist in either resource namespace (prioritized) or
 // SystemNamespace (e.g. `kserve`).
 // It determines which deployment pattern is being used (single node, multi-node, disaggregated) and applies appropriate defaults.
-func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reconcilerConfig *Config, opts ...CombineOption) (*CombinedConfig, error) {
-	options := &combineOptions{}
-	for _, opt := range opts {
-		opt(options)
-	}
+func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reconcilerConfig *Config) (*CombinedConfig, error) {
 	logger := log.FromContext(ctx).WithName("combineBaseRefsConfig")
 
 	wr := &WellKnownConfigResolver{}
@@ -212,9 +406,47 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	logger.V(2).Info("Resolved spec", "spec", resolvedSpec)
 
 	refs := make([]corev1.LocalObjectReference, 0, len(llmSvc.Spec.BaseRefs))
+
+	// Check if user provided a customized config in llmisvc then inject EPPConfig accordingly
+	// we only mutate configs we generated.
+	injectDefaultSchedulerConfig := resolvedSpec.Router != nil &&
+		resolvedSpec.Router.Scheduler != nil &&
+		!hasSchedulerEPPConfig(resolvedSpec)
+
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && !resolvedSpec.Router.Scheduler.Pool.HasRef() {
-		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerName)})
+		// Set router pod deployment
+		schedulerConfigName := wr.Resolve(llmSvc, configRouterSchedulerName)
+		refs = append(refs, corev1.LocalObjectReference{Name: schedulerConfigName})
+
+		if injectDefaultSchedulerConfig {
+			schedulerCfg, err := r.getConfig(ctx, llmSvc, schedulerConfigName)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve scheduler config %q: %w", schedulerConfigName, err)
+			}
+
+			// resolvedSpec covers .spec plus the user's baseRefs only - the
+			// well-known scheduler config is merged further down, so an EPPConfig
+			// supplied there (by an admin customizing the preset) is invisible to
+			// the check above. It is still user-owned: injecting on top of it would
+			// make preserveSchedulerConfig append a second --config-text and
+			// silently shadow it.
+			if hasSchedulerEPPConfig(schedulerCfg.Spec) {
+				injectDefaultSchedulerConfig = false
+			}
+
+			// Select the default EndpointPickerConfig from the llmisvcconfig presets.
+			// The presets require llm-d-router image version >= routerPresetMinVersion.
+			// Older images fall back to the hardcoded schedulerConfigText().
+			if injectDefaultSchedulerConfig && routerVersionSupportsPreset(ctx, schedulerCfg) {
+				if resolvedSpec.Prefill != nil { // P/D disagg.
+					refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerDefaultPDEPPConfigName)})
+				} else {
+					refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerDefaultEPPConfigName)})
+				}
+			}
+		}
 	}
+
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && isTokenizerEnabled(resolvedSpec) {
 		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTokenizerName)})
 	}
@@ -303,6 +535,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		ObjectMeta: *llmSvc.ObjectMeta.DeepCopy(),
 		Spec:       spec,
 	}
+	var resolvedSchedulerConfigMap *types.NamespacedName
 
 	if llmSvcCfg.Spec.Router != nil &&
 		llmSvcCfg.Spec.Router.Scheduler != nil &&
@@ -328,6 +561,16 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	llmSvcCfg, err = ReplaceVariables(llmSvc, llmSvcCfg, reconcilerConfig)
 	if err != nil {
 		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
+	}
+
+	// Add the lora-affinity-scorer to the scheduler config only when
+	// .spec.model.lora.adapters is set and the user did not supply their own
+	// scheduler config (via .spec.router.scheduler.config or a config flag in
+	// the scheduler template args).
+	if injectDefaultSchedulerConfig && resolvedSpec.Model.LoRA != nil && len(resolvedSpec.Model.LoRA.Adapters) > 0 {
+		if err := injectLoRAAffinityScorer(llmSvcCfg); err != nil {
+			return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
+		}
 	}
 
 	injectManagedDRAIntoConfig(llmSvc, llmSvcCfg)
@@ -403,12 +646,14 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 				llmSvcCfg.Spec.Router.Scheduler.Config.Ref.Key,
 			)
 		}
-		llmSvcCfg.Spec.Router.Scheduler.Config.Inline = &runtime.RawExtension{Raw: []byte(cfg)}
-		// Clear the Ref since we've resolved it to Inline - the validator rejects having both set.
-		// Skip clearing if the caller needs to check which ConfigMap was referenced.
-		if !options.skipClearSchedulerConfigRef {
-			llmSvcCfg.Spec.Router.Scheduler.Config.Ref = nil
+		resolvedSchedulerConfigMap = &types.NamespacedName{
+			Namespace: cm.GetNamespace(),
+			Name:      cm.GetName(),
 		}
+		llmSvcCfg.Spec.Router.Scheduler.Config.Inline = &runtime.RawExtension{Raw: []byte(cfg)}
+		// Clear the Ref since it has been resolved to Inline; the two fields are
+		// mutually exclusive in a valid LLMInferenceService.
+		llmSvcCfg.Spec.Router.Scheduler.Config.Ref = nil
 
 		// Warn if the resolved ConfigMap contains predicted-latency-producer but the
 		// well-known config was not injected (because detection runs before Ref resolution).
@@ -435,21 +680,6 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port = ptr.To(igwapi.Port{Number: 9002})
 	}
 
-	// Skip validation when we're only using the result for matching (not for reconciliation).
-	// When skipClearSchedulerConfigRef is true, both Inline and Ref may be set, which would fail validation.
-	if !options.skipClearSchedulerConfigRef {
-		err = r.Validator(ctx, &v1alpha2.LLMInferenceService{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      llmSvc.Name,
-				Namespace: llmSvc.GetNamespace(),
-			},
-			Spec: llmSvcCfg.Spec,
-		})
-		if err != nil {
-			return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
-		}
-	}
-
 	// Resolve LoRA adapters from the final merged spec and embed the result in reconcilerConfig.
 	// Doing this here ties resolution to the config-merge step so all downstream workload
 	// functions share a single, consistent resolution rather than each re-parsing the spec.
@@ -459,7 +689,11 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	}
 	reconcilerConfig.ResolvedLoRAAdapters = loraAdapters
 
-	return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, nil
+	return &CombinedConfig{
+		Config:                     llmSvcCfg,
+		AppliedConfigRefs:          appliedRefs,
+		ResolvedSchedulerConfigMap: resolvedSchedulerConfigMap,
+	}, nil
 }
 
 func isUsingTokenizerSidecar(spec v1alpha2.LLMInferenceServiceSpec) bool {

@@ -420,13 +420,13 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 	r.propagateSchedulerMetadata(llmSvc, d)
 
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
+		d.Spec.Replicas = llmSvc.Spec.Router.Scheduler.Replicas
+		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
+
 		curr := &appsv1.Deployment{}
 		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get current scheduler deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 		}
-
-		d.Spec.Replicas = llmSvc.Spec.Router.Scheduler.Replicas
-		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Template.DeepCopy()
 
 		mainIdx := slices.IndexFunc(d.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
 			return c.Name == "main"
@@ -502,9 +502,9 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		}
 
 		// Version-gated migrations (>= v0.7.0, >= v0.9.0, etc.): each migration
-		// is gated to the minimum EPP version that recognizes the new plugin
-		// names / config shapes. The v0.7 binary deprecates old names but still
-		// accepts them; v0.9 introduces the 3-plugin precise-prefix pipeline.
+		// is gated to the minimum llm-d-router version that recognizes the new
+		// plugin names / config shapes. The v0.7 binary deprecates old names but
+		// still accepts them; v0.9 introduces the 3-plugin precise-prefix pipeline.
 		reconcilerCfg, err := r.loadConfig(ctx)
 		if err != nil {
 			return d, fmt.Errorf("failed to load config for scheduler transform: %w", err)
@@ -527,36 +527,40 @@ func (r *LLMISVCReconciler) propagateSchedulerMetadata(llmSvc *v1alpha2.LLMInfer
 	utils.PropagateMap(llmSvc.Spec.Router.Scheduler.Annotations, &expected.Spec.Template.Annotations)
 }
 
+// inlineConfigTextFlags lists the config-text flag variants that carry inline
+// YAML and can be rewritten by mutateSchedulerConfig. Go's flag package
+// accepts both kebab-case and camelCase, so all four forms are valid.
+var inlineConfigTextFlags = map[string]struct{}{
+	"--config-text": {}, "-config-text": {}, "--configText": {}, "-configText": {},
+}
+
+// schedulerConfigFlags lists both kebab-case and camelCase variants because
+// Go's flag package accepts either form.
+var schedulerConfigFlags = map[string]struct{}{
+	"--config-text": {}, "-config-text": {}, "--configText": {}, "-configText": {},
+	"--config-file": {}, "-config-file": {}, "--configFile": {}, "-configFile": {},
+}
+
+// schedulerConfigText returns a hardcoded default EndpointPickerConfig for
+// llm-d-router versions older than routerPresetMinVersion. Once all deployments
+// have migrated to >= 0.11.0 this function can be removed in favor of the
+// preset-only path.
 func schedulerConfigText(llmSvc *v1alpha2.LLMInferenceService) string {
-	if llmSvc.Spec.Router != nil &&
-		llmSvc.Spec.Router.Scheduler != nil &&
-		llmSvc.Spec.Router.Scheduler.Config != nil &&
-		llmSvc.Spec.Router.Scheduler.Config.Inline != nil {
-		// We don't need to handle Ref as it's done as part of the config merge step.
-		return string(llmSvc.Spec.Router.Scheduler.Config.Inline.Raw)
+	// lora-affinity-scorer is injected into every profile when LoRA adapters
+	// exist. The preset path does this in injectLoRAAffinityScorer; on this
+	// legacy path it has to be interpolated into the text.
+	var loraPlugin, loraProfileEntry string
+	if llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0 {
+		loraPlugin = fmt.Sprintf("- type: %s\n", loraAffinityScorerPlugin)
+		loraProfileEntry = fmt.Sprintf("  - pluginRef: %s\n    weight: 4\n", loraAffinityScorerPlugin)
 	}
 
 	switch {
 	case llmSvc.Spec.Prefill != nil:
-		// Always do P/D by default (threshold 0).
-		// Profiles follow the llm-d optimized P/D baseline:
-		//   prefill - prefix-cache + queue + kv-cache-utilization scorers
-		//   decode  - active-request + prefix-cache scorers (active request count
-		//             is a better signal than queue depth for ongoing generation).
-		// kv-cache-utilization-scorer and active-request-scorer are declared in the
-		// top-level plugins list so the profiles' pluginRefs resolve; queue-scorer
-		// stays declared because the prefill profile still references it.
-		// lora-affinity-scorer is injected into both profiles when LoRA adapters exist.
-		var loraPlugin, loraProfileEntry string
-		if llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0 {
-			loraPlugin = fmt.Sprintf("- type: %s\n", loraAffinityScorerPlugin)
-			loraProfileEntry = fmt.Sprintf("  - pluginRef: %s\n    weight: 4\n", loraAffinityScorerPlugin)
-		}
 		return fmt.Sprintf(`
 apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
 plugins:
-- type: disagg-headers-handler
 - type: prefill-filter
 - type: decode-filter
 - type: queue-scorer
@@ -590,17 +594,6 @@ plugins:
   - pluginRef: max-score-picker
 `, loraPlugin, loraProfileEntry, loraProfileEntry)
 	default:
-		var loraPlugin, loraProfileEntry string
-		if llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0 {
-			loraPlugin = fmt.Sprintf("- type: %s\n", loraAffinityScorerPlugin)
-			loraProfileEntry = fmt.Sprintf("  - pluginRef: %s\n    weight: 4\n", loraAffinityScorerPlugin)
-		}
-
-		// Single-profile default follows the llm-d optimized baseline:
-		// queue + kv-cache-utilization + prefix-cache + no-hit-lru scorers, plus
-		// lora-affinity-scorer injected when LoRA adapters are configured.
-		// Users who want precise prefix routing must explicitly declare
-		// token-producer and precise-prefix-cache-producer in their inline config.
 		return fmt.Sprintf(`
 apiVersion: llm-d.ai/v1alpha1
 kind: EndpointPickerConfig
@@ -627,27 +620,13 @@ plugins:
 	}
 }
 
-// inlineConfigTextFlags lists the config-text flag variants that carry inline
-// YAML and can be rewritten by mutateSchedulerConfig. Go's flag package
-// accepts both kebab-case and camelCase, so all four forms are valid.
-var inlineConfigTextFlags = map[string]struct{}{
-	"--config-text": {}, "-config-text": {}, "--configText": {}, "-configText": {},
-}
-
-// schedulerConfigFlags lists both kebab-case and camelCase variants because
-// Go's flag package accepts either form.
-var schedulerConfigFlags = map[string]struct{}{
-	"--config-text": {}, "-config-text": {}, "--configText": {}, "-configText": {},
-	"--config-file": {}, "-config-file": {}, "--configFile": {}, "-configFile": {},
-}
-
 // preserveSchedulerConfig returns the config args for the scheduler container.
 //
 // Priority:
 //  1. Explicit inline config (including resolved ConfigMap refs) - always wins.
 //  2. Config flag already present in the template args - kept as-is (return nil).
 //  3. Config flag found in the current deployment - preserved across upgrades.
-//  4. No config anywhere - a fresh default is generated.
+//  4. No config anywhere - a fresh default is generated via schedulerConfigText().
 func preserveSchedulerConfig(llmSvc *v1alpha2.LLMInferenceService, curr *appsv1.Deployment) []string {
 	if llmSvc.Spec.Router != nil &&
 		llmSvc.Spec.Router.Scheduler != nil &&
@@ -1084,6 +1063,84 @@ func WithRenamePlugin(oldType, newType string) mutateSchedulerConfigFunc {
 	}
 }
 
+// WithRemovePlugin returns a mutateSchedulerConfigFunc that removes a plugin
+// by type from the plugins array and removes matching pluginRef entries from
+// schedulingProfiles.
+func WithRemovePlugin(pluginType string) mutateSchedulerConfigFunc {
+	return func(_ context.Context, u *unstructured.Unstructured) error {
+		removedNames := map[string]bool{pluginType: true}
+
+		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+		if err != nil {
+			return err
+		}
+		if found {
+			if plugins, ok := val.([]interface{}); ok {
+				filtered := make([]interface{}, 0, len(plugins))
+				for _, plugin := range plugins {
+					pluginMap, ok := plugin.(map[string]interface{})
+					if !ok {
+						filtered = append(filtered, plugin)
+						continue
+					}
+					if pluginMap["type"] == pluginType {
+						if name, ok := pluginMap["name"].(string); ok {
+							removedNames[name] = true
+						}
+						continue
+					}
+					filtered = append(filtered, plugin)
+				}
+				u.Object["plugins"] = filtered
+			}
+		}
+
+		profiles, found, err := unstructured.NestedFieldNoCopy(u.Object, "schedulingProfiles")
+		if err != nil {
+			return err
+		}
+		if !found {
+			return nil
+		}
+		profileList, ok := profiles.([]interface{})
+		if !ok {
+			return nil
+		}
+		for _, profile := range profileList {
+			profileMap, ok := profile.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			pluginRefs, found, err := unstructured.NestedFieldNoCopy(profileMap, "plugins")
+			if err != nil {
+				return err
+			}
+			if !found {
+				continue
+			}
+			refList, ok := pluginRefs.([]interface{})
+			if !ok {
+				continue
+			}
+			filteredRefs := make([]interface{}, 0, len(refList))
+			for _, ref := range refList {
+				refMap, ok := ref.(map[string]interface{})
+				if !ok {
+					filteredRefs = append(filteredRefs, ref)
+					continue
+				}
+				if name, _ := refMap["pluginRef"].(string); removedNames[name] {
+					continue
+				}
+				filteredRefs = append(filteredRefs, ref)
+			}
+			profileMap["plugins"] = filteredRefs
+		}
+
+		return nil
+	}
+}
+
 // WithMigrateDisaggProfileParams migrates the disagg-profile-handler (formerly
 // pd-profile-handler) from the old flat deciderPluginName/threshold parameters
 // to the new deciders map structure introduced in llm-d-router v0.7.0.
@@ -1371,6 +1428,9 @@ func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
 //  7. withMetricsDataSourceParams – move --model-server-metrics-{scheme,path,
 //     https-insecure-skip-verify} into the metrics-data-source plugin parameters
 //     and strip --model-server-metrics-port (v0.10.0+, flags removed in llm-d-router)
+//  8. WithRemovePlugin – strip disagg-headers-handler, prefill-header-handler,
+//     and pd-profile-handler (v0.11.0+, disagg-headers-handler removed from
+//     llm-d-router; the other two are legacy names from prior renames)
 func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService, enableTLS bool) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
@@ -1461,6 +1521,18 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 				opts = append(opts, withMetricsDataSourceParams(parameters))
 			}
 		}
+	}
+
+	// llm-d-router v0.11.0 removes the disagg-headers-handler plugin entirely:
+	// - prefill-header-handler  (pre-v0.7.0 name, renamed to disagg-headers-handler) to support upgrade from pre-v0.7 to 0.11
+	// - pd-profile-handler      (pre-v0.7.0 name, renamed to disagg-headers-handler) to support upgrade from pre-v0.7 to 0.11
+	// - disagg-headers-handler  (v0.7.0 name, no longer recognised by router after 0.11.0)
+	if v.Compare(*semver.New("0.11.0")) >= 0 {
+		opts = append(opts,
+			WithRemovePlugin("prefill-header-handler"),
+			WithRemovePlugin("disagg-headers-handler"),
+			WithRemovePlugin("pd-profile-handler"),
+		)
 	}
 
 	if err := mutateSchedulerConfig(ctx, d, opts...); err != nil {

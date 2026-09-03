@@ -24,6 +24,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -134,6 +135,18 @@ func (l *LLMInferenceServiceConfigValidator) validate(ctx context.Context, confi
 	}
 
 	allErrs = append(allErrs, l.validateScheduler(config)...)
+
+	// A config's adapters are merged into the LLMInferenceService spec and reach the
+	// controller unchanged, but LLMInferenceServiceValidator only sees the unmerged
+	// service, so without this they would be validated by nothing. The base model name
+	// stays empty when the config does not set one: it is supplied by the service at
+	// merge time, and config.Name is a different identifier that would reject legitimate
+	// adapter names.
+	allErrs = append(allErrs, ValidateLoRAAdapters(
+		config.Spec.Model.LoRA,
+		ptr.Deref(config.Spec.Model.Name, ""),
+		field.NewPath("spec", "model", "lora"),
+	)...)
 
 	if len(allErrs) > 0 {
 		return apierrors.NewInvalid(
