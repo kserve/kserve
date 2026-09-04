@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,6 +23,12 @@ type ClusterServingRuntimeExpansion interface{}
 type ClusterStorageContainerExpansion interface{}
 
 type InferenceGraphExpansion interface{}
+
+type KernelCacheExpansion interface{}
+
+type KernelCacheCaptureExpansion interface{}
+
+type KernelCacheNodeExpansion interface{}
 
 type LLMInferenceServiceExpansion interface{}
 

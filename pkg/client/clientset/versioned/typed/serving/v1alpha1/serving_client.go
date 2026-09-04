@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,6 +31,9 @@ type ServingV1alpha1Interface interface {
 	ClusterServingRuntimesGetter
 	ClusterStorageContainersGetter
 	InferenceGraphsGetter
+	KernelCachesGetter
+	KernelCacheCapturesGetter
+	KernelCacheNodesGetter
 	LLMInferenceServicesGetter
 	LocalModelCachesGetter
 	LocalModelNamespaceCachesGetter
@@ -55,6 +58,18 @@ func (c *ServingV1alpha1Client) ClusterStorageContainers(namespace string) Clust
 
 func (c *ServingV1alpha1Client) InferenceGraphs(namespace string) InferenceGraphInterface {
 	return newInferenceGraphs(c, namespace)
+}
+
+func (c *ServingV1alpha1Client) KernelCaches(namespace string) KernelCacheInterface {
+	return newKernelCaches(c, namespace)
+}
+
+func (c *ServingV1alpha1Client) KernelCacheCaptures(namespace string) KernelCacheCaptureInterface {
+	return newKernelCacheCaptures(c, namespace)
+}
+
+func (c *ServingV1alpha1Client) KernelCacheNodes() KernelCacheNodeInterface {
+	return newKernelCacheNodes(c)
 }
 
 func (c *ServingV1alpha1Client) LLMInferenceServices(namespace string) LLMInferenceServiceInterface {

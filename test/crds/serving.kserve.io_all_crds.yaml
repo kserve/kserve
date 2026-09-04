@@ -152275,3 +152275,466 @@ spec:
     storage: true
     subresources:
       status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: kernelcachecaptures.serving.kserve.io
+spec:
+  group: serving.kserve.io
+  names:
+    kind: KernelCacheCapture
+    listKind: KernelCacheCaptureList
+    plural: kernelcachecaptures
+    shortNames:
+    - kcc
+    singular: kernelcachecapture
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .spec.targetImage
+      name: Image
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              cacheFramework:
+                enum:
+                - vllm
+                - tgi
+                - triton-python
+                - gaudi
+                type: string
+              cachePathOverride:
+                type: string
+              targetImage:
+                type: string
+            required:
+            - targetImage
+            type: object
+            x-kubernetes-validations:
+            - message: at least one of cacheFramework or cachePathOverride must be
+                set
+              rule: has(self.cacheFramework) || has(self.cachePathOverride)
+            - message: cacheFramework and cachePathOverride are mutually exclusive;
+                set one or the other
+              rule: '!(has(self.cacheFramework) && has(self.cachePathOverride))'
+          status:
+            properties:
+              capturedAt:
+                format: date-time
+                type: string
+              capturedCacheSizeBytes:
+                format: int64
+                type: integer
+              conditions:
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              detectedCachePath:
+                type: string
+              imageDigest:
+                type: string
+              kernelCacheRef:
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                type: object
+              phase:
+                type: string
+              podName:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: kernelcachenodes.serving.kserve.io
+spec:
+  group: serving.kserve.io
+  names:
+    kind: KernelCacheNode
+    listKind: KernelCacheNodeList
+    plural: kernelcachenodes
+    singular: kernelcachenode
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.counts.cachesInUse
+      name: Caches-In-Use
+      type: integer
+    - jsonPath: .status.counts.cachesNotInUse
+      name: Caches-Not-In-Use
+      type: integer
+    - jsonPath: .status.counts.cachesError
+      name: Caches-Error
+      type: integer
+    - jsonPath: .status.counts.totalPodsUsing
+      name: Pods-Using
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          status:
+            properties:
+              cacheStatus:
+                additionalProperties:
+                  properties:
+                    compatibleGPUs:
+                      items:
+                        type: integer
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    digest:
+                      type: string
+                    image:
+                      type: string
+                    incompatibleGPUs:
+                      items:
+                        type: integer
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    lastUpdate:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                    podsUsing:
+                      type: integer
+                    state:
+                      enum:
+                      - Pending
+                      - Downloading
+                      - Extracted
+                      - Running
+                      - Error
+                      type: string
+                  required:
+                  - image
+                  - name
+                  - namespace
+                  type: object
+                type: object
+              counts:
+                properties:
+                  cachesError:
+                    type: integer
+                  cachesInUse:
+                    type: integer
+                  cachesNotInUse:
+                    type: integer
+                  totalPodsUsing:
+                    type: integer
+                required:
+                - cachesError
+                - cachesInUse
+                - cachesNotInUse
+                - totalPodsUsing
+                type: object
+              gpuInfo:
+                items:
+                  properties:
+                    cudaVersion:
+                      type: string
+                    driverVersion:
+                      type: string
+                    gpuType:
+                      type: string
+                    ids:
+                      items:
+                        type: integer
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    rocmVersion:
+                      type: string
+                  required:
+                  - gpuType
+                  - ids
+                  type: object
+                type: array
+                x-kubernetes-list-type: atomic
+              nodeName:
+                type: string
+            required:
+            - nodeName
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: kernelcaches.serving.kserve.io
+spec:
+  group: serving.kserve.io
+  names:
+    kind: KernelCache
+    listKind: KernelCacheList
+    plural: kernelcaches
+    shortNames:
+    - kc
+    singular: kernelcache
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.state
+      name: Status
+      type: string
+    - jsonPath: .status.counts.nodeCnt
+      name: Nodes
+      type: integer
+    - jsonPath: .status.counts.nodeInUseCnt
+      name: Node-In-Use
+      type: integer
+    - jsonPath: .status.counts.nodeNotInUseCnt
+      name: Node-Not-In-Use
+      type: integer
+    - jsonPath: .status.counts.nodeErrorCnt
+      name: Node-Error
+      type: integer
+    - jsonPath: .status.servingStatus.totalPodsUsing
+      name: Pods-Using
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              image:
+                type: string
+              imagePullPolicy:
+                default: IfNotPresent
+                enum:
+                - IfNotPresent
+                - Always
+                - Never
+                type: string
+              mountPath:
+                type: string
+              mountType:
+                default: pvc
+                enum:
+                - pvc
+                - imageVolume
+                type: string
+                x-kubernetes-validations:
+                - message: mountType is immutable after creation
+                  rule: self == oldSelf
+              pvc:
+                properties:
+                  accessModes:
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  podTemplate:
+                    properties:
+                      nodeSelector:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      priorityClassName:
+                        type: string
+                      tolerations:
+                        items:
+                          properties:
+                            effect:
+                              type: string
+                            key:
+                              type: string
+                            operator:
+                              type: string
+                            tolerationSeconds:
+                              format: int64
+                              type: integer
+                            value:
+                              type: string
+                          type: object
+                        type: array
+                        x-kubernetes-list-type: atomic
+                    type: object
+                  storageClassName:
+                    type: string
+                  storageSize:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  volumeName:
+                    type: string
+                type: object
+                x-kubernetes-validations:
+                - message: storageClassName and volumeName are mutually exclusive;
+                    set one or the other
+                  rule: '!(has(self.storageClassName) && has(self.volumeName))'
+                - message: storageClassName is immutable after creation
+                  rule: '!has(oldSelf.storageClassName) || (has(self.storageClassName)
+                    && self.storageClassName == oldSelf.storageClassName)'
+                - message: volumeName is immutable after creation
+                  rule: '!has(oldSelf.volumeName) || (has(self.volumeName) && self.volumeName
+                    == oldSelf.volumeName)'
+                - message: storageSize is immutable after creation
+                  rule: '!has(oldSelf.storageSize) || (has(self.storageSize) && self.storageSize
+                    == oldSelf.storageSize)'
+                - message: accessModes is immutable after creation
+                  rule: '!has(oldSelf.accessModes) || self.accessModes == oldSelf.accessModes'
+            required:
+            - image
+            type: object
+            x-kubernetes-validations:
+            - message: pvc must not be set when mountType is imageVolume
+              rule: self.mountType != 'imageVolume' || !has(self.pvc)
+          status:
+            properties:
+              counts:
+                properties:
+                  nodeCnt:
+                    type: integer
+                  nodeErrorCnt:
+                    type: integer
+                  nodeInUseCnt:
+                    type: integer
+                  nodeNotInUseCnt:
+                    type: integer
+                required:
+                - nodeCnt
+                - nodeErrorCnt
+                - nodeInUseCnt
+                - nodeNotInUseCnt
+                type: object
+              gpuCompatibility:
+                properties:
+                  compatibleTypes:
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  incompatibleTypes:
+                    items:
+                      type: string
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  totalCompatibleGPUs:
+                    type: integer
+                  totalIncompatibleGPUs:
+                    type: integer
+                required:
+                - totalCompatibleGPUs
+                - totalIncompatibleGPUs
+                type: object
+              mountType:
+                type: string
+              resolvedDigest:
+                type: string
+              servingStatus:
+                properties:
+                  totalPodsUsing:
+                    type: integer
+                required:
+                - totalPodsUsing
+                type: object
+              state:
+                enum:
+                - Pending
+                - Downloading
+                - Extracted
+                - Running
+                - Error
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
