@@ -713,9 +713,13 @@ func validateDeploymentMode(newIsvc *InferenceService, oldIsvc *InferenceService
 		return nil
 	}
 	statusDeploymentMode := string(constants.ParseDeploymentMode(oldIsvc.Status.DeploymentMode))
-	annotationDeploymentMode, ok := newIsvc.Annotations[constants.DeploymentMode]
+	rawAnnotationDeploymentMode, ok := newIsvc.Annotations[constants.DeploymentMode]
+	// Normalize the annotation the same way the status side is normalized, so a legacy
+	// alias annotation ("Serverless"/"RawDeployment") that hasn't actually changed doesn't
+	// get compared against its own normalized form and rejected. See issue #5885.
+	annotationDeploymentMode := string(constants.ParseDeploymentMode(rawAnnotationDeploymentMode))
 	if ok && annotationDeploymentMode != statusDeploymentMode {
-		return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, annotationDeploymentMode)
+		return fmt.Errorf("update rejected: deploymentMode cannot be changed from '%s' to '%s'", statusDeploymentMode, rawAnnotationDeploymentMode)
 	}
 	return nil
 }

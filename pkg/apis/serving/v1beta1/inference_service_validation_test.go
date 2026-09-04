@@ -1612,6 +1612,44 @@ func TestDeploymentModeUpdate(t *testing.T) {
 	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcEmptyStatus, updatedIsvcNoAnnotation)
 	g.Expect(warnings).Should(gomega.BeEmpty())
 	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: unchanged legacy alias annotation ("Serverless") should be accepted once the
+	// controller has normalized the status to "Knative". Regression test for issue #5885:
+	// the annotation here is untouched by the user, but the raw string differs from the
+	// normalized status, so the pre-fix comparison rejected the update anyway.
+	oldIsvcNormalizedStatus := makeTestInferenceService()
+	oldIsvcNormalizedStatus.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.Knative),
+	}
+	oldIsvcNormalizedStatus.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyServerless),
+	}
+	unchangedIsvcLegacySl := oldIsvcNormalizedStatus.DeepCopy()
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcNormalizedStatus, unchangedIsvcLegacySl)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: same as above for the "RawDeployment" / "Standard" legacy pair.
+	oldIsvcNormalizedStandard := makeTestInferenceService()
+	oldIsvcNormalizedStandard.Status = InferenceServiceStatus{
+		DeploymentMode: string(constants.Standard),
+	}
+	oldIsvcNormalizedStandard.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyRawDeployment),
+	}
+	unchangedIsvcLegacyRaw := oldIsvcNormalizedStandard.DeepCopy()
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcNormalizedStandard, unchangedIsvcLegacyRaw)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).Should(gomega.Succeed())
+
+	// Test: a legacy alias annotation that genuinely changes mode must still be rejected.
+	changedIsvcLegacySl := oldIsvcNormalizedStandard.DeepCopy()
+	changedIsvcLegacySl.Annotations = map[string]string{
+		constants.DeploymentMode: string(constants.LegacyServerless),
+	}
+	warnings, err = validator.ValidateUpdate(t.Context(), &oldIsvcNormalizedStandard, changedIsvcLegacySl)
+	g.Expect(warnings).Should(gomega.BeEmpty())
+	g.Expect(err).ShouldNot(gomega.Succeed())
 }
 
 func TestValidateUpdateDuringDeletion(t *testing.T) {
