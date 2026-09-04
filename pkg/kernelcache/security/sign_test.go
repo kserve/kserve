@@ -26,29 +26,29 @@ import (
 	"github.com/kserve/kserve/pkg/kernelcache/types"
 )
 
-func TestNewVerifier(t *testing.T) {
+func TestNewSigner(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("disabled returns a working no-op", func(t *testing.T) {
-		v, err := NewVerifier(ctx, types.SecurityConfig{Mode: types.ModeDisabled}, nil)
+		s, err := NewSigner(ctx, types.SecurityConfig{Mode: types.ModeDisabled}, nil)
 		require.NoError(t, err)
-		require.NotNil(t, v)
+		require.NotNil(t, s)
 
-		res, err := v.Verify(ctx, types.VerifyRequest{ImageRef: "registry/img:tag"})
+		res, err := s.Sign(ctx, types.SignRequest{ImageRef: "registry/img:tag"})
 		require.NoError(t, err)
-		assert.False(t, res.Verified)
 		assert.Equal(t, types.ModeDisabled, res.Mode)
+		assert.Empty(t, res.Digest)
 	})
 
 	t.Run("empty mode defaults to disabled", func(t *testing.T) {
-		v, err := NewVerifier(ctx, types.SecurityConfig{}, nil)
+		s, err := NewSigner(ctx, types.SecurityConfig{}, nil)
 		require.NoError(t, err)
-		assert.IsType(t, noopVerifier{}, v)
+		assert.IsType(t, noopSigner{}, s)
 	})
 
 	t.Run("unknown mode errors", func(t *testing.T) {
-		v, err := NewVerifier(ctx, types.SecurityConfig{Mode: "bogus"}, nil)
-		assert.Nil(t, v)
+		s, err := NewSigner(ctx, types.SecurityConfig{Mode: "bogus"}, nil)
+		assert.Nil(t, s)
 		assert.ErrorIs(t, err, types.ErrUnknownMode)
 	})
 }

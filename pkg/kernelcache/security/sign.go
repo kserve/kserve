@@ -22,12 +22,8 @@ import (
 	"github.com/kserve/kserve/pkg/kernelcache/types"
 )
 
-// Verifier verifies a kernel cache image according to a configured mode.
-//
-// The returned error is reserved for operational failures (network, registry,
-// misconfiguration) that a caller may retry. A completed check that fails is
-// reported as types.VerifyResult{Verified: false} with a nil error, so the
-// caller can apply its FailurePolicy uniformly.
-type Verifier interface {
-	Verify(ctx context.Context, req types.VerifyRequest) (types.VerifyResult, error)
+// Signer attaches a signature to a container image so a matching Verifier can
+// later confirm it. Implementations sign by digest, never by mutable tag.
+type Signer interface {
+	Sign(ctx context.Context, req types.SignRequest) (types.SignResult, error)
 }
