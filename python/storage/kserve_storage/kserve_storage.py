@@ -26,6 +26,7 @@ import platform
 import re
 import shutil
 import ssl
+import sys
 import tarfile
 import tempfile
 import time
@@ -802,6 +803,10 @@ class Storage(object):
             GatedRepoError,
             HfHubHTTPError,
         )
+        from kserve_storage.huggingface_progress import (
+            create_huggingface_log_progress,
+            get_huggingface_repo_size_bytes,
+        )
 
         components = uri[len(_HF_PREFIX) :].split("/")
 
@@ -840,6 +845,17 @@ class Storage(object):
                 kwargs["allow_patterns"] = allow_patterns
             if ignore_patterns:
                 kwargs["ignore_patterns"] = ignore_patterns
+            if not sys.stderr.isatty():
+                total_size_bytes = get_huggingface_repo_size_bytes(
+                    repo_id,
+                    revision=revision,
+                    allow_patterns=allow_patterns,
+                    ignore_patterns=ignore_patterns,
+                )
+                kwargs["tqdm_class"] = create_huggingface_log_progress(
+                    temp_dir,
+                    total_size_bytes=total_size_bytes,
+                )
             snapshot_download(**kwargs)
         except (
             RepositoryNotFoundError,
