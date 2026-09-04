@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -30,6 +30,12 @@ type Interface interface {
 	ClusterStorageContainers() ClusterStorageContainerInformer
 	// InferenceGraphs returns a InferenceGraphInformer.
 	InferenceGraphs() InferenceGraphInformer
+	// KernelCaches returns a KernelCacheInformer.
+	KernelCaches() KernelCacheInformer
+	// KernelCacheCaptures returns a KernelCacheCaptureInformer.
+	KernelCacheCaptures() KernelCacheCaptureInformer
+	// KernelCacheNodes returns a KernelCacheNodeInformer.
+	KernelCacheNodes() KernelCacheNodeInformer
 	// LLMInferenceServices returns a LLMInferenceServiceInformer.
 	LLMInferenceServices() LLMInferenceServiceInformer
 	// LocalModelCaches returns a LocalModelCacheInformer.
@@ -70,6 +76,21 @@ func (v *version) ClusterStorageContainers() ClusterStorageContainerInformer {
 // InferenceGraphs returns a InferenceGraphInformer.
 func (v *version) InferenceGraphs() InferenceGraphInformer {
 	return &inferenceGraphInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// KernelCaches returns a KernelCacheInformer.
+func (v *version) KernelCaches() KernelCacheInformer {
+	return &kernelCacheInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// KernelCacheCaptures returns a KernelCacheCaptureInformer.
+func (v *version) KernelCacheCaptures() KernelCacheCaptureInformer {
+	return &kernelCacheCaptureInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// KernelCacheNodes returns a KernelCacheNodeInformer.
+func (v *version) KernelCacheNodes() KernelCacheNodeInformer {
+	return &kernelCacheNodeInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // LLMInferenceServices returns a LLMInferenceServiceInformer.
