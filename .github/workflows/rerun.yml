@@ -64,7 +64,7 @@ jobs:
             exit 0
           fi
 
-          echo "Found failed runs: $(echo "$RUNS" | tr '\n' ' ')"
+          echo "Found failed or cancelled runs: $(echo "$RUNS" | tr '\n' ' ')"
 
           COMMAND=$(echo "$COMMENT_BODY" | grep -m1 '^/rerun-' || true)
           if [ -z "$COMMAND" ]; then
@@ -110,7 +110,7 @@ jobs:
           done <<< "$RUNS"
 
           if [ "$RERUN_COUNT" -eq 0 ] && [ -n "${TARGET_WORKFLOW:-}" ]; then
-            echo "::error::No failed workflow matching '${TARGET_WORKFLOW}' found"
+            echo "::error::No failed or cancelled workflow matching '${TARGET_WORKFLOW}' found"
             exit 1
           fi
 
