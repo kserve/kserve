@@ -362,6 +362,12 @@ func (r *LLMISVCReconciler) propagateWorkloadDeploymentStatus(ctx context.Contex
 	return nil
 }
 
+// The pod template is compared exactly and the rest of the spec is not. That is a
+// deliberate split: removals matter most in the template, and this is one of only
+// two objects here whose rewrite restarts a workload, so the tolerant half stays
+// tolerant. Note the replica count is not the reason - PreserveDeploymentReplicas
+// already adopts the cluster's value before the comparison runs, so autoscalers
+// are not in contention either way.
 func semanticDeploymentIsEqual(expected *appsv1.Deployment, curr *appsv1.Deployment) bool {
 	// Use DeepEqual for the Pod Spec so that when fields are removed (like resource requirements, we push them down to the
 	// child resource)
