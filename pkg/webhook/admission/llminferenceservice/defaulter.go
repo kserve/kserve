@@ -163,7 +163,12 @@ func applyDefaults(
 			defaulterLogger.Error(err, "Cannot list namespace-scoped local models", "namespace", llmSvc.Namespace)
 			return err
 		}
-		SetLocalModelLabel(llmSvc, models, nsModels)
+		nodeGroups := &v1alpha1.LocalModelNodeGroupList{}
+		if err := k8sClient.List(ctx, nodeGroups); err != nil {
+			defaulterLogger.Error(err, "Cannot list local model node groups")
+			return err
+		}
+		SetLocalModelLabel(llmSvc, models, nsModels, nodeGroups)
 	} else {
 		DeleteLocalModelMetadata(llmSvc)
 	}
@@ -174,17 +179,25 @@ func applyDefaults(
 // SetLocalModelLabel sets local model labels on the LLMInferenceService if a matching cache exists.
 // Namespace-scoped LocalModelNamespaceCache takes precedence over cluster-scoped LocalModelCache.
 // LoRA adapter URIs are matched independently and recorded in the LoRA JSON annotation.
-func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList) {
+func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList, nodeGroups ...*v1alpha1.LocalModelNodeGroupList) {
 	isvcNodeGroup, isvcNodeGroupExists := llmSvc.Annotations[constants.NodeGroupAnnotationKey]
+	var availableNodeGroups *v1alpha1.LocalModelNodeGroupList
+	if len(nodeGroups) > 0 {
+		availableNodeGroups = nodeGroups[0]
+	}
+	var nodeSelector map[string]string
+	if llmSvc.Spec.Template != nil {
+		nodeSelector = llmSvc.Spec.Template.NodeSelector
+	}
 
 	modelUri := llmSvc.Spec.Model.URI.String()
-	if match := localmodelcache.MatchCacheForURI(modelUri, isvcNodeGroup, isvcNodeGroupExists, models, nsModels); match != nil {
+	if match := localmodelcache.MatchCacheForURIWithNodeSelector(modelUri, isvcNodeGroup, isvcNodeGroupExists, nodeSelector, availableNodeGroups, models, nsModels); match != nil {
 		applyBaseLocalModelCache(llmSvc, match)
 	} else {
 		clearBaseLocalModelMetadata(llmSvc)
 	}
 
-	setLoRALocalModelMetadata(llmSvc, models, nsModels, isvcNodeGroup, isvcNodeGroupExists)
+	setLoRALocalModelMetadata(llmSvc, models, nsModels, isvcNodeGroup, isvcNodeGroupExists, nodeSelector, availableNodeGroups)
 }
 
 func applyBaseLocalModelCache(llmSvc *v1alpha2.LLMInferenceService, match *localmodelcache.CacheEntry) {
@@ -213,6 +226,8 @@ func setLoRALocalModelMetadata(
 	nsModels *v1alpha1.LocalModelNamespaceCacheList,
 	nodeGroup string,
 	nodeGroupExists bool,
+	nodeSelector map[string]string,
+	nodeGroups *v1alpha1.LocalModelNodeGroupList,
 ) {
 	if llmSvc.Spec.Model.LoRA == nil || len(llmSvc.Spec.Model.LoRA.Adapters) == 0 {
 		clearLoRALocalModelMetadata(llmSvc)
@@ -225,7 +240,7 @@ func setLoRALocalModelMetadata(
 			continue
 		}
 		adapterURI := adapter.URI.String()
-		if match := localmodelcache.MatchCacheForURI(adapterURI, nodeGroup, nodeGroupExists, models, nsModels); match != nil {
+		if match := localmodelcache.MatchCacheForURIWithNodeSelector(adapterURI, nodeGroup, nodeGroupExists, nodeSelector, nodeGroups, models, nsModels); match != nil {
 			// json:"-" omits sourceUri/PVC from the annotation; reconcile-time Get derives them.
 			entries[*adapter.Name] = *match
 			defaulterLogger.Info("LocalModelCache found for LoRA adapter", "adapter", *adapter.Name,
