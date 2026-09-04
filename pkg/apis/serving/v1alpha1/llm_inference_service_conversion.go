@@ -415,6 +415,10 @@ func convertWorkloadSpecToV1Alpha2(src *WorkloadSpec) v1alpha2.WorkloadSpec {
 		dst.Scaling = convertScalingSpecToV1Alpha2(src.Scaling)
 	}
 
+	if src.KVCacheOffloading != nil {
+		dst.KVCacheOffloading = convertKVCacheOffloadingToV1Alpha2(src.KVCacheOffloading)
+	}
+
 	if src.RolloutStrategy != nil {
 		dst.RolloutStrategy = &v1alpha2.RolloutStrategy{
 			MaxUnavailable: src.RolloutStrategy.MaxUnavailable,
@@ -449,6 +453,10 @@ func convertWorkloadSpecFromV1Alpha2(src *v1alpha2.WorkloadSpec) WorkloadSpec {
 		dst.Scaling = convertScalingSpecFromV1Alpha2(src.Scaling)
 	}
 
+	if src.KVCacheOffloading != nil {
+		dst.KVCacheOffloading = convertKVCacheOffloadingFromV1Alpha2(src.KVCacheOffloading)
+	}
+
 	if src.RolloutStrategy != nil {
 		dst.RolloutStrategy = &RolloutStrategy{
 			MaxUnavailable: src.RolloutStrategy.MaxUnavailable,
@@ -456,6 +464,76 @@ func convertWorkloadSpecFromV1Alpha2(src *v1alpha2.WorkloadSpec) WorkloadSpec {
 		}
 	}
 
+	return dst
+}
+
+func convertKVCacheOffloadingToV1Alpha2(src *KVCacheOffloadingSpec) *v1alpha2.KVCacheOffloadingSpec {
+	dst := &v1alpha2.KVCacheOffloadingSpec{
+		CPU:            src.CPU,
+		EvictionPolicy: src.EvictionPolicy,
+	}
+	for _, s := range src.Secondary {
+		dst.Secondary = append(dst.Secondary, convertSecondaryTierToV1Alpha2(&s))
+	}
+	return dst
+}
+
+func convertKVCacheOffloadingFromV1Alpha2(src *v1alpha2.KVCacheOffloadingSpec) *KVCacheOffloadingSpec {
+	dst := &KVCacheOffloadingSpec{
+		CPU:            src.CPU,
+		EvictionPolicy: src.EvictionPolicy,
+	}
+	for _, s := range src.Secondary {
+		dst.Secondary = append(dst.Secondary, convertSecondaryTierFromV1Alpha2(&s))
+	}
+	return dst
+}
+
+func convertSecondaryTierToV1Alpha2(src *SecondaryTierSpec) v1alpha2.SecondaryTierSpec {
+	dst := v1alpha2.SecondaryTierSpec{}
+	if src.FileSystem != nil {
+		dst.FileSystem = &v1alpha2.FileSystemTierSpec{}
+		if src.FileSystem.EmptyDir != nil {
+			dst.FileSystem.EmptyDir = &v1alpha2.EmptyDirTierSpec{
+				Size: src.FileSystem.EmptyDir.Size,
+			}
+		}
+		if src.FileSystem.PVC != nil {
+			dst.FileSystem.PVC = &v1alpha2.PVCTierSpec{
+				Spec: src.FileSystem.PVC.Spec,
+			}
+			if src.FileSystem.PVC.Ref != nil {
+				dst.FileSystem.PVC.Ref = &v1alpha2.PVCRefTierSpec{
+					Name: src.FileSystem.PVC.Ref.Name,
+					Path: src.FileSystem.PVC.Ref.Path,
+				}
+			}
+		}
+	}
+	return dst
+}
+
+func convertSecondaryTierFromV1Alpha2(src *v1alpha2.SecondaryTierSpec) SecondaryTierSpec {
+	dst := SecondaryTierSpec{}
+	if src.FileSystem != nil {
+		dst.FileSystem = &FileSystemTierSpec{}
+		if src.FileSystem.EmptyDir != nil {
+			dst.FileSystem.EmptyDir = &EmptyDirTierSpec{
+				Size: src.FileSystem.EmptyDir.Size,
+			}
+		}
+		if src.FileSystem.PVC != nil {
+			dst.FileSystem.PVC = &PVCTierSpec{
+				Spec: src.FileSystem.PVC.Spec,
+			}
+			if src.FileSystem.PVC.Ref != nil {
+				dst.FileSystem.PVC.Ref = &PVCRefTierSpec{
+					Name: src.FileSystem.PVC.Ref.Name,
+					Path: src.FileSystem.PVC.Ref.Path,
+				}
+			}
+		}
+	}
 	return dst
 }
 
