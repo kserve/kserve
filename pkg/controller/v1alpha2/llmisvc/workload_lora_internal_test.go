@@ -305,6 +305,70 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_NamespaceScoped(t *testing.T) {
 	assert.True(t, strings.HasPrefix(rewritten[0].uri, "pvc://ns-adapter-cache-gpu2/models/"))
 }
 
+func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCReady(t *testing.T) {
+	t.Parallel()
+
+	adapters := []resolvedLoRAAdapter{
+		{name: "my-adapter", uri: "hf://org/adapter", scheme: constants.HfURIPrefix},
+	}
+	ref := "shared-pvc"
+	nsCache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "ns-adapter-cache", Namespace: "default", Generation: 1},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "hf://org/adapter",
+			ModelSize:      resource.MustParse("1Gi"),
+			PVCRef:         &ref,
+		},
+	}
+	nsCache.Status.MarkReady(1)
+	c := fake.NewClientBuilder().WithScheme(newLoRARewriteScheme(t)).WithObjects(nsCache).Build()
+
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"ns-adapter-cache","namespace":"default"}}`,
+			},
+		},
+	}
+
+	rewritten, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters)
+	require.NoError(t, err)
+	assert.Equal(t, constants.PvcURIPrefix, rewritten[0].scheme)
+	assert.True(t, strings.HasPrefix(rewritten[0].uri, "pvc://shared-pvc/models/"))
+}
+
+func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCNotReady(t *testing.T) {
+	t.Parallel()
+
+	adapters := []resolvedLoRAAdapter{
+		{name: "my-adapter", uri: "hf://org/adapter", scheme: constants.HfURIPrefix},
+	}
+	ref := "shared-pvc"
+	nsCache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "ns-adapter-cache", Namespace: "default", Generation: 1},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "hf://org/adapter",
+			ModelSize:      resource.MustParse("1Gi"),
+			PVCRef:         &ref,
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(newLoRARewriteScheme(t)).WithObjects(nsCache).Build()
+
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"ns-adapter-cache","namespace":"default"}}`,
+			},
+		},
+	}
+
+	_, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "is not ready")
+}
+
 func TestRewriteLoRAAdaptersFromLocalModelCache_MissingCache(t *testing.T) {
 	t.Parallel()
 

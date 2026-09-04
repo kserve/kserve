@@ -290,6 +290,113 @@ func TestValidateUpdate_LocalModelNamespaceCacheDeletionBypass(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 }
 
+func makeTestSharedPVCCache(pvcRef string) v1alpha1.LocalModelNamespaceCache {
+	return v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "iris",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			ModelSize:      resource.MustParse("1Gi"),
+			SourceModelUri: storageURI,
+			PVCRef:         &pvcRef,
+		},
+	}
+}
+
+func TestValidateStorageMode(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	pvcRef := "shared-pvc"
+	empty := ""
+	bad := "Bad_Name"
+
+	cases := []struct {
+		name    string
+		mutate  func(*v1alpha1.LocalModelNamespaceCache)
+		wantErr string
+	}{
+		{
+			name:    "neither mode",
+			mutate:  func(c *v1alpha1.LocalModelNamespaceCache) { c.Spec.NodeGroups = nil; c.Spec.PVCRef = nil },
+			wantErr: "one of nodeGroups or pvcRef must be set",
+		},
+		{
+			name: "both modes",
+			mutate: func(c *v1alpha1.LocalModelNamespaceCache) {
+				c.Spec.NodeGroups = []string{"gpu1"}
+				c.Spec.PVCRef = &pvcRef
+			},
+			wantErr: "mutually exclusive",
+		},
+		{
+			name:   "node groups only",
+			mutate: func(c *v1alpha1.LocalModelNamespaceCache) { c.Spec.NodeGroups = []string{"gpu1"}; c.Spec.PVCRef = nil },
+		},
+		{
+			name:   "pvcRef only",
+			mutate: func(c *v1alpha1.LocalModelNamespaceCache) { c.Spec.NodeGroups = nil; c.Spec.PVCRef = &pvcRef },
+		},
+		{
+			name:    "empty pvcRef",
+			mutate:  func(c *v1alpha1.LocalModelNamespaceCache) { c.Spec.NodeGroups = nil; c.Spec.PVCRef = &empty },
+			wantErr: "must not be empty",
+		},
+		{
+			name:    "invalid pvcRef name",
+			mutate:  func(c *v1alpha1.LocalModelNamespaceCache) { c.Spec.NodeGroups = nil; c.Spec.PVCRef = &bad },
+			wantErr: "not a valid PersistentVolumeClaim name",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cache := makeTestLocalModelNamespaceCache()
+			tc.mutate(&cache)
+			err := validateStorageMode(&cache)
+			if tc.wantErr == "" {
+				g.Expect(err).ToNot(gomega.HaveOccurred())
+			} else {
+				g.Expect(err).To(gomega.HaveOccurred())
+				g.Expect(err.Error()).To(gomega.ContainSubstring(tc.wantErr))
+			}
+		})
+	}
+}
+
+func TestValidatePVCRefImmutable(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	oldCache := makeTestSharedPVCCache("pvc-a")
+	newCache := makeTestSharedPVCCache("pvc-b")
+	err := validatePVCRefImmutable(&oldCache, &newCache)
+	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("pvcRef is immutable")))
+
+	same := makeTestSharedPVCCache("pvc-a")
+	g.Expect(validatePVCRefImmutable(&oldCache, &same)).ToNot(gomega.HaveOccurred())
+}
+
+func TestValidateCreate_SharedPVCDestinationConflict(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	s := runtime.NewScheme()
+	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
+
+	existing := makeTestSharedPVCCache("shared-pvc")
+	existing.Name = "other-cache"
+	fakeClient := fake.NewClientBuilder().WithObjects(&existing).WithScheme(s).Build()
+	validator := LocalModelNamespaceCacheValidator{Client: fakeClient}
+
+	// Same tuple (same pvc, same source URI => same storageKey) => conflict.
+	conflict := makeTestSharedPVCCache("shared-pvc")
+	warnings, err := validator.ValidateCreate(t.Context(), &conflict)
+	g.Expect(warnings).To(gomega.BeNil())
+	g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring("already holds")))
+
+	// Different source URI on same PVC => different storage key => allowed.
+	differentModel := makeTestSharedPVCCache("shared-pvc")
+	differentModel.Spec.SourceModelUri = "gs://testbucket/other-model"
+	_, err = validator.ValidateCreate(t.Context(), &differentModel)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+}
+
 func TestValidateUpdate_LocalModelNamespaceCacheInvalidObjectType(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	s := runtime.NewScheme()

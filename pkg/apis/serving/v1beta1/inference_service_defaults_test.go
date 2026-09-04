@@ -1766,3 +1766,52 @@ func TestDefaultInferenceServiceWithLocalModelNamespaceCache(t *testing.T) {
 	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "test-ns-cache"))
 	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelNamespaceLabel, "default"))
 }
+
+func makeSharedPVCNSCache(pvcRef string, ready bool) *v1alpha1.LocalModelNamespaceCacheList {
+	ref := pvcRef
+	cache := v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-ns-cache", Namespace: "default", Generation: 1},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "gs://testbucket/testmodel",
+			ModelSize:      resource.MustParse("1Gi"),
+			PVCRef:         &ref,
+		},
+	}
+	if ready {
+		cache.Status.MarkReady(1)
+	}
+	return &v1alpha1.LocalModelNamespaceCacheList{Items: []v1alpha1.LocalModelNamespaceCache{cache}}
+}
+
+func makeSharedPVCTestISVC() InferenceService {
+	return InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-isvc", Namespace: "default"},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				Model: &ModelSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://testbucket/testmodel"),
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestSetLocalModelLabel_SharedPVCReady(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeSharedPVCTestISVC()
+	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache("shared-pvc", true))
+
+	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "shared-ns-cache"))
+	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelNamespaceLabel, "default"))
+	g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "shared-pvc"))
+}
+
+func TestSetLocalModelLabel_SharedPVCNotReadySkipped(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeSharedPVCTestISVC()
+	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache("shared-pvc", false))
+
+	g.Expect(isvc.Labels).ToNot(gomega.HaveKey(constants.LocalModelLabel))
+}
