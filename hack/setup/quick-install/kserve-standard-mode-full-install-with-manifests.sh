@@ -55019,6 +55019,19 @@ metadata:
   labels:
     app.kubernetes.io/component: kserve
     app.kubernetes.io/name: kserve
+  name: kserve-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: kserve
+    app.kubernetes.io/name: kserve
   name: kserve-proxy-role
 rules:
 - apiGroups:

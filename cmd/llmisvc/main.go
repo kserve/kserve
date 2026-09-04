@@ -47,7 +47,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
-	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -55,6 +54,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+	kservemetrics "github.com/kserve/kserve/pkg/metrics"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
 	kservetls "github.com/kserve/kserve/pkg/tls"
 	llmisvcwebhook "github.com/kserve/kserve/pkg/webhook/admission/llminferenceservice"
@@ -85,6 +85,7 @@ type Options struct {
 	enableHTTP2           bool
 	probeAddr             string
 	metricsSecure         bool
+	metricsCertPath       string
 	migrationTimeout      time.Duration
 	migrationPollInterval time.Duration
 	tlsMinVersion         string
@@ -114,7 +115,8 @@ func GetOptions() Options {
 		"Enable leader election for kserve controller manager. "+
 			"Enabling this will ensure there is only one active kserve controller manager.")
 	flag.StringVar(&opts.probeAddr, "health-probe-addr", opts.probeAddr, "The address the probe endpoint binds to.")
-	flag.BoolVar(&opts.metricsSecure, "metrics-secure", opts.metricsSecure, "Whether to serve metric via HTTPS.")
+	flag.BoolVar(&opts.metricsSecure, "metrics-secure", opts.metricsSecure, "Serve metrics over HTTPS with Kubernetes authentication and authorization.")
+	flag.StringVar(&opts.metricsCertPath, "metrics-cert-path", opts.metricsCertPath, "Directory containing tls.crt and tls.key for the metrics server. If empty, self-signed certificates are generated.")
 	flag.BoolVar(&opts.enableHTTP2, "enable-http2", false, "Deprecated: CVE-2023-44487 is fixed in Go 1.21.3+. Use --tls-min-version and --tls-cipher-suites instead.")
 	flag.StringVar(&opts.tlsMinVersion, "tls-min-version", opts.tlsMinVersion, "Minimum TLS version (VersionTLS12, VersionTLS13). Defaults to VersionTLS12.")
 	flag.StringVar(&opts.tlsCipherSuites, "tls-cipher-suites", opts.tlsCipherSuites, "Comma-separated list of TLS cipher suites (Go names). If empty, Go defaults are used.")
@@ -188,14 +190,15 @@ func main() {
 		}
 	}
 
-	metricsServerOptions := metricsserver.Options{
+	metricsServerOptions, err := kservemetrics.ConfigureServerOptions(metricsserver.Options{
 		BindAddress:   options.metricsAddr,
 		SecureServing: options.metricsSecure,
+		CertDir:       options.metricsCertPath,
 		TLSOpts:       tlsOpts,
-	}
-
-	if options.metricsSecure {
-		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
+	})
+	if err != nil {
+		setupLog.Error(err, "unable to configure metrics server")
+		os.Exit(1)
 	}
 
 	llmSvcCacheSelector, _ := metav1.LabelSelectorAsSelector(&llmisvc.ChildResourcesLabelSelector)

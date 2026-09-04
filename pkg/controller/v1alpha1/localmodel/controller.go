@@ -28,6 +28,8 @@ limitations under the License.
 // +kubebuilder:rbac:groups=core,resources=nodes/status,verbs=get;watch
 // +kubebuilder:rbac:groups=core,resources=persistentvolumes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=persistentvolumeclaims,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
+// +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 package localmodel
 
 import (
