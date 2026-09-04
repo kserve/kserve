@@ -114,22 +114,24 @@ type MultiNodeConfig struct {
 
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
-	EnableGatewayAPI             bool      `json:"enableGatewayApi,omitempty"`
-	KserveIngressGateway         string    `json:"kserveIngressGateway,omitempty"`
-	IngressGateway               string    `json:"ingressGateway,omitempty"`
-	KnativeLocalGatewayService   string    `json:"knativeLocalGatewayService,omitempty"`
-	LocalGateway                 string    `json:"localGateway,omitempty"`
-	LocalGatewayServiceName      string    `json:"localGatewayService,omitempty"`
-	IngressDomain                string    `json:"ingressDomain,omitempty"`
-	IngressClassName             *string   `json:"ingressClassName,omitempty"`
-	AdditionalIngressDomains     *[]string `json:"additionalIngressDomains,omitempty"`
-	DomainTemplate               string    `json:"domainTemplate,omitempty"`
-	UrlScheme                    string    `json:"urlScheme,omitempty"`
-	EnableLLMInferenceServiceTLS bool      `json:"enableLLMInferenceServiceTLS,omitempty"`
-	DisableIstioVirtualHost      bool      `json:"disableIstioVirtualHost,omitempty"`
-	PathTemplate                 string    `json:"pathTemplate,omitempty"`
-	DisableIngressCreation       bool      `json:"disableIngressCreation,omitempty"`
-	DisableHTTPRouteTimeout      bool      `json:"disableHTTPRouteTimeout,omitempty"`
+	EnableGatewayAPI                   bool      `json:"enableGatewayApi,omitempty"`
+	KserveIngressGateway               string    `json:"kserveIngressGateway,omitempty"`
+	IngressGateway                     string    `json:"ingressGateway,omitempty"`
+	KnativeLocalGatewayService         string    `json:"knativeLocalGatewayService,omitempty"`
+	LocalGateway                       string    `json:"localGateway,omitempty"`
+	LocalGatewayServiceName            string    `json:"localGatewayService,omitempty"`
+	IngressDomain                      string    `json:"ingressDomain,omitempty"`
+	IngressClassName                   *string   `json:"ingressClassName,omitempty"`
+	AdditionalIngressDomains           *[]string `json:"additionalIngressDomains,omitempty"`
+	DomainTemplate                     string    `json:"domainTemplate,omitempty"`
+	UrlScheme                          string    `json:"urlScheme,omitempty"`
+	EnableLLMInferenceServiceTLS       bool      `json:"enableLLMInferenceServiceTLS,omitempty"`
+	LLMInferenceServiceTLSMinVersion   string    `json:"llmInferenceServiceTLSMinVersion,omitempty"`
+	LLMInferenceServiceTLSCipherSuites string    `json:"llmInferenceServiceTLSCipherSuites,omitempty"`
+	DisableIstioVirtualHost            bool      `json:"disableIstioVirtualHost,omitempty"`
+	PathTemplate                       string    `json:"pathTemplate,omitempty"`
+	DisableIngressCreation             bool      `json:"disableIngressCreation,omitempty"`
+	DisableHTTPRouteTimeout            bool      `json:"disableHTTPRouteTimeout,omitempty"`
 
 	ModelBasedRoutingHeaderName string `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       string `json:"modelBasedRoutingMode,omitempty"`

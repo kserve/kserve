@@ -841,6 +841,8 @@ type templateGlobalConfig struct {
 	IngressGatewayName      string
 	IngressGatewayNamespace string
 	EnableTLS               bool
+	TLSMinVersion           string
+	TLSCipherSuites         string
 
 	// ModelBasedRoutingHeaderName is the HTTP header used to select a model in
 	// shared-gateway deployments (e.g. "X-Gateway-Model-Name"). Exposed here so
@@ -867,6 +869,8 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 			IngressGatewayName:          reconcilerConfig.IngressGatewayName,
 			IngressGatewayNamespace:     reconcilerConfig.IngressGatewayNamespace,
 			EnableTLS:                   reconcilerConfig.EnableTLS,
+			TLSMinVersion:               reconcilerConfig.TLSMinVersion,
+			TLSCipherSuites:             reconcilerConfig.TLSCipherSuites,
 			ModelBasedRoutingHeaderName: reconcilerConfig.ModelBasedRoutingHeaderName,
 		}
 		infPoolNamespacedName := types.NamespacedName{

@@ -3133,6 +3133,42 @@ spec:
               - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
 `
 
+const tlsProfileSchedulerFixture = `apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: test
+spec:
+  router:
+    scheduler:
+      template:
+        containers:
+          - name: main
+            args:
+              - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
+              - '{{ if .GlobalConfig.TLSMinVersion }}--tls-min-version={{ .GlobalConfig.TLSMinVersion }}{{- end }}'
+              - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites }}{{- end }}'
+`
+
+const tlsProfileVLLMFixture = `apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: test
+spec:
+  template:
+    containers:
+      - name: main
+        command:
+          - /bin/bash
+          - "-c"
+          - |-
+            exec vllm serve /mnt/models \
+              {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+              {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+              $@
+          - "--"
+`
+
 func TestReplaceVariables_TLSConditional(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -3242,6 +3278,130 @@ spec:
 				if args[i] != want {
 					t.Errorf("arg[%d] = %q, want %q", i, args[i], want)
 				}
+			}
+		})
+	}
+}
+
+func TestReplaceVariables_TLSProfileScheduler(t *testing.T) {
+	tests := []struct {
+		name            string
+		tlsMinVersion   string
+		tlsCipherSuites string
+		enableTLS       bool
+		wantArgs        []string
+	}{
+		{
+			name:            "TLS profile fields populated",
+			enableTLS:       true,
+			tlsMinVersion:   "VersionTLS12",
+			tlsCipherSuites: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+			wantArgs: []string{
+				"--secure-serving=true",
+				"--cert-path=/var/run/kserve/tls",
+				"--tls-min-version=VersionTLS12",
+				"--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+			},
+		},
+		{
+			name:      "TLS profile fields empty - flags omitted",
+			enableTLS: true,
+			wantArgs: []string{
+				"--secure-serving=true",
+				"--cert-path=/var/run/kserve/tls",
+				"",
+				"",
+			},
+		},
+		{
+			name:            "TLS disabled - profile flags still render independently",
+			enableTLS:       false,
+			tlsMinVersion:   "VersionTLS13",
+			tlsCipherSuites: "TLS_AES_128_GCM_SHA256",
+			wantArgs: []string{
+				"",
+				"",
+				"--tls-min-version=VersionTLS13",
+				"--tls-cipher-suites=TLS_AES_128_GCM_SHA256",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			preset := &v1alpha2.LLMInferenceServiceConfig{}
+			if err := yaml.Unmarshal([]byte(tlsProfileSchedulerFixture), preset); err != nil {
+				t.Fatalf("failed to unmarshal fixture: %v", err)
+			}
+
+			cfg := &llmisvc.Config{
+				EnableTLS:       tt.enableTLS,
+				TLSMinVersion:   tt.tlsMinVersion,
+				TLSCipherSuites: tt.tlsCipherSuites,
+			}
+
+			got, err := llmisvc.ReplaceVariables(&v1alpha2.LLMInferenceService{}, preset, cfg)
+			if err != nil {
+				t.Fatalf("ReplaceVariables() error = %v", err)
+			}
+
+			args := got.Spec.Router.Scheduler.Template.Containers[0].Args
+			if len(args) != len(tt.wantArgs) {
+				t.Fatalf("got %d args, want %d: %q", len(args), len(tt.wantArgs), args)
+			}
+			for i, want := range tt.wantArgs {
+				if args[i] != want {
+					t.Errorf("arg[%d] = %q, want %q", i, args[i], want)
+				}
+			}
+		})
+	}
+}
+
+func TestReplaceVariables_TLSProfileVLLM(t *testing.T) {
+	tests := []struct {
+		name            string
+		tlsCipherSuites string
+		enableTLS       bool
+		wantContains    string
+		wantNotContains string
+	}{
+		{
+			name:            "cipher suites rendered in vllm command",
+			enableTLS:       true,
+			tlsCipherSuites: "ECDHE+AESGCM:ECDHE+CHACHA20",
+			wantContains:    "--ssl-ciphers ECDHE+AESGCM:ECDHE+CHACHA20",
+		},
+		{
+			name:            "empty cipher suites - flag omitted",
+			enableTLS:       true,
+			wantNotContains: "--ssl-ciphers",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			preset := &v1alpha2.LLMInferenceServiceConfig{}
+			if err := yaml.Unmarshal([]byte(tlsProfileVLLMFixture), preset); err != nil {
+				t.Fatalf("failed to unmarshal fixture: %v", err)
+			}
+
+			cfg := &llmisvc.Config{
+				EnableTLS:       tt.enableTLS,
+				TLSCipherSuites: tt.tlsCipherSuites,
+			}
+
+			got, err := llmisvc.ReplaceVariables(&v1alpha2.LLMInferenceService{}, preset, cfg)
+			if err != nil {
+				t.Fatalf("ReplaceVariables() error = %v", err)
+			}
+
+			cmd := got.Spec.Template.Containers[0].Command[2]
+			if tt.wantContains != "" && !strings.Contains(cmd, tt.wantContains) {
+				t.Errorf("command should contain %q, got:\n%s", tt.wantContains, cmd)
+			}
+			if tt.wantNotContains != "" && strings.Contains(cmd, tt.wantNotContains) {
+				t.Errorf("command should not contain %q, got:\n%s", tt.wantNotContains, cmd)
 			}
 		})
 	}
