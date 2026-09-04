@@ -40,6 +40,7 @@ import (
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -844,6 +845,65 @@ func resolvedGatewayKeys(resolved []ResolvedGateway) []types.NamespacedName {
 		keys = append(keys, types.NamespacedName{Name: string(rg.ParentRef.Name), Namespace: ns})
 	}
 	return keys
+}
+
+// resolveSpecRefGateways resolves the Gateways named in spec.router.gateway.refs into
+// the same ResolvedGateway shape that DiscoverGateways produces for HTTPRoute parents.
+// The ref is turned into a synthetic ParentReference (carrying SectionName when the user
+// pinned a listener) so that spec-referenced gateways are indistinguishable from
+// route-derived ones to every downstream consumer: readiness evaluation, InferencePool
+// parent matching, and observed status.
+//
+// Gateways that no longer exist are skipped rather than failing resolution -
+// validateRouterReferences already reports missing refs via the RefsInvalid condition,
+// and failing here would mask that clearer message. The GatewayClass is best-effort for
+// the same reason: it is informational, so a missing class must not block readiness.
+func (r *LLMISVCReconciler) resolveSpecRefGateways(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) ([]ResolvedGateway, error) {
+	if llmSvc.Spec.Router == nil || !llmSvc.Spec.Router.Gateway.HasRefs() {
+		return nil, nil
+	}
+
+	logger := log.FromContext(ctx)
+	resolved := make([]ResolvedGateway, 0, len(llmSvc.Spec.Router.Gateway.Refs))
+
+	for _, ref := range llmSvc.Spec.Router.Gateway.Refs {
+		ns := string(ref.Namespace)
+		if ns == "" {
+			ns = llmSvc.GetNamespace()
+		}
+
+		gateway := &gwapiv1.Gateway{}
+		if err := r.Get(ctx, types.NamespacedName{Namespace: ns, Name: string(ref.Name)}, gateway); err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.V(2).Info("Referenced Gateway not found, skipping", "gateway", ns+"/"+string(ref.Name))
+				continue
+			}
+			return nil, fmt.Errorf("failed to get Gateway %s/%s: %w", ns, string(ref.Name), err)
+		}
+
+		var gatewayClass *gwapiv1.GatewayClass
+		gc := &gwapiv1.GatewayClass{}
+		if err := r.Get(ctx, types.NamespacedName{Name: string(gateway.Spec.GatewayClassName)}, gc); err == nil {
+			gatewayClass = gc
+		} else if !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
+			return nil, fmt.Errorf("failed to get GatewayClass %q for gateway %s/%s: %w",
+				string(gateway.Spec.GatewayClassName), ns, gateway.Name, err)
+		}
+
+		resolved = append(resolved, ResolvedGateway{
+			Gateway:      gateway,
+			GatewayClass: gatewayClass,
+			ParentRef: gwapiv1.ParentReference{
+				Group:       ptr.To(gwapiv1.Group(gwapiv1.GroupName)),
+				Kind:        ptr.To(gwapiv1.Kind("Gateway")),
+				Name:        ref.Name,
+				Namespace:   ptr.To(gwapiv1.Namespace(ns)),
+				SectionName: ref.SectionName,
+			},
+		})
+	}
+
+	return resolved, nil
 }
 
 func filterRelevantV1Parents(parents []igwapi.ParentStatus, gateways []types.NamespacedName, defaultNS string) []igwapi.ParentStatus {
