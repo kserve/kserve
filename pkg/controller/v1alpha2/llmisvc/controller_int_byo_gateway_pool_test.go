@@ -113,3 +113,89 @@ func acceptPoolFromGateway(ctx context.Context, c client.Client, poolKey client.
 		g.Expect(c.Status().Update(ctx, pool)).To(Succeed())
 	}).WithContext(ctx).Should(Succeed())
 }
+
+var _ = Describe("LLMInferenceService Controller", func() {
+	Context("BYO gateway readiness and observed topology", func() {
+		// Regression: with gateway.refs and no managed route, gateway readiness was
+		// evaluated against the route-resolved gateway set, which is empty in this
+		// shape - so an unprogrammed gateway was reported ready having been evaluated
+		// against nothing.
+		It("should not mark GatewaysReady when the referenced gateway is not programmed", func(ctx SpecContext) {
+			svcName := "test-byo-gw-unprogrammed"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			gwName := "byo-gw-unprogrammed"
+			// Created but never programmed: no Accepted/Programmed conditions.
+			gw := Gateway(gwName,
+				InNamespace[*gwapiv1.Gateway](testNs.Name),
+				WithListener(gwapiv1.HTTPProtocolType),
+			)
+			Expect(envTest.Client.Create(ctx, gw)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithGatewayRefs(LLMGatewayRef(gwName, testNs.Name)),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.GatewaysReady), "False"),
+					"an unprogrammed referenced Gateway must not report ready")
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		// Regression: updateRoutingStatus nils status.router on the Route == nil path,
+		// so the gateway the service is actually attached to, and the pool/EPP refs,
+		// were never reported.
+		It("should report the referenced gateway and scheduler refs in status.router", func(ctx SpecContext) {
+			svcName := "test-byo-gw-observed"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			gwName := "byo-gw-observed"
+			gw := Gateway(gwName,
+				InNamespace[*gwapiv1.Gateway](testNs.Name),
+				WithListener(gwapiv1.HTTPProtocolType),
+			)
+			Expect(envTest.Client.Create(ctx, gw)).To(Succeed())
+			ensureGatewayReady(ctx, envTest.Client, gw)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithGatewayRefs(LLMGatewayRef(gwName, testNs.Name)),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+
+				g.Expect(current.Status.Router).ToNot(BeNil(),
+					"status.router must report topology even without a managed route")
+				g.Expect(current.Status.Router.Gateways).To(HaveLen(1))
+				g.Expect(string(current.Status.Router.Gateways[0].Name)).To(Equal(gwName))
+				g.Expect(current.Status.Router.Gateways[0].Namespace).ToNot(BeNil())
+				g.Expect(string(*current.Status.Router.Gateways[0].Namespace)).To(Equal(testNs.Name))
+				g.Expect(current.Status.Router.Gateways[0].HTTPRoutes).To(BeEmpty(),
+					"no KServe-managed HTTPRoute exists in this shape")
+
+				g.Expect(current.Status.Router.Scheduler).ToNot(BeNil())
+				g.Expect(current.Status.Router.Scheduler.InferencePool).ToNot(BeNil())
+				g.Expect(string(current.Status.Router.Scheduler.InferencePool.Name)).To(Equal(svcName + "-inference-pool"))
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+})
