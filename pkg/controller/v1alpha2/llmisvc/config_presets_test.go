@@ -19,6 +19,7 @@ package llmisvc_test
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -764,4 +765,227 @@ func loadConfig(t *testing.T, data []byte, filePath string) *v1alpha2.LLMInferen
 	}
 
 	return config
+}
+
+// TestDataParallelPresetsWithoutParallelism guards the data-parallel presets
+// against a nil .spec.parallelism. The controller only selects them when
+// parallelism is set, but nothing stops a user from listing one in baseRefs
+// directly, and a nil dereference in a template aborts the whole merge.
+func TestDataParallelPresetsWithoutParallelism(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+
+	files := []string{
+		"config-llm-worker-data-parallel.yaml",
+		"config-llm-decode-worker-data-parallel.yaml",
+		"config-llm-prefill-worker-data-parallel.yaml",
+	}
+
+	for _, file := range files {
+		t.Run(file, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Clean(filepath.Join(presetsDir, file)))
+			if err != nil {
+				t.Fatalf("read %s: %v", file, err)
+			}
+			config := loadConfig(t, data, file)
+
+			// given: neither .spec.parallelism nor .spec.prefill is set
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+				},
+			}
+
+			// when
+			got, err := llmisvc.ReplaceVariables(llmSvc, config, &llmisvc.Config{})
+			// then
+			if err != nil {
+				t.Fatalf("ReplaceVariables: %v", err)
+			}
+
+			var containers []corev1.Container
+			switch {
+			case got.Spec.Prefill != nil && got.Spec.Prefill.Template != nil:
+				containers = got.Spec.Prefill.Template.Containers
+			case got.Spec.Template != nil:
+				containers = got.Spec.Template.Containers
+			}
+			if len(containers) == 0 {
+				t.Fatal("expected at least one container")
+			}
+
+			cmd := strings.Join(containers[0].Command, " ")
+			for _, want := range []string{"--data-parallel-size 1", "--data-parallel-size-local 1", "--data-parallel-rpc-port 5555"} {
+				if !strings.Contains(cmd, want) {
+					t.Errorf("rendered command does not contain %q", want)
+				}
+			}
+			for _, unwanted := range []string{"--enable-expert-parallel", "--tensor-parallel-size"} {
+				if strings.Contains(cmd, unwanted) {
+					t.Errorf("rendered command should not contain %q", unwanted)
+				}
+			}
+		})
+	}
+}
+
+// TestPresetRenderingIsIndifferentToEmptyParallelism pins the invariant behind the
+// nil-safe parallelism guards: for every shipped preset, an unset parallelism block
+// must render exactly what an empty one renders.
+func TestPresetRenderingIsIndifferentToEmptyParallelism(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("read presets dir: %v", err)
+	}
+
+	// A prefill block only exists on disaggregated services, so cover both shapes:
+	// a preset that reads .Spec.Prefill.Parallelism is only exercised by the second.
+	shapes := map[string]func() *v1alpha2.LLMInferenceService{
+		"single-node": func() *v1alpha2.LLMInferenceService {
+			return &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+				},
+			}
+		},
+		"disaggregated": func() *v1alpha2.LLMInferenceService {
+			return &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model:   v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			}
+		},
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "config-llm-") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Clean(filepath.Join(presetsDir, entry.Name())))
+		if err != nil {
+			t.Fatalf("read %s: %v", entry.Name(), err)
+		}
+
+		for shapeName, newSvc := range shapes {
+			t.Run(entry.Name()+"/"+shapeName, func(t *testing.T) {
+				// given: the same service twice, once with parallelism absent and once
+				// with it present but empty
+				unset := newSvc()
+				empty := newSvc()
+				empty.Spec.Parallelism = &v1alpha2.ParallelismSpec{}
+				if empty.Spec.Prefill != nil {
+					empty.Spec.Prefill.Parallelism = &v1alpha2.ParallelismSpec{}
+				}
+
+				// when
+				fromUnset, err := llmisvc.ReplaceVariables(unset, loadConfig(t, data, entry.Name()), &llmisvc.Config{})
+				if err != nil {
+					t.Fatalf("ReplaceVariables with parallelism unset: %v", err)
+				}
+				fromEmpty, err := llmisvc.ReplaceVariables(empty, loadConfig(t, data, entry.Name()), &llmisvc.Config{})
+				if err != nil {
+					t.Fatalf("ReplaceVariables with empty parallelism: %v", err)
+				}
+
+				// then
+				if diff := cmp.Diff(fromEmpty, fromUnset); diff != "" {
+					t.Errorf("rendering differs between unset and empty parallelism (-empty +unset):\n%s", diff)
+				}
+			})
+		}
+	}
+}
+
+// TestPresetRenderingInvariants asserts the properties that keep rendering against the
+// merged spec equivalent to rendering against the service alone. Each one holds across
+// the shipped presets today; each would change the command of already-running workloads
+// if a future preset broke it, so they are checked here rather than left implicit.
+func TestPresetRenderingInvariants(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("read presets dir: %v", err)
+	}
+
+	// Matches a template action that reaches into a container command or args. Those
+	// fields still hold unrendered template text when the merged spec is handed to the
+	// renderer, so substituting one leaks "{{ ... }}" into a real command, or breaks the
+	// JSON re-parse on its unescaped quotes.
+	readsTemplateText := regexp.MustCompile(`{{[^}]*\.(Command|Args)\b`)
+
+	checked := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "config-llm-") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Clean(filepath.Join(presetsDir, entry.Name())))
+		if err != nil {
+			t.Fatalf("read %s: %v", entry.Name(), err)
+		}
+		config := loadConfig(t, data, entry.Name())
+		checked++
+
+		t.Run(entry.Name(), func(t *testing.T) {
+			if match := readsTemplateText.FindString(string(data)); match != "" {
+				t.Errorf("preset reads a field holding unrendered template text: %q", match)
+			}
+
+			// A preset supplying either of these would put a value into every service's
+			// command that the service never asked for.
+			for _, w := range []struct {
+				name string
+				spec *v1alpha2.WorkloadSpec
+			}{{"spec", &config.Spec.WorkloadSpec}, {"spec.prefill", config.Spec.Prefill}} {
+				if w.spec == nil {
+					continue
+				}
+				if w.spec.Parallelism != nil {
+					t.Errorf("%s.parallelism is set; rendering reads it from the merged spec", w.name)
+				}
+				if w.spec.KVCacheOffloading != nil {
+					t.Errorf("%s.kvCacheOffloading is set; rendering reads it from the merged spec", w.name)
+				}
+			}
+
+			// shutdownTimeout falls back to 60 when a service sets no grace period. A
+			// preset carrying anything else would change --shutdown-timeout for every
+			// service that relies on that fallback.
+			for path, pod := range podSpecs(config) {
+				if pod.TerminationGracePeriodSeconds == nil {
+					continue
+				}
+				if got := *pod.TerminationGracePeriodSeconds; got != 60 {
+					t.Errorf("%s.terminationGracePeriodSeconds is %d, not the 60 shutdownTimeout falls back to", path, got)
+				}
+			}
+		})
+	}
+
+	if checked == 0 {
+		t.Fatal("no presets checked")
+	}
+}
+
+func podSpecs(config *v1alpha2.LLMInferenceServiceConfig) map[string]*corev1.PodSpec {
+	out := map[string]*corev1.PodSpec{}
+	add := func(name string, pod *corev1.PodSpec) {
+		if pod != nil {
+			out[name] = pod
+		}
+	}
+	add("spec.template", config.Spec.Template)
+	add("spec.worker", config.Spec.Worker)
+	if p := config.Spec.Prefill; p != nil {
+		add("spec.prefill.template", p.Template)
+		add("spec.prefill.worker", p.Worker)
+	}
+	if r := config.Spec.Router; r != nil && r.Scheduler != nil {
+		add("spec.router.scheduler.template", r.Scheduler.Template)
+	}
+	return out
 }
