@@ -922,7 +922,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}
 			Expect(actualHPA.Spec).To(BeComparableTo(expectedHPA.Spec))
 		})
-		It("Should have httproute/service/deployment created", func() {
+		It("Should scale the deployment to zero when minReplicas is updated from one to zero", func() {
 			By("By creating a new InferenceService with AutoscalerClass None")
 			// Create configmap
 			configMap := createInferenceServiceConfigMap(configs)
@@ -946,6 +946,9 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				},
 				Spec: v1beta1.InferenceServiceSpec{
 					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: ptr.To(int32(1)),
+						},
 						Tensorflow: &v1beta1.TFServingSpec{
 							PredictorExtensionSpec: getCommonPredictorExtensionSpec(),
 						},
@@ -1337,7 +1340,7 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			Eventually(func() error { return k8sClient.Get(context.TODO(), predictorHPAKey, actualHPA) }, timeout).
 				Should(HaveOccurred())
 
-			// Replica should not be nil and it should be set to minReplicas if it was set.
+			// Replica should not be nil and it should be set to zero when minReplicas is updated.
 			updated_isvc := &v1beta1.InferenceService{}
 
 			Eventually(func() error {
@@ -1347,14 +1350,14 @@ var _ = Describe("v1beta1 inference service controller", func() {
 				updated_isvc.Labels = make(map[string]string)
 			}
 			updated_isvc.Spec.Predictor.ComponentExtensionSpec = v1beta1.ComponentExtensionSpec{
-				MinReplicas: ptr.To(int32(2)),
+				MinReplicas: ptr.To(int32(0)),
 			}
 			Expect(k8sClient.Update(context.TODO(), updated_isvc)).NotTo(HaveOccurred())
 
 			updatedDeployment_isvc_updated := &appsv1.Deployment{}
 			Eventually(func() bool {
 				if err := k8sClient.Get(context.TODO(), predictorDeploymentKey, updatedDeployment_isvc_updated); err == nil {
-					return updatedDeployment_isvc_updated.Spec.Replicas != nil && *updatedDeployment_isvc_updated.Spec.Replicas == 2
+					return updatedDeployment_isvc_updated.Spec.Replicas != nil && *updatedDeployment_isvc_updated.Spec.Replicas == 0
 				} else {
 					return false
 				}
