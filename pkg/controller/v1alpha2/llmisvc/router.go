@@ -375,6 +375,9 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 			// No HTTPRoutes are listed for these gateways: the attaching route is
 			// owned by the gateway implementation and is not a KServe concern.
 			llmSvc.Status.Router.Gateways = observedGatewaysFromResolved(specGateways)
+			// A routing group is defined on the route, so none can exist here. Clear it
+			// explicitly now that status.router survives this path.
+			llmSvc.Status.Router.Group = nil
 		} else {
 			llmSvc.Status.Router = nil
 		}
@@ -455,13 +458,12 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 		llmSvc.Status.Addresses = append(llmSvc.Status.Addresses, SourcedAddress(ctx, d, llmSvc))
 	}
 
-	// Gateways named in spec.router.gateway.refs are part of the service's declared
-	// routing topology even when no route parentRef resolved them.
-	specGateways, err := r.resolveSpecRefGateways(ctx, llmSvc)
-	if err != nil {
-		return nil, fmt.Errorf("failed to resolve referenced gateways: %w", err)
-	}
-	allResolved = mergeResolvedGateways(allResolved, specGateways)
+	// spec.router.gateway.refs is deliberately not merged in here. When a route exists it
+	// resolves its own gateways, and pool readiness requires every gateway in scope to
+	// have accepted the pool. A gateway declared in refs but not a parent of any route
+	// never has the pool attached, so including it would pin the service at
+	// WaitingForGateway for that gateway. The observed topology stays consistent with
+	// the readiness scope for the same reason.
 
 	// Deduplicate resolved gateways for downstream condition evaluation.
 	seen := make(map[string]struct{})

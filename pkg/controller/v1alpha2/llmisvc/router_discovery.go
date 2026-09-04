@@ -906,27 +906,6 @@ func (r *LLMISVCReconciler) resolveSpecRefGateways(ctx context.Context, llmSvc *
 	return resolved, nil
 }
 
-// mergeResolvedGateways unions two resolved-gateway sets, deduplicating by
-// namespace/name. Entries from the first set win, so route-derived gateways keep the
-// real parentRef that bound them.
-func mergeResolvedGateways(primary, additional []ResolvedGateway) []ResolvedGateway {
-	seen := make(map[types.NamespacedName]struct{}, len(primary))
-	for _, rg := range primary {
-		seen[types.NamespacedName{Name: rg.Gateway.Name, Namespace: rg.Gateway.Namespace}] = struct{}{}
-	}
-
-	merged := primary
-	for _, rg := range additional {
-		key := types.NamespacedName{Name: rg.Gateway.Name, Namespace: rg.Gateway.Namespace}
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		merged = append(merged, rg)
-	}
-	return merged
-}
-
 func filterRelevantV1Parents(parents []igwapi.ParentStatus, gateways []types.NamespacedName, defaultNS string) []igwapi.ParentStatus {
 	relevant := make([]igwapi.ParentStatus, 0, len(parents))
 	for _, parent := range parents {
