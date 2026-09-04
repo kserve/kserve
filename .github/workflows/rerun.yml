@@ -51,11 +51,16 @@ jobs:
 
           # Note: only covers pull_request runs. Workflows using pull_request_target
           # (e.g. pr-style-check) are excluded - those validate PR metadata, not code.
-          RUNS=$(gh api --paginate "repos/${GH_REPO}/actions/runs?head_sha=${HEAD_SHA}&event=pull_request&status=failure" \
-            --jq '.workflow_runs[].id')
+          # A cancelled workflow can leave failed or skipped dependent checks.
+          # Include those runs so a rerun can recover from cancelled prerequisites.
+          RUNS=$(gh api --paginate "repos/${GH_REPO}/actions/runs?head_sha=${HEAD_SHA}&event=pull_request&status=completed" \
+            --jq '.workflow_runs[]
+              | select(.conclusion == "failure" or .conclusion == "cancelled")
+              | [.id, .conclusion]
+              | @tsv')
 
           if [ -z "$RUNS" ]; then
-            echo "No failed workflow runs found for PR #${PR_NUMBER} (SHA: ${HEAD_SHA})"
+            echo "No failed or cancelled workflow runs found for PR #${PR_NUMBER} (SHA: ${HEAD_SHA})"
             exit 0
           fi
 
@@ -84,7 +89,8 @@ jobs:
           fi
 
           RERUN_COUNT=0
-          for RUN_ID in $RUNS; do
+          while IFS=$'\t' read -r RUN_ID RUN_CONCLUSION; do
+            [ -n "$RUN_ID" ] || continue
             if [ -n "${TARGET_WORKFLOW:-}" ]; then
               WORKFLOW_NAME=$(gh run view "$RUN_ID" --json name -q .name)
               if [ "$WORKFLOW_NAME" != "$TARGET_WORKFLOW" ]; then
@@ -92,9 +98,16 @@ jobs:
                 continue
               fi
             fi
-            rerun_workflow "$RUN_ID" "$MODE"
+            RERUN_MODE="$MODE"
+            if [ "$RUN_CONCLUSION" = "cancelled" ]; then
+              # --failed does not select cancelled jobs. Rerun the whole workflow
+              # so cancelled prerequisites and their dependents run again.
+              RERUN_MODE=""
+              echo "Run ${RUN_ID} was cancelled; rerunning all jobs..."
+            fi
+            rerun_workflow "$RUN_ID" "$RERUN_MODE"
             RERUN_COUNT=$((RERUN_COUNT + 1))
-          done
+          done <<< "$RUNS"
 
           if [ "$RERUN_COUNT" -eq 0 ] && [ -n "${TARGET_WORKFLOW:-}" ]; then
             echo "::error::No failed workflow matching '${TARGET_WORKFLOW}' found"
