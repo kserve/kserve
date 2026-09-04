@@ -23,8 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
-
-	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
 func TestResolvedGatewayKeys(t *testing.T) {
@@ -88,68 +86,55 @@ func TestResolvedGatewayKeys(t *testing.T) {
 	}
 }
 
-func TestPoolReadinessGatewayKeys(t *testing.T) {
-	llmSvcWithRefs := func(refs ...v1alpha2.GatewayObjectReference) *v1alpha2.LLMInferenceService {
-		return &v1alpha2.LLMInferenceService{
-			ObjectMeta: metav1.ObjectMeta{Namespace: "svc-ns"},
-			Spec: v1alpha2.LLMInferenceServiceSpec{
-				Router: &v1alpha2.RouterSpec{
-					Gateway: &v1alpha2.GatewaySpec{Refs: refs},
-				},
-			},
+func TestMergeResolvedGateways(t *testing.T) {
+	gw := func(ns, name string) ResolvedGateway {
+		return ResolvedGateway{
+			Gateway:   &gwapiv1.Gateway{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: ns}},
+			ParentRef: gwapiv1.ParentReference{Name: gwapiv1.ObjectName(name), Namespace: ptr.To(gwapiv1.Namespace(ns))},
 		}
 	}
 
 	tests := []struct {
-		name     string
-		llmSvc   *v1alpha2.LLMInferenceService
-		resolved []ResolvedGateway
-		expected []types.NamespacedName
+		name       string
+		primary    []ResolvedGateway
+		additional []ResolvedGateway
+		expected   []types.NamespacedName
 	}{
 		{
-			name:     "no router config and no resolved gateways",
-			llmSvc:   &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Namespace: "svc-ns"}},
-			resolved: nil,
-			expected: nil,
+			name:       "spec refs only, as in a route-less BYO deployment",
+			primary:    nil,
+			additional: []ResolvedGateway{gw("gw-ns", "byo-gw")},
+			expected:   []types.NamespacedName{{Name: "byo-gw", Namespace: "gw-ns"}},
 		},
 		{
-			name:     "spec refs only - BYO gateway without managed route",
-			llmSvc:   llmSvcWithRefs(v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "byo-gw", Namespace: "gw-ns"}}),
-			resolved: nil,
-			expected: []types.NamespacedName{{Name: "byo-gw", Namespace: "gw-ns"}},
-		},
-		{
-			name:     "spec ref namespace defaults to service namespace",
-			llmSvc:   llmSvcWithRefs(v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "byo-gw"}}),
-			resolved: nil,
-			expected: []types.NamespacedName{{Name: "byo-gw", Namespace: "svc-ns"}},
-		},
-		{
-			name:   "resolved gateways and spec refs are unioned",
-			llmSvc: llmSvcWithRefs(v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "byo-gw", Namespace: "gw-ns"}}),
-			resolved: []ResolvedGateway{{
-				Gateway:   &gwapiv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "route-gw-ns"}},
-				ParentRef: gwapiv1.ParentReference{Name: "route-gw"},
-			}},
+			name:       "route-derived and spec-derived are unioned",
+			primary:    []ResolvedGateway{gw("route-ns", "route-gw")},
+			additional: []ResolvedGateway{gw("gw-ns", "byo-gw")},
 			expected: []types.NamespacedName{
-				{Name: "route-gw", Namespace: "route-gw-ns"},
+				{Name: "route-gw", Namespace: "route-ns"},
 				{Name: "byo-gw", Namespace: "gw-ns"},
 			},
 		},
 		{
-			name:   "spec ref matching a resolved gateway is not duplicated",
-			llmSvc: llmSvcWithRefs(v1alpha2.GatewayObjectReference{UntypedObjectReference: v1alpha2.UntypedObjectReference{Name: "shared-gw", Namespace: "gw-ns"}}),
-			resolved: []ResolvedGateway{{
-				Gateway:   &gwapiv1.Gateway{ObjectMeta: metav1.ObjectMeta{Namespace: "gw-ns"}},
-				ParentRef: gwapiv1.ParentReference{Name: "shared-gw"},
-			}},
-			expected: []types.NamespacedName{{Name: "shared-gw", Namespace: "gw-ns"}},
+			name:       "overlapping gateway is not duplicated",
+			primary:    []ResolvedGateway{gw("gw-ns", "shared-gw")},
+			additional: []ResolvedGateway{gw("gw-ns", "shared-gw")},
+			expected:   []types.NamespacedName{{Name: "shared-gw", Namespace: "gw-ns"}},
+		},
+		{
+			name:       "same name in a different namespace is a distinct gateway",
+			primary:    []ResolvedGateway{gw("ns-a", "gw")},
+			additional: []ResolvedGateway{gw("ns-b", "gw")},
+			expected: []types.NamespacedName{
+				{Name: "gw", Namespace: "ns-a"},
+				{Name: "gw", Namespace: "ns-b"},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := poolReadinessGatewayKeys(tt.llmSvc, tt.resolved)
+			got := resolvedGatewayKeys(mergeResolvedGateways(tt.primary, tt.additional))
 			if len(got) != len(tt.expected) {
 				t.Fatalf("got %d keys (%v), want %d (%v)", len(got), got, len(tt.expected), tt.expected)
 			}
@@ -159,5 +144,30 @@ func TestPoolReadinessGatewayKeys(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestMergeResolvedGatewaysKeepsRouteParentRef(t *testing.T) {
+	// The route-derived entry carries the parentRef that actually bound the gateway,
+	// including its sectionName, so it must win over a synthetic spec-ref entry.
+	routeDerived := ResolvedGateway{
+		Gateway: &gwapiv1.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "gw", Namespace: "ns"}},
+		ParentRef: gwapiv1.ParentReference{
+			Name:        "gw",
+			Namespace:   ptr.To(gwapiv1.Namespace("ns")),
+			SectionName: ptr.To(gwapiv1.SectionName("https")),
+		},
+	}
+	specDerived := ResolvedGateway{
+		Gateway:   &gwapiv1.Gateway{ObjectMeta: metav1.ObjectMeta{Name: "gw", Namespace: "ns"}},
+		ParentRef: gwapiv1.ParentReference{Name: "gw", Namespace: ptr.To(gwapiv1.Namespace("ns"))},
+	}
+
+	merged := mergeResolvedGateways([]ResolvedGateway{routeDerived}, []ResolvedGateway{specDerived})
+	if len(merged) != 1 {
+		t.Fatalf("got %d gateways, want 1", len(merged))
+	}
+	if merged[0].ParentRef.SectionName == nil || *merged[0].ParentRef.SectionName != "https" {
+		t.Errorf("route-derived parentRef was not preserved: %#v", merged[0].ParentRef)
 	}
 }

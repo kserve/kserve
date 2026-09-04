@@ -847,37 +847,84 @@ func resolvedGatewayKeys(resolved []ResolvedGateway) []types.NamespacedName {
 	return keys
 }
 
-// poolReadinessGatewayKeys returns the gateway identities that InferencePool status
-// parents are matched against when evaluating pool readiness: the union of gateways
-// resolved from kserve-managed HTTPRoutes and the gateways referenced directly in
-// spec.router.gateway.refs. Scoping to in-use gateways keeps stale parent entries from
-// previously-referenced gateways from blocking readiness; including the spec refs covers
-// bring-your-own-gateway deployments with no managed route, where an external controller
-// attaches the pool to the referenced gateway and no managed HTTPRoute exists to resolve
-// gateways from. Ref namespaces default to the service namespace, matching Gateway API
-// defaulting.
-func poolReadinessGatewayKeys(llmSvc *v1alpha2.LLMInferenceService, resolved []ResolvedGateway) []types.NamespacedName {
-	keys := resolvedGatewayKeys(resolved)
+// resolveSpecRefGateways resolves the Gateways named in spec.router.gateway.refs into
+// the same ResolvedGateway shape that DiscoverGateways produces for HTTPRoute parents.
+// The ref is turned into a synthetic ParentReference (carrying SectionName when the user
+// pinned a listener) so that spec-referenced gateways are indistinguishable from
+// route-derived ones to every downstream consumer: readiness evaluation, InferencePool
+// parent matching, and observed status.
+//
+// Gateways that no longer exist are skipped rather than failing resolution -
+// validateRouterReferences already reports missing refs via the RefsInvalid condition,
+// and failing here would mask that clearer message. The GatewayClass is best-effort for
+// the same reason: it is informational, so a missing class must not block readiness.
+func (r *LLMISVCReconciler) resolveSpecRefGateways(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) ([]ResolvedGateway, error) {
 	if llmSvc.Spec.Router == nil || !llmSvc.Spec.Router.Gateway.HasRefs() {
-		return keys
+		return nil, nil
 	}
 
-	seen := make(map[types.NamespacedName]struct{}, len(keys))
-	for _, key := range keys {
-		seen[key] = struct{}{}
-	}
+	logger := log.FromContext(ctx)
+	resolved := make([]ResolvedGateway, 0, len(llmSvc.Spec.Router.Gateway.Refs))
+
 	for _, ref := range llmSvc.Spec.Router.Gateway.Refs {
 		ns := string(ref.Namespace)
 		if ns == "" {
 			ns = llmSvc.GetNamespace()
 		}
-		key := types.NamespacedName{Name: string(ref.Name), Namespace: ns}
-		if _, ok := seen[key]; !ok {
-			seen[key] = struct{}{}
-			keys = append(keys, key)
+
+		gateway := &gwapiv1.Gateway{}
+		if err := r.Get(ctx, types.NamespacedName{Namespace: ns, Name: string(ref.Name)}, gateway); err != nil {
+			if apierrors.IsNotFound(err) {
+				logger.V(2).Info("Referenced Gateway not found, skipping", "gateway", ns+"/"+string(ref.Name))
+				continue
+			}
+			return nil, fmt.Errorf("failed to get Gateway %s/%s: %w", ns, string(ref.Name), err)
 		}
+
+		var gatewayClass *gwapiv1.GatewayClass
+		gc := &gwapiv1.GatewayClass{}
+		if err := r.Get(ctx, types.NamespacedName{Name: string(gateway.Spec.GatewayClassName)}, gc); err == nil {
+			gatewayClass = gc
+		} else if !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
+			return nil, fmt.Errorf("failed to get GatewayClass %q for gateway %s/%s: %w",
+				string(gateway.Spec.GatewayClassName), ns, gateway.Name, err)
+		}
+
+		resolved = append(resolved, ResolvedGateway{
+			Gateway:      gateway,
+			GatewayClass: gatewayClass,
+			ParentRef: gwapiv1.ParentReference{
+				Group:       ptr.To(gwapiv1.Group(gwapiv1.GroupName)),
+				Kind:        ptr.To(gwapiv1.Kind("Gateway")),
+				Name:        ref.Name,
+				Namespace:   ptr.To(gwapiv1.Namespace(ns)),
+				SectionName: ref.SectionName,
+			},
+		})
 	}
-	return keys
+
+	return resolved, nil
+}
+
+// mergeResolvedGateways unions two resolved-gateway sets, deduplicating by
+// namespace/name. Entries from the first set win, so route-derived gateways keep the
+// real parentRef that bound them.
+func mergeResolvedGateways(primary, additional []ResolvedGateway) []ResolvedGateway {
+	seen := make(map[types.NamespacedName]struct{}, len(primary))
+	for _, rg := range primary {
+		seen[types.NamespacedName{Name: rg.Gateway.Name, Namespace: rg.Gateway.Namespace}] = struct{}{}
+	}
+
+	merged := primary
+	for _, rg := range additional {
+		key := types.NamespacedName{Name: rg.Gateway.Name, Namespace: rg.Gateway.Namespace}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		merged = append(merged, rg)
+	}
+	return merged
 }
 
 func filterRelevantV1Parents(parents []igwapi.ParentStatus, gateways []types.NamespacedName, defaultNS string) []igwapi.ParentStatus {
