@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -2919,4 +2920,28 @@ func TestMigrateProducerParams(t *testing.T) {
 			tt.validate(g, result)
 		})
 	}
+}
+
+func TestExpectedSchedulerRoleIncludesLeaderElectionEvents(t *testing.T) {
+	g := NewWithT(t)
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-svc",
+			Namespace: "test-ns",
+			UID:       "uid-1",
+		},
+	}
+
+	role := (&LLMISVCReconciler{}).expectedSchedulerRole(llmSvc)
+
+	g.Expect(role.Rules).To(ContainElement(rbacv1.PolicyRule{
+		APIGroups: []string{""},
+		Resources: []string{"events"},
+		Verbs:     []string{"create", "patch"},
+	}))
+	g.Expect(role.Rules).To(ContainElement(rbacv1.PolicyRule{
+		APIGroups: []string{"coordination.k8s.io"},
+		Resources: []string{"leases"},
+		Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
+	}))
 }
