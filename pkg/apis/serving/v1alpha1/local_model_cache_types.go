@@ -67,6 +67,11 @@ type LocalModelCacheSpec struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope="Cluster"
+// +kubebuilder:printcolumn:name="Available",type="integer",JSONPath=".status.copies.available"
+// +kubebuilder:printcolumn:name="Total",type="integer",JSONPath=".status.copies.total"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="NodeGroups",type="string",JSONPath=".spec.nodeGroups",priority=1
+// +kubebuilder:printcolumn:name="ModelSize",type="string",JSONPath=".spec.modelSize",priority=1
 type LocalModelCache struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
