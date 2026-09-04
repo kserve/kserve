@@ -19,6 +19,7 @@ package security
 import (
 	"context"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -32,8 +33,9 @@ import (
 	"github.com/kserve/kserve/pkg/kernelcache/types"
 )
 
-// trustBundleTimeout bounds the one-time load of the CA bundle at construction.
-const trustBundleTimeout = 5 * time.Second
+// secretLoadTimeout bounds the one-time load of key/trust material (CA bundle or
+// signing secret) from the SecretSource at construction.
+const secretLoadTimeout = 5 * time.Second
 
 // certVerifier verifies a signature made with a cert-manager issued key by
 // checking the X.509 chain against a CA bundle plus a SAN identity. It does not
@@ -49,12 +51,21 @@ type certVerifier struct {
 // It fails fast on a missing or invalid trust bundle. The load is bounded by a
 // timeout derived from the caller's context.
 func newCertVerifier(ctx context.Context, cfg types.CertConfig, src SecretSource) (*certVerifier, error) {
+	// Verification needs both the trust anchor and the identity to match against;
+	// presence is enforced here (SecurityConfig.Validate only checks syntax).
+	if cfg.TrustBundle == "" {
+		return nil, errors.New("cert.trustBundle must be set")
+	}
+	if cfg.SubjectRegexp == "" {
+		return nil, errors.New("cert.subjectRegexp must be set")
+	}
+
 	// Anchor the operator's regexp so it must match the whole SAN, not just a
-	// substring (cosign matches identity regexps unanchored). The pattern itself
-	// was already validated by SecurityConfig.Validate.
+	// substring (cosign matches identity regexps unanchored). The pattern's
+	// syntax was already validated by SecurityConfig.Validate.
 	subjectPattern := "^(?:" + cfg.SubjectRegexp + ")$"
 
-	loadCtx, cancel := context.WithTimeout(ctx, trustBundleTimeout)
+	loadCtx, cancel := context.WithTimeout(ctx, secretLoadTimeout)
 	defer cancel()
 	caPEM, err := loadTrustBundle(loadCtx, src, cfg.TrustBundle, cfg.TrustBundleKey)
 	if err != nil {
@@ -65,6 +76,18 @@ func newCertVerifier(ctx context.Context, cfg types.CertConfig, src SecretSource
 		return nil, fmt.Errorf("trust bundle %q: no valid CA certificate found", cfg.TrustBundle)
 	}
 	return &certVerifier{caPool: pool, subjectPattern: subjectPattern}, nil
+}
+
+// requireDataKey returns a non-empty value for key in secret/configmap data,
+// or a clear error. An empty value is treated the same as a missing one so a
+// blank field does not slip through to a later, murkier parse failure.
+// Used by both signing and verification material loading.
+func requireDataKey(data map[string][]byte, key, ref string) ([]byte, error) {
+	v, ok := data[key]
+	if !ok || len(v) == 0 {
+		return nil, fmt.Errorf("key %q not present in %q", key, ref)
+	}
+	return v, nil
 }
 
 // loadTrustBundle reads the CA PEM under key from the referenced Secret or
