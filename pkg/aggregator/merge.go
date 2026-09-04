@@ -21,35 +21,68 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+
+	openai "github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/packages/pagination"
 )
 
-// openAIModelList is the OpenAI-compatible GET /v1/models response shape.
-type openAIModelList struct {
-	Object string        `json:"object"`
-	Data   []openAIModel `json:"data"`
+// aggregatedModel is an openai.Model plus the backend that contributed it.
+// openai.Model has no source field; MarshalJSON keeps the SDK's raw JSON and stamps source.
+type aggregatedModel struct {
+	openai.Model
+	Source string `json:"source,omitempty"`
 }
 
-type openAIModel struct {
-	ID      string `json:"id"`
-	Object  string `json:"object"`
-	Created int64  `json:"created,omitempty"`
-	OwnedBy string `json:"owned_by,omitempty"`
-	// Source identifies which LLMInferenceService contributed this model entry.
-	Source string `json:"source,omitempty"`
+func (m aggregatedModel) MarshalJSON() ([]byte, error) {
+	obj, err := modelJSONObject(m.Model)
+	if err != nil {
+		return nil, err
+	}
+	if object, ok := obj["object"]; !ok || object == "" {
+		obj["object"] = "model"
+	}
+	if m.Source != "" {
+		obj["source"] = m.Source
+	}
+	return json.Marshal(obj)
+}
+
+func modelJSONObject(m openai.Model) (map[string]any, error) {
+	if raw := m.RawJSON(); raw != "" {
+		var obj map[string]any
+		if err := json.Unmarshal([]byte(raw), &obj); err != nil {
+			return nil, err
+		}
+		if obj == nil {
+			obj = map[string]any{}
+		}
+		return obj, nil
+	}
+	obj := map[string]any{"id": m.ID}
+	if m.Object != "" {
+		obj["object"] = m.Object
+	}
+	if m.Created != 0 {
+		obj["created"] = m.Created
+	}
+	if m.OwnedBy != "" {
+		obj["owned_by"] = m.OwnedBy
+	}
+	return obj, nil
 }
 
 // MergeModels unions OpenAI model list entries across backends.
 // Partial failures are omitted; if every backend fails, returns 502.
 func MergeModels(results []BackendResult) ([]byte, int, error) {
 	seen := map[string]struct{}{}
-	out := openAIModelList{Object: "list", Data: []openAIModel{}}
+	out := pagination.Page[aggregatedModel]{Object: "list", Data: []aggregatedModel{}}
 	successes := 0
 
 	for _, r := range results {
 		if !r.OK() {
 			continue
 		}
-		var list openAIModelList
+		var list pagination.Page[openai.Model]
 		if err := json.Unmarshal(r.Body, &list); err != nil {
 			// HTTP 200 with a non-OpenAI body is not a usable /v1/models result.
 			continue
@@ -61,11 +94,7 @@ func MergeModels(results []BackendResult) ([]byte, int, error) {
 				continue
 			}
 			seen[key] = struct{}{}
-			if m.Object == "" {
-				m.Object = "model"
-			}
-			m.Source = r.Backend.ID()
-			out.Data = append(out.Data, m)
+			out.Data = append(out.Data, aggregatedModel{Model: m, Source: r.Backend.ID()})
 		}
 	}
 

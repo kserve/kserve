@@ -53,7 +53,12 @@ func TestAggregatorHandlerModels(t *testing.T) {
 	agg.Handler().ServeHTTP(rr, req)
 
 	assert.Equal(t, http.StatusOK, rr.Code)
-	var list openAIModelList
+	var list struct {
+		Data []struct {
+			ID     string `json:"id"`
+			Source string `json:"source"`
+		} `json:"data"`
+	}
 	require.NoError(t, json.Unmarshal(rr.Body.Bytes(), &list))
 	require.Len(t, list.Data, 2)
 }

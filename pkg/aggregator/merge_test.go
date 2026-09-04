@@ -48,12 +48,33 @@ func TestMergeModels(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, status)
 
-	var list openAIModelList
+	var list struct {
+		Data []struct {
+			ID     string `json:"id"`
+			Source string `json:"source"`
+		} `json:"data"`
+	}
 	require.NoError(t, json.Unmarshal(body, &list))
 	require.Len(t, list.Data, 2)
 	assert.Equal(t, "model-a", list.Data[0].ID)
 	assert.Equal(t, "ns/a", list.Data[0].Source)
 	assert.Equal(t, "model-b", list.Data[1].ID)
+}
+
+func TestMergeModelsPreservesBackendFields(t *testing.T) {
+	results := []BackendResult{
+		{
+			Backend:    Backend{Name: "a", Namespace: "ns"},
+			StatusCode: 200,
+			Body:       []byte(`{"object":"list","data":[{"id":"llama","object":"model","max_model_len":4096}]}`),
+		},
+	}
+	body, status, err := MergeModels(results)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, status)
+	assert.Contains(t, string(body), `"id":"llama"`)
+	assert.Contains(t, string(body), `"max_model_len":4096`)
+	assert.Contains(t, string(body), `"source":"ns/a"`)
 }
 
 func TestMergeModelsAllFailed(t *testing.T) {
