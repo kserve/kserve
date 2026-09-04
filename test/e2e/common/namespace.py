@@ -86,6 +86,7 @@ def create_namespace(core_v1: client.CoreV1Api, namespace: str) -> None:
         except client.rest.ApiException:
             pass
         time.sleep(0.5)
+    raise TimeoutError(f"Namespace {namespace} did not become Active within 30 seconds")
 
 
 def _copy_secret(core_v1: client.CoreV1Api, name: str, src: str, dst: str) -> None:
@@ -110,20 +111,27 @@ def _copy_secret(core_v1: client.CoreV1Api, name: str, src: str, dst: str) -> No
 
 
 def provision_secrets(core_v1: client.CoreV1Api, namespace: str) -> None:
-    deadline = time.monotonic() + 30
+    deadline = time.monotonic() + 60
+    service_account_ready = False
     while time.monotonic() < deadline:
         try:
             core_v1.read_namespaced_service_account("default", namespace)
+            service_account_ready = True
             break
         except client.rest.ApiException as e:
             if e.status != 404:
                 raise
         time.sleep(0.5)
 
+    if not service_account_ready:
+        raise TimeoutError(
+            f"Default service account in namespace {namespace} was not ready within 60 seconds"
+        )
+
     _copy_secret(core_v1, S3_CREDENTIALS_SECRET, SEED_NAMESPACE, namespace)
     _copy_secret(core_v1, STORAGE_CONFIG_SECRET, SEED_NAMESPACE, namespace)
 
-    for attempt in range(10):
+    for attempt in range(20):
         try:
             core_v1.patch_namespaced_service_account(
                 "default",
@@ -132,8 +140,8 @@ def provision_secrets(core_v1: client.CoreV1Api, namespace: str) -> None:
             )
             return
         except client.rest.ApiException as e:
-            if e.status == 404 and attempt < 9:
-                time.sleep(0.5)
+            if e.status == 404 and attempt < 19:
+                time.sleep(1)
                 continue
             raise
 
