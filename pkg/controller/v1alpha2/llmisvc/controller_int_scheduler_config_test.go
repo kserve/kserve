@@ -1082,7 +1082,7 @@ schedulingProfiles:
 	})
 
 	Context("Scheduler RBAC", func() {
-		It("should create scheduler role with leases permission for leader election", func(ctx SpecContext) {
+		It("should create scheduler role with leases and events permission for leader election", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-scheduler-rbac"
 			nsName := kmeta.ChildName(svcName, "-test")
@@ -1136,6 +1136,22 @@ schedulingProfiles:
 				}
 			}
 			Expect(hasLeasesPermission).To(BeTrue(), "Expected scheduler role to have leases permission for leader election")
+
+			// Verify core events permission exists (leader election records a Kubernetes Event)
+			hasEventsPermission := false
+			for _, rule := range expectedRole.Rules {
+				for _, apiGroup := range rule.APIGroups {
+					if apiGroup == "" {
+						for _, resource := range rule.Resources {
+							if resource == "events" {
+								hasEventsPermission = true
+								Expect(rule.Verbs).To(ContainElements("create", "patch"))
+							}
+						}
+					}
+				}
+			}
+			Expect(hasEventsPermission).To(BeTrue(), "Expected scheduler role to have events permission for leader election")
 
 			// Verify llm-d.ai API group permission exists for inferenceobjectives and inferencemodelrewrites
 			hasLLMDAIPermission := false
