@@ -1766,3 +1766,73 @@ func TestDefaultInferenceServiceWithLocalModelNamespaceCache(t *testing.T) {
 	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "test-ns-cache"))
 	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelNamespaceLabel, "default"))
 }
+
+func TestDefaultInferenceServiceTracing(t *testing.T) {
+	customEndpoint := "https://collector.example.com:4317"
+	customSampler := "always_on"
+	customSamplerArg := "1.0"
+	customExporter := "custom"
+
+	tests := map[string]struct {
+		tracing  *TracingSpec
+		expected *TracingSpec
+	}{
+		"omitted tracing remains disabled": {
+			tracing:  nil,
+			expected: nil,
+		},
+		"empty tracing receives defaults": {
+			tracing: &TracingSpec{},
+			expected: &TracingSpec{
+				ExporterEndpoint: proto.String(DefaultTracingExporterEndpoint),
+				Sampler:          proto.String(DefaultTracingSampler),
+				SamplerArg:       proto.String(DefaultTracingSamplerArg),
+				Exporter:         proto.String(DefaultTracingExporter),
+			},
+		},
+		"partial tracing preserves explicit values": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: &customEndpoint,
+				Sampler:          &customSampler,
+			},
+			expected: &TracingSpec{
+				ExporterEndpoint: &customEndpoint,
+				Sampler:          &customSampler,
+				SamplerArg:       proto.String(DefaultTracingSamplerArg),
+				Exporter:         proto.String(DefaultTracingExporter),
+			},
+		},
+		"fully configured tracing remains unchanged": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: &customEndpoint,
+				Sampler:          &customSampler,
+				SamplerArg:       &customSamplerArg,
+				Exporter:         &customExporter,
+			},
+			expected: &TracingSpec{
+				ExporterEndpoint: &customEndpoint,
+				Sampler:          &customSampler,
+				SamplerArg:       &customSamplerArg,
+				Exporter:         &customExporter,
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			isvc := InferenceService{
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{ModelFormat: ModelFormat{Name: "sklearn"}},
+					},
+					Tracing: tt.tracing,
+				},
+			}
+
+			isvc.DefaultInferenceService(nil, nil, nil, nil, nil)
+
+			g.Expect(isvc.Spec.Tracing).To(gomega.Equal(tt.expected))
+		})
+	}
+}

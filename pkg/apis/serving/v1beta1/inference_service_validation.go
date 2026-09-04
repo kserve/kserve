@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
 	"regexp"
 	"slices"
@@ -124,6 +125,10 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 		return allWarnings, err
 	}
 
+	if err := validateTracing(isvc.Spec.Tracing); err != nil {
+		return allWarnings, err
+	}
+
 	if err := validateInferenceServiceAutoscaler(isvc); err != nil {
 		return allWarnings, err
 	}
@@ -178,6 +183,40 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 	}
 
 	return allWarnings, nil
+}
+
+func validateTracing(tracing *TracingSpec) error {
+	if tracing == nil {
+		return nil
+	}
+
+	tracingPath := field.NewPath("spec", "tracing")
+	if tracing.Sampler != nil {
+		supportedSamplers := []string{
+			"always_on",
+			"always_off",
+			"traceidratio",
+			"parentbased_always_on",
+			"parentbased_always_off",
+			"parentbased_traceidratio",
+		}
+		if !slices.Contains(supportedSamplers, *tracing.Sampler) {
+			return field.NotSupported(tracingPath.Child("sampler"), *tracing.Sampler, supportedSamplers)
+		}
+	}
+
+	if tracing.ExporterEndpoint != nil {
+		endpoint, err := url.Parse(*tracing.ExporterEndpoint)
+		if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") {
+			return field.Invalid(
+				tracingPath.Child("exporterEndpoint"),
+				*tracing.ExporterEndpoint,
+				"must be an absolute HTTP or HTTPS URL with a host",
+			)
+		}
+	}
+
+	return nil
 }
 
 func validateCanarySpecs(isvc *InferenceService) error {

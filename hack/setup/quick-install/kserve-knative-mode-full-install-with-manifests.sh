@@ -47176,6 +47176,17 @@ spec:
                         type: string
                     type: object
                 type: object
+              tracing:
+                properties:
+                  exporter:
+                    type: string
+                  exporterEndpoint:
+                    type: string
+                  sampler:
+                    type: string
+                  samplerArg:
+                    type: string
+                type: object
               transformer:
                 properties:
                   activeDeadlineSeconds:
