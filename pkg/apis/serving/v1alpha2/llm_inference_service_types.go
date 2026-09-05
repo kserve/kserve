@@ -110,6 +110,13 @@ type LLMInferenceServiceSpec struct {
 	// +optional
 	Prefill *WorkloadSpec `json:"prefill,omitempty"`
 
+	// Encode configuration for disaggregated serving.
+	// When this section is included, the controller creates a separate deployment for encoding multi modal input into embeddings (encode)
+	// in addition to the main 'decode' deployment, inspired by the llm-d architecture.
+	// This allows for independent scaling and hardware allocation for encode, prefill and decode steps.
+	// +optional
+	Encode *WorkloadSpec `json:"encode,omitempty"`
+
 	// Tracing configuration for distributed tracing across all managed components.
 	// When present (even as `{}`), distributed tracing is enabled with defaults.
 	// When omitted, no tracing instrumentation is injected.
@@ -890,6 +897,11 @@ type WorkloadStatus struct {
 	// Nil when disaggregated serving is not configured.
 	// +optional
 	Prefill *ObservedWorkloadStatus `json:"prefill,omitempty"`
+
+	// Encode is the encode workload in encode-disaggregated serving mode.
+	// Nil when encode disaggregation is not configured.
+	// +optional
+	Encode *ObservedWorkloadStatus `json:"encode,omitempty"`
 
 	// Service is the Kubernetes Service fronting the primary inference workload.
 	// +optional

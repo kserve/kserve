@@ -86,6 +86,22 @@ const (
 	// Only present when autoscaling is configured for the prefill workload in
 	// P/D disaggregated serving topologies; cleared (unset) otherwise.
 	PrefillScalingReady apis.ConditionType = "PrefillScalingReady"
+
+	// EncodeWorkloadReady is True when the encode-phase workload is ready.
+	// Set by the workload reconciler. Only present for encode-disaggregated
+	// serving topologies (E/PD or E/P/D).
+	EncodeWorkloadReady apis.ConditionType = "EncodeWorkloadReady"
+
+	// EncodeWorkerWorkloadReady is True when the multi-node worker pods for
+	// the encode workload are ready. Set by the workload reconciler.
+	// Only present for multi-node encode-disaggregated serving topologies.
+	EncodeWorkerWorkloadReady apis.ConditionType = "EncodeWorkerWorkloadReady"
+
+	// EncodeScalingReady is True when the autoscaler for the encode workload
+	// is configured and operational. Set by the scaling reconciler.
+	// Only present when autoscaling is configured for the encode workload in
+	// encode-disaggregated serving topologies; cleared (unset) otherwise.
+	EncodeScalingReady apis.ConditionType = "EncodeScalingReady"
 )
 
 // Router sub-conditions rolled up into RouterReady.
@@ -221,6 +237,42 @@ func (in *LLMInferenceService) MarkPrefillScalingUnset() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(PrefillScalingReady)
 }
 
+func (in *LLMInferenceService) MarkEncodeWorkloadReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(EncodeWorkloadReady)
+}
+
+func (in *LLMInferenceService) MarkEncodeWorkloadNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(EncodeWorkloadReady, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkEncodeWorkloadUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(EncodeWorkloadReady)
+}
+
+func (in *LLMInferenceService) MarkEncodeWorkerWorkloadReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(EncodeWorkerWorkloadReady)
+}
+
+func (in *LLMInferenceService) MarkEncodeWorkerWorkloadNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(EncodeWorkerWorkloadReady, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkEncodeWorkerWorkloadUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(EncodeWorkerWorkloadReady)
+}
+
+func (in *LLMInferenceService) MarkEncodeScalingReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(EncodeScalingReady)
+}
+
+func (in *LLMInferenceService) MarkEncodeScalingNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(EncodeScalingReady, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkEncodeScalingUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(EncodeScalingReady)
+}
+
 // DetermineWorkloadReadiness rolls up sub-conditions into the top-level WorkloadsReady
 // condition. Any sub-condition that is False blocks overall readiness.
 //
@@ -235,8 +287,11 @@ func (in *LLMInferenceService) DetermineWorkloadReadiness() {
 		in.GetStatus().GetCondition(WorkerWorkloadReady),
 		in.GetStatus().GetCondition(PrefillWorkloadReady),
 		in.GetStatus().GetCondition(PrefillWorkerWorkloadReady),
+		in.GetStatus().GetCondition(EncodeWorkloadReady),
+		in.GetStatus().GetCondition(EncodeWorkerWorkloadReady),
 		in.GetStatus().GetCondition(ScalingReady),
 		in.GetStatus().GetCondition(PrefillScalingReady),
+		in.GetStatus().GetCondition(EncodeScalingReady),
 	}
 
 	for _, cond := range subConditions {

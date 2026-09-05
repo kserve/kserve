@@ -426,6 +426,60 @@ func WithPrefillWorker(worker *corev1.PodSpec) LLMInferenceServiceOption {
 	}
 }
 
+func WithEncode(pod *corev1.PodSpec) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		if llmSvc.Spec.Encode == nil {
+			llmSvc.Spec.Encode = &v1alpha2.WorkloadSpec{}
+		}
+		llmSvc.Spec.Encode.Template = pod
+	}
+}
+
+func WithEncodeWorker(worker *corev1.PodSpec) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		if llmSvc.Spec.Encode == nil {
+			llmSvc.Spec.Encode = &v1alpha2.WorkloadSpec{}
+		}
+		llmSvc.Spec.Encode.Worker = worker
+	}
+}
+
+func WithEncodeReplicas(replicas int32) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		if llmSvc.Spec.Encode == nil {
+			llmSvc.Spec.Encode = &v1alpha2.WorkloadSpec{}
+		}
+		llmSvc.Spec.Encode.Replicas = &replicas
+	}
+}
+
+func WithEncodeScaling(scaling *v1alpha2.ScalingSpec) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		if llmSvc.Spec.Encode == nil {
+			llmSvc.Spec.Encode = &v1alpha2.WorkloadSpec{}
+		}
+		llmSvc.Spec.Encode.Scaling = scaling
+	}
+}
+
+func WithEncodeParallelism(parallelism *v1alpha2.ParallelismSpec) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		if llmSvc.Spec.Encode == nil {
+			llmSvc.Spec.Encode = &v1alpha2.WorkloadSpec{}
+		}
+		llmSvc.Spec.Encode.Parallelism = parallelism
+	}
+}
+
+func WithEncodeRolloutStrategy(rs *v1alpha2.RolloutStrategy) LLMInferenceServiceOption {
+	return func(llmSvc *v1alpha2.LLMInferenceService) {
+		if llmSvc.Spec.Encode == nil {
+			llmSvc.Spec.Encode = &v1alpha2.WorkloadSpec{}
+		}
+		llmSvc.Spec.Encode.RolloutStrategy = rs
+	}
+}
+
 func ParallelismSpec(opts ...func(*v1alpha2.ParallelismSpec)) *v1alpha2.ParallelismSpec {
 	p := &v1alpha2.ParallelismSpec{}
 	for _, opt := range opts {

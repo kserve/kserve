@@ -259,6 +259,10 @@ func (l *LLMInferenceServiceValidator) validateParallelismConstraints(llmSvc *LL
 		allErrs = append(allErrs, l.validateWorkloadParallelism(field.NewPath("spec").Child("prefill"), llmSvc.Spec.Prefill)...)
 	}
 
+	if llmSvc.Spec.Encode != nil {
+		allErrs = append(allErrs, l.validateWorkloadParallelism(field.NewPath("spec").Child("encode"), llmSvc.Spec.Encode)...)
+	}
+
 	return allErrs
 }
 
@@ -353,6 +357,9 @@ func (l *LLMInferenceServiceValidator) validateImmutable(prev *LLMInferenceServi
 	allErrs = append(allErrs, l.validateImmutableParallelism(specPath, prev.Spec.Parallelism, curr.Spec.Parallelism)...)
 	if curr.Spec.Prefill != nil && prev.Spec.Prefill != nil {
 		allErrs = append(allErrs, l.validateImmutableParallelism(specPath.Child("prefill"), prev.Spec.Prefill.Parallelism, curr.Spec.Prefill.Parallelism)...)
+	}
+	if curr.Spec.Encode != nil && prev.Spec.Encode != nil {
+		allErrs = append(allErrs, l.validateImmutableParallelism(specPath.Child("encode"), prev.Spec.Encode.Parallelism, curr.Spec.Encode.Parallelism)...)
 	}
 
 	return allErrs
@@ -507,6 +514,11 @@ func (l *LLMInferenceServiceValidator) validateScaling(llmSvc *LLMInferenceServi
 	// Validate scaling on the prefill workload, if present
 	if llmSvc.Spec.Prefill != nil {
 		allErrs = append(allErrs, ValidateWorkloadScaling(field.NewPath("spec").Child("prefill"), llmSvc.Spec.Prefill)...)
+	}
+
+	// Validate scaling on the encode workload, if present
+	if llmSvc.Spec.Encode != nil {
+		allErrs = append(allErrs, ValidateWorkloadScaling(field.NewPath("spec").Child("encode"), llmSvc.Spec.Encode)...)
 	}
 
 	allErrs = append(allErrs, l.validateActuatorConsistency(llmSvc)...)
@@ -779,6 +791,9 @@ func (l *LLMInferenceServiceValidator) validateKVCacheOffloading(llmSvc *LLMInfe
 	if llmSvc.Spec.Prefill != nil {
 		allErrs = append(allErrs, validateKVCacheOffloadingSpec(llmSvc.Spec.Prefill.KVCacheOffloading, field.NewPath("spec", "prefill", "kvCacheOffloading"))...)
 	}
+	if llmSvc.Spec.Encode != nil {
+		allErrs = append(allErrs, validateKVCacheOffloadingSpec(llmSvc.Spec.Encode.KVCacheOffloading, field.NewPath("spec", "encode", "kvCacheOffloading"))...)
+	}
 	return allErrs
 }
 
@@ -926,6 +941,11 @@ func (l *LLMInferenceServiceValidator) validateRolloutStrategy(llmSvc *LLMInfere
 	if llmSvc.Spec.Prefill != nil {
 		prefillMultiNode := llmSvc.Spec.Prefill.Worker != nil
 		allErrs = append(allErrs, ValidateWorkloadRolloutFields(field.NewPath("spec", "prefill"), llmSvc.Spec.Prefill.RolloutStrategy, prefillMultiNode)...)
+	}
+
+	if llmSvc.Spec.Encode != nil {
+		encodeMultiNode := llmSvc.Spec.Encode.Worker != nil
+		allErrs = append(allErrs, ValidateWorkloadRolloutFields(field.NewPath("spec", "encode"), llmSvc.Spec.Encode.RolloutStrategy, encodeMultiNode)...)
 	}
 
 	return allErrs
