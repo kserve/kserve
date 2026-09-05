@@ -1320,6 +1320,7 @@ class InferResponse:
             infer_outputs.append(infer_output)
         return cls(
             model_name=model_name,
+            model_version=infer_res_dict.get("model_version", None),
             response_id=infer_res_dict.get("id", None),
             parameters=infer_res_dict.get("parameters", None),
             infer_outputs=infer_outputs,

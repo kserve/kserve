@@ -1054,6 +1054,26 @@ class TestInferResponse:
         with pytest.raises(InvalidInput):
             InferResponse.from_bytes(response_bytes, json_length)
 
+    def test_infer_response_from_bytes_preserves_model_version(self):
+        model_name = "test_model"
+        model_version = "v1.2.3"
+        response_bytes = b'{"id": "1", "model_name": "test_model", "model_version": "v1.2.3", "outputs": [{"name": "output1", "shape": [1], "datatype": "INT32", "data": [1]}]}'
+        json_length = len(response_bytes)
+
+        infer_response = InferResponse.from_bytes(
+            response_bytes,
+            json_length,
+        )
+
+        assert infer_response.id == "1"
+        assert infer_response.model_name == model_name
+        assert infer_response.model_version == model_version
+        assert len(infer_response.outputs) == 1
+        assert infer_response.outputs[0].name == "output1"
+        assert infer_response.outputs[0].shape == [1]
+        assert infer_response.outputs[0].datatype == "INT32"
+        assert infer_response.outputs[0].data == [1]
+
     def test_infer_response_get_output_by_name_returns_correct_output(self):
         infer_output1 = InferOutput(
             name="output1", shape=[1], datatype="INT32", data=[1]
