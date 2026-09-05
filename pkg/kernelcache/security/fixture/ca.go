@@ -23,6 +23,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -81,6 +82,29 @@ func NewCA(tb testing.TB, opts ...CAOption) *TestCA {
 	return &TestCA{Cert: cert, Key: key, CertPEM: pemBlock("CERTIFICATE", der)}
 }
 
+// IssueIntermediate issues an intermediate CA from the test CA.
+func (ca *TestCA) IssueIntermediate(tb testing.TB) *TestCA {
+	tb.Helper()
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(tb, err)
+
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(3),
+		Subject:               pkix.Name{CommonName: "kserve-kernelcache-test-intermediate"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		MaxPathLenZero:        true,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, ca.Cert, &key.PublicKey, ca.Key)
+	require.NoError(tb, err)
+	cert, err := x509.ParseCertificate(der)
+	require.NoError(tb, err)
+	return &TestCA{Cert: cert, Key: key, CertPEM: pemBlock("CERTIFICATE", der)}
+}
+
 type leafOptions struct {
 	san       string
 	notBefore time.Time
@@ -108,6 +132,14 @@ func Expired() LeafOption {
 	}
 }
 
+// NotYetValid makes the leaf certificate's validity window start in the future.
+func NotYetValid() LeafOption {
+	return func(o *leafOptions) {
+		o.notBefore = time.Now().Add(24 * time.Hour)
+		o.notAfter = time.Now().Add(48 * time.Hour)
+	}
+}
+
 // IssueLeaf issues a signing (leaf) cert from the CA. Defaults: a spiffe URI SAN
 // and a validity window of an hour ago for 24 hours.
 func (ca *TestCA) IssueLeaf(tb testing.TB, opts ...LeafOption) (leafKey *ecdsa.PrivateKey, leafCertPEM []byte) {
@@ -126,6 +158,36 @@ func (ca *TestCA) IssueLeaf(tb testing.TB, opts ...LeafOption) (leafKey *ecdsa.P
 	u, err := url.Parse(o.san)
 	require.NoError(tb, err)
 
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(2),
+		Subject:      pkix.Name{CommonName: "kc-signer"},
+		NotBefore:    o.notBefore,
+		NotAfter:     o.notAfter,
+		KeyUsage:     x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+		URIs:         []*url.URL{u},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, ca.Cert, &key.PublicKey, ca.Key)
+	require.NoError(tb, err)
+	return key, pemBlock("CERTIFICATE", der)
+}
+
+// IssueLeafRSA issues an RSA signing (leaf) cert from the CA, for exercising the
+// PKCS#1 key path. Same defaults as IssueLeaf otherwise.
+func (ca *TestCA) IssueLeafRSA(tb testing.TB, opts ...LeafOption) (leafKey *rsa.PrivateKey, leafCertPEM []byte) {
+	tb.Helper()
+	o := leafOptions{
+		san:       "spiffe://kserve-test/kc-signer",
+		notBefore: time.Now().Add(-time.Hour),
+		notAfter:  time.Now().Add(24 * time.Hour),
+	}
+	for _, f := range opts {
+		f(&o)
+	}
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	require.NoError(tb, err)
+	u, err := url.Parse(o.san)
+	require.NoError(tb, err)
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(2),
 		Subject:      pkix.Name{CommonName: "kc-signer"},
