@@ -768,6 +768,7 @@ func (r *LLMISVCReconciler) expectedSchedulerRole(llmSvc *v1alpha2.LLMInferenceS
 			{APIGroups: []string{constants.LLMDAIAPIGroupName}, Resources: []string{"inferenceobjectives", "inferencemodelrewrites"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"discovery.k8s.io"}, Resources: []string{"endpointslices"}, Verbs: []string{"get", "list", "watch"}},
 			{APIGroups: []string{"coordination.k8s.io"}, Resources: []string{"leases"}, Verbs: []string{"get", "list", "watch", "create", "update", "patch", "delete"}},
+			{APIGroups: []string{""}, Resources: []string{"events"}, Verbs: []string{"create", "patch"}},
 		},
 	}
 	return role
