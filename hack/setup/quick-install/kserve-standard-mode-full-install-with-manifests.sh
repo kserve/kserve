@@ -55226,6 +55226,28 @@ data:
          "scaleDownStabilizationWindowSeconds": "300"
        }
 
+     # ====================================== WVA AUTOSCALING CONTROLLER CONFIGURATION ======================================
+     # Example - only needed when an LLMInferenceService sets scaling.wva.keda
+     autoscaling-wva-controller-config: |-
+       {
+         "prometheus": {
+           # url is the URL of the Prometheus server used by KEDA to query the wva_desired_replicas metric.
+           "url": "http://prometheus-operated.monitoring.svc.cluster.local:9090",
+           # tlsInsecureSkipVerify disables TLS certificate verification for the Prometheus connection.
+           "tlsInsecureSkipVerify": false,
+           # authModes is the KEDA authModes value for the Prometheus trigger (e.g. "bearer", "basic", "tls").
+           # Must be set together with triggerAuthName, or left empty.
+           "authModes": "",
+           # triggerAuthName is the name of a pre-existing TriggerAuthentication or ClusterTriggerAuthentication
+           # CR that KEDA should use when querying Prometheus. Must be created by the cluster admin beforehand.
+           "triggerAuthName": "",
+           # triggerAuthKind specifies the kind of the authentication CR referenced by triggerAuthName.
+           # Accepted values are "TriggerAuthentication" (namespaced) and "ClusterTriggerAuthentication" (cluster-scoped).
+           # Defaults to "TriggerAuthentication" when empty.
+           "triggerAuthKind": "TriggerAuthentication"
+         }
+       }
+
      # ====================================== STORAGE INITIALIZER CONFIGURATION ======================================
      # Example
      storageInitializer: |-

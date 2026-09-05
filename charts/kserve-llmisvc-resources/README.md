@@ -34,6 +34,11 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.agent.tag | string | `""` |  |
 | kserve.autoscaler.scaleDownStabilizationWindowSeconds | string | `"300"` |  |
 | kserve.autoscaler.scaleUpStabilizationWindowSeconds | string | `"0"` |  |
+| kserve.autoscalingWvaControllerConfig.prometheus.authModes | string | `""` |  |
+| kserve.autoscalingWvaControllerConfig.prometheus.tlsInsecureSkipVerify | bool | `false` |  |
+| kserve.autoscalingWvaControllerConfig.prometheus.triggerAuthKind | string | `"TriggerAuthentication"` |  |
+| kserve.autoscalingWvaControllerConfig.prometheus.triggerAuthName | string | `""` |  |
+| kserve.autoscalingWvaControllerConfig.prometheus.url | string | `""` |  |
 | kserve.certManager.enabled | string | `""` |  |
 | kserve.controller.deploymentMode | string | `"Knative"` |  |
 | kserve.controller.gateway.additionalIngressDomains | list | `[]` |  |
