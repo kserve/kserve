@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: valkey-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: valkey-server
+  template:
+    metadata:
+      labels:
+        app: valkey-server
+        name: valkey-server
+    spec:
+      containers:
+        - name: valkey-server
+          image: valkey/valkey:9.1.0
+          args: [ "--appendonly", "yes" ]
+          ports:
+            - name: valkey-server
+              containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: valkey-service
+spec:
+  type: LoadBalancer  # Unauthenticated sample; use ClusterIP and network controls in production.
+  selector:
+    app: valkey-server
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
