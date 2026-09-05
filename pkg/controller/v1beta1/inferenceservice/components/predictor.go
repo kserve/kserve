@@ -115,6 +115,10 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 	// Only add annotations for single storage URI case. Multiple storage URIs are handled directly by reconcilers.
 	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
 		if err := p.addStorageInitializerAnnotations(ctx, predictor, annotations, isvc.Spec.Predictor.StorageContainerName); err != nil {
+			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+				Reason:  v1beta1.InvalidPredictorSpec,
+				Message: fmt.Sprintf("Invalid storage URI: %v", err),
+			})
 			return nil, err
 		}
 	}
