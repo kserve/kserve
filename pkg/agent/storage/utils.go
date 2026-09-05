@@ -21,8 +21,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -45,6 +47,38 @@ import (
 	gcscredential "github.com/kserve/kserve/pkg/credentials/gcs"
 	s3credential "github.com/kserve/kserve/pkg/credentials/s3"
 )
+
+func createLocalModelFile(modelDir string, modelName string, objectPath string) (*os.File, string, error) {
+	trimmedObjectPath := strings.TrimLeft(objectPath, "/")
+	if !fs.ValidPath(modelName) {
+		return nil, "", fmt.Errorf("invalid model name: %s", modelName)
+	}
+	if !fs.ValidPath(trimmedObjectPath) {
+		return nil, "", fmt.Errorf("invalid object path: %s", objectPath)
+	}
+
+	relativePath := path.Join(modelName, trimmedObjectPath)
+	if err := os.MkdirAll(modelDir, os.ModePerm); err != nil { //nolint:gosec // G301: agent and model server run as different UIDs sharing an emptyDir volume
+		return nil, "", err
+	}
+	root, err := os.OpenRoot(modelDir)
+	if err != nil {
+		return nil, "", err
+	}
+	defer root.Close()
+
+	parentDir := path.Dir(relativePath)
+	if parentDir != "." {
+		if err := root.MkdirAll(filepath.FromSlash(parentDir), os.ModePerm); err != nil { //nolint:gosec // G301: shared model volume must be traversable by the model server
+			return nil, "", fmt.Errorf("unable to create parent directory for object %s: %w", objectPath, err)
+		}
+	}
+	file, err := root.Create(filepath.FromSlash(relativePath))
+	if err != nil {
+		return nil, "", fmt.Errorf("unable to create file for object %s: %w", objectPath, err)
+	}
+	return file, filepath.Join(modelDir, filepath.FromSlash(relativePath)), nil
+}
 
 func FileExists(filename string) bool {
 	info, err := os.Stat(filename)

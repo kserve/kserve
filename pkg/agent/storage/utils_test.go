@@ -20,6 +20,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"syscall"
 	"testing"
 
@@ -50,6 +51,55 @@ func TestCreate(t *testing.T) {
 	mode := info.Mode()
 	expectedMode := os.ModePerm
 	g.Expect(mode.Perm()).To(gomega.Equal(expectedMode))
+}
+
+func TestCreateLocalModelFileRejectsSymlinkEscape(t *testing.T) {
+	modelDir := t.TempDir()
+	outsideDir := t.TempDir()
+	modelPath := filepath.Join(modelDir, "model1")
+	if err := os.Mkdir(modelPath, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outsideDir, filepath.Join(modelPath, "link")); err != nil {
+		t.Fatal(err)
+	}
+
+	file, _, err := createLocalModelFile(modelDir, "model1", "link/model.bin")
+	if file != nil {
+		_ = file.Close()
+	}
+	if err == nil {
+		t.Fatal("expected symlink escape to be rejected")
+	}
+	if _, err := os.Stat(filepath.Join(outsideDir, "model.bin")); !os.IsNotExist(err) {
+		t.Fatalf("outside file was created: %v", err)
+	}
+}
+
+func TestCreateLocalModelFilePreservesBackslash(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("backslash is a path separator on Windows")
+	}
+
+	modelDir := t.TempDir()
+	file, fileName, err := createLocalModelFile(modelDir, "model1", `nested\model.bin`)
+	if err != nil {
+		t.Fatalf("expected object path to be accepted: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	want := filepath.Join(modelDir, "model1", `nested\model.bin`)
+	if fileName != want {
+		t.Fatalf("file name = %q, want %q", fileName, want)
+	}
+	if !FileExists(want) {
+		t.Fatalf("expected literal backslash file %q to exist", want)
+	}
+	if FileExists(filepath.Join(modelDir, "model1", "nested", "model.bin")) {
+		t.Fatal("backslash object path was aliased to a slash-separated path")
+	}
 }
 
 func TestFileExists(t *testing.T) {
