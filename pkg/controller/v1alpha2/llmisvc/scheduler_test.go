@@ -2563,6 +2563,14 @@ func TestExtractModelServerMetricsFlags(t *testing.T) {
 			expectedParams:  map[string]string{modelServerMetricsSchemeFlag: "https"},
 		},
 		{
+			name:            "extracts value split across command and args",
+			command:         []string{"/app/epp", "--model-server-metrics-scheme"},
+			args:            []string{"https", "--grpc-port=9002"},
+			expectedCommand: []string{"/app/epp"},
+			expectedArgs:    []string{"--grpc-port=9002"},
+			expectedParams:  map[string]string{modelServerMetricsSchemeFlag: "https"},
+		},
+		{
 			name:            "strips port without returning it",
 			command:         []string{"/app/epp", "--model-server-metrics-port=8000", "--grpc-port=9002"},
 			expectedCommand: []string{"/app/epp", "--grpc-port=9002"},

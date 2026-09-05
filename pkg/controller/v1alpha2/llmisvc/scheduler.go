@@ -1924,8 +1924,21 @@ func extractModelServerMetricsFlags(ctx context.Context, d *appsv1.Deployment) m
 	params := map[string]string{}
 	for ci := range d.Spec.Template.Spec.Containers {
 		c := &d.Spec.Template.Spec.Containers[ci]
+		crossBoundaryFlag := ""
+		if len(c.Command) > 0 {
+			name := strings.TrimLeft(c.Command[len(c.Command)-1], "-")
+			if deprecatedModelServerMetricFlagNames[name] {
+				crossBoundaryFlag = name
+			}
+		}
 		if filtered, extracted := filterArgs(c.Command, deprecatedModelServerMetricFlagNames); len(extracted) > 0 {
 			c.Command = filtered
+			// Kubernetes appends Args to Command, so a standalone terminal flag
+			// may take its value from the first Args token.
+			if crossBoundaryFlag != "" && extracted[crossBoundaryFlag] == "" && len(c.Args) > 0 && !strings.HasPrefix(c.Args[0], "-") {
+				extracted[crossBoundaryFlag] = c.Args[0]
+				c.Args = c.Args[1:]
+			}
 			maps.Copy(params, extracted)
 		}
 		if filtered, extracted := filterArgs(c.Args, deprecatedModelServerMetricFlagNames); len(extracted) > 0 {
