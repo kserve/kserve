@@ -6835,6 +6835,24 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+              deploymentStrategy:
+                properties:
+                  rollingUpdate:
+                    properties:
+                      maxSurge:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                      maxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                    type: object
+                  type:
+                    type: string
+                type: object
               labels:
                 additionalProperties:
                   type: string
@@ -6902,6 +6920,24 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
+                    type: object
+                  deploymentStrategy:
+                    properties:
+                      rollingUpdate:
+                        properties:
+                          maxSurge:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            x-kubernetes-int-or-string: true
+                          maxUnavailable:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            x-kubernetes-int-or-string: true
+                        type: object
+                      type:
+                        type: string
                     type: object
                   labels:
                     additionalProperties:
@@ -31524,6 +31560,24 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+              deploymentStrategy:
+                properties:
+                  rollingUpdate:
+                    properties:
+                      maxSurge:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                      maxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                    type: object
+                  type:
+                    type: string
+                type: object
               kvCacheOffloading:
                 properties:
                   cpu:
@@ -31730,6 +31784,24 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
+                    type: object
+                  deploymentStrategy:
+                    properties:
+                      rollingUpdate:
+                        properties:
+                          maxSurge:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            x-kubernetes-int-or-string: true
+                          maxUnavailable:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            x-kubernetes-int-or-string: true
+                        type: object
+                      type:
+                        type: string
                     type: object
                   kvCacheOffloading:
                     properties:
@@ -56572,6 +56644,24 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+              deploymentStrategy:
+                properties:
+                  rollingUpdate:
+                    properties:
+                      maxSurge:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                      maxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                    type: object
+                  type:
+                    type: string
+                type: object
               labels:
                 additionalProperties:
                   type: string
@@ -56639,6 +56729,24 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
+                    type: object
+                  deploymentStrategy:
+                    properties:
+                      rollingUpdate:
+                        properties:
+                          maxSurge:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            x-kubernetes-int-or-string: true
+                          maxUnavailable:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            x-kubernetes-int-or-string: true
+                        type: object
+                      type:
+                        type: string
                     type: object
                   labels:
                     additionalProperties:
@@ -82146,6 +82254,24 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+              deploymentStrategy:
+                properties:
+                  rollingUpdate:
+                    properties:
+                      maxSurge:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                      maxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                    type: object
+                  type:
+                    type: string
+                type: object
               kvCacheOffloading:
                 properties:
                   cpu:
@@ -82352,6 +82478,24 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
+                    type: object
+                  deploymentStrategy:
+                    properties:
+                      rollingUpdate:
+                        properties:
+                          maxSurge:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            x-kubernetes-int-or-string: true
+                          maxUnavailable:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            x-kubernetes-int-or-string: true
+                        type: object
+                      type:
+                        type: string
                     type: object
                   kvCacheOffloading:
                     properties:

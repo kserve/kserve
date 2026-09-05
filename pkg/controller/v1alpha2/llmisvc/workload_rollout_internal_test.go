@@ -27,35 +27,35 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
-func TestApplyDeploymentRolloutStrategy(t *testing.T) {
+func TestApplyDeploymentRolloutStrategyFromWorkload(t *testing.T) {
 	t.Run("nil workload leaves deployment strategy empty", func(t *testing.T) {
 		d := &appsv1.Deployment{}
-		applyDeploymentRolloutStrategy(d, nil)
+		applyDeploymentRolloutStrategy(&d.Spec, nil, nil)
 		assert.Equal(t, appsv1.DeploymentStrategy{}, d.Spec.Strategy)
 	})
 
 	t.Run("nil rollout strategy leaves deployment strategy empty", func(t *testing.T) {
 		d := &appsv1.Deployment{}
-		applyDeploymentRolloutStrategy(d, &v1alpha2.WorkloadSpec{})
+		applyDeploymentRolloutStrategy(&d.Spec, &v1alpha2.WorkloadSpec{}, nil)
 		assert.Equal(t, appsv1.DeploymentStrategy{}, d.Spec.Strategy)
 	})
 
 	t.Run("empty rollout strategy leaves deployment strategy empty", func(t *testing.T) {
 		d := &appsv1.Deployment{}
-		applyDeploymentRolloutStrategy(d, &v1alpha2.WorkloadSpec{
+		applyDeploymentRolloutStrategy(&d.Spec, &v1alpha2.WorkloadSpec{
 			RolloutStrategy: &v1alpha2.RolloutStrategy{},
-		})
+		}, nil)
 		assert.Equal(t, appsv1.DeploymentStrategy{}, d.Spec.Strategy)
 	})
 
 	t.Run("maxUnavailable only sets rolling update strategy", func(t *testing.T) {
 		d := &appsv1.Deployment{}
 		mu := intstr.FromInt32(1)
-		applyDeploymentRolloutStrategy(d, &v1alpha2.WorkloadSpec{
+		applyDeploymentRolloutStrategy(&d.Spec, &v1alpha2.WorkloadSpec{
 			RolloutStrategy: &v1alpha2.RolloutStrategy{
 				MaxUnavailable: &mu,
 			},
-		})
+		}, nil)
 		assert.Equal(t, appsv1.RollingUpdateDeploymentStrategyType, d.Spec.Strategy.Type)
 		require.NotNil(t, d.Spec.Strategy.RollingUpdate)
 		assert.Equal(t, intstr.FromInt32(1), *d.Spec.Strategy.RollingUpdate.MaxUnavailable)
@@ -65,11 +65,11 @@ func TestApplyDeploymentRolloutStrategy(t *testing.T) {
 	t.Run("maxSurge only sets rolling update strategy", func(t *testing.T) {
 		d := &appsv1.Deployment{}
 		ms := intstr.FromInt32(2)
-		applyDeploymentRolloutStrategy(d, &v1alpha2.WorkloadSpec{
+		applyDeploymentRolloutStrategy(&d.Spec, &v1alpha2.WorkloadSpec{
 			RolloutStrategy: &v1alpha2.RolloutStrategy{
 				MaxSurge: &ms,
 			},
-		})
+		}, nil)
 		assert.Equal(t, appsv1.RollingUpdateDeploymentStrategyType, d.Spec.Strategy.Type)
 		require.NotNil(t, d.Spec.Strategy.RollingUpdate)
 		assert.Nil(t, d.Spec.Strategy.RollingUpdate.MaxUnavailable)
@@ -80,12 +80,12 @@ func TestApplyDeploymentRolloutStrategy(t *testing.T) {
 		d := &appsv1.Deployment{}
 		mu := intstr.FromInt32(1)
 		ms := intstr.FromString("50%")
-		applyDeploymentRolloutStrategy(d, &v1alpha2.WorkloadSpec{
+		applyDeploymentRolloutStrategy(&d.Spec, &v1alpha2.WorkloadSpec{
 			RolloutStrategy: &v1alpha2.RolloutStrategy{
 				MaxUnavailable: &mu,
 				MaxSurge:       &ms,
 			},
-		})
+		}, nil)
 		assert.Equal(t, appsv1.RollingUpdateDeploymentStrategyType, d.Spec.Strategy.Type)
 		require.NotNil(t, d.Spec.Strategy.RollingUpdate)
 		assert.Equal(t, intstr.FromInt32(1), *d.Spec.Strategy.RollingUpdate.MaxUnavailable)
