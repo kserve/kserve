@@ -556,13 +556,8 @@ func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error 
 	}
 
 	if compExtSpec.ScaleTarget != nil {
-		target := *compExtSpec.ScaleTarget
-		if metric == MetricCPU && target < 1 || target > 100 {
-			return errors.New("the target utilization percentage should be a [1-100] integer")
-		}
-
-		if metric == MetricMemory && target < 1 {
-			return errors.New("the target memory should be greater than 1 MiB")
+		if err := validateTargetUtilization(*compExtSpec.ScaleTarget); err != nil {
+			return err
 		}
 	}
 
