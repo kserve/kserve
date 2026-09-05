@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from kserve.logging import logger
+from kserve.log_config import logger
 
 try:
     from ray.serve.handle import DeploymentHandle, DeploymentResponse

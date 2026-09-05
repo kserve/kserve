@@ -19,10 +19,10 @@ from huggingfaceserver import utils
 
 torch = pytest.importorskip("torch", reason="torch not installed")
 
-# stub kserve.logging
-if "kserve.logging" not in sys.modules:
+# stub kserve.log_config
+if "kserve.log_config" not in sys.modules:
     kserve_pkg = types.ModuleType("kserve")
-    kserve_logging = types.ModuleType("kserve.logging")
+    kserve_log_config = types.ModuleType("kserve.log_config")
 
     class _DummyLogger:
         def info(self, *a, **k):
@@ -34,9 +34,9 @@ if "kserve.logging" not in sys.modules:
         def error(self, *a, **k):
             pass
 
-    kserve_logging.logger = _DummyLogger()
+    kserve_log_config.logger = _DummyLogger()
     sys.modules["kserve"] = kserve_pkg
-    sys.modules["kserve.logging"] = kserve_logging
+    sys.modules["kserve.log_config"] = kserve_log_config
 
 
 def test_mean_pooling_none_mask_cpu():

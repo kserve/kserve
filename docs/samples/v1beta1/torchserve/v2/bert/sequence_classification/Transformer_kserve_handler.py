@@ -8,7 +8,7 @@ from Transformer_handler_generalized import (
 )
 import json
 from captum.attr import LayerIntegratedGradients
-from kserve.logging import logger
+from kserve.log_config import logger
 
 # TODO Extend the example for token classification, question answering and batch inputs
 
