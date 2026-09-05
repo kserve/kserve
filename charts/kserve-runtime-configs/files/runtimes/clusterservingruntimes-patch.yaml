@@ -676,4 +676,38 @@ spec:
   {{- if .Values.kserve.servingruntime.vllmserver.hostIPC.enabled }}
   hostIPC: true
   {{- end }}
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-openvino
+  annotations:
+    serving.kserve.io/server-type: ovms
+spec:
+  disabled: {{ .Values.kserve.servingruntime.openvinoserver.disabled }}
+  containers:
+    - name: kserve-container
+      image: "{{ .Values.kserve.servingruntime.openvinoserver.image }}:{{ .Values.kserve.servingruntime.openvinoserver.tag }}"
+      imagePullPolicy: {{ .Values.kserve.servingruntime.openvinoserver.imagePullPolicy }}
+      args:
+        - --model_name={{ .Values.kserve.servingruntime.modelNamePlaceholder }}
+        - --model_path=/mnt/models
+        - --port=9000
+        - --rest_port=8080
+        - --file_system_poll_wait_seconds=0
+      securityContext:
+          {{- with .Values.kserve.servingruntime.openvinoserver.securityContext}}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+      resources:
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "1"
+          memory: 2Gi
+  {{- with .Values.kserve.servingruntime.openvinoserver.imagePullSecrets }}
+  imagePullSecrets:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 {{- end }}
