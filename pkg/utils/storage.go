@@ -326,6 +326,21 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 		Image:                    storageInitializerImage,
 		Args:                     containerArgs,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+		// Mirror config/storagecontainers/default.yaml so the fallback init container
+		// injected without a ClusterStorageContainer also passes the restricted Pod
+		// Security Standard. The image declares OCI user 1000, so runAsNonRoot is
+		// verifiable without a fixed runAsUser.
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: ptr.To(false),
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
+			},
+			Privileged:   ptr.To(false),
+			RunAsNonRoot: ptr.To(true),
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		},
 		Resources: corev1.ResourceRequirements{
 			Limits: map[corev1.ResourceName]resource.Quantity{
 				corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
