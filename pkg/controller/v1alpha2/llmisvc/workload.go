@@ -182,11 +182,13 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 // the component's identity labels with the workload's own spec.labels applied on top,
 // mirroring the identity its pod template carries.
 //
-// Labels propagated from the LLMInferenceService's top-level metadata are excluded:
-// spec.selector is immutable after create, so it holds only labels that stay fixed for
-// the life of the Deployment.
+// Labels propagated from the LLMInferenceService's top-level metadata are excluded.
+// spec.selector is immutable, so any key it does carry - including one supplied through
+// spec.labels, which is not validated as immutable - can only be changed by recreating
+// the Deployment.
 func deploymentSelectorLabels(identity, workloadLabels map[string]string) map[string]string {
-	selector := maps.Clone(identity)
+	selector := make(map[string]string, len(identity)+len(workloadLabels))
+	maps.Copy(selector, identity)
 	maps.Copy(selector, workloadLabels)
 	return selector
 }
@@ -265,6 +267,10 @@ func PreserveDeploymentReplicas() UpdateOption[*appsv1.Deployment] {
 // spec.selector is immutable, so the value already on the object is the only one the
 // API server accepts. A Deployment keeps the selector it was created with, and a change
 // to how the selector is computed applies only to Deployments created afterwards.
+//
+// The pod template is still rebuilt on every reconcile. A Deployment whose template stops
+// carrying a key its stored selector requires is rejected, since the template no longer
+// matches the selector, and has to be recreated to reconcile again.
 func PreserveDeploymentSelector() UpdateOption[*appsv1.Deployment] {
 	return BeforeDryRun(func(expected, curr *appsv1.Deployment) {
 		if curr.Spec.Selector != nil {

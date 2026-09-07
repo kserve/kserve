@@ -201,7 +201,8 @@ type UpdateOption[T client.Object] func(*updateOptions[T])
 // AfterDryRunFunc is a callback function type for AfterDryRun options.
 // It receives:
 //   - expected: the object after dry-run (with server defaults applied) - modify this to take effect
-//   - expectedGiven: the original object before dry-run - use this to check what was originally set
+//   - expectedGiven: the object as the caller built it, copied before any BeforeDryRun
+//     callback and before the dry-run - use this to check what was originally set
 //   - curr: the current state of the resource in the cluster
 type AfterDryRunFunc[T client.Object] func(expected, expectedGiven, curr T)
 

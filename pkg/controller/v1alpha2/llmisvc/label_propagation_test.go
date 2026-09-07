@@ -30,6 +30,7 @@ import (
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -473,11 +474,14 @@ func TestDeploymentSelectorExcludesMetadataLabels(t *testing.T) {
 		// Only the main and prefill builders call propagateDeploymentMetadata, so only
 		// they receive allowlisted labels from the LLMInferenceService's own metadata.
 		propagatesMetadataLabels bool
-		build                    func(t *testing.T, r *LLMISVCReconciler) *appsv1.Deployment
+		// The tokenizer takes no workload labels, so its selector is identity alone.
+		appliesWorkloadLabels bool
+		build                 func(t *testing.T, r *LLMISVCReconciler) *appsv1.Deployment
 	}{
 		{
 			name:                     "single-node main deployment",
 			propagatesMetadataLabels: true,
+			appliesWorkloadLabels:    true,
 			build: func(t *testing.T, r *LLMISVCReconciler) *appsv1.Deployment {
 				d, err := r.expectedSingleNodeMainDeployment(context.Background(), newSvc(), &Config{})
 				require.NoError(t, err)
@@ -487,6 +491,7 @@ func TestDeploymentSelectorExcludesMetadataLabels(t *testing.T) {
 		{
 			name:                     "prefill deployment",
 			propagatesMetadataLabels: true,
+			appliesWorkloadLabels:    true,
 			build: func(t *testing.T, r *LLMISVCReconciler) *appsv1.Deployment {
 				svc := newSvc()
 				svc.Spec.Prefill = &v1alpha2.WorkloadSpec{Labels: svc.Spec.Labels}
@@ -496,7 +501,8 @@ func TestDeploymentSelectorExcludesMetadataLabels(t *testing.T) {
 			},
 		},
 		{
-			name: "scheduler deployment",
+			name:                  "scheduler deployment",
+			appliesWorkloadLabels: true,
 			build: func(t *testing.T, r *LLMISVCReconciler) *appsv1.Deployment {
 				svc := newSvc()
 				svc.Spec.Router = &v1alpha2.RouterSpec{
@@ -504,6 +510,36 @@ func TestDeploymentSelectorExcludesMetadataLabels(t *testing.T) {
 				}
 				d, err := r.expectedSchedulerDeployment(context.Background(), svc)
 				require.NoError(t, err)
+				return d
+			},
+		},
+		{
+			name: "tokenizer deployment",
+			build: func(t *testing.T, r *LLMISVCReconciler) *appsv1.Deployment {
+				d, err := r.expectedTokenizerDeployment(context.Background(), newSvc())
+				require.NoError(t, err)
+				return d
+			},
+		},
+		{
+			// Labels copied from a referenced InferencePool identify the pods that pool
+			// routes to, so they belong in the selector alongside the identity labels.
+			name:                     "single-node main deployment with an InferencePool ref",
+			propagatesMetadataLabels: true,
+			appliesWorkloadLabels:    true,
+			build: func(t *testing.T, r *LLMISVCReconciler) *appsv1.Deployment {
+				svc := newSvc()
+				svc.Spec.Router = &v1alpha2.RouterSpec{
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Pool: &v1alpha2.InferencePoolSpec{
+							Ref: &corev1.LocalObjectReference{Name: "shared-pool"},
+						},
+					},
+				}
+				d, err := r.expectedSingleNodeMainDeployment(context.Background(), svc, &Config{})
+				require.NoError(t, err)
+				assert.Equal(t, "shared", d.Spec.Selector.MatchLabels["pool"],
+					"labels from a referenced InferencePool must reach the selector")
 				return d
 			},
 		},
@@ -525,9 +561,13 @@ func TestDeploymentSelectorExcludesMetadataLabels(t *testing.T) {
 				"spec.selector is immutable and must not carry labels propagated from metadata")
 
 			// From spec.labels: both, so the override reaches the selector.
-			assert.Equal(t, "alpha", selector[userLabel])
-			assert.Equal(t, "other-service", selector[nameLabel],
-				"spec.labels must override the identity label in the selector")
+			if tt.appliesWorkloadLabels {
+				assert.Equal(t, "alpha", selector[userLabel])
+				assert.Equal(t, "other-service", selector[nameLabel],
+					"spec.labels must override the identity label in the selector")
+			} else {
+				assert.NotContains(t, selector, userLabel)
+			}
 
 			// Kubernetes requires the pod template to satisfy the selector.
 			for k, v := range selector {
@@ -544,12 +584,24 @@ func TestDeploymentSelectorExcludesMetadataLabels(t *testing.T) {
 }
 
 // selectorTestClient returns a client with the schemes the Deployment builders read
-// through (existing Deployment, ServiceAccount) so they can run without an API server.
+// through (existing Deployment, ServiceAccount, InferencePool) so they can run without
+// an API server, seeded with the InferencePool the ref case looks up.
 func selectorTestClient(t *testing.T) client.Client {
 	t.Helper()
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
 	require.NoError(t, appsv1.AddToScheme(scheme))
 	require.NoError(t, corev1.AddToScheme(scheme))
-	return fake.NewClientBuilder().WithScheme(scheme).Build()
+	require.NoError(t, igwapi.Install(scheme))
+
+	pool := &igwapi.InferencePool{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-pool", Namespace: "default"},
+		Spec: igwapi.InferencePoolSpec{
+			Selector: igwapi.LabelSelector{
+				MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{"pool": "shared"},
+			},
+		},
+	}
+
+	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(pool).Build()
 }
