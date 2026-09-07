@@ -19,6 +19,7 @@ package llmisvc
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -175,6 +176,19 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 	// TODO https://github.com/llm-d/llm-d-router/issues/220 and DP template
 
 	return s
+}
+
+// deploymentSelectorLabels returns the labels for a workload Deployment's spec.selector:
+// the component's identity labels with the workload's own spec.labels applied on top,
+// mirroring the identity its pod template carries.
+//
+// Labels propagated from the LLMInferenceService's top-level metadata are excluded:
+// spec.selector is immutable after create, so it holds only labels that stay fixed for
+// the life of the Deployment.
+func deploymentSelectorLabels(identity, workloadLabels map[string]string) map[string]string {
+	selector := maps.Clone(identity)
+	maps.Copy(selector, workloadLabels)
+	return selector
 }
 
 func (r *LLMISVCReconciler) propagateInferencePoolRefLabelSelector(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, labels map[string]string) error {

@@ -387,6 +387,12 @@ func (r *LLMISVCReconciler) expectedSchedulerInferencePoolV1Alpha2(ctx context.C
 
 func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*appsv1.Deployment, error) {
 	labels := SchedulerLabels(llmSvc)
+
+	var schedulerLabels map[string]string
+	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil {
+		schedulerLabels = llmSvc.Spec.Router.Scheduler.Labels
+	}
+
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      schedulerDeploymentName(llmSvc),
@@ -407,7 +413,7 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 				Type: appsv1.RecreateDeploymentStrategyType,
 			},
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: deploymentSelectorLabels(labels, schedulerLabels),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{

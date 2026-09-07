@@ -201,8 +201,10 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
+			// The tokenizer takes no user-supplied labels, so its selector is the
+			// identity labels alone.
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: deploymentSelectorLabels(labels, nil),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{

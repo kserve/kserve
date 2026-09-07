@@ -127,7 +127,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		Spec: appsv1.DeploymentSpec{
 			Replicas: llmSvc.Spec.Replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: deploymentSelectorLabels(labels, llmSvc.Spec.Labels),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -255,7 +255,7 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 		d.Spec = appsv1.DeploymentSpec{
 			Replicas: llmSvc.Spec.Prefill.Replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: deploymentSelectorLabels(labels, llmSvc.Spec.Prefill.Labels),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
