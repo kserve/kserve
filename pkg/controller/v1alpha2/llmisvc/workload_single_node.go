@@ -80,7 +80,7 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to get expected main deployment: %w", err)
 	}
-	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, expected, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, expected, semanticDeploymentIsEqual, PreserveDeploymentReplicas(), PreserveDeploymentSelector()); err != nil {
 		return err
 	}
 	return r.propagateWorkloadDeploymentStatus(ctx, expected, llmSvc.MarkMainWorkloadReady, llmSvc.MarkMainWorkloadNotReady)
@@ -220,7 +220,7 @@ func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmS
 	if err != nil {
 		return fmt.Errorf("failed to get expected prefill deployment: %w", err)
 	}
-	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, prefill, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, prefill, semanticDeploymentIsEqual, PreserveDeploymentReplicas(), PreserveDeploymentSelector()); err != nil {
 		return fmt.Errorf("failed to reconcile prefill deployment %s/%s: %w", prefill.GetNamespace(), prefill.GetName(), err)
 	}
 	return r.propagateWorkloadDeploymentStatus(ctx, prefill, llmSvc.MarkPrefillWorkloadReady, llmSvc.MarkPrefillWorkloadNotReady)

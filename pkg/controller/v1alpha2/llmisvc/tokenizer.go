@@ -170,7 +170,7 @@ func (r *LLMISVCReconciler) reconcileTokenizerDeployment(ctx context.Context, ll
 		return Delete(ctx, r, llmSvc, expected)
 	}
 
-	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, expected, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, expected, semanticDeploymentIsEqual, PreserveDeploymentReplicas(), PreserveDeploymentSelector()); err != nil {
 		return fmt.Errorf("failed to reconcile tokenizer deployment %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
 	}
 

@@ -149,6 +149,12 @@ func Update[O client.Object, T client.Object](ctx context.Context, c clientWithR
 	expectedGiven := expected.DeepCopyObject().(T)
 
 	expected.SetResourceVersion(curr.GetResourceVersion())
+
+	// Apply before dry-run mutations (e.g., carry over immutable fields from curr)
+	for _, fn := range options.beforeDryRunFns {
+		fn(expected, curr)
+	}
+
 	if err := c.Update(ctx, expected, client.DryRunAll); err != nil {
 		return fmt.Errorf("failed to get defaults for %s %s/%s: %w", typeLogLine, expected.GetNamespace(), expected.GetName(), err)
 	}
@@ -199,8 +205,28 @@ type UpdateOption[T client.Object] func(*updateOptions[T])
 //   - curr: the current state of the resource in the cluster
 type AfterDryRunFunc[T client.Object] func(expected, expectedGiven, curr T)
 
+// BeforeDryRunFunc is a callback function type for BeforeDryRun options.
+// It receives:
+//   - expected: the object about to be sent as a dry-run Update - modify this to take effect
+//   - curr: the current state of the resource in the cluster
+type BeforeDryRunFunc[T client.Object] func(expected, curr T)
+
 type updateOptions[T client.Object] struct {
-	afterDryRunFns []AfterDryRunFunc[T]
+	beforeDryRunFns []BeforeDryRunFunc[T]
+	afterDryRunFns  []AfterDryRunFunc[T]
+}
+
+// BeforeDryRun configures Update to call the provided function before the dry-run
+// Update is issued.
+//
+// Multiple BeforeDryRun options can be provided and they will be applied in order.
+//
+// Use this for fields the API server validates on the dry-run request itself, such as
+// immutable fields. AfterDryRun callbacks run once that request has returned.
+func BeforeDryRun[T client.Object](fn BeforeDryRunFunc[T]) UpdateOption[T] {
+	return func(o *updateOptions[T]) {
+		o.beforeDryRunFns = append(o.beforeDryRunFns, fn)
+	}
 }
 
 // AfterDryRun configures Update to call the provided function after the dry-run

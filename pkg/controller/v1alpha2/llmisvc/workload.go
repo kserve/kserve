@@ -259,6 +259,20 @@ func PreserveDeploymentReplicas() UpdateOption[*appsv1.Deployment] {
 	})
 }
 
+// PreserveDeploymentSelector returns an UpdateOption that carries the stored
+// Deployment's spec.selector over to the object being written.
+//
+// spec.selector is immutable, so the value already on the object is the only one the
+// API server accepts. A Deployment keeps the selector it was created with, and a change
+// to how the selector is computed applies only to Deployments created afterwards.
+func PreserveDeploymentSelector() UpdateOption[*appsv1.Deployment] {
+	return BeforeDryRun(func(expected, curr *appsv1.Deployment) {
+		if curr.Spec.Selector != nil {
+			expected.Spec.Selector = curr.Spec.Selector.DeepCopy()
+		}
+	})
+}
+
 // PreserveLWSReplicas returns an UpdateOption that preserves the current
 // LeaderWorkerSet's replica count when the owner doesn't explicitly set it.
 // This allows external controllers to manage replicas without the
