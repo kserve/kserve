@@ -3178,6 +3178,99 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 	}
 }
 
+// TestStorageInitializerRestrictedSecurityContext asserts that the injected
+// storage-initializer init container carries every field the restricted Pod
+// Security Standard requires, both when the webhook builds the container itself
+// and when a ClusterStorageContainer mirroring config/storagecontainers/default.yaml
+// supplies it.
+func TestStorageInitializerRestrictedSecurityContext(t *testing.T) {
+	restrictedSpec := v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "restricted-default",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:            "storage-initializer",
+				Image:           "kserve/storage-initializer:latest",
+				ImagePullPolicy: corev1.PullIfNotPresent,
+				SecurityContext: storageInitializerSecurityContext(),
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "restricted://"}},
+		},
+	}
+	if err := c.Create(t.Context(), &restrictedSpec); err != nil {
+		t.Fatalf("unable to create cluster storage container: %v", err)
+	}
+	defer func() {
+		if err := c.Delete(t.Context(), &restrictedSpec); err != nil {
+			t.Errorf("unable to delete cluster storage container: %v", err)
+		}
+	}()
+
+	scenarios := map[string]struct {
+		storageURI    string
+		expectedImage string
+	}{
+		"without ClusterStorageContainer": {
+			storageURI:    "https://unmatched.example.com/model.bin",
+			expectedImage: constants.StorageInitializerContainerImage + ":" + constants.StorageInitializerContainerImageVersion,
+		},
+		"with ClusterStorageContainer from default.yaml": {
+			storageURI:    "restricted://foo",
+			expectedImage: "kserve/storage-initializer:latest",
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: scenario.storageURI,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			}
+			injector := &StorageInitializerInjector{
+				credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
+					Data: map[string]string{},
+				}),
+				config: storageInitializerConfig,
+				client: c,
+			}
+			require.NoError(t, injector.InjectStorageInitializer(t.Context(), pod))
+
+			var initContainer *corev1.Container
+			for i := range pod.Spec.InitContainers {
+				if pod.Spec.InitContainers[i].Name == constants.StorageInitializerContainerName {
+					initContainer = &pod.Spec.InitContainers[i]
+				}
+			}
+			require.NotNil(t, initContainer, "storage-initializer init container was not injected")
+			// The image tells which path built the container.
+			assert.Equal(t, scenario.expectedImage, initContainer.Image)
+
+			securityContext := initContainer.SecurityContext
+			require.NotNil(t, securityContext)
+			assert.Equal(t, ptr.Bool(false), securityContext.AllowPrivilegeEscalation)
+			assert.Equal(t, ptr.Bool(false), securityContext.Privileged)
+			assert.Equal(t, ptr.Bool(true), securityContext.RunAsNonRoot)
+			require.NotNil(t, securityContext.Capabilities)
+			assert.Equal(t, []corev1.Capability{"ALL"}, securityContext.Capabilities.Drop)
+			require.NotNil(t, securityContext.SeccompProfile)
+			assert.Equal(t, corev1.SeccompProfileTypeRuntimeDefault, securityContext.SeccompProfile.Type)
+			// The image declares its non-root user, so the kubelet verifies
+			// runAsNonRoot without a fixed runAsUser pinned in the manifest.
+			assert.Nil(t, securityContext.RunAsUser)
+		})
+	}
+}
+
 func TestAddOrReplaceEnv(t *testing.T) {
 	tests := []struct {
 		name       string
