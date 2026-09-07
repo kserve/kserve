@@ -20,6 +20,14 @@ PYTEST = $(PYTHON_BIN)/pytest
 
 ## Tool versions are defined in kserve-deps.env (included in main Makefile)
 
+## Go toolchain stamp, part of the tool cache key below. Tool binaries are
+## built from source with whatever toolchain is active, so a Go upgrade leaves
+## them stale: golangci-lint then refuses to run against a .golangci.yml
+## targeting a Go version newer than the one it was built with.
+## Only major.minor matters here - that is what carries the language version -
+## so patch releases do not force a rebuild of every tool.
+GO_TOOLCHAIN := $(shell go env GOVERSION | cut -d. -f1-2)
+
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT)
 $(GOLANGCI_LINT): $(LOCALBIN) $(DEPS_ENV)
@@ -97,16 +105,16 @@ $(PYTEST): $(UV)
 # $2 - package url which can be installed
 # $3 - specific version of package
 define go-install-tool
-@[ -f "$(1)-$(3)" ] || { \
+@[ -f "$(1)-$(3)-$(GO_TOOLCHAIN)" ] || { \
 set -e; \
 package=$(2)@$(3) ;\
 echo "Downloading $${package}" ;\
-rm -f $(1) || true ;\
+rm -f $(1)-$(3)* $(1) || true ;\
 GOBIN=$(LOCALBIN) go install $${package} ;\
 go mod tidy ;\
-mv $(1) $(1)-$(3) ;\
+mv $(1) $(1)-$(3)-$(GO_TOOLCHAIN) ;\
 } ;\
-ln -sf $(1)-$(3) $(1)
+ln -sf $(1)-$(3)-$(GO_TOOLCHAIN) $(1)
 endef
 
 # This clears all the installed binaries.
