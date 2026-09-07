@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"k8s.io/client-go/util/retry"
+	"knative.dev/pkg/kmeta"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -308,6 +309,52 @@ var _ = Describe("Routing Status", func() {
 						g.Expect(modelNames).To(ContainElement("adapter-1"))
 					}
 				}
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("Managed scheduler without route or gateway refs", func() {
+		It("publishes status.router.scheduler without a managed HTTPRoute", func(ctx SpecContext) {
+			svcName := "test-status-probe"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithReplicas(1),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			poolName := kmeta.ChildName(svcName, "-inference-pool")
+			eppName := kmeta.ChildName(svcName, "-epp-service")
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Spec.Router).ToNot(BeNil())
+				g.Expect(current.Spec.Router.Scheduler).ToNot(BeNil(), "admission must keep scheduler: {}")
+				g.Expect(current.Spec.Router.Route).To(BeNil(), "admission must not inject spec.router.route")
+				g.Expect(current.Spec.Router.Gateway).To(BeNil(), "admission must not inject spec.router.gateway")
+
+				// Reconcile merges presets onto an in-memory spec. Stored Route/Gateway nil
+				// does not prove routing stayed absent during reconciliation.
+				routes, err := managedRoutes(ctx, current)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(routes).To(BeEmpty(), "controller must not create a managed HTTPRoute")
+
+				g.Expect(current.Status.Router).ToNot(BeNil())
+				g.Expect(current.Status.Router.Gateways).To(BeEmpty())
+				g.Expect(current.Status.Router.Group).To(BeNil())
+				g.Expect(current.Status.Router.Scheduler).ToNot(BeNil())
+				g.Expect(current.Status.Router.Scheduler.InferencePool).ToNot(BeNil())
+				g.Expect(string(current.Status.Router.Scheduler.InferencePool.Name)).To(Equal(poolName))
+				g.Expect(current.Status.Router.Scheduler.Service).ToNot(BeNil())
+				g.Expect(string(current.Status.Router.Scheduler.Service.Name)).To(Equal(eppName))
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
