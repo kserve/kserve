@@ -62,18 +62,34 @@ func QueueLogRequest(req LogRequest) error {
 	return nil
 }
 
+// DefaultHTTPClientTimeout is used when NewWorker is given a non-positive
+// timeout.
+const DefaultHTTPClientTimeout = 10 * time.Second
+
 // NewWorker creates, and returns a new Worker object. Its only argument
 // is a channel that the worker can add itself to whenever it is done its
 // work.
-func NewWorker(id int, workerQueue chan chan LogRequest, logger *zap.SugaredLogger) Worker {
+func NewWorker(id int, workerQueue chan chan LogRequest, logger *zap.SugaredLogger, httpClientTimeout time.Duration) Worker {
+	if httpClientTimeout <= 0 {
+		httpClientTimeout = DefaultHTTPClientTimeout
+	}
 	// Create, and return the worker.
 	return Worker{
-		Log:         logger,
-		ID:          id,
-		Work:        make(chan LogRequest),
-		WorkerQueue: workerQueue,
-		QuitChan:    make(chan bool),
+		Log:               logger,
+		ID:                id,
+		Work:              make(chan LogRequest),
+		WorkerQueue:       workerQueue,
+		QuitChan:          make(chan bool),
+		httpClientTimeout: httpClientTimeout,
 	}
+}
+
+// clientCacheKey identifies the destination and TLS config a cached
+// cloudevents.Client was built for.
+type clientCacheKey struct {
+	url           string
+	certName      string
+	tlsSkipVerify bool
 }
 
 type Worker struct {
@@ -82,15 +98,39 @@ type Worker struct {
 	Work        chan LogRequest
 	WorkerQueue chan chan LogRequest
 	QuitChan    chan bool
+
+	httpClientTimeout time.Duration
+
+	// clients caches a cloudevents.Client per destination. A plain map is
+	// safe here because Start's loop is the only goroutine that ever
+	// touches a given Worker.
+	clients map[clientCacheKey]cloudevents.Client
 }
 
-func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
-	t, err := cloudevents.NewHTTP(
-		cloudevents.WithTarget(logReq.Url.String()),
-	)
-	if err != nil {
-		return fmt.Errorf("while creating http transport: %w", err)
+func (w *Worker) getClient(logReq LogRequest) (cloudevents.Client, error) {
+	key := clientCacheKey{
+		url:           logReq.Url.String(),
+		certName:      logReq.CertName,
+		tlsSkipVerify: logReq.TlsSkipVerify,
 	}
+	if c, ok := w.clients[key]; ok {
+		return c, nil
+	}
+
+	c, err := w.buildClient(logReq)
+	if err != nil {
+		return nil, err
+	}
+	if w.clients == nil {
+		w.clients = make(map[clientCacheKey]cloudevents.Client)
+	}
+	w.clients[key] = c
+	return c, nil
+}
+
+func (w *Worker) buildClient(logReq LogRequest) (cloudevents.Client, error) {
+	transport := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
+	transport.ForceAttemptHTTP2 = true
 
 	if logReq.Url.Scheme == "https" {
 		caCertFilePath := filepath.Join(constants.LoggerCaCertMountPath, logReq.CertName)
@@ -99,26 +139,45 @@ func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 		if err == nil {
 			clientCertPool := x509.NewCertPool()
 			if !clientCertPool.AppendCertsFromPEM(caCertFile) {
-				return errors.New("while parsing CA certificate")
+				return nil, errors.New("while parsing CA certificate")
 			}
 
-			tlsTransport := &http.Transport{
-				TLSClientConfig: &tls.Config{
-					RootCAs:            clientCertPool,
-					MinVersion:         tls.VersionTLS12,
-					InsecureSkipVerify: logReq.TlsSkipVerify, // #nosec G402
-				},
+			transport.TLSClientConfig = &tls.Config{
+				RootCAs:            clientCertPool,
+				MinVersion:         tls.VersionTLS12,
+				InsecureSkipVerify: logReq.TlsSkipVerify, // #nosec G402
+				NextProtos:         []string{"h2", "http/1.1"},
 			}
-			t.Client.Transport = tlsTransport
 		} else {
 			w.Log.Warnf("using https endpoint but could not find CA cert file %s", caCertFilePath)
 		}
 	}
 
+	httpClient := http.Client{
+		Transport: transport,
+		Timeout:   w.httpClientTimeout,
+	}
+	t, err := cloudevents.NewHTTP(
+		cloudevents.WithTarget(logReq.Url.String()),
+		cehttp.WithClient(httpClient),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("while creating http transport: %w", err)
+	}
+
 	c, err := cloudevents.NewClient(t)
 	if err != nil {
-		return fmt.Errorf("while creating new cloudevents client: %w", err)
+		return nil, fmt.Errorf("while creating new cloudevents client: %w", err)
 	}
+	return c, nil
+}
+
+func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
+	c, err := w.getClient(logReq)
+	if err != nil {
+		return err
+	}
+
 	event := cloudevents.NewEvent(cloudevents.VersionV1)
 	event.SetID(logReq.Id)
 	event.SetType(logReq.ReqType)
