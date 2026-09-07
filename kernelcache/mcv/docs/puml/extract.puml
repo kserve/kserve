@@ -1,0 +1,38 @@
+@startuml
+actor User
+participant "MCV CLI" as CLI
+participant "ImgFetcher" as Fetcher
+participant "tritonCacheExtractor" as Extractor
+participant "Registry" as Registry
+participant "PreflightCheck" as Check
+participant "Filesystem" as FS
+
+User -> CLI : mcv -e -i <image>
+CLI -> Fetcher : FetchImg(image)
+Fetcher -> Registry : Pull image
+Registry --> Fetcher : v1.Image
+Fetcher --> CLI : return image
+
+CLI -> Extractor : ExtractCache(image)
+Extractor -> Check : GetAllGPUInfo(acc)
+Check --> Extractor : []GPUInfo
+
+Extractor -> Check : CompareCacheSummaryLabelToGPU(img, devInfo)
+Check --> Extractor : OK or Fail
+
+alt Summary Check Passes
+    Extractor -> Extractor : Determine manifest type
+    Extractor -> FS : extractDockerImg / extractOCI*
+
+    FS -> Extractor : []ExtractedDirs
+    Extractor -> Check : CompareTritonCacheManifestToGPU(manifest, devInfo)
+    alt Manifest Check Passes
+        Extractor --> CLI : Extraction Success
+    else Manifest Check Fails
+        Extractor -> FS : Remove ExtractedDirs
+        Extractor --> CLI : Extraction Error
+    end
+else Summary Check Fails
+    Extractor --> CLI : Exit early with error
+end
+@enduml

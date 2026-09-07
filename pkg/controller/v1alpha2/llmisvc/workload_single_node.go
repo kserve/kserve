@@ -110,6 +110,11 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		}
 	}
 
+	err := r.propagateInferencePoolRefLabelSelector(ctx, llmSvc, labels)
+	if err != nil {
+		return nil, fmt.Errorf("failed to propagate InferencePool reference labels: %w", err)
+	}
+
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mainDeploymentName(llmSvc),
@@ -132,6 +137,8 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 			},
 		},
 	}
+
+	applyDeploymentRolloutStrategy(d, &llmSvc.Spec.WorkloadSpec)
 
 	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		d.Spec.Template.Spec = *llmSvc.Spec.Template.DeepCopy()
@@ -240,6 +247,11 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 	}
 
 	if llmSvc.Spec.Prefill != nil {
+		err := r.propagateInferencePoolRefLabelSelector(ctx, llmSvc, labels)
+		if err != nil {
+			return nil, fmt.Errorf("failed to propagate InferencePool reference labels: %w", err)
+		}
+
 		d.Spec = appsv1.DeploymentSpec{
 			Replicas: llmSvc.Spec.Prefill.Replicas,
 			Selector: &metav1.LabelSelector{
@@ -251,6 +263,7 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 				},
 			},
 		}
+		applyDeploymentRolloutStrategy(d, llmSvc.Spec.Prefill)
 	}
 
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
@@ -514,4 +527,21 @@ func mainDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
 
 func prefillDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return kmeta.ChildName(llmSvc.GetName(), "-kserve-prefill")
+}
+
+func applyDeploymentRolloutStrategy(d *appsv1.Deployment, workload *v1alpha2.WorkloadSpec) {
+	if workload == nil || workload.RolloutStrategy == nil {
+		return
+	}
+	rs := workload.RolloutStrategy
+	if rs.MaxUnavailable == nil && rs.MaxSurge == nil {
+		return
+	}
+	d.Spec.Strategy = appsv1.DeploymentStrategy{
+		Type: appsv1.RollingUpdateDeploymentStrategyType,
+		RollingUpdate: &appsv1.RollingUpdateDeployment{
+			MaxUnavailable: rs.MaxUnavailable,
+			MaxSurge:       rs.MaxSurge,
+		},
+	}
 }

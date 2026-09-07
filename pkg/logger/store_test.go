@@ -19,7 +19,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
 	"github.com/onsi/gomega"
 	pkglogging "knative.dev/pkg/logging"
 
@@ -28,14 +28,14 @@ import (
 
 func mockStore() (*BlobStore, *MockS3Uploader, *httptest.Server) {
 	uploader := &MockS3Uploader{
-		ReceivedUploadObjectsChan: make(chan s3manager.BatchUploadObject),
+		ReceivedUploadObjectsChan: make(chan *transfermanager.UploadObjectInput),
 	}
 
 	server := httptest.NewServer(NewJSONMarshallerHandler())
 	marshaller := NewHTTPMarshaller(server.URL+"/marshal", &http.Client{})
 
 	log, _ := pkglogging.NewLogger("", "INFO")
-	store := NewBlobStore("/logger", marshaller, &storage.S3Provider{Uploader: uploader}, log)
+	store := NewBlobStore("/logger", marshaller, &storage.S3Provider{TransferClient: uploader}, log)
 	return store, uploader, server
 }
 
@@ -81,6 +81,6 @@ func TestConfiguredPrefix(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	req := <-uploader.ReceivedUploadObjectsChan
-	g.Expect(*req.Object.Bucket).To(gomega.Equal("bucket"))
-	g.Expect(*req.Object.Key).To(gomega.MatchRegexp("prefix/ns/inference/predictor/logger/0123-request.json"))
+	g.Expect(*req.Bucket).To(gomega.Equal("bucket"))
+	g.Expect(*req.Key).To(gomega.MatchRegexp("prefix/ns/inference/predictor/logger/0123-request.json"))
 }

@@ -24,6 +24,87 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from pkg import manifest_builder  # noqa: E402
+from pkg import file_reader  # noqa: E402
+
+
+def test_find_kustomize_binary_uses_project_bin():
+    """Test that _find_kustomize_binary resolves to the project's bin/kustomize."""
+    repo_root = file_reader.find_git_root(Path(__file__).parent)
+    expected = repo_root / "bin" / "kustomize"
+    assert expected.exists(), (
+        f"bin/kustomize not found at {expected} — run 'make kustomize'"
+    )
+
+    kustomize_dir = repo_root / "config" / "crd" / "full"
+    result = manifest_builder._find_kustomize_binary(kustomize_dir)
+    assert result == str(expected)
+
+
+def test_find_kustomize_binary_fallback(tmp_path):
+    """Test that _find_kustomize_binary falls back to 'kustomize' when not in bin/."""
+    nested_dir = tmp_path / "config" / "crd"
+    nested_dir.mkdir(parents=True)
+
+    result = manifest_builder._find_kustomize_binary(nested_dir)
+    assert result == "kustomize"
+
+
+def test_run_kustomize_build_uses_project_bin(monkeypatch):
+    """Test that run_kustomize_build invokes the project's bin/kustomize."""
+    from unittest.mock import MagicMock
+
+    repo_root = file_reader.find_git_root(Path(__file__).parent)
+    expected_bin = str(repo_root / "bin" / "kustomize")
+    kustomize_dir = repo_root / "config" / "crd" / "full"
+
+    mock_run = MagicMock(return_value=MagicMock(stdout=""))
+    monkeypatch.setattr(manifest_builder.subprocess, "run", mock_run)
+
+    manifest_builder.run_kustomize_build(kustomize_dir)
+
+    called_binary = mock_run.call_args[0][0][0]
+    assert called_binary == expected_bin, (
+        f"Expected {expected_bin}, got '{called_binary}'"
+    )
+
+
+def test_get_embed_component_values_from_component_env():
+    """Test resolving ENABLE_LLMISVC and ENABLE_LOCALMODEL from component env."""
+    config = {"global_env": {}}
+    components = [
+        {
+            "name": "kserve-kustomize",
+            "env": {"ENABLE_LLMISVC": "true", "ENABLE_LOCALMODEL": "False"},
+        }
+    ]
+
+    llmisvc, localmodel = manifest_builder.get_embed_component_values(
+        config, components
+    )
+
+    assert llmisvc == "true"
+    assert localmodel == "false"
+
+
+def test_get_embed_component_values_from_global_env():
+    """Test resolving values from GLOBAL_ENV when not in component env."""
+    config = {"global_env": {"ENABLE_LLMISVC": "yes", "ENABLE_LOCALMODEL": "1"}}
+    components = [{"name": "kserve-helm", "env": {}}]
+
+    llmisvc, localmodel = manifest_builder.get_embed_component_values(
+        config, components
+    )
+
+    assert llmisvc == "true"
+    assert localmodel == "true"
+
+
+def test_get_embed_component_values_defaults():
+    """Test default false when env keys are missing."""
+    llmisvc, localmodel = manifest_builder.get_embed_component_values({}, [])
+
+    assert llmisvc == "false"
+    assert localmodel == "false"
 
 
 def test_build_kserve_runtime_manifests_success(tmp_path, monkeypatch):

@@ -170,7 +170,7 @@ func TestSemanticHTTPRouteIsEqual_GroupedRouteRules(t *testing.T) {
 			wantEq: false,
 		},
 		{
-			name: "non-grouped route - extra rule tolerated by DeepDerivative - no update",
+			name: "non-grouped route - stale rule in current - update",
 			expected: &gwapiv1.HTTPRoute{
 				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{}},
 				Spec:       gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{makeRule("/v1/chat", 9)}},
@@ -182,7 +182,72 @@ func TestSemanticHTTPRouteIsEqual_GroupedRouteRules(t *testing.T) {
 					makeRule("/v1/chat", 1),
 				}},
 			},
-			wantEq: true,
+			wantEq: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantEq, semanticHTTPRouteIsEqual(tt.expected, tt.current))
+		})
+	}
+}
+
+// TestSemanticHTTPRouteIsEqual_StaleAdapterMatches verifies that removing LoRA
+// adapters makes routes with stale header matches unequal.
+func TestSemanticHTTPRouteIsEqual_StaleAdapterMatches(t *testing.T) {
+	const headerName = "X-Gateway-Model-Name"
+
+	modelMatch := func(model string) gwapiv1.HTTPRouteMatch {
+		return gwapiv1.HTTPRouteMatch{
+			Headers: []gwapiv1.HTTPHeaderMatch{
+				{Name: gwapiv1.HTTPHeaderName(headerName), Value: model},
+			},
+		}
+	}
+
+	route := func(matches ...gwapiv1.HTTPRouteMatch) *gwapiv1.HTTPRoute {
+		return &gwapiv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{}},
+			Spec: gwapiv1.HTTPRouteSpec{
+				Rules: []gwapiv1.HTTPRouteRule{{Matches: matches}},
+			},
+		}
+	}
+
+	base := modelMatch("publishers/default/models/base-model")
+	adapterA := modelMatch("publishers/default/models/adapter-a")
+	adapterB := modelMatch("publishers/default/models/adapter-b")
+
+	tests := []struct {
+		name     string
+		expected *gwapiv1.HTTPRoute
+		current  *gwapiv1.HTTPRoute
+		wantEq   bool
+	}{
+		{
+			name:     "all adapters removed - stale adapter matches - update",
+			expected: route(base),
+			current:  route(base, adapterA, adapterB),
+			wantEq:   false,
+		},
+		{
+			name:     "some adapters removed, desired list is a prefix - update",
+			expected: route(base, adapterA),
+			current:  route(base, adapterA, adapterB),
+			wantEq:   false,
+		},
+		{
+			name:     "adapters unchanged - no update",
+			expected: route(base, adapterA, adapterB),
+			current:  route(base, adapterA, adapterB),
+			wantEq:   true,
+		},
+		{
+			name:     "adapter added - update",
+			expected: route(base, adapterA, adapterB),
+			current:  route(base, adapterA),
+			wantEq:   false,
 		},
 	}
 

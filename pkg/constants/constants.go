@@ -180,6 +180,7 @@ var (
 	LocalModelPVCNameAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/localmodel-pvc-name"
 	ConfidentialEnabledAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/confidential-enabled"
 	ConfidentialResourceIdAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/confidential-resource-id"
+	LocalModelLoRAAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/localmodel-lora"
 )
 
 // kserve networking constants
@@ -201,8 +202,10 @@ var (
 
 const (
 	HfURIPrefix        = "hf://"
+	MsURIPrefix        = "modelscope://"
 	OciURIPrefix       = "oci://"
 	OciNativeURIPrefix = "oci+native://"
+	OciFetchURIPrefix  = "oci+fetch://"
 	PvcURIPrefix       = "pvc://"
 	S3URIPrefix        = "s3://"
 
@@ -481,12 +484,22 @@ const (
 
 // InferenceService model server args
 const (
-	ArgumentModelName      = "--model_name"
-	ArgumentModelDir       = "--model_dir"
-	ArgumentModelClassName = "--model_class_name"
-	ArgumentPredictorHost  = "--predictor_host"
-	ArgumentHttpPort       = "--http_port"
-	ArgumentWorkers        = "--workers"
+	ArgumentModelName       = "--model_name"
+	ArgumentModelDir        = "--model_dir"
+	ArgumentModelClassName  = "--model_class_name"
+	ArgumentPredictorHost   = "--predictor_host"
+	ArgumentPredictorUseSSL = "--predictor_use_ssl"
+	ArgumentHttpPort        = "--http_port"
+	ArgumentWorkers         = "--workers"
+)
+
+// Transformer-to-predictor TLS env var keys
+const (
+	PredictorHostEnvVar      = "PREDICTOR_HOST"
+	PredictorPortEnvVar      = "PREDICTOR_PORT"
+	PredictorProtocolEnvVar  = "PREDICTOR_PROTOCOL"
+	TransformerTLSCertEnvVar = "KSERVE_TLS_CERT_FILE"
+	TransformerTLSKeyEnvVar  = "KSERVE_TLS_KEY_FILE"
 )
 
 // InferenceService container names

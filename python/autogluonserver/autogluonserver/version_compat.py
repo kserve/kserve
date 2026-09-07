@@ -21,6 +21,8 @@ from typing import Any, Optional, Protocol, TypeVar
 from kserve.errors import InferenceError
 from packaging.version import InvalidVersion, Version
 
+from autogluonserver.safe_deserialize import validate_model_artifacts_for_safe_load
+
 _T = TypeVar("_T", covariant=True)
 
 
@@ -40,7 +42,10 @@ _VERSION_FILENAMES = ("version.txt", "__version__")
 
 
 def load_predictor_tolerating_patch_mismatch(
-    predictor_cls: _PredictorClass[_T], path: str
+    predictor_cls: _PredictorClass[_T],
+    path: str,
+    *,
+    run_safe_load_validation: bool = True,
 ) -> _T:
     """
     Load an AutoGluon predictor, allowing patch-level version mismatches.
@@ -55,6 +60,9 @@ def load_predictor_tolerating_patch_mismatch(
     * Version file absent or unreadable: delegates to ``load()`` unchanged so
       AutoGluon's own version-check logic runs as normal.
     """
+    if run_safe_load_validation:
+        validate_model_artifacts_for_safe_load(path, context=predictor_cls.__module__)
+
     saved_v = _read_saved_version(path)
     current_v = _get_installed_version(predictor_cls) if saved_v is not None else None
 

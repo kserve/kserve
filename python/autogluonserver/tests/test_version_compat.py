@@ -106,12 +106,39 @@ def _make_mock_cls():
 def test_matching_versions_load_normally(tmp_path, monkeypatch):
     (tmp_path / "version.txt").write_text("1.5.0")
     mock_cls = _make_mock_cls()
+    scanned = []
+    monkeypatch.setattr(
+        "autogluonserver.version_compat.validate_model_artifacts_for_safe_load",
+        lambda path, **_kwargs: scanned.append(path),
+    )
     monkeypatch.setattr(
         "autogluonserver.version_compat.importlib.metadata.version",
         lambda _: "1.5.0",
     )
 
     load_predictor_tolerating_patch_mismatch(mock_cls, str(tmp_path))
+
+    assert scanned == [str(tmp_path)]
+    mock_cls.load.assert_called_once_with(str(tmp_path))
+
+
+def test_safe_load_validation_can_be_disabled(tmp_path, monkeypatch):
+    (tmp_path / "version.txt").write_text("1.5.0")
+    mock_cls = _make_mock_cls()
+    monkeypatch.setattr(
+        "autogluonserver.version_compat.validate_model_artifacts_for_safe_load",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("validation should not be called")
+        ),
+    )
+    monkeypatch.setattr(
+        "autogluonserver.version_compat.importlib.metadata.version",
+        lambda _: "1.5.0",
+    )
+
+    load_predictor_tolerating_patch_mismatch(
+        mock_cls, str(tmp_path), run_safe_load_validation=False
+    )
 
     mock_cls.load.assert_called_once_with(str(tmp_path))
 

@@ -13,7 +13,7 @@ on:
   # Run tests for any PRs.
   pull_request:
     paths:
-      - "tools/**"
+      - "tools/tf2openapi/**"
       - "!python/**"
       - "!.github/**"
       - "!docs/**"

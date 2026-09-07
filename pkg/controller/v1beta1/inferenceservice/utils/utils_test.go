@@ -18,8 +18,10 @@ package utils
 
 import (
 	"errors"
+	"slices"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega/types"
 	"k8s.io/utils/ptr"
@@ -2286,6 +2288,7 @@ func TestValidateStorageURIForDefaultStorageInitializer(t *testing.T) {
 		"hdfs://",
 		"webhdfs://",
 		"oci+native://ghcr.io/kserve/oci-native-test-fixture:v1",
+		"oci+fetch://ghcr.io/kserve/oci-fetch-test-fixture:v1",
 		"some/relative/path",
 		"/",
 		"foo",
@@ -2715,6 +2718,45 @@ func TestMergeServingRuntimeAndInferenceServiceSpecs(t *testing.T) {
 				g.Expect(index).NotTo(gomega.Equal(-1))
 				g.Expect(err).To(scenario.expectedErr)
 			}
+		})
+	}
+}
+
+func TestSortPodsByCreatedTimestampDescIsDeterministic(t *testing.T) {
+	// CreationTimestamp is serialized as RFC3339, so replicas of the same
+	// ReplicaSet share it to the second. The cache lists pods in random map
+	// order, so an unstable sort with a timestamp-only comparator would hand
+	// callers a different Items[0] on every reconcile.
+	sameSecond := metav1.NewTime(time.Date(2026, 8, 14, 10, 0, 0, 0, time.UTC))
+	older := metav1.NewTime(sameSecond.Add(-time.Minute))
+
+	pods := []corev1.Pod{
+		{ObjectMeta: metav1.ObjectMeta{Name: "predictor-xyz-1", CreationTimestamp: sameSecond}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "predictor-xyz-2", CreationTimestamp: sameSecond}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "predictor-xyz-3", CreationTimestamp: sameSecond}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "predictor-abc-0", CreationTimestamp: older}},
+	}
+
+	// Feeding the same set in two opposite orders is enough: a comparator that
+	// leaves ties unordered carries the input order through to the output, so
+	// the two runs disagree. Fixed inputs keep a CI failure reproducible.
+	reversed := slices.Clone(pods)
+	slices.Reverse(reversed)
+
+	for name, input := range map[string][]corev1.Pod{"forward": pods, "reversed": reversed} {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			list := &corev1.PodList{Items: slices.Clone(input)}
+
+			sortPodsByCreatedTimestampDesc(list)
+
+			names := make([]string, 0, len(list.Items))
+			for _, p := range list.Items {
+				names = append(names, p.Name)
+			}
+			g.Expect(names).To(gomega.Equal([]string{
+				"predictor-xyz-1", "predictor-xyz-2", "predictor-xyz-3", "predictor-abc-0",
+			}))
 		})
 	}
 }

@@ -27,6 +27,10 @@ runs:
       with:
         version: 'v1.34.4'
 
+    - name: Create /etc/cni/net.d
+      shell: bash
+      run: sudo mkdir -p /etc/cni/net.d
+
     - name: Setup Minikube
       uses: medyagh/setup-minikube@latest
       with:

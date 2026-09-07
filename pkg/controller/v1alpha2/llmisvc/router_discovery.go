@@ -179,6 +179,12 @@ func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGatew
 						return nil, fmt.Errorf("failed to combine URLs for Gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
 					}
 					for _, u := range gatewayURLs {
+						// Listeners collide: two listeners sharing a port yield the same
+						// URL whenever the hostname is listener-independent, which is the
+						// case when the route pins spec.hostnames.
+						if _, exists := seen[u.String()]; exists {
+							continue
+						}
 						seen[u.String()] = struct{}{}
 						urls = append(urls, DiscoveredURL{URL: u, Origin: origin})
 					}
@@ -443,7 +449,10 @@ func selectListeners(gateway *gwapiv1.Gateway, sectionName *gwapiv1.SectionName,
 		}
 		return 2
 	}
-	slices.SortFunc(listeners, func(a, b *gwapiv1.Listener) int {
+	// Stable: precedence is only ever 0, 1 or 2, so every pair of same-scheme
+	// listeners ties. An unstable sort would permute them and silently re-pick
+	// which listener wins, so keep the gateway's declared listener order.
+	slices.SortStableFunc(listeners, func(a, b *gwapiv1.Listener) int {
 		return precedence(a) - precedence(b)
 	})
 

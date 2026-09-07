@@ -4,7 +4,7 @@ authors = [
     {name = "Dorota Laczak", email = "dlaczak@redhat.com"}
 ]
 license = {text = "Apache-2.0"}
-requires-python = "<3.13,>=3.10"
+requires-python = "<3.14,>=3.10"
 dependencies = [
     "kserve",
     "kserve-storage",
@@ -29,7 +29,7 @@ test = [
     "pytest-asyncio<1.0.0,>=0.23.4",
 ]
 dev = [
-    "black[colorama]~=24.3.0",
+    "black[colorama]>=26.3.1,<27",
 ]
 
 [tool.uv.sources]

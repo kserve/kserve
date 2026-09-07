@@ -26,12 +26,16 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/localmodelcache"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -43,13 +47,32 @@ const (
 	loraAdapterDocsURL = "https://github.com/kserve/kserve/blob/master/docs/samples/llmisvc/lora-adapters/README.md"
 )
 
+// loRAMountPathCollisionError is returned by loraMountSegments when two adapters cannot be
+// given distinct directories under the LoRA mount root. Adapter names come from the service
+// spec and from any merged config, so it is the user's to resolve from either side.
+type loRAMountPathCollisionError struct {
+	// Adapters names the colliding adapters: empty when two or more are unnamed, one entry
+	// when two share that exact name, two when distinct names reduce to the same segment.
+	Adapters []string
+	// MountPath is the directory they contend for, set only when the names differ.
+	MountPath string
+}
+
+func (e *loRAMountPathCollisionError) Error() string {
+	switch len(e.Adapters) {
+	case 0:
+		return fmt.Sprintf("two or more LoRA adapters have no name (see %s)", loraAdapterDocsURL)
+	case 1:
+		return fmt.Sprintf("duplicate LoRA adapter name %q (see %s)", e.Adapters[0], loraAdapterDocsURL)
+	default:
+		return fmt.Sprintf("LoRA adapters %q and %q both resolve to mount path %q; rename one of them (see %s)",
+			e.Adapters[0], e.Adapters[1], e.MountPath, loraAdapterDocsURL)
+	}
+}
+
 // loraPathInvalidCharsRe matches characters that are invalid in filesystem paths.
 // Replaces anything that is not alphanumeric, dash, underscore, or dot.
 var loraPathInvalidCharsRe = regexp.MustCompile(`[^a-zA-Z0-9._-]`)
-
-// loraVolumeNameInvalidCharsRe matches characters that are invalid in Kubernetes volume names
-// (which must be DNS labels: lowercase alphanumeric and hyphens only).
-var loraVolumeNameInvalidCharsRe = regexp.MustCompile(`[^a-z0-9-]`)
 
 // resolvedLoRAAdapter is one adapter after URI validation (hf/s3 downloads are handled in attachModelArtifacts).
 type resolvedLoRAAdapter struct {
@@ -92,16 +115,15 @@ func enumerateLoRAAdapters(spec v1alpha2.LLMInferenceServiceSpec) ([]resolvedLoR
 			return nil, fmt.Errorf("LoRA adapter %q: invalid URI %q", adapterName, uri)
 		}
 		scheme := schema + "://"
-		mountPath := filepath.Join(loraAdaptersMountRoot, sanitizeLoRAPathSegment(adapterName))
 
 		switch scheme {
 		case constants.HfURIPrefix, constants.S3URIPrefix:
 			if storageInitializerDisabled {
-				return nil, fmt.Errorf("LoRA adapter %q: hf:// and s3:// require the storage initializer — set storageInitializer.enabled to true (see %s)", adapterName, loraAdapterDocsURL)
+				return nil, fmt.Errorf("LoRA adapter %q: hf:// and s3:// require the storage initializer - set storageInitializer.enabled to true (see %s)", adapterName, loraAdapterDocsURL)
 			}
 		case constants.PvcURIPrefix:
 			if storageInitializerDisabled {
-				return nil, fmt.Errorf("LoRA adapter %q: pvc:// requires a mounted volume — do not set storageInitializer.enabled to false (see %s)", adapterName, loraAdapterDocsURL)
+				return nil, fmt.Errorf("LoRA adapter %q: pvc:// requires a mounted volume - do not set storageInitializer.enabled to false (see %s)", adapterName, loraAdapterDocsURL)
 			}
 		case constants.OciURIPrefix:
 			// oci:// is intentionally not supported for LoRA adapters. OCI models run as sidecar
@@ -113,13 +135,155 @@ func enumerateLoRAAdapters(spec v1alpha2.LLMInferenceServiceSpec) ([]resolvedLoR
 		}
 
 		out = append(out, resolvedLoRAAdapter{
-			name:      adapterName,
-			mountPath: mountPath,
-			uri:       uri,
-			scheme:    scheme,
+			name:   adapterName,
+			uri:    uri,
+			scheme: scheme,
 		})
 	}
+
+	// After the per-adapter checks: a spec carrying both an unsupported scheme and a
+	// collision should report the scheme, which is the more specific problem.
+	segments, err := loraMountSegments(adapters)
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].mountPath = filepath.Join(loraAdaptersMountRoot, segments[i])
+	}
 	return out, nil
+}
+
+// rewriteLoRAAdaptersFromLocalModelCache rewrites cached adapter URIs to pvc:// paths
+// using the slim localmodel-lora annotation (cache + optional namespace). Source URI and PVC
+// name are resolved at reconcile time via Get on the referenced cache.
+func rewriteLoRAAdaptersFromLocalModelCache(
+	ctx context.Context,
+	c client.Client,
+	llmSvc *v1alpha2.LLMInferenceService,
+	adapters []resolvedLoRAAdapter,
+) ([]resolvedLoRAAdapter, error) {
+	if len(adapters) == 0 {
+		return adapters, nil
+	}
+	raw := llmSvc.Annotations[constants.LocalModelLoRAAnnotationKey]
+	if raw == "" {
+		return adapters, nil
+	}
+	entries, err := localmodelcache.ParseLoRACacheAnnotation(raw)
+	if err != nil {
+		return nil, err
+	}
+	if len(entries) == 0 {
+		return adapters, nil
+	}
+
+	nodeGroup, nodeGroupExists := llmSvc.Annotations[constants.NodeGroupAnnotationKey]
+
+	out := make([]resolvedLoRAAdapter, len(adapters))
+	copy(out, adapters)
+	for i := range out {
+		entry, ok := entries[out[i].name]
+		if !ok || entry.Cache == "" {
+			continue
+		}
+		sourceURI, pvcName, err := resolveLoRACachePVC(ctx, c, entry, nodeGroup, nodeGroupExists)
+		if err != nil {
+			return nil, fmt.Errorf("LoRA adapter %q: %w", out[i].name, err)
+		}
+		out[i].uri = localmodelcache.BuildCachedPVCURI(sourceURI, pvcName, out[i].uri)
+		out[i].scheme = constants.PvcURIPrefix
+	}
+	return out, nil
+}
+
+// resolveLoRACachePVC Gets the referenced LocalModelCache / LocalModelNamespaceCache and
+// derives source URI + serving PVC name for the LLMInferenceService node group.
+func resolveLoRACachePVC(
+	ctx context.Context,
+	c client.Client,
+	entry localmodelcache.CacheEntry,
+	nodeGroup string,
+	nodeGroupExists bool,
+) (sourceURI, pvcName string, err error) {
+	if entry.Namespace != "" {
+		nsCache := &v1alpha1.LocalModelNamespaceCache{}
+		if err := c.Get(ctx, types.NamespacedName{Name: entry.Cache, Namespace: entry.Namespace}, nsCache); err != nil {
+			return "", "", fmt.Errorf("get LocalModelNamespaceCache %s/%s: %w", entry.Namespace, entry.Cache, err)
+		}
+		pvc, ok := localmodelcache.PVCNameForNodeGroup(nsCache.Spec.NodeGroups, nodeGroup, nodeGroupExists, nsCache.Name)
+		if !ok {
+			return "", "", fmt.Errorf("LocalModelNamespaceCache %s/%s has no matching node group for annotation %q=%q",
+				entry.Namespace, entry.Cache, constants.NodeGroupAnnotationKey, nodeGroup)
+		}
+		return nsCache.Spec.SourceModelUri, pvc, nil
+	}
+
+	cache := &v1alpha1.LocalModelCache{}
+	if err := c.Get(ctx, types.NamespacedName{Name: entry.Cache}, cache); err != nil {
+		return "", "", fmt.Errorf("get LocalModelCache %s: %w", entry.Cache, err)
+	}
+	pvc, ok := localmodelcache.PVCNameForNodeGroup(cache.Spec.NodeGroups, nodeGroup, nodeGroupExists, cache.Name)
+	if !ok {
+		return "", "", fmt.Errorf("LocalModelCache %s has no matching node group for annotation %q=%q",
+			entry.Cache, constants.NodeGroupAnnotationKey, nodeGroup)
+	}
+	return cache.Spec.SourceModelUri, pvc, nil
+}
+
+// loraMountSegments returns the mount path segment for each adapter, positionally.
+// sanitizeLoRAPathSegment can map distinct names to the same segment ("sql/v2" and
+// "sql-v2" both become "sql-v2"), which would mount two adapters on one path. Every
+// name in such a collision group takes a short hash of the raw name as a suffix;
+// a name without a collision keeps its segment byte-for-byte, so adapters that
+// mount cleanly today stay on the paths their running pods already use.
+//
+// The whole group is suffixed, rather than letting the first adapter keep the bare
+// segment, so that the result does not depend on list order: reordering
+// spec.model.lora.adapters is a semantic no-op and must not move mounts. Returns an
+// error when suffixing still cannot separate two adapters (duplicate or missing names).
+func loraMountSegments(adapters []v1alpha2.LLMModelSpec) ([]string, error) {
+	names := make([]string, len(adapters))
+	segments := make([]string, len(adapters))
+	occurrences := make(map[string]int, len(adapters))
+	for i := range adapters {
+		names[i] = ptr.Deref(adapters[i].Name, "")
+		segments[i] = sanitizeLoRAPathSegment(names[i])
+		occurrences[segments[i]]++
+	}
+
+	claimedBy := make(map[string]string, len(adapters))
+	for i := range adapters {
+		if occurrences[segments[i]] > 1 {
+			segments[i] += "-" + utils.ShortHash(names[i])
+		}
+		// A literal adapter name can equal another adapter's suffixed form, which the
+		// occurrence count cannot see. Refuse rather than mount both on one path.
+		prev, taken := claimedBy[segments[i]]
+		if !taken {
+			claimedBy[segments[i]] = names[i]
+			continue
+		}
+		// Reached with input that admission did not screen. ValidateLoRAAdapters runs on the
+		// unmerged LLMInferenceService spec, so adapters contributed by an
+		// LLMInferenceServiceConfig depend on the config validator catching them, and a
+		// validating webhook covers neither objects already stored nor writes admitted
+		// while it was unavailable. Name the problem rather than mounting two adapters
+		// on one path.
+		// No index is reported: adapters are sorted by now, so i does not locate anything
+		// in spec.model.lora.adapters.
+		switch {
+		case names[i] == "":
+			return nil, &loRAMountPathCollisionError{}
+		case prev == names[i]:
+			return nil, &loRAMountPathCollisionError{Adapters: []string{names[i]}}
+		default:
+			return nil, &loRAMountPathCollisionError{
+				Adapters:  []string{prev, names[i]},
+				MountPath: filepath.Join(loraAdaptersMountRoot, segments[i]),
+			}
+		}
+	}
+	return segments, nil
 }
 
 // collectLoRADownloadPairs filters pre-resolved adapters to hf:// and s3:// uri/path pairs
@@ -153,7 +317,7 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 	for _, a := range adapters {
 		switch a.scheme {
 		case constants.PvcURIPrefix:
-			volName := kmeta.ChildName("lora-pvc-", a.name)
+			volName := utils.SafeObjectName(kmeta.ChildName("lora-pvc-", a.name))
 			if err := attachLoraPVCAdapter(a.uri, podSpec, containerName, a.mountPath, volName); err != nil {
 				return fmt.Errorf("LoRA adapter %q: %w", a.name, err)
 			}
@@ -187,7 +351,7 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 	main := &podSpec.Containers[mainIdx]
 
 	if hasValueFromLoRAConfig(main) {
-		log.FromContext(ctx).Info("VLLM_ADDITIONAL_ARGS is set via valueFrom; cannot inspect value at reconcile time — "+
+		log.FromContext(ctx).Info("VLLM_ADDITIONAL_ARGS is set via valueFrom; cannot inspect value at reconcile time - "+
 			"injecting --lora-modules as usual; if the referenced value already contains --lora-modules, duplicate flags may result",
 			"llmService", llmSvc.Name, "namespace", llmSvc.Namespace)
 	}

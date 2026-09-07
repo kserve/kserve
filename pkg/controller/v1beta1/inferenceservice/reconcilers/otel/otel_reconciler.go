@@ -21,11 +21,13 @@ import (
 	"fmt"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierr "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -184,6 +186,7 @@ func createOtelCollector(componentMeta metav1.ObjectMeta,
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        componentMeta.Name,
 			Namespace:   componentMeta.Namespace,
+			Labels:      componentMeta.Labels,
 			Annotations: componentMeta.Annotations,
 		},
 		Spec: otelv1beta1.OpenTelemetryCollectorSpec{
@@ -299,4 +302,13 @@ func (o *OtelReconciler) Reconcile(ctx context.Context) error {
 
 func (o *OtelReconciler) SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error {
 	return controllerutil.SetControllerReference(owner, o.OTelCollector, scheme)
+}
+
+// CleanupOrphans deletes OpenTelemetryCollectors selected by scope whose names are not retained.
+func (o *OtelReconciler) CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error {
+	err := isvcutils.DeleteOrphans[*otelv1beta1.OpenTelemetryCollectorList](ctx, o.client, scope)
+	if apimeta.IsNoMatchError(err) {
+		return nil
+	}
+	return err
 }

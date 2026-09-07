@@ -36,7 +36,73 @@ SCHEDULER_CONFIGMAP_NAME = "scheduler-config-e2e"
 SCHEDULER_CONFIGMAP_KEY = "epp"
 
 OPT_125M_MODEL_URI = os.environ.get("OPT_125M_MODEL_URI", "hf://facebook/opt-125m")
+OPT_125M_OCI_MODEL_URI = os.environ.get(
+    "OPT_125M_OCI_MODEL_URI",
+    f"oci://kserve/opt-125m-modelcar:{os.environ.get('TAG', 'latest')}",
+)
 VLLM_CPU_IMAGE = os.environ.get("VLLM_CPU_IMAGE", "vllm/vllm-openai-cpu:v0.19.0")
+
+# Prometheus server address used by direct-KEDA (no WVA) `prometheus` triggers.
+# Matches the URL setup-kserve.sh patches into autoscaling-wva-controller-config
+# for the WVA-mediated KEDA path, so both paths talk to the same instance.
+PROMETHEUS_SERVER_ADDRESS = os.environ.get(
+    "PROMETHEUS_SERVER_ADDRESS",
+    "https://prometheus-kube-prometheus-prometheus.monitoring:9090",
+)
+
+# Whole-service request-rate signal from the EPP scheduler's /metrics (port
+# 9090), namespace-filtered. Sums successes and errors because requests to a
+# scaled-to-zero deployment (no ready endpoints) only increment the error
+# counter, and `or vector(0)` keeps each side from going empty when idle.
+EPP_REQUEST_RATE_QUERY = (
+    "(sum(rate(inference_objective_request_total"
+    '{namespace="{{ .ObjectMeta.Namespace }}"}[1m])) or vector(0))'
+    " + "
+    "(sum(rate(inference_objective_request_error_total"
+    '{namespace="{{ .ObjectMeta.Namespace }}"}[1m])) or vector(0))'
+)
+
+
+def _epp_prometheus_trigger(threshold):
+    """Build a KEDA `prometheus` trigger against the EPP request-rate counter."""
+    return {
+        "type": "prometheus",
+        "name": "epp-request-rate",
+        "metadata": {
+            "serverAddress": PROMETHEUS_SERVER_ADDRESS,
+            "query": EPP_REQUEST_RATE_QUERY,
+            "threshold": threshold,
+            "unsafeSsl": "true",
+        },
+    }
+
+
+def _vllm_running_requests_trigger(pod_prefix_template, threshold):
+    """Build a KEDA `prometheus` trigger against per-pod vllm:num_requests_running.
+
+    pod_prefix_template is a Go text/template expression resolving to the
+    prefill or main/decode Deployment name, e.g.
+    "{{ ChildName .ObjectMeta.Name `-kserve-prefill` }}". The regex anchors on
+    exactly two dash-separated suffix segments (replicaset hash + pod suffix)
+    so main/decode pods don't match prefill's extra "-prefill-" segment.
+    """
+    query = (
+        "avg(vllm:num_requests_running{"
+        'namespace="{{ .ObjectMeta.Namespace }}",'
+        'pod=~"^' + pod_prefix_template + '-[a-z0-9]+-[a-z0-9]+$"'
+        "})"
+    )
+    return {
+        "type": "prometheus",
+        "name": "vllm-running-requests",
+        "metadata": {
+            "serverAddress": PROMETHEUS_SERVER_ADDRESS,
+            "query": query,
+            "threshold": threshold,
+            "unsafeSsl": "true",
+        },
+    }
+
 
 # PVC storage test constants
 PVC_STORAGE_NAME = "e2e-pvc-model-storage"
@@ -346,6 +412,9 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     "model-fb-opt-125m": {
         "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
+    },
+    "model-fb-opt-125m-oci": {
+        "model": {"uri": OPT_125M_OCI_MODEL_URI, "name": "facebook/opt-125m"},
     },
     "model-pvc": {
         "model": {"uri": f"pvc://{PVC_STORAGE_NAME}", "name": "facebook/opt-125m"},
@@ -1253,6 +1322,13 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "--mode",
                         "random",
                         "--force-dummy-tokenizer",
+                        # Keeps requests in flight long enough for
+                        # vllm:num_requests_running (an instantaneous gauge)
+                        # to be observable within Prometheus's scrape interval.
+                        "--time-to-first-token",
+                        "200ms",
+                        "--inter-token-latency",
+                        "100ms",
                         "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile{{- end }}",
                         "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.crt{{- end }}",
                         "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile{{- end }}",
@@ -1281,6 +1357,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                             "--mode",
                             "random",
                             "--force-dummy-tokenizer",
+                            # Prefill has no token stream to apply
+                            # inter-token-latency to, so it needs a larger
+                            # time-to-first-token to stay observable instead.
+                            "--time-to-first-token",
+                            "5s",
                             "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile{{- end }}",
                             "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.crt{{- end }}",
                             "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile{{- end }}",
@@ -1301,6 +1382,47 @@ LLMINFERENCESERVICE_CONFIGS = {
             "prometheus.io/scrape": "true",
             "prometheus.io/port": "8000",
             "prometheus.io/path": "/metrics",
+        },
+    },
+    # Like "prometheus-scrape" but for the P/D simulator, which listens on
+    # different ports per role: main/decode on 8001, prefill on 8000. The
+    # prefill pod template is a separate WorkloadSpec, so it needs its own
+    # "annotations" under the "prefill" key.
+    "prometheus-scrape-pd": {
+        "annotations": {
+            "prometheus.io/scrape": "true",
+            "prometheus.io/port": "8001",
+            "prometheus.io/path": "/metrics",
+        },
+        "prefill": {
+            "annotations": {
+                "prometheus.io/scrape": "true",
+                "prometheus.io/port": "8000",
+                "prometheus.io/path": "/metrics",
+            },
+        },
+    },
+    # Annotates the EPP/scheduler pod so Prometheus scrapes its request-rate
+    # counters (port 9090). Disables EPP's default bearer-token auth since
+    # the annotation-based scrape job doesn't send one and would otherwise
+    # get 401s.
+    "scheduler-prometheus-scrape": {
+        "router": {
+            "scheduler": {
+                "annotations": {
+                    "prometheus.io/scrape": "true",
+                    "prometheus.io/port": "9090",
+                    "prometheus.io/path": "/metrics",
+                },
+                "template": {
+                    "containers": [
+                        {
+                            "name": "main",
+                            "args": ["--metrics-endpoint-auth=false"],
+                        }
+                    ],
+                },
+            },
         },
     },
     "scaling-hpa": {
@@ -1356,12 +1478,79 @@ LLMINFERENCESERVICE_CONFIGS = {
                 "pollingInterval": 5,
                 "cooldownPeriod": 10,
                 "initialCooldownPeriod": 0,
+                "triggers": [_epp_prometheus_trigger(threshold="2")],
+            },
+        }
+    },
+    # Direct KEDA with idleReplicaCount=0: scales to zero when the EPP
+    # request-rate trigger reports no traffic, and back up once load resumes.
+    "scaling-direct-keda-idle": {
+        "scaling": {
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "keda": {
+                "pollingInterval": 5,
+                "cooldownPeriod": 15,
+                "initialCooldownPeriod": 0,
+                "idleReplicaCount": 0,
+                "triggers": [_epp_prometheus_trigger(threshold="2")],
+            },
+        }
+    },
+    # Direct KEDA (standalone, no WVA) with a fallback replica count: when the
+    # Prometheus scaler repeatedly fails to reach the server (outage), KEDA
+    # holds the deployment at `fallback.replicas` instead of scaling to zero.
+    "scaling-direct-keda-fallback": {
+        "scaling": {
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "keda": {
+                "pollingInterval": 5,
+                "cooldownPeriod": 10,
+                "initialCooldownPeriod": 0,
+                "fallback": {
+                    "failureThreshold": 3,
+                    "replicas": 1,
+                },
+                "triggers": [_epp_prometheus_trigger(threshold="2")],
+            },
+        }
+    },
+    # Direct KEDA triggers scoped to prefill vs. decode/main pods individually
+    # via vllm:num_requests_running, so each role scales based on its own
+    # per-pod metric rather than a shared signal.
+    "scaling-prefill-direct-keda": {
+        "prefill": {
+            "scaling": {
+                "minReplicas": 1,
+                "maxReplicas": 3,
+                "keda": {
+                    "pollingInterval": 5,
+                    "cooldownPeriod": 10,
+                    "initialCooldownPeriod": 0,
+                    "triggers": [
+                        _vllm_running_requests_trigger(
+                            "{{ ChildName .ObjectMeta.Name `-kserve-prefill` }}",
+                            threshold="1",
+                        )
+                    ],
+                },
+            }
+        }
+    },
+    "scaling-decode-direct-keda": {
+        "scaling": {
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "keda": {
+                "pollingInterval": 5,
+                "cooldownPeriod": 10,
+                "initialCooldownPeriod": 0,
                 "triggers": [
-                    {
-                        "type": "cpu",
-                        "metricType": "Utilization",
-                        "metadata": {"value": "50"},
-                    }
+                    _vllm_running_requests_trigger(
+                        "{{ ChildName .ObjectMeta.Name `-kserve` }}",
+                        threshold="1",
+                    )
                 ],
             },
         }

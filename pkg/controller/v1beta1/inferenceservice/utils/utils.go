@@ -45,7 +45,7 @@ import (
 
 // Constants
 var (
-	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://", "oci://", "oci+native://", "hf://"}
+	SupportedStorageURIPrefixList = []string{"gs://", "s3://", "pvc://", "file://", "https://", "http://", "hdfs://", "webhdfs://", "oci://", "oci+native://", "oci+fetch://", "hf://"}
 )
 
 const (
@@ -405,6 +405,13 @@ func ListPodsByLabel(ctx context.Context, cl client.Client, namespace string, la
 
 func sortPodsByCreatedTimestampDesc(pods *corev1.PodList) {
 	sort.Slice(pods.Items, func(i, j int) bool {
+		// CreationTimestamp only has second granularity, so replicas of the same
+		// ReplicaSet routinely tie. Break ties on name: the cache returns pods in
+		// random map order, and callers read Items[0], so without a total order the
+		// reported model status flips between pods on every reconcile.
+		if pods.Items[i].CreationTimestamp.Equal(&pods.Items[j].CreationTimestamp) {
+			return pods.Items[i].Name < pods.Items[j].Name
+		}
 		return pods.Items[j].CreationTimestamp.Before(&pods.Items[i].CreationTimestamp)
 	})
 }

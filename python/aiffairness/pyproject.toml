@@ -11,7 +11,7 @@ dependencies = [
     "requests[security]<3.0.0,>=2.24.0",
 ]
 name = "aifserver"
-version = "0.20.0rc0"
+version = "0.20.0"
 description = "'Model Server implementation for AI fairness. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 
@@ -25,5 +25,5 @@ test = [
     "mypy<1.0,>=0.991",
 ]
 dev = [
-    "black[colorama]~=24.3.0",
+    "black[colorama]>=26.3.1,<27",
 ]

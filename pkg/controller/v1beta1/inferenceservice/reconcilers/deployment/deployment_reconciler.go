@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -40,6 +42,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -304,38 +307,63 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 		// generate default readiness probe for model server container and for transformer container in case of collocation
 		if container.Name == constants.InferenceServiceContainerName || container.Name == constants.TransformerContainerName {
 			if container.ReadinessProbe == nil {
-				if len(container.Ports) == 0 {
-					container.ReadinessProbe = &corev1.Probe{
-						ProbeHandler: corev1.ProbeHandler{
-							TCPSocket: &corev1.TCPSocketAction{
-								Port: intstr.IntOrString{
-									IntVal: 8080,
-								},
+				probePort := int32(8080)
+				if len(container.Ports) > 0 {
+					probePort = container.Ports[0].ContainerPort
+				}
+				// If --http_port is set in args, use that port for the probe so the
+				// readiness check targets the port the server actually listens on.
+				if argPort, ok := getArgValue(container.Args, constants.ArgumentHttpPort); ok {
+					if parsed, err := strconv.ParseInt(argPort, 10, 32); err == nil {
+						probePort = int32(parsed)
+					}
+				}
+				container.ReadinessProbe = &corev1.Probe{
+					ProbeHandler: corev1.ProbeHandler{
+						TCPSocket: &corev1.TCPSocketAction{
+							Port: intstr.IntOrString{
+								IntVal: probePort,
 							},
 						},
-						TimeoutSeconds:   1,
-						PeriodSeconds:    10,
-						SuccessThreshold: 1,
-						FailureThreshold: 3,
-					}
-				} else {
-					container.ReadinessProbe = &corev1.Probe{
-						ProbeHandler: corev1.ProbeHandler{
-							TCPSocket: &corev1.TCPSocketAction{
-								Port: intstr.IntOrString{
-									IntVal: container.Ports[0].ContainerPort,
-								},
-							},
-						},
-						TimeoutSeconds:   1,
-						PeriodSeconds:    10,
-						SuccessThreshold: 1,
-						FailureThreshold: 3,
-					}
+					},
+					TimeoutSeconds:   1,
+					PeriodSeconds:    10,
+					SuccessThreshold: 1,
+					FailureThreshold: 3,
 				}
 			}
 		}
 	}
+}
+
+// getArgValue extracts the value for a CLI flag from an args slice.
+// It handles both "--flag value" (two elements) and "--flag=value" (single element) forms.
+func getArgValue(args []string, flag string) (string, bool) {
+	for i, arg := range args {
+		if arg == flag && i+1 < len(args) {
+			return args[i+1], true
+		}
+		if strings.HasPrefix(arg, flag+"=") {
+			return strings.TrimPrefix(arg, flag+"="), true
+		}
+	}
+	return "", false
+}
+
+// setArgValue replaces the value of an existing "--flag value" pair in an args
+// slice, or appends it if absent. It handles both two-element and "=" forms.
+func setArgValue(args []string, flag, value string) []string {
+	for i, arg := range args {
+		if arg == flag && i+1 < len(args) {
+			args[i+1] = value
+			return args
+		}
+		if strings.HasPrefix(arg, flag+"=") {
+			args[i] = flag + "=" + value
+			return args
+		}
+	}
+	return append(args, flag, value)
 }
 
 func setDefaultDeploymentSpec(spec *appsv1.DeploymentSpec) {
@@ -541,4 +569,9 @@ func (r *DeploymentReconciler) SetControllerReferences(owner metav1.Object, sche
 		}
 	}
 	return nil
+}
+
+// CleanupOrphans deletes Deployments selected by scope whose names are not retained.
+func (r *DeploymentReconciler) CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error {
+	return isvcutils.DeleteOrphans[*appsv1.DeploymentList](ctx, r.client, scope)
 }

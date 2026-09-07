@@ -500,6 +500,30 @@ func TestExpectedScaledObject(t *testing.T) {
 			},
 		},
 		{
+			name:   "TriggerAuthName without AuthModes is wired into trigger without authModes metadata",
+			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
+			scaling: &v1alpha2.ScalingSpec{
+				MaxReplicas: 5,
+				WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
+			},
+			config: &Config{WVAAutoscalingConfig: &WVAAutoscalingConfig{
+				Prometheus: PrometheusConfig{
+					URL:             "https://prom.monitoring:9090",
+					TriggerAuthName: "aws-managed-prometheus-auth",
+					TriggerAuthKind: "TriggerAuthentication",
+				},
+			}},
+			scaleTargetRef: deploymentScaleTargetRef("test-svc-kserve"),
+			soName:         "test-svc-kserve-keda",
+			validate: func(t *testing.T, so *kedav1alpha1.ScaledObject) {
+				trigger := so.Spec.Triggers[0]
+				assert.NotContains(t, trigger.Metadata, "authModes")
+				require.NotNil(t, trigger.AuthenticationRef)
+				assert.Equal(t, "aws-managed-prometheus-auth", trigger.AuthenticationRef.Name)
+				assert.Equal(t, "TriggerAuthentication", trigger.AuthenticationRef.Kind)
+			},
+		},
+		{
 			name:   "ClusterTriggerAuthentication auth fields are wired into trigger",
 			llmSvc: newTestLLMISVC("test-svc", "test-ns"),
 			scaling: &v1alpha2.ScalingSpec{
@@ -792,17 +816,16 @@ func TestValidateAutoscalingConfig(t *testing.T) {
 					AuthModes: "bearer",
 				},
 			},
-			wantErr: "autoscaling-wva-controller-config.prometheus.authModes and autoscaling-wva-controller-config.prometheus.triggerAuthName must both be set or both be empty",
+			wantErr: "autoscaling-wva-controller-config.prometheus.triggerAuthName is required in inferenceservice-config when autoscaling-wva-controller-config.prometheus.authModes is set",
 		},
 		{
-			name: "triggerAuthName set without authModes returns error",
+			name: "triggerAuthName set without authModes is valid (pod identity / managed Prometheus)",
 			cfg: &WVAAutoscalingConfig{
 				Prometheus: PrometheusConfig{
 					URL:             "https://prom:9090",
-					TriggerAuthName: "prom-auth",
+					TriggerAuthName: "aws-managed-prometheus-auth",
 				},
 			},
-			wantErr: "autoscaling-wva-controller-config.prometheus.authModes and autoscaling-wva-controller-config.prometheus.triggerAuthName must both be set or both be empty",
 		},
 		{
 			name: "ClusterTriggerAuthentication kind with both auth fields is valid",

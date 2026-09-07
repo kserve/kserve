@@ -3,20 +3,20 @@ authors = [
     {name = "The KServe Authors"},
 ]
 license = {text = "Apache-2.0"}
-requires-python = "<3.13,>=3.10"
+requires-python = "<3.14,>=3.10"
 dependencies = [
     "kserve[ray] @ file:///${PROJECT_ROOT}/../kserve",
     "torchvision==0.26.0+cpu",
     "torch==2.11.0+cpu",
-    "pillow<11.0.0,>=10.3.0",
+    "pillow>=12.3.0",
 ]
 name = "custom-model"
-version = "0.20.0rc0"
+version = "0.20.0"
 description = "Custom model implementation. Not intended for use outside KServe Frameworks Images."
 
 [dependency-groups]
 dev = [
-    "black[colorama]~=24.3.0",
+    "black[colorama]>=26.3.1,<27",
 ]
 
 [tool.uv.sources]

@@ -211,6 +211,35 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				g.Expect(so.Spec.MaxReplicaCount).To(Equal(ptr.To(int32(15))))
 			}).WithContext(ctx).Should(Succeed())
 		})
+
+		It("should accept idleReplicaCount=0 for scale-to-zero", func(ctx SpecContext) {
+			svcName := "test-keda-scale-to-zero"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
+				WithModelName("meta-llama/Llama-3.1-8B"),
+				WithScaling(KEDAScalingWithIdleReplicaCount(1, 8, 0)),
+			)
+
+			// Regression test: the CRD schema previously rejected idleReplicaCount=0
+			// (minimum:1), which made true scale-to-zero unreachable.
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			soKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
+
+			so := &kedav1alpha1.ScaledObject{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, soKey, so)).To(Succeed())
+				g.Expect(so.Spec.MinReplicaCount).To(Equal(ptr.To(int32(1))))
+				g.Expect(so.Spec.MaxReplicaCount).To(Equal(ptr.To(int32(8))))
+				g.Expect(so.Spec.IdleReplicaCount).To(Equal(ptr.To(int32(0))))
+			}).WithContext(ctx).Should(Succeed())
+		})
 	})
 
 	Context("Direct KEDA scaling", func() {
@@ -329,6 +358,40 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 			Consistently(func(g Gomega, ctx context.Context) {
 				err := envTest.Get(ctx, hpaKey, &autoscalingv2.HorizontalPodAutoscaler{})
 				g.Expect(client.IgnoreNotFound(err)).To(Succeed())
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should accept idleReplicaCount=0 for scale-to-zero", func(ctx SpecContext) {
+			svcName := "test-direct-keda-scale-to-zero"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
+				WithModelName("meta-llama/Llama-3.1-8B"),
+				WithScaling(DirectKEDAScalingWithIdleReplicaCount(1, 8, 0,
+					kedav1alpha1.ScaleTriggers{
+						Type:     "cpu",
+						Metadata: map[string]string{"value": "80"},
+					},
+				)),
+			)
+
+			// Regression test: the CRD schema previously rejected idleReplicaCount=0
+			// (minimum:1), which made true scale-to-zero unreachable.
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			soKey := types.NamespacedName{Name: kmeta.ChildName(svcName, "-kserve-keda"), Namespace: testNs.Name}
+
+			so := &kedav1alpha1.ScaledObject{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, soKey, so)).To(Succeed())
+				g.Expect(so.Spec.MinReplicaCount).To(Equal(ptr.To(int32(1))))
+				g.Expect(so.Spec.MaxReplicaCount).To(Equal(ptr.To(int32(8))))
+				g.Expect(so.Spec.IdleReplicaCount).To(Equal(ptr.To(int32(0))))
 			}).WithContext(ctx).Should(Succeed())
 		})
 

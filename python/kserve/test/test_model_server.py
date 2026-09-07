@@ -25,3 +25,32 @@ def test_model_server_start_no_models():
         server.start(models=None)
 
     assert exc.value.args[0] == UNKNOWN_MODEL_TYPE_ERR_MESSAGE
+
+
+def test_model_server_ssl_switches_to_https_port():
+    server = ModelServer(
+        ssl_certfile="/etc/tls/private/tls.crt",
+        ssl_keyfile="/etc/tls/private/tls.key",
+    )
+    assert server.http_port == 8443
+
+
+def test_model_server_ssl_keeps_explicit_port():
+    server = ModelServer(
+        http_port=9000,
+        ssl_certfile="/etc/tls/private/tls.crt",
+        ssl_keyfile="/etc/tls/private/tls.key",
+    )
+    assert server.http_port == 9000
+
+
+def test_model_server_no_ssl_keeps_default_port():
+    server = ModelServer()
+    assert server.http_port == 8080
+
+
+def test_model_server_partial_ssl_keeps_default_port():
+    server = ModelServer(
+        ssl_certfile="/etc/tls/private/tls.crt",
+    )
+    assert server.http_port == 8080

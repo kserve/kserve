@@ -23,7 +23,7 @@
       "gridPos": { "h": 4, "w": 24, "x": 0, "y": 0 },
       "id": 1,
       "options": {
-        "content": "<div style=\"font-size: 14px; line-height: 1.6;\">\n<h2 style=\"margin-top: 0;\">Prefix Caching</h2>\n<p>This dashboard shows <strong>vLLM prefix cache</strong>, <strong>EPP prefix indexer</strong>, and <strong>llm-d KV cache (kvcache)</strong> metrics.</p>\n<p><strong>Documentation:</strong><br>\n<a href=\"https://github.com/llm-d/llm-d/blob/main/docs/monitoring/example-promQL-queries.md#path-c-prefix-caching\" target=\"_blank\">llm-d – Prefix Caching</a> — example PromQL queries and monitoring guide.</p>\n</div>",
+        "content": "<div style=\"font-size: 14px; line-height: 1.6;\">\n<h2 style=\"margin-top: 0;\">Prefix Caching</h2>\n<p>This dashboard shows <strong>vLLM prefix cache</strong>, <strong>EPP prefix indexer</strong>, and <strong>llm-d KV cache (llm_d_router_epp)</strong> metrics.</p>\n<p><strong>Documentation:</strong><br>\n<a href=\"https://github.com/llm-d/llm-d/blob/main/docs/monitoring/example-promQL-queries.md#path-c-prefix-caching\" target=\"_blank\">llm-d – Prefix Caching</a> — example PromQL queries and monitoring guide.</p>\n</div>",
         "mode": "html"
       },
       "title": "Reference",
@@ -149,12 +149,12 @@
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 36 },
       "id": 11,
       "panels": [],
-      "title": "llm-d KV cache (kvcache)",
+      "title": "llm-d KV cache (llm_d_router_epp)",
       "type": "row"
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Overall KV-block lookup hit rate (keys found in cache / lookup calls). From kvcache_index_lookup_hits_total and kvcache_index_lookup_requests_total.",
+      "description": "Overall KV-block lookup hit rate (keys found in cache / lookup calls). From llm_d_router_epp_index_lookup_hits_total and llm_d_router_epp_index_lookup_requests_total.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -170,7 +170,7 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false }, "showThresholdLabels": true },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(kvcache_index_lookup_hits_total[5m])) / sum(rate(kvcache_index_lookup_requests_total[5m]))", "refId": "A" }
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_router_epp_index_lookup_hits_total[5m])) / sum(rate(llm_d_router_epp_index_lookup_requests_total[5m]))", "refId": "A" }
       ],
       "title": "KV cache lookup hit rate",
       "type": "gauge"
@@ -190,24 +190,24 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "expr": "sum(rate(kvcache_index_admissions_total[5m]))", "legendFormat": "admissions/s", "refId": "A" },
-        { "expr": "sum(rate(kvcache_index_evictions_total[5m]))", "legendFormat": "evictions/s", "refId": "B" }
+        { "expr": "sum(rate(llm_d_router_epp_index_admissions_total[5m]))", "legendFormat": "admissions/s", "refId": "A" },
+        { "expr": "sum(rate(llm_d_router_epp_index_evictions_total[5m]))", "legendFormat": "evictions/s", "refId": "B" }
       ],
       "title": "Admissions vs evictions (rate)",
       "type": "timeseries"
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Lookup call latency percentiles (kvcache_index_lookup_latency_seconds).",
+      "description": "Lookup call latency percentiles (llm_d_router_epp_index_lookup_latency_seconds).",
       "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "s", "custom": { "lineWidth": 2, "lineInterpolation": "smooth" } } },
       "gridPos": { "h": 6, "w": 12, "x": 0, "y": 43 },
       "id": 15,
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "expr": "histogram_quantile(0.50, sum by(le) (rate(kvcache_index_lookup_latency_seconds_bucket[5m])))", "legendFormat": "P50", "refId": "A" },
-        { "expr": "histogram_quantile(0.90, sum by(le) (rate(kvcache_index_lookup_latency_seconds_bucket[5m])))", "legendFormat": "P90", "refId": "B" },
-        { "expr": "histogram_quantile(0.99, sum by(le) (rate(kvcache_index_lookup_latency_seconds_bucket[5m])))", "legendFormat": "P99", "refId": "C" }
+        { "expr": "histogram_quantile(0.50, sum by(le) (rate(llm_d_router_epp_index_lookup_latency_seconds_bucket[5m])))", "legendFormat": "P50", "refId": "A" },
+        { "expr": "histogram_quantile(0.90, sum by(le) (rate(llm_d_router_epp_index_lookup_latency_seconds_bucket[5m])))", "legendFormat": "P90", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, sum by(le) (rate(llm_d_router_epp_index_lookup_latency_seconds_bucket[5m])))", "legendFormat": "P99", "refId": "C" }
       ],
       "title": "Lookup latency (P50, P90, P99)",
       "type": "timeseries"
@@ -221,21 +221,21 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(kvcache_index_max_pod_hit_count_total[5m]))", "legendFormat": "max pod hit count/s", "refId": "A" }
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_router_epp_index_max_pod_hit_count_total[5m]))", "legendFormat": "max pod hit count/s", "refId": "A" }
       ],
       "title": "Max pod hit count (rate)",
       "type": "timeseries"
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Tokenized tokens rate by tokenizer (kvcache_tokenization_tokenized_tokens_total).",
+      "description": "Tokenized tokens rate by tokenizer (llm_d_router_epp_tokenization_tokenized_tokens_total).",
       "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "short", "custom": { "lineWidth": 2, "fillOpacity": 20, "lineInterpolation": "smooth" } } },
       "gridPos": { "h": 6, "w": 12, "x": 0, "y": 49 },
       "id": 17,
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by(tokenizer) (rate(kvcache_tokenization_tokenized_tokens_total[5m]))", "legendFormat": "{{tokenizer}}", "refId": "A" }
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by(tokenizer) (rate(llm_d_router_epp_tokenization_tokenized_tokens_total[5m]))", "legendFormat": "{{tokenizer}}", "refId": "A" }
       ],
       "title": "Tokenized tokens (rate by tokenizer)",
       "type": "timeseries"
@@ -249,8 +249,8 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "expr": "histogram_quantile(0.90, sum by(tokenizer, le) (rate(kvcache_tokenization_render_chat_template_latency_seconds_bucket[5m])))", "legendFormat": "render {{tokenizer}} P90", "refId": "A" },
-        { "expr": "histogram_quantile(0.90, sum by(tokenizer, le) (rate(kvcache_tokenization_tokenization_latency_seconds_bucket[5m])))", "legendFormat": "tokenize {{tokenizer}} P90", "refId": "B" }
+        { "expr": "histogram_quantile(0.90, sum by(tokenizer, le) (rate(llm_d_router_epp_tokenization_render_chat_template_latency_seconds_bucket[5m])))", "legendFormat": "render {{tokenizer}} P90", "refId": "A" },
+        { "expr": "histogram_quantile(0.90, sum by(tokenizer, le) (rate(llm_d_router_epp_tokenization_tokenization_latency_seconds_bucket[5m])))", "legendFormat": "tokenize {{tokenizer}} P90", "refId": "B" }
       ],
       "title": "Tokenization latency P90 (by tokenizer)",
       "type": "timeseries"
@@ -259,7 +259,7 @@
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["llm-d", "prefix-caching", "vllm", "epp", "kserve", "kvcache"],
+  "tags": ["llm-d", "prefix-caching", "vllm", "epp", "kserve"],
   "templating": {
     "list": [
       { "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" }, "hide": 0, "includeAll": false, "label": "Datasource", "multi": false, "name": "datasource", "options": [], "query": "prometheus", "refresh": 1, "regex": "", "skipUrlSync": false, "type": "datasource" }

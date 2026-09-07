@@ -94,6 +94,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
+	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
 	allErrs = append(allErrs, kservevalidation.ValidateManagedDRAAnnotations(llmSvc.GetAnnotations())...)
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
@@ -378,12 +379,26 @@ func (l *LLMInferenceServiceValidator) validateWorkloadScaling(basePath *field.P
 	return v1alpha2.ValidateWorkloadScaling(basePath, &w)
 }
 
+func (l *LLMInferenceServiceValidator) validateRolloutStrategy(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+
+	isMultiNode := llmSvc.Spec.Worker != nil
+	w := convertWorkloadSpecToV1Alpha2(&llmSvc.Spec.WorkloadSpec)
+	allErrs = append(allErrs, v1alpha2.ValidateWorkloadRolloutFields(field.NewPath("spec"), w.RolloutStrategy, isMultiNode)...)
+
+	if llmSvc.Spec.Prefill != nil {
+		prefillMultiNode := llmSvc.Spec.Prefill.Worker != nil
+		p := convertWorkloadSpecToV1Alpha2(llmSvc.Spec.Prefill)
+		allErrs = append(allErrs, v1alpha2.ValidateWorkloadRolloutFields(field.NewPath("spec").Child("prefill"), p.RolloutStrategy, prefillMultiNode)...)
+	}
+
+	return allErrs
+}
+
 func (l *LLMInferenceServiceValidator) validateLoRAAdapters(llmSvc *LLMInferenceService) field.ErrorList {
 	if llmSvc.Spec.Model.LoRA == nil {
 		return nil
 	}
-	// Convert to the hub (v1alpha2) type and delegate to its exported validator so
-	// the LoRA rules live in exactly one place.
 	hub := convertLoRASpecToV1Alpha2(llmSvc.Spec.Model.LoRA)
 	return v1alpha2.ValidateLoRAAdapters(hub, ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.Name), field.NewPath("spec", "model", "lora"))
 }

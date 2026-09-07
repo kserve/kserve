@@ -1,0 +1,13 @@
+# ShellCheck configuration - https://github.com/koalaman/shellcheck/wiki
+#
+# Shared source of truth so editor/LSP integrations behave the same way
+# `make sh-lint` does. The severity gate lives in the Makefile
+# (SHELLCHECK_SEVERITY) so it can be overridden per invocation.
+
+# Follow `source`d files even when they were not passed on the command line.
+external-sources=true
+
+# Resolve sourced paths relative to the directory of the script being checked.
+# Nearly every script here does `source "${SCRIPT_DIR}/../common.sh"`, which
+# ShellCheck cannot expand on its own; without this they all report SC1091.
+source-path=SCRIPTDIR

@@ -3,9 +3,11 @@ project-leads:
   - yuzisun
 
 approvers:
+  - bartoszmajsak
   - cjohannsen-cloudera
   - Jooho
   - lizzzcai
+  - pierDipi
   - sivanantha321
   - spolti
 
@@ -24,3 +26,4 @@ reviewers:
   - johnugeorge
   - pierDipi
   - bartoszmajsak
+  - vivekk16

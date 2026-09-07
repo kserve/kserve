@@ -1,0 +1,292 @@
+	.text
+	.amdgcn_target "amdgcn-amd-amdhsa--gfx90a"
+	.amdhsa_code_object_version 4
+	.globl	triton_poi_fused__to_copy_embedding_0 ; -- Begin function triton_poi_fused__to_copy_embedding_0
+	.p2align	8
+	.type	triton_poi_fused__to_copy_embedding_0,@function
+triton_poi_fused__to_copy_embedding_0:  ; @triton_poi_fused__to_copy_embedding_0
+.Lfunc_begin0:
+	.cfi_sections .debug_frame
+	.cfi_startproc
+	s_trap 2 ; Kernarg preload header. Trap with incompatible firmware that doesn't support preloading kernel arguments.
+	.fill 63, 4, 0xbf800000 ; s_nop 0
+; %bb.0:
+	.file	1 "/home/vllm/.cache/vllm/torch_compile_cache/d4ec7c2a7d/rank_0_0/inductor_cache/mk" "cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py"
+	.loc	1 20 33 prologue_end            ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:20:33
+	s_lshl_b32 s0, s13, 9
+	.loc	1 23 19                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:23:19
+	s_bfe_i32 s2, s13, 0x10016
+	.loc	1 21 23                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:21:23
+	v_lshl_or_b32 v0, v0, 1, s0
+	.loc	1 23 19                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:23:19
+	s_lshr_b32 s2, s2, 22
+	v_add_u32_e32 v1, s2, v0
+	.loc	1 22 21                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:22:21
+	v_cmp_gt_i32_e64 s[0:1], s12, v0
+	.loc	1 23 19                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:23:19
+	v_ashrrev_i32_e32 v2, 10, v1
+	.loc	1 26 35                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:26:35
+	v_mov_b32_e32 v5, 0
+	v_mov_b32_e32 v4, 0
+	s_and_saveexec_b64 s[2:3], s[0:1]
+	s_cbranch_execnz .LBB0_4
+; %bb.1:                                ; %else
+	.loc	1 0 35 is_stmt 0                ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:0:35
+	s_or_b64 exec, exec, s[2:3]
+	.loc	1 33 47 is_stmt 1               ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:33:47
+	s_and_saveexec_b64 s[2:3], s[0:1]
+	s_cbranch_execnz .LBB0_5
+.LBB0_2:
+	.loc	1 0 47 is_stmt 0                ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:0:47
+	s_or_b64 exec, exec, s[2:3]
+	.loc	1 34 36 is_stmt 1               ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:34:36
+	s_and_saveexec_b64 s[2:3], s[0:1]
+	s_cbranch_execnz .LBB0_6
+.LBB0_3:
+	.loc	1 34 4 is_stmt 0                ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:34:4
+	s_endpgm
+.LBB0_4:                                ; %cond.load
+	.loc	1 26 30 is_stmt 1               ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:26:30
+	v_ashrrev_i32_e32 v3, 31, v2
+	v_lshlrev_b64 v[6:7], 2, v[2:3]
+	v_mov_b32_e32 v1, s7
+	v_add_co_u32_e32 v6, vcc, s6, v6
+	v_addc_co_u32_e32 v7, vcc, v1, v7, vcc
+	.loc	1 26 35 is_stmt 0               ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:26:35
+	global_load_dword v4, v[6:7], off
+	s_or_b64 exec, exec, s[2:3]
+	.loc	1 33 47 is_stmt 1               ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:33:47
+	s_and_saveexec_b64 s[2:3], s[0:1]
+	s_cbranch_execz .LBB0_2
+.LBB0_5:                                ; %cond.load1
+	.loc	1 27 19                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:27:19
+	s_waitcnt vmcnt(0)
+	v_ashrrev_i32_e32 v5, 31, v4
+	.loc	1 24 19                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:24:19
+	v_mul_i32_i24_e32 v1, 0x400, v2
+	.loc	1 33 40                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:33:40
+	v_lshlrev_b64 v[6:7], 10, v[4:5]
+	.loc	1 24 19                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:24:19
+	v_sub_u32_e32 v2, v0, v1
+	.loc	1 33 40                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:33:40
+	v_add_co_u32_e32 v1, vcc, 0x9460000, v6
+	v_addc_co_u32_e32 v3, vcc, 0, v7, vcc
+	.loc	1 30 18                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:30:18
+	v_cmp_gt_i32_e32 vcc, 0, v4
+	.loc	1 33 40                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:33:40
+	v_cndmask_b32_e32 v5, v7, v3, vcc
+	v_cndmask_b32_e32 v4, v6, v1, vcc
+	.loc	1 33 30 is_stmt 0               ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:33:30
+	v_lshlrev_b64 v[4:5], 1, v[4:5]
+	.loc	1 33 35                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:33:35
+	v_ashrrev_i32_e32 v3, 31, v2
+	.loc	1 33 30                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:33:30
+	v_mov_b32_e32 v1, s9
+	v_add_co_u32_e32 v4, vcc, s8, v4
+	v_addc_co_u32_e32 v1, vcc, v1, v5, vcc
+	v_lshlrev_b64 v[2:3], 1, v[2:3]
+	v_add_co_u32_e32 v2, vcc, v4, v2
+	v_addc_co_u32_e32 v3, vcc, v1, v3, vcc
+	.loc	1 33 47                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:33:47
+	global_load_dword v5, v[2:3], off
+	s_or_b64 exec, exec, s[2:3]
+	.loc	1 34 36 is_stmt 1               ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:34:36
+	s_and_saveexec_b64 s[2:3], s[0:1]
+	s_cbranch_execz .LBB0_3
+.LBB0_6:                                ; %cond.store
+	.loc	1 34 25 is_stmt 0               ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:34:25
+	v_ashrrev_i32_e32 v1, 31, v0
+	v_lshlrev_b64 v[0:1], 1, v[0:1]
+	v_mov_b32_e32 v2, s11
+	v_add_co_u32_e32 v0, vcc, s10, v0
+	v_addc_co_u32_e32 v1, vcc, v2, v1, vcc
+	.loc	1 34 36                         ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:34:36
+	s_waitcnt vmcnt(0)
+	global_store_dword v[0:1], v5, off
+	.loc	1 34 4                          ; cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py:34:4
+	s_endpgm
+.Ltmp0:
+	.section	.rodata,"a",@progbits
+	.p2align	6, 0x0
+	.amdhsa_kernel triton_poi_fused__to_copy_embedding_0
+		.amdhsa_group_segment_fixed_size 0
+		.amdhsa_private_segment_fixed_size 0
+		.amdhsa_kernarg_size 40
+		.amdhsa_user_sgpr_count 13
+		.amdhsa_user_sgpr_private_segment_buffer 1
+		.amdhsa_user_sgpr_dispatch_ptr 0
+		.amdhsa_user_sgpr_queue_ptr 0
+		.amdhsa_user_sgpr_kernarg_segment_ptr 1
+		.amdhsa_user_sgpr_dispatch_id 0
+		.amdhsa_user_sgpr_flat_scratch_init 0
+		.amdhsa_user_sgpr_kernarg_preload_length 7
+		.amdhsa_user_sgpr_kernarg_preload_offset 0
+		.amdhsa_user_sgpr_private_segment_size 0
+		.amdhsa_system_sgpr_private_segment_wavefront_offset 0
+		.amdhsa_system_sgpr_workgroup_id_x 1
+		.amdhsa_system_sgpr_workgroup_id_y 0
+		.amdhsa_system_sgpr_workgroup_id_z 0
+		.amdhsa_system_sgpr_workgroup_info 0
+		.amdhsa_system_vgpr_workitem_id 0
+		.amdhsa_next_free_vgpr 8
+		.amdhsa_next_free_sgpr 14
+		.amdhsa_accum_offset 8
+		.amdhsa_reserve_vcc 1
+		.amdhsa_reserve_flat_scratch 0
+		.amdhsa_reserve_xnack_mask 1
+		.amdhsa_float_round_mode_32 0
+		.amdhsa_float_round_mode_16_64 0
+		.amdhsa_float_denorm_mode_32 3
+		.amdhsa_float_denorm_mode_16_64 3
+		.amdhsa_dx10_clamp 1
+		.amdhsa_ieee_mode 1
+		.amdhsa_fp16_overflow 0
+		.amdhsa_tg_split 0
+		.amdhsa_exception_fp_ieee_invalid_op 0
+		.amdhsa_exception_fp_denorm_src 0
+		.amdhsa_exception_fp_ieee_div_zero 0
+		.amdhsa_exception_fp_ieee_overflow 0
+		.amdhsa_exception_fp_ieee_underflow 0
+		.amdhsa_exception_fp_ieee_inexact 0
+		.amdhsa_exception_int_div_zero 0
+	.end_amdhsa_kernel
+	.text
+.Lfunc_end0:
+	.size	triton_poi_fused__to_copy_embedding_0, .Lfunc_end0-triton_poi_fused__to_copy_embedding_0
+	.cfi_endproc
+                                        ; -- End function
+	.set triton_poi_fused__to_copy_embedding_0.num_vgpr, 8
+	.set triton_poi_fused__to_copy_embedding_0.num_agpr, 0
+	.set triton_poi_fused__to_copy_embedding_0.numbered_sgpr, 14
+	.set triton_poi_fused__to_copy_embedding_0.private_seg_size, 0
+	.set triton_poi_fused__to_copy_embedding_0.uses_vcc, 1
+	.set triton_poi_fused__to_copy_embedding_0.uses_flat_scratch, 0
+	.set triton_poi_fused__to_copy_embedding_0.has_dyn_sized_stack, 0
+	.set triton_poi_fused__to_copy_embedding_0.has_recursion, 0
+	.set triton_poi_fused__to_copy_embedding_0.has_indirect_call, 0
+	.section	.AMDGPU.csdata,"",@progbits
+; Kernel info:
+; codeLenInByte = 280
+; TotalNumSgprs: 18
+; NumVgprs: 8
+; NumAgprs: 0
+; TotalNumVgprs: 8
+; ScratchSize: 0
+; MemoryBound: 0
+; FloatMode: 240
+; IeeeMode: 1
+; LDSByteSize: 0 bytes/workgroup (compile time only)
+; SGPRBlocks: 2
+; VGPRBlocks: 0
+; NumSGPRsForWavesPerEU: 18
+; NumVGPRsForWavesPerEU: 8
+; AccumOffset: 8
+; Occupancy: 8
+; WaveLimiterHint : 0
+; COMPUTE_PGM_RSRC2:SCRATCH_EN: 0
+; COMPUTE_PGM_RSRC2:USER_SGPR: 13
+; COMPUTE_PGM_RSRC2:TRAP_HANDLER: 0
+; COMPUTE_PGM_RSRC2:TGID_X_EN: 1
+; COMPUTE_PGM_RSRC2:TGID_Y_EN: 0
+; COMPUTE_PGM_RSRC2:TGID_Z_EN: 0
+; COMPUTE_PGM_RSRC2:TIDIG_COMP_CNT: 0
+; COMPUTE_PGM_RSRC3_GFX90A:ACCUM_OFFSET: 1
+; COMPUTE_PGM_RSRC3_GFX90A:TG_SPLIT: 0
+	.text
+	.p2alignl 6, 3212836864
+	.fill 256, 4, 3212836864
+	.section	.AMDGPU.gpr_maximums,"",@progbits
+	.set amdgpu.max_num_vgpr, 0
+	.set amdgpu.max_num_agpr, 0
+	.set amdgpu.max_num_sgpr, 0
+	.text
+	.section	.debug_abbrev,"",@progbits
+	.byte	1                               ; Abbreviation Code
+	.byte	17                              ; DW_TAG_compile_unit
+	.byte	0                               ; DW_CHILDREN_no
+	.byte	37                              ; DW_AT_producer
+	.byte	14                              ; DW_FORM_strp
+	.byte	19                              ; DW_AT_language
+	.byte	5                               ; DW_FORM_data2
+	.byte	3                               ; DW_AT_name
+	.byte	14                              ; DW_FORM_strp
+	.byte	16                              ; DW_AT_stmt_list
+	.byte	23                              ; DW_FORM_sec_offset
+	.byte	27                              ; DW_AT_comp_dir
+	.byte	14                              ; DW_FORM_strp
+	.byte	17                              ; DW_AT_low_pc
+	.byte	1                               ; DW_FORM_addr
+	.byte	18                              ; DW_AT_high_pc
+	.byte	6                               ; DW_FORM_data4
+	.byte	0                               ; EOM(1)
+	.byte	0                               ; EOM(2)
+	.byte	0                               ; EOM(3)
+	.section	.debug_info,"",@progbits
+.Lcu_begin0:
+	.long	.Ldebug_info_end0-.Ldebug_info_start0 ; Length of Unit
+.Ldebug_info_start0:
+	.short	4                               ; DWARF version number
+	.long	.debug_abbrev                   ; Offset Into Abbrev. Section
+	.byte	8                               ; Address Size (in bytes)
+	.byte	1                               ; Abbrev [1] 0xb:0x1f DW_TAG_compile_unit
+	.long	.Linfo_string0                  ; DW_AT_producer
+	.short	2                               ; DW_AT_language
+	.long	.Linfo_string1                  ; DW_AT_name
+	.long	.Lline_table_start0             ; DW_AT_stmt_list
+	.long	.Linfo_string2                  ; DW_AT_comp_dir
+	.quad	.Lfunc_begin0                   ; DW_AT_low_pc
+	.long	.Lfunc_end0-.Lfunc_begin0       ; DW_AT_high_pc
+.Ldebug_info_end0:
+	.section	.debug_str,"MS",@progbits,1
+.Linfo_string0:
+	.asciz	"triton"                        ; string offset=0
+.Linfo_string1:
+	.asciz	"cmk34tieuty2rpoli3ynf2ihs3dcfx6o5sv2l7rkt5vj44p2tk74.py" ; string offset=7
+.Linfo_string2:
+	.asciz	"/home/vllm/.cache/vllm/torch_compile_cache/d4ec7c2a7d/rank_0_0/inductor_cache/mk" ; string offset=63
+	.section	".note.GNU-stack","",@progbits
+	.amdgpu_metadata
+---
+amdhsa.kernels:
+  - .agpr_count:     0
+    .args:
+      - .address_space:  global
+        .offset:         0
+        .size:           8
+        .value_kind:     global_buffer
+      - .address_space:  global
+        .offset:         8
+        .size:           8
+        .value_kind:     global_buffer
+      - .address_space:  global
+        .offset:         16
+        .size:           8
+        .value_kind:     global_buffer
+      - .offset:         24
+        .size:           4
+        .value_kind:     by_value
+      - .address_space:  global
+        .offset:         32
+        .size:           8
+        .value_kind:     global_buffer
+    .group_segment_fixed_size: 0
+    .kernarg_segment_align: 8
+    .kernarg_segment_size: 40
+    .max_flat_workgroup_size: 256
+    .name:           triton_poi_fused__to_copy_embedding_0
+    .private_segment_fixed_size: 0
+    .sgpr_count:     18
+    .sgpr_spill_count: 0
+    .symbol:         triton_poi_fused__to_copy_embedding_0.kd
+    .vgpr_count:     8
+    .vgpr_spill_count: 0
+    .wavefront_size: 64
+amdhsa.target:   amdgcn-amd-amdhsa--gfx90a
+amdhsa.version:
+  - 1
+  - 1
+...
+
+	.end_amdgpu_metadata
+	.section	.debug_line,"",@progbits
+.Lline_table_start0:

@@ -29,8 +29,6 @@ import (
 	"time"
 
 	gstorage "cloud.google.com/go/storage"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/go-logr/zapr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -129,8 +127,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mocks.MockS3Client{},
-								Downloader: &mocks.MockS3Downloader{},
+								Client:         &mocks.MockS3Client{},
+								TransferClient: &mocks.MockS3TransferClient{},
 							},
 						},
 						Logger: sugar,
@@ -168,8 +166,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test1",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mocks.MockS3Client{},
-								Downloader: &mocks.MockS3Downloader{},
+								Client:         &mocks.MockS3Client{},
+								TransferClient: &mocks.MockS3TransferClient{},
 							},
 						},
 						Logger: sugar,
@@ -213,8 +211,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test2",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mocks.MockS3Client{},
-								Downloader: &mocks.MockS3Downloader{},
+								Client:         &mocks.MockS3Client{},
+								TransferClient: &mocks.MockS3TransferClient{},
 							},
 						},
 						Logger: sugar,
@@ -270,8 +268,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test3",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mocks.MockS3Client{},
-								Downloader: &mocks.MockS3Downloader{},
+								Client:         &mocks.MockS3Client{},
+								TransferClient: &mocks.MockS3TransferClient{},
 							},
 						},
 						Logger: sugar,
@@ -326,13 +324,7 @@ var _ = Describe("Watcher", func() {
 		Context("When model download fails", func() {
 			It("Should not create the success file", func() {
 				logger.Printf("Using temp dir %v\n", modelDir)
-				errs := make([]s3manager.Error, 0, 1)
-				errs = append(errs, s3manager.Error{
-					OrigErr: errors.New("failed to download"),
-					Bucket:  aws.String("modelRepo"),
-					Key:     aws.String("model1/model.pt"),
-				})
-				err := s3manager.NewBatchError("BatchedDownloadIncomplete", "some objects have failed to download.", errs)
+				err := errors.New("failed to download")
 				watcher := NewWatcher("/tmp/configs", modelDir, sugar)
 				puller := Puller{
 					channelMap:  make(map[string]*ModelChannel),
@@ -342,8 +334,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test4",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mocks.MockS3Client{},
-								Downloader: &mocks.MockS3FailDownloader{Err: err},
+								Client:         &mocks.MockS3Client{},
+								TransferClient: &mocks.MockS3FailTransferClient{Err: err},
 							},
 						},
 						Logger: sugar,
@@ -532,8 +524,8 @@ var _ = Describe("Watcher", func() {
 						ModelDir: modelDir + "/test2",
 						Providers: map[storage.Protocol]storage.Provider{
 							storage.S3: &storage.S3Provider{
-								Client:     &mocks.MockS3Client{},
-								Downloader: &mocks.MockS3Downloader{},
+								Client:         &mocks.MockS3Client{},
+								TransferClient: &mocks.MockS3TransferClient{},
 							},
 						},
 						Logger: sugar,

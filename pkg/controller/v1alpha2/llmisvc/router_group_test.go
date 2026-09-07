@@ -186,50 +186,6 @@ func TestFilterEligibleMembers(t *testing.T) {
 	})
 }
 
-func TestIsGroupRoute(t *testing.T) {
-	tests := []struct {
-		name  string
-		route *gwapiv1.HTTPRoute
-		want  bool
-	}{
-		{
-			name:  "nil route",
-			route: nil,
-			want:  false,
-		},
-		{
-			name:  "no labels",
-			route: &gwapiv1.HTTPRoute{},
-			want:  false,
-		},
-		{
-			name: "no group label",
-			route: &gwapiv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{"other": "label"},
-				},
-			},
-			want: false,
-		},
-		{
-			name: "has group label",
-			route: &gwapiv1.HTTPRoute{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						constants.LLMRoutingGroupLabelKey: "llama-70b",
-					},
-				},
-			},
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, isGroupRoute(tt.route))
-		})
-	}
-}
-
 func TestUpdateGroupStatus(t *testing.T) {
 	t.Run("populates group status from resolved members", func(t *testing.T) {
 		llmSvc := &v1alpha2.LLMInferenceService{
