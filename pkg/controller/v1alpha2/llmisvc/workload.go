@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"slices"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -183,9 +185,10 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 // mirroring the identity its pod template carries.
 //
 // Labels propagated from the LLMInferenceService's top-level metadata are excluded.
-// spec.selector is immutable, so any key it does carry - including one supplied through
-// spec.labels, which is not validated as immutable - can only be changed by recreating
-// the Deployment.
+// spec.selector is immutable, so any key it does carry can only be changed by recreating
+// the Deployment. That applies to keys the identity labels do not control: spec.labels is
+// not validated as immutable, and identity can also carry the match labels of a
+// referenced InferencePool, which is a separate object that may be edited or swapped out.
 func deploymentSelectorLabels(identity, workloadLabels map[string]string) map[string]string {
 	selector := make(map[string]string, len(identity)+len(workloadLabels))
 	maps.Copy(selector, identity)
@@ -272,10 +275,26 @@ func PreserveDeploymentReplicas() UpdateOption[*appsv1.Deployment] {
 // carrying a key its stored selector requires is rejected, since the template no longer
 // matches the selector, and has to be recreated to reconcile again.
 func PreserveDeploymentSelector() UpdateOption[*appsv1.Deployment] {
-	return BeforeDryRun(func(expected, curr *appsv1.Deployment) {
-		if curr.Spec.Selector != nil {
-			expected.Spec.Selector = curr.Spec.Selector.DeepCopy()
+	return BeforeDryRun(func(expected, curr *appsv1.Deployment) error {
+		if curr.Spec.Selector == nil {
+			return nil
 		}
+		expected.Spec.Selector = curr.Spec.Selector.DeepCopy()
+
+		var unsatisfied []string
+		for k, v := range curr.Spec.Selector.MatchLabels {
+			if expected.Spec.Template.Labels[k] != v {
+				unsatisfied = append(unsatisfied, fmt.Sprintf("%s=%q", k, v))
+			}
+		}
+		if len(unsatisfied) == 0 {
+			return nil
+		}
+		slices.Sort(unsatisfied)
+
+		return fmt.Errorf("deployment %s/%s must be recreated to reconcile: its selector is "+
+			"immutable and requires %s, which the pod template no longer sets",
+			curr.GetNamespace(), curr.GetName(), strings.Join(unsatisfied, ", "))
 	})
 }
 

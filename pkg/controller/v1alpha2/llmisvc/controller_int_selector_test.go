@@ -46,9 +46,6 @@ var _ = Describe("Deployment selector", func() {
 	// propagated queue label in the selector. The current one computes nameLabel only.
 	storedSelector := map[string]string{nameLabel: "selector-fixture", queueLabel: "team-alpha"}
 
-	// alwaysDiffer forces Update past the equality short-circuit so the write is attempted.
-	alwaysDiffer := func(expected, curr *appsv1.Deployment) bool { return false }
-
 	deployment := func(namespace string, owner *v1alpha2.LLMInferenceService, selector, podLabels map[string]string) *appsv1.Deployment {
 		return &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
@@ -86,7 +83,7 @@ var _ = Describe("Deployment selector", func() {
 	reconcile := func(ctx SpecContext, o *v1alpha2.LLMInferenceService, expected *appsv1.Deployment) error {
 		c := &fakeClientWithRecorder{Client: envTest.Client, EventRecorder: record.NewFakeRecorder(10)}
 		return llmisvc.Reconcile(ctx, c, o, &appsv1.Deployment{}, expected,
-			llmisvc.SemanticEqual[*appsv1.Deployment](alwaysDiffer),
+			llmisvc.SemanticEqual[*appsv1.Deployment](neverEqual),
 			llmisvc.PreserveDeploymentSelector())
 	}
 
@@ -127,6 +124,8 @@ var _ = Describe("Deployment selector", func() {
 
 		err := reconcile(ctx, o, expected)
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("spec.template.metadata.labels"))
+		Expect(err.Error()).To(ContainSubstring("must be recreated to reconcile"))
+		Expect(err.Error()).To(ContainSubstring(queueLabel),
+			"the error should name the label the pod template no longer sets")
 	})
 })

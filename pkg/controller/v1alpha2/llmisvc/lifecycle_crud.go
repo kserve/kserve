@@ -152,7 +152,9 @@ func Update[O client.Object, T client.Object](ctx context.Context, c clientWithR
 
 	// Apply before dry-run mutations (e.g., carry over immutable fields from curr)
 	for _, fn := range options.beforeDryRunFns {
-		fn(expected, curr)
+		if err := fn(expected, curr); err != nil {
+			return err
+		}
 	}
 
 	if err := c.Update(ctx, expected, client.DryRunAll); err != nil {
@@ -210,7 +212,10 @@ type AfterDryRunFunc[T client.Object] func(expected, expectedGiven, curr T)
 // It receives:
 //   - expected: the object about to be sent as a dry-run Update - modify this to take effect
 //   - curr: the current state of the resource in the cluster
-type BeforeDryRunFunc[T client.Object] func(expected, curr T)
+//
+// Returning an error aborts the update, so a callback can reject a write it can tell
+// the API server will not accept.
+type BeforeDryRunFunc[T client.Object] func(expected, curr T) error
 
 type updateOptions[T client.Object] struct {
 	beforeDryRunFns []BeforeDryRunFunc[T]

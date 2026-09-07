@@ -46,6 +46,9 @@ type fakeClientWithRecorder struct {
 	record.EventRecorder
 }
 
+// neverEqual forces Update past its equality short-circuit so the write is attempted.
+func neverEqual(expected, curr *appsv1.Deployment) bool { return false }
+
 func TestDelete_WhenCRDNotInstalled_ShouldNotFail(t *testing.T) {
 	// given - a client that returns NoMatchError (CRD not installed)
 	scheme := runtime.NewScheme()
@@ -294,8 +297,6 @@ func TestPreserveDeploymentSelector(t *testing.T) {
 				Client:        fakeClient,
 				EventRecorder: record.NewFakeRecorder(10),
 			}
-
-			neverEqual := func(expected, curr *appsv1.Deployment) bool { return false }
 
 			err := llmisvc.Reconcile(t.Context(), clientWithRecorder, owner, &appsv1.Deployment{},
 				newExpected(), llmisvc.SemanticEqual[*appsv1.Deployment](neverEqual), tt.opts...)
