@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"maps"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -604,4 +605,49 @@ func selectorTestClient(t *testing.T) client.Client {
 	}
 
 	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(pool).Build()
+}
+
+func TestDeploymentSelectorLabels(t *testing.T) {
+	tests := []struct {
+		name           string
+		identity       map[string]string
+		workloadLabels map[string]string
+		want           map[string]string
+	}{
+		{
+			name:     "nil workload labels leave the identity labels alone",
+			identity: map[string]string{"app.kubernetes.io/name": "svc"},
+			want:     map[string]string{"app.kubernetes.io/name": "svc"},
+		},
+		{
+			name:           "nil identity labels",
+			workloadLabels: map[string]string{"team": "alpha"},
+			want:           map[string]string{"team": "alpha"},
+		},
+		{
+			name: "both nil",
+			want: map[string]string{},
+		},
+		{
+			name:           "workload labels override identity labels",
+			identity:       map[string]string{"app.kubernetes.io/name": "svc", "kserve.io/component": "workload"},
+			workloadLabels: map[string]string{"app.kubernetes.io/name": "other", "team": "alpha"},
+			want: map[string]string{
+				"app.kubernetes.io/name": "other",
+				"kserve.io/component":    "workload",
+				"team":                   "alpha",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			identity := maps.Clone(tt.identity)
+
+			got := deploymentSelectorLabels(identity, tt.workloadLabels)
+
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.identity, identity, "the identity map must not be modified")
+		})
+	}
 }
