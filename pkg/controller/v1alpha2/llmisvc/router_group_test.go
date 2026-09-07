@@ -754,6 +754,12 @@ func TestFinalizeGroupMembership(t *testing.T) {
 		}
 	}
 
+	peerRouteInNamespace := func(backend, namespace string) *gwapiv1.HTTPRoute {
+		route := peerRoute(backend)
+		route.Spec.Rules[0].BackendRefs[0].Namespace = ptr.To(gwapiv1.Namespace(namespace))
+		return route
+	}
+
 	for _, tt := range []struct {
 		name      string
 		route     *gwapiv1.HTTPRoute
@@ -763,6 +769,8 @@ func TestFinalizeGroupMembership(t *testing.T) {
 		wantErr   bool
 	}{
 		{name: "peer released the backend", route: peerRoute("peer-kserve-workload-svc"), converged: true},
+		{name: "peer references the backend with an empty namespace", route: peerRouteInNamespace(workloadServiceName(deleting), "")},
+		{name: "peer references the backend in another namespace", route: peerRouteInNamespace(workloadServiceName(deleting), "elsewhere"), converged: true},
 		{name: "peer still references the backend", route: peerRoute(workloadServiceName(deleting))},
 		// The injected backendRef carries the referenced pool name, not the
 		// default one, so matching on the default alone would wrongly converge.

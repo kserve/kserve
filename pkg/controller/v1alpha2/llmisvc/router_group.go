@@ -272,7 +272,12 @@ func routeReferencesMember(route *gwapiv1.HTTPRoute, member *v1alpha2.LLMInferen
 // The namespace guard is additional: a ref may name another namespace's
 // identically named backend.
 func backendRefersTo(ref gwapiv1.HTTPBackendRef, routeNamespace string, member *v1alpha2.LLMInferenceService) bool {
-	if ptr.Deref(ref.Namespace, gwapiv1.Namespace(routeNamespace)) != gwapiv1.Namespace(member.Namespace) {
+	// An unset or empty namespace means the route's own namespace.
+	refNamespace := string(ptr.Deref(ref.Namespace, ""))
+	if refNamespace == "" {
+		refNamespace = routeNamespace
+	}
+	if refNamespace != member.Namespace {
 		return false
 	}
 	return isExpectedBackendRef(member, ref.BackendRef)
