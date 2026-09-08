@@ -59,7 +59,7 @@ func TestGCSDownloadAllowsNestedObjectPath(t *testing.T) {
 		t.Fatalf("expected download to succeed: %v", err)
 	}
 
-	got, err := os.ReadFile(filepath.Join(modelDir, modelName, "nested", "model.bin"))
+	got, err := os.ReadFile(filepath.Join(modelDir, modelName, "nested", "model.bin")) //nolint:gosec // G304: test path is rooted in t.TempDir
 	if err != nil {
 		t.Fatalf("failed to read downloaded model: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestGCSDownloadRejectsPathTraversal(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	outsidePath := filepath.Join(tmpDir, "outside.txt")
-	if err := os.WriteFile(outsidePath, []byte(originalContents), 0o644); err != nil {
+	if err := os.WriteFile(outsidePath, []byte(originalContents), 0o600); err != nil {
 		t.Fatalf("failed to write outside file: %v", err)
 	}
 
@@ -89,11 +89,88 @@ func TestGCSDownloadRejectsPathTraversal(t *testing.T) {
 		t.Fatal("expected path traversal object to be rejected")
 	}
 
-	got, err := os.ReadFile(outsidePath)
+	got, err := os.ReadFile(outsidePath) //nolint:gosec // G304: test path is rooted in t.TempDir
 	if err != nil {
 		t.Fatalf("failed to read outside file: %v", err)
 	}
 	if string(got) != originalContents {
 		t.Fatalf("outside file contents = %q, want %q", string(got), originalContents)
+	}
+}
+
+func TestGCSDownloadAllowsEmptyModelName(t *testing.T) {
+	const (
+		bucketName    = "testBucket"
+		modelContents = "Model Contents"
+	)
+
+	provider := newTestGCSProvider(t, bucketName)
+	writeGCSObject(t, provider, bucketName, "nested/", "")
+	writeGCSObject(t, provider, bucketName, "nested/model.bin", modelContents)
+
+	modelDir := t.TempDir()
+	if err := provider.DownloadModel(modelDir, "", "gs://testBucket/"); err != nil {
+		t.Fatalf("expected whole-bucket download to succeed: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(modelDir, "nested", "model.bin")) //nolint:gosec // G304: test path is rooted in t.TempDir
+	if err != nil {
+		t.Fatalf("failed to read downloaded model: %v", err)
+	}
+	if string(got) != modelContents {
+		t.Fatalf("downloaded contents = %q, want %q", string(got), modelContents)
+	}
+}
+
+func TestGCSDownloadWithEmptyModelNameRejectsPathTraversal(t *testing.T) {
+	const (
+		bucketName       = "testBucket"
+		originalContents = "do not overwrite"
+	)
+
+	tmpDir := t.TempDir()
+	outsidePath := filepath.Join(tmpDir, "outside.txt")
+	if err := os.WriteFile(outsidePath, []byte(originalContents), 0o600); err != nil {
+		t.Fatalf("failed to write outside file: %v", err)
+	}
+
+	provider := newTestGCSProvider(t, bucketName)
+	writeGCSObject(t, provider, bucketName, "../../outside.txt", "malicious")
+
+	modelDir := filepath.Join(tmpDir, "models")
+	if err := provider.DownloadModel(modelDir, "", "gs://testBucket/"); err == nil {
+		t.Fatal("expected whole-bucket traversal object to be rejected")
+	}
+
+	got, err := os.ReadFile(outsidePath) //nolint:gosec // G304: test path is rooted in t.TempDir
+	if err != nil {
+		t.Fatalf("failed to read outside file: %v", err)
+	}
+	if string(got) != originalContents {
+		t.Fatalf("outside file contents = %q, want %q", string(got), originalContents)
+	}
+}
+
+func TestGCSDownloadAllowsExactObjectPath(t *testing.T) {
+	const (
+		bucketName    = "testBucket"
+		modelName     = "model1"
+		modelContents = "Model Contents"
+	)
+
+	provider := newTestGCSProvider(t, bucketName)
+	writeGCSObject(t, provider, bucketName, "models/model.bin", modelContents)
+
+	modelDir := t.TempDir()
+	if err := provider.DownloadModel(modelDir, modelName, "gs://testBucket/models/model.bin"); err != nil {
+		t.Fatalf("expected exact-object download to succeed: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(modelDir, modelName, "model.bin")) //nolint:gosec // G304: test path is rooted in t.TempDir
+	if err != nil {
+		t.Fatalf("failed to read downloaded model: %v", err)
+	}
+	if string(got) != modelContents {
+		t.Fatalf("downloaded contents = %q, want %q", string(got), modelContents)
 	}
 }

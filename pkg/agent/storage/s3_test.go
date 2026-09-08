@@ -256,7 +256,7 @@ func TestDownloadModel_NoPrefixInURI(t *testing.T) {
 func TestDownloadModel_RejectsPathTraversal(t *testing.T) {
 	tmpDir := t.TempDir()
 	outsidePath := filepath.Join(tmpDir, "outside.txt")
-	if err := os.WriteFile(outsidePath, []byte("do not overwrite"), 0o644); err != nil {
+	if err := os.WriteFile(outsidePath, []byte("do not overwrite"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -271,7 +271,7 @@ func TestDownloadModel_RejectsPathTraversal(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected path traversal object to be rejected")
 	}
-	got, readErr := os.ReadFile(outsidePath)
+	got, readErr := os.ReadFile(outsidePath) //nolint:gosec // G304: test path is rooted in t.TempDir
 	if readErr != nil {
 		t.Fatal(readErr)
 	}
