@@ -50,29 +50,34 @@ async def test_multiprocess_server_uses_tcp_protocol_socket(monkeypatch):
 
     sock = captured_sockets[0]
     try:
-        if hasattr(socket, "SO_PROTOCOL"):
-            assert sock.proto == socket.IPPROTO_TCP
+        if not hasattr(socket, "SO_PROTOCOL"):
+            pytest.skip("proto metadata not preserved without SO_PROTOCOL")
 
-            tcp_nodelay = asyncio.get_running_loop().create_future()
+        assert sock.proto == socket.IPPROTO_TCP
 
-            class Protocol(asyncio.Protocol):
-                def connection_made(self, transport):
-                    accepted = transport.get_extra_info("socket")
-                    tcp_nodelay.set_result(
-                        accepted.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY)
-                    )
-                    transport.close()
+        tcp_nodelay = asyncio.get_running_loop().create_future()
 
-            asyncio_server = await asyncio.get_running_loop().create_server(
-                Protocol, sock=sock
-            )
-            _, writer = await asyncio.open_connection(*sock.getsockname())
-            try:
-                assert await asyncio.wait_for(tcp_nodelay, timeout=1) != 0
-            finally:
-                writer.close()
-                await writer.wait_closed()
-                asyncio_server.close()
-                await asyncio_server.wait_closed()
+        class Protocol(asyncio.Protocol):
+            def connection_made(self, transport):
+                accepted = transport.get_extra_info("socket")
+                tcp_nodelay.set_result(
+                    accepted.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY)
+                )
+                transport.close()
+
+        asyncio_server = await asyncio.get_running_loop().create_server(
+            Protocol, sock=sock
+        )
+        sockname = sock.getsockname()
+        port = sockname[1]
+        host = "::1" if sock.family == socket.AF_INET6 else "127.0.0.1"
+        _, writer = await asyncio.open_connection(host, port)
+        try:
+            assert await asyncio.wait_for(tcp_nodelay, timeout=1) != 0
+        finally:
+            writer.close()
+            await writer.wait_closed()
+            asyncio_server.close()
+            await asyncio_server.wait_closed()
     finally:
         sock.close()
