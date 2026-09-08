@@ -17,14 +17,23 @@ limitations under the License.
 package llmisvc
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
+	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	v1alpha2 "github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -658,54 +667,6 @@ func TestResolveMemberBackendRef(t *testing.T) {
 	}
 }
 
-func TestRouteReferencesBackend(t *testing.T) {
-	tests := []struct {
-		name    string
-		route   *gwapiv1.HTTPRoute
-		backend string
-		want    bool
-	}{
-		{
-			name: "match in first rule",
-			route: &gwapiv1.HTTPRoute{Spec: gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{
-				{BackendRefs: []gwapiv1.HTTPBackendRef{{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{Name: "pool-a"}}}}},
-			}}},
-			backend: "pool-a",
-			want:    true,
-		},
-		{
-			name: "no match",
-			route: &gwapiv1.HTTPRoute{Spec: gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{
-				{BackendRefs: []gwapiv1.HTTPBackendRef{{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{Name: "pool-a"}}}}},
-			}}},
-			backend: "pool-b",
-			want:    false,
-		},
-		{
-			name:    "empty rules",
-			route:   &gwapiv1.HTTPRoute{},
-			backend: "pool-a",
-			want:    false,
-		},
-		{
-			name: "match in second rule",
-			route: &gwapiv1.HTTPRoute{Spec: gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{
-				{BackendRefs: []gwapiv1.HTTPBackendRef{{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{Name: "pool-a"}}}}},
-				{BackendRefs: []gwapiv1.HTTPBackendRef{{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{Name: "pool-b"}}}}},
-			}}},
-			backend: "pool-b",
-			want:    true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, routeReferencesBackend(tt.route, tt.backend))
-		})
-	}
-}
-
-// memberSvc creates a minimal LLMInferenceService for group testing.
 func routableMember(name, group string, weight int32, ts metav1.Time) v1alpha2.LLMInferenceService {
 	svc := memberSvc(name, group, weight, false, ts)
 	svc.Status.SetConditions(apis.Conditions{{
@@ -749,4 +710,116 @@ func memberSvc(name, group string, weight int32, stopped bool, ts metav1.Time) v
 		}
 	}
 	return svc
+}
+
+func TestFinalizeGroupMembership(t *testing.T) {
+	const group = "group"
+	deleting := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "leaving", Namespace: "ns", DeletionTimestamp: ptr.To(metav1.Now()),
+			Finalizers: []string{"test-finalizer"},
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{Route: &v1alpha2.GatewayRoutesSpec{Group: ptr.To(group)}},
+		},
+	}
+	peer := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "peer", Namespace: "ns"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{Route: &v1alpha2.GatewayRoutesSpec{Group: ptr.To(group)}},
+		},
+	}
+	peerPoolRoute := func(poolName string) *gwapiv1.HTTPRoute {
+		return &gwapiv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: kmeta.ChildName(peer.Name, "-kserve-route"), Namespace: peer.Namespace},
+			Spec: gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{{BackendRefs: []gwapiv1.HTTPBackendRef{{
+				BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+					Group: ptr.To(gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName)),
+					Kind:  ptr.To(gwapiv1.Kind("InferencePool")),
+					Name:  gwapiv1.ObjectName(poolName),
+				}},
+			}}}}},
+		}
+	}
+	peerRoute := func(backends ...string) *gwapiv1.HTTPRoute {
+		refs := make([]gwapiv1.HTTPBackendRef, 0, len(backends))
+		for _, name := range backends {
+			refs = append(refs, gwapiv1.HTTPBackendRef{BackendRef: gwapiv1.BackendRef{
+				BackendObjectReference: gwapiv1.BackendObjectReference{Name: gwapiv1.ObjectName(name)},
+			}})
+		}
+		return &gwapiv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: kmeta.ChildName(peer.Name, "-kserve-route"), Namespace: peer.Namespace},
+			Spec:       gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{{BackendRefs: refs}}},
+		}
+	}
+
+	peerRouteInNamespace := func(backend, namespace string) *gwapiv1.HTTPRoute {
+		route := peerRoute(backend)
+		route.Spec.Rules[0].BackendRefs[0].Namespace = ptr.To(gwapiv1.Namespace(namespace))
+		return route
+	}
+
+	for _, tt := range []struct {
+		name      string
+		route     *gwapiv1.HTTPRoute
+		poolRef   string
+		getErr    error
+		converged bool
+		wantErr   bool
+	}{
+		{name: "peer released the backend", route: peerRoute("peer-kserve-workload-svc"), converged: true},
+		{name: "peer references the backend with an empty namespace", route: peerRouteInNamespace(workloadServiceName(deleting), "")},
+		{name: "peer references the backend in another namespace", route: peerRouteInNamespace(workloadServiceName(deleting), "elsewhere"), converged: true},
+		{name: "peer still references the backend", route: peerRoute(workloadServiceName(deleting))},
+		// The injected backendRef carries the referenced pool name, not the
+		// default one, so matching on the default alone would wrongly converge.
+		{name: "peer still references an explicitly referenced pool", route: peerPoolRoute("user-pool"), poolRef: "user-pool"},
+		{name: "peer released an explicitly referenced pool", route: peerRoute("peer-kserve-workload-svc"), poolRef: "user-pool", converged: true},
+		{name: "peer has no route yet", converged: true},
+		{
+			name: "peer route read denied",
+			getErr: apierrors.NewForbidden(
+				schema.GroupResource{Group: gwapiv1.GroupName, Resource: "httproutes"}, "route", errors.New("denied")),
+			wantErr: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			require.NoError(t, v1alpha2.AddToScheme(scheme))
+			require.NoError(t, gwapiv1.Install(scheme))
+
+			builder := fake.NewClientBuilder().WithScheme(scheme).WithObjects(deleting, peer).
+				WithIndex(&v1alpha2.LLMInferenceService{}, groupFieldIndex, groupIndexValue)
+			if tt.route != nil {
+				builder = builder.WithObjects(tt.route)
+			}
+			if tt.getErr != nil {
+				builder = builder.WithInterceptorFuncs(interceptor.Funcs{
+					Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+						if _, ok := obj.(*gwapiv1.HTTPRoute); ok {
+							return tt.getErr
+						}
+						return c.Get(ctx, key, obj, opts...)
+					},
+				})
+			}
+
+			leaving := deleting.DeepCopy()
+			if tt.poolRef != "" {
+				leaving.Spec.Router.Scheduler = &v1alpha2.SchedulerSpec{
+					Pool: &v1alpha2.InferencePoolSpec{Ref: &corev1.LocalObjectReference{Name: tt.poolRef}},
+				}
+			}
+
+			r := &LLMISVCReconciler{Client: builder.Build()}
+			done, err := r.finalizeGroupMembership(t.Context(), leaving)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.converged, done)
+		})
+	}
 }
