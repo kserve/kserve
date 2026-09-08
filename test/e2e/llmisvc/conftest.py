@@ -42,6 +42,7 @@ _LLMISVC_CORE_EXCLUDED = {
     "test_llm_tracing.py",
     "test_llm_inference_service_conversion.py",
     "test_storage_version_migration.py",
+    "test_llm_lora_regex_routing.py",
 }
 
 
@@ -73,6 +74,9 @@ def _auto_assign_group_markers(items):
       ``autoscaling_<variant>`` (e.g. ``autoscaling_wva``, ``autoscaling_keda``).
     * ``test_llm_tracing.py`` -> skipped from ``llmisvc_core`` (has its own
       ``tracing`` marker).
+    * ``test_llm_lora_regex_routing.py`` -> skipped from ``llmisvc_core`` (has
+      its own ``lora_routing`` marker and CI job; three vLLM cold starts do not
+      fit in what the core job has left).
     * Everything else -> ``llmisvc_core``.
     """
     for item in items:
