@@ -714,8 +714,15 @@ func validateKEDAConfig(keda *KEDAScalingConfig, minReplicas *int32) error {
 		return nil
 	}
 
-	// Validate IdleReplicaCount vs MinReplicas
-	if keda.IdleReplicaCount != nil && minReplicas != nil {
+	// Validate IdleReplicaCount vs MinReplicas.
+	// MinReplicas is not defaulted at admission time, only when the ScaledObject is built,
+	// so an unset MinReplicas has to be rejected here rather than silently compared against
+	// the reconciler default.
+	if keda.IdleReplicaCount != nil {
+		if minReplicas == nil {
+			return fmt.Errorf("minReplicas is required when idleReplicaCount is set; "+
+				"idleReplicaCount (%d) must be less than minReplicas", *keda.IdleReplicaCount)
+		}
 		if *keda.IdleReplicaCount >= *minReplicas {
 			return fmt.Errorf("idleReplicaCount (%d) must be less than minReplicas (%d)",
 				*keda.IdleReplicaCount, *minReplicas)

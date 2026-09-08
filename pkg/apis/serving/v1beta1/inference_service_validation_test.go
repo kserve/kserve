@@ -2802,6 +2802,27 @@ func TestValidateKEDAConfig(t *testing.T) {
 			minReplicas: ptr.To(int32(1)),
 			errMatcher:  gomega.BeNil(),
 		},
+		"IdleReplicaCount set without MinReplicas - should error": {
+			keda: &KEDAScalingConfig{
+				IdleReplicaCount: ptr.To(int32(5)),
+			},
+			minReplicas: nil,
+			errMatcher:  gomega.MatchError(gomega.ContainSubstring("minReplicas is required when idleReplicaCount is set")),
+		},
+		"IdleReplicaCount of zero without MinReplicas - should error": {
+			keda: &KEDAScalingConfig{
+				IdleReplicaCount: ptr.To(int32(0)),
+			},
+			minReplicas: nil,
+			errMatcher:  gomega.MatchError(gomega.ContainSubstring("minReplicas is required when idleReplicaCount is set")),
+		},
+		"No IdleReplicaCount and no MinReplicas - should pass": {
+			keda: &KEDAScalingConfig{
+				PollingInterval: ptr.To(int32(15)),
+			},
+			minReplicas: nil,
+			errMatcher:  gomega.BeNil(),
+		},
 		"Fallback with negative FailureThreshold": {
 			keda: &KEDAScalingConfig{
 				Fallback: &kedav1alpha1.Fallback{
