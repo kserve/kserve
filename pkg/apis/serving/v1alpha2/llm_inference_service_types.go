@@ -812,8 +812,8 @@ type ObservedSchedulerStatus struct {
 }
 
 // RouterStatus records the networking resources observed during the last
-// successful routing reconciliation. Nil when routing is not configured or
-// the service is stopped.
+// successful routing reconciliation.
+// Nil when the service is stopped or neither a route nor a scheduler is configured.
 type RouterStatus struct {
 	// Gateways lists the Gateway resources observed as attached to this service,
 	// each with the listeners and HTTPRoutes bound through them.
@@ -970,7 +970,7 @@ type LLMInferenceServiceStatus struct {
 	Addresses []SourcedAddress `json:"addresses,omitempty"`
 
 	// Router records the observed networking topology for this service.
-	// Nil when routing is not configured or the service is stopped.
+	// Nil when the service is stopped or neither a route nor a scheduler is configured.
 	// +optional
 	Router *RouterStatus `json:"router,omitempty"`
 

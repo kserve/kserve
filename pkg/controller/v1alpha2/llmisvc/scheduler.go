@@ -2148,11 +2148,10 @@ func SchedulerLabels(llmSvc *v1alpha2.LLMInferenceService) map[string]string {
 }
 
 // setRoutingPoolStatus writes the InferencePool and EPP Service refs into status.router.
-// If status.router has not yet been created from routing discovery, it is intentionally
-// not initialised to avoid marking routing as populated without gateway information.
+// Initializes router status when needed.
 func setRoutingPoolStatus(llmSvc *v1alpha2.LLMInferenceService, pool, svc gwapiv1.ObjectReference) {
 	if llmSvc.Status.Router == nil {
-		return
+		llmSvc.Status.Router = &v1alpha2.RouterStatus{}
 	}
 	llmSvc.Status.Router.Scheduler = &v1alpha2.ObservedSchedulerStatus{
 		InferencePool: &pool,
