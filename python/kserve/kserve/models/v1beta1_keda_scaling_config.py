@@ -47,9 +47,9 @@ class V1beta1KEDAScalingConfig(object):
                             and the value is json key in definition.
     """
     openapi_types = {
-        'advanced': 'GithubComKedacoreKedaV2ApisKedaV1alpha1AdvancedConfig',
+        'advanced': 'object',
         'cooldown_period': 'int',
-        'fallback': 'GithubComKedacoreKedaV2ApisKedaV1alpha1Fallback',
+        'fallback': 'object',
         'idle_replica_count': 'int',
         'initial_cooldown_period': 'int',
         'polling_interval': 'int'
@@ -97,7 +97,7 @@ class V1beta1KEDAScalingConfig(object):
 
 
         :return: The advanced of this V1beta1KEDAScalingConfig.  # noqa: E501
-        :rtype: GithubComKedacoreKedaV2ApisKedaV1alpha1AdvancedConfig
+        :rtype: object
         """
         return self._advanced
 
@@ -107,7 +107,7 @@ class V1beta1KEDAScalingConfig(object):
 
 
         :param advanced: The advanced of this V1beta1KEDAScalingConfig.  # noqa: E501
-        :type: GithubComKedacoreKedaV2ApisKedaV1alpha1AdvancedConfig
+        :type: object
         """
 
         self._advanced = advanced
@@ -141,7 +141,7 @@ class V1beta1KEDAScalingConfig(object):
 
 
         :return: The fallback of this V1beta1KEDAScalingConfig.  # noqa: E501
-        :rtype: GithubComKedacoreKedaV2ApisKedaV1alpha1Fallback
+        :rtype: object
         """
         return self._fallback
 
@@ -151,7 +151,7 @@ class V1beta1KEDAScalingConfig(object):
 
 
         :param fallback: The fallback of this V1beta1KEDAScalingConfig.  # noqa: E501
-        :type: GithubComKedacoreKedaV2ApisKedaV1alpha1Fallback
+        :type: object
         """
 
         self._fallback = fallback
