@@ -18,18 +18,14 @@ package llmisvc_test
 
 import (
 	"context"
-	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 	. "github.com/kserve/kserve/pkg/testing"
@@ -51,21 +47,7 @@ func countModelRoutingRules(rules []gwapiv1.HTTPRouteRule) int {
 }
 
 func patchIngressModelBasedRoutingMode(ctx context.Context, mode string) {
-	isvcConfigMap := &corev1.ConfigMap{}
-	Expect(envTest.Client.Get(ctx, types.NamespacedName{
-		Name:      constants.InferenceServiceConfigMapName,
-		Namespace: constants.KServeNamespace,
-	}, isvcConfigMap)).To(Succeed())
-
-	var ingressConfig map[string]interface{}
-	Expect(json.Unmarshal([]byte(isvcConfigMap.Data["ingress"]), &ingressConfig)).To(Succeed())
-	ingressConfig["modelBasedRoutingMode"] = mode
-	updatedIngress, err := json.Marshal(ingressConfig)
-	Expect(err).NotTo(HaveOccurred())
-
-	patch := client.MergeFrom(isvcConfigMap.DeepCopy())
-	isvcConfigMap.Data["ingress"] = string(updatedIngress)
-	Expect(envTest.Client.Patch(ctx, isvcConfigMap, patch)).To(Succeed())
+	PatchIngressConfigKey(ctx, envTest.Client, "modelBasedRoutingMode", mode)
 }
 
 func restoreIngressModelBasedRoutingMode(ctx context.Context) {

@@ -38,6 +38,7 @@ from .fixtures import (
 from .diagnostic import collect_diagnostics
 from .test_llm_inference_service import (
     KSERVE_PLURAL_LLMINFERENCESERVICE,
+    get_managed_httproutes,
     wait_for,
 )
 from .test_resources import make_router_gateway
@@ -88,18 +89,6 @@ def _delete_llmisvc_config(kserve_client, name, namespace):
         )
     except client.ApiException:
         pass
-
-
-def _get_managed_httproutes(kserve_client, service_name, namespace):
-    """List HTTPRoutes owned by a given LLMInferenceService."""
-    routes = kserve_client.api_instance.list_namespaced_custom_object(
-        "gateway.networking.k8s.io",
-        "v1",
-        namespace,
-        "httproutes",
-        label_selector=f"app.kubernetes.io/name={service_name},app.kubernetes.io/part-of=llminferenceservice",
-    )
-    return routes.get("items", [])
 
 
 def _find_gateway_parent_ref(routes, gateway_name):
@@ -186,9 +175,7 @@ def test_gateway_section_name_propagation(
         )
 
         def assert_managed_route_exists():
-            routes = _get_managed_httproutes(
-                kserve_client, service_name, test_namespace
-            )
+            routes = get_managed_httproutes(kserve_client, service_name, test_namespace)
             assert len(routes) >= 1, (
                 f"Expected at least 1 managed HTTPRoute, got {len(routes)}"
             )
