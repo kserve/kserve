@@ -1220,7 +1220,7 @@ main() {
                 find "${TARGET_CONFIG_ROOT_DIR}/config" -type f -name "*.yaml" \
                     "${FIND_PRUNE[@]}" \
                     -exec sed -i \
-                -e "s/:latest/:${SET_KSERVE_VERSION}/g" {} \;
+                -e "s/:v0.21.0-rc0/:${SET_KSERVE_VERSION}/g" {} \;
             fi
         
             # Customized images are loaded onto the node, not pushed to a registry, so
@@ -1398,7 +1398,7 @@ spec:
     - --model_name={{.Name}}
     - --model_dir=/mnt/models
     - --http_port=8080
-    image: kserve/autogluonserver:latest
+    image: kserve/autogluonserver:v0.21.0-rc0
     name: kserve-container
     resources:
       limits:
@@ -1439,7 +1439,7 @@ spec:
     env:
     - name: LMCACHE_USE_EXPERIMENTAL
       value: "True"
-    image: kserve/huggingfaceserver:latest
+    image: kserve/huggingfaceserver:v0.21.0-rc0
     name: kserve-container
     resources:
       limits:
@@ -1510,7 +1510,7 @@ spec:
       value: /tmp
     - name: HF_HUB_CACHE
       value: /tmp
-    image: kserve/huggingfaceserver:latest-gpu
+    image: kserve/huggingfaceserver:v0.21.0-rc0-gpu
     livenessProbe:
       exec:
         command:
@@ -1594,7 +1594,7 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
-      image: kserve/huggingfaceserver:latest-gpu
+      image: kserve/huggingfaceserver:v0.21.0-rc0-gpu
       livenessProbe:
         exec:
           command:
@@ -1656,7 +1656,7 @@ spec:
     - --model_dir=/mnt/models
     - --http_port=8080
     - --nthread=1
-    image: kserve/lgbserver:latest
+    image: kserve/lgbserver:v0.21.0-rc0
     name: kserve-container
     resources:
       limits:
@@ -1766,7 +1766,7 @@ spec:
     - --model_name={{.Name}}
     - --model_dir=/mnt/models
     - --http_port=8080
-    image: kserve/paddleserver:latest
+    image: kserve/paddleserver:v0.21.0-rc0
     name: kserve-container
     resources:
       limits:
@@ -1806,7 +1806,7 @@ spec:
     - --model_name={{.Name}}
     - --model_dir=/mnt/models
     - --http_port=8080
-    image: kserve/pmmlserver:latest
+    image: kserve/pmmlserver:v0.21.0-rc0
     name: kserve-container
     resources:
       limits:
@@ -1852,7 +1852,7 @@ spec:
     - --http_port=8080
     - --framework={{.Annotations.modelFormat}}
     - --nthread=1
-    image: kserve/predictiveserver:latest
+    image: kserve/predictiveserver:v0.21.0-rc0
     name: kserve-container
     resources:
       limits:
@@ -1901,7 +1901,7 @@ spec:
     - --model_name={{.Name}}
     - --model_dir=/mnt/models
     - --http_port=8080
-    image: kserve/sklearnserver:latest
+    image: kserve/sklearnserver:v0.21.0-rc0
     name: kserve-container
     resources:
       limits:
@@ -2111,7 +2111,7 @@ spec:
       value: /tmp
     - name: VLLM_WORKER_MULTIPROC_METHOD
       value: spawn
-    image: vllm/vllm-openai:latest
+    image: vllm/vllm-openai:v0.21.0-rc0
     name: kserve-container
     readinessProbe:
       failureThreshold: 3
@@ -2173,7 +2173,7 @@ spec:
     - --model_dir=/mnt/models
     - --http_port=8080
     - --nthread=1
-    image: kserve/xgbserver:latest
+    image: kserve/xgbserver:v0.21.0-rc0
     name: kserve-container
     resources:
       limits:
@@ -6872,7 +6872,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        image: kserve/kserve-localmodel-controller:latest
+        image: kserve/kserve-localmodel-controller:v0.21.0-rc0
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 5
@@ -6961,7 +6961,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: kserve/kserve-localmodelnode-agent:latest
+        image: kserve/kserve-localmodelnode-agent:v0.21.0-rc0
         imagePullPolicy: Always
         name: manager
         resources:
