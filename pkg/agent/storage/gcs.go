@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"strings"
 
 	gstorage "cloud.google.com/go/storage"
@@ -97,7 +98,13 @@ func (g *GCSObjectDownloader) Download(ctx context.Context, client stiface.Clien
 		if err != nil {
 			return fmt.Errorf("an error occurred while iterating: %w", err)
 		}
+		if strings.HasSuffix(attrs.Name, "/") {
+			continue
+		}
 		objectValue := strings.TrimPrefix(attrs.Name, g.Item)
+		if objectValue == "" {
+			objectValue = path.Base(strings.TrimSuffix(attrs.Name, "/"))
+		}
 		file, fileName, err := createLocalModelFile(g.ModelDir, g.ModelName, objectValue)
 		if err != nil {
 			return err
