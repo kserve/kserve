@@ -57,7 +57,7 @@ func TestCreateLocalModelFileRejectsSymlinkEscape(t *testing.T) {
 	modelDir := t.TempDir()
 	outsideDir := t.TempDir()
 	modelPath := filepath.Join(modelDir, "model1")
-	if err := os.Mkdir(modelPath, 0o755); err != nil {
+	if err := os.Mkdir(modelPath, 0o750); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Symlink(outsideDir, filepath.Join(modelPath, "link")); err != nil {
