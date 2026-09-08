@@ -311,6 +311,59 @@ var _ = Describe("Routing Status", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
+
+	Context("HTTPRoute readiness before a Gateway observes the route", func() {
+		It("does not report HTTPRoutesReady until a Gateway controller accepts the managed route", func(ctx SpecContext) {
+			// given - a service with a managed route, and deliberately nothing simulating
+			// a Gateway controller writing route status. This is what a real cluster looks
+			// like between the route being created and a gateway reconciling it.
+			svcName := "test-llm-route-unobserved"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+			)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// The managed route reaches the cluster...
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, errList := managedRoutes(ctx, llmSvc)
+				g.Expect(errList).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+			}).WithContext(ctx).Should(Succeed(), "the managed HTTPRoute should be created")
+
+			// then - ...but readiness must not follow from its mere existence. No
+			// ensureRouterManagedResourcesAreReady here on purpose: that helper is what
+			// makes every other HTTPRoutesReady=True assertion in this suite pass, so
+			// calling it would defeat this test.
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				cond := current.Status.GetCondition(v1alpha2.HTTPRoutesReady)
+				g.Expect(cond).ToNot(BeNil(), "HTTPRoutesReady should be set")
+				g.Expect(cond.IsFalse()).To(BeTrue(), "HTTPRoutesReady should be False while unobserved")
+				g.Expect(cond.Reason).To(Equal("WaitingForGateway"))
+			}).WithContext(ctx).Should(Succeed())
+
+			// and it stays that way - a cache miss on a re-read must not be mistaken for
+			// "no routes to evaluate" and flip the condition to True.
+			Consistently(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				cond := current.Status.GetCondition(v1alpha2.HTTPRoutesReady)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.IsTrue()).To(BeFalse(), "HTTPRoutesReady must never read True before a Gateway accepts the route")
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
 })
 
 func setGatewayStatusAddresses(ctx context.Context, c client.Client, gw *gwapiv1.Gateway, addresses ...string) {
