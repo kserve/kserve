@@ -1162,6 +1162,23 @@ schedulingProfiles:
 				}
 			}
 			Expect(hasGIEPermission).To(BeTrue(), "Expected scheduler role to have inference.networking.k8s.io API group permission for inferencepools, inferenceobjectives, and inferencemodels")
+
+			// Verify events permission exists for leader election event recording
+			hasEventsPermission := false
+			for _, rule := range expectedRole.Rules {
+				for _, apiGroup := range rule.APIGroups {
+					if apiGroup == "" { // core API group
+						for _, resource := range rule.Resources {
+							if resource == "events" {
+								hasEventsPermission = true
+								// Verify verbs for event recording during leader election
+								Expect(rule.Verbs).To(ContainElements("create", "patch"))
+							}
+						}
+					}
+				}
+			}
+			Expect(hasEventsPermission).To(BeTrue(), "Expected scheduler role to have events permission for leader election event recording")
 		})
 	})
 
