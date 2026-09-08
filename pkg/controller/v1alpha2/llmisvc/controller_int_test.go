@@ -184,6 +184,15 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					Kind:     "Deployment",
 					Name:     kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 				}))
+
+				// The refs are populated on the first reconcile after the
+				// Deployments exist, before the Deployment status writes this test
+				// makes are observed. Ready plus the observed replica counts is
+				// what tells us the status has settled, which the idempotency
+				// snapshot below depends on.
+				g.Expect(current.Status).To(HaveCondition("Ready", "True"))
+				g.Expect(current.Status.Workloads.Primary.ReadyReplicas).To(Equal(ptr.To[int32](1)))
+				g.Expect(current.Status.Workloads.Scheduler.ReadyReplicas).To(Equal(ptr.To[int32](1)))
 			})).WithContext(ctx).Should(Succeed())
 
 			// Idempotency: trigger a no-op requeue and verify status.workloads
