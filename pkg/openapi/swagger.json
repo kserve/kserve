@@ -3714,6 +3714,10 @@
           "default": {},
           "$ref": "#/definitions/v1beta1.PredictorSpec"
         },
+        "tracing": {
+          "description": "Tracing configures distributed tracing across InferenceService components. When present, even as an empty object, tracing is enabled with defaults. When omitted, tracing is disabled.",
+          "$ref": "#/definitions/v1beta1.TracingSpec"
+        },
         "transformer": {
           "description": "Transformer defines the pre/post processing before and after the predictor call, transformer service calls to predictor service.",
           "$ref": "#/definitions/v1beta1.TransformerSpec"
@@ -6743,6 +6747,28 @@
         },
         "workingDir": {
           "description": "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.TracingSpec": {
+      "description": "TracingSpec defines the distributed tracing configuration. When present (even as an empty object `{}`), tracing is enabled with defaults. When omitted, tracing is disabled.",
+      "type": "object",
+      "properties": {
+        "exporter": {
+          "description": "Exporter specifies which exporter is used for traces. Maps to the OTEL_TRACES_EXPORTER environment variable. Default: \"otlp\"",
+          "type": "string"
+        },
+        "exporterEndpoint": {
+          "description": "ExporterEndpoint is the OTLP exporter endpoint. Maps to the OTEL_EXPORTER_OTLP_ENDPOINT environment variable. Default: \"http://otel-collector:4317\"",
+          "type": "string"
+        },
+        "sampler": {
+          "description": "Sampler specifies the sampler to use for traces. Maps to the OTEL_TRACES_SAMPLER environment variable. Default: \"parentbased_traceidratio\"",
+          "type": "string"
+        },
+        "samplerArg": {
+          "description": "SamplerArg is an argument passed to the traces sampler, such as a sampling ratio. Maps to the OTEL_TRACES_SAMPLER_ARG environment variable. Default: \"0.05\"",
           "type": "string"
         }
       }
