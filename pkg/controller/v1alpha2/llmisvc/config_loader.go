@@ -97,6 +97,14 @@ type Config struct {
 	ModelBasedRoutingHeaderName string                `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       ModelBasedRoutingMode `json:"modelBasedRoutingMode,omitempty"`
 
+	// LoRAModelRoutingStrategy is the cluster-wide strategy for LoRA adapter
+	// expansion in generated HTTPRoutes. NewIngressConfig defaults and validates
+	// the ConfigMap value, so a loaded Config always carries a supported,
+	// lowercase value; a service overrides it with
+	// AnnotationLoRAModelRoutingStrategy. The zero value behaves as Exact so
+	// directly constructed Configs keep the byte-compatible default.
+	LoRAModelRoutingStrategy LoRAModelRoutingStrategy `json:"loraModelRoutingStrategy,omitempty"`
+
 	// WVAAutoscalingConfig holds Prometheus and monitoring settings for WVA autoscaling.
 	// nil when the "autoscaling-wva-controller-config" key is not present in inferenceservice-config.
 	WVAAutoscalingConfig *WVAAutoscalingConfig `json:"-"`
@@ -178,6 +186,7 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		EnableTLS:                   ingressConfig.EnableLLMInferenceServiceTLS,
 		ModelBasedRoutingHeaderName: ingressConfig.ModelBasedRoutingHeaderName,
 		ModelBasedRoutingMode:       parseModelBasedRoutingMode(ingressConfig.ModelBasedRoutingMode),
+		LoRAModelRoutingStrategy:    LoRAModelRoutingStrategy(ingressConfig.LoRAModelRoutingStrategy),
 		StorageConfig:               storageConfig,
 		CredentialConfig:            credentialConfig,
 		SchedulerConfig:             schedulerConfig,

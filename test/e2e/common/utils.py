@@ -17,6 +17,7 @@ import json
 import os
 import time
 from concurrent import futures
+from pathlib import Path
 from typing import Union, List, Dict
 from urllib.parse import urlparse
 
@@ -36,6 +37,17 @@ from kserve.logging import trace_logger as logger
 from .http_retry import DEFAULT_TIMEOUT_SECONDS, post_with_retry
 
 KSERVE_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "kserve")
+
+
+def project_root() -> Path:
+    """The repository root: the nearest ancestor holding go.mod, as
+    pkg/testing.ProjectRoot does for the Go suites."""
+    for candidate in Path(__file__).resolve().parents:
+        if (candidate / "go.mod").is_file():
+            return candidate
+    raise FileNotFoundError(f"no go.mod above {Path(__file__).resolve()}")
+
+
 _BASE_TEST_NAMESPACE = os.environ.get("KSERVE_TEST_NAMESPACE", "kserve-ci-e2e-test")
 _WORKER_ID = os.environ.get("PYTEST_XDIST_WORKER", "")
 _NAMESPACE_ISOLATION = os.environ.get("E2E_WORKER_COUNT", "")
