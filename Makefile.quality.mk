@@ -118,6 +118,7 @@ sync-helm-common-helpers:
 		echo "  ✓ Copied to charts/$$chart/templates/_utils.tpl"; \
 	done
 
+# Configuration: in setup.cfg [codespell] section (skip paths, ignore-words-list)
 spell-check: $(CODESPELL)
 	$(CODESPELL)
 
