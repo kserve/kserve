@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -777,6 +778,11 @@ func TestFinalizeGroupMembership(t *testing.T) {
 		{name: "peer still references an explicitly referenced pool", route: peerPoolRoute("user-pool"), poolRef: "user-pool"},
 		{name: "peer released an explicitly referenced pool", route: peerRoute("peer-kserve-workload-svc"), poolRef: "user-pool", converged: true},
 		{name: "peer has no route yet", converged: true},
+		{
+			name:      "HTTPRoute CRD is not installed",
+			getErr:    &meta.NoKindMatchError{GroupKind: schema.GroupKind{Group: gwapiv1.GroupName, Kind: "HTTPRoute"}},
+			converged: true,
+		},
 		{
 			name: "peer route read denied",
 			getErr: apierrors.NewForbidden(
