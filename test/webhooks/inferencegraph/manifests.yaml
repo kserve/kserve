@@ -1,0 +1,53 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: inferencegraph.serving.kserve.io
+webhooks:
+  - admissionReviewVersions:
+      - v1
+      - v1beta1
+    clientConfig:
+      service:
+        name: kserve-webhook-server-service
+        namespace: kserve
+        path: /mutate-serving-kserve-io-v1alpha1-inferencegraph
+    failurePolicy: Fail
+    sideEffects: None
+    name: inferencegraph.kserve-webhook-server.defaulter
+    rules:
+      - apiGroups:
+          - serving.kserve.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - inferencegraphs
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: inferencegraph.serving.kserve.io
+webhooks:
+  - admissionReviewVersions:
+      - v1
+      - v1beta1
+    clientConfig:
+      service:
+        name: kserve-webhook-server-service
+        namespace: kserve
+        path: /validate-serving-kserve-io-v1alpha1-inferencegraph
+    failurePolicy: Fail
+    sideEffects: None
+    name: inferencegraph.kserve-webhook-server.validator
+    rules:
+      - apiGroups:
+          - serving.kserve.io
+        apiVersions:
+          - v1alpha1
+        operations:
+          - CREATE
+          - UPDATE
+        resources:
+          - inferencegraphs

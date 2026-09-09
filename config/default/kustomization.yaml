@@ -49,6 +49,11 @@ replacements:
   - fieldPaths:
     - webhooks.*.clientConfig.service.name
     select:
+      kind: MutatingWebhookConfiguration
+      name: inferencegraph.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.name
+    select:
       kind: ValidatingWebhookConfiguration
       name: clusterservingruntime.serving.kserve.io
   - fieldPaths:
@@ -92,6 +97,11 @@ replacements:
     - webhooks.*.clientConfig.service.namespace
     select:
       kind: ValidatingWebhookConfiguration
+      name: inferencegraph.serving.kserve.io
+  - fieldPaths:
+    - webhooks.*.clientConfig.service.namespace
+    select:
+      kind: MutatingWebhookConfiguration
       name: inferencegraph.serving.kserve.io
   - fieldPaths:
     - webhooks.*.clientConfig.service.namespace
@@ -151,6 +161,14 @@ replacements:
       delimiter: '/'
       index: 0
     select:
+      kind: MutatingWebhookConfiguration
+      name: inferencegraph.serving.kserve.io
+  - fieldPaths:
+    - metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      delimiter: '/'
+      index: 0
+    select:
       kind: ValidatingWebhookConfiguration
       name: clusterservingruntime.serving.kserve.io
   - fieldPaths:
@@ -175,6 +193,7 @@ patches:
 - path: manager_auth_proxy_patch.yaml
 - path: isvc_mutatingwebhook_cainjection_patch.yaml
 - path: isvc_validatingwebhook_cainjection_patch.yaml
+- path: inferencegraph_mutatingwebhook_cainjection_patch.yaml
 - path: inferencegraph_validatingwebhook_cainjection_patch.yaml
 - path: trainedmodel_validatingwebhook_cainjection_patch.yaml
 - path: clusterservingruntime_validatingwebhook_cainjection_patch.yaml
