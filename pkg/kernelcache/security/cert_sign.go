@@ -53,7 +53,6 @@ const (
 // format that certVerifier accepts. It uses no transparency log or SCT.
 type certSigner struct {
 	sv          signature.SignerVerifier
-	leafCert    *x509.Certificate
 	certChain   []*x509.Certificate
 	leafCertPEM []byte
 	caChainPEM  []byte
@@ -119,7 +118,10 @@ func newCertSigner(ctx context.Context, cfg types.CertConfig, src SecretSource) 
 			cfg.SigningSecret, keyName, certName, err)
 	}
 	// Same reason: an expired/not-yet-valid leaf would sign but never verify.
-	if err := cryptoutils.CheckExpiration(leafCerts[0], time.Now()); err != nil {
+	// Capture now once so the leaf expiry check and the chain verification below
+	// agree on a single instant, avoiding a boundary race between the two calls.
+	now := time.Now()
+	if err := cryptoutils.CheckExpiration(leafCerts[0], now); err != nil {
 		return nil, fmt.Errorf("signing secret %q: leaf certificate (%s): %w", cfg.SigningSecret, certName, err)
 	}
 	caCerts, err := cryptoutils.UnmarshalCertificatesFromPEM(caPEM)
@@ -150,7 +152,7 @@ func newCertSigner(ctx context.Context, cfg types.CertConfig, src SecretSource) 
 		Roots:         roots,
 		Intermediates: intermediates,
 		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
-		CurrentTime:   time.Now(),
+		CurrentTime:   now,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("signing secret %q: leaf certificate does not chain to the supplied CA (%s): %w", cfg.SigningSecret, chainName, err)
@@ -180,7 +182,6 @@ func newCertSigner(ctx context.Context, cfg types.CertConfig, src SecretSource) 
 
 	return &certSigner{
 		sv:          sv,
-		leafCert:    leafCerts[0],
 		certChain:   verifiedChains[0],
 		leafCertPEM: leafCertPEM,
 		caChainPEM:  caChainPEM,

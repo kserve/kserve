@@ -52,7 +52,6 @@ func TestCertSigner_RejectsExpiredLeafAtSignTime(t *testing.T) {
 
 	// Advance the clock past the leaf's NotAfter.
 	s := &certSigner{
-		leafCert:  leaf,
 		certChain: []*x509.Certificate{leaf},
 		now:       func() time.Time { return notAfter.Add(time.Minute) },
 	}
