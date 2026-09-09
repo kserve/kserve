@@ -36,6 +36,10 @@ const (
 	// schedulerConfigMapKey is the key in the inferenceservice-config ConfigMap
 	// that holds scheduler-specific configuration (annotation keys, etc.).
 	schedulerConfigMapKey = "scheduler"
+
+	// templateConfigMapKey is the key in the inferenceservice-config ConfigMap
+	// that holds LLMInferenceServiceConfig template rendering settings.
+	templateConfigMapKey = "template"
 )
 
 // DefaultExpirationAnnotations is the default list of annotation keys
@@ -85,6 +89,59 @@ func NewSchedulerConfig(isvcConfigMap *corev1.ConfigMap) (*SchedulerConfig, erro
 	return cfg, nil
 }
 
+// TemplateConfig holds settings that control how LLMInferenceServiceConfig
+// templates are rendered, parsed from the "template" key in the
+// inferenceservice-config ConfigMap.
+type TemplateConfig struct {
+	// LLMInferenceServiceConfigRenderStrategy selects the template rendering engine.
+	// Defaults to TemplateRenderStrategyJSON when unset.
+	LLMInferenceServiceConfigRenderStrategy TemplateRenderStrategy `json:"llmInferenceServiceConfigRenderStrategy,omitempty"`
+}
+
+// NewTemplateConfig parses the "template" key from the inferenceservice-config
+// ConfigMap, defaulting LLMInferenceServiceConfigRenderStrategy to TemplateRenderStrategyJSON when unset.
+func NewTemplateConfig(isvcConfigMap *corev1.ConfigMap) (*TemplateConfig, error) {
+	templateConfig := &TemplateConfig{}
+	if template, ok := isvcConfigMap.Data[templateConfigMapKey]; ok {
+		err := json.Unmarshal([]byte(template), templateConfig)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse template config json: %w", err)
+		}
+
+		switch templateConfig.LLMInferenceServiceConfigRenderStrategy {
+		case TemplateRenderStrategyJSON, TemplateRenderStrategyRecursive:
+		default:
+			return nil, fmt.Errorf("unknown template render strategy %q", templateConfig.LLMInferenceServiceConfigRenderStrategy)
+		}
+	}
+
+	if templateConfig.LLMInferenceServiceConfigRenderStrategy == "" {
+		templateConfig.LLMInferenceServiceConfigRenderStrategy = TemplateRenderStrategyJSON
+	}
+
+	return templateConfig, nil
+}
+
+// TemplateRenderStrategy selects the engine used to render LLMInferenceServiceConfig templates.
+type TemplateRenderStrategy string
+
+const (
+	// TemplateRenderStrategyJSON will first encode the LLMInferenceServiceConfig
+	// as JSON, running the result through the template engine, then decoding
+	// the result. Due to the traversal through JSON, this strategy can cause
+	// oddities in whitespace trimming.
+	//
+	// This is the current default strategy.
+	TemplateRenderStrategyJSON TemplateRenderStrategy = "JSON"
+
+	// TemplateRenderStrategyRecursive will recursively walk the tree of the
+	// LLMInferenceServiceConfig, running every string field through the
+	// template engine one at a time.
+	//
+	// This will be the default strategy in a future release.
+	TemplateRenderStrategyRecursive TemplateRenderStrategy = "Recursive"
+)
+
 // Config holds configuration needed for LLM inference services.
 // It aggregates ingress, storage, credential, and autoscaling settings from the KServe configmap.
 type Config struct {
@@ -93,6 +150,11 @@ type Config struct {
 	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
 	UrlScheme               string `json:"urlScheme,omitempty"`
 	EnableTLS               bool   `json:"enableTLS,omitempty"`
+
+	// TemplateConfig controls how LLMInferenceServiceConfig templates are rendered.
+	// Populated from the "template" key in inferenceservice-config; never nil after
+	// NewConfig/LoadConfig.
+	TemplateConfig *TemplateConfig
 
 	ModelBasedRoutingHeaderName string                `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       ModelBasedRoutingMode `json:"modelBasedRoutingMode,omitempty"`
@@ -159,7 +221,7 @@ const autoscalingConfigName = "autoscaling-wva-controller-config"
 
 // NewConfig creates an instance of llm-specific config based on predefined values
 // in IngressConfig struct
-func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, schedulerConfig *SchedulerConfig) *Config {
+func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, schedulerConfig *SchedulerConfig, templateConfig *TemplateConfig) *Config {
 	igwNs := constants.KServeNamespace
 	igwName := ingressConfig.KserveIngressGateway
 	// Parse gateway name to extract namespace and name components
@@ -181,6 +243,7 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		StorageConfig:               storageConfig,
 		CredentialConfig:            credentialConfig,
 		SchedulerConfig:             schedulerConfig,
+		TemplateConfig:              templateConfig,
 	}
 }
 
@@ -232,7 +295,12 @@ func toConfig(isvcConfigMap *corev1.ConfigMap) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse scheduler config: %w", errConvert)
 	}
 
-	config := NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig)
+	templateConfig, errConvert := NewTemplateConfig(isvcConfigMap)
+	if errConvert != nil {
+		return nil, fmt.Errorf("failed to parse template config: %w", errConvert)
+	}
+
+	config := NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig, templateConfig)
 
 	if autoscalingData, ok := isvcConfigMap.Data[autoscalingConfigName]; ok {
 		asCfg := &WVAAutoscalingConfig{}

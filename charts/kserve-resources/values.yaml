@@ -180,3 +180,5 @@ kserve:
         memory: 300Mi
     knativeAddressableResolver:
       enabled: false
+  template:
+    llmInferenceServiceConfigRenderStrategy: JSON
