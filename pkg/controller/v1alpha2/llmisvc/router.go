@@ -45,6 +45,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -78,10 +79,14 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	// reconciliation without requeuing — the condition won't resolve by retrying.
 	if err := r.ensureGatewayPreconditions(ctx, llmSvc); err != nil {
 		if errors.Is(err, ErrPreconditionNotMet) {
-			llmSvc.MarkHTTPRoutesNotReady("GatewayPreconditionNotMet", err.Error())
+			llmSvc.MarkHTTPRoutesNotReady("GatewayPreconditionNotMet", "%s", err.Error())
+			// This branch returns before validateRouterReferences clears them, so a
+			// retained False would shadow the reason DetermineRouterReadiness surfaces.
+			llmSvc.MarkGatewaysReadyUnset()
+			llmSvc.MarkInferencePoolReadyUnset()
 			return nil
 		}
-		llmSvc.MarkHTTPRoutesNotReady("HTTPRouteReconcileError", err.Error())
+		llmSvc.MarkHTTPRoutesNotReady("HTTPRouteReconcileError", "%s", err.Error())
 		return fmt.Errorf("failed to ensure gateway preconditions: %w", err)
 	}
 
@@ -101,7 +106,15 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	// as refs are attached to reconciled routes
 	resolvedGWs, err := r.reconcileHTTPRoutes(ctx, llmSvc, cfg)
 	if err != nil {
-		llmSvc.MarkHTTPRoutesNotReady("HTTPRouteReconcileError", "Failed to reconcile HTTPRoute: %v", err.Error())
+		if apierrors.IsInvalid(err) {
+			// A verdict on the route this spec and the ingress ConfigMap generate, rather
+			// than a write that failed: the input is what has to change, and retrying
+			// re-sends the same bytes. Its own reason so an operator can tell "edit the
+			// spec" from "the cluster is having a moment" without reading the message.
+			llmSvc.MarkHTTPRoutesNotReady("InvalidHTTPRoute", "%s", err.Error())
+			return reconcile.TerminalError(fmt.Errorf("failed to reconcile HTTP routes: %w", err))
+		}
+		llmSvc.MarkHTTPRoutesNotReady("HTTPRouteReconcileError", "%s", err.Error())
 		return fmt.Errorf("failed to reconcile HTTP routes: %w", err)
 	}
 
@@ -194,6 +207,12 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 		}
 
 		if err := Reconcile(ctx, r, llmSvc, &gwapiv1.HTTPRoute{}, expectedHTTPRoute, semanticHTTPRouteIsEqual); err != nil {
+			var invalid *apierrors.StatusError
+			if apierrors.IsInvalid(err) && errors.As(err, &invalid) {
+				// Report the API server's own field errors rather than Update's
+				// "failed to get defaults for" wrapper.
+				err = invalid
+			}
 			return nil, fmt.Errorf("failed to reconcile HTTPRoute %s/%s: %w", expectedHTTPRoute.GetNamespace(), expectedHTTPRoute.GetName(), err)
 		}
 		referencedRoutes = append(referencedRoutes, expectedHTTPRoute)
