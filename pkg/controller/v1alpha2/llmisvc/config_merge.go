@@ -773,8 +773,8 @@ func stripModelBasedRoutingRules(rules []gwapiv1.HTTPRouteRule, headerName strin
 // model. Matches within a Gateway API rule are OR'd, so a rule ends up matching
 // "base model OR adapter-1 OR adapter-2 …" — all targeting the same InferencePool.
 //
-// Only matches whose header name equals headerName are duplicated; path-only rules
-// and rules with unrelated headers are left untouched.
+// Only matches naming headerName are duplicated; path-only rules and rules with
+// unrelated headers are left untouched.
 func expandLoRAAdapterMatches(rules []gwapiv1.HTTPRouteRule, namespace string, adapters []v1alpha2.LLMModelSpec, headerName string) {
 	if headerName == "" || len(adapters) == 0 {
 		return
@@ -798,7 +798,7 @@ func expandLoRAAdapterMatches(rules []gwapiv1.HTTPRouteRule, namespace string, a
 				}
 				am := *match.DeepCopy()
 				for h := range am.Headers {
-					if string(am.Headers[h].Name) == headerName {
+					if isModelRoutingHeader(am.Headers[h].Name, headerName) {
 						am.Headers[h].Value = fullyQualifiedModelName(namespace, *adapter.Name)
 					}
 				}
