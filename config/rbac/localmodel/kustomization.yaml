@@ -4,4 +4,5 @@ kind: Kustomization
 resources:
 - role_binding.yaml
 - role.yaml
+- leader_election_role_binding.yaml
 - service_account.yaml

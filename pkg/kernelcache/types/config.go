@@ -14,22 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package security defines the contracts for verifying kernel cache OCI images.
-// It exposes a mode-agnostic Verifier interface plus the configuration that
-// selects a verification mode. Only the disabled mode exists here; each real
-// mode (and any config it needs) is added together with its implementation.
-package security
+// Package types holds the data contracts for the kernel cache security
+// subsystem: the configuration read from the inferenceservice-config ConfigMap
+// and the request/result structures exchanged with the security package's
+// Verifier and Signer. It carries data only (no behaviour beyond validation and
+// the ShouldBlock decision), so any package can reference these types without
+// importing the verification implementation and its dependencies.
+package types
 
 import (
 	"errors"
 	"fmt"
 )
 
-// Mode selects how kernel cache images are verified.
+// Mode selects the security mechanism for kernel cache images, applied to both
+// verification and signing.
 type Mode string
 
 const (
-	// ModeDisabled performs no signature verification.
+	// ModeDisabled performs no verification or signing.
 	ModeDisabled Mode = "disabled"
 )
 

@@ -161,6 +161,10 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Obj
 }
 
 func (isvc *InferenceService) DefaultInferenceService(config *InferenceServicesConfig, deployConfig *DeployConfig, securityConfig *SecurityConfig, models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList) {
+	if isvc.Spec.Tracing != nil {
+		isvc.Spec.Tracing.Default()
+	}
+
 	deploymentMode, ok := isvc.Annotations[constants.DeploymentMode]
 
 	// Normalize deprecated annotation values
