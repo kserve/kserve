@@ -57,9 +57,17 @@ const (
 // A buffered channel that we can send work requests on.
 var WorkQueue = make(chan LogRequest, LoggerWorkerQueueSize)
 
+// QueueLogRequest enqueues req without blocking the caller (the inference
+// request path). If WorkQueue is full - e.g. because the log endpoint is
+// slow or unavailable and workers can't keep up - the request is dropped
+// rather than piling up unbounded memory or stalling inference traffic.
 func QueueLogRequest(req LogRequest) error {
-	WorkQueue <- req
-	return nil
+	select {
+	case WorkQueue <- req:
+		return nil
+	default:
+		return fmt.Errorf("logger work queue is full (capacity %d), dropping log request %s", LoggerWorkerQueueSize, req.Id)
+	}
 }
 
 // NewWorker creates, and returns a new Worker object. Its only argument

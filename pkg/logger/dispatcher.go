@@ -67,12 +67,12 @@ func StartDispatcher(nworkers int, store Store, batchStrategy BatchStrategy, log
 			strategy := GetStorageStrategy(work.Url.String())
 
 			if strategy == HttpStorage {
-				// Dispatch to a worker for CloudEvents delivery.
-				w := work
-				go func() {
-					worker := <-WorkerQueue
-					worker <- w
-				}()
+				// Dispatch to a worker for CloudEvents delivery. This blocks
+				// until a worker is free, so a slow/stuck log endpoint applies
+				// backpressure here instead of spawning an unbounded goroutine
+				// per event while waiting for a worker to become available.
+				worker := <-WorkerQueue
+				worker <- work
 			} else {
 				// Send to batch pipeline for blob storage.
 				batchIn <- work
