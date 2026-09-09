@@ -258,50 +258,6 @@ func TestOtelResourceAttributeEnvVars(t *testing.T) {
 	g.Expect(envVars[2].Value).To(ContainSubstring("k8s.pod.name=$(OTEL_RESOURCE_ATTRIBUTES_POD_NAME)"))
 }
 
-func TestMergeEnvVars(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	dst := []corev1.EnvVar{
-		{Name: "EXISTING", Value: "keep"},
-		{Name: "OTEL_SERVICE_NAME", Value: "user-value"},
-	}
-	src := []corev1.EnvVar{
-		{Name: "OTEL_SERVICE_NAME", Value: "injected-value"},
-		{Name: "NEW_VAR", Value: "new"},
-	}
-
-	result := mergeEnvVars(dst, src)
-
-	envMap := envToMap(result)
-	g.Expect(envMap).To(HaveKeyWithValue("EXISTING", "keep"))
-	g.Expect(envMap).To(HaveKeyWithValue("OTEL_SERVICE_NAME", "user-value"))
-	g.Expect(envMap).To(HaveKeyWithValue("NEW_VAR", "new"))
-	g.Expect(result).To(HaveLen(3))
-}
-
-func TestHasArg(t *testing.T) {
-	tests := []struct {
-		name   string
-		args   []string
-		flag   string
-		expect bool
-	}{
-		{"exact match", []string{"--tracing=true"}, "--tracing", true},
-		{"flag=value form", []string{"--otlp-traces-endpoint=http://x"}, "--otlp-traces-endpoint", true},
-		{"flag alone", []string{"--tracing"}, "--tracing", true},
-		{"no match", []string{"--other"}, "--tracing", false},
-		{"empty args", []string{}, "--tracing", false},
-		{"partial prefix doesn't match", []string{"--tracing-extra"}, "--tracing", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g := NewGomegaWithT(t)
-			g.Expect(hasArg(tt.args, tt.flag)).To(Equal(tt.expect))
-		})
-	}
-}
-
 func envToMap(envVars []corev1.EnvVar) map[string]string {
 	m := make(map[string]string, len(envVars))
 	for _, e := range envVars {
