@@ -1665,14 +1665,6 @@ func TestValidateDelete(t *testing.T) {
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(warnings).Should(gomega.BeEmpty())
 	})
-
-	t.Run("Invalid object type", func(t *testing.T) {
-		// Use a valid runtime.Object type but not an InferenceService
-		notIsvc := &corev1.Pod{}
-		warnings, err := validator.ValidateDelete(t.Context(), notIsvc)
-		g.Expect(err).Should(gomega.HaveOccurred())
-		g.Expect(warnings).Should(gomega.BeEmpty())
-	})
 }
 
 func TestValidateScalingKedaCompExtension(t *testing.T) {
