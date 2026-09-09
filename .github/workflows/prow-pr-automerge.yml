@@ -1,6 +1,7 @@
-# This workflow checks every 10 minutes for open PRs with the lgtm label and
-# squash-merges them, provided they also have at least one approved review
-# (/approve checks the approvers role in OWNERS) and no hold label.
+# This workflow checks every 10 minutes for open PRs that are ready to merge and
+# squash-merges them. A PR is ready when it carries the lgtm label, has no hold
+# label, has an approving review from an OWNERS approver for its current head
+# commit, and its enforce-all-checks aggregate is green on that same commit.
 
 name: "Prow merge on lgtm label"
 on:
@@ -14,21 +15,47 @@ on:
         default: false
         type: boolean
 
+# The two reads are on data that is public on this repository, so the calls
+# succeed without them, but the block should say what the job actually touches.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: write      # squash-merge the pull request
+  pull-requests: write # squash-merge the pull request
+  checks: read         # read the check aggregate on the head commit
+  issues: read         # list open pull requests by label
 
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Check out the OWNERS file
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: master
+          # The job talks to the API only, so the checkout has no use for a token.
+          persist-credentials: false
+
+      - name: Read approvers from OWNERS
+        id: owners
+        run: echo "approvers=$(yq e -o=json -I=0 '.approvers' OWNERS)" >> "$GITHUB_OUTPUT"
+
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          APPROVERS: ${{ steps.owners.outputs.approvers }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
-            const mergeableStatesAllowed = new Set(['clean', 'unstable', 'has_hooks']);
+
+            // required-checks.yml runs this as the single aggregate over every other
+            // check on the PR, with allowed-conclusions: success,skipped.
+            const aggregateCheck = 'enforce-all-checks';
+
+            // 'unstable' is deliberately absent: it means "mergeable, but the commit
+            // status is non-passing", which covers both failing and still-running
+            // checks. Only these two mean everything that reported, reported green.
+            const mergeableStatesAllowed = new Set(['clean', 'has_hooks']);
+
             const debugEnabled = context.eventName === 'workflow_dispatch' && context.payload.inputs?.debug === 'true';
             const debug = (message) => {
               if (debugEnabled) {
@@ -38,19 +65,39 @@ jobs:
 
             debug(`Triggered by ${context.eventName}`);
 
-            // Load approvers from the OWNERS file
-            const { data: ownersFile } = await github.rest.repos.getContent({ owner, repo, path: 'OWNERS', ref: 'master' });
-            const ownersContent = Buffer.from(ownersFile.content, 'base64').toString();
-            const approvers = [];
-            let inApprovers = false;
-            for (const line of ownersContent.split('\n')) {
-              if (/^approvers:\s*$/.test(line)) { inApprovers = true; continue; }
-              if (/^\S/.test(line)) { inApprovers = false; continue; }
-              if (inApprovers) {
-                const m = line.match(/^\s*-\s+(.+)/);
-                if (m) approvers.push(m[1].trim().toLowerCase());
+            // Parsed by the previous step with the same yq expression that
+            // auto-assign-reviewers.yml and prepare-release.yml use on this file.
+            const approvers = JSON.parse(process.env.APPROVERS).map(a => a.toLowerCase());
+
+            const isApprover = (login) =>
+              login === 'github-actions[bot]' || approvers.includes(login.toLowerCase());
+
+            // Only the last decisive review per user counts. COMMENTED and PENDING do
+            // not change approval state, but a CHANGES_REQUESTED following an APPROVED
+            // does, and listReviews returns every review ever left on the PR.
+            const latestReviewPerUser = async (prNumber) => {
+              const reviews = await github.paginate(github.rest.pulls.listReviews, {
+                owner, repo, pull_number: prNumber, per_page: 100,
+              });
+              const latest = new Map();
+              for (const review of reviews) {
+                if (review.state === 'COMMENTED' || review.state === 'PENDING') continue;
+                latest.set(review.user.login, review);
               }
-            }
+              return [...latest.values()];
+            };
+
+            // Returns 'success', a conclusion, a non-completed status, or 'absent'.
+            // Absent is a block, not a pass: a workflow that fails to start reports no
+            // check run at all, so mergeable_state has nothing to go red on.
+            const aggregateState = async (sha) => {
+              const runs = await github.paginate(github.rest.checks.listForRef, {
+                owner, repo, ref: sha, check_name: aggregateCheck, filter: 'latest', per_page: 100,
+              });
+              if (runs.length === 0) return 'absent';
+              const run = runs.reduce((a, b) => (a.started_at > b.started_at ? a : b));
+              return run.status === 'completed' ? run.conclusion : run.status;
+            };
 
             const prs = await github.paginate(github.rest.issues.listForRepo, {
               owner, repo, state: 'open', labels: 'lgtm',
@@ -60,20 +107,6 @@ jobs:
             for (const issue of prs) {
               if (!issue.pull_request) continue;
               if (issue.labels.some(l => l.name === 'hold')) continue;
-
-              const { data: reviews } = await github.rest.pulls.listReviews({
-                owner, repo, pull_number: issue.number,
-              });
-              debug(`PR #${issue.number} has ${reviews.length} reviews`);
-              const approvedByApprover = reviews.some(
-                r => r.state === 'APPROVED' &&
-                  (r.user.login === 'github-actions[bot]' || approvers.includes(r.user.login.toLowerCase()))
-              );
-
-              if (!approvedByApprover) {
-                core.info(`PR #${issue.number} has lgtm but no approved review from an OWNERS approver, skipping`);
-                continue;
-              }
 
               const { data: pr } = await github.rest.pulls.get({
                 owner, repo, pull_number: issue.number,
@@ -86,6 +119,25 @@ jobs:
                 `mergeable_state=${pr.mergeable_state}`,
                 `maintainer_can_modify=${pr.maintainer_can_modify}`,
               ].join(' | '));
+
+              // GitHub does not dismiss reviews on push, so an approval is only
+              // evidence about the commit it was left on.
+              const reviews = await latestReviewPerUser(issue.number);
+              debug(`PR #${issue.number} has ${reviews.length} decisive reviews`);
+              const approvedByApprover = reviews.some(
+                r => r.state === 'APPROVED' && isApprover(r.user.login) && r.commit_id === pr.head.sha
+              );
+
+              if (!approvedByApprover) {
+                core.info(`PR #${issue.number} has lgtm but no approved review from an OWNERS approver for head ${pr.head.sha}, skipping`);
+                continue;
+              }
+
+              const aggregate = await aggregateState(pr.head.sha);
+              if (aggregate !== 'success') {
+                core.info(`PR #${issue.number} has ${aggregateCheck}=${aggregate} on head ${pr.head.sha}, skipping`);
+                continue;
+              }
 
               let mergeablePr = pr;
               if (mergeablePr.mergeable === null || mergeablePr.mergeable_state === 'unknown') {
@@ -112,8 +164,10 @@ jobs:
               }
 
               try {
+                // Pin the merge to the head we vetted: GitHub rejects the call if the
+                // PR was pushed to since, rather than merging code nothing approved.
                 await github.rest.pulls.merge({
-                  owner, repo, pull_number: issue.number, merge_method: 'squash',
+                  owner, repo, pull_number: issue.number, merge_method: 'squash', sha: pr.head.sha,
                 });
                 core.info(`Merged PR #${issue.number}`);
               } catch (e) {
