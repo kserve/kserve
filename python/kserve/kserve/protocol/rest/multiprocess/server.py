@@ -25,6 +25,7 @@ from kserve.logging import logger
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 from kserve.protocol.rest.server import RESTServer
+from kserve.protocol.rest.tls_profile import TLSProfileProviderFactory
 
 mp.allow_connection_pickling()
 spawn = mp.get_context("spawn")
@@ -136,6 +137,7 @@ class RESTServerMultiProcess:
         timeout_keep_alive: int = 65,
         ssl_certfile: Optional[str] = None,
         ssl_keyfile: Optional[str] = None,
+        tls_profile_provider_factory: Optional[TLSProfileProviderFactory] = None,
     ) -> None:
         self.log_config_file = log_config_file
         self._rest_server = RESTServer(
@@ -150,6 +152,7 @@ class RESTServerMultiProcess:
             timeout_keep_alive,
             ssl_certfile=ssl_certfile,
             ssl_keyfile=ssl_keyfile,
+            tls_profile_provider_factory=tls_profile_provider_factory,
         )
         self._processes: List[RESTServerProcess] = []
         self.should_exit = asyncio.Event()
