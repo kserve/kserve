@@ -181,18 +181,16 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 }
 
 // deploymentSelectorLabels returns the labels for a workload Deployment's spec.selector:
-// the component's identity labels with the workload's own spec.labels applied on top,
-// mirroring the identity its pod template carries.
-//
-// Labels propagated from the LLMInferenceService's top-level metadata are excluded.
-// spec.selector is immutable, so any key it does carry can only be changed by recreating
-// the Deployment. That applies to keys the identity labels do not control: spec.labels is
-// not validated as immutable, and identity can also carry the match labels of a
-// referenced InferencePool, which is a separate object that may be edited or swapped out.
+// the component's identity labels, taking the values workloadLabels sets for those keys.
+// workloadLabels keys that identity does not define are left out.
 func deploymentSelectorLabels(identity, workloadLabels map[string]string) map[string]string {
-	selector := make(map[string]string, len(identity)+len(workloadLabels))
+	selector := make(map[string]string, len(identity))
 	maps.Copy(selector, identity)
-	maps.Copy(selector, workloadLabels)
+	for k, v := range workloadLabels {
+		if _, isIdentity := selector[k]; isIdentity {
+			selector[k] = v
+		}
+	}
 	return selector
 }
 

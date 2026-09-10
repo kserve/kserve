@@ -435,12 +435,12 @@ func TestPropagateWorkloadServiceMetadata(t *testing.T) {
 }
 
 // TestDeploymentSelectorExcludesMetadataLabels verifies how the Deployment builders split
-// labels between spec.selector and the pod template.
+// labels between spec.selector, the pod template and the Deployment's own metadata.
 //
-// spec.selector is immutable after create, so it carries the component's identity labels
-// with the workload's own spec.labels applied on top - the override that lets one
-// LLMInferenceService's pods join another's InferencePool. Labels propagated from
-// top-level metadata, such as kueue.x-k8s.io/*, reach the pod template only.
+// spec.selector carries the component's identity labels, taking the values spec.labels
+// sets for those keys. Labels propagated from top-level metadata, such as
+// kueue.x-k8s.io/*, and spec.labels keys that identity does not define reach the pod
+// template only.
 func TestDeploymentSelectorExcludesMetadataLabels(t *testing.T) {
 	const (
 		nameLabel  = "app.kubernetes.io/name"
@@ -562,18 +562,19 @@ func TestDeploymentSelectorExcludesMetadataLabels(t *testing.T) {
 			assert.NotContains(t, selector, queueLabel,
 				"spec.selector is immutable and must not carry labels propagated from metadata")
 
-			// From spec.labels: selector and pod template, but not the Deployment's own
-			// metadata - the propagation helpers target the pod template alone.
+			// From spec.labels: the value it sets for an identity key reaches the
+			// selector, a key identity does not define reaches the pod template only,
+			// and neither reaches the Deployment's own metadata.
+			assert.NotContains(t, selector, userLabel,
+				"spec.selector must carry identity keys only")
 			if tt.appliesWorkloadLabels {
-				assert.Equal(t, "alpha", selector[userLabel])
+				assert.Equal(t, "alpha", podLabels[userLabel])
 				assert.Equal(t, "other-service", selector[nameLabel],
 					"spec.labels must override the identity label in the selector")
 				assert.NotContains(t, metaLabels, userLabel,
 					"spec.labels must not reach the Deployment's own metadata")
 				assert.Equal(t, "selector-test", metaLabels[nameLabel],
 					"the Deployment's own metadata keeps the identity label")
-			} else {
-				assert.NotContains(t, selector, userLabel)
 			}
 
 			// Kubernetes requires the pod template to satisfy the selector.
@@ -629,9 +630,9 @@ func TestDeploymentSelectorLabels(t *testing.T) {
 			want:     map[string]string{"app.kubernetes.io/name": "svc"},
 		},
 		{
-			name:           "nil identity labels",
+			name:           "nil identity labels leave nothing for workload labels to override",
 			workloadLabels: map[string]string{"team": "alpha"},
-			want:           map[string]string{"team": "alpha"},
+			want:           map[string]string{},
 		},
 		{
 			name: "both nil",
@@ -640,12 +641,17 @@ func TestDeploymentSelectorLabels(t *testing.T) {
 		{
 			name:           "workload labels override identity labels",
 			identity:       map[string]string{"app.kubernetes.io/name": "svc", "kserve.io/component": "workload"},
-			workloadLabels: map[string]string{"app.kubernetes.io/name": "other", "team": "alpha"},
+			workloadLabels: map[string]string{"app.kubernetes.io/name": "other"},
 			want: map[string]string{
 				"app.kubernetes.io/name": "other",
 				"kserve.io/component":    "workload",
-				"team":                   "alpha",
 			},
+		},
+		{
+			name:           "workload labels that identity does not define are left out",
+			identity:       map[string]string{"app.kubernetes.io/name": "svc"},
+			workloadLabels: map[string]string{"app.kubernetes.io/name": "other", "team": "alpha"},
+			want:           map[string]string{"app.kubernetes.io/name": "other"},
 		},
 	}
 
