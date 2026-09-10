@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -31,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
 func fsMode() *corev1.PersistentVolumeMode {
@@ -223,6 +225,11 @@ type jobReadErrorClient struct {
 	err error
 }
 
+type consumerListErrorClient struct {
+	client.Client
+	err error
+}
+
 func (c *deleteTrackingClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
 	if c.getErr != nil {
 		return c.getErr
@@ -244,6 +251,46 @@ func (c *jobReadErrorClient) Get(ctx context.Context, key client.ObjectKey, obj 
 		return c.err
 	}
 	return c.Client.Get(ctx, key, obj, opts...)
+}
+
+func (c *consumerListErrorClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	if _, ok := list.(*v1beta1.InferenceServiceList); ok {
+		return c.err
+	}
+	return c.Client.List(ctx, list, opts...)
+}
+
+func TestSetConsumerReferences(t *testing.T) {
+	status := &v1alpha1.LocalModelCacheStatus{
+		InferenceServices:    []v1alpha1.NamespacedName{{Name: "old-isvc", Namespace: "ns"}},
+		LLMInferenceServices: []v1alpha1.NamespacedName{{Name: "old-llm", Namespace: "ns"}},
+	}
+	setConsumerReferences(status, cacheConsumers{
+		isvcs: []v1beta1.InferenceService{{ObjectMeta: metav1.ObjectMeta{Name: "isvc", Namespace: "ns"}}},
+	})
+	if len(status.InferenceServices) != 1 || status.InferenceServices[0].Name != "isvc" {
+		t.Fatalf("InferenceServices = %#v, want current consumer", status.InferenceServices)
+	}
+	if status.LLMInferenceServices != nil {
+		t.Fatalf("LLMInferenceServices = %#v, want cleared", status.LLMInferenceServices)
+	}
+}
+
+func TestCollectCacheConsumersReturnsListErrorWithoutPartialSnapshot(t *testing.T) {
+	cache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "ns"},
+	}
+	baseClient := fake.NewClientBuilder().Build()
+	readErr := errors.New("consumer list failed")
+	reconcilerClient := &consumerListErrorClient{Client: baseClient, err: readErr}
+
+	consumers, err := collectCacheConsumers(context.Background(), reconcilerClient, logr.Discard(), nil, cache, false)
+	if !errors.Is(err, readErr) {
+		t.Fatalf("collectCacheConsumers() error = %v, want %v", err, readErr)
+	}
+	if consumers.isvcs != nil || consumers.llmSvcs != nil {
+		t.Fatalf("collectCacheConsumers() = %#v, want empty snapshot", consumers)
+	}
 }
 
 func TestValidateExistingImportJobUsesForegroundDeletion(t *testing.T) {
@@ -337,7 +384,7 @@ func TestReconcileSharedPVCPreservesNotReadyOnImportJobReadError(t *testing.T) {
 		Client: &jobReadErrorClient{Client: baseClient, err: readErr},
 	}
 
-	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, nil); !errors.Is(err, readErr) {
+	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, nil, cacheConsumers{}); !errors.Is(err, readErr) {
 		t.Fatalf("reconcileSharedPVC() error = %v, want %v", err, readErr)
 	}
 	condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)

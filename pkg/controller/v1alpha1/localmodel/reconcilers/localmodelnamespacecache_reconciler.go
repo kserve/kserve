@@ -83,7 +83,14 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 	// Shared-PVC mode takes a dedicated branch before any node-group resolution or per-node
 	// PV/PVC/LocalModelNode fan-out.
 	if localModel.Spec.SharedPVCMode() {
-		return c.reconcileSharedPVC(ctx, localModel, isvcConfigMap)
+		var consumers cacheConsumers
+		if localModel.DeletionTimestamp.IsZero() {
+			consumers, err = collectCacheConsumers(ctx, c.Client, c.Log, nil, localModel, c.llmInferenceServiceCRDUp)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+		return c.reconcileSharedPVC(ctx, localModel, isvcConfigMap, consumers)
 	}
 
 	defaultNodeGroup := &v1alpha1.LocalModelNodeGroup{}
@@ -115,8 +122,14 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 		return DeleteModelFromNodes(ctx, c.Client, c.Clientset, c.Log, nil, localModel, nodeGroups)
 	}
 
+	consumers, err := collectCacheConsumers(ctx, c.Client, c.Log, nil, localModel, c.llmInferenceServiceCRDUp)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	previousNamespaces := consumerNamespaces(localModel.Status)
+
 	// Step 2 - Adds this model to LocalModelNode resources in the node group
-	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, nil, localModel, nodeGroups); err != nil {
+	if err := ReconcileLocalModelNode(ctx, c.Client, c.Log, nil, localModel, nodeGroups, consumers); err != nil {
 		c.Log.Error(err, "failed to reconcile LocalModelNode for namespace cache")
 	}
 
@@ -148,7 +161,7 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	// Step 4 - Creates PV & PVCs for ISVCs in the same namespace using this model
-	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, nil, localModel, nodeGroups, defaultNodeGroup, c.llmInferenceServiceCRDUp)
+	err = ReconcileForIsvcs(ctx, c.Client, c.Clientset, c.Scheme, c.Log, nil, localModel, nodeGroups, defaultNodeGroup, consumers, previousNamespaces)
 	return ctrl.Result{}, err
 }
 

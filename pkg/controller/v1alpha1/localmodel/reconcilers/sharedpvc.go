@@ -66,7 +66,7 @@ type sharedState struct {
 // state. The referenced PVC and the imported model data are user-owned and never mutated or
 // deleted by the controller. The owned Job is deleted before the cache finalizer is removed,
 // preventing a successor cache from importing into the same destination concurrently.
-func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, isvcConfigMap *corev1.ConfigMap) (ctrl.Result, error) {
+func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, isvcConfigMap *corev1.ConfigMap, consumers cacheConsumers) (ctrl.Result, error) {
 	log := c.Log.WithValues("name", localModel.Name, "namespace", localModel.Namespace, "pvcRef", *localModel.Spec.PVCRef)
 
 	if !localModel.DeletionTimestamp.IsZero() {
@@ -93,7 +93,7 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 				status:  metav1.ConditionFalse,
 				reason:  v1alpha1.ReasonPVCNotFound,
 				message: fmt.Sprintf("PersistentVolumeClaim %q not found in namespace %q", pvcName, localModel.Namespace),
-			})
+			}, consumers)
 		}
 		return ctrl.Result{}, err
 	}
@@ -101,7 +101,7 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 	// PVC preflight: volume mode, access mode, and capacity.
 	if state, ok := checkPVCPreflight(pvc, localModel.Spec.ModelSize); !ok {
 		log.Info("PVC preflight failed", "reason", state.reason, "message", state.message)
-		return c.applySharedStatus(ctx, localModel, state)
+		return c.applySharedStatus(ctx, localModel, state, consumers)
 	}
 
 	// Destination ownership: only one cache may own (namespace, pvcRef, storageKey).
@@ -113,7 +113,7 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 			status:  metav1.ConditionFalse,
 			reason:  v1alpha1.ReasonDestinationConflict,
 			message: conflict,
-		})
+		}, consumers)
 	}
 
 	// Get or create the single deterministic import Job.
@@ -124,10 +124,10 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 				status:  metav1.ConditionFalse,
 				reason:  v1alpha1.ReasonImportJobConflict,
 				message: err.Error(),
-			}); statusErr != nil {
+			}, consumers); statusErr != nil {
 				return ctrl.Result{}, statusErr
 			}
-		} else if _, statusErr := c.applySharedStatus(ctx, localModel, importPendingState("Unable to inspect or create the import Job")); statusErr != nil {
+		} else if _, statusErr := c.applySharedStatus(ctx, localModel, importPendingState("Unable to inspect or create the import Job"), consumers); statusErr != nil {
 			return ctrl.Result{}, statusErr
 		}
 		return ctrl.Result{}, err
@@ -138,10 +138,10 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 		if job != nil {
 			message = "Previous import Job is terminating; waiting before replacement"
 		}
-		return c.applySharedStatus(ctx, localModel, importPendingState(message))
+		return c.applySharedStatus(ctx, localModel, importPendingState(message), consumers)
 	}
 
-	return c.applySharedStatus(ctx, localModel, stateFromJob(job))
+	return c.applySharedStatus(ctx, localModel, stateFromJob(job), consumers)
 }
 
 func (c *LocalModelNamespaceCacheReconciler) finalizeSharedPVC(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache) (ctrl.Result, error) {
@@ -458,10 +458,13 @@ func jobHasCondition(job *batchv1.Job, condType batchv1.JobConditionType) bool {
 
 // applySharedStatus writes copies and the Ready condition for a shared-PVC cache, only when
 // something changed. It clears node-keyed status which does not apply in shared-PVC mode.
-func (c *LocalModelNamespaceCacheReconciler) applySharedStatus(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, state sharedState) (ctrl.Result, error) {
+func (c *LocalModelNamespaceCacheReconciler) applySharedStatus(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, state sharedState, consumers ...cacheConsumers) (ctrl.Result, error) {
 	desired := localModel.DeepCopy()
 	desired.Status.NodeStatus = nil
 	desired.Status.ModelCopies = &v1alpha1.ModelCopies{Total: 1, Available: state.available, Failed: state.failed}
+	if len(consumers) > 0 {
+		setConsumerReferences(&desired.Status, consumers[0])
+	}
 	switch state.status {
 	case metav1.ConditionTrue:
 		desired.Status.MarkReady(localModel.Generation)

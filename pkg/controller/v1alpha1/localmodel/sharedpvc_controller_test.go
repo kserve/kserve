@@ -34,7 +34,12 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"knative.dev/pkg/apis"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
@@ -150,6 +155,115 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 				_ = k8sClient.List(ctx, jobs, client.InNamespace(ns))
 				return len(jobs.Items)
 			}, duration, interval).Should(Equal(1))
+		})
+
+		It("Should track an InferenceService consumer", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+
+			ns := fmt.Sprintf("test-shared-isvc-status-%d", time.Now().UnixNano())
+			defer k8sClient.Delete(ctx, createTestNamespace(ctx, ns))
+
+			pvc := makeRWXPVC("shared-pvc", ns)
+			Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, pvc)
+
+			cache := makeSharedCache("shared-status", ns, pvc.Name)
+			Expect(k8sClient.Create(ctx, cache)).Should(Succeed())
+			defer k8sClient.Delete(ctx, cache)
+
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "shared-consumer",
+					Namespace: ns,
+					Labels: map[string]string{
+						constants.LocalModelLabel:          cache.Name,
+						constants.LocalModelNamespaceLabel: ns,
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Model: &v1beta1.ModelSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{StorageURI: ptr.To(sourceModelUri)},
+							ModelFormat:            v1beta1.ModelFormat{Name: "sklearn"},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			cacheKey := types.NamespacedName{Name: cache.Name, Namespace: ns}
+			Eventually(func() bool {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil || len(current.Status.InferenceServices) != 1 {
+					return false
+				}
+				return current.Status.InferenceServices[0] == (v1alpha1.NamespacedName{Name: isvc.Name, Namespace: ns})
+			}, timeout, interval).Should(BeTrue(), "shared cache status should track ISVC consumer")
+
+			Expect(k8sClient.Delete(ctx, isvc)).Should(Succeed())
+			Eventually(func() bool {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
+					return false
+				}
+				return len(current.Status.InferenceServices) == 0
+			}, timeout, interval).Should(BeTrue(), "shared cache status should clear removed ISVC consumer")
+		})
+
+		It("Should track an LLMInferenceService referenced only through LoRA", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+
+			ns := fmt.Sprintf("test-shared-lora-status-%d", time.Now().UnixNano())
+			defer k8sClient.Delete(ctx, createTestNamespace(ctx, ns))
+
+			pvc := makeRWXPVC("shared-pvc", ns)
+			Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, pvc)
+
+			adapterURI := "hf://org/shared-lora-adapter"
+			baseURI := "hf://org/shared-remote-base"
+			cache := makeSharedCache("shared-lora-status", ns, pvc.Name)
+			cache.Spec.SourceModelUri = adapterURI
+			Expect(k8sClient.Create(ctx, cache)).Should(Succeed())
+			defer k8sClient.Delete(ctx, cache)
+
+			baseModelURI, err := apis.ParseURL(baseURI)
+			Expect(err).NotTo(HaveOccurred())
+			adapterModelURI, err := apis.ParseURL(adapterURI)
+			Expect(err).NotTo(HaveOccurred())
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "shared-lora-consumer",
+					Namespace: ns,
+					Annotations: map[string]string{
+						constants.LocalModelLoRAAnnotationKey: fmt.Sprintf(
+							`{"my-adapter":{"cache":%q,"namespace":%q}}`, cache.Name, ns),
+					},
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{
+						URI: *baseModelURI,
+						LoRA: &v1alpha2.LoRASpec{Adapters: []v1alpha2.LLMModelSpec{{
+							Name: ptr.To("my-adapter"),
+							URI:  *adapterModelURI,
+						}}},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, llmSvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, llmSvc)
+
+			cacheKey := types.NamespacedName{Name: cache.Name, Namespace: ns}
+			Eventually(func() bool {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil || len(current.Status.LLMInferenceServices) != 1 {
+					return false
+				}
+				return current.Status.LLMInferenceServices[0] == (v1alpha1.NamespacedName{Name: llmSvc.Name, Namespace: ns})
+			}, timeout, interval).Should(BeTrue(), "shared cache status should track LoRA-only LLM consumer")
 		})
 
 		It("Should not trust a foreign Job with the deterministic import name", func() {
