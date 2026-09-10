@@ -351,15 +351,12 @@ type PodSpec struct {
 	// +featureGate=HostnameOverride
 	// +optional
 	HostnameOverride *string `json:"hostnameOverride,omitempty" protobuf:"bytes,41,opt,name=hostnameOverride"`
-	// WorkloadRef provides a reference to the Workload object that this Pod belongs to.
-	// This field is used by the scheduler to identify the PodGroup and apply the
-	// correct group scheduling policies. The Workload object referenced
-	// by this field may not exist at the time the Pod is created.
-	// This field is immutable, but a Workload object with the same name
-	// may be recreated with different policies. Doing this during pod scheduling
-	// may result in the placement not conforming to the expected policies.
+	// SchedulingGroup declares the group scheduling membership of the Pod.
+	// The group object referenced by this field may not exist at the time the
+	// Pod is created. This field is immutable, but a group object with the same
+	// name may be recreated with different policies.
 	//
 	// +featureGate=GenericWorkload
 	// +optional
-	WorkloadRef *corev1.WorkloadReference `json:"workloadRef,omitempty" protobuf:"bytes,42,opt,name=workloadRef"`
+	SchedulingGroup *corev1.PodSchedulingGroup `json:"schedulingGroup,omitempty" protobuf:"bytes,43,opt,name=schedulingGroup"`
 }

@@ -358,7 +358,3 @@ type InferenceGraphList struct {
 	// +listType=set
 	Items []InferenceGraph `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&InferenceGraph{}, &InferenceGraphList{})
-}

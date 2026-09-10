@@ -84,10 +84,6 @@ type LocalModelCacheList struct {
 	Items           []LocalModelCache `json:"items" validate:"required"`
 }
 
-func init() {
-	SchemeBuilder.Register(&LocalModelCache{}, &LocalModelCacheList{})
-}
-
 // MatchStorageURI checks if storageUri matches the sourceModelUri or is a subdirectory of it
 func (spec *LocalModelCacheSpec) MatchStorageURI(storageUri string) bool {
 	return MatchStorageURI(spec.SourceModelUri, storageUri)

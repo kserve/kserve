@@ -192,7 +192,3 @@ type InferenceServiceList struct {
 	// +listType=set
 	Items []InferenceService `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&InferenceService{}, &InferenceServiceList{})
-}
