@@ -271,7 +271,7 @@ func mergeArgs(runtimeArgs, isvcArgs []string) []string {
 	for i := 0; i < len(runtimeArgs); i++ {
 		name := flagName(runtimeArgs[i])
 		if name != "" && overridden[name] {
-			if !strings.Contains(runtimeArgs[i], "=") && i+1 < len(runtimeArgs) {
+			if !strings.Contains(runtimeArgs[i], "=") && i+1 < len(runtimeArgs) && !strings.HasPrefix(runtimeArgs[i+1], "-") {
 				i++
 			}
 			continue

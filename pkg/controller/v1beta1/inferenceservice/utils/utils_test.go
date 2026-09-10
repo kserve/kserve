@@ -836,6 +836,30 @@ func TestMergeArgs(t *testing.T) {
 			isvcArgs:    nil,
 			expected:    nil,
 		},
+		{
+			name:        "valueless flag does not consume next flag",
+			runtimeArgs: []string{"--verbose", "--http_port=8080"},
+			isvcArgs:    []string{"--verbose"},
+			expected:    []string{"--http_port=8080", "--verbose"},
+		},
+		{
+			name:        "override equals form keeps two-element neighbours",
+			runtimeArgs: []string{"--model_name=foo", "--http_port=8080", "--model_dir=/mnt/models"},
+			isvcArgs:    []string{"--http_port=5000"},
+			expected:    []string{"--model_name=foo", "--model_dir=/mnt/models", "--http_port=5000"},
+		},
+		{
+			name:        "override two-element form keeps equals neighbours",
+			runtimeArgs: []string{"--model_name=foo", "--http_port", "8080", "--model_dir=/mnt/models"},
+			isvcArgs:    []string{"--http_port", "5000"},
+			expected:    []string{"--model_name=foo", "--model_dir=/mnt/models", "--http_port", "5000"},
+		},
+		{
+			name:        "multiple overrides mixed forms",
+			runtimeArgs: []string{"--http_port=8080", "--model_name", "default", "--workers=1"},
+			isvcArgs:    []string{"--http_port=5000", "--model_name", "custom"},
+			expected:    []string{"--workers=1", "--http_port=5000", "--model_name", "custom"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
