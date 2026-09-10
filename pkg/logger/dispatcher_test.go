@@ -104,3 +104,52 @@ func TestDispatcherDoesNotLeakGoroutinesWhenWorkersAreBusy(t *testing.T) {
 	g.Expect(after-before).To(gomega.BeNumerically("<", numRequests/2),
 		"expected dispatcher to bound goroutine growth while workers are busy, got %d new goroutines for %d requests", after-before, numRequests)
 }
+
+// TestStartDispatcherDoesNotRaceOnRepeatedCalls reproduces the race between a
+// dispatcher goroutine from one StartDispatcher call still reading
+// WorkQueue/WorkerQueue and a later call reassigning those package vars
+// (e.g. a second call in the same process, as happens across tests). It
+// keeps the first call's only worker busy on a stuck request so the
+// dispatch goroutine for a second, unrelated event is left blocked on
+// <-WorkerQueue, then starts a second dispatcher while that read is still
+// in flight.
+func TestStartDispatcherDoesNotRaceOnRepeatedCalls(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	logger, _ := pkglogging.NewLogger("", "INFO")
+
+	block := make(chan struct{})
+	stuckSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		<-block // never respond, so the only worker stays busy
+	}))
+	defer stuckSvc.Close()
+	defer close(block)
+
+	logUrl, err := url.Parse(stuckSvc.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	body := []byte("payload")
+	newRequest := func(id string) LogRequest {
+		return LogRequest{
+			Url:            logUrl,
+			SourceUri:      logUrl,
+			Bytes:          &body,
+			Id:             id,
+			ReqType:        CEInferenceRequest,
+			OccurrenceTime: time.Now(),
+		}
+	}
+
+	StartDispatcher(1, LoggerWorkerQueueSize, &MockStore{}, &ImmediateBatch{}, logger)
+	g.Expect(QueueLogRequest(newRequest("req-busy"))).To(gomega.Succeed())
+	// Let the single worker pick up the stuck request and a second event's
+	// dispatch goroutine start blocking on <-WorkerQueue waiting for it.
+	time.Sleep(20 * time.Millisecond)
+	g.Expect(QueueLogRequest(newRequest("req-blocked"))).To(gomega.Succeed())
+	time.Sleep(20 * time.Millisecond)
+
+	// This reassigns the package-level WorkQueue/WorkerQueue vars while the
+	// previous call's dispatch goroutine may still be reading them.
+	StartDispatcher(1, LoggerWorkerQueueSize, &MockStore{}, &ImmediateBatch{}, logger)
+	g.Expect(QueueLogRequest(newRequest("req-2"))).To(gomega.Succeed())
+	time.Sleep(20 * time.Millisecond)
+}
