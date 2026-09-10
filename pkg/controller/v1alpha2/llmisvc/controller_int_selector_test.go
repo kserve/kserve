@@ -17,7 +17,7 @@ limitations under the License.
 package llmisvc_test
 
 import (
-	"errors"
+	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,112 +25,175 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	ctrlreconcile "sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
+	. "github.com/kserve/kserve/pkg/testing"
 )
 
-// These specs exercise Reconcile against the envtest API server rather than the
-// controller, so the selector a Deployment is created with can be chosen directly.
-// spec.selector validation - immutability, and the pod template having to satisfy the
-// selector - is enforced by the API server, so a fake client cannot stand in here.
+// These specs drive the controller against a Deployment created before the selector was
+// narrowed, so its stored selector carries a label the reconciler no longer computes.
+// spec.selector immutability and the pod template having to satisfy the selector are
+// enforced by the API server, so a fake client cannot stand in here.
 var _ = Describe("Deployment selector", func() {
-	const (
-		nameLabel  = "app.kubernetes.io/name"
-		queueLabel = "kueue.x-k8s.io/queue-name"
-	)
+	const queueName = "team-alpha"
 
-	// storedSelector stands for a Deployment created by a reconciler that put the
-	// propagated queue label in the selector. The current one computes nameLabel only.
-	storedSelector := map[string]string{nameLabel: "selector-fixture", queueLabel: "team-alpha"}
+	// identityLabels are the labels the main workload builder computes for a Deployment.
+	identityLabels := func(svcName string) map[string]string {
+		return map[string]string{
+			constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,
+			constants.KubernetesAppNameLabelKey:   svcName,
+			constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		}
+	}
 
-	deployment := func(namespace string, owner *v1alpha2.LLMInferenceService, selector, podLabels map[string]string) *appsv1.Deployment {
-		return &appsv1.Deployment{
+	// legacySelector adds the propagated queue label the pre-fix builders put in the
+	// selector along with the identity labels.
+	legacySelector := func(svcName string) map[string]string {
+		selector := identityLabels(svcName)
+		selector[LocalQueueNameLabelKey] = queueName
+		return selector
+	}
+
+	// plantLegacyDeployment creates an LLMInferenceService whose Deployment already
+	// exists with the legacy selector.
+	//
+	// The service is created with a BaseRef that does not resolve, which stops the
+	// reconcile before the workload, leaving the Deployment to be created here. Clearing
+	// the BaseRef then lets the controller adopt it.
+	plantLegacyDeployment := func(ctx SpecContext, svcName string, testNs *TestNamespace) *v1alpha2.LLMInferenceService {
+		GinkgoHelper()
+
+		llmSvc := LLMInferenceService(svcName,
+			InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+			WithModelURI("hf://facebook/opt-125m"),
+			WithModelName("facebook/opt-125m"),
+			WithLabels(map[string]string{LocalQueueNameLabelKey: queueName}),
+			WithBaseRefs(corev1.LocalObjectReference{Name: "does-not-exist"}),
+		)
+		Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+
+		Eventually(func(g Gomega, ctx context.Context) {
+			current := &v1alpha2.LLMInferenceService{}
+			g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+			g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "False"))
+			llmSvc = current
+		}).WithContext(ctx).Should(Succeed())
+
+		selector := legacySelector(svcName)
+		stored := &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "selector-fixture",
-				Namespace: namespace,
+				Name:      svcName + "-kserve",
+				Namespace: testNs.Name,
 				OwnerReferences: []metav1.OwnerReference{
-					*metav1.NewControllerRef(owner, v1alpha2.LLMInferenceServiceGVK),
+					*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
 				},
 			},
 			Spec: appsv1.DeploymentSpec{
 				Replicas: ptr.To(int32(1)),
 				Selector: &metav1.LabelSelector{MatchLabels: selector},
 				Template: corev1.PodTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{Labels: podLabels},
+					ObjectMeta: metav1.ObjectMeta{Labels: selector},
 					Spec: corev1.PodSpec{
-						Containers: []corev1.Container{{Name: "main", Image: "busybox"}},
+						Containers: []corev1.Container{{Name: "placeholder", Image: "busybox"}},
 					},
 				},
 			},
 		}
-	}
-
-	// owner is never created: envtest runs no garbage collector, so an ownerReference
-	// is enough to satisfy the controlled-by check in Update.
-	owner := func(namespace string) *v1alpha2.LLMInferenceService {
-		return &v1alpha2.LLMInferenceService{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "selector-fixture",
-				Namespace: namespace,
-				UID:       types.UID("11111111-2222-3333-4444-555555555555"),
-			},
-		}
-	}
-
-	reconcile := func(ctx SpecContext, o *v1alpha2.LLMInferenceService, expected *appsv1.Deployment) error {
-		c := &fakeClientWithRecorder{Client: envTest.Client, EventRecorder: record.NewFakeRecorder(10)}
-		return llmisvc.Reconcile(ctx, c, o, &appsv1.Deployment{}, expected,
-			llmisvc.SemanticEqual[*appsv1.Deployment](neverEqual),
-			llmisvc.PreserveDeploymentSelector())
-	}
-
-	It("should reconcile a Deployment whose stored selector the reconciler no longer computes", func(ctx SpecContext) {
-		testNs := NewTestNamespace(ctx, envTest)
-		o := owner(testNs.Name)
-
-		stored := deployment(testNs.Name, o, storedSelector, storedSelector)
 		Expect(envTest.Create(ctx, stored)).To(Succeed())
 
-		// The pod template still carries the queue label, so it satisfies the stored
-		// selector even though the selector is no longer what would be computed.
-		expected := deployment(testNs.Name, o,
-			map[string]string{nameLabel: "selector-fixture"},
-			map[string]string{nameLabel: "selector-fixture", queueLabel: "team-alpha"})
+		Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			_, err := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+				llmSvc.Spec.BaseRefs = nil
+				return nil
+			})
+			return err
+		})).To(Succeed())
 
-		Expect(reconcile(ctx, o, expected)).To(Succeed())
+		return llmSvc
+	}
 
-		curr := &appsv1.Deployment{}
-		Expect(envTest.Get(ctx, client.ObjectKeyFromObject(stored), curr)).To(Succeed())
-		Expect(curr.Spec.Selector.MatchLabels).To(Equal(storedSelector),
-			"the stored selector must be carried over unchanged")
+	// deploymentOf reads the main Deployment of the given service.
+	deploymentOf := func(ctx context.Context, g Gomega, llmSvc *v1alpha2.LLMInferenceService) *appsv1.Deployment {
+		deployment := &appsv1.Deployment{}
+		g.Expect(envTest.Get(ctx, types.NamespacedName{
+			Name:      llmSvc.GetName() + "-kserve",
+			Namespace: llmSvc.GetNamespace(),
+		}, deployment)).To(Succeed())
+		return deployment
+	}
+
+	It("should keep reconciling a Deployment whose stored selector it no longer computes", func(ctx SpecContext) {
+		// given
+		svcName := "test-llm-selector-legacy"
+		testNs := NewTestNamespace(ctx, envTest)
+
+		llmSvc := plantLegacyDeployment(ctx, svcName, testNs)
+		defer testNs.DeleteAndWait(ctx, llmSvc)
+
+		// then - the controller takes the Deployment over, replacing the planted pod spec
+		Eventually(func(g Gomega, ctx context.Context) {
+			deployment := deploymentOf(ctx, g, llmSvc)
+
+			g.Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+			g.Expect(deployment.Spec.Template.Spec.Containers[0].Name).To(Equal("main"))
+
+			g.Expect(deployment.Spec.Selector.MatchLabels).To(Equal(legacySelector(svcName)),
+				"the stored selector must be carried over unchanged")
+			g.Expect(deployment.Spec.Template.Labels).To(HaveKeyWithValue(LocalQueueNameLabelKey, queueName),
+				"the pod template must still satisfy the stored selector")
+		}).WithContext(ctx).Should(Succeed())
 	})
 
-	It("should reject the update once the pod template stops satisfying the stored selector", func(ctx SpecContext) {
+	It("should report that a Deployment must be recreated once its pod template stops satisfying the stored selector", func(ctx SpecContext) {
+		// given
+		svcName := "test-llm-selector-unsatisfied"
 		testNs := NewTestNamespace(ctx, envTest)
-		o := owner(testNs.Name)
 
-		stored := deployment(testNs.Name, o, storedSelector, storedSelector)
-		Expect(envTest.Create(ctx, stored)).To(Succeed())
+		llmSvc := plantLegacyDeployment(ctx, svcName, testNs)
+		defer testNs.DeleteAndWait(ctx, llmSvc)
 
-		// Dropping the queue label from the LLMInferenceService removes it from the pod
-		// template, leaving the preserved selector requiring a label the pods no longer
-		// carry. Such a Deployment has to be recreated to reconcile again.
-		expected := deployment(testNs.Name, o,
-			map[string]string{nameLabel: "selector-fixture"},
-			map[string]string{nameLabel: "selector-fixture"})
+		Eventually(func(g Gomega, ctx context.Context) {
+			deployment := deploymentOf(ctx, g, llmSvc)
+			g.Expect(deployment.Spec.Template.Spec.Containers[0].Name).To(Equal("main"))
+		}).WithContext(ctx).Should(Succeed())
 
-		err := reconcile(ctx, o, expected)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("must be recreated to reconcile"))
-		Expect(err.Error()).To(ContainSubstring(queueLabel),
-			"the error should name the label the pod template no longer sets")
-		Expect(errors.Is(err, ctrlreconcile.TerminalError(nil))).To(BeTrue(),
-			"the error should be terminal, so the controller does not requeue it")
+		// when - dropping the queue label takes it off the pod template, which the stored
+		// selector still requires
+		Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+			_, err := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+				delete(llmSvc.Labels, LocalQueueNameLabelKey)
+				return nil
+			})
+			return err
+		})).To(Succeed())
+
+		// then - the reconcile failure names the Deployment, the label and the remedy
+		Eventually(func(g Gomega, ctx context.Context) {
+			events := &corev1.EventList{}
+			g.Expect(envTest.List(ctx, events, client.InNamespace(testNs.Name))).To(Succeed())
+
+			messages := make([]string, 0, len(events.Items))
+			for _, event := range events.Items {
+				if event.InvolvedObject.Name == svcName {
+					messages = append(messages, event.Message)
+				}
+			}
+			g.Expect(messages).To(ContainElement(SatisfyAll(
+				ContainSubstring(svcName+"-kserve must be recreated to reconcile"),
+				ContainSubstring(LocalQueueNameLabelKey),
+			)))
+		}).WithContext(ctx).Should(Succeed())
+
+		// and the stored selector is left alone
+		Consistently(func(g Gomega, ctx context.Context) {
+			deployment := deploymentOf(ctx, g, llmSvc)
+			g.Expect(deployment.Spec.Selector.MatchLabels).To(Equal(legacySelector(svcName)))
+		}).WithContext(ctx).Should(Succeed())
 	})
 })

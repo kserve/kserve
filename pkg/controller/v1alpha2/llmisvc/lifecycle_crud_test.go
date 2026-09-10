@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -201,24 +202,27 @@ func TestPreserveDeploymentSelector(t *testing.T) {
 		"app.kubernetes.io/name": "test-llm",
 	}
 
-	newExpected := func() *appsv1.Deployment {
+	newExpected := func(templateLabels map[string]string) *appsv1.Deployment {
 		return &appsv1.Deployment{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-llm-kserve", Namespace: "default"},
 			Spec: appsv1.DeploymentSpec{
 				Selector: &metav1.LabelSelector{MatchLabels: computedSelector},
 				Template: corev1.PodTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{Labels: storedSelector},
+					ObjectMeta: metav1.ObjectMeta{Labels: templateLabels},
 				},
 			},
 		}
 	}
 
 	tests := []struct {
-		name      string
-		opts      []llmisvc.UpdateOption[*appsv1.Deployment]
-		wantErr   bool
-		wantSent  map[string]string
-		errSubstr string
+		name string
+		opts []llmisvc.UpdateOption[*appsv1.Deployment]
+		// templateLabels defaults to storedSelector, which the stored selector accepts.
+		templateLabels map[string]string
+		wantErr        bool
+		wantTerminal   bool
+		wantSent       map[string]string
+		errSubstr      string
 	}{
 		{
 			name:     "with PreserveDeploymentSelector the stored selector is sent",
@@ -230,6 +234,14 @@ func TestPreserveDeploymentSelector(t *testing.T) {
 			wantErr:   true,
 			wantSent:  computedSelector,
 			errSubstr: "field is immutable",
+		},
+		{
+			name:           "a pod template that does not satisfy the stored selector fails terminally",
+			opts:           []llmisvc.UpdateOption[*appsv1.Deployment]{llmisvc.PreserveDeploymentSelector()},
+			templateLabels: computedSelector,
+			wantErr:        true,
+			wantTerminal:   true,
+			errSubstr:      `kueue.x-k8s.io/queue-name="team-alpha"`,
 		},
 	}
 
@@ -298,8 +310,13 @@ func TestPreserveDeploymentSelector(t *testing.T) {
 				EventRecorder: record.NewFakeRecorder(10),
 			}
 
+			templateLabels := tt.templateLabels
+			if templateLabels == nil {
+				templateLabels = storedSelector
+			}
+
 			err := llmisvc.Reconcile(t.Context(), clientWithRecorder, owner, &appsv1.Deployment{},
-				newExpected(), llmisvc.SemanticEqual[*appsv1.Deployment](neverEqual), tt.opts...)
+				newExpected(templateLabels), llmisvc.SemanticEqual[*appsv1.Deployment](neverEqual), tt.opts...)
 
 			if tt.wantErr {
 				if err == nil {
@@ -307,6 +324,9 @@ func TestPreserveDeploymentSelector(t *testing.T) {
 				}
 				if !strings.Contains(err.Error(), tt.errSubstr) {
 					t.Errorf("expected error containing %q, got: %v", tt.errSubstr, err)
+				}
+				if isTerminal := errors.Is(err, reconcile.TerminalError(nil)); isTerminal != tt.wantTerminal {
+					t.Errorf("errors.Is(err, TerminalError) = %v, want %v; got: %v", isTerminal, tt.wantTerminal, err)
 				}
 			} else if err != nil {
 				t.Fatalf("Reconcile should succeed, got: %v", err)
