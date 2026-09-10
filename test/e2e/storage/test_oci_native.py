@@ -48,8 +48,6 @@ from kserve import (
 )
 from kubernetes.client import V1ResourceRequirements
 
-from ..common.utils import KSERVE_TEST_NAMESPACE
-
 # Placeholder OCI image reference.  The webhook asserts on the *reference string*,
 # not on whether the image can be pulled.
 # TODO: replace with a real tiny model image once one is published to ghcr.io/kserve.
@@ -129,7 +127,7 @@ def _skip_if_unsupported() -> None:
 
 
 @pytest.mark.storage
-def test_oci_native_image_volume_spec(tmp_path):
+def test_oci_native_image_volume_spec(test_namespace):
     """An ISVC with oci+native:// storageUri produces an ImageVolume pod spec.
 
     The test:
@@ -140,7 +138,6 @@ def test_oci_native_image_volume_spec(tmp_path):
        reference matches the expected image string.
     5. Asserts the kserve-container has a read-only VolumeMount pointing at
        the same volume.
-    6. Deletes the InferenceService in teardown.
     """
     _skip_if_unsupported()
 
@@ -164,67 +161,59 @@ def test_oci_native_image_volume_spec(tmp_path):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    try:
-        kserve_client.create(isvc)
+    kserve_client.create(isvc)
 
-        pod = _wait_for_pod(
-            kserve_client.core_api,
-            KSERVE_TEST_NAMESPACE,
-            label_selector=f"{ISVC_LABEL_KEY}={service_name}",
-        )
-        assert pod is not None, (
-            f"No pod appeared for InferenceService '{service_name}' "
-            f"within {POD_WAIT_TIMEOUT}s"
-        )
+    pod = _wait_for_pod(
+        kserve_client.core_api,
+        test_namespace,
+        label_selector=f"{ISVC_LABEL_KEY}={service_name}",
+    )
+    assert pod is not None, (
+        f"No pod appeared for InferenceService '{service_name}' "
+        f"within {POD_WAIT_TIMEOUT}s"
+    )
 
-        # Inspect pod spec as a dict so the assertion is robust against
-        # Python kubernetes-client schema differences across versions.
-        pod_dict = pod.to_dict()
-        volumes = pod_dict.get("spec", {}).get("volumes", []) or []
+    # Inspect pod spec as a dict so the assertion is robust against
+    # Python kubernetes-client schema differences across versions.
+    pod_dict = pod.to_dict()
+    volumes = pod_dict.get("spec", {}).get("volumes", []) or []
 
-        image_volumes = [v for v in volumes if v.get("image") is not None]
-        assert image_volumes, (
-            "Expected at least one ImageVolume in pod spec, but found none. "
-            f"Volumes present: {[v.get('name') for v in volumes]}"
-        )
+    image_volumes = [v for v in volumes if v.get("image") is not None]
+    assert image_volumes, (
+        "Expected at least one ImageVolume in pod spec, but found none. "
+        f"Volumes present: {[v.get('name') for v in volumes]}"
+    )
 
-        # Verify the reference string matches our expected image.
-        expected_ref = OCI_NATIVE_TEST_IMAGE
-        matched = [
-            v for v in image_volumes if v["image"].get("reference") == expected_ref
-        ]
-        assert matched, (
-            f"No ImageVolume with reference={expected_ref!r}. "
-            f"Found image volumes: {[v['image'] for v in image_volumes]}"
-        )
+    # Verify the reference string matches our expected image.
+    expected_ref = OCI_NATIVE_TEST_IMAGE
+    matched = [v for v in image_volumes if v["image"].get("reference") == expected_ref]
+    assert matched, (
+        f"No ImageVolume with reference={expected_ref!r}. "
+        f"Found image volumes: {[v['image'] for v in image_volumes]}"
+    )
 
-        image_vol_name = matched[0]["name"]
+    image_vol_name = matched[0]["name"]
 
-        # Verify kserve-container has a read-only VolumeMount for this volume.
-        containers = pod_dict.get("spec", {}).get("containers", []) or []
-        kserve_container = next(
-            (c for c in containers if c.get("name") == "kserve-container"), None
-        )
-        assert kserve_container is not None, (
-            "kserve-container not found in pod spec. "
-            f"Container names: {[c.get('name') for c in containers]}"
-        )
+    # Verify kserve-container has a read-only VolumeMount for this volume.
+    containers = pod_dict.get("spec", {}).get("containers", []) or []
+    kserve_container = next(
+        (c for c in containers if c.get("name") == "kserve-container"), None
+    )
+    assert kserve_container is not None, (
+        "kserve-container not found in pod spec. "
+        f"Container names: {[c.get('name') for c in containers]}"
+    )
 
-        mounts = kserve_container.get("volume_mounts", []) or []
-        image_mount = next((m for m in mounts if m.get("name") == image_vol_name), None)
-        assert image_mount is not None, (
-            f"No VolumeMount for ImageVolume '{image_vol_name}' on kserve-container. "
-            f"Mounts present: {[m.get('name') for m in mounts]}"
-        )
-        assert image_mount.get("read_only") is True, (
-            f"Expected VolumeMount '{image_vol_name}' to be read-only"
-        )
-
-    finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    mounts = kserve_container.get("volume_mounts", []) or []
+    image_mount = next((m for m in mounts if m.get("name") == image_vol_name), None)
+    assert image_mount is not None, (
+        f"No VolumeMount for ImageVolume '{image_vol_name}' on kserve-container. "
+        f"Mounts present: {[m.get('name') for m in mounts]}"
+    )
+    assert image_mount.get("read_only") is True, (
+        f"Expected VolumeMount '{image_vol_name}' to be read-only"
+    )

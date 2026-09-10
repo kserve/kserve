@@ -1,8 +1,11 @@
 repos:
-  - repo: https://github.com/norwoodj/helm-docs
-    rev: v1.12.0
+  - repo: local
     hooks:
       - id: helm-docs
+        name: Helm Docs
+        entry: bash -c 'make helm-docs >/dev/null && ./bin/helm-docs "$@"' --
+        language: system
+        pass_filenames: false
         args:
           - --chart-search-root=charts
           - --output-file=README.md

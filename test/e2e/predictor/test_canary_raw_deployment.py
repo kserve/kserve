@@ -32,7 +32,8 @@ from kubernetes.client import V1ResourceRequirements
 from kubernetes.client.rest import ApiException
 
 from ..common.http_retry import post_with_retry
-from ..common.utils import KSERVE_TEST_NAMESPACE, get_isvc_endpoint
+from ..common.utils import get_isvc_endpoint
+
 
 logger = logging.getLogger(__name__)
 
@@ -67,13 +68,13 @@ def _make_predictor(storage_uri, name=None, min_replicas=2):
     return spec
 
 
-def _make_isvc(service_name, canaries=None):
+def _make_isvc(service_name, namespace, canaries=None):
     return V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=namespace,
             annotations={
                 "serving.kserve.io/deploymentMode": "Standard",
                 "serving.kserve.io/autoscalerClass": "none",
@@ -86,9 +87,9 @@ def _make_isvc(service_name, canaries=None):
     )
 
 
-def _safe_delete(kserve, service_name):
+def _safe_delete(kserve, service_name, namespace):
     try:
-        kserve.delete(service_name, KSERVE_TEST_NAMESPACE)
+        kserve.delete(service_name, namespace)
     except Exception:
         logger.exception("Failed to delete %s during cleanup", service_name)
 
@@ -121,11 +122,11 @@ def _wait_for_deployment_gone(apps_v1, name, namespace, timeout=120):
 
 
 def _wait_for_condition(
-    kserve, service_name, condition_type, expected_reason, timeout=60
+    kserve, service_name, namespace, condition_type, expected_reason, timeout=60
 ):
     deadline = time.time() + timeout
     while time.time() < deadline:
-        got = kserve.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        got = kserve.get(service_name, namespace=namespace)
         conditions = got.get("status", {}).get("conditions", [])
         cond = next((c for c in conditions if c["type"] == condition_type), None)
         if cond is not None and cond.get("reason") == expected_reason:
@@ -248,13 +249,14 @@ def _verify_traffic_split(
 
 @pytest.mark.predictor
 @pytest.mark.raw
-def test_canary_create(network_layer):
+def test_canary_create(network_layer, test_namespace):
     service_name = "isvc-canary-create"
     kserve = _kserve_client()
     apps = _apps_v1()
 
     isvc = _make_isvc(
         service_name,
+        test_namespace,
         canaries=[
             V1beta1CanarySpec(
                 traffic_percent=20,
@@ -267,31 +269,35 @@ def test_canary_create(network_layer):
 
     try:
         kserve.create(isvc)
-        kserve.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve.wait_isvc_ready(service_name, namespace=test_namespace)
 
         stable_dep = _wait_for_deployment(
-            apps, f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
+            apps, f"{service_name}-predictor", test_namespace
         )
         canary_dep = _wait_for_deployment(
-            apps, f"{service_name}-v2-predictor", KSERVE_TEST_NAMESPACE
+            apps, f"{service_name}-v2-predictor", test_namespace
         )
 
         assert stable_dep is not None
         assert canary_dep is not None
 
         canary_condition = _wait_for_condition(
-            kserve, service_name, "CanaryPredictorReady", "AllCanariesReady"
+            kserve,
+            service_name,
+            test_namespace,
+            "CanaryPredictorReady",
+            "AllCanariesReady",
         )
         assert canary_condition["status"] == "True"
 
-        got = kserve.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        got = kserve.get(service_name, namespace=test_namespace)
         canary_status = got.get("status", {}).get("canaryStatuses", [])
         assert len(canary_status) > 0, "canary status should be populated"
         assert canary_status[0]["name"] == "v2"
 
         if _is_gatewayapi(network_layer):
             backends = _get_httproute_backend_refs(
-                f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
+                f"{service_name}-predictor", test_namespace
             )
             assert len(backends) == 2, (
                 f"Expected 2 backends (stable + canary), got {backends}"
@@ -308,25 +314,26 @@ def test_canary_create(network_layer):
             _verify_traffic_split(
                 kserve,
                 service_name,
-                KSERVE_TEST_NAMESPACE,
+                test_namespace,
                 expected_pcts={200: 80, 500: 20},
                 network_layer=network_layer,
                 num_requests=100,
                 tolerance=10,
             )
     finally:
-        _safe_delete(kserve, service_name)
+        _safe_delete(kserve, service_name, test_namespace)
 
 
 @pytest.mark.predictor
 @pytest.mark.raw
-def test_canary_promote(network_layer):
+def test_canary_promote(network_layer, test_namespace):
     service_name = "isvc-canary-promote"
     kserve = _kserve_client()
     apps = _apps_v1()
 
     isvc = _make_isvc(
         service_name,
+        test_namespace,
         canaries=[
             V1beta1CanarySpec(
                 traffic_percent=20,
@@ -339,38 +346,30 @@ def test_canary_promote(network_layer):
 
     try:
         kserve.create(isvc)
-        kserve.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        _wait_for_deployment(
-            apps, f"{service_name}-v2-predictor", KSERVE_TEST_NAMESPACE
-        )
+        _wait_for_deployment(apps, f"{service_name}-v2-predictor", test_namespace)
         canary_pod_uids = _get_pod_uids(
-            apps, f"{service_name}-v2-predictor", KSERVE_TEST_NAMESPACE
+            apps, f"{service_name}-v2-predictor", test_namespace
         )
         assert len(canary_pod_uids) > 0
 
-        promoted = _make_isvc(service_name)
+        promoted = _make_isvc(service_name, test_namespace)
         promoted.spec.predictor = _make_predictor(CANARY_MODEL_URI, name="v2")
         promoted.spec.canary = []
 
-        patch_resp = kserve.patch(
-            service_name, promoted, namespace=KSERVE_TEST_NAMESPACE
-        )
+        patch_resp = kserve.patch(service_name, promoted, namespace=test_namespace)
         kserve.wait_isvc_ready(
             service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=test_namespace,
             expected_generation=patch_resp["metadata"]["generation"],
         )
 
-        _wait_for_deployment(
-            apps, f"{service_name}-v2-predictor", KSERVE_TEST_NAMESPACE
-        )
-        _wait_for_deployment_gone(
-            apps, f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
-        )
+        _wait_for_deployment(apps, f"{service_name}-v2-predictor", test_namespace)
+        _wait_for_deployment_gone(apps, f"{service_name}-predictor", test_namespace)
 
         post_promote_uids = _get_pod_uids(
-            apps, f"{service_name}-v2-predictor", KSERVE_TEST_NAMESPACE
+            apps, f"{service_name}-v2-predictor", test_namespace
         )
         assert canary_pod_uids.issubset(post_promote_uids), (
             f"Canary pods were restarted during promotion: canary={canary_pod_uids}, post_promote={post_promote_uids}"
@@ -378,7 +377,7 @@ def test_canary_promote(network_layer):
 
         if _is_gatewayapi(network_layer):
             backends = _get_httproute_backend_refs(
-                f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
+                f"{service_name}-predictor", test_namespace
             )
             assert len(backends) == 1, (
                 f"Expected 1 backend after promotion, got {backends}"
@@ -390,25 +389,26 @@ def test_canary_promote(network_layer):
             _verify_traffic_split(
                 kserve,
                 service_name,
-                KSERVE_TEST_NAMESPACE,
+                test_namespace,
                 expected_pcts={500: 100},
                 network_layer=network_layer,
                 num_requests=50,
                 tolerance=10,
             )
     finally:
-        _safe_delete(kserve, service_name)
+        _safe_delete(kserve, service_name, test_namespace)
 
 
 @pytest.mark.predictor
 @pytest.mark.raw
-def test_canary_rollback(network_layer):
+def test_canary_rollback(network_layer, test_namespace):
     service_name = "isvc-canary-rollback"
     kserve = _kserve_client()
     apps = _apps_v1()
 
     isvc = _make_isvc(
         service_name,
+        test_namespace,
         canaries=[
             V1beta1CanarySpec(
                 traffic_percent=20,
@@ -421,30 +421,24 @@ def test_canary_rollback(network_layer):
 
     try:
         kserve.create(isvc)
-        kserve.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        _wait_for_deployment(
-            apps, f"{service_name}-v2-predictor", KSERVE_TEST_NAMESPACE
-        )
+        _wait_for_deployment(apps, f"{service_name}-v2-predictor", test_namespace)
 
-        rolled_back = _make_isvc(service_name)
+        rolled_back = _make_isvc(service_name, test_namespace)
         rolled_back.spec.canary = []
 
-        patch_resp = kserve.patch(
-            service_name, rolled_back, namespace=KSERVE_TEST_NAMESPACE
-        )
+        patch_resp = kserve.patch(service_name, rolled_back, namespace=test_namespace)
         kserve.wait_isvc_ready(
             service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=test_namespace,
             expected_generation=patch_resp["metadata"]["generation"],
         )
 
-        _wait_for_deployment_gone(
-            apps, f"{service_name}-v2-predictor", KSERVE_TEST_NAMESPACE
-        )
-        _wait_for_deployment(apps, f"{service_name}-predictor", KSERVE_TEST_NAMESPACE)
+        _wait_for_deployment_gone(apps, f"{service_name}-v2-predictor", test_namespace)
+        _wait_for_deployment(apps, f"{service_name}-predictor", test_namespace)
 
-        got = kserve.get(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        got = kserve.get(service_name, namespace=test_namespace)
         conditions = got.get("status", {}).get("conditions", [])
         canary_condition = next(
             (c for c in conditions if c["type"] == "CanaryPredictorReady"), None
@@ -455,7 +449,7 @@ def test_canary_rollback(network_layer):
 
         if _is_gatewayapi(network_layer):
             backends = _get_httproute_backend_refs(
-                f"{service_name}-predictor", KSERVE_TEST_NAMESPACE
+                f"{service_name}-predictor", test_namespace
             )
             assert len(backends) == 1, (
                 f"Expected 1 backend after rollback, got {backends}"
@@ -467,25 +461,26 @@ def test_canary_rollback(network_layer):
             _verify_traffic_split(
                 kserve,
                 service_name,
-                KSERVE_TEST_NAMESPACE,
+                test_namespace,
                 expected_pcts={200: 100},
                 network_layer=network_layer,
                 num_requests=50,
                 tolerance=10,
             )
     finally:
-        _safe_delete(kserve, service_name)
+        _safe_delete(kserve, service_name, test_namespace)
 
 
 @pytest.mark.predictor
 @pytest.mark.raw
-def test_canary_force_stop():
+def test_canary_force_stop(test_namespace):
     service_name = "isvc-canary-stop"
     kserve = _kserve_client()
     apps = _apps_v1()
 
     isvc = _make_isvc(
         service_name,
+        test_namespace,
         canaries=[
             V1beta1CanarySpec(
                 traffic_percent=20,
@@ -498,18 +493,16 @@ def test_canary_force_stop():
 
     try:
         kserve.create(isvc)
-        kserve.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        _wait_for_deployment(
-            apps, f"{service_name}-v2-predictor", KSERVE_TEST_NAMESPACE
-        )
+        _wait_for_deployment(apps, f"{service_name}-v2-predictor", test_namespace)
 
         stop_patch = V1beta1InferenceService(
             api_version=constants.KSERVE_V1BETA1,
             kind=constants.KSERVE_KIND_INFERENCESERVICE,
             metadata=client.V1ObjectMeta(
                 name=service_name,
-                namespace=KSERVE_TEST_NAMESPACE,
+                namespace=test_namespace,
                 annotations={
                     "serving.kserve.io/stop": "true",
                 },
@@ -517,12 +510,15 @@ def test_canary_force_stop():
             spec=isvc.spec,
         )
 
-        kserve.patch(service_name, stop_patch, namespace=KSERVE_TEST_NAMESPACE)
+        kserve.patch(service_name, stop_patch, namespace=test_namespace)
 
-        _wait_for_deployment_gone(
-            apps, f"{service_name}-v2-predictor", KSERVE_TEST_NAMESPACE
+        _wait_for_deployment_gone(apps, f"{service_name}-v2-predictor", test_namespace)
+
+        _wait_for_condition(
+            kserve, service_name, test_namespace, "CanaryPredictorReady", "Stopped"
         )
-
-        _wait_for_condition(kserve, service_name, "CanaryPredictorReady", "Stopped")
     finally:
-        _safe_delete(kserve, service_name)
+        _safe_delete(kserve, service_name, test_namespace)
+
+
+# TODO: Add testing for routing after HTTPRoute support is added to the raw deployment mode.

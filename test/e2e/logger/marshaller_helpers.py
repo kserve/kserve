@@ -42,13 +42,12 @@ from kserve import (
 )
 from kserve.models.v1beta1_logger_storage_spec import V1beta1LoggerStorageSpec
 
-from ..common.utils import KSERVE_TEST_NAMESPACE
-
 LOGGER_S3_URL = "s3://logger-output/logs"
 
 
 def create_logger_isvc(
     format: str,
+    namespace: str,
     batch_size: int = 1,
     batch_interval: Optional[str] = None,
     store_path: Optional[str] = None,
@@ -97,7 +96,7 @@ def create_logger_isvc(
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=namespace,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )

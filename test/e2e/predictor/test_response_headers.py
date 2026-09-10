@@ -30,11 +30,11 @@ from kubernetes.client import V1ResourceRequirements
 from kubernetes import client
 from kubernetes.client import V1Container, V1ContainerPort
 from ..common.http_retry import post_with_retry
-from ..common.utils import KSERVE_TEST_NAMESPACE, get_isvc_endpoint
+from ..common.utils import get_isvc_endpoint
 
 
 @pytest.mark.transformer
-def test_predictor_headers_v1():
+def test_predictor_headers_v1(test_namespace):
     service_name = "isvc-custom-model-transformer-v1"
     model_name = "custom-model"
     input_json = "./data/custom_model_input.json"
@@ -44,7 +44,6 @@ def test_predictor_headers_v1():
             V1Container(
                 name="kserve-container",
                 image=os.environ.get("CUSTOM_MODEL_GRPC_IMG_TAG"),
-                # Override the entrypoint to run the custom model rest server
                 command=["python", "-m", "custom_model.model"],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
@@ -76,9 +75,7 @@ def test_predictor_headers_v1():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer),
     )
 
@@ -86,11 +83,11 @@ def test_predictor_headers_v1():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     isvc = kserve_client.get(
         service_name,
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=test_namespace,
         version=constants.KSERVE_V1BETA1_VERSION,
     )
     scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
@@ -115,11 +112,10 @@ def test_predictor_headers_v1():
     assert "prediction-time-latency" in response.headers
     points = ["%.3f" % (point) for point in list(res_data["predictions"])]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.transformer
-def test_predictor_headers_v2():
+def test_predictor_headers_v2(test_namespace):
     service_name = "isvc-custom-model-transformer-v2"
     model_name = "custom-model"
     input_json = "./data/custom_model_input_v2.json"
@@ -129,7 +125,6 @@ def test_predictor_headers_v2():
             V1Container(
                 name="kserve-container",
                 image=os.environ.get("CUSTOM_MODEL_GRPC_IMG_TAG"),
-                # Override the entrypoint to run the custom model rest server
                 command=["python", "-m", "custom_model.model"],
                 resources=V1ResourceRequirements(
                     requests={"cpu": "50m", "memory": "128Mi"},
@@ -161,9 +156,7 @@ def test_predictor_headers_v2():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer),
     )
 
@@ -171,10 +164,10 @@ def test_predictor_headers_v2():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     isvc = kserve_client.get(
         service_name,
-        namespace=KSERVE_TEST_NAMESPACE,
+        namespace=test_namespace,
         version=constants.KSERVE_V1BETA1_VERSION,
     )
     scheme, cluster_ip, host, path = get_isvc_endpoint(isvc)
@@ -199,4 +192,3 @@ def test_predictor_headers_v2():
     assert "prediction-time-latency" in response.headers
     points = ["%.3f" % (point) for point in list(res_data["outputs"][0]["data"])]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

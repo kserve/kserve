@@ -33,8 +33,6 @@ from kserve import (
 )
 from kserve.logging import trace_logger as logger
 
-from ..common.utils import KSERVE_TEST_NAMESPACE
-
 
 def get_isvc_data(kserve_client: KServeClient, name: str, namespace: str):
     """Get ISVC resource data for debugging."""
@@ -143,7 +141,7 @@ def managed_isvc(kserve_client: KServeClient, isvc: V1beta1InferenceService):
 
 
 def get_isvc_resource_version(
-    kserve_client: KServeClient, name: str, namespace: str = KSERVE_TEST_NAMESPACE
+    kserve_client: KServeClient, name: str, namespace: str
 ) -> str:
     isvc = kserve_client.get(name, namespace=namespace)
     metadata = isvc.get("metadata") if isinstance(isvc, dict) else {}
@@ -155,7 +153,7 @@ def get_isvc_resource_version(
 def wait_for_stable_resource_version(
     kserve_client: KServeClient,
     name: str,
-    namespace: str = KSERVE_TEST_NAMESPACE,
+    namespace: str,
     stable_seconds: float = 15.0,
     poll_interval: float = 3.0,
     timeout_seconds: float = 120.0,
@@ -192,7 +190,7 @@ def wait_for_stable_resource_version(
 
 
 def get_isvc_model_status(
-    kserve_client: KServeClient, name: str, namespace: str = KSERVE_TEST_NAMESPACE
+    kserve_client: KServeClient, name: str, namespace: str
 ) -> dict:
     isvc = kserve_client.get(name, namespace=namespace)
     status = isvc.get("status") if isinstance(isvc, dict) else {}
@@ -202,9 +200,7 @@ def get_isvc_model_status(
     return {}
 
 
-def get_isvc_conditions(
-    kserve_client: KServeClient, name: str, namespace: str = KSERVE_TEST_NAMESPACE
-) -> list:
+def get_isvc_conditions(kserve_client: KServeClient, name: str, namespace: str) -> list:
     isvc = kserve_client.get(name, namespace=namespace)
     status = isvc.get("status") if isinstance(isvc, dict) else {}
     if isinstance(status, dict):
@@ -280,7 +276,7 @@ def delete_service_account(namespace: str, sa_name: str):
 def wait_for_isvc_failure_status(
     kserve_client: KServeClient,
     name: str,
-    namespace: str = KSERVE_TEST_NAMESPACE,
+    namespace: str,
     timeout_seconds: int = 120,
     poll_interval: float = 2.0,
 ) -> dict | None:
@@ -330,7 +326,9 @@ def get_controller_logs(since_seconds: int) -> str:
 @pytest.mark.predictor
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_event_storm_prevention_init_container_isolation(rest_v1_client):
+async def test_event_storm_prevention_init_container_isolation(
+    rest_v1_client, test_namespace
+):
     """
     Test that init container status changes on one ISVC don't cause unwanted modifications
     to unrelated ISVCs (event storm prevention).
@@ -373,31 +371,29 @@ async def test_event_storm_prevention_init_container_isolation(rest_v1_client):
     primary_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=primary_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=primary_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=primary_predictor),
     )
 
     with managed_isvc(kserve_client, primary_isvc):
         # Step 1: Wait for primary ISVC to be ready (created by managed_isvc)
         logger.info("Created primary ISVC: %s", primary_name)
-        kserve_client.wait_isvc_ready(primary_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(primary_name, namespace=test_namespace)
         logger.info("Primary ISVC is ready")
 
         # Wait for resourceVersion to stabilize before recording baseline.
         # After an ISVC becomes ready, async updates (HTTPRoute status from
         # Istio, deployment status changes) can still bump the resourceVersion.
         primary_rv_before = wait_for_stable_resource_version(
-            kserve_client, primary_name
+            kserve_client, primary_name, test_namespace
         )
         logger.info("Baseline recorded - resourceVersion: %s", primary_rv_before)
 
         # Step 2: Create invalid S3 credentials
         logger.info("Creating invalid S3 secret and service account")
-        create_invalid_s3_secret(KSERVE_TEST_NAMESPACE, invalid_secret_name)
+        create_invalid_s3_secret(test_namespace, invalid_secret_name)
         create_service_account_with_secret(
-            KSERVE_TEST_NAMESPACE, invalid_sa_name, invalid_secret_name
+            test_namespace, invalid_sa_name, invalid_secret_name
         )
 
         # Step 3: Create secondary ISVC with invalid S3 credentials
@@ -416,9 +412,7 @@ async def test_event_storm_prevention_init_container_isolation(rest_v1_client):
         secondary_isvc = V1beta1InferenceService(
             api_version=constants.KSERVE_V1BETA1,
             kind=constants.KSERVE_KIND_INFERENCESERVICE,
-            metadata=client.V1ObjectMeta(
-                name=secondary_name, namespace=KSERVE_TEST_NAMESPACE
-            ),
+            metadata=client.V1ObjectMeta(name=secondary_name, namespace=test_namespace),
             spec=V1beta1InferenceServiceSpec(predictor=secondary_predictor),
         )
 
@@ -429,7 +423,7 @@ async def test_event_storm_prevention_init_container_isolation(rest_v1_client):
                 secondary_name,
             )
             secondary_failure = wait_for_isvc_failure_status(
-                kserve_client, secondary_name, timeout_seconds=180
+                kserve_client, secondary_name, test_namespace, timeout_seconds=180
             )
             if secondary_failure:
                 logger.info("Secondary ISVC failure detected: %s", secondary_failure)
@@ -441,7 +435,9 @@ async def test_event_storm_prevention_init_container_isolation(rest_v1_client):
             # The controller may reconcile the primary ISVC for legitimate reasons
             # (e.g., HTTPRoute status updates from Istio), but no-op reconciliations
             # are fine. Only fail if resourceVersion changed (actual modification).
-            primary_rv_after = get_isvc_resource_version(kserve_client, primary_name)
+            primary_rv_after = get_isvc_resource_version(
+                kserve_client, primary_name, test_namespace
+            )
             logger.info(
                 "Primary ISVC resourceVersion: before=%s, after=%s",
                 primary_rv_before,
@@ -464,7 +460,7 @@ async def test_event_storm_prevention_init_container_isolation(rest_v1_client):
 @pytest.mark.predictor
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_quick_reconciliation_on_init_container_failure():
+async def test_quick_reconciliation_on_init_container_failure(test_namespace):
     """
     Test that when an init container fails (e.g., invalid storage credentials),
     the owning InferenceService quickly reconciles and reflects the failure in its status.
@@ -487,9 +483,9 @@ async def test_quick_reconciliation_on_init_container_failure():
     try:
         # Create invalid S3 credentials
         logger.info("Creating invalid S3 secret and service account")
-        create_invalid_s3_secret(KSERVE_TEST_NAMESPACE, invalid_secret_name)
+        create_invalid_s3_secret(test_namespace, invalid_secret_name)
         create_service_account_with_secret(
-            KSERVE_TEST_NAMESPACE, invalid_sa_name, invalid_secret_name
+            test_namespace, invalid_sa_name, invalid_secret_name
         )
 
         # Create ISVC with invalid S3 credentials
@@ -508,9 +504,7 @@ async def test_quick_reconciliation_on_init_container_failure():
         isvc = V1beta1InferenceService(
             api_version=constants.KSERVE_V1BETA1,
             kind=constants.KSERVE_KIND_INFERENCESERVICE,
-            metadata=client.V1ObjectMeta(
-                name=isvc_name, namespace=KSERVE_TEST_NAMESPACE
-            ),
+            metadata=client.V1ObjectMeta(name=isvc_name, namespace=test_namespace),
             spec=V1beta1InferenceServiceSpec(predictor=predictor),
         )
 
@@ -519,7 +513,11 @@ async def test_quick_reconciliation_on_init_container_failure():
             # Wait for failure status to be populated
             logger.info("Created ISVC %s, waiting for failure status...", isvc_name)
             failure_status = wait_for_isvc_failure_status(
-                kserve_client, isvc_name, timeout_seconds=180, poll_interval=5.0
+                kserve_client,
+                isvc_name,
+                test_namespace,
+                timeout_seconds=180,
+                poll_interval=5.0,
             )
 
             failure_detection_time = time.time()
@@ -548,7 +546,7 @@ async def test_quick_reconciliation_on_init_container_failure():
             logger.info("Transition status: %s", transition_status)
 
             # Check conditions for failure indication
-            conditions = get_isvc_conditions(kserve_client, isvc_name)
+            conditions = get_isvc_conditions(kserve_client, isvc_name, test_namespace)
             ready_condition = next(
                 (c for c in conditions if c.get("type") == "Ready"), None
             )
@@ -574,5 +572,5 @@ async def test_quick_reconciliation_on_init_container_failure():
 
     finally:
         # Cleanup non-ISVC resources (ISVCs are cleaned up by managed_isvc)
-        delete_service_account(KSERVE_TEST_NAMESPACE, invalid_sa_name)
-        delete_secret(KSERVE_TEST_NAMESPACE, invalid_secret_name)
+        delete_service_account(test_namespace, invalid_sa_name)
+        delete_secret(test_namespace, invalid_secret_name)

@@ -40,12 +40,11 @@ from kubernetes.client import V1Container
 from kubernetes.client import V1EnvVar
 import pytest
 from ..common.utils import predict_isvc
-from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 @pytest.mark.transformer
 @pytest.mark.asyncio(scope="session")
-async def test_transformer(rest_v1_client, network_layer):
+async def test_transformer(rest_v1_client, network_layer, test_namespace):
     service_name = "isvc-transformer"
     predictor = V1beta1PredictorSpec(
         min_replicas=1,
@@ -82,9 +81,7 @@ async def test_transformer(rest_v1_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor, transformer=transformer),
     )
 
@@ -93,19 +90,19 @@ async def test_transformer(rest_v1_client, network_layer):
     )
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     except RuntimeError as e:
         print(
             kserve_client.api_instance.get_namespaced_custom_object(
                 "serving.knative.dev",
                 "v1",
-                KSERVE_TEST_NAMESPACE,
+                test_namespace,
                 "services",
                 service_name + "-predictor",
             )
         )
         pods = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
@@ -117,6 +114,6 @@ async def test_transformer(rest_v1_client, network_layer):
         "./data/transformer.json",
         model_name="mnist",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"][0] == 2
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

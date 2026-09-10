@@ -37,12 +37,13 @@ from kserve import V1beta1InferenceService
 from kubernetes.client import V1ResourceRequirements
 import pytest
 from ..common.utils import predict_isvc
-from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_batcher_raw(kserve_client, rest_v1_client, network_layer):
+async def test_batcher_raw(
+    kserve_client, rest_v1_client, network_layer, test_namespace
+):
     suffix = str(uuid.uuid4())[1:6]
     service_name = "isvc-raw-sklearn-batcher-" + suffix
 
@@ -69,26 +70,26 @@ async def test_batcher_raw(kserve_client, rest_v1_client, network_layer):
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=test_namespace,
             annotations=annotations,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     except RuntimeError as e:
         print(
             kserve_client.api_instance.get_namespaced_custom_object(
                 "serving.knative.dev",
                 "v1",
-                KSERVE_TEST_NAMESPACE,
+                test_namespace,
                 "services",
                 service_name + "-predictor",
             )
         )
         pods = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
@@ -100,6 +101,6 @@ async def test_batcher_raw(kserve_client, rest_v1_client, network_layer):
         "./data/iris_batch_input.json",
         is_batch=True,
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert all(x == results[0] for x in results)
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
