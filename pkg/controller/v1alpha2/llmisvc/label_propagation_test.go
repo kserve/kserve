@@ -553,6 +553,7 @@ func TestDeploymentSelectorExcludesMetadataLabels(t *testing.T) {
 
 			selector := d.Spec.Selector.MatchLabels
 			podLabels := d.Spec.Template.Labels
+			metaLabels := d.Labels
 
 			// Propagated from metadata: pod template only, never the selector.
 			if tt.propagatesMetadataLabels {
@@ -561,11 +562,16 @@ func TestDeploymentSelectorExcludesMetadataLabels(t *testing.T) {
 			assert.NotContains(t, selector, queueLabel,
 				"spec.selector is immutable and must not carry labels propagated from metadata")
 
-			// From spec.labels: both, so the override reaches the selector.
+			// From spec.labels: selector and pod template, but not the Deployment's own
+			// metadata - the propagation helpers target the pod template alone.
 			if tt.appliesWorkloadLabels {
 				assert.Equal(t, "alpha", selector[userLabel])
 				assert.Equal(t, "other-service", selector[nameLabel],
 					"spec.labels must override the identity label in the selector")
+				assert.NotContains(t, metaLabels, userLabel,
+					"spec.labels must not reach the Deployment's own metadata")
+				assert.Equal(t, "selector-test", metaLabels[nameLabel],
+					"the Deployment's own metadata keeps the identity label")
 			} else {
 				assert.NotContains(t, selector, userLabel)
 			}
@@ -576,10 +582,13 @@ func TestDeploymentSelectorExcludesMetadataLabels(t *testing.T) {
 					"selector key %s must be satisfied by the pod template", k)
 			}
 
-			// A write to the pod template labels must not reach the selector.
+			// A write to the pod template labels must not reach the selector or the
+			// Deployment's own metadata: all three are separate maps.
 			podLabels["mutation-probe"] = "x"
 			assert.NotContains(t, selector, "mutation-probe",
 				"spec.selector must not share its backing map with the pod template")
+			assert.NotContains(t, metaLabels, "mutation-probe",
+				"metadata.labels must not share its backing map with the pod template")
 		})
 	}
 }

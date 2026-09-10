@@ -19,6 +19,7 @@ package llmisvc
 import (
 	"context"
 	"fmt"
+	"maps"
 	"path"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -208,7 +209,7 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
+					Labels: maps.Clone(labels),
 				},
 			},
 		},
