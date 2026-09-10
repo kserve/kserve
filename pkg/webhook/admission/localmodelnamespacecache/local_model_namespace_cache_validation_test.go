@@ -289,6 +289,7 @@ func TestValidateUpdate_LocalModelNamespaceCacheDeletionBypass(t *testing.T) {
 	g.Expect(warnings).To(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 }
+
 func makeTestSharedPVCCache(pvcRef string) v1alpha1.LocalModelNamespaceCache {
 	return v1alpha1.LocalModelNamespaceCache{
 		ObjectMeta: metav1.ObjectMeta{
