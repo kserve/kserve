@@ -1220,7 +1220,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.20.0"
+version = "0.21.0rc0"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "aiohttp" },
@@ -1253,6 +1253,7 @@ dependencies = [
     { name = "timing-asgi" },
     { name = "urllib3" },
     { name = "uvicorn", extra = ["standard"] },
+    { name = "watchfiles" },
 ]
 
 [package.metadata]
@@ -1290,6 +1291,7 @@ requires-dist = [
     { name = "urllib3", specifier = ">=2.7.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30.6,<1.0.0" },
     { name = "vllm", marker = "extra == 'llm'", specifier = "==0.24.0" },
+    { name = "watchfiles", specifier = ">=1.0.4,<2.0.0" },
 ]
 provides-extras = ["storage", "logging", "ray", "llm"]
 
@@ -1303,7 +1305,7 @@ test = [
     { name = "jinja2", specifier = ">=3.1.4,<4.0.0" },
     { name = "mypy", specifier = ">=0.991,<1.0" },
     { name = "portforward", specifier = ">=0.7.4,<1.0.0" },
-    { name = "pyarrow", specifier = ">=18.0.0,<20.0.0" },
+    { name = "pyarrow", specifier = ">=18.0.0" },
     { name = "pytest", specifier = ">=7.4.4,<8.0.0" },
     { name = "pytest-asyncio", specifier = ">=0.23.4,<1.0.0" },
     { name = "pytest-cov", specifier = ">=5.0.0,<6.0.0" },
@@ -1315,7 +1317,7 @@ test = [
 
 [[package]]
 name = "kserve-storage"
-version = "0.20.0"
+version = "0.21.0rc0"
 source = { directory = "../storage" }
 dependencies = [
     { name = "aiohttp" },
@@ -1384,7 +1386,7 @@ wheels = [
 
 [[package]]
 name = "lgbserver"
-version = "0.20.0"
+version = "0.21.0rc0"
 source = { virtual = "../lgbserver" }
 dependencies = [
     { name = "kserve" },
@@ -1997,7 +1999,7 @@ wheels = [
 
 [[package]]
 name = "predictiveserver"
-version = "0.20.0"
+version = "0.21.0rc0"
 source = { editable = "." }
 dependencies = [
     { name = "kserve" },
@@ -2911,7 +2913,7 @@ wheels = [
 
 [[package]]
 name = "sklearnserver"
-version = "0.20.0"
+version = "0.21.0rc0"
 source = { virtual = "../sklearnserver" }
 dependencies = [
     { name = "joblib" },
@@ -3301,7 +3303,7 @@ wheels = [
 
 [[package]]
 name = "xgbserver"
-version = "0.20.0"
+version = "0.21.0rc0"
 source = { virtual = "../xgbserver" }
 dependencies = [
     { name = "kserve" },

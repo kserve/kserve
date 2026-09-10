@@ -50,6 +50,7 @@ class V1beta1InferenceServiceSpec(object):
         'canary': 'list[V1beta1CanarySpec]',
         'explainer': 'V1beta1ExplainerSpec',
         'predictor': 'V1beta1PredictorSpec',
+        'tracing': 'V1beta1TracingSpec',
         'transformer': 'V1beta1TransformerSpec'
     }
 
@@ -57,10 +58,11 @@ class V1beta1InferenceServiceSpec(object):
         'canary': 'canary',
         'explainer': 'explainer',
         'predictor': 'predictor',
+        'tracing': 'tracing',
         'transformer': 'transformer'
     }
 
-    def __init__(self, canary=None, explainer=None, predictor=None, transformer=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, canary=None, explainer=None, predictor=None, tracing=None, transformer=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1InferenceServiceSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -69,6 +71,7 @@ class V1beta1InferenceServiceSpec(object):
         self._canary = None
         self._explainer = None
         self._predictor = None
+        self._tracing = None
         self._transformer = None
         self.discriminator = None
 
@@ -77,6 +80,8 @@ class V1beta1InferenceServiceSpec(object):
         if explainer is not None:
             self.explainer = explainer
         self.predictor = predictor
+        if tracing is not None:
+            self.tracing = tracing
         if transformer is not None:
             self.transformer = transformer
 
@@ -146,6 +151,27 @@ class V1beta1InferenceServiceSpec(object):
             raise ValueError("Invalid value for `predictor`, must not be `None`")  # noqa: E501
 
         self._predictor = predictor
+
+    @property
+    def tracing(self):
+        """Gets the tracing of this V1beta1InferenceServiceSpec.  # noqa: E501
+
+
+        :return: The tracing of this V1beta1InferenceServiceSpec.  # noqa: E501
+        :rtype: V1beta1TracingSpec
+        """
+        return self._tracing
+
+    @tracing.setter
+    def tracing(self, tracing):
+        """Sets the tracing of this V1beta1InferenceServiceSpec.
+
+
+        :param tracing: The tracing of this V1beta1InferenceServiceSpec.  # noqa: E501
+        :type: V1beta1TracingSpec
+        """
+
+        self._tracing = tracing
 
     @property
     def transformer(self):

@@ -8,6 +8,7 @@ license = {text = "Apache-2.0"}
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "uvicorn[standard]<1.0.0,>=0.30.6",
+    "watchfiles<2.0.0,>=1.0.4",
     "fastapi>=0.115.3,<1.0.0",
     "starlette>=1.0.1", # CVE-2026-48710 Starlette: Security restriction bypass via malformed HTTP Host header
     "cloudevents<2.0.0,>=1.6.2",
@@ -42,7 +43,7 @@ dependencies = [
     "pillow>=12.3.0", # CVE-2026-40192
 ]
 name = "kserve"
-version = "0.20.0"
+version = "0.21.0rc0"
 description = "KServe Python SDK"
 readme = "README.md"
 classifiers = [
@@ -68,7 +69,7 @@ repository = "https://github.com/kserve/kserve/tree/master/python/kserve"
 
 [project.optional-dependencies]
 storage = [
-    "kserve-storage==0.20.0"
+    "kserve-storage==0.21.0rc0"
 ]
 logging = [
     "asgi-logger<1.0.0,>=0.1.0",
@@ -99,7 +100,7 @@ test = [
     "grpcio-testing<2.0.0,>=1.73.0",
     "httpx-retries>=0.4.5,<1.0.0",
     "boto3>=1.35.0,<2.0.0",
-    "pyarrow>=18.0.0,<20.0.0",
+    "pyarrow>=18.0.0",
 ]
 dev = [
     "black[colorama]>=26.3.1,<27",

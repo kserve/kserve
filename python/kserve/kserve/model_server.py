@@ -24,30 +24,29 @@ from typing import Any, Callable, Dict, List, Optional
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
 
-from . import logging
 from . import context as kserve_context
+from . import logging
 from .constants.constants import (
+    DEFAULT_GRPC_PORT,
     DEFAULT_HTTP_PORT,
     DEFAULT_HTTPS_PORT,
-    DEFAULT_GRPC_PORT,
+    FASTAPI_APP_IMPORT_STRING,
     KSERVE_TLS_CERT_FILE_ENV,
     KSERVE_TLS_KEY_FILE_ENV,
     MAX_GRPC_MESSAGE_LENGTH,
-    FASTAPI_APP_IMPORT_STRING,
 )
 from .errors import NoModelReady
 from .logging import logger
 from .model import BaseKServeModel
-from .predictor_config import PredictorConfig
 from .model_repository import ModelRepository
+from .predictor_config import PredictorConfig
 from .protocol.dataplane import DataPlane
 from .protocol.grpc.server import GRPCServer
 from .protocol.model_repository_extension import ModelRepositoryExtension
-from .protocol.rest.server import RESTServer
 from .protocol.rest.multiprocess.server import RESTServerMultiProcess
+from .protocol.rest.server import RESTServer
 from .utils import utils
 from .utils.inference_client_factory import InferenceClientFactory
-
 
 parser = argparse.ArgumentParser(
     add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -378,6 +377,8 @@ class ModelServer:
                 log_config_file=args.log_config_file,
                 event_loop=self.event_loop,
                 timeout_keep_alive=self.timeout_keep_alive,
+                ssl_certfile=self.ssl_certfile,
+                ssl_keyfile=self.ssl_keyfile,
             )
             self.servers.append(self._rest_multiprocess_server.start())
         else:

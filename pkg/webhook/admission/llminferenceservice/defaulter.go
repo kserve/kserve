@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -46,16 +46,9 @@ type LLMInferenceServiceDefaulterV1Alpha1 struct {
 	Clientset kubernetes.Interface
 }
 
-var _ webhook.CustomDefaulter = &LLMInferenceServiceDefaulterV1Alpha1{}
+var _ admission.Defaulter[*v1alpha1.LLMInferenceService] = &LLMInferenceServiceDefaulterV1Alpha1{}
 
-func (d *LLMInferenceServiceDefaulterV1Alpha1) Default(ctx context.Context, obj runtime.Object) error {
-	typedObj, ok := obj.(*v1alpha1.LLMInferenceService)
-	if !ok {
-		err := fmt.Errorf("unsupported object type %T for LLMInferenceService v1alpha1 defaulter", obj)
-		defaulterLogger.Error(err, "Unable to convert object to LLMInferenceService v1alpha1")
-		return err
-	}
-
+func (d *LLMInferenceServiceDefaulterV1Alpha1) Default(ctx context.Context, typedObj *v1alpha1.LLMInferenceService) error {
 	llmSvcV2 := &v1alpha2.LLMInferenceService{}
 	if err := typedObj.ConvertTo(llmSvcV2); err != nil {
 		defaulterLogger.Error(err, "Unable to convert v1alpha1 object to LLMInferenceService v1alpha2")
@@ -79,15 +72,9 @@ type LLMInferenceServiceDefaulterV1Alpha2 struct {
 	Clientset kubernetes.Interface
 }
 
-var _ webhook.CustomDefaulter = &LLMInferenceServiceDefaulterV1Alpha2{}
+var _ admission.Defaulter[*v1alpha2.LLMInferenceService] = &LLMInferenceServiceDefaulterV1Alpha2{}
 
-func (d *LLMInferenceServiceDefaulterV1Alpha2) Default(ctx context.Context, obj runtime.Object) error {
-	typedObj, ok := obj.(*v1alpha2.LLMInferenceService)
-	if !ok {
-		err := fmt.Errorf("unsupported object type %T for LLMInferenceService v1alpha2 defaulter", obj)
-		defaulterLogger.Error(err, "Unable to convert object to LLMInferenceService v1alpha2")
-		return err
-	}
+func (d *LLMInferenceServiceDefaulterV1Alpha2) Default(ctx context.Context, typedObj *v1alpha2.LLMInferenceService) error {
 	return d.applyDefaults(ctx, typedObj)
 }
 
@@ -98,7 +85,7 @@ type LLMInferenceServiceDefaulter struct {
 	Clientset kubernetes.Interface
 }
 
-var _ webhook.CustomDefaulter = &LLMInferenceServiceDefaulter{}
+var _ admission.Defaulter[runtime.Object] = &LLMInferenceServiceDefaulter{}
 
 func (d *LLMInferenceServiceDefaulter) Default(ctx context.Context, obj runtime.Object) error {
 	switch typedObj := obj.(type) {

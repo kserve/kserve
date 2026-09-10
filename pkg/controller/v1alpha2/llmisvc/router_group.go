@@ -23,6 +23,7 @@ import (
 	"slices"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	kmeta "knative.dev/pkg/kmeta"
@@ -51,18 +52,17 @@ type resolvedMember struct {
 // setupGroupFieldIndex registers a field indexer on spec.router.route.group
 // for efficient group member discovery without listing all LLMISVCs in a namespace.
 func setupGroupFieldIndex(ctx context.Context, mgr client.FieldIndexer) error {
-	return mgr.IndexField(
-		ctx,
-		&v1alpha2.LLMInferenceService{},
-		groupFieldIndex,
-		func(obj client.Object) []string {
-			llmSvc := obj.(*v1alpha2.LLMInferenceService)
-			if g := llmSvc.Spec.Router.Group(); g != nil {
-				return []string{llmSvc.Namespace + "/" + *g}
-			}
-			return nil
-		},
-	)
+	return mgr.IndexField(ctx, &v1alpha2.LLMInferenceService{}, groupFieldIndex, groupIndexValue)
+}
+
+// groupIndexValue keys an LLMInferenceService by its namespace and group so
+// members are looked up without listing the whole namespace.
+func groupIndexValue(obj client.Object) []string {
+	llmSvc := obj.(*v1alpha2.LLMInferenceService)
+	if g := llmSvc.Spec.Router.Group(); g != nil {
+		return []string{llmSvc.Namespace + "/" + *g}
+	}
+	return nil
 }
 
 // injectGroupBackendRefs post-processes the template-rendered HTTPRoute to add
@@ -227,9 +227,6 @@ func (r *LLMISVCReconciler) finalizeGroupMembership(ctx context.Context, llmSvc 
 		return false, fmt.Errorf("finalizing group membership: %w", err)
 	}
 
-	poolName := (&v1alpha2.SchedulerSpec{}).InferencePoolName(llmSvc)
-	svcName := workloadServiceName(llmSvc)
-
 	for i := range members {
 		if members[i].Name == llmSvc.Name || !members[i].DeletionTimestamp.IsZero() {
 			continue
@@ -240,14 +237,16 @@ func (r *LLMISVCReconciler) finalizeGroupMembership(ctx context.Context, llmSvc 
 			Namespace: members[i].GetNamespace(),
 		}
 		if err := r.Get(ctx, routeKey, route); err != nil {
-			if apierrors.IsNotFound(err) {
+			// An uninstalled Gateway API holds no reference to release; erroring
+			// here would block deletion forever.
+			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 				continue
 			}
 			return false, fmt.Errorf("checking member route %s for stale backendRefs: %w", routeKey.Name, err)
 		}
-		if routeReferencesBackend(route, poolName) || routeReferencesBackend(route, svcName) {
+		if routeReferencesMember(route, llmSvc) {
 			logger.Info("Waiting for member to remove backendRef before deletion",
-				"member", members[i].Name, "pool", poolName)
+				"member", members[i].Name)
 			llmSvc.MarkGroupNotReady(reasonFinalizationPending,
 				"waiting for member %s to remove backendRef before deletion", members[i].Name)
 			return false, nil
@@ -257,15 +256,34 @@ func (r *LLMISVCReconciler) finalizeGroupMembership(ctx context.Context, llmSvc 
 	return true, nil
 }
 
-func routeReferencesBackend(route *gwapiv1.HTTPRoute, backendName string) bool {
+// routeReferencesMember reports whether any rule still carries a backendRef for
+// member's backend.
+func routeReferencesMember(route *gwapiv1.HTTPRoute, member *v1alpha2.LLMInferenceService) bool {
 	for _, rule := range route.Spec.Rules {
 		for _, ref := range rule.BackendRefs {
-			if string(ref.Name) == backendName {
+			if backendRefersTo(ref, route.Namespace, member) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// backendRefersTo reports whether ref addresses one of member's backends.
+// Backend identity comes from isExpectedBackendRef, the same matcher the group
+// rewrite uses, so an explicitly referenced InferencePool is recognised here too.
+// The namespace guard is additional: a ref may name another namespace's
+// identically named backend.
+func backendRefersTo(ref gwapiv1.HTTPBackendRef, routeNamespace string, member *v1alpha2.LLMInferenceService) bool {
+	// An unset or empty namespace means the route's own namespace.
+	refNamespace := string(ptr.Deref(ref.Namespace, ""))
+	if refNamespace == "" {
+		refNamespace = routeNamespace
+	}
+	if refNamespace != member.Namespace {
+		return false
+	}
+	return isExpectedBackendRef(member, ref.BackendRef)
 }
 
 // listGroupMembers returns all LLMISVCs in the same namespace with the same group.

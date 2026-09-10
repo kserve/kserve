@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -81,3 +81,37 @@ def test_config_timeout_keep_alive_default(monkeypatch):
     )
 
     assert rs.config.timeout_keep_alive == 65
+
+
+@pytest.mark.asyncio
+async def test_ssl_cert_refresher_lifecycle(monkeypatch):
+    monkeypatch.setattr(rest_mod.RESTServer, "create_application", lambda self: None)
+    monkeypatch.setattr(rest_mod.uvicorn.Server, "serve", AsyncMock())
+    refresher = Mock()
+    refresher_class = Mock(return_value=refresher)
+    monkeypatch.setattr(rest_mod, "SSLCertRefresher", refresher_class)
+    ssl_context = Mock()
+
+    rs = rest_mod.RESTServer(
+        app="dummy:app",
+        data_plane=Mock(),
+        model_repository_extension=Mock(),
+        http_port=8443,
+        ssl_certfile="/etc/tls/tls.crt",
+        ssl_keyfile="/etc/tls/tls.key",
+    )
+
+    def load_config():
+        rs.config.loaded = True
+        rs.config.ssl = ssl_context
+
+    monkeypatch.setattr(rs.config, "load", load_config)
+
+    await rs.start()
+
+    refresher_class.assert_called_once_with(
+        ssl_context=ssl_context,
+        key_path="/etc/tls/tls.key",
+        cert_path="/etc/tls/tls.crt",
+    )
+    refresher.stop.assert_called_once_with()

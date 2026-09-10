@@ -237,17 +237,27 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	// Pre/post process hooks for status management
 	reconciler.PreProcessReconcile(ctx, resource)
+	// Releasing terminating peers must not depend on this service's own desired
+	// state being valid, so it runs before and independently of r.reconcile.
+	cleanupErr := r.reconcileTerminatingGroupBackends(ctx, resource)
 	reconcileErr := r.reconcile(ctx, resource)
 	reconciler.PostProcessReconcile(ctx, resource, original)
 
-	if reconcileErr != nil {
-		logger.Error(reconcileErr, "Failed to reconcile LLMInferenceService")
-		r.Eventf(original, corev1.EventTypeWarning, "Error", "Reconciliation failed: %v", reconcileErr.Error())
+	if err := errors.Join(cleanupErr, reconcileErr); err != nil {
+		logger.Error(err, "Failed to reconcile LLMInferenceService")
+		r.Eventf(original, corev1.EventTypeWarning, "Error", "Reconciliation failed: %v", err.Error())
 	}
 
 	if err := r.updateStatus(ctx, resource); err != nil {
 		logger.Error(err, "Failed to update status for LLMInferenceService")
 		return ctrl.Result{}, err
+	}
+
+	// Returned separately rather than joined: controller-runtime recognises a
+	// TerminalError through errors.Is, so joining one in would cancel the retry
+	// that a failed cleanup still needs.
+	if cleanupErr != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to clean up terminating group backends: %w", cleanupErr)
 	}
 
 	return ctrl.Result{}, reconcileErr

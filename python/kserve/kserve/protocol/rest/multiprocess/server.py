@@ -16,8 +16,8 @@ import asyncio
 import multiprocessing as mp
 import os
 import signal
-from socket import socket
 import threading
+from socket import socket
 from typing import Any, Callable, List, Optional, Union
 
 from kserve import logging
@@ -134,6 +134,8 @@ class RESTServerMultiProcess:
         log_config_file: Optional[str] = None,
         event_loop: str = "auto",
         timeout_keep_alive: int = 65,
+        ssl_certfile: Optional[str] = None,
+        ssl_keyfile: Optional[str] = None,
     ) -> None:
         self.log_config_file = log_config_file
         self._rest_server = RESTServer(
@@ -146,6 +148,8 @@ class RESTServerMultiProcess:
             grace_period,
             event_loop,
             timeout_keep_alive,
+            ssl_certfile=ssl_certfile,
+            ssl_keyfile=ssl_keyfile,
         )
         self._processes: List[RESTServerProcess] = []
         self.should_exit = asyncio.Event()

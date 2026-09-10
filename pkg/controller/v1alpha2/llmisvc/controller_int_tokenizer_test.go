@@ -607,6 +607,11 @@ schedulingProfiles:
 		It("should not create tokenizer when scheduler has external pool ref", func(ctx SpecContext) {
 			svcName := "test-llm-tok-extpool"
 			testNs := NewTestNamespace(ctx, envTest)
+			infPool := InferencePool("external-pool",
+				WithSelector("app", "workload"),
+				WithEndpointPickerRef("", "Service", "external-epp", 9002),
+			)
+			infPool.Namespace = testNs.Name
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -617,9 +622,11 @@ schedulingProfiles:
 				WithManagedTokenizer(),
 			)
 
+			Expect(envTest.Create(ctx, infPool)).To(Succeed())
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
+				testNs.DeleteAndWait(ctx, infPool)
 			}()
 
 			// Wait for reconciliation to process (workload should exist)

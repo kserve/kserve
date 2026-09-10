@@ -57,7 +57,7 @@ func NewLocalModelCacheInformer(client versioned.Interface, namespace string, re
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredLocalModelCacheInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
-		&cache.ListWatch{
+		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
@@ -82,7 +82,7 @@ func NewFilteredLocalModelCacheInformer(client versioned.Interface, namespace st
 				}
 				return client.ServingV1alpha1().LocalModelCaches(namespace).Watch(ctx, options)
 			},
-		},
+		}, client),
 		&apisservingv1alpha1.LocalModelCache{},
 		resyncPeriod,
 		indexers,
