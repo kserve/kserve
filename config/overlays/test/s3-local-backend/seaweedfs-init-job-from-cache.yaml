@@ -13,7 +13,17 @@ spec:
         command:
         - sh
         - -c
-        - mkdir -p /shared/facebook/opt-125m && cp -r /model/. /shared/facebook/opt-125m/
+        - |
+          # opt-125m is only consumed by the llmisvc suite; skip the cache copy for
+          # pure-kserve suites. Gated by DOWNLOAD_OPT_125M (set in setup-kserve.sh).
+          if [ "${DOWNLOAD_OPT_125M}" = "true" ]; then
+            mkdir -p /shared/facebook/opt-125m && cp -r /model/. /shared/facebook/opt-125m/
+          else
+            echo "DOWNLOAD_OPT_125M != true; skipping opt-125m cache copy"
+          fi
+        env:
+        - name: DOWNLOAD_OPT_125M
+          value: "__DOWNLOAD_OPT_125M__"
         volumeMounts:
         - name: model-cache
           mountPath: /shared
@@ -28,8 +38,15 @@ spec:
           aws s3 mb s3://example-models || true
           curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o /tmp/sklearn-model.joblib
           aws s3 cp /tmp/sklearn-model.joblib s3://example-models/sklearn/model.joblib --no-verify-ssl
-          aws s3 sync /shared/facebook/opt-125m s3://example-models/facebook/opt-125m/ --no-verify-ssl
+          # opt-125m is only consumed by the llmisvc suite (see DOWNLOAD_OPT_125M).
+          if [ "${DOWNLOAD_OPT_125M}" = "true" ]; then
+            aws s3 sync /shared/facebook/opt-125m s3://example-models/facebook/opt-125m/ --no-verify-ssl
+          else
+            echo "DOWNLOAD_OPT_125M != true; skipping opt-125m upload"
+          fi
         env:
+        - name: DOWNLOAD_OPT_125M
+          value: "__DOWNLOAD_OPT_125M__"
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:

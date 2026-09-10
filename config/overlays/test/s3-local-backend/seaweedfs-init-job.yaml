@@ -10,10 +10,22 @@ spec:
       - name: download-hf-model
         image: kserve/storage-initializer:latest
         imagePullPolicy: IfNotPresent
-        args:
-        - "hf://facebook/opt-125m"
-        - "/shared/facebook/opt-125m"
+        command:
+        - python3
+        - -c
+        - |
+          import os, sys
+          # opt-125m is only consumed by the llmisvc e2e tests; skip the (slow)
+          # HuggingFace download for pure-kserve suites. Gated by DOWNLOAD_OPT_125M,
+          # set from ENABLE_LLMISVC/ENABLE_KSERVE_WITH_LLMISVC in setup-kserve.sh.
+          if os.environ.get("DOWNLOAD_OPT_125M") != "true":
+              print("DOWNLOAD_OPT_125M != true; skipping opt-125m download")
+              sys.exit(0)
+          entrypoint = "/storage-initializer/scripts/initializer-entrypoint"
+          os.execv(entrypoint, [entrypoint, "hf://facebook/opt-125m", "/shared/facebook/opt-125m"])
         env:
+        - name: DOWNLOAD_OPT_125M
+          value: "__DOWNLOAD_OPT_125M__"
         - name: HF_HUB_DISABLE_PROGRESS_BARS
           value: "1"
         - name: HF_HUB_DISABLE_XET
@@ -38,8 +50,15 @@ spec:
           aws s3 mb s3://example-models || true
           curl -L https://storage.googleapis.com/kfserving-examples/models/sklearn/1.0/model/model.joblib -o /tmp/sklearn-model.joblib
           aws s3 cp /tmp/sklearn-model.joblib s3://example-models/sklearn/model.joblib --no-verify-ssl
-          aws s3 sync /shared/facebook/opt-125m s3://example-models/facebook/opt-125m/ --no-verify-ssl
+          # opt-125m is only consumed by the llmisvc suite (see DOWNLOAD_OPT_125M).
+          if [ "${DOWNLOAD_OPT_125M}" = "true" ]; then
+            aws s3 sync /shared/facebook/opt-125m s3://example-models/facebook/opt-125m/ --no-verify-ssl
+          else
+            echo "DOWNLOAD_OPT_125M != true; skipping opt-125m upload"
+          fi
         env:
+        - name: DOWNLOAD_OPT_125M
+          value: "__DOWNLOAD_OPT_125M__"
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
