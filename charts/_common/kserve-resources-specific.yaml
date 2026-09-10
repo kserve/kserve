@@ -74,4 +74,11 @@ kserve:
         memory: 300Mi
     knativeAddressableResolver:
       enabled: false
+  autoscalingWvaControllerConfig:
+    prometheus:
+      url: ''
+      tlsInsecureSkipVerify: false
+      authModes: ''
+      triggerAuthName: ''
+      triggerAuthKind: TriggerAuthentication
 
