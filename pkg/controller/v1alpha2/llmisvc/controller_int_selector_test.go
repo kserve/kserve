@@ -17,6 +17,8 @@ limitations under the License.
 package llmisvc_test
 
 import (
+	"errors"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -26,6 +28,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlreconcile "sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
@@ -127,5 +130,7 @@ var _ = Describe("Deployment selector", func() {
 		Expect(err.Error()).To(ContainSubstring("must be recreated to reconcile"))
 		Expect(err.Error()).To(ContainSubstring(queueLabel),
 			"the error should name the label the pod template no longer sets")
+		Expect(errors.Is(err, ctrlreconcile.TerminalError(nil))).To(BeTrue(),
+			"the error should be terminal, so the controller does not requeue it")
 	})
 })

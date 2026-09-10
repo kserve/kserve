@@ -34,6 +34,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
@@ -263,15 +264,12 @@ func PreserveDeploymentReplicas() UpdateOption[*appsv1.Deployment] {
 }
 
 // PreserveDeploymentSelector returns an UpdateOption that carries the stored
-// Deployment's spec.selector over to the object being written.
+// Deployment's spec.selector over to the object being written, since spec.selector is
+// immutable and the API server accepts no other value.
 //
-// spec.selector is immutable, so the value already on the object is the only one the
-// API server accepts. A Deployment keeps the selector it was created with, and a change
-// to how the selector is computed applies only to Deployments created afterwards.
-//
-// The pod template is still rebuilt on every reconcile. A Deployment whose template stops
-// carrying a key its stored selector requires is rejected, since the template no longer
-// matches the selector, and has to be recreated to reconcile again.
+// If the pod template does not satisfy that selector, it returns a
+// reconcile.TerminalError naming the labels it is missing: the Deployment has to be
+// recreated, so requeuing the update cannot change the outcome.
 func PreserveDeploymentSelector() UpdateOption[*appsv1.Deployment] {
 	return BeforeDryRun(func(expected, curr *appsv1.Deployment) error {
 		if curr.Spec.Selector == nil {
@@ -290,9 +288,10 @@ func PreserveDeploymentSelector() UpdateOption[*appsv1.Deployment] {
 		}
 		slices.Sort(unsatisfied)
 
-		return fmt.Errorf("deployment %s/%s must be recreated to reconcile: its selector is "+
-			"immutable and requires %s, which the pod template no longer sets",
-			curr.GetNamespace(), curr.GetName(), strings.Join(unsatisfied, ", "))
+		return reconcile.TerminalError(fmt.Errorf(
+			"deployment %s/%s must be recreated to reconcile: its selector is "+
+				"immutable and requires %s, which the pod template no longer sets",
+			curr.GetNamespace(), curr.GetName(), strings.Join(unsatisfied, ", ")))
 	})
 }
 
