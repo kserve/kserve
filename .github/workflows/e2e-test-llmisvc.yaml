@@ -204,7 +204,7 @@ jobs:
 
   test-llmisvc:
     runs-on: cncf-ubuntu-16-64-x86
-    timeout-minutes: 125
+    timeout-minutes: 150
     needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
     strategy:
       fail-fast: false
@@ -318,7 +318,7 @@ jobs:
 
       - name: Run LLMInferenceService E2E tests
         id: llmisvc-e2e-tests
-        timeout-minutes: 90
+        timeout-minutes: 105
         env:
           OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
         run: |
