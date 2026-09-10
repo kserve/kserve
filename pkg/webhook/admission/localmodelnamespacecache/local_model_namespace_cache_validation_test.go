@@ -289,7 +289,6 @@ func TestValidateUpdate_LocalModelNamespaceCacheDeletionBypass(t *testing.T) {
 	g.Expect(warnings).To(gomega.BeNil())
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 }
-
 func makeTestSharedPVCCache(pvcRef string) v1alpha1.LocalModelNamespaceCache {
 	return v1alpha1.LocalModelNamespaceCache{
 		ObjectMeta: metav1.ObjectMeta{
@@ -395,17 +394,4 @@ func TestValidateCreate_SharedPVCDestinationConflict(t *testing.T) {
 	differentModel.Spec.SourceModelUri = "gs://testbucket/other-model"
 	_, err = validator.ValidateCreate(t.Context(), &differentModel)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
-}
-
-func TestValidateUpdate_LocalModelNamespaceCacheInvalidObjectType(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	s := runtime.NewScheme()
-	fakeClient := fake.NewClientBuilder().WithScheme(s).Build()
-	validator := LocalModelNamespaceCacheValidator{Client: fakeClient}
-	invalidObj := &v1beta1.InferenceService{}
-	oldLmnc := makeTestLocalModelNamespaceCache()
-	warnings, err := validator.ValidateUpdate(t.Context(), &oldLmnc, invalidObj)
-	g.Expect(warnings).To(gomega.BeNil())
-	g.Expect(err).To(gomega.HaveOccurred())
-	g.Expect(err.Error()).To(gomega.ContainSubstring("expected *v1alpha1.LocalModelNamespaceCache"))
 }

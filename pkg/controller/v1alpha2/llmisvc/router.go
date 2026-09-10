@@ -116,21 +116,17 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 		return fmt.Errorf("failed to evaluate Inference Pool conditions: %w", err)
 	}
 
-	if err := r.EvaluateGatewayConditions(ctx, llmSvc, resolvedGWs); err != nil {
-		return fmt.Errorf("failed to evaluate gateway conditions: %w", err)
-	}
-
-	if err := r.EvaluateHTTPRouteConditions(ctx, llmSvc, cfg); err != nil {
-		return fmt.Errorf("failed to evaluate HTTPRoute conditions: %w", err)
-	}
+	r.EvaluateGatewayConditions(ctx, llmSvc, resolvedGWs)
 
 	return nil
 }
 
 // reconcileHTTPRoutes manages HTTPRoute resources for traffic routing.
-// It handles both custom routes (via refs) and generated routes (via spec).
-// Returns the resolved gateways discovered during URL assembly so the caller
-// can pass them to EvaluateGatewayConditions without re-fetching.
+// It handles both custom routes (via refs) and generated routes (via spec), and settles
+// HTTPRoutesReady from the route objects it holds - evaluating here rather than in the
+// caller keeps readiness off a re-read through a cache that may still hold the pre-write
+// revision. Returns the resolved gateways discovered during URL assembly so the caller
+// can pass them to the remaining evaluators without re-fetching.
 func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, cfg *Config) ([]ResolvedGateway, error) {
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling HTTPRoute")
@@ -142,7 +138,11 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 		if _, err := r.updateRoutingStatus(ctx, llmSvc); err != nil {
 			return nil, err
 		}
-		return nil, Delete(ctx, r, llmSvc, expectedHTTPRoute)
+		if err := Delete(ctx, r, llmSvc, expectedHTTPRoute); err != nil {
+			return nil, err
+		}
+		r.EvaluateHTTPRouteConditions(ctx, llmSvc, nil)
+		return nil, nil
 	}
 
 	// Inject group members' backendRefs for traffic splitting.
@@ -204,7 +204,14 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 		r.applyGroupStatus(llmSvc, groupMatching, groupDivergent)
 	}
 
-	return r.updateRoutingStatus(ctx, llmSvc, referencedRoutes...)
+	resolvedGWs, err := r.updateRoutingStatus(ctx, llmSvc, referencedRoutes...)
+	if err != nil {
+		return nil, err
+	}
+
+	r.EvaluateHTTPRouteConditions(ctx, llmSvc, referencedRoutes)
+
+	return resolvedGWs, nil
 }
 
 // collectReferencedRoutes gathers all HTTPRoutes referenced by the service
@@ -510,19 +517,19 @@ var controllerManagedLabelKeys = []string{
 // EvaluateGatewayConditions evaluates the readiness of all Gateways referenced by the LLMInferenceService
 // and updates the GatewaysReady condition accordingly. The resolved slice is provided by
 // updateRoutingStatus so that gateways are not re-fetched from the API server.
-func (r *LLMISVCReconciler) EvaluateGatewayConditions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, resolved []ResolvedGateway) error {
+func (r *LLMISVCReconciler) EvaluateGatewayConditions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, resolved []ResolvedGateway) {
 	logger := log.FromContext(ctx).WithName("evaluateGatewayConditions")
 
 	if utils.GetForceStopRuntime(llmSvc) {
 		llmSvc.MarkGatewaysNotReady("Stopped", "Service is stopped")
-		return nil
+		return
 	}
 
 	// If no router or gateway configuration, mark as ready to clear any previous stopped state
 	if llmSvc.Spec.Router == nil || !llmSvc.Spec.Router.Gateway.HasRefs() {
 		logger.Info("No Gateway references found, skipping Gateway condition evaluation")
 		llmSvc.MarkGatewaysReadyUnset()
-		return nil
+		return
 	}
 
 	gateways := make([]*gwapiv1.Gateway, 0, len(resolved))
@@ -539,11 +546,10 @@ func (r *LLMISVCReconciler) EvaluateGatewayConditions(ctx context.Context, llmSv
 		}
 		llmSvc.MarkGatewaysNotReady("GatewaysNotReady", "The following Gateways are not ready: %v", gatewayNames)
 		logger.V(2).Info("Some referenced Gateways are not ready", "gateways", notReadyGateways)
-		return nil
+		return
 	}
 	llmSvc.MarkGatewaysReady()
 	logger.Info("All referenced Gateways are ready")
-	return nil
 }
 
 // CollectReferencedGateways retrieves all Gateway objects referenced in the LLMInferenceService spec
@@ -599,74 +605,71 @@ func (r *LLMISVCReconciler) CollectReferencedGateways(ctx context.Context, llmSv
 	return gateways, nil
 }
 
-// EvaluateHTTPRouteConditions evaluates the readiness of all HTTPRoutes referenced by the LLMInferenceService
-// and updates the HTTPRoutesReady condition accordingly. Also detects Gateway rejection of v1alpha2 backendRefs.
-func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, cfg *Config) error {
+// EvaluateHTTPRouteConditions settles HTTPRoutesReady from the routes the reconcile pass
+// already holds, so readiness never depends on re-reading an object through a cache that
+// may still hold the pre-write revision.
+func (r *LLMISVCReconciler) EvaluateHTTPRouteConditions(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, routes []*gwapiv1.HTTPRoute) {
 	logger := log.FromContext(ctx).WithName("evaluateHTTPRouteConditions")
 
 	if utils.GetForceStopRuntime(llmSvc) {
 		llmSvc.MarkHTTPRoutesNotReady("Stopped", "Service is stopped")
-		return nil
+		return
 	}
 
-	// If no router or route configuration, mark HTTPRoutes as ready (no routes to evaluate)
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil || llmSvc.Spec.Router.Route.HTTP == nil {
-		logger.Info("No HTTPRoute configuration found, clearing HTTPRoutesReady condition")
+		logger.V(2).Info("No HTTPRoute configuration found, clearing HTTPRoutesReady condition")
 		llmSvc.MarkHTTPRoutesReadyUnset()
-		return nil
+		return
 	}
 
-	// Collect all HTTPRoutes (both referenced and managed)
-	var allRoutes []*gwapiv1.HTTPRoute
-
-	// Get referenced routes
-	referencedRoutes, err := r.collectReferencedRoutes(ctx, llmSvc)
-	if err != nil {
-		llmSvc.MarkHTTPRoutesNotReady("HTTPRouteFetchError", "Failed to fetch referenced HTTPRoutes: %v", err.Error())
-		return fmt.Errorf("failed to fetch referenced HTTPRoutes: %w", err)
-	}
-	allRoutes = append(allRoutes, referencedRoutes...)
-
-	// Get managed route if it exists
-	if llmSvc.Spec.Router.Route.HTTP.HasSpec() {
-		expectedHTTPRoute := r.expectedHTTPRoute(ctx, llmSvc, cfg)
-		// Try to get the actual managed route from the cluster
-		managedRoute := &gwapiv1.HTTPRoute{}
-		if err := r.Get(ctx, types.NamespacedName{
-			Namespace: expectedHTTPRoute.Namespace,
-			Name:      expectedHTTPRoute.Name,
-		}, managedRoute); err == nil {
-			allRoutes = append(allRoutes, managedRoute)
+	if len(routes) == 0 {
+		// A service declaring an inline route always has that route in the list by the
+		// time this runs. Getting here means the caller did not observe it, which must
+		// not read as ready.
+		if llmSvc.Spec.Router.Route.HTTP.HasSpec() {
+			llmSvc.MarkHTTPRoutesNotReady("HTTPRouteNotObserved", "The managed HTTPRoute has not been observed yet")
+			return
 		}
-	}
-
-	// If no routes found, mark as ready (nothing to evaluate)
-	if len(allRoutes) == 0 {
 		llmSvc.MarkHTTPRoutesReady()
-		logger.Info("No HTTPRoutes found, marking HTTPRoutesReady as true")
-		return nil
+		return
 	}
 
-	notReadyRoutes := EvaluateHTTPRouteReadiness(ctx, allRoutes)
+	notReadyRoutes := EvaluateHTTPRouteReadiness(ctx, routes)
+	if len(notReadyRoutes) == 0 {
+		llmSvc.MarkHTTPRoutesReady()
+		logger.V(2).Info("All HTTPRoutes are ready", "routes", routes)
+		return
+	}
 
-	if len(notReadyRoutes) > 0 {
-		nonReadyRouteMessages := make([]string, len(notReadyRoutes))
-		for i, route := range notReadyRoutes {
-			topLevelCondition := findNonReadyGatewayCondition(route)
-			if topLevelCondition != nil {
-				nonReadyRouteMessages[i] = fmt.Sprintf("%s/%s: %#v (reason %q, message %q)", route.Namespace, route.Name, topLevelCondition.Status, topLevelCondition.Reason, topLevelCondition.Message)
-			} else {
-				nonReadyRouteMessages[i] = fmt.Sprintf("%s/%s: %#v", route.Namespace, route.Name, route.Status)
-			}
+	// Split routes carrying a gateway controller verdict from those no controller has
+	// written an Accepted condition for. Only the former can be diagnosed from their
+	// conditions; the latter are still in flight. Formatting the whole status for those
+	// would embed pointer addresses that differ on every decode, so the message - and
+	// with it the condition - would never settle.
+	rejected := make([]string, 0, len(notReadyRoutes))
+	pending := make([]string, 0, len(notReadyRoutes))
+	for _, route := range notReadyRoutes {
+		if cond := findNonReadyGatewayCondition(route); cond != nil {
+			rejected = append(rejected, fmt.Sprintf("%s/%s: %s=%s (reason %q, message %q)", route.Namespace, route.Name, cond.Type, cond.Status, cond.Reason, cond.Message))
+			continue
 		}
-		llmSvc.MarkHTTPRoutesNotReady("HTTPRoutesNotReady", "The following HTTPRoutes are not ready: %v", nonReadyRouteMessages)
-		logger.V(2).Info("Some HTTPRoutes are not ready", "routes", notReadyRoutes)
-		return nil
+		pending = append(pending, fmt.Sprintf("%s/%s", route.Namespace, route.Name))
 	}
 
-	llmSvc.MarkHTTPRoutesReady()
-	logger.V(2).Info("All HTTPRoutes are ready", "routes", allRoutes)
-	return nil
+	// Both groups are reported whenever both exist - a rejected route must not hide the
+	// ones still waiting. The reason names whichever group is blocking on its own.
+	switch {
+	case len(rejected) > 0 && len(pending) > 0:
+		llmSvc.MarkHTTPRoutesNotReady("HTTPRoutesNotReady",
+			"The following HTTPRoutes are not ready: %v; still waiting for a Gateway to accept: %v", rejected, pending)
+	case len(rejected) > 0:
+		llmSvc.MarkHTTPRoutesNotReady("HTTPRoutesNotReady",
+			"The following HTTPRoutes are not ready: %v", rejected)
+	default:
+		llmSvc.MarkHTTPRoutesNotReady("WaitingForGateway",
+			"The following HTTPRoutes exist but no Gateway controller has accepted them yet: %v", pending)
+	}
+	logger.V(2).Info("Some HTTPRoutes are not ready", "routes", notReadyRoutes)
 }
 
 // EvaluateInferencePoolConditions evaluates the readiness of all Inference Pools in the LLMInferenceService

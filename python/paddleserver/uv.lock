@@ -1263,7 +1263,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.20.0"
+version = "0.21.0rc0"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "aiohttp" },
@@ -1359,7 +1359,7 @@ test = [
 
 [[package]]
 name = "kserve-storage"
-version = "0.20.0"
+version = "0.21.0rc0"
 source = { directory = "../storage" }
 dependencies = [
     { name = "aiohttp" },
@@ -1839,7 +1839,7 @@ wheels = [
 
 [[package]]
 name = "paddleserver"
-version = "0.20.0"
+version = "0.21.0rc0"
 source = { virtual = "." }
 dependencies = [
     { name = "kserve" },
