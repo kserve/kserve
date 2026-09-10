@@ -17,6 +17,8 @@ limitations under the License.
 package reconcilers
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -24,6 +26,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 )
@@ -205,4 +210,238 @@ func TestImportJobName(t *testing.T) {
 	if name == other {
 		t.Fatalf("distinct long cache names collided on job name %q", name)
 	}
+}
+
+type deleteTrackingClient struct {
+	client.Client
+	propagation *metav1.DeletionPropagation
+	getErr      error
+}
+
+type jobReadErrorClient struct {
+	client.Client
+	err error
+}
+
+func (c *deleteTrackingClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if c.getErr != nil {
+		return c.getErr
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
+}
+
+func (c *deleteTrackingClient) Delete(ctx context.Context, obj client.Object, opts ...client.DeleteOption) error {
+	options := client.DeleteOptions{}
+	for _, opt := range opts {
+		opt.ApplyToDelete(&options)
+	}
+	c.propagation = options.PropagationPolicy
+	return nil
+}
+
+func (c *jobReadErrorClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	if _, ok := obj.(*batchv1.Job); ok {
+		return c.err
+	}
+	return c.Client.Get(ctx, key, obj, opts...)
+}
+
+func TestValidateExistingImportJobUsesForegroundDeletion(t *testing.T) {
+	cache := &v1alpha1.LocalModelNamespaceCache{ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "ns", UID: "cache-uid"}}
+	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{UID: "pvc-uid"}}
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cache-import", Namespace: "ns",
+			Annotations: map[string]string{
+				importPVCUIDAnnotation:     "old-pvc-uid",
+				importStorageKeyAnnotation: "old-storage-key",
+			},
+			OwnerReferences: []metav1.OwnerReference{{Name: cache.Name, UID: cache.UID, Controller: ptrTo(true)}},
+		},
+	}
+	trackingClient := &deleteTrackingClient{}
+	reconciler := &LocalModelNamespaceCacheReconciler{Client: trackingClient}
+
+	gotJob, pending, err := reconciler.validateExistingImportJob(context.Background(), job, cache, pvc, "new-storage-key")
+	if err != nil {
+		t.Fatalf("validateExistingImportJob() error = %v", err)
+	}
+	if gotJob != nil || !pending {
+		t.Fatalf("validateExistingImportJob() = (%v, %v), want (nil, true)", gotJob, pending)
+	}
+	if trackingClient.propagation == nil || *trackingClient.propagation != metav1.DeletePropagationForeground {
+		t.Fatalf("delete propagation = %v, want %v", trackingClient.propagation, metav1.DeletePropagationForeground)
+	}
+}
+
+func TestValidateExistingImportJobWaitsForTerminatingMatchingJob(t *testing.T) {
+	cache := &v1alpha1.LocalModelNamespaceCache{ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "ns", UID: "cache-uid"}}
+	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{UID: "pvc-uid"}}
+	deletionTimestamp := metav1.Now()
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cache-import", Namespace: "ns", DeletionTimestamp: &deletionTimestamp,
+			Annotations: map[string]string{
+				importPVCUIDAnnotation:     string(pvc.UID),
+				importStorageKeyAnnotation: "storage-key",
+			},
+			OwnerReferences: []metav1.OwnerReference{{Name: cache.Name, UID: cache.UID, Controller: ptrTo(true)}},
+		},
+	}
+	reconciler := &LocalModelNamespaceCacheReconciler{}
+
+	gotJob, pending, err := reconciler.validateExistingImportJob(context.Background(), job, cache, pvc, "storage-key")
+	if err != nil {
+		t.Fatalf("validateExistingImportJob() error = %v", err)
+	}
+	if gotJob != job || !pending {
+		t.Fatalf("validateExistingImportJob() = (%v, %v), want (job, true)", gotJob, pending)
+	}
+}
+
+func TestReconcileSharedPVCPreservesNotReadyOnImportJobReadError(t *testing.T) {
+	cache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "cache",
+			Namespace:  "ns",
+			Finalizers: []string{NamespaceCacheFinalizerName},
+		},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "s3://bucket/model",
+			ModelSize:      resource.MustParse("1Gi"),
+			PVCRef:         ptrTo("pvc"),
+		},
+	}
+	cache.Status.MarkReady(cache.Generation)
+	pvc := pvcWith(fsMode(), []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, "2Gi", corev1.ClaimPending, "")
+	pvc.Name = "pvc"
+	pvc.Namespace = "ns"
+
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add KServe scheme: %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add core scheme: %v", err)
+	}
+	if err := batchv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add batch scheme: %v", err)
+	}
+	baseClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1alpha1.LocalModelNamespaceCache{}).
+		WithObjects(cache, pvc).
+		Build()
+	readErr := errors.New("import Job read failed")
+	reconciler := &LocalModelNamespaceCacheReconciler{
+		Client: &jobReadErrorClient{Client: baseClient, err: readErr},
+	}
+
+	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, nil); !errors.Is(err, readErr) {
+		t.Fatalf("reconcileSharedPVC() error = %v, want %v", err, readErr)
+	}
+	condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+	if condition == nil || condition.Reason != v1alpha1.ReasonImportPending {
+		t.Fatalf("cache Ready condition = %#v, want ImportPending", condition)
+	}
+}
+
+func TestFinalizeSharedPVCDeletesForegroundAndRetainsFinalizer(t *testing.T) {
+	deletionTimestamp := metav1.Now()
+	cache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "cache",
+			Namespace:         "ns",
+			UID:               "cache-uid",
+			DeletionTimestamp: &deletionTimestamp,
+			Finalizers:        []string{NamespaceCacheFinalizerName},
+		},
+	}
+	job := &batchv1.Job{ObjectMeta: metav1.ObjectMeta{
+		Name:      "cache-import",
+		Namespace: "ns",
+		OwnerReferences: []metav1.OwnerReference{{
+			Name:       cache.Name,
+			UID:        cache.UID,
+			Controller: ptrTo(true),
+		}},
+	}}
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add KServe scheme: %v", err)
+	}
+	if err := batchv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add batch scheme: %v", err)
+	}
+	baseClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1alpha1.LocalModelNamespaceCache{}).
+		WithObjects(cache, job).
+		Build()
+	trackingClient := &deleteTrackingClient{Client: baseClient}
+	reconciler := &LocalModelNamespaceCacheReconciler{Client: trackingClient, APIReader: trackingClient}
+
+	if _, err := reconciler.finalizeSharedPVC(context.Background(), cache); err != nil {
+		t.Fatalf("finalizeSharedPVC() error = %v", err)
+	}
+	if trackingClient.propagation == nil || *trackingClient.propagation != metav1.DeletePropagationForeground {
+		t.Fatalf("delete propagation = %v, want %v", trackingClient.propagation, metav1.DeletePropagationForeground)
+	}
+	if !containsString(cache.Finalizers, NamespaceCacheFinalizerName) {
+		t.Fatalf("cache finalizers = %v, want %q retained", cache.Finalizers, NamespaceCacheFinalizerName)
+	}
+	condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+	if condition == nil || condition.Reason != v1alpha1.ReasonImportPending {
+		t.Fatalf("cache Ready condition = %#v, want ImportPending", condition)
+	}
+}
+
+func TestFinalizeSharedPVCPreservesNotReadyOnJobReadError(t *testing.T) {
+	deletionTimestamp := metav1.Now()
+	cache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "cache",
+			Namespace:         "ns",
+			UID:               "cache-uid",
+			DeletionTimestamp: &deletionTimestamp,
+			Finalizers:        []string{NamespaceCacheFinalizerName},
+		},
+	}
+	cache.Status.MarkReady(cache.Generation)
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add KServe scheme: %v", err)
+	}
+	baseClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1alpha1.LocalModelNamespaceCache{}).
+		WithObjects(cache).
+		Build()
+	readErr := errors.New("job read failed")
+	trackingClient := &deleteTrackingClient{Client: baseClient, getErr: readErr}
+	reconciler := &LocalModelNamespaceCacheReconciler{Client: trackingClient, APIReader: trackingClient}
+
+	if _, err := reconciler.finalizeSharedPVC(context.Background(), cache); !errors.Is(err, readErr) {
+		t.Fatalf("finalizeSharedPVC() error = %v, want %v", err, readErr)
+	}
+	if !containsString(cache.Finalizers, NamespaceCacheFinalizerName) {
+		t.Fatalf("cache finalizers = %v, want %q retained", cache.Finalizers, NamespaceCacheFinalizerName)
+	}
+	condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+	if condition == nil || condition.Reason != v1alpha1.ReasonImportPending {
+		t.Fatalf("cache Ready condition = %#v, want ImportPending", condition)
+	}
+}
+
+func containsString(values []string, wanted string) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
+}
+
+func ptrTo[T any](value T) *T {
+	return &value
 }

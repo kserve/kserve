@@ -321,6 +321,22 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			defer k8sClient.Delete(ctx, replacementPVC)
 			Expect(replacementPVC.UID).NotTo(Equal(pvc.UID))
 
+			deletingJob := &batchv1.Job{}
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, jobKey, deletingJob); err != nil {
+					return false
+				}
+				return deletingJob.DeletionTimestamp != nil
+			}, timeout, interval).Should(BeTrue(), "stale import Job must be foreground-deleted")
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &batchv1.Job{}
+				if err := k8sClient.Get(ctx, jobKey, current); err != nil {
+					return err
+				}
+				current.Finalizers = nil
+				return k8sClient.Update(ctx, current)
+			})).Should(Succeed())
+
 			Eventually(func() bool {
 				replacementJob := &batchv1.Job{}
 				if err := k8sClient.Get(ctx, jobKey, replacementJob); err != nil {
@@ -328,6 +344,108 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 				}
 				return replacementJob.UID != originalJob.UID
 			}, timeout, interval).Should(BeTrue(), "a new PVC identity must trigger a new import Job")
+		})
+
+		It("Should wait for a stale import Job to terminate before creating its replacement", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+
+			ns := fmt.Sprintf("test-shared-stale-job-%d", time.Now().UnixNano())
+			defer k8sClient.Delete(ctx, createTestNamespace(ctx, ns))
+
+			pvc := makeRWXPVC("stale-pvc", ns)
+			Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, pvc)
+
+			cache := makeSharedCache("shared-stale", ns, pvc.Name)
+			Expect(k8sClient.Create(ctx, cache)).Should(Succeed())
+			defer k8sClient.Delete(ctx, cache)
+
+			jobKey := types.NamespacedName{Name: "shared-stale-import", Namespace: ns}
+			oldJob := &batchv1.Job{}
+			Eventually(func() error { return k8sClient.Get(ctx, jobKey, oldJob) }, timeout, interval).Should(Succeed())
+
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &batchv1.Job{}
+				if err := k8sClient.Get(ctx, jobKey, current); err != nil {
+					return err
+				}
+				current.Annotations["serving.kserve.io/import-storage-key"] = "stale-key"
+				return k8sClient.Update(ctx, current)
+			})).Should(Succeed())
+
+			controller := true
+			blockOwnerDeletion := true
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "stale-import-pod",
+					Namespace: ns,
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion:         batchv1.SchemeGroupVersion.String(),
+						Kind:               "Job",
+						Name:               oldJob.Name,
+						UID:                oldJob.UID,
+						Controller:         &controller,
+						BlockOwnerDeletion: &blockOwnerDeletion,
+					}},
+				},
+				Spec: corev1.PodSpec{
+					Containers:    []corev1.Container{{Name: "import", Image: "busybox"}},
+					RestartPolicy: corev1.RestartPolicyNever,
+				},
+			}
+			Expect(k8sClient.Create(ctx, pod)).Should(Succeed())
+			defer k8sClient.Delete(ctx, pod)
+
+			deletingJob := &batchv1.Job{}
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, jobKey, deletingJob); err != nil {
+					return false
+				}
+				return deletingJob.DeletionTimestamp != nil
+			}, timeout, interval).Should(BeTrue())
+			Expect(deletingJob.Finalizers).To(ContainElement(metav1.FinalizerDeleteDependents))
+			Eventually(func() bool {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: cache.Name, Namespace: ns}, current); err != nil {
+					return false
+				}
+				condition := current.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+				return condition != nil && condition.Reason == v1alpha1.ReasonImportPending
+			}, timeout, interval).Should(BeTrue())
+
+			oldUID := deletingJob.UID
+
+			Consistently(func() string {
+				current := &batchv1.Job{}
+				if err := k8sClient.Get(ctx, jobKey, current); err != nil {
+					return ""
+				}
+				return string(current.UID)
+			}, duration, interval).Should(Equal(string(oldUID)))
+
+			Expect(k8sClient.Delete(ctx, pod)).Should(Succeed())
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &batchv1.Job{}
+				if err := k8sClient.Get(ctx, jobKey, current); err != nil {
+					return err
+				}
+				current.Finalizers = nil
+				return k8sClient.Update(ctx, current)
+			})).Should(Succeed())
+
+			Eventually(func() bool {
+				current := &batchv1.Job{}
+				if err := k8sClient.Get(ctx, jobKey, current); err != nil {
+					return false
+				}
+				return current.UID != oldUID
+			}, timeout, interval).Should(BeTrue(), "replacement Job should start only after old Job and Pod are gone")
+			Consistently(func() int {
+				jobs := &batchv1.JobList{}
+				_ = k8sClient.List(ctx, jobs, client.InNamespace(ns))
+				return len(jobs.Items)
+			}, duration, interval).Should(Equal(1))
 		})
 
 		It("Should keep the oldest cache as the sole destination owner", func() {
@@ -499,8 +617,41 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			jobKey := types.NamespacedName{Name: "shared-delete-import", Namespace: ns}
 			Eventually(func() error { return k8sClient.Get(ctx, jobKey, &batchv1.Job{}) }, timeout, interval).Should(Succeed())
 
-			// Shared-PVC caches carry no finalizer, so deletion completes immediately.
 			Expect(k8sClient.Delete(ctx, cache)).Should(Succeed())
+			Eventually(func() bool {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
+					return false
+				}
+				if current.DeletionTimestamp == nil {
+					return false
+				}
+				for _, finalizer := range current.Finalizers {
+					if finalizer == "localmodelnamespacecache.kserve.io/finalizer" {
+						return true
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue(), "cache finalizer must remain while import Job exists")
+
+			deletingJob := &batchv1.Job{}
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, jobKey, deletingJob); err != nil {
+					return false
+				}
+				return deletingJob.DeletionTimestamp != nil
+			}, timeout, interval).Should(BeTrue(), "controller must foreground-delete the import Job")
+			Expect(deletingJob.Finalizers).To(ContainElement(metav1.FinalizerDeleteDependents))
+
+			// envtest does not run garbage collection; explicitly release foreground deletion.
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &batchv1.Job{}
+				if err := k8sClient.Get(ctx, jobKey, current); err != nil {
+					return err
+				}
+				current.Finalizers = nil
+				return k8sClient.Update(ctx, current)
+			})).Should(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, cacheKey, &v1alpha1.LocalModelNamespaceCache{})
 				return errors.IsNotFound(err)

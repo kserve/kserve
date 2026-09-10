@@ -127,16 +127,18 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 			}); statusErr != nil {
 				return ctrl.Result{}, statusErr
 			}
+		} else if _, statusErr := c.applySharedStatus(ctx, localModel, importPendingState("Unable to inspect or create the import Job")); statusErr != nil {
+			return ctrl.Result{}, statusErr
 		}
 		return ctrl.Result{}, err
 	}
 	if requeue {
 		// The owned Job's deletion event triggers the next reconciliation.
-		return c.applySharedStatus(ctx, localModel, sharedState{
-			status:  metav1.ConditionFalse,
-			reason:  v1alpha1.ReasonImportPending,
-			message: "Referenced PVC identity changed; replacing the import Job",
-		})
+		message := "Referenced PVC identity changed; replacing the import Job"
+		if job != nil {
+			message = "Previous import Job is terminating; waiting before replacement"
+		}
+		return c.applySharedStatus(ctx, localModel, importPendingState(message))
 	}
 
 	return c.applySharedStatus(ctx, localModel, stateFromJob(job))
@@ -153,14 +155,25 @@ func (c *LocalModelNamespaceCacheReconciler) finalizeSharedPVC(ctx context.Conte
 	err := reader.Get(ctx, types.NamespacedName{Name: importJobName(localModel.Name), Namespace: localModel.Namespace}, job)
 	if err == nil && metav1.IsControlledBy(job, localModel) {
 		if job.DeletionTimestamp.IsZero() {
-			if err := c.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil && !apierr.IsNotFound(err) {
-				return ctrl.Result{}, err
+			if deleteErr := c.deleteImportJob(ctx, job); deleteErr != nil {
+				if !apierr.IsNotFound(deleteErr) {
+					if _, statusErr := c.applySharedStatus(ctx, localModel, importPendingState("Unable to delete the import Job")); statusErr != nil {
+						return ctrl.Result{}, statusErr
+					}
+					return ctrl.Result{}, deleteErr
+				}
+				// The Job disappeared during deletion; finalizer can be released below.
+			} else {
+				return c.applySharedStatus(ctx, localModel, importPendingState("Import Job is terminating"))
 			}
+		} else {
+			return c.applySharedStatus(ctx, localModel, importPendingState("Import Job is terminating"))
 		}
-		// The owned Job's deletion event re-enqueues the cache so finalization can finish.
-		return ctrl.Result{}, nil
 	}
 	if err != nil && !apierr.IsNotFound(err) {
+		if _, statusErr := c.applySharedStatus(ctx, localModel, importPendingState("Unable to inspect the import Job")); statusErr != nil {
+			return ctrl.Result{}, statusErr
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -170,6 +183,10 @@ func (c *LocalModelNamespaceCacheReconciler) finalizeSharedPVC(ctx context.Conte
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
+}
+
+func (c *LocalModelNamespaceCacheReconciler) deleteImportJob(ctx context.Context, job *batchv1.Job) error {
+	return c.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationForeground))
 }
 
 // checkPVCPreflight validates the referenced PVC. It returns ok=false with a populated
@@ -314,6 +331,9 @@ func (c *LocalModelNamespaceCacheReconciler) validateExistingImportJob(ctx conte
 			errImportJobConflict,
 			job.Namespace, job.Name, localModel.Namespace, localModel.Name)
 	}
+	if !job.DeletionTimestamp.IsZero() {
+		return job, true, nil
+	}
 	if job.Annotations[importPVCUIDAnnotation] == string(pvc.UID) &&
 		job.Annotations[importStorageKeyAnnotation] == storageKey {
 		return job, false, nil
@@ -321,7 +341,7 @@ func (c *LocalModelNamespaceCacheReconciler) validateExistingImportJob(ctx conte
 
 	c.Log.Info("Replacing stale shared-PVC import job", "name", job.Name, "namespace", job.Namespace,
 		"pvcUID", pvc.UID, "storageKey", storageKey)
-	if err := c.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil && !apierr.IsNotFound(err) {
+	if err := c.deleteImportJob(ctx, job); err != nil && !apierr.IsNotFound(err) {
 		return nil, false, err
 	}
 	return nil, true, nil
@@ -459,6 +479,14 @@ func (c *LocalModelNamespaceCacheReconciler) applySharedStatus(ctx context.Conte
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
+}
+
+func importPendingState(message string) sharedState {
+	return sharedState{
+		status:  metav1.ConditionFalse,
+		reason:  v1alpha1.ReasonImportPending,
+		message: message,
+	}
 }
 
 // importJobName returns a deterministic, DNS-1123 (<=63 char) Job name derived from the cache
