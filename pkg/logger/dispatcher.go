@@ -87,16 +87,16 @@ func StartDispatcher(nworkers int, store Store, batchStrategy BatchStrategy, log
 		}
 	}()
 
-	// Dispatcher goroutine: read from WorkQueue, split HTTP vs blob.
+	// Dispatcher goroutine: read from workQueue, split HTTP vs blob.
 	go func() {
-		for work := range WorkQueue {
+		for work := range workQueue {
 			strategy := GetStorageStrategy(work.Url.String())
 
 			if strategy == HttpStorage {
 				// Dispatch to a worker for CloudEvents delivery.
 				w := work
 				go func() {
-					worker := <-WorkerQueue
+					worker := <-workerQueue
 					worker <- w
 				}()
 			} else {
