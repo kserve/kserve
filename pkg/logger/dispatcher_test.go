@@ -78,7 +78,7 @@ func TestDispatcherDoesNotLeakGoroutinesWhenWorkersAreBusy(t *testing.T) {
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// A single worker so it's immediately saturated by the first event.
-	StartDispatcher(1, &MockStore{}, &ImmediateBatch{}, logger)
+	StartDispatcher(1, LoggerWorkerQueueSize, &MockStore{}, &ImmediateBatch{}, logger)
 
 	// Let the dispatcher/worker goroutines settle before measuring the baseline.
 	time.Sleep(50 * time.Millisecond)

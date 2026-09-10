@@ -50,6 +50,9 @@ const (
 	AnnotationAttr   = "annotations"
 	RecordedTimeAttr = "recordedtime"
 
+	// LoggerWorkerQueueSize is the default WorkQueue capacity, used when
+	// StartDispatcher is called with a non-positive queue size. Callers
+	// (e.g. cmd/agent) can override it, such as via a flag.
 	LoggerWorkerQueueSize = 100
 	CloudEventsIdHeader   = "Ce-Id"
 )
@@ -66,7 +69,7 @@ func QueueLogRequest(req LogRequest) error {
 	case WorkQueue <- req:
 		return nil
 	default:
-		return fmt.Errorf("logger work queue is full (capacity %d), dropping log request %s", LoggerWorkerQueueSize, req.Id)
+		return fmt.Errorf("logger work queue is full (capacity %d), dropping log request %s", cap(WorkQueue), req.Id)
 	}
 }
 

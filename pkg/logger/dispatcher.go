@@ -24,11 +24,15 @@ import (
 
 var WorkerQueue chan chan LogRequest
 
-func StartDispatcher(nworkers int, store Store, batchStrategy BatchStrategy, logger *zap.SugaredLogger) {
+func StartDispatcher(nworkers int, workQueueSize int, store Store, batchStrategy BatchStrategy, logger *zap.SugaredLogger) {
+	if workQueueSize <= 0 {
+		workQueueSize = LoggerWorkerQueueSize
+	}
+
 	// Reinitialize WorkQueue so that any previous dispatcher goroutines
 	// (from prior calls, e.g. in tests) lose their channel reference and
 	// cannot compete for work items.
-	WorkQueue = make(chan LogRequest, LoggerWorkerQueueSize)
+	WorkQueue = make(chan LogRequest, workQueueSize)
 
 	// Initialize the channel for workers to register their work channels.
 	WorkerQueue = make(chan chan LogRequest, nworkers)
