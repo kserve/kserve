@@ -49,6 +49,7 @@ const (
 	EndpointAttr     = "endpoint"
 	AnnotationAttr   = "annotations"
 	RecordedTimeAttr = "recordedtime"
+	StatusCodeAttr   = "statuscode"
 
 	LoggerWorkerQueueSize = 100
 	CloudEventsIdHeader   = "Ce-Id"
@@ -143,6 +144,10 @@ func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 		} else {
 			event.SetExtension(AnnotationAttr, string(bits))
 		}
+	}
+
+	if logReq.StatusCode != 0 {
+		event.SetExtension(StatusCodeAttr, logReq.StatusCode)
 	}
 
 	event.SetSource(logReq.SourceUri.String())
