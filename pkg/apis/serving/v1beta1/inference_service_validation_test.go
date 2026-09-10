@@ -1813,6 +1813,46 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 			},
 		},
 	}
+	validExternalWithoutType := validExternal.DeepCopy()
+	validExternalWithoutType.AutoScaling.Metrics[0].External.Target.Type = ""
+	validExternalAverageValue := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ExternalMetricSourceType,
+					External: &ExternalMetricSource{
+						Metric: ExternalMetrics{
+							Backend: PrometheusBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:         AverageValueMetricType,
+							AverageValue: NewMetricQuantity("10"),
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidExternalUtilization := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: ExternalMetricSourceType,
+					External: &ExternalMetricSource{
+						Metric: ExternalMetrics{
+							Backend: PrometheusBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:               UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(50)),
+						},
+					},
+				},
+			},
+		},
+	}
 	invalidPodMetric := &ComponentExtensionSpec{
 		AutoScaling: &AutoScalingSpec{
 			Metrics: []MetricsSpec{
@@ -1851,6 +1891,46 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 			},
 		},
 	}
+	validPodMetricWithoutType := validPodMetric.DeepCopy()
+	validPodMetricWithoutType.AutoScaling.Metrics[0].PodMetric.Target.Type = ""
+	validPodMetricAverageValue := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: PodMetricSourceType,
+					PodMetric: &PodMetricSource{
+						Metric: PodMetrics{
+							Backend: OpenTelemetryBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:         AverageValueMetricType,
+							AverageValue: NewMetricQuantity("5"),
+						},
+					},
+				},
+			},
+		},
+	}
+	invalidPodMetricUtilization := &ComponentExtensionSpec{
+		AutoScaling: &AutoScalingSpec{
+			Metrics: []MetricsSpec{
+				{
+					Type: PodMetricSourceType,
+					PodMetric: &PodMetricSource{
+						Metric: PodMetrics{
+							Backend: OpenTelemetryBackend,
+							Query:   "avg(requests)",
+						},
+						Target: MetricTarget{
+							Type:               UtilizationMetricType,
+							AverageUtilization: ptr.To(int32(50)),
+						},
+					},
+				},
+			},
+		},
+	}
 	unknownMetricType := &ComponentExtensionSpec{
 		AutoScaling: &AutoScalingSpec{
 			Metrics: []MetricsSpec{
@@ -1876,8 +1956,14 @@ func TestValidateScalingKedaCompExtension(t *testing.T) {
 		{"invalid: unsupported resource", unsupportedResource, "resource type disk is not supported"},
 		{"invalid: external metric missing query/value", invalidExternal, "the query should not be empty"},
 		{"valid: external metric", validExternal, ""},
+		{"valid: external metric without target type", validExternalWithoutType, ""},
+		{"valid: external AverageValue metric", validExternalAverageValue, ""},
+		{"invalid: external Utilization metric", invalidExternalUtilization, "Utilization is not supported"},
 		{"invalid: pod metric missing query/value", invalidPodMetric, "the query should not be empty"},
 		{"valid: pod metric", validPodMetric, ""},
+		{"valid: pod metric without target type", validPodMetricWithoutType, ""},
+		{"valid: pod AverageValue metric", validPodMetricAverageValue, ""},
+		{"invalid: pod Utilization metric", invalidPodMetricUtilization, "Utilization is not supported"},
 		{"invalid: unknown metric type", unknownMetricType, "unknown KEDA metric type with value [UnknownType].Valid types are Resource,External,PodMetric"},
 	}
 
