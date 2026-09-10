@@ -1,0 +1,135 @@
+# kv-cache, shared index (Valkey)
+#
+# Variant of ../llm-inference-service-qwen2-7b-gpu-kv-cache-routing.yaml that backs the
+# precise-prefix-cache-scorer's KV-block index with a shared Valkey instance instead of the
+# scheduler's default in-memory index. Useful for multi-replica Endpoint Picker (EPP)
+# deployments (HA / large fleets), where a shared index avoids each EPP replica fragmenting
+# its own view of which pods hold which KV-cache blocks. A single EPP replica is better off
+# with the in-memory default.
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: qwen2-7b-kv-cache-routing-valkey
+spec:
+  model:
+    uri: hf://Qwen/Qwen2.5-7B-Instruct
+    name: Qwen/Qwen2.5-7B-Instruct
+  # Two replicas to demonstrate KV cache routing across instances
+  replicas: 2
+  router:
+    scheduler:
+      config:
+        inline:
+          apiVersion: inference.networking.x-k8s.io/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+            - type: single-profile-handler
+            - type: precise-prefix-cache-scorer
+              parameters:
+                tokenProcessorConfig:
+                  blockSize: 64       # Must match vLLM --block-size (default is 16)
+                  hashSeed: "42"      # Must match PYTHONHASHSEED in vLLM pods
+                kvEventsConfig:
+                  zmqEndpoint: "tcp://*:5557"
+                indexerConfig:
+                  kvBlockIndexConfig:
+                    valkeyConfig:
+                      address: "valkey://valkey:6379"
+                      backendType: "valkey"
+                    enableMetrics: true                   # Enable Prometheus metrics for KV cache index
+                    metricsLoggingInterval: 60000000000   # Log metrics every 60 seconds (in nanoseconds)
+            - type: kv-cache-utilization-scorer
+            - type: queue-scorer
+            - type: active-request-scorer
+              parameters:
+                requestTimeout: "2m"
+                idleThreshold: 0        # Pods with ≤0 requests are idle
+                maxBusyScore: 0         # Busy pods score 0, idle pods score 1.0
+            - type: max-score-picker
+          schedulingProfiles:
+            - name: default
+              plugins:
+                - pluginRef: precise-prefix-cache-scorer
+                  weight: 3
+                - pluginRef: kv-cache-utilization-scorer
+                  weight: 2
+                - pluginRef: queue-scorer
+                  weight: 2
+                - pluginRef: active-request-scorer
+                  weight: 3
+                - pluginRef: max-score-picker
+    route: { }
+    gateway: { }
+  template:
+    containers:
+      - name: main
+        env:
+          # Configure vLLM for prefix caching with KV cache event publishing
+          - name: VLLM_ADDITIONAL_ARGS
+            value: "--prefix-caching-hash-algo sha256_cbor --block-size 64 --kv_transfer_config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_both\"}' --kv-events-config '{\"enable_kv_cache_events\":true,\"publisher\":\"zmq\",\"endpoint\":\"tcp://{{ ChildName .ObjectMeta.Name `-epp-service` }}:5557\",\"topic\":\"kv@${POD_IP}@Qwen/Qwen2.5-7B-Instruct\"}'"
+          # Pod IP used in KV cache event topic
+          - name: POD_IP
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: status.podIP
+          # Hash seed must match scheduler configuration
+          - name: PYTHONHASHSEED
+            value: "42"
+        resources:
+          limits:
+            cpu: '4'
+            memory: 32Gi
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: '2'
+            memory: 16Gi
+            nvidia.com/gpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTPS
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: valkey
+  labels:
+    app: valkey
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: valkey
+  template:
+    metadata:
+      labels:
+        app: valkey
+    spec:
+      containers:
+        - name: valkey
+          image: valkey/valkey:9.1.0
+          ports:
+            - containerPort: 6379
+          resources:
+            limits:
+              memory: 1Gi
+            requests:
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: valkey
+spec:
+  selector:
+    app: valkey
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
