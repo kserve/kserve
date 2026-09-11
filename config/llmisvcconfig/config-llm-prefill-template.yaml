@@ -188,6 +188,7 @@ spec:
                 {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
                 {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
                 {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+                {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
                 ${VLLM_ADDITIONAL_ARGS} \
                 $@"
             # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm serve

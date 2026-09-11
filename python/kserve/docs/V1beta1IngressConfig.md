@@ -15,6 +15,8 @@ Name | Type | Description | Notes
 **ingress_gateway** | **str** |  | [optional] 
 **knative_local_gateway_service** | **str** |  | [optional] 
 **kserve_ingress_gateway** | **str** |  | [optional] 
+**llm_inference_service_tls_cipher_suites** | **str** |  | [optional] 
+**llm_inference_service_tls_min_version** | **str** |  | [optional] 
 **local_gateway** | **str** |  | [optional] 
 **local_gateway_service** | **str** |  | [optional] 
 **model_based_routing_header_name** | **str** |  | [optional] 

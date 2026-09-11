@@ -3892,6 +3892,12 @@
         "kserveIngressGateway": {
           "type": "string"
         },
+        "llmInferenceServiceTLSCipherSuites": {
+          "type": "string"
+        },
+        "llmInferenceServiceTLSMinVersion": {
+          "type": "string"
+        },
         "localGateway": {
           "type": "string"
         },

@@ -20,7 +20,8 @@ spec:
                     --port=8000 \
                     {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh \
                     --ssl-certfile /var/run/kserve/tls/tls.crt \
-                    --ssl-keyfile /var/run/kserve/tls/tls.key{{ end }}
+                    --ssl-keyfile /var/run/kserve/tls/tls.key{{ end }} \
+                    {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{ end }}
               args: []
               ports:
                 - name: render-http
