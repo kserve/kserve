@@ -742,9 +742,17 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 
 	// Record the pool and EPP service refs in status - the pool name is deterministic
 	// regardless of whether the pool is ready or even exists yet.
+	// Use the API group of the pool version the gateway actually accepts. This is
+	// consumed by resolveMemberBackendRef when building group HTTPRoute backendRefs,
+	// so it must match the version the gateway supports. Default to v1alpha2 (the
+	// pre-migration default) when neither version is ready yet.
+	poolGroup := gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName)
+	if v1Ready {
+		poolGroup = gwapiv1.Group(constants.InferencePoolV1APIGroupName)
+	}
 	setRoutingPoolStatus(llmSvc,
 		gwapiv1.ObjectReference{
-			Group: gwapiv1.Group("inference.networking.k8s.io"),
+			Group: poolGroup,
 			Kind:  "InferencePool",
 			Name:  gwapiv1.ObjectName(poolName),
 		},

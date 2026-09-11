@@ -1889,6 +1889,7 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 		assert.Contains(t, errs[0].Field, "cpu")
 	})
 }
+
 func TestValidateRolloutStrategy(t *testing.T) {
 	validator := &LLMInferenceServiceValidator{}
 
