@@ -35,6 +35,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -749,12 +750,14 @@ func (r *InferenceServiceReconciler) deleteExternalResources(ctx context.Context
 	}
 
 	// #nosec G601
+	var errs []error
 	for i, v := range trainedModels.Items {
 		if err := r.Delete(ctx, &trainedModels.Items[i], client.PropagationPolicy(metav1.DeletePropagationBackground)); client.IgnoreNotFound(err) != nil {
 			r.Log.Error(err, "unable to delete trainedmodel", "trainedmodel", v)
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return utilerrors.NewAggregate(errs)
 }
 
 func (r *InferenceServiceReconciler) GetFailConditions(isvc *v1beta1.InferenceService) string {
