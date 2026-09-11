@@ -84,6 +84,23 @@ type LLMInferenceServiceConfig struct {
 
 // LLMInferenceServiceSpec defines the desired state of LLMInferenceService.
 type LLMInferenceServiceSpec struct {
+	// Suspend controls whether KServe creates serving workloads for this LLMInferenceService.
+	// When true, the controller does not create the decode, prefill, scheduler or tokenizer
+	// workloads and removes any that already exist. When false or unset, the service reconciles
+	// normally.
+	//
+	// This field is the suspension point used by external queueing systems (for example Kueue)
+	// that admit an LLMInferenceService against a quota. Suspension is all-or-nothing: a single
+	// value covers every workload the service manages, including the prefill workload in a
+	// disaggregated setup.
+	//
+	// Has no effect when set on an `LLMInferenceServiceConfig` kind.
+	//
+	// Note: this field is not yet honored by the KServe controller; the reconciliation behavior
+	// lands in a follow-up change.
+	// +optional
+	Suspend *bool `json:"suspend,omitempty"`
+
 	// Model specification, including its URI, potential LoRA adapters, and storage details.
 	// It's optional for `LLMInferenceServiceConfig` kind.
 	// +optional

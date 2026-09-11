@@ -1416,3 +1416,120 @@ func TestLLMInferenceServiceConversion_NilRolloutStrategy(t *testing.T) {
 	require.NoError(t, err)
 	assert.Nil(t, restored.Spec.RolloutStrategy)
 }
+
+func TestLLMInferenceServiceConversion_PreservesSuspend(t *testing.T) {
+	tests := []struct {
+		name    string
+		suspend *bool
+	}{
+		{name: "suspended", suspend: ptr.To(true)},
+		{name: "explicitly not suspended", suspend: ptr.To(false)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := &LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-llm-suspend",
+					Namespace: "default",
+				},
+				Spec: LLMInferenceServiceSpec{
+					Suspend: tt.suspend,
+					Model: LLMModelSpec{
+						URI: apis.URL{Scheme: "hf", Host: "Qwen/Qwen2.5-7B-Instruct"},
+					},
+				},
+			}
+
+			// v1alpha1 -> v1alpha2
+			hub := &v1alpha2.LLMInferenceService{}
+			require.NoError(t, src.ConvertTo(hub))
+			require.NotNil(t, hub.Spec.Suspend)
+			assert.Equal(t, *tt.suspend, *hub.Spec.Suspend)
+
+			// v1alpha2 -> v1alpha1 (roundtrip)
+			restored := &LLMInferenceService{}
+			require.NoError(t, restored.ConvertFrom(hub))
+			require.NotNil(t, restored.Spec.Suspend)
+			assert.Equal(t, *tt.suspend, *restored.Spec.Suspend)
+		})
+	}
+}
+
+func TestLLMInferenceServiceConversion_SuspendNilPreserved(t *testing.T) {
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-no-suspend",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "Qwen/Qwen2.5-7B-Instruct"},
+			},
+		},
+	}
+
+	// An unset suspend must stay unset in both directions: defaulting it to false
+	// would make the field part of every strategic merge patch built from the spec.
+	hub := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, src.ConvertTo(hub))
+	assert.Nil(t, hub.Spec.Suspend)
+
+	restored := &LLMInferenceService{}
+	require.NoError(t, restored.ConvertFrom(hub))
+	assert.Nil(t, restored.Spec.Suspend)
+}
+
+func TestLLMInferenceServiceConversion_SuspendFromHub(t *testing.T) {
+	// v1alpha2 -> v1alpha1 -> v1alpha2, to cover a service authored against the hub version.
+	hub := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-suspend-hub",
+			Namespace: "default",
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Suspend: ptr.To(true),
+			Model: v1alpha2.LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "Qwen/Qwen2.5-7B-Instruct"},
+			},
+		},
+	}
+
+	spoke := &LLMInferenceService{}
+	require.NoError(t, spoke.ConvertFrom(hub))
+	require.NotNil(t, spoke.Spec.Suspend)
+	assert.True(t, *spoke.Spec.Suspend)
+
+	roundtripped := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, spoke.ConvertTo(roundtripped))
+	require.NotNil(t, roundtripped.Spec.Suspend)
+	assert.True(t, *roundtripped.Spec.Suspend)
+}
+
+func TestLLMInferenceServiceConfigConversion_PreservesSuspend(t *testing.T) {
+	// LLMInferenceServiceConfig shares LLMInferenceServiceSpec with LLMInferenceService,
+	// so it goes through the same conversion helpers. The field is rejected by the config
+	// validator, but conversion must still be lossless for any object already stored.
+	src := &LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-config-suspend",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Suspend: ptr.To(true),
+			Model: LLMModelSpec{
+				URI: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+			},
+		},
+	}
+
+	dst := &v1alpha2.LLMInferenceServiceConfig{}
+	require.NoError(t, src.ConvertTo(dst))
+	require.NotNil(t, dst.Spec.Suspend)
+	assert.True(t, *dst.Spec.Suspend)
+
+	restored := &LLMInferenceServiceConfig{}
+	require.NoError(t, restored.ConvertFrom(dst))
+	require.NotNil(t, restored.Spec.Suspend)
+	assert.True(t, *restored.Spec.Suspend)
+}
