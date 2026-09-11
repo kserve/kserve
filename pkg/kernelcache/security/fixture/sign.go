@@ -35,7 +35,10 @@ import (
 // Sign attaches a cosign signature over the image's digest, signed by leafKey
 // and carrying the leaf cert + CA chain. This is the standard cosign signature
 // format, so certVerifier can verify it.
-func Sign(tb testing.TB, ref name.Reference, digest string, leafKey *ecdsa.PrivateKey, leafCertPEM, caCertPEM []byte) {
+//
+// Mirrors production certSigner.Sign but takes key material directly, so
+// verify-side tests need not depend on the signer. Keep the two in sync.
+func Sign(tb testing.TB, ref name.Reference, digest string, leafKey *ecdsa.PrivateKey, leafCertPEM, caChainPEM []byte) {
 	tb.Helper()
 	digestRef := ref.Context().Digest(digest)
 
@@ -48,7 +51,7 @@ func Sign(tb testing.TB, ref name.Reference, digest string, leafKey *ecdsa.Priva
 	require.NoError(tb, err)
 	b64 := base64.StdEncoding.EncodeToString(sig)
 
-	ociSig, err := static.NewSignature(pl, b64, static.WithCertChain(leafCertPEM, caCertPEM))
+	ociSig, err := static.NewSignature(pl, b64, static.WithCertChain(leafCertPEM, caChainPEM))
 	require.NoError(tb, err)
 
 	se, err := ociremote.SignedEntity(digestRef)
@@ -58,10 +61,10 @@ func Sign(tb testing.TB, ref name.Reference, digest string, leafKey *ecdsa.Priva
 	require.NoError(tb, ociremote.WriteSignatures(digestRef.Repository, newSE))
 }
 
-// Transplant copies the signatures attached to (fromRef@fromDigest) onto
-// (toRef@toDigest). Used to prove a signature for one image cannot be replayed
-// onto another.
-func Transplant(tb testing.TB, fromRef name.Reference, fromDigest string, toRef name.Reference, toDigest string) {
+// ReplaySignaturesOntoImage copies the signatures attached to (fromRef@fromDigest)
+// onto (toRef@toDigest). Used to prove a signature for one image cannot be
+// replayed onto another.
+func ReplaySignaturesOntoImage(tb testing.TB, fromRef name.Reference, fromDigest string, toRef name.Reference, toDigest string) {
 	tb.Helper()
 	seFrom, err := ociremote.SignedEntity(fromRef.Context().Digest(fromDigest))
 	require.NoError(tb, err)

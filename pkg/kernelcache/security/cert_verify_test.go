@@ -209,7 +209,7 @@ func TestCertVerify_SignatureTransplant(t *testing.T) {
 	refA, digA := fixture.PushImage(t, host, "kc/transplant-a")
 	fixture.Sign(t, refA, digA, leafKey, leafPEM, ca.CertPEM) // A is validly signed
 	refB, digB := fixture.PushImage(t, host, "kc/transplant-b")
-	fixture.Transplant(t, refA, digA, refB, digB) // move A's signature onto B
+	fixture.ReplaySignaturesOntoImage(t, refA, digA, refB, digB) // move A's signature onto B
 
 	v := verifierTrusting(t, ca.CertPEM, "^spiffe://kserve-test/.*$")
 	res, err := v.Verify(context.Background(), types.VerifyRequest{ImageRef: refB.Name()})

@@ -21,7 +21,7 @@ limitations under the License.
 // pkg/kernelcache/types so callers can reference them without importing this
 // package and its verification dependencies. A new mode is added as a factory
 // case alongside its implementation; today the disabled no-op and the cert mode
-// (verification) are wired.
+// (verification and signing) are wired.
 package security
 
 import (
@@ -41,17 +41,17 @@ func NewVerifier(ctx context.Context, cfg types.SecurityConfig, src SecretSource
 		return nil, err
 	}
 
+	v, err := buildCertVerifier(ctx, cfg.Mode, cfg.Cert, src)
+	if err != nil {
+		return nil, err
+	}
+	if v != nil {
+		return v, nil
+	}
+
 	switch cfg.Mode {
 	case types.ModeDisabled:
 		return noopVerifier{}, nil
-	case types.ModeCert:
-		// Assign through a concrete error check so a nil *certVerifier is never
-		// wrapped in a non-nil Verifier interface (typed-nil trap).
-		cv, err := newCertVerifier(ctx, cfg.Cert, src)
-		if err != nil {
-			return nil, err
-		}
-		return cv, nil
 	default:
 		// Unreachable after Validate, kept as a defensive guard.
 		return nil, fmt.Errorf("%w: %q", types.ErrUnknownMode, cfg.Mode)
@@ -60,22 +60,58 @@ func NewVerifier(ctx context.Context, cfg types.SecurityConfig, src SecretSource
 
 // NewSigner builds the Signer for the configured mode, mirroring NewVerifier.
 // The config is defaulted and validated first; ctx bounds any construction-time
-// I/O and src provides key material to the signing modes. Only the disabled
-// mode is wired here -- the signing modes (cert, keyless) add their own cases.
+// I/O and src provides key material to the signing modes. The disabled mode
+// never signs; cert signs with a cert-manager issued key. Further signing modes
+// (keyless) add their own cases.
 func NewSigner(ctx context.Context, cfg types.SecurityConfig, src SecretSource) (Signer, error) {
 	cfg.Default()
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 
+	s, err := buildCertSigner(ctx, cfg.Mode, cfg.Cert, src)
+	if err != nil {
+		return nil, err
+	}
+	if s != nil {
+		return s, nil
+	}
+
 	switch cfg.Mode {
 	case types.ModeDisabled:
 		return noopSigner{}, nil
 	default:
-		// Validate accepts every known mode, so a mode reaching here is valid
-		// but has no signer wired yet (cert, keyless) or never signs (kyverno).
-		return nil, fmt.Errorf("signing not implemented for mode %q", cfg.Mode)
+		// Unreachable after Validate, kept as a defensive guard.
+		return nil, fmt.Errorf("%w: %q", types.ErrUnknownMode, cfg.Mode)
 	}
+}
+
+// buildCertVerifier constructs a certVerifier for ModeCert or returns nil for
+// other modes. Ensures NewVerifier/NewSigner use the same nil-trap pattern and
+// logic flow for consistency.
+func buildCertVerifier(ctx context.Context, mode types.Mode, cfg types.CertConfig, src SecretSource) (Verifier, error) {
+	if mode != types.ModeCert {
+		return nil, nil
+	}
+	cv, err := newCertVerifier(ctx, cfg, src)
+	if err != nil {
+		return nil, err
+	}
+	return cv, nil
+}
+
+// buildCertSigner constructs a certSigner for ModeCert or returns nil for
+// other modes. Ensures NewVerifier/NewSigner use the same nil-trap pattern and
+// logic flow for consistency.
+func buildCertSigner(ctx context.Context, mode types.Mode, cfg types.CertConfig, src SecretSource) (Signer, error) {
+	if mode != types.ModeCert {
+		return nil, nil
+	}
+	cs, err := newCertSigner(ctx, cfg, src)
+	if err != nil {
+		return nil, err
+	}
+	return cs, nil
 }
 
 // noopSigner signs nothing. It backs the disabled mode.

@@ -22,7 +22,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// cert config validation (via SecurityConfig.Validate with mode=cert).
+// cert config validation (via SecurityConfig.Validate with mode=cert) is
+// role-independent: it only rejects a malformed regexp. Which fields are
+// required is a per-role construction concern, tested with the constructors.
 func TestCertConfigValidate(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -30,9 +32,8 @@ func TestCertConfigValidate(t *testing.T) {
 		wantErr bool
 	}{
 		{"valid", CertConfig{TrustBundle: "kserve/ca", SubjectRegexp: ".*@kserve"}, false},
-		{"empty trustBundle", CertConfig{SubjectRegexp: ".*"}, true},
-		{"empty subjectRegexp", CertConfig{TrustBundle: "kserve/ca"}, true},
-		{"invalid subjectRegexp", CertConfig{TrustBundle: "kserve/ca", SubjectRegexp: "([a-z"}, true},
+		{"empty is accepted here", CertConfig{}, false},
+		{"invalid subjectRegexp", CertConfig{SubjectRegexp: "([a-z"}, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
