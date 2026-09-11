@@ -421,7 +421,7 @@ func validateExtractedCacheSize(labels map[string]string, cacheType string, extr
 	}
 
 	if extractedBytes == 0 {
-		return fmt.Errorf("no cache bytes extracted")
+		return errors.New("no cache bytes extracted")
 	}
 
 	if extractedBytes != expectedSize {
