@@ -68,6 +68,12 @@ class PrintTimings(TimingClient):
 
 
 VALID_UVICORN_LOOPS = {"auto", "asyncio", "uvloop"}
+REST_TRACE_EXCLUDED_URLS = (
+    r"^/$",
+    r"^/metrics$",
+    r"^/v2/health/live$",
+    r"^/v2/health/ready$",
+)
 
 
 class _RefreshingServer(uvicorn.Server):
@@ -150,14 +156,7 @@ class RESTServer:
         register_v2_endpoints(app, self.dataplane, self.model_repository_extension)
 
         if tracer_provider := get_tracer_provider():
-            excluded_urls = ",".join(
-                [
-                    r"^/$",
-                    r"^/metrics$",
-                    r"^/v2/health/live$",
-                    r"^/v2/health/ready$",
-                ]
-            )
+            excluded_urls = ",".join(REST_TRACE_EXCLUDED_URLS)
             FastAPIInstrumentor.instrument_app(
                 app, tracer_provider=tracer_provider, excluded_urls=excluded_urls
             )
