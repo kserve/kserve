@@ -399,6 +399,18 @@ func TestIsUsingLLMInferenceServiceConfig(t *testing.T) {
 			configName: "target-config",
 			want:       true,
 		},
+		{
+			name: "ignores ServingRuntime entries in appliedConfigRefs",
+			llmSvc: &LLMInferenceService{
+				Status: LLMInferenceServiceStatus{
+					AppliedConfigRefs: []AppliedConfigRef{
+						{Name: "kserve-llm-sglang", Source: AppliedConfigSourceServingRuntime},
+					},
+				},
+			},
+			configName: "kserve-llm-sglang",
+			want:       false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -460,6 +472,19 @@ func TestIsUsingLLMInferenceServiceConfigInNamespace(t *testing.T) {
 				},
 			},
 			configName:      "kserve-config-llm-template",
+			configNamespace: "kserve",
+			want:            false,
+		},
+		{
+			name: "ignores ServingRuntime entries when matching namespace",
+			llmSvc: &LLMInferenceService{
+				Status: LLMInferenceServiceStatus{
+					AppliedConfigRefs: []AppliedConfigRef{
+						{Name: "kserve-llm-sglang", Source: AppliedConfigSourceServingRuntime},
+					},
+				},
+			},
+			configName:      "kserve-llm-sglang",
 			configNamespace: "kserve",
 			want:            false,
 		},

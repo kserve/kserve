@@ -2075,6 +2075,19 @@ spec:
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
+  name: kserve-llm-sglang
+spec:
+  containers:
+  - image: lmsysorg/sglang:v0.5.14
+    name: main
+  supportedModelFormats:
+  - autoSelect: false
+    name: sglang
+    version: "1"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
   annotations:
     serving.kserve.io/server-type: mlserver
   name: kserve-mlserver
@@ -5986,6 +5999,95 @@ spec:
     - name: tls-certs
       secret:
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-sglang-template
+  namespace: kserve
+spec:
+  template:
+    containers:
+    - command:
+      - /bin/bash
+      - -c
+      - |-
+        args=(
+          python3 -m sglang.launch_server
+          --model-path /mnt/models
+          --served-model-name "{{ .Spec.Model.Name }}"
+          --port 8000
+          --host 0.0.0.0
+          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tp {{ .Spec.Parallelism.Tensor }}{{- end }}
+          {{- if .Spec.TrustRemoteCode }} --trust-remote-code{{- end }}
+        )
+        exec "${args[@]}" "$@"
+      - --
+      env:
+      - name: HOME
+        value: /home
+      - name: HF_HUB_CACHE
+        value: /models
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        periodSeconds: 10
+        timeoutSeconds: 10
+      name: main
+      ports:
+      - containerPort: 8000
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        periodSeconds: 10
+        timeoutSeconds: 5
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        seccompProfile:
+          type: RuntimeDefault
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        periodSeconds: 10
+        timeoutSeconds: 10
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /home
+        name: home
+      - mountPath: /tmp
+        name: tmp-dir
+      - mountPath: /dev/shm
+        name: dshm
+      - mountPath: /models
+        name: model-cache
+    terminationGracePeriodSeconds: 30
+    volumes:
+    - emptyDir: {}
+      name: home
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 1Gi
+      name: dshm
+    - emptyDir: {}
+      name: model-cache
+    - emptyDir: {}
+      name: tmp-dir
 KSERVE_LLMISVCCONFIG_MANIFEST_EOF
 }
 
@@ -23570,6 +23672,8 @@ spec:
                         type: object
                     type: object
                 type: object
+              runtime:
+                type: string
               scaling:
                 properties:
                   keda:
@@ -27797,6 +27901,8 @@ spec:
                   samplerArg:
                     type: string
                 type: object
+              trustRemoteCode:
+                type: boolean
               worker:
                 properties:
                   activeDeadlineSeconds:
@@ -48681,6 +48787,8 @@ spec:
                         type: object
                     type: object
                 type: object
+              runtime:
+                type: string
               scaling:
                 properties:
                   keda:
@@ -52908,6 +53016,8 @@ spec:
                   samplerArg:
                     type: string
                 type: object
+              trustRemoteCode:
+                type: boolean
               worker:
                 properties:
                   activeDeadlineSeconds:
@@ -74237,6 +74347,8 @@ spec:
                         type: object
                     type: object
                 type: object
+              runtime:
+                type: string
               scaling:
                 properties:
                   keda:
@@ -78481,6 +78593,8 @@ spec:
                   samplerArg:
                     type: string
                 type: object
+              trustRemoteCode:
+                type: boolean
               worker:
                 properties:
                   activeDeadlineSeconds:
@@ -100244,6 +100358,8 @@ spec:
                         type: object
                     type: object
                 type: object
+              runtime:
+                type: string
               scaling:
                 properties:
                   keda:
@@ -104488,6 +104604,8 @@ spec:
                   samplerArg:
                     type: string
                 type: object
+              trustRemoteCode:
+                type: boolean
               worker:
                 properties:
                   activeDeadlineSeconds:
@@ -108358,10 +108476,10 @@ spec:
                       enum:
                       - Preset
                       - UserRef
+                      - ServingRuntime
                       type: string
                   required:
                   - name
-                  - namespace
                   - source
                   type: object
                 type: array
@@ -108930,6 +109048,17 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - clusterservingruntimes
+  - localmodelcaches
+  - localmodelnamespacecaches
+  - servingruntimes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
   - llminferenceserviceconfigs
   - llminferenceservices
   verbs:
@@ -108956,15 +109085,6 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - localmodelcaches
-  - localmodelnamespacecaches
-  verbs:
-  - get
-  - list
-  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
