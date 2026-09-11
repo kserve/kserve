@@ -1416,6 +1416,65 @@ func TestMergeSpecs(t *testing.T) {
 				},
 			},
 		},
+		{
+			// SetDefaults runs on the override spec before the merge patch is built, so a
+			// suspend value that got defaulted rather than user-set would appear in every
+			// patch and clobber the base. It must stay absent when nobody set it.
+			name: "suspend stays unset when no spec sets it",
+			cfgs: []v1alpha2.LLMInferenceServiceSpec{
+				{Model: v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}}},
+				{Model: v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}}},
+			},
+			want: v1alpha2.LLMInferenceServiceSpec{
+				Model: v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+			},
+		},
+		{
+			name: "override sets suspend over a base that does not",
+			cfgs: []v1alpha2.LLMInferenceServiceSpec{
+				{Model: v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}}},
+				{
+					Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+					Suspend: ptr.To(true),
+				},
+			},
+			want: v1alpha2.LLMInferenceServiceSpec{
+				Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+				Suspend: ptr.To(true),
+			},
+		},
+		{
+			// An override that says nothing about suspend must not wipe a base that set it.
+			name: "base suspend survives an override that does not set it",
+			cfgs: []v1alpha2.LLMInferenceServiceSpec{
+				{
+					Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+					Suspend: ptr.To(true),
+				},
+				{Model: v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}}},
+			},
+			want: v1alpha2.LLMInferenceServiceSpec{
+				Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+				Suspend: ptr.To(true),
+			},
+		},
+		{
+			name: "override flips suspend off",
+			cfgs: []v1alpha2.LLMInferenceServiceSpec{
+				{
+					Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+					Suspend: ptr.To(true),
+				},
+				{
+					Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+					Suspend: ptr.To(false),
+				},
+			},
+			want: v1alpha2.LLMInferenceServiceSpec{
+				Model:   v1alpha2.LLMModelSpec{URI: apis.URL{Path: "model-a"}},
+				Suspend: ptr.To(false),
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

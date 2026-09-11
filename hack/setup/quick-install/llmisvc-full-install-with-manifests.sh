@@ -24019,6 +24019,8 @@ spec:
                   enabled:
                     type: boolean
                 type: object
+              suspend:
+                type: boolean
               template:
                 properties:
                   activeDeadlineSeconds:
@@ -49130,6 +49132,8 @@ spec:
                   enabled:
                     type: boolean
                 type: object
+              suspend:
+                type: boolean
               template:
                 properties:
                   activeDeadlineSeconds:
@@ -74686,6 +74690,8 @@ spec:
                   enabled:
                     type: boolean
                 type: object
+              suspend:
+                type: boolean
               template:
                 properties:
                   activeDeadlineSeconds:
@@ -100693,6 +100699,8 @@ spec:
                   enabled:
                     type: boolean
                 type: object
+              suspend:
+                type: boolean
               template:
                 properties:
                   activeDeadlineSeconds:

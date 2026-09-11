@@ -141,6 +141,7 @@ func (dst *LLMInferenceServiceConfig) ConvertFrom(srcRaw conversion.Hub) error {
 
 func convertSpecToV1Alpha2(src *LLMInferenceServiceSpec) v1alpha2.LLMInferenceServiceSpec {
 	dst := v1alpha2.LLMInferenceServiceSpec{
+		Suspend:  src.Suspend,
 		Model:    convertModelSpecToV1Alpha2(&src.Model),
 		BaseRefs: src.BaseRefs,
 	}
@@ -181,6 +182,7 @@ func convertSpecToV1Alpha2(src *LLMInferenceServiceSpec) v1alpha2.LLMInferenceSe
 
 func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInferenceServiceSpec {
 	dst := LLMInferenceServiceSpec{
+		Suspend:  src.Suspend,
 		Model:    convertModelSpecFromV1Alpha2(&src.Model),
 		BaseRefs: src.BaseRefs,
 	}

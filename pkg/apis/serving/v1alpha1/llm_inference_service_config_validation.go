@@ -111,6 +111,16 @@ func (l *LLMInferenceServiceConfigValidator) validate(ctx context.Context, confi
 		))
 	}
 
+	// Suspend is a property of a running service, not of a template. A config setting it
+	// would merge into every LLMInferenceService inheriting it via baseRefs and silently
+	// suspend them all, so reject it at the source.
+	if config.Spec.Suspend != nil {
+		allErrs = append(allErrs, field.Forbidden(
+			field.NewPath("spec").Child("suspend"),
+			"suspend is not a permitted field in LLMInferenceServiceConfig, set it on the LLMInferenceService instead",
+		))
+	}
+
 	allErrs = append(allErrs, l.validateScheduler(config)...)
 
 	if len(allErrs) > 0 {
