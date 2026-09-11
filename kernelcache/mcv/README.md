@@ -14,6 +14,7 @@ A Model/GPU kernel cache container packaging utility inspired by
 - Build container images containing GPU Kernel/Model caches.
 - Extract a cache from an OCI image
 - Compatible with docker or buildah
+- **Single-layer image output** (squashed) for cosign compatibility
 - Client API for retrieving and extracting images
 - Artifact and image signing via cosign (indirectly)
 
@@ -21,6 +22,7 @@ A Model/GPU kernel cache container packaging utility inspired by
 
 - Cache artifact signing with Cosign
 - Container image signing support with Cosign
+- **Single-layer images**: MCV uses a multi-stage `FROM scratch` build to squash cache content into a single rootfs layer, compatible with cosign signing and verification. Works with Docker (BuildKit) and Buildah without experimental features
 
 ## Build Instructions
 
@@ -126,62 +128,78 @@ To Create an OCI image for a Triton Cache using docker run the
 following:
 
 ```bash
-mcv -c -i quay.io/gkm/vector-add-cache:rocm -d tests/vector-add-cache-rocm
-INFO[2025-05-28 11:09:33] baremetalFlag false
-INFO[2025-05-28 11:09:33] Using docker to build the image
-INFO[2025-05-28 11:09:33] Wrote manifest to /tmp/.mcv/io.triton.manifest/manifest.json
-INFO[2025-05-28 11:09:33] Dockerfile generated successfully at /tmp/.mcv/Dockerfile
-{"stream":"Step 1/7 : FROM scratch"}
+mcv -c -i quay.io/gkm/vector-add-cache:rocm -d example/vector-add-cache-rocm
+INFO[2026-07-27 21:37:05] Setting log level: info
+INFO[2026-07-27 21:37:05] Using docker to build the image
+INFO[2026-07-27 21:37:05] Detected cache components: [triton]
+INFO[2026-07-27 21:37:05] Dockerfile generated successfully at /tmp/.mcv/docker/Dockerfile
+{"stream":"Step 1/9 : FROM scratch AS build"}
 {"stream":"\n"}
 {"stream":" ---\u003e \n"}
-{"stream":"Step 2/7 : LABEL org.opencontainers.image.title=vector-add-cache"}
+{"stream":"Step 2/9 : COPY \"./io.triton.cache/\" \"./io.triton.cache/\""}
 {"stream":"\n"}
-{"stream":" ---\u003e Running in fe2ead6429b6\n"}
-{"stream":" ---\u003e 729d29d1eab1\n"}
-{"stream":"Step 3/7 : COPY \"io.triton.cache/.\" ./io.triton.cache/"}
+{"stream":" ---\u003e aa1fa6bcd3db\n"}
+{"stream":"Step 3/9 : COPY \"./io.triton.manifest/manifest.json\" \"./io.triton.manifest/manifest.json\""}
 {"stream":"\n"}
-{"stream":" ---\u003e e806e7b6def5\n"}
-{"stream":"Step 4/7 : COPY \"io.triton.manifest/manifest.json\" ./io.triton.manifest/manifest.json"}
+{"stream":" ---\u003e 57d1c4815d2e\n"}
+{"aux":{"ID":"sha256:57d1c4815d2ede3d2ed3b64a9e5f062577ca8dd501c8b59c5d90b3351bd06b47"}}
+{"stream":"Step 4/9 : FROM scratch"}
 {"stream":"\n"}
-{"stream":" ---\u003e 68cbd692cef2\n"}
-{"stream":"Step 5/7 : LABEL cache.triton.image/cache-size-bytes=80415"}
+{"stream":" ---\u003e \n"}
+{"stream":"Step 5/9 : LABEL org.opencontainers.image.title=vector-add-cache"}
 {"stream":"\n"}
-{"stream":" ---\u003e Running in 3f80c2250345\n"}
-{"stream":" ---\u003e 7eb9a67e385e\n"}
-{"stream":"Step 6/7 : LABEL cache.triton.image/entry-count=1"}
+{"stream":" ---\u003e Running in 6e7dce4e97bc\n"}
+{"stream":" ---\u003e e8b4014c2ae2\n"}
+{"stream":"Step 6/9 : COPY --from=build / /"}
 {"stream":"\n"}
-{"stream":" ---\u003e Running in da8a4e1461d0\n"}
-{"stream":" ---\u003e 9f0b331cc5be\n"}
-{"stream":"Step 7/7 : LABEL cache.triton.image/summary={\"targets\":[{\"backend\":\"hip\",\"arch\":\"gfx90a\",\"warp_size\":64}]}"}
+{"stream":" ---\u003e ddcb3cce60a7\n"}
+{"stream":"Step 7/9 : LABEL cache.triton.image/cache-size-bytes=80415"}
 {"stream":"\n"}
-{"stream":" ---\u003e Running in 4772e3c43256\n"}
-{"stream":" ---\u003e c144a34c9296\n"}
-{"aux":{"ID":"sha256:c144a34c9296b2a7ec322e041bf9fb8e29111ba9d071ef5e6e31618fb2e528e4"}}
-{"stream":"Successfully built c144a34c9296\n"}
+{"stream":" ---\u003e Running in 1e196c7ace14\n"}
+{"stream":" ---\u003e 56aa910decff\n"}
+{"stream":"Step 8/9 : LABEL cache.triton.image/entry-count=1"}
+{"stream":"\n"}
+{"stream":" ---\u003e Running in af4bb8ba633c\n"}
+{"stream":" ---\u003e ce2af41bccb7\n"}
+{"stream":"Step 9/9 : LABEL cache.triton.image/summary={\"targets\":[{\"backend\":\"hip\",\"arch\":\"gfx90a\",\"warp_size\":64}]}"}
+{"stream":"\n"}
+{"stream":" ---\u003e Running in d97c0447e121\n"}
+{"stream":" ---\u003e 170e5776a1f5\n"}
+{"aux":{"ID":"sha256:170e5776a1f56a8e8e3a8a4398aaf814e196f72001d9a63aabcc3055ecd238ae"}}
+{"stream":"Successfully built 170e5776a1f5\n"}
 {"stream":"Successfully tagged quay.io/gkm/vector-add-cache:rocm\n"}
-INFO[2025-05-28 11:09:34] Temporary directories successfully deleted.
-INFO[2025-05-28 11:09:34] Docker image built successfully
-INFO[2025-05-28 11:09:34] OCI image created successfully.
+INFO[2026-07-27 21:37:06] Docker image built successfully
+INFO[2026-07-27 21:37:06] OCI image created successfully.
 ```
 
 To see the new image:
 
 ```bash
- docker images
-REPOSITORY                     TAG     IMAGE ID       CREATED          SIZE
-quay.io/tkm/vector-add-cache   latest  32572653bbbd   5 minutes ago    0B
+docker images
+
+IMAGE                               ID             DISK USAGE   CONTENT SIZE   EXTRA
+quay.io/gkm/vector-add-cache:rocm   170e5776a1f5        136kB         21.2kB
 ```
 
-To inspect the docker image with Skopeo
+To verify the image has a single layer (important for cosign compatibility):
+
+```bash
+docker inspect quay.io/gkm/vector-add-cache:rocm | jq '.[0].RootFS.Layers | length'
+1
+```
+
+To inspect the docker image with Skopeo (note the **single layer** due to squashing):
+
+> **Note**: Use `docker-daemon:` prefix for Docker images, not `containers-storage:` (which is for Buildah/Podman).
 
 ```bash
 skopeo inspect docker-daemon:quay.io/gkm/vector-add-cache:rocm
 {
-    "Name": "quay.io/tkm/vector-add-cache",
-    "Digest": "sha256:326c155c3d6de9d285b0280d141cb75f1fd48475b410e19f4aef0b395b400ced",
+    "Name": "quay.io/gkm/vector-add-cache",
+    "Digest": "sha256:97bd4cb83b692bebed5adc4cd92647478052719e4c7771562af31d1aef198cb8",
     "RepoTags": [],
-    "Created": "2025-05-28T15:09:34.032834736Z",
-    "DockerVersion": "28.1.1",
+    "Created": "2026-07-27T21:37:05.971275986-04:00",
+    "DockerVersion": "",
     "Labels": {
         "cache.triton.image/cache-size-bytes": "80415",
         "cache.triton.image/entry-count": "1",
@@ -191,20 +209,13 @@ skopeo inspect docker-daemon:quay.io/gkm/vector-add-cache:rocm
     "Architecture": "amd64",
     "Os": "linux",
     "Layers": [
-        "sha256:fe1632cee6d6de159c5c36233c73fbbaa9196af69d771fe016ae4b3a0b6ea698",
-        "sha256:a53fd74714b8956ec2d2e02c4c262e6800bc45b0a8f5e339923ea3baa2d1f1ff"
+        "sha256:4d49b8253e60536d82418c622032c65ab3f31235e92b6d12cb29a9131c2aef04"
     ],
     "LayersData": [
         {
             "MIMEType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-            "Digest": "sha256:fe1632cee6d6de159c5c36233c73fbbaa9196af69d771fe016ae4b3a0b6ea698",
-            "Size": 91648,
-            "Annotations": null
-        },
-        {
-            "MIMEType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-            "Digest": "sha256:a53fd74714b8956ec2d2e02c4c262e6800bc45b0a8f5e339923ea3baa2d1f1ff",
-            "Size": 2560,
+            "Digest": "sha256:4d49b8253e60536d82418c622032c65ab3f31235e92b6d12cb29a9131c2aef04",
+            "Size": 93184,
             "Annotations": null
         }
     ],
@@ -232,7 +243,7 @@ To inspect the buildah image with Skopeo
 ```bash
 skopeo inspect containers-storage:quay.io/gkm/vector-add-cache:rocm
 {
-    "Name": "quay.io/tkm/vector-add-cache",
+    "Name": "quay.io/gkm/vector-add-cache",
     "Digest": "sha256:3f8c7b3aeeffd9ee3f673486f3bc681a7f9ed39e21242628e6845755191d6bd4",
     "RepoTags": [],
     "Created": "2025-05-28T15:45:17.379786001Z",
