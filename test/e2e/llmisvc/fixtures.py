@@ -113,6 +113,17 @@ STORAGE_INITIALIZER_IMAGE = os.environ.get(
 MODEL_DOWNLOAD_JOB_NAME = "e2e-pvc-model-download"
 S3_CREDENTIALS_SECRET = os.environ.get("S3_CREDENTIALS_SECRET", "seaweedfs-s3-creds")
 
+# LoRA adapters in a PVC. Separate claim from PVC_STORAGE_NAME, whose root is the model
+# directory; here the base model and the adapter sit at sub-paths of one claim, which is
+# what exercises per-claim volume naming.
+LORA_ADAPTER_MODEL_URI = os.environ.get(
+    "LORA_ADAPTER_MODEL_URI", "hf://edbeeching/opt-125m-lora"
+)
+LORA_PVC_STORAGE_NAME = "e2e-pvc-lora-storage"
+LORA_PVC_DOWNLOAD_JOB_NAME = "e2e-pvc-lora-download"
+LORA_PVC_BASE_SUBPATH = "base"
+LORA_PVC_ADAPTER_SUBPATH = "adapter"
+
 # Vanilla Kubernetes rejects runAsNonRoot-only containers when the image does not declare a USER.
 # Keep the templates OpenShift-safe and use an explicit non-root UID only in upstream CI test overrides.
 UPSTREAM_K8S_NON_ROOT_SECURITY_CONTEXT = {
@@ -460,9 +471,49 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "uri": "hf://edbeeching/opt-125m-lora",
                     },
                 ],
-                "maxRank": 64,
+                "maxRank": 16,
                 "maxAdapters": 2,
                 "maxCpuAdapters": 4,
+            },
+        },
+    },
+    # One adapter alone on its claim, base model downloaded as usual. This claim backs a
+    # single adapter, so it keeps the per-adapter volume name running pods already use -
+    # the case that must not move.
+    "model-fb-opt-125m-with-single-lora-pvc": {
+        "model": {
+            "uri": OPT_125M_MODEL_URI,
+            "name": "facebook/opt-125m",
+            "lora": {
+                "adapters": [
+                    {
+                        "name": "lora-adapter-1",
+                        "uri": f"pvc://{LORA_PVC_STORAGE_NAME}/{LORA_PVC_ADAPTER_SUBPATH}",
+                    },
+                ],
+                "maxRank": 16,
+            },
+        },
+    },
+    # Base model and both adapters on one claim: the shape that used to render one pod
+    # Volume per adapter, which kubelet on Kubernetes 1.34 never reports as mounted.
+    "model-fb-opt-125m-with-lora-pvc": {
+        "model": {
+            "uri": f"pvc://{LORA_PVC_STORAGE_NAME}/{LORA_PVC_BASE_SUBPATH}",
+            "name": "facebook/opt-125m",
+            "lora": {
+                "adapters": [
+                    {
+                        "name": "lora-adapter-1",
+                        "uri": f"pvc://{LORA_PVC_STORAGE_NAME}/{LORA_PVC_ADAPTER_SUBPATH}",
+                    },
+                    {
+                        "name": "lora-adapter-2",
+                        "uri": f"pvc://{LORA_PVC_STORAGE_NAME}/{LORA_PVC_ADAPTER_SUBPATH}",
+                    },
+                ],
+                "maxRank": 16,
+                "maxAdapters": 2,
             },
         },
     },
@@ -2265,21 +2316,29 @@ def create_model_download_job(
     *,
     namespace,
     model_uri=None,
+    downloads=None,
 ):
     """Create a Kubernetes Job to download model files into a PVC.
 
     Uses the KServe storage-initializer image with the same args format
     used internally by LocalModelNode. No explicit security context is set
     so the Job works under OpenShift restricted SCCs, KinD, and Minikube.
+
+    downloads takes (uri, sub-path) pairs to place several artifacts in one claim; it
+    replaces model_uri, which downloads a single artifact to the claim root.
     """
-    if model_uri is None:
-        model_uri = OPT_125M_MODEL_URI
+    if downloads is None:
+        downloads = [(model_uri or OPT_125M_MODEL_URI, "")]
+
+    args = []
+    for uri, sub_path in downloads:
+        args.extend([uri, f"/mnt/models/{sub_path}" if sub_path else "/mnt/models"])
 
     inject_k8s_proxy()
     batch_v1 = client.BatchV1Api()
 
     env_from, env = [], []
-    if model_uri.startswith("s3://"):
+    if any(uri.startswith("s3://") for uri, _ in downloads):
         env_from, env = _s3_env_from_secret(namespace)
 
     job = client.V1Job(
@@ -2299,7 +2358,7 @@ def create_model_download_job(
                         client.V1Container(
                             name="storage-initializer",
                             image=STORAGE_INITIALIZER_IMAGE,
-                            args=[model_uri, "/mnt/models"],
+                            args=args,
                             env=env or None,
                             env_from=env_from or None,
                             volume_mounts=[
@@ -2387,6 +2446,43 @@ def delete_model_download_job(
     except client.rest.ApiException as e:
         if e.status != 404:
             raise
+
+
+def ensure_pvc_with_base_model_and_lora(namespace):
+    """Idempotent setup: one PVC holding the base model and a LoRA adapter at sub-paths.
+
+    Both the base model and the adapters reference this single claim, which is the shape
+    that used to render one pod Volume per adapter. kubelet keys a non-attachable PVC
+    volume by PV name, so the duplicates never appeared as mounted and the pod never left
+    Init on Kubernetes 1.34 - no FailedMount event, no timeout, no recovery.
+    """
+    inject_k8s_proxy()
+    batch_v1 = client.BatchV1Api()
+
+    create_pvc(LORA_PVC_STORAGE_NAME, namespace=namespace)
+
+    try:
+        job = batch_v1.read_namespaced_job(
+            name=LORA_PVC_DOWNLOAD_JOB_NAME,
+            namespace=namespace,
+        )
+        if job.status.succeeded and job.status.succeeded >= 1:
+            logger.info("LoRA PVC download Job already completed, skipping")
+            return
+    except client.rest.ApiException as e:
+        if e.status != 404:
+            raise
+
+    create_model_download_job(
+        LORA_PVC_DOWNLOAD_JOB_NAME,
+        LORA_PVC_STORAGE_NAME,
+        namespace=namespace,
+        downloads=[
+            (OPT_125M_MODEL_URI, LORA_PVC_BASE_SUBPATH),
+            (LORA_ADAPTER_MODEL_URI, LORA_PVC_ADAPTER_SUBPATH),
+        ],
+    )
+    wait_for_job_completion(LORA_PVC_DOWNLOAD_JOB_NAME, namespace=namespace)
 
 
 def ensure_pvc_with_model(namespace):
