@@ -177,12 +177,7 @@ func (e *cacheExtractor) ExtractCache(img v1.Image) error {
 	var extractedDirs []string
 	var ct string
 
-	// Fetch image manifest
-	manifest, err := img.Manifest()
-	if err != nil {
-		return fmt.Errorf("failed to fetch manifest: %w", err)
-	}
-
+	// Fetch image config for labels.
 	configFile, err := img.ConfigFile()
 	if err != nil {
 		return fmt.Errorf("failed to get image config: %w", err)
@@ -205,6 +200,7 @@ func (e *cacheExtractor) ExtractCache(img v1.Image) error {
 		return err
 	}
 	ct = cacheType
+	logging.Infof("Detected cache type: %s", ct)
 
 	if constants.ExtractCacheDir == "" {
 		switch cacheType {
@@ -240,26 +236,23 @@ func (e *cacheExtractor) ExtractCache(img v1.Image) error {
 		}
 	}()
 
+	var extractedBytes int64
 	var extractErr error
 
-	switch manifest.MediaType {
-	case types.DockerManifestSchema2:
-		extractedDirs, extractErr = extractDockerImg(img, ct)
-	default:
-		// Try to parse it as the "compat" variant image with a single "application/vnd.oci.image.layer.v1.tar+gzip" layer.
-		extractedDirs, extractErr = extractOCIStandardImg(img, ct)
-		if extractErr != nil {
-			// Otherwise, try to parse it as the *oci* variant image with custom artifact media types.
-			extractedDirs, extractErr = extractOCIArtifactImg(img, ct)
-		}
+	// MCV create (docker/buildah) produces *compat* images with standard layer media types.
+	// Try compat extraction first regardless of manifest type, then fall back to the *oci*
+	// artifact variant which uses custom application/cache.<type>.content.layer.v1+<type> layers.
+	extractedDirs, extractedBytes, extractErr = extractCompatImg(img, ct)
+	if extractErr != nil {
+		extractedDirs, extractedBytes, extractErr = extractOCIArtifactImg(img, ct)
 	}
 
 	if extractErr != nil {
 		return fmt.Errorf("could not extract %s Cache: %w", ct, extractErr)
 	}
 
-	// Validate extracted cache size matches image label
-	if err := validateExtractedCacheSize(labels, ct, constants.ExtractCacheDir); err != nil {
+	// Validate extracted cache size matches the image label (bytes written this run only).
+	if err := validateExtractedCacheSize(labels, ct, extractedBytes); err != nil {
 		logging.Warnf("Cache size validation: %v", err)
 	}
 
@@ -300,19 +293,19 @@ func (i *imgMgr) FetchAndExtractCache(imgName string) error {
 
 // extractOCIArtifactImg extracts the triton/vllm cache from the
 // *oci* variant Kernel Cache image:  //TODO ADD URL
-func extractOCIArtifactImg(img v1.Image, cacheType string) ([]string, error) {
+func extractOCIArtifactImg(img v1.Image, cacheType string) ([]string, int64, error) {
 	if cacheType == "" {
-		return nil, errors.New("cache type is empty")
+		return nil, 0, errors.New("cache type is empty")
 	}
 
 	layers, err := img.Layers()
 	if err != nil {
-		return nil, fmt.Errorf("could not fetch layers: %w", err)
+		return nil, 0, fmt.Errorf("could not fetch layers: %w", err)
 	}
 
 	// The image must be single-layered.
 	if len(layers) != 1 {
-		return nil, fmt.Errorf("number of layers must be 1 but got %d", len(layers))
+		return nil, 0, fmt.Errorf("number of layers must be 1 but got %d", len(layers))
 	}
 
 	// The layer type of the cache itself in *oci* variant.
@@ -323,7 +316,7 @@ func extractOCIArtifactImg(img v1.Image, cacheType string) ([]string, error) {
 	for _, l := range layers {
 		mt, ret := l.MediaType()
 		if ret != nil {
-			return nil, fmt.Errorf("could not retrieve the media type: %w", ret)
+			return nil, 0, fmt.Errorf("could not retrieve the media type: %w", ret)
 		}
 		if string(mt) == cacheLayerMediaType {
 			layer = l
@@ -332,7 +325,7 @@ func extractOCIArtifactImg(img v1.Image, cacheType string) ([]string, error) {
 	}
 
 	if layer == nil {
-		return nil, fmt.Errorf("could not find the layer of type %s", cacheLayerMediaType)
+		return nil, 0, fmt.Errorf("could not find the layer of type %s", cacheLayerMediaType)
 	}
 
 	// Somehow go-container registry recognizes custom artifact layers as compressed ones,
@@ -341,108 +334,72 @@ func extractOCIArtifactImg(img v1.Image, cacheType string) ([]string, error) {
 	// since internally it tries to umcompress it as gzipped blob.
 	r, err := layer.Compressed()
 	if err != nil {
-		return nil, fmt.Errorf("could not get layer content: %w", err)
+		return nil, 0, fmt.Errorf("could not get layer content: %w", err)
 	}
-	defer r.Close()
+	defer r.Close() // TODO wrap error handling in a closure
 
-	dirs, err := cache.ExtractCacheDirectory(r, cacheType)
+	dirs, bytesWritten, err := cache.ExtractCacheDirectory(r, cacheType)
 	if err != nil {
-		return nil, fmt.Errorf("could not extract %s Kernel Cache: %w", cacheType, err)
+		return nil, 0, fmt.Errorf("could not extract %s Kernel Cache: %w", cacheType, err)
 	}
-	return dirs, nil
+	return dirs, bytesWritten, nil
 }
 
-// extractDockerImg extracts the Triton/vLLM Kernel Cache from the
-// *compat* variant GPU Kernel Cache/Binary image with the standard Docker
-// media type: application/vnd.docker.image.rootfs.diff.tar.gzip.
+func isCompatLayerMediaType(mt types.MediaType) bool {
+	return mt == types.DockerLayer || mt == types.OCILayer
+}
+
+// extractCompatImg extracts the Triton/vLLM cache from *compat* variant images.
+// Compat images use standard registry layer media types (what MCV create produces):
+//   - application/vnd.docker.image.rootfs.diff.tar.gzip
+//   - application/vnd.oci.image.layer.v1.tar+gzip
+//
 // https://github.com/maryamtahhan/mcv/blob/main/spec-compat.md
-func extractDockerImg(img v1.Image, cacheType string) ([]string, error) {
+func extractCompatImg(img v1.Image, cacheType string) ([]string, int64, error) {
 	if cacheType == "" {
-		return nil, errors.New("cache type is empty")
+		return nil, 0, errors.New("cache type is empty")
 	}
 
 	layers, err := img.Layers()
 	if err != nil {
-		return nil, fmt.Errorf("could not fetch layers: %w", err)
+		return nil, 0, fmt.Errorf("could not fetch layers: %w", err)
 	}
 
 	// The image must have at least one layer.
 	if len(layers) == 0 {
-		return nil, errors.New("number of layers must be greater than zero")
+		return nil, 0, errors.New("number of layers must be greater than zero")
 	}
 
 	var allDirs []string
-	// Process all layers (cache + manifest)
+	var totalBytes int64
 	for _, layer := range layers {
 		mt, err := layer.MediaType()
 		if err != nil {
-			return nil, fmt.Errorf("could not get media type: %w", err)
+			return nil, 0, fmt.Errorf("could not get media type: %w", err)
 		}
 
-		// Media type must be application/vnd.docker.image.rootfs.diff.tar.gzip.
-		if mt != types.DockerLayer {
-			return nil, fmt.Errorf("invalid media type %s (expect %s)", mt, types.DockerLayer)
+		if !isCompatLayerMediaType(mt) {
+			return nil, 0, fmt.Errorf("invalid media type %s (expect compat layer type)", mt)
 		}
 
 		r, err := layer.Compressed()
 		if err != nil {
-			return nil, fmt.Errorf("could not get layer content: %w", err)
+			return nil, 0, fmt.Errorf("could not get layer content: %w", err)
 		}
 
-		dirs, err := cache.ExtractCacheDirectory(r, cacheType)
+		dirs, bytesWritten, err := cache.ExtractCacheDirectory(r, cacheType)
 		_ = r.Close()
 		if err != nil {
-			return nil, fmt.Errorf("could not extract %s Kernel Cache: %w", cacheType, err)
+			return nil, 0, fmt.Errorf("could not extract %s Kernel Cache: %w", cacheType, err)
 		}
 		allDirs = append(allDirs, dirs...)
+		totalBytes += bytesWritten
 	}
-	return allDirs, nil
+	return allDirs, totalBytes, nil
 }
 
-// extractOCIStandardImg extracts the Triton/vLLM Kernel Cache from the
-// *compat* variant Triton/vLLM  Kernel image with the standard OCI media type: application/vnd.oci.image.layer.v1.tar+gzip.
-// https://github.com/maryamtahhan/mcv/blob/main/spec-compat.md
-func extractOCIStandardImg(img v1.Image, cacheType string) ([]string, error) {
-	if cacheType == "" {
-		return nil, errors.New("cache type is empty")
-	}
-
-	layers, err := img.Layers()
-	if err != nil {
-		return nil, fmt.Errorf("could not fetch layers: %w", err)
-	}
-
-	// The image must have at least one layer.
-	if len(layers) == 0 {
-		return nil, errors.New("number of layers must be greater than zero")
-	}
-
-	layer := layers[len(layers)-1]
-	mt, err := layer.MediaType()
-	if err != nil {
-		return nil, fmt.Errorf("could not get media type: %w", err)
-	}
-
-	// Check if the layer is "application/vnd.oci.image.layer.v1.tar+gzip".
-	if types.OCILayer != mt {
-		return nil, fmt.Errorf("invalid media type %s (expect %s)", mt, types.OCILayer)
-	}
-
-	r, err := layer.Compressed()
-	if err != nil {
-		return nil, fmt.Errorf("could not get layer content: %w", err)
-	}
-	defer r.Close()
-
-	dirs, err := cache.ExtractCacheDirectory(r, cacheType)
-	if err != nil {
-		return nil, fmt.Errorf("could not extract %s Kernel Cache: %w", cacheType, err)
-	}
-	return dirs, nil
-}
-
-// validateExtractedCacheSize validates that the extracted cache size matches the image label
-func validateExtractedCacheSize(labels map[string]string, cacheType, extractedDir string) error {
+// validateExtractedCacheSize validates that the extracted cache size matches the image label.
+func validateExtractedCacheSize(labels map[string]string, cacheType string, extractedBytes int64) error {
 	var labelKey string
 	switch cacheType {
 	case constants.Triton:
@@ -463,26 +420,14 @@ func validateExtractedCacheSize(labels map[string]string, cacheType, extractedDi
 		return fmt.Errorf("invalid cache size in label: %w", err)
 	}
 
-	// Calculate actual extracted cache size
-	var actualSize int64
-	err = filepath.Walk(extractedDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if !info.IsDir() {
-			actualSize += info.Size()
-		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to calculate extracted cache size: %w", err)
+	if extractedBytes == 0 {
+		return fmt.Errorf("no cache bytes extracted")
 	}
 
-	// Validate exact match - no tolerance needed since we no longer modify files during extraction
-	if actualSize != expectedSize {
-		return fmt.Errorf("cache size mismatch: expected %d bytes, extracted %d bytes (diff: %d)", expectedSize, actualSize, actualSize-expectedSize)
+	if extractedBytes != expectedSize {
+		return fmt.Errorf("cache size mismatch: expected %d bytes, extracted %d bytes (diff: %d)", expectedSize, extractedBytes, extractedBytes-expectedSize)
 	}
 
-	logging.Infof("Cache size validated: %d bytes (label: %d, extracted: %d)", expectedSize, expectedSize, actualSize)
+	logging.Infof("Cache size validated: %d bytes (label: %d, extracted: %d)", expectedSize, expectedSize, extractedBytes)
 	return nil
 }
