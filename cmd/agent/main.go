@@ -31,6 +31,7 @@ import (
 	"github.com/go-logr/zapr"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	flag "github.com/spf13/pflag"
 	"go.opentelemetry.io/otel/trace/noop"
 	"go.uber.org/zap"
@@ -49,6 +50,7 @@ import (
 	"github.com/kserve/kserve/pkg/agent/storage"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/batcher"
+	"github.com/kserve/kserve/pkg/constants"
 	kfslogger "github.com/kserve/kserve/pkg/logger"
 )
 
@@ -70,6 +72,7 @@ var (
 	logMarshallerPort   = flag.Int("log-marshaller-port", 9083, "Port for the embedded log marshaller HTTP server")
 	logBatchSize        = flag.Int("log-batch-size", 1, "Number of log records per batch for blob storage")
 	logBatchInterval    = flag.Duration("log-batch-interval", 0, "Max time to wait before flushing a partial batch")
+	metricsPort         = flag.Int("metrics-port", constants.LoggerMetricsPort, "Port for the logger's Prometheus /metrics endpoint")
 	inferenceService    = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
 	namespace           = flag.String("namespace", "", "The namespace to add as header to log events")
 	endpoint            = flag.String("endpoint", "", "The endpoint name to add as header to log events")
@@ -162,6 +165,7 @@ func main() {
 		logger.Info("Starting logger")
 		loggerArgs = startLogger(*workers, logStorePath, *logMarshallerUrl, *logMarshallerPort,
 			*logBatchSize, *logBatchInterval, logger)
+		buildMetricsServer(*metricsPort, logger)
 	}
 
 	var batcherArgs *batcherArgs
@@ -375,6 +379,23 @@ func startLogger(workers int, logStorePath *string, marshallerUrl string, marsha
 		certName:         *CaCertFile,
 		tlsSkipVerify:    *TlsSkipVerify,
 	}
+}
+
+func buildMetricsServer(port int, logger *zap.SugaredLogger) {
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+	addr := fmt.Sprintf(":%d", port)
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	go func() {
+		logger.Infof("Starting logger metrics server on %s", addr)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Errorf("Logger metrics server failed: %v", err)
+		}
+	}()
 }
 
 func startModelPuller(logger *zap.SugaredLogger) {
