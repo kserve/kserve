@@ -161,7 +161,10 @@ func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 		var httpResult *cehttp.Result
 		if cloudevents.ResultAs(res, &httpResult) {
 			var err error
-			if httpResult.StatusCode != http.StatusOK {
+			// Knative's broker ingress (the log sink in every real deployment
+			// of this) responds 202 Accepted, not 200 -- treat the whole 2xx
+			// range as success, not just an exact match on 200.
+			if httpResult.StatusCode < 200 || httpResult.StatusCode >= 300 {
 				err = fmt.Errorf(httpResult.Format, httpResult.Args...)
 				EventsFailedTotal.WithLabelValues(logReq.ReqType).Inc()
 			} else {

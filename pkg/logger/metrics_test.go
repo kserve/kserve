@@ -78,6 +78,29 @@ func TestSendHttpCloudEventMetricsOnSuccess(t *testing.T) {
 	g.Expect(histogramSampleCount(t, CEInferenceRequest)).To(gomega.Equal(deliveryCountBefore + 1))
 }
 
+// TestSendHttpCloudEventMetricsOnAcceptedStatus covers the actual log sink
+// this runs against in production: Knative's broker ingress responds 202
+// Accepted, not 200, for a successfully delivered CloudEvent. Without the
+// fix, sendHttpCloudEvent treated anything other than exactly 200 as a
+// failure, so every real delivery was counted as failed.
+func TestSendHttpCloudEventMetricsOnAcceptedStatus(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	svc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		rw.WriteHeader(http.StatusAccepted)
+	}))
+	defer svc.Close()
+
+	sentBefore := testutil.ToFloat64(EventsSentTotal.WithLabelValues(CEInferenceRequest))
+	failedBefore := testutil.ToFloat64(EventsFailedTotal.WithLabelValues(CEInferenceRequest))
+
+	w := newTestWorker(t)
+	g.Expect(w.sendHttpCloudEvent(newTestLogRequest(svc.URL))).To(gomega.Succeed())
+
+	g.Expect(testutil.ToFloat64(EventsSentTotal.WithLabelValues(CEInferenceRequest))).To(gomega.Equal(sentBefore + 1))
+	g.Expect(testutil.ToFloat64(EventsFailedTotal.WithLabelValues(CEInferenceRequest))).To(gomega.Equal(failedBefore))
+}
+
 func TestSendHttpCloudEventMetricsOnNonOKStatus(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
