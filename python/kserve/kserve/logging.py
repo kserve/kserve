@@ -31,7 +31,7 @@ KSERVE_LOGGER_FORMAT = (
     "trace_id=%(trace_id)s %(message)s"
 )
 KSERVE_TRACE_LOGGER_FORMAT = (
-    "%(asctime)s.%(msecs)03d %(process)s %(name)s " "trace_id=%(trace_id)s %(message)s"
+    "%(asctime)s.%(msecs)03d %(process)s %(name)s trace_id=%(trace_id)s %(message)s"
 )
 KSERVE_LOGGER_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
