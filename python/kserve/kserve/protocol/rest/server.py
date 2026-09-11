@@ -21,6 +21,7 @@ import fastapi
 import uvicorn
 from fastapi import Request, Response
 from fastapi.routing import APIRouter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_client import REGISTRY, exposition
 from timing_asgi import TimingClient, TimingMiddleware
 from timing_asgi.integrations import StarletteScopeToName
@@ -47,12 +48,10 @@ from kserve.errors import (
 from kserve.logging import logger, trace_logger
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.rest.timeseries.config import maybe_register_time_series_endpoints
-from kserve.protocol.rest.tracing import (
-    TraceResponseHeaderMiddleware,
-    instrument_app,
-)
+from kserve.protocol.tracing import get_tracer_provider
 
 from ..model_repository_extension import ModelRepositoryExtension
+from .middleware import TraceResponseHeaderMiddleware
 from .ssl_cert_refresher import SSLCertRefresher
 from .v1_endpoints import register_v1_endpoints
 from .v2_endpoints import register_v2_endpoints
@@ -149,7 +148,21 @@ class RESTServer:
         app.include_router(root_router)
         register_v1_endpoints(app, self.dataplane, self.model_repository_extension)
         register_v2_endpoints(app, self.dataplane, self.model_repository_extension)
-        instrument_app(app)
+
+        if tracer_provider := get_tracer_provider():
+            excluded_urls = ",".join(
+                [
+                    r"^/$",
+                    r"^/metrics$",
+                    r"^/v2/health/live$",
+                    r"^/v2/health/ready$",
+                ]
+            )
+            FastAPIInstrumentor.instrument_app(
+                app, tracer_provider=tracer_provider, excluded_urls=excluded_urls
+            )
+            logger.info("OpenTelemetry tracing enabled")
+
         # Register OpenAI endpoints if any of the models in the registry implement the OpenAI interface
         # This adds /openai/v1/completions and /openai/v1/chat/completions routes to the
         # REST server.

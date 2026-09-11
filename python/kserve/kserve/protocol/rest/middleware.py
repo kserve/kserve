@@ -22,23 +22,11 @@ from typing import Optional
 
 import fastapi
 from fastapi import Request
+from opentelemetry import trace
+from opentelemetry.trace import format_span_id, format_trace_id
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from opentelemetry import trace
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.sdk.resources import SERVICE_NAME, Resource
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.trace import format_span_id, format_trace_id
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-
 module_logger = logging.getLogger(__name__)
-
-tracer_provider = TracerProvider(resource=Resource.create({SERVICE_NAME: "kserve"}))
-trace.set_tracer_provider(tracer_provider)
-
-OTEL_COLLECTOR_ENDPOINT_ENV = "OTEL_COLLECTOR_ENDPOINT"
-otel_collector_endpoint = os.getenv(OTEL_COLLECTOR_ENDPOINT_ENV, "localhost:4317")
 
 TRACE_RESPONSE_HEADER_ENV = "TRACE_RESPONSE_HEADER_NAME"
 TRACE_RESPONSE_HEADER_NAME = os.getenv(TRACE_RESPONSE_HEADER_ENV, "traceparent")
@@ -47,34 +35,6 @@ TRACE_RESPONSE_TRACESTATE_HEADER_ENV = "TRACE_RESPONSE_TRACESTATE_HEADER_NAME"
 TRACE_RESPONSE_TRACESTATE_HEADER_NAME = os.getenv(
     TRACE_RESPONSE_TRACESTATE_HEADER_ENV, "tracestate"
 )
-
-ENABLE_OTEL_EXPORTER_ENV = "ENABLE_OTEL_EXPORTER"
-ENABLE_OTEL_EXPORTER = os.getenv(ENABLE_OTEL_EXPORTER_ENV, "true").lower() in {
-    "true",
-    "1",
-    "yes",
-    "on",
-}
-
-if ENABLE_OTEL_EXPORTER:
-    otlp_exporter = OTLPSpanExporter(endpoint=otel_collector_endpoint, insecure=True)
-    span_processor = BatchSpanProcessor(otlp_exporter)
-    tracer_provider.add_span_processor(span_processor)
-else:
-    module_logger.info(
-        "OpenTelemetry exporter disabled via %s", ENABLE_OTEL_EXPORTER_ENV
-    )
-
-
-def instrument_app(app: fastapi.FastAPI) -> None:
-    """Attach OpenTelemetry instrumentation to the given FastAPI app."""
-
-    FastAPIInstrumentor.instrument_app(app, tracer_provider=tracer_provider)
-    module_logger.info("Opentelemetry tracing enabled")
-    if ENABLE_OTEL_EXPORTER:
-        module_logger.info(
-            "OpenTelemetry exporter enabled. Exporting to %s", otel_collector_endpoint
-        )
 
 
 class TraceResponseHeaderMiddleware(BaseHTTPMiddleware):
@@ -119,15 +79,3 @@ class TraceResponseHeaderMiddleware(BaseHTTPMiddleware):
                 response.headers[self._tracestate_header_name] = tracestate_value
 
         return response
-
-
-__all__ = [
-    "ENABLE_OTEL_EXPORTER",
-    "ENABLE_OTEL_EXPORTER_ENV",
-    "TRACE_RESPONSE_HEADER_NAME",
-    "TRACE_RESPONSE_HEADER_ENV",
-    "TRACE_RESPONSE_TRACESTATE_HEADER_NAME",
-    "TRACE_RESPONSE_TRACESTATE_HEADER_ENV",
-    "TraceResponseHeaderMiddleware",
-    "instrument_app",
-]

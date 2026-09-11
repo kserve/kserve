@@ -32,9 +32,8 @@ import pytest_asyncio
 from cloudevents.conversion import to_binary, to_structured
 from cloudevents.http import CloudEvent
 from fastapi.testclient import TestClient
-from ray import serve
-
 from kserve import Model, ModelRepository, ModelServer, model_server
+from kserve import context as kserve_context
 from kserve.constants.constants import (
     FASTAPI_APP_IMPORT_STRING,
     INFERENCE_CONTENT_LENGTH_HEADER,
@@ -42,7 +41,8 @@ from kserve.constants.constants import (
 from kserve.errors import InvalidInput, NoModelReady
 from kserve.model import PredictorProtocol
 from kserve.model_server import app as kserve_app
-from kserve.ray import RayModel
+from kserve.predictor_config import PredictorConfig
+from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.infer_type import (
     InferInput,
     InferOutput,
@@ -50,13 +50,12 @@ from kserve.protocol.infer_type import (
     InferResponse,
     RequestedOutput,
 )
-from kserve.utils.utils import generate_uuid, get_predict_input, get_predict_response
-from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
+from kserve.protocol.rest.middleware import TRACE_RESPONSE_HEADER_NAME
 from kserve.protocol.rest.multiprocess.server import RESTServerMultiProcess
-from kserve.protocol.rest.tracing import TRACE_RESPONSE_HEADER_NAME
-from kserve.predictor_config import PredictorConfig
-from kserve import context as kserve_context
+from kserve.ray import RayModel
+from kserve.utils.utils import generate_uuid, get_predict_input, get_predict_response
+from ray import serve
 
 test_avsc_schema = """
         {
