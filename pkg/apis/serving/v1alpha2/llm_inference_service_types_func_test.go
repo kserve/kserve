@@ -22,10 +22,53 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 )
+
+func TestHasNamedStorageContainer(t *testing.T) {
+	tests := []struct {
+		name     string
+		svc      *LLMInferenceService
+		expected bool
+	}{
+		{name: "nil receiver", svc: nil, expected: false},
+		{name: "nil storageInitializer", svc: &LLMInferenceService{}, expected: false},
+		{
+			name: "nil storageContainerName",
+			svc: &LLMInferenceService{
+				Spec: LLMInferenceServiceSpec{StorageInitializer: &StorageInitializerSpec{}},
+			},
+			expected: false,
+		},
+		{
+			name: "empty storageContainerName",
+			svc: &LLMInferenceService{
+				Spec: LLMInferenceServiceSpec{
+					StorageInitializer: &StorageInitializerSpec{StorageContainerName: ptr.To("")},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "named storage container",
+			svc: &LLMInferenceService{
+				Spec: LLMInferenceServiceSpec{
+					StorageInitializer: &StorageInitializerSpec{StorageContainerName: ptr.To("my-csc")},
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.svc.HasNamedStorageContainer())
+		})
+	}
+}
 
 func TestEPPServiceName(t *testing.T) {
 	llmSvc := &LLMInferenceService{

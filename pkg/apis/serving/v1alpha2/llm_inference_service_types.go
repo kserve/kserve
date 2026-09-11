@@ -370,6 +370,13 @@ type LoRASpec struct {
 //
 //	storageInitializer:
 //	  enabled: true
+//
+// Example - Named ClusterStorageContainer for a custom URI scheme:
+//
+//	storageInitializer:
+//	  storageContainerName: my-custom-storage
+//
+// +kubebuilder:validation:XValidation:rule="!(has(self.enabled) && self.enabled == false && has(self.storageContainerName))",message="storageContainerName cannot be set when enabled is false"
 type StorageInitializerSpec struct {
 	// Enabled controls whether the storage-initializer initContainer is created.
 	// When nil or true, storage-initializer is created for applicable URIs (s3://, hf://).
@@ -378,6 +385,11 @@ type StorageInitializerSpec struct {
 	// Default: true (nil is treated as true for backward compatibility)
 	// +optional
 	Enabled *bool `json:"enabled,omitempty"`
+
+	// StorageContainerName specifies the ClusterStorageContainer used to download model artifacts.
+	// When set, the referenced container is merged over the default storage-initializer configuration.
+	// +optional
+	StorageContainerName *string `json:"storageContainerName,omitempty"`
 }
 
 // RouterSpec defines the routing configuration for exposing the service.

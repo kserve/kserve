@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 
@@ -82,6 +83,28 @@ func init() {
 
 func (sc *ClusterStorageContainer) IsDisabled() bool {
 	return sc.Disabled != nil && *sc.Disabled
+}
+
+// EligibleInitContainerForURI reports whether this ClusterStorageContainer can be
+// selected by name as a storage-initializer for storageUri.
+func (sc *ClusterStorageContainer) EligibleInitContainerForURI(storageUri string) error {
+	if sc.IsDisabled() {
+		return fmt.Errorf("ClusterStorageContainer %q is disabled", sc.Name)
+	}
+	if sc.Spec.WorkloadType != InitContainer {
+		return fmt.Errorf(
+			"ClusterStorageContainer %q has workloadType %q; explicit selection requires %q",
+			sc.Name, sc.Spec.WorkloadType, InitContainer,
+		)
+	}
+	supported, err := sc.Spec.IsStorageUriSupported(storageUri)
+	if err != nil {
+		return fmt.Errorf("ClusterStorageContainer %q URI check failed for %q: %w", sc.Name, storageUri, err)
+	}
+	if !supported {
+		return fmt.Errorf("ClusterStorageContainer %q does not support storageUri %q", sc.Name, storageUri)
+	}
+	return nil
 }
 
 func (spec *StorageContainerSpec) IsStorageUriSupported(storageUri string) (bool, error) {
