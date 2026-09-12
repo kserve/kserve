@@ -140,7 +140,6 @@ kserve:
         runAsUser: 1000
         seccompProfile:
           type: RuntimeDefault
-      metricsBindAddress: 127.0.0.1
       metricsBindPort: '8443'
       nodeSelector: {}
       tolerations: []

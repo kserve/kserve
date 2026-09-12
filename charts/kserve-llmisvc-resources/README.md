@@ -82,7 +82,6 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.llmisvc.controller.livenessProbe.initialDelaySeconds | int | `30` |  |
 | kserve.llmisvc.controller.livenessProbe.periodSeconds | int | `10` |  |
 | kserve.llmisvc.controller.livenessProbe.timeoutSeconds | int | `5` |  |
-| kserve.llmisvc.controller.metricsBindAddress | string | `"127.0.0.1"` |  |
 | kserve.llmisvc.controller.metricsBindPort | string | `"8443"` |  |
 | kserve.llmisvc.controller.nodeSelector | object | `{}` |  |
 | kserve.llmisvc.controller.podAnnotations | object | `{}` |  |
