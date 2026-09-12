@@ -1,0 +1,79 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: sklearn-iris-keda-advanced
+  annotations:
+    serving.kserve.io/deploymentMode: "Standard"
+    serving.kserve.io/autoscalerClass: "keda"
+spec:
+  predictor:
+    minReplicas: 1
+    maxReplicas: 10
+    autoScaling:
+      metrics:
+        - type: Resource
+          name: cpu-scaler
+          resource:
+            name: cpu
+            target:
+              type: Utilization
+              averageUtilization: 80
+        - type: External
+          name: custom-prometheus-metric
+          external:
+            metric:
+              backend: prometheus
+              serverAddress: "http://prometheus.monitoring.svc.cluster.local:9090"
+              query: "sum(rate(istio_requests_total{destination_workload=\"sklearn-iris-keda-advanced-predictor-default\"}[2m]))"
+            target:
+              type: Value
+              value: "100"
+      # KEDA-specific configuration
+      keda:
+        # Polling interval in seconds - how often to check triggers
+        pollingInterval: 15
+        # Cooldown period in seconds - wait time after last trigger before scaling down
+        cooldownPeriod: 60
+        # Initial cooldown period - wait time after ScaledObject creation before evaluating triggers
+        initialCooldownPeriod: 120
+        # Idle replica count - scale to this when no triggers are active (enables scale-to-zero)
+        idleReplicaCount: 0
+        # Fallback configuration for when metrics are unavailable
+        fallback:
+          failureThreshold: 3
+          replicas: 2
+          behavior: static
+        # Advanced KEDA configuration
+        advanced:
+          # Restore to original replica count when ScaledObject is deleted
+          restoreToOriginalReplicaCount: true
+          # HPA behavior configuration
+          horizontalPodAutoscalerConfig:
+            behavior:
+              scaleDown:
+                stabilizationWindowSeconds: 300
+                policies:
+                  - type: Percent
+                    value: 10
+                    periodSeconds: 60
+                  - type: Pods
+                    value: 1
+                    periodSeconds: 60
+                selectPolicy: Min
+              scaleUp:
+                stabilizationWindowSeconds: 0
+                policies:
+                  - type: Percent
+                    value: 100
+                    periodSeconds: 15
+                  - type: Pods
+                    value: 4
+                    periodSeconds: 15
+                selectPolicy: Max
+          # Scaling modifiers for custom formulas (advanced use case)
+          # scalingModifiers:
+          #   formula: "desired_replicas"
+          #   target: "100"
+          #   metricType: "AverageValue"
+    sklearn:
+      storageUri: "gs://kfserving-examples/models/sklearn/1.0/model"
