@@ -249,17 +249,56 @@ func GetDeploymentMode(statusDeploymentMode string, annotations map[string]strin
 
 // MergeRuntimeContainers merges the runtime Container with the InferenceService Container,
 // allowing users to override runtime container settings from the predictor spec.
-// Args are concatenated (runtime + isvc) rather than replaced.
+// Args from the ISVC take precedence: any runtime flag that the ISVC also sets is
+// removed before concatenation so the final list contains no duplicate flags.
 func MergeRuntimeContainers(runtimeContainer *corev1.Container, isvcContainer *corev1.Container) (*corev1.Container, error) {
 	merged, err := kserveutils.MergeContainerWithPatch(*runtimeContainer, *isvcContainer)
 	if err != nil {
 		return nil, err
 	}
 
-	// Concatenate args rather than replacing — isvc extends runtime flags
-	merged.Args = append(append([]string{}, runtimeContainer.Args...), isvcContainer.Args...)
+	merged.Args = mergeArgs(runtimeContainer.Args, isvcContainer.Args)
 
 	return &merged, nil
+}
+
+// mergeArgs concatenates runtime and ISVC args, removing any runtime flags
+// that the ISVC also sets so the ISVC value takes precedence without duplicates.
+func mergeArgs(runtimeArgs, isvcArgs []string) []string {
+	overridden := flagNames(isvcArgs)
+
+	var merged []string
+	for i := 0; i < len(runtimeArgs); i++ {
+		name := flagName(runtimeArgs[i])
+		if name != "" && overridden[name] {
+			if !strings.Contains(runtimeArgs[i], "=") && i+1 < len(runtimeArgs) && !strings.HasPrefix(runtimeArgs[i+1], "-") {
+				i++
+			}
+			continue
+		}
+		merged = append(merged, runtimeArgs[i])
+	}
+	return append(merged, isvcArgs...)
+}
+
+func flagName(arg string) string {
+	if !strings.HasPrefix(arg, "-") {
+		return ""
+	}
+	if idx := strings.Index(arg, "="); idx >= 0 {
+		return arg[:idx]
+	}
+	return arg
+}
+
+func flagNames(args []string) map[string]bool {
+	names := make(map[string]bool)
+	for _, arg := range args {
+		if name := flagName(arg); name != "" {
+			names[name] = true
+		}
+	}
+	return names
 }
 
 // MergePodSpec Merge the predictor PodSpec struct with the runtime PodSpec struct, allowing users

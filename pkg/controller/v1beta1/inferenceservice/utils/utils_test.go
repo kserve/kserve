@@ -787,6 +787,89 @@ func TestMergeRuntimeContainers(t *testing.T) {
 	}
 }
 
+func TestMergeArgs(t *testing.T) {
+	tests := []struct {
+		name        string
+		runtimeArgs []string
+		isvcArgs    []string
+		expected    []string
+	}{
+		{
+			name:        "no overlap",
+			runtimeArgs: []string{"--model_name=foo", "--model_dir=/mnt/models"},
+			isvcArgs:    []string{"--http_port=5000"},
+			expected:    []string{"--model_name=foo", "--model_dir=/mnt/models", "--http_port=5000"},
+		},
+		{
+			name:        "override equals form",
+			runtimeArgs: []string{"--model_name=foo", "--http_port=8080"},
+			isvcArgs:    []string{"--http_port=5000"},
+			expected:    []string{"--model_name=foo", "--http_port=5000"},
+		},
+		{
+			name:        "override two-element form",
+			runtimeArgs: []string{"--model_name", "foo", "--http_port", "8080"},
+			isvcArgs:    []string{"--http_port=5000"},
+			expected:    []string{"--model_name", "foo", "--http_port=5000"},
+		},
+		{
+			name:        "override mixed forms",
+			runtimeArgs: []string{"--model_name=foo", "--http_port", "8080", "--model_dir=/mnt/models"},
+			isvcArgs:    []string{"--http_port", "5000"},
+			expected:    []string{"--model_name=foo", "--model_dir=/mnt/models", "--http_port", "5000"},
+		},
+		{
+			name:        "empty isvc args",
+			runtimeArgs: []string{"--http_port=8080"},
+			isvcArgs:    nil,
+			expected:    []string{"--http_port=8080"},
+		},
+		{
+			name:        "empty runtime args",
+			runtimeArgs: nil,
+			isvcArgs:    []string{"--http_port=5000"},
+			expected:    []string{"--http_port=5000"},
+		},
+		{
+			name:        "both empty",
+			runtimeArgs: nil,
+			isvcArgs:    nil,
+			expected:    nil,
+		},
+		{
+			name:        "valueless flag does not consume next flag",
+			runtimeArgs: []string{"--verbose", "--http_port=8080"},
+			isvcArgs:    []string{"--verbose"},
+			expected:    []string{"--http_port=8080", "--verbose"},
+		},
+		{
+			name:        "override equals form keeps two-element neighbours",
+			runtimeArgs: []string{"--model_name=foo", "--http_port=8080", "--model_dir=/mnt/models"},
+			isvcArgs:    []string{"--http_port=5000"},
+			expected:    []string{"--model_name=foo", "--model_dir=/mnt/models", "--http_port=5000"},
+		},
+		{
+			name:        "override two-element form keeps equals neighbours",
+			runtimeArgs: []string{"--model_name=foo", "--http_port", "8080", "--model_dir=/mnt/models"},
+			isvcArgs:    []string{"--http_port", "5000"},
+			expected:    []string{"--model_name=foo", "--model_dir=/mnt/models", "--http_port", "5000"},
+		},
+		{
+			name:        "multiple overrides mixed forms",
+			runtimeArgs: []string{"--http_port=8080", "--model_name", "default", "--workers=1"},
+			isvcArgs:    []string{"--http_port=5000", "--model_name", "custom"},
+			expected:    []string{"--workers=1", "--http_port=5000", "--model_name", "custom"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			result := mergeArgs(tt.runtimeArgs, tt.isvcArgs)
+			g.Expect(result).To(gomega.Equal(tt.expected))
+		})
+	}
+}
+
 func TestMergePodSpec(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
