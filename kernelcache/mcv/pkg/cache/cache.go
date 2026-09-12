@@ -130,6 +130,11 @@ func CopyDir(srcDir, dstDir string) error {
 	})
 }
 
+// TotalDirSize returns the total size of all non-directory files under dir.
+func TotalDirSize(dir string) (int64, error) {
+	return getTotalDirSize(dir)
+}
+
 // getTotalDirSize returns the total size of all non-directory files in a directory
 func getTotalDirSize(dir string) (int64, error) {
 	var total int64
@@ -177,9 +182,9 @@ func SetCachesBuildDir(caches []Cache, path string) {
 	}
 }
 
-func ExtractCacheDirectory(r io.Reader, cacheType string) ([]string, error) {
+func ExtractCacheDirectory(r io.Reader, cacheType string) ([]string, int64, error) {
 	if cacheType == "" {
-		return nil, errors.New("cache type is empty")
+		return nil, 0, errors.New("cache type is empty")
 	}
 	switch cacheType {
 	case constants.Triton:
@@ -187,7 +192,7 @@ func ExtractCacheDirectory(r io.Reader, cacheType string) ([]string, error) {
 	case constants.VLLM:
 		return ExtractVLLMCacheDirectory(r)
 	default:
-		return nil, fmt.Errorf("unsupported cache type: %s", cacheType)
+		return nil, 0, fmt.Errorf("unsupported cache type: %s", cacheType)
 	}
 }
 
@@ -195,11 +200,12 @@ func ExtractCacheDirectory(r io.Reader, cacheType string) ([]string, error) {
 func extractCacheAndManifestDirectory(
 	r io.Reader,
 	cacheDirPrefix, manifestDirPrefix, extractCacheDir, extractManifestDir string,
-) ([]string, error) {
+) ([]string, int64, error) {
 	var extractedDirs []string
+	var extractedBytes int64
 	gr, err := gzip.NewReader(r)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse layer as tar.gz: %w", err)
+		return nil, 0, fmt.Errorf("failed to parse layer as tar.gz: %w", err)
 	}
 	defer gr.Close()
 
@@ -207,10 +213,10 @@ func extractCacheAndManifestDirectory(
 
 	// Ensure top-level output directories exist once
 	if err = os.MkdirAll(extractCacheDir, 0o750); err != nil {
-		return nil, fmt.Errorf("failed to create cache directory: %w", err)
+		return nil, 0, fmt.Errorf("failed to create cache directory: %w", err)
 	}
 	if err = os.MkdirAll(extractManifestDir, 0o750); err != nil {
-		return nil, fmt.Errorf("failed to create manifest directory: %w", err)
+		return nil, 0, fmt.Errorf("failed to create manifest directory: %w", err)
 	}
 
 	for {
@@ -218,7 +224,7 @@ func extractCacheAndManifestDirectory(
 		if ret == io.EOF {
 			break
 		} else if ret != nil {
-			return nil, fmt.Errorf("error reading tar archive: %w", ret)
+			return nil, 0, fmt.Errorf("error reading tar archive: %w", ret)
 		}
 
 		// Skip irrelevant files
@@ -238,7 +244,7 @@ func extractCacheAndManifestDirectory(
 
 			// Guard against Zip Slip / path traversal
 			if !isPathWithinBase(filePath, extractCacheDir) {
-				return nil, fmt.Errorf("illegal path in tar entry: %s", h.Name)
+				return nil, 0, fmt.Errorf("illegal path in tar entry: %s", h.Name)
 			}
 
 			topDir := filepath.Join(extractCacheDir, filepath.Dir(rel))
@@ -251,31 +257,34 @@ func extractCacheAndManifestDirectory(
 
 			// Guard against Zip Slip / path traversal
 			if !isPathWithinBase(filePath, extractManifestDir) {
-				return nil, fmt.Errorf("illegal path in tar entry: %s", h.Name)
+				return nil, 0, fmt.Errorf("illegal path in tar entry: %s", h.Name)
 			}
 		}
 
 		// Ensure parent dir exists
 		if err = os.MkdirAll(filepath.Dir(filePath), 0o750); err != nil {
-			return nil, fmt.Errorf("failed to create directory for %s: %w", filePath, err)
+			return nil, 0, fmt.Errorf("failed to create directory for %s: %w", filePath, err)
 		}
 
 		mode := h.FileInfo().Mode().Perm()
 		switch h.Typeflag {
 		case tar.TypeDir:
 			if err = os.MkdirAll(filePath, mode); err != nil {
-				return nil, fmt.Errorf("failed to create directory %s: %w", filePath, err)
+				return nil, 0, fmt.Errorf("failed to create directory %s: %w", filePath, err)
 			}
 		case tar.TypeReg:
 			if err = writeFile(filePath, tr, mode, h.Size); err != nil {
-				return nil, fmt.Errorf("failed to write file %s: %w", filePath, err)
+				return nil, 0, fmt.Errorf("failed to write file %s: %w", filePath, err)
+			}
+			if strings.HasPrefix(h.Name, cacheDirPrefix) {
+				extractedBytes += h.Size
 			}
 		default:
 			logging.Debugf("Skipping unsupported type: %c in file %s", h.Typeflag, h.Name)
 		}
 	}
 
-	return extractedDirs, nil
+	return extractedDirs, extractedBytes, nil
 }
 
 // isPathWithinBase checks that resolved filePath is under baseDir,
