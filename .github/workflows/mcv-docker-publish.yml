@@ -58,7 +58,7 @@ jobs:
             docker-compose --file docker-compose.test.yml build
             docker-compose --file docker-compose.test.yml run sut
           else
-            docker buildx build kernelcache/mcv --file kernelcache/mcv/mcv.Dockerfile
+            docker buildx build --target mcv-minimal --file kernelcache/mcv/mcv.Dockerfile .
           fi
 
   # Push image to GitHub Packages.
@@ -107,14 +107,62 @@ jobs:
           echo VERSION=$VERSION >> $GITHUB_ENV
           echo IMAGE_ID=$IMAGE_ID >> $GITHUB_ENV
 
-      - name: Build and push
+      - name: Build and push mcv-minimal
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
         with:
           platforms: linux/amd64
-          context: kernelcache/mcv
+          context: .
           file: kernelcache/mcv/mcv.Dockerfile
+          target: mcv-minimal
           push: true
-          tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}
-          # https://github.com/docker/buildx/issues/1533
+          tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}-minimal
+          provenance: false
+          sbom: true
+
+      - name: Build and push mcv-rocm
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          platforms: linux/amd64
+          context: .
+          file: kernelcache/mcv/mcv.Dockerfile
+          target: mcv-rocm
+          push: false
+          tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}-rocm
+          provenance: false
+          sbom: true
+
+      - name: Build and push mcv-gaudi
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          platforms: linux/amd64
+          context: .
+          file: kernelcache/mcv/mcv.Dockerfile
+          target: mcv-gaudi
+          push: false
+          tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}-gaudi
+          provenance: false
+          sbom: true
+
+      - name: Build and push mcv-cuda
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          platforms: linux/amd64
+          context: .
+          file: kernelcache/mcv/mcv.Dockerfile
+          target: mcv-cuda
+          push: false
+          tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}-cuda
+          provenance: false
+          sbom: true
+
+      - name: Build and push mcv-unified
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          platforms: linux/amd64
+          context: .
+          file: kernelcache/mcv/mcv.Dockerfile
+          target: mcv-unified
+          push: true
+          tags: ${{ env.IMAGE_ID }}:${{ env.VERSION }}-unified
           provenance: false
           sbom: true

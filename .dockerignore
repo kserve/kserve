@@ -21,6 +21,7 @@
 !pkg/
 !tools/
 !qpext/
+!kernelcache/
 
 # License (used by go-licenses in all builds)
 !LICENSE
