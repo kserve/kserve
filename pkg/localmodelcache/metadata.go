@@ -20,7 +20,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -45,8 +48,30 @@ func MatchCacheForURI(
 	models *v1alpha1.LocalModelCacheList,
 	nsModels *v1alpha1.LocalModelNamespaceCacheList,
 ) *CacheEntry {
+	return MatchCacheForURIWithNodeSelector(storageURI, nodeGroup, nodeGroupExists, nil, nil, models, nsModels)
+}
+
+// MatchCacheForURIWithNodeSelector finds a cache whose node group does not
+// conflict with the workload's nodeSelector. An explicit node group annotation
+// takes precedence over affinity-based selection.
+func MatchCacheForURIWithNodeSelector(
+	storageURI string,
+	nodeGroup string,
+	nodeGroupExists bool,
+	nodeSelector map[string]string,
+	nodeGroups *v1alpha1.LocalModelNodeGroupList,
+	models *v1alpha1.LocalModelCacheList,
+	nsModels *v1alpha1.LocalModelNamespaceCacheList,
+) *CacheEntry {
 	if storageURI == "" {
 		return nil
+	}
+
+	nodeGroupMap := make(map[string]*v1alpha1.LocalModelNodeGroup)
+	if nodeGroups != nil {
+		for i := range nodeGroups.Items {
+			nodeGroupMap[nodeGroups.Items[i].Name] = &nodeGroups.Items[i]
+		}
 	}
 
 	if nsModels != nil {
@@ -55,7 +80,7 @@ func MatchCacheForURI(
 			if !nsModel.Spec.MatchStorageURI(storageURI) {
 				continue
 			}
-			pvcName, ok := PVCNameForNodeGroup(nsModel.Spec.NodeGroups, nodeGroup, nodeGroupExists, nsModel.Name)
+			pvcName, ok := pvcNameForWorkload(nsModel.Spec.NodeGroups, nodeGroup, nodeGroupExists, nsModel.Name, nodeSelector, nodeGroupMap, nodeGroups != nil)
 			if !ok {
 				continue
 			}
@@ -76,7 +101,7 @@ func MatchCacheForURI(
 		if !model.Spec.MatchStorageURI(storageURI) {
 			continue
 		}
-		pvcName, ok := PVCNameForNodeGroup(model.Spec.NodeGroups, nodeGroup, nodeGroupExists, model.Name)
+		pvcName, ok := pvcNameForWorkload(model.Spec.NodeGroups, nodeGroup, nodeGroupExists, model.Name, nodeSelector, nodeGroupMap, nodeGroups != nil)
 		if !ok {
 			continue
 		}
@@ -87,6 +112,75 @@ func MatchCacheForURI(
 		}
 	}
 	return nil
+}
+
+func pvcNameForWorkload(
+	cacheNodeGroups []string,
+	nodeGroup string,
+	nodeGroupExists bool,
+	cacheName string,
+	nodeSelector map[string]string,
+	nodeGroups map[string]*v1alpha1.LocalModelNodeGroup,
+	nodeGroupInventoryAvailable bool,
+) (string, bool) {
+	if nodeGroupExists || len(nodeSelector) == 0 || !nodeGroupInventoryAvailable {
+		return PVCNameForNodeGroup(cacheNodeGroups, nodeGroup, nodeGroupExists, cacheName)
+	}
+	for _, name := range cacheNodeGroups {
+		if group, ok := nodeGroups[name]; ok && nodeGroupCompatible(nodeSelector, group.Spec.PersistentVolumeSpec) {
+			return cacheName + "-" + name, true
+		}
+	}
+	return "", false
+}
+
+func nodeGroupCompatible(nodeSelector map[string]string, pvSpec corev1.PersistentVolumeSpec) bool {
+	if pvSpec.NodeAffinity == nil || pvSpec.NodeAffinity.Required == nil {
+		return true
+	}
+	for _, term := range pvSpec.NodeAffinity.Required.NodeSelectorTerms {
+		if nodeSelectorTermCompatible(nodeSelector, term) {
+			return true
+		}
+	}
+	return false
+}
+
+func nodeSelectorTermCompatible(nodeSelector map[string]string, term corev1.NodeSelectorTerm) bool {
+	for _, expression := range term.MatchExpressions {
+		value, constrained := nodeSelector[expression.Key]
+		if !constrained {
+			continue
+		}
+		switch expression.Operator {
+		case corev1.NodeSelectorOpIn:
+			if !slices.Contains(expression.Values, value) {
+				return false
+			}
+		case corev1.NodeSelectorOpNotIn:
+			if slices.Contains(expression.Values, value) {
+				return false
+			}
+		case corev1.NodeSelectorOpDoesNotExist:
+			return false
+		case corev1.NodeSelectorOpGt, corev1.NodeSelectorOpLt:
+			if len(expression.Values) != 1 {
+				return false
+			}
+			actual, actualErr := strconv.Atoi(value)
+			limit, limitErr := strconv.Atoi(expression.Values[0])
+			if actualErr != nil || limitErr != nil {
+				return false
+			}
+			if expression.Operator == corev1.NodeSelectorOpGt && actual <= limit {
+				return false
+			}
+			if expression.Operator == corev1.NodeSelectorOpLt && actual >= limit {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // PVCNameForNodeGroup returns the serving PVC name for a cache and node group selection.

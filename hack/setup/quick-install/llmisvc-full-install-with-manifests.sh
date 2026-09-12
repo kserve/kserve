@@ -109085,6 +109085,16 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelcaches
+  - localmodelnamespacecaches
+  - localmodelnodegroups
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
