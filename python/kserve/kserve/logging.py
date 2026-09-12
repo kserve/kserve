@@ -15,10 +15,9 @@
 import json
 import logging
 import logging.config
-from typing import Optional, Union, Dict
+from typing import Dict, Optional, Union
 
 import yaml
-
 from opentelemetry import trace
 
 from .constants.constants import KSERVE_LOGLEVEL
@@ -34,21 +33,6 @@ KSERVE_TRACE_LOGGER_FORMAT = (
     "%(asctime)s.%(msecs)03d %(process)s %(name)s trace_id=%(trace_id)s %(message)s"
 )
 KSERVE_LOGGER_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-
-
-def current_trace_id() -> str:
-    span = trace.get_current_span()
-    span_context = span.get_span_context() if span is not None else None
-    if span_context is None or not span_context.is_valid:
-        return "none"
-    return format(span_context.trace_id, "032x")
-
-
-class TraceIdFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        record.trace_id = getattr(record, "trace_id", None) or current_trace_id()
-        return True
-
 
 KSERVE_LOG_CONFIG = {
     "version": 1,
@@ -170,3 +154,17 @@ def configure_logging(log_config: Optional[Union[Dict, str]] = None):
         # See the note about fileConfig() here:
         # https://docs.python.org/3/library/logging.config.html#configuration-file-format
         logging.config.fileConfig(log_config, disable_existing_loggers=False)
+
+
+def current_trace_id() -> str:
+    span = trace.get_current_span()
+    span_context = span.get_span_context() if span is not None else None
+    if span_context is None or not span_context.is_valid:
+        return "none"
+    return format(span_context.trace_id, "032x")
+
+
+class TraceIdFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.trace_id = getattr(record, "trace_id", None) or current_trace_id()
+        return True
