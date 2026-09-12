@@ -72,11 +72,18 @@ func ParsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {
 	return pvcName, pvcPath, nil
 }
 
-// addVolumeMountToContainer adds a volume mount to a specific container
+// addVolumeMountToContainer adds a volume mount to a specific container.
+//
+// A mount is identified by (Name, MountPath, SubPath), not by Name alone: one volume can
+// legitimately be mounted at several paths in the same container, which is how N LoRA
+// adapters share a single PVC volume instead of fanning out into N pod Volumes. Keying on
+// Name alone silently dropped every mount past the first.
 func addVolumeMountToContainer(container *corev1.Container, storageMountParams StorageMountParams) bool {
 	// Check if mount already exists
 	for _, mount := range container.VolumeMounts {
-		if mount.Name == storageMountParams.VolumeName {
+		if mount.Name == storageMountParams.VolumeName &&
+			mount.MountPath == storageMountParams.MountPath &&
+			mount.SubPath == storageMountParams.SubPath {
 			return false // Mount already exists
 		}
 	}
@@ -94,7 +101,9 @@ func addVolumeMountToContainer(container *corev1.Container, storageMountParams S
 }
 
 // AddModelMount adds a mount to the specified container in the given PodSpec based on the provided modelUri.
-// If the mount or volume already exists, it will not be duplicated.
+// The volume is added at most once per name, and the mount at most once per
+// (VolumeName, MountPath, SubPath) - so repeated calls for the same path are a no-op, while
+// several paths backed by one volume each get their own mount.
 //
 // Parameters:
 //   - modelUri: The URI specifying the PVC and optional sub-path to mount.

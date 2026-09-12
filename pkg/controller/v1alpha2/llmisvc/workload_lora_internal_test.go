@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -62,6 +63,10 @@ func TestSanitizeLoRAPathSegment(t *testing.T) {
 // existed and must never change. The HF-style adapter name used to yield a
 // volume name the API server rejected; it only has to yield a valid one now,
 // as the exact rewrite is pkg/utils's contract, tested there.
+//
+// The two adapters sit on separate claims on purpose: a claim backing exactly one adapter
+// is the case that keeps the per-adapter volume name. Sharing one claim collapses them
+// into a single volume, covered by TestAttachLoRAAdaptersSharedClaim.
 func TestAttachLoRAAdaptersVolumeNames(t *testing.T) {
 	t.Parallel()
 
@@ -72,8 +77,8 @@ func TestAttachLoRAAdaptersVolumeNames(t *testing.T) {
 		Containers: []corev1.Container{{Name: "main"}},
 	}
 	adapters := []resolvedLoRAAdapter{
-		{name: "billing-en-v1", mountPath: "/mnt/lora/billing-en-v1", uri: "pvc://claim/adapters/billing", scheme: constants.PvcURIPrefix},
-		{name: "acme/x.r16", mountPath: "/mnt/lora/acme-x.r16", uri: "pvc://claim/adapters/x", scheme: constants.PvcURIPrefix},
+		{name: "billing-en-v1", mountPath: "/mnt/lora/billing-en-v1", uri: "pvc://billing-claim/adapters/billing", scheme: constants.PvcURIPrefix},
+		{name: "acme/x.r16", mountPath: "/mnt/lora/acme-x.r16", uri: "pvc://x-claim/adapters/x", scheme: constants.PvcURIPrefix},
 	}
 
 	r := &LLMISVCReconciler{}
@@ -102,6 +107,218 @@ func TestAttachLoRAAdaptersVolumeNames(t *testing.T) {
 			t.Fatalf("mounts[%d]=%q does not match volume %q", i, m.Name, podSpec.Volumes[i].Name)
 		}
 	}
+}
+
+// renderLoRAPodSpec runs the full spec -> pod spec path for pvc:// adapters, so mount
+// paths come from loraMountSegments rather than being hand-written.
+func renderLoRAPodSpec(t *testing.T, podSpec *corev1.PodSpec, nameToURI ...string) {
+	t.Helper()
+
+	adapters, err := enumerateLoRAAdapters(loRASpec(t, nameToURI...))
+	require.NoError(t, err)
+
+	r := &LLMISVCReconciler{}
+	require.NoError(t, r.attachLoRAAdapters(t.Context(), &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns"},
+	}, podSpec, adapters))
+}
+
+func mainPodSpec() *corev1.PodSpec {
+	return &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+}
+
+func pvcVolume(name, claim string) corev1.Volume {
+	return corev1.Volume{
+		Name: name,
+		VolumeSource: corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: claim},
+		},
+	}
+}
+
+// TestAttachLoRAAdaptersSharedClaim covers the fan-out this naming rule exists to prevent.
+// kubelet's actual-state-of-world keys a non-attachable PVC volume by PV name while
+// desired-state holds every pod volume name, so N volumes on one claim leave
+// WaitForAttachAndMount unable to converge - on Kubernetes 1.34 the pod never leaves Init,
+// with no FailedMount event and no self-recovery.
+func TestAttachLoRAAdaptersSharedClaim(t *testing.T) {
+	t.Parallel()
+
+	podSpec := mainPodSpec()
+	renderLoRAPodSpec(t, podSpec,
+		"billing", "pvc://adapters/billing",
+		"gaming", "pvc://adapters/gaming",
+		"support", "pvc://adapters/support",
+	)
+
+	assert.Equal(t, []corev1.Volume{pvcVolume("lora-claim-adapters", "adapters")}, podSpec.Volumes)
+	assert.Equal(t, []corev1.VolumeMount{
+		{Name: "lora-claim-adapters", MountPath: "/mnt/lora/billing", SubPath: "billing", ReadOnly: true},
+		{Name: "lora-claim-adapters", MountPath: "/mnt/lora/gaming", SubPath: "gaming", ReadOnly: true},
+		{Name: "lora-claim-adapters", MountPath: "/mnt/lora/support", SubPath: "support", ReadOnly: true},
+	}, podSpec.Containers[0].VolumeMounts)
+}
+
+// TestAttachLoRAAdaptersMixedClaims pins the upgrade-safety half: a claim backing exactly
+// one adapter keeps the volume name running Deployments already use, even when another
+// claim in the same spec collapses. semanticDeploymentIsEqual DeepEquals the whole pod
+// template, so a rename here restarts a healthy pod.
+func TestAttachLoRAAdaptersMixedClaims(t *testing.T) {
+	t.Parallel()
+
+	podSpec := mainPodSpec()
+	renderLoRAPodSpec(t, podSpec,
+		"alone", "pvc://solo-claim/adapters/alone",
+		"billing", "pvc://shared/billing",
+		"gaming", "pvc://shared/gaming",
+	)
+
+	assert.Equal(t, []corev1.Volume{
+		pvcVolume("lora-pvc-alone", "solo-claim"),
+		pvcVolume("lora-claim-shared", "shared"),
+	}, podSpec.Volumes)
+	assert.Equal(t, []corev1.VolumeMount{
+		{Name: "lora-pvc-alone", MountPath: "/mnt/lora/alone", SubPath: "adapters/alone", ReadOnly: true},
+		{Name: "lora-claim-shared", MountPath: "/mnt/lora/billing", SubPath: "billing", ReadOnly: true},
+		{Name: "lora-claim-shared", MountPath: "/mnt/lora/gaming", SubPath: "gaming", ReadOnly: true},
+	}, podSpec.Containers[0].VolumeMounts)
+}
+
+// TestAttachLoRAAdaptersReusesExistingClaimVolume covers the base model sharing a claim
+// with its adapters - pvc://my-pvc/base plus pvc://my-pvc/adapters/* is one claim, and
+// without the reuse it is two volumes on it. attachLoRAAdapters runs after
+// attachPVCModelArtifact, so the base volume is already in the pod spec here.
+func TestAttachLoRAAdaptersReusesExistingClaimVolume(t *testing.T) {
+	t.Parallel()
+
+	t.Run("base model on the adapters' claim", func(t *testing.T) {
+		t.Parallel()
+
+		podSpec := mainPodSpec()
+		podSpec.Volumes = []corev1.Volume{pvcVolume(constants.PvcSourceMountName, "shared")}
+		podSpec.Containers[0].VolumeMounts = []corev1.VolumeMount{
+			{Name: constants.PvcSourceMountName, MountPath: "/mnt/models", SubPath: "base", ReadOnly: true},
+		}
+
+		renderLoRAPodSpec(t, podSpec,
+			"billing", "pvc://shared/billing",
+			"gaming", "pvc://shared/gaming",
+		)
+
+		assert.Equal(t, []corev1.Volume{pvcVolume(constants.PvcSourceMountName, "shared")}, podSpec.Volumes)
+		assert.Equal(t, []corev1.VolumeMount{
+			{Name: constants.PvcSourceMountName, MountPath: "/mnt/models", SubPath: "base", ReadOnly: true},
+			{Name: constants.PvcSourceMountName, MountPath: "/mnt/lora/billing", SubPath: "billing", ReadOnly: true},
+			{Name: constants.PvcSourceMountName, MountPath: "/mnt/lora/gaming", SubPath: "gaming", ReadOnly: true},
+		}, podSpec.Containers[0].VolumeMounts)
+	})
+
+	t.Run("base model on its own claim is left alone", func(t *testing.T) {
+		t.Parallel()
+
+		podSpec := mainPodSpec()
+		podSpec.Volumes = []corev1.Volume{pvcVolume(constants.PvcSourceMountName, "models")}
+
+		renderLoRAPodSpec(t, podSpec,
+			"billing", "pvc://shared/billing",
+			"gaming", "pvc://shared/gaming",
+		)
+
+		assert.Equal(t, []corev1.Volume{
+			pvcVolume(constants.PvcSourceMountName, "models"),
+			pvcVolume("lora-claim-shared", "shared"),
+		}, podSpec.Volumes)
+	})
+}
+
+// TestAttachLoRAAdaptersSharedVolumeNameIsStable checks the shared volume name depends on
+// the claim alone. Deriving it from group membership or list order would rename the volume
+// when an unrelated adapter is added, reordered or removed.
+func TestAttachLoRAAdaptersSharedVolumeNameIsStable(t *testing.T) {
+	t.Parallel()
+
+	two := mainPodSpec()
+	renderLoRAPodSpec(t, two, "billing", "pvc://shared/billing", "gaming", "pvc://shared/gaming")
+
+	three := mainPodSpec()
+	renderLoRAPodSpec(t, three,
+		"billing", "pvc://shared/billing",
+		"gaming", "pvc://shared/gaming",
+		"support", "pvc://shared/support",
+	)
+
+	require.Len(t, two.Volumes, 1)
+	require.Len(t, three.Volumes, 1)
+	assert.Equal(t, two.Volumes[0].Name, three.Volumes[0].Name,
+		"adding an adapter must not rename the shared volume")
+
+	reordered := mainPodSpec()
+	renderLoRAPodSpec(t, reordered,
+		"support", "pvc://shared/support",
+		"billing", "pvc://shared/billing",
+		"gaming", "pvc://shared/gaming",
+	)
+	assert.Equal(t, three.Volumes, reordered.Volumes, "reordering the spec is a semantic no-op")
+	assert.Equal(t, three.Containers[0].VolumeMounts, reordered.Containers[0].VolumeMounts)
+}
+
+// TestAttachLoRAAdaptersSameSubPathDistinctNames covers two adapters pointing at one
+// directory under different names - a legitimate way to serve the same weights twice.
+// They must still get a mount each, which is why AddModelMount identifies a mount by
+// (name, mount path, sub path) rather than by volume name.
+func TestAttachLoRAAdaptersSameSubPathDistinctNames(t *testing.T) {
+	t.Parallel()
+
+	podSpec := mainPodSpec()
+	renderLoRAPodSpec(t, podSpec, "primary", "pvc://shared/weights", "alias", "pvc://shared/weights")
+
+	assert.Equal(t, []corev1.Volume{pvcVolume("lora-claim-shared", "shared")}, podSpec.Volumes)
+	assert.Equal(t, []corev1.VolumeMount{
+		{Name: "lora-claim-shared", MountPath: "/mnt/lora/alias", SubPath: "weights", ReadOnly: true},
+		{Name: "lora-claim-shared", MountPath: "/mnt/lora/primary", SubPath: "weights", ReadOnly: true},
+	}, podSpec.Containers[0].VolumeMounts)
+}
+
+// TestSemanticDeploymentIsEqualForSharedClaimLoRA renders one spec twice and checks the
+// comparator that decides whether a workload rolls. semanticDeploymentIsEqual DeepEquals the
+// whole pod template, so an unstable volume or mount order would rewrite the Deployment on
+// every reconcile and restart the workload each time.
+func TestSemanticDeploymentIsEqualForSharedClaimLoRA(t *testing.T) {
+	t.Parallel()
+
+	base, err := apis.ParseURL("pvc://shared/base")
+	require.NoError(t, err)
+
+	spec := loRASpec(t,
+		"billing", "pvc://shared/billing",
+		"gaming", "pvc://shared/gaming",
+		"support", "pvc://shared/support",
+	)
+	spec.Model.URI = *base
+	spec.Template = &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+
+	adapters, err := enumerateLoRAAdapters(spec)
+	require.NoError(t, err)
+
+	svc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "lora-shared-claim", Namespace: "default"},
+		Spec:       spec,
+	}
+	r := &LLMISVCReconciler{Client: selectorTestClient(t), Clientset: k8sfake.NewSimpleClientset()}
+	config := &Config{ResolvedLoRAAdapters: adapters}
+
+	first, err := r.expectedSingleNodeMainDeployment(t.Context(), svc, config)
+	require.NoError(t, err)
+	second, err := r.expectedSingleNodeMainDeployment(t.Context(), svc, config)
+	require.NoError(t, err)
+
+	assert.True(t, semanticDeploymentIsEqual(first, second),
+		"an unchanged spec must render a pod template the comparator accepts as equal")
+
+	// The base model and all three adapters live on claim "shared", so the pod template
+	// declares it once.
+	assert.Equal(t, []corev1.Volume{pvcVolume(constants.PvcSourceMountName, "shared")},
+		first.Spec.Template.Spec.Volumes)
 }
 
 func TestAddLoRAVLLMArgs(t *testing.T) {

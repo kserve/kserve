@@ -286,6 +286,67 @@ func loraMountSegments(adapters []v1alpha2.LLMModelSpec) ([]string, error) {
 	return segments, nil
 }
 
+// loraPVCVolumeNames returns the pod Volume name for each adapter, positionally; entries for
+// adapters that are not pvc:// are empty.
+//
+// One volume per claim, not per adapter. kubelet's actual-state-of-world keys a non-attachable
+// PVC volume by PV name while desired-state holds every pod volume name, so several volumes on
+// one claim leave WaitForAttachAndMount comparing one mounted entry against N desired ones: on
+// Kubernetes 1.34 and earlier the pod never leaves Init, with no FailedMount event and no
+// self-recovery. The name comes from the first rule that applies:
+//
+//  1. the pod spec already has a Volume for that claim - in practice the base model's
+//     constants.PvcSourceMountName, since attachLoRAAdapters runs after
+//     attachPVCModelArtifact - so mount into it rather than declaring a second one.
+//  2. two or more adapters share the claim: name it after the claim.
+//  3. otherwise name it after the adapter, which is what the controller has always done.
+//     Volume names are part of the pod template, so renaming this case would restart every
+//     running pod whose claim backs a single adapter.
+//
+// No rule reads adapter order or group membership, so adding, removing or reordering an adapter
+// never renames a shared volume. Names are resolved against the pod spec as it is on entry, not
+// as the attach loop grows it, for the same reason.
+func loraPVCVolumeNames(podSpec *corev1.PodSpec, adapters []resolvedLoRAAdapter) ([]string, error) {
+	claims := make([]string, len(adapters))
+	perClaim := make(map[string]int, len(adapters))
+	for i := range adapters {
+		if adapters[i].scheme != constants.PvcURIPrefix {
+			continue
+		}
+		claim, _, err := utils.ParsePvcURI(adapters[i].uri)
+		if err != nil {
+			return nil, fmt.Errorf("LoRA adapter %q: %w", adapters[i].name, err)
+		}
+		claims[i] = claim
+		perClaim[claim]++
+	}
+
+	attached := make(map[string]string, len(podSpec.Volumes))
+	for _, v := range podSpec.Volumes {
+		if v.PersistentVolumeClaim == nil {
+			continue
+		}
+		if _, taken := attached[v.PersistentVolumeClaim.ClaimName]; !taken {
+			attached[v.PersistentVolumeClaim.ClaimName] = v.Name
+		}
+	}
+
+	names := make([]string, len(adapters))
+	for i := range adapters {
+		switch claim := claims[i]; {
+		case claim == "":
+			continue
+		case attached[claim] != "":
+			names[i] = attached[claim]
+		case perClaim[claim] > 1:
+			names[i] = utils.SafeObjectName(kmeta.ChildName("lora-claim-", claim))
+		default:
+			names[i] = utils.SafeObjectName(kmeta.ChildName("lora-pvc-", adapters[i].name))
+		}
+	}
+	return names, nil
+}
+
 // collectLoRADownloadPairs filters pre-resolved adapters to hf:// and s3:// uri/path pairs
 // for a single storage-initializer run.
 func collectLoRADownloadPairs(adapters []resolvedLoRAAdapter) []storageDownloadPair {
@@ -313,12 +374,16 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 		return nil
 	}
 
+	volNames, err := loraPVCVolumeNames(podSpec, adapters)
+	if err != nil {
+		return err
+	}
+
 	var loraModules []string
-	for _, a := range adapters {
+	for i, a := range adapters {
 		switch a.scheme {
 		case constants.PvcURIPrefix:
-			volName := utils.SafeObjectName(kmeta.ChildName("lora-pvc-", a.name))
-			if err := attachLoraPVCAdapter(a.uri, podSpec, containerName, a.mountPath, volName); err != nil {
+			if err := attachLoraPVCAdapter(a.uri, podSpec, containerName, a.mountPath, volNames[i]); err != nil {
 				return fmt.Errorf("LoRA adapter %q: %w", a.name, err)
 			}
 		case constants.HfURIPrefix, constants.S3URIPrefix:
