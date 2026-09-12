@@ -58,6 +58,10 @@ func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llm
 	if err := r.reconcileSingleNodePrefill(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile prefill workload: %w", err)
 	}
+
+	if err := r.reconcileSingleNodeEncode(ctx, llmSvc, config); err != nil {
+		return fmt.Errorf("failed to reconcile encode workload: %w", err)
+	}
 	return nil
 }
 
@@ -88,7 +92,7 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context,
 
 func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
 	role := constants.LLMDRoleDecode
-	if llmSvc.Spec.Prefill == nil {
+	if llmSvc.Spec.Prefill == nil && llmSvc.Spec.Encode == nil {
 		role = constants.LLMDRoleBoth
 	}
 
@@ -527,6 +531,116 @@ func mainDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
 
 func prefillDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return kmeta.ChildName(llmSvc.GetName(), "-kserve-prefill")
+}
+
+func encodeDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-encode")
+}
+
+func (r *LLMISVCReconciler) reconcileSingleNodeEncode(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Encode == nil || llmSvc.Spec.Encode.Worker != nil {
+		if isStopped {
+			llmSvc.MarkEncodeWorkloadNotReady("Stopped", "Service is stopped")
+		} else {
+			llmSvc.MarkEncodeWorkloadUnset()
+		}
+		return Delete(ctx, r, llmSvc, &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      encodeDeploymentName(llmSvc),
+				Namespace: llmSvc.GetNamespace(),
+			},
+		})
+	}
+
+	encode, err := r.expectedEncodeMainDeployment(ctx, llmSvc, config)
+	if err != nil {
+		return fmt.Errorf("failed to get expected encode deployment: %w", err)
+	}
+	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, encode, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
+		return fmt.Errorf("failed to reconcile encode deployment %s/%s: %w", encode.GetNamespace(), encode.GetName(), err)
+	}
+	return r.propagateWorkloadDeploymentStatus(ctx, encode, llmSvc.MarkEncodeWorkloadReady, llmSvc.MarkEncodeWorkloadNotReady)
+}
+
+func (r *LLMISVCReconciler) expectedEncodeMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
+	labels := map[string]string{
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadEncode,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		constants.KServeComponentLabelKey:     constants.KServeComponentWorkload,
+		constants.LLMDRoleLabelKey:            constants.LLMDRoleEncode,
+	}
+
+	d := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      encodeDeploymentName(llmSvc),
+			Namespace: llmSvc.GetNamespace(),
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
+			Labels: labels,
+		},
+	}
+
+	if llmSvc.Spec.Encode != nil {
+		d.Spec = appsv1.DeploymentSpec{
+			Replicas: llmSvc.Spec.Encode.Replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: labels,
+				},
+			},
+		}
+		applyDeploymentRolloutStrategy(d, llmSvc.Spec.Encode)
+	}
+
+	if llmSvc.Spec.Encode != nil && llmSvc.Spec.Encode.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
+		d.Spec.Template.Spec = *llmSvc.Spec.Encode.Template.DeepCopy()
+
+		var existingServiceAccount *corev1.ServiceAccount = nil
+		if llmSvc.Spec.Encode.Template.ServiceAccountName != "" {
+			existingServiceAccount = &corev1.ServiceAccount{}
+			err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Encode.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch existing single node encode service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Encode.Template.ServiceAccountName, err)
+			}
+		}
+
+		curr := &appsv1.Deployment{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get current encode deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+		}
+		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
+			return nil, fmt.Errorf("failed to attach model artifacts to encode deployment: %w", err)
+		}
+		if llmSvc.Spec.Encode.KVCacheOffloading != nil {
+			attachKVCacheSecondaryTiers(&d.Spec.Template.Spec, llmSvc.Spec.Encode.KVCacheOffloading.Secondary, "main")
+		}
+	}
+
+	r.propagateDeploymentMetadata(llmSvc, d)
+
+	if llmSvc.Spec.Encode != nil {
+		utils.PropagateMap(llmSvc.Spec.Encode.Labels, &d.Spec.Template.Labels)
+		utils.PropagateMap(llmSvc.Spec.Encode.Annotations, &d.Spec.Template.Annotations, AnnotationModelBasedRoutingEnabled)
+	}
+
+	// Inject tracing instrumentation when spec.tracing is set
+	if llmSvc.Spec.Tracing != nil {
+		mainIdx := slices.IndexFunc(d.Spec.Template.Spec.Containers, func(c corev1.Container) bool {
+			return c.Name == "main"
+		})
+		if mainIdx >= 0 {
+			injectServerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-encode", &d.Spec.Template.Spec.Containers[mainIdx])
+		}
+	}
+
+	log.FromContext(ctx).V(2).Info("Expected encode deployment", "deployment", d)
+
+	return d, nil
 }
 
 func applyDeploymentRolloutStrategy(d *appsv1.Deployment, workload *v1alpha2.WorkloadSpec) {

@@ -434,6 +434,7 @@ const (
 	LLMDRoleLabelKey = "llm-d.ai/role"
 	LLMDRoleDecode   = "decode"
 	LLMDRolePrefill  = "prefill"
+	LLMDRoleEncode   = "encode"
 	LLMDRoleBoth     = "both"
 )
 
@@ -445,10 +446,13 @@ const (
 	LLMComponentRouterScheduler       = "llminferenceservice-router-scheduler"
 	LLMComponentWorkload              = "llminferenceservice-workload"
 	LLMComponentWorkloadPrefill       = "llminferenceservice-workload-prefill"
+	LLMComponentWorkloadEncode        = "llminferenceservice-workload-encode"
 	LLMComponentWorkloadWorker        = "llminferenceservice-workload-worker"
 	LLMComponentWorkloadLeader        = "llminferenceservice-workload-leader"
 	LLMComponentWorkloadWorkerPrefill = "llminferenceservice-workload-worker-prefill"
 	LLMComponentWorkloadLeaderPrefill = "llminferenceservice-workload-leader-prefill"
+	LLMComponentWorkloadWorkerEncode  = "llminferenceservice-workload-worker-encode"
+	LLMComponentWorkloadLeaderEncode  = "llminferenceservice-workload-leader-encode"
 	LLMComponentInference             = "inference" // used in sample/template resources
 	LLMComponentTokenizer             = "tokenizer" // standalone vLLM tokenizer deployment
 )

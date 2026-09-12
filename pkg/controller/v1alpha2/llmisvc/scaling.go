@@ -69,6 +69,10 @@ func (r *LLMISVCReconciler) reconcileScaling(ctx context.Context, llmSvc *v1alph
 		return fmt.Errorf("failed to reconcile prefill workload scaling: %w", err)
 	}
 
+	if err := r.reconcileWorkloadScaling(ctx, llmSvc, config, encodeWorkloadScalingParams(llmSvc)); err != nil {
+		return fmt.Errorf("failed to reconcile encode workload scaling: %w", err)
+	}
+
 	return nil
 }
 
@@ -600,6 +604,26 @@ func mainScaleTargetRef(llmSvc *v1alpha2.LLMInferenceService) autoscalingv2.Cros
 	}
 }
 
+func encodeWorkloadScalingParams(llmSvc *v1alpha2.LLMInferenceService) workloadScalingParams {
+	var scaling *v1alpha2.ScalingSpec
+	var labels map[string]string
+	if llmSvc.Spec.Encode != nil {
+		scaling = llmSvc.Spec.Encode.Scaling
+		labels = llmSvc.Spec.Encode.Labels
+	}
+	return workloadScalingParams{
+		name:             "encode",
+		scaling:          scaling,
+		scaleTargetRef:   encodeScaleTargetRef(llmSvc),
+		hpaName:          encodeHPAName(llmSvc),
+		scaledObjectName: encodeScaledObjectName(llmSvc),
+		workloadLabels:   labels,
+		markReady:        llmSvc.MarkEncodeScalingReady,
+		markNotReady:     llmSvc.MarkEncodeScalingNotReady,
+		markUnset:        llmSvc.MarkEncodeScalingUnset,
+	}
+}
+
 func prefillScaleTargetRef(llmSvc *v1alpha2.LLMInferenceService) autoscalingv2.CrossVersionObjectReference {
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Worker != nil {
 		return autoscalingv2.CrossVersionObjectReference{
@@ -615,6 +639,21 @@ func prefillScaleTargetRef(llmSvc *v1alpha2.LLMInferenceService) autoscalingv2.C
 	}
 }
 
+func encodeScaleTargetRef(llmSvc *v1alpha2.LLMInferenceService) autoscalingv2.CrossVersionObjectReference {
+	if llmSvc.Spec.Encode != nil && llmSvc.Spec.Encode.Worker != nil {
+		return autoscalingv2.CrossVersionObjectReference{
+			APIVersion: lwsapi.GroupVersion.String(),
+			Kind:       "LeaderWorkerSet",
+			Name:       encodeLWSName(llmSvc),
+		}
+	}
+	return autoscalingv2.CrossVersionObjectReference{
+		APIVersion: "apps/v1",
+		Kind:       "Deployment",
+		Name:       encodeDeploymentName(llmSvc),
+	}
+}
+
 func mainHPAName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return kmeta.ChildName(llmSvc.GetName(), "-kserve-hpa")
 }
@@ -623,10 +662,18 @@ func prefillHPAName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return kmeta.ChildName(llmSvc.GetName(), "-kserve-prefill-hpa")
 }
 
+func encodeHPAName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-encode-hpa")
+}
+
 func mainScaledObjectName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return kmeta.ChildName(llmSvc.GetName(), "-kserve-keda")
 }
 
 func prefillScaledObjectName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return kmeta.ChildName(llmSvc.GetName(), "-kserve-prefill-keda")
+}
+
+func encodeScaledObjectName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-encode-keda")
 }
