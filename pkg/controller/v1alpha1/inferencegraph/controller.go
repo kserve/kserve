@@ -315,7 +315,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if err := r.updateStatus(ctx, graph); err != nil {
-		r.Recorder.Eventf(graph, corev1.EventTypeWarning, "InternalError", err.Error())
+		r.Recorder.Event(graph, corev1.EventTypeWarning, "InternalError", err.Error())
 		return reconcile.Result{}, err
 	}
 
@@ -345,10 +345,10 @@ func (r *InferenceGraphReconciler) updateStatus(ctx context.Context, desiredGrap
 		// If there was a difference and there was no error.
 		isReady := inferenceGraphReadiness(desiredGraph.Status)
 		if wasReady && !isReady { // Moved to NotReady State
-			r.Recorder.Eventf(desiredGraph, corev1.EventTypeWarning, string(InferenceGraphNotReadyState),
+			r.Recorder.Event(desiredGraph, corev1.EventTypeWarning, string(InferenceGraphNotReadyState),
 				fmt.Sprintf("InferenceGraph [%v] is no longer Ready", desiredGraph.GetName()))
 		} else if !wasReady && isReady { // Moved to Ready State
-			r.Recorder.Eventf(desiredGraph, corev1.EventTypeNormal, string(InferenceGraphReadyState),
+			r.Recorder.Event(desiredGraph, corev1.EventTypeNormal, string(InferenceGraphReadyState),
 				fmt.Sprintf("InferenceGraph [%v] is Ready", desiredGraph.GetName()))
 		}
 	}

@@ -19780,6 +19780,11 @@ spec:
                           x-kubernetes-list-map-keys:
                           - name
                           x-kubernetes-list-type: map
+                        schedulingGroup:
+                          properties:
+                            podGroupName:
+                              type: string
+                          type: object
                         securityContext:
                           properties:
                             appArmorProfile:
@@ -25799,6 +25804,11 @@ spec:
                               x-kubernetes-list-map-keys:
                               - name
                               x-kubernetes-list-type: map
+                            schedulingGroup:
+                              properties:
+                                podGroupName:
+                                  type: string
+                              type: object
                             securityContext:
                               properties:
                                 appArmorProfile:
@@ -26771,30 +26781,6 @@ spec:
                                 - name
                                 type: object
                               type: array
-                            workloadRef:
-                              properties:
-                                name:
-                                  type: string
-                                podGroup:
-                                  type: string
-                                podGroupReplicaKey:
-                                  type: string
-                              required:
-                              - name
-                              - podGroup
-                              type: object
-                          type: object
-                        workloadRef:
-                          properties:
-                            name:
-                              type: string
-                            podGroup:
-                              type: string
-                            podGroupReplicaKey:
-                              type: string
-                          required:
-                          - name
-                          - podGroup
                           type: object
                         xgboost:
                           properties:
@@ -30664,6 +30650,11 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  schedulingGroup:
+                    properties:
+                      podGroupName:
+                        type: string
+                    type: object
                   securityContext:
                     properties:
                       appArmorProfile:
@@ -31654,15 +31645,6 @@ spec:
                       - name
                       type: object
                     type: array
-                  workloadRef:
-                    properties:
-                      name:
-                        type: string
-                      podGroup:
-                        type: string
-                      podGroupReplicaKey:
-                        type: string
-                    type: object
                 type: object
               predictor:
                 properties:
@@ -39219,6 +39201,11 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  schedulingGroup:
+                    properties:
+                      podGroupName:
+                        type: string
+                    type: object
                   securityContext:
                     properties:
                       appArmorProfile:
@@ -45208,6 +45195,11 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
+                      schedulingGroup:
+                        properties:
+                          podGroupName:
+                            type: string
+                        type: object
                       securityContext:
                         properties:
                           appArmorProfile:
@@ -46180,27 +46172,6 @@ spec:
                           - name
                           type: object
                         type: array
-                      workloadRef:
-                        properties:
-                          name:
-                            type: string
-                          podGroup:
-                            type: string
-                          podGroupReplicaKey:
-                            type: string
-                        required:
-                        - name
-                        - podGroup
-                        type: object
-                    type: object
-                  workloadRef:
-                    properties:
-                      name:
-                        type: string
-                      podGroup:
-                        type: string
-                      podGroupReplicaKey:
-                        type: string
                     type: object
                   xgboost:
                     properties:
@@ -49327,6 +49298,11 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  schedulingGroup:
+                    properties:
+                      podGroupName:
+                        type: string
+                    type: object
                   securityContext:
                     properties:
                       appArmorProfile:
@@ -50317,15 +50293,6 @@ spec:
                       - name
                       type: object
                     type: array
-                  workloadRef:
-                    properties:
-                      name:
-                        type: string
-                      podGroup:
-                        type: string
-                      podGroupReplicaKey:
-                        type: string
-                    type: object
                 type: object
             required:
             - predictor

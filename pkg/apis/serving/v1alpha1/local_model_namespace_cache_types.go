@@ -63,10 +63,6 @@ type LocalModelNamespaceCacheList struct {
 	Items           []LocalModelNamespaceCache `json:"items" validate:"required"`
 }
 
-func init() {
-	SchemeBuilder.Register(&LocalModelNamespaceCache{}, &LocalModelNamespaceCacheList{})
-}
-
 // MatchStorageURI checks if storageUri matches the sourceModelUri or is a subdirectory of it
 func (spec *LocalModelNamespaceCacheSpec) MatchStorageURI(storageUri string) bool {
 	return MatchStorageURI(spec.SourceModelUri, storageUri)
