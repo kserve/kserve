@@ -125,3 +125,48 @@ func TestLoadConfig(t *testing.T) {
 		t.Fatal("SchedulerConfig = nil, want populated config")
 	}
 }
+
+// TestLoadConfigDisableHTTPRouteTimeout closes the ConfigMap -> Config loop for the
+// disableHTTPRouteTimeout ingress flag: it asserts that the value set on the
+// inferenceservice-config ConfigMap propagates through NewConfig into Config, which the
+// router consumes to strip spec.rules.timeouts. Without this, a mis-wire of the
+// propagation would silently resurface #5707 while the router-level test still passes.
+func TestLoadConfigDisableHTTPRouteTimeout(t *testing.T) {
+	tests := []struct {
+		name    string
+		ingress string
+		want    bool
+	}{
+		{
+			name:    "flag true propagates",
+			ingress: `{"kserveIngressGateway": "kserve/kserve-ingress-gateway", "ingressGateway": "knative-serving/knative-ingress-gateway", "disableHTTPRouteTimeout": true}`,
+			want:    true,
+		},
+		{
+			name:    "flag omitted defaults to false",
+			ingress: `{"kserveIngressGateway": "kserve/kserve-ingress-gateway", "ingressGateway": "knative-serving/knative-ingress-gateway"}`,
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Start from the full fixture (valid storageInitializer/credentials blocks)
+			// and override only the ingress block so LoadConfig parses end to end.
+			configMap := fixture.InferenceServiceCfgMap(constants.KServeNamespace)
+			configMap.Data["ingress"] = tt.ingress
+			c := fake.NewClientBuilder().
+				WithScheme(clientgoscheme.Scheme).
+				WithObjects(configMap).
+				Build()
+
+			got, err := llmisvc.LoadConfig(t.Context(), c)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got.DisableHTTPRouteTimeout != tt.want {
+				t.Errorf("DisableHTTPRouteTimeout = %v, want %v", got.DisableHTTPRouteTimeout, tt.want)
+			}
+		})
+	}
+}
