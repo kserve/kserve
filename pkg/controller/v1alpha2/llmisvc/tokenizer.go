@@ -118,6 +118,20 @@ func inlineSchedulerConfigBytes(spec v1alpha2.LLMInferenceServiceSpec) ([]byte, 
 	return nil, false
 }
 
+func hasPluginType(obj map[string]interface{}, pluginType string) bool {
+	val, _, err := unstructured.NestedFieldNoCopy(obj, "plugins")
+	if err != nil {
+		return false
+	}
+	plugins, _ := val.([]interface{})
+	for _, plugin := range plugins {
+		if pm, ok := plugin.(map[string]interface{}); ok && pm["type"] == pluginType {
+			return true
+		}
+	}
+	return false
+}
+
 // hasTokenProducerPlugin checks if the scheduler config contains the token-producer
 // plugin, which requires a standalone tokenizer deployment to serve tokenization
 // requests over HTTP (vLLM render endpoint).
