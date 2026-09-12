@@ -560,6 +560,16 @@ func validateScaleTarget(target MetricTarget) error {
 	return nil
 }
 
+func validateKedaScaleTarget(target MetricTarget) error {
+	if target.Type == UtilizationMetricType {
+		return errors.New("the target type Utilization is not supported for KEDA external or pod metrics")
+	}
+	if target.Type == "" && target.Value == nil {
+		return errors.New("the target threshold value should not be empty")
+	}
+	return validateScaleTarget(target)
+}
+
 func validateScalingHPACompExtension(compExtSpec *ComponentExtensionSpec) error {
 	metric := MetricCPU
 	if compExtSpec.ScaleMetric != nil {
@@ -641,10 +651,7 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 				if metric.External.Metric.Query == "" {
 					return errors.New("the query should not be empty")
 				}
-				if metric.External.Target.Value == nil {
-					return errors.New("the target threshold value should not be empty")
-				}
-				if err := validateScaleTarget(metric.External.Target); err != nil {
+				if err := validateKedaScaleTarget(metric.External.Target); err != nil {
 					return err
 				}
 			case PodMetricSourceType:
@@ -654,10 +661,7 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 				if metric.PodMetric.Metric.Query == "" {
 					return errors.New("the query should not be empty")
 				}
-				if metric.PodMetric.Target.Value == nil {
-					return errors.New("the target threshold value should not be empty")
-				}
-				if err := validateScaleTarget(metric.PodMetric.Target); err != nil {
+				if err := validateKedaScaleTarget(metric.PodMetric.Target); err != nil {
 					return err
 				}
 			default:
