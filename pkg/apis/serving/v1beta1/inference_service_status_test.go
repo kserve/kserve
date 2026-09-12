@@ -527,6 +527,59 @@ func TestInferenceServiceStatus_PropagateModelStatus(t *testing.T) {
 			expectedFailureInfo:      nil,
 			expectedReturnValue:      true,
 		},
+		"pod list is empty but latest revision is ready": {
+			isvcStatus: &InferenceServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: corev1.ConditionTrue,
+						},
+					},
+				},
+				Address: &duckv1.Addressable{},
+				URL:     &apis.URL{},
+				Components: map[ComponentType]ComponentStatusSpec{
+					PredictorComponent: {
+						LatestRolledoutRevision: "test-predictor-default-0001",
+					},
+				},
+				ModelStatus: ModelStatus{
+					ModelRevisionStates: &ModelRevisionStates{
+						ActiveModelState: Loaded,
+						TargetModelState: Loaded,
+					},
+					TransitionStatus: UpToDate,
+				},
+			},
+			statusSpec: ComponentStatusSpec{
+				LatestReadyRevision:       "test-predictor-default-0002",
+				LatestCreatedRevision:     "test-predictor-default-0002",
+				PreviousRolledoutRevision: "test-predictor-default-0001",
+				LatestRolledoutRevision:   "test-predictor-default-0001",
+			},
+			podList: &corev1.PodList{
+				Items: []corev1.Pod{},
+			},
+			rawDeployment: false,
+			serviceStatus: &knservingv1.ServiceStatus{
+				Status: duckv1.Status{
+					Conditions: duckv1.Conditions{
+						{
+							Type:   "Ready",
+							Status: "True",
+						},
+					},
+				},
+			},
+			expectedRevisionStates: &ModelRevisionStates{
+				ActiveModelState: Loaded,
+				TargetModelState: Loaded,
+			},
+			expectedTransitionStatus: UpToDate,
+			expectedFailureInfo:      nil,
+			expectedReturnValue:      true,
+		},
 		"pod list is empty but knative has an error": {
 			isvcStatus: &InferenceServiceStatus{
 				Status: duckv1.Status{
