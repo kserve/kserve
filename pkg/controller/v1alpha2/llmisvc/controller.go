@@ -67,6 +67,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/oteljson"
 	kserveTypes "github.com/kserve/kserve/pkg/types"
 )
 
@@ -181,6 +182,7 @@ type LLMISVCReconciler struct {
 // It fetches the LLMInferenceService and delegates the reconciliation of its constituent parts.
 // The reconciler follows the standard Kubernetes controller pattern with finalizers for cleanup.
 func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = oteljson.IntoContext(ctx)
 	logger := log.FromContext(ctx).WithName("LLMInferenceService").
 		WithValues("Namespace", req.Namespace, "Name", req.Name)
 	ctx = log.IntoContext(ctx, logger)

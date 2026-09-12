@@ -40,6 +40,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	controllerutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/localmodelcache"
+	"github.com/kserve/kserve/pkg/oteljson"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -58,6 +59,11 @@ type LocalModelReconciler struct {
 // Step 3 - Creates PV & PVC for model download
 // Step 4 - Creates PV & PVCs for namespaces with isvcs using this cached model
 func (c *LocalModelReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = oteljson.IntoContext(ctx)
+	reconciler := *c
+	reconciler.Log = oteljson.WithContext(ctx, c.Log)
+	c = &reconciler
+
 	c.Log.Info("Reconciling localmodel", "name", req.Name)
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, c.Clientset)
 	if err != nil {
