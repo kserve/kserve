@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodegroups,verbs=get;list;watch
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodegroups,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelcaches;localmodelnamespacecaches,verbs=get;list;watch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterstoragecontainers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=localmodelnodes/status,verbs=get;update;patch
@@ -39,6 +40,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -114,19 +116,97 @@ func (c *LocalModelNodeReconciler) getNodeGroupFromNode(ctx context.Context, nod
 	return nil, fmt.Errorf("did not find matching nodegroup for node: %s", nodeName)
 }
 
+func (c *LocalModelNodeReconciler) getNodeGroup(ctx context.Context, modelInfo v1alpha1.LocalModelInfo) (*v1alpha1.LocalModelNodeGroup, error) {
+	if modelInfo.NodeGroup == "" {
+		return c.getNodeGroupFromNode(ctx, nodeName)
+	}
+	nodeGroup := &v1alpha1.LocalModelNodeGroup{}
+	if err := c.Get(ctx, types.NamespacedName{Name: modelInfo.NodeGroup}, nodeGroup); err != nil {
+		return nil, err
+	}
+	return nodeGroup, nil
+}
+
+func (c *LocalModelNodeReconciler) getModelSize(ctx context.Context, modelInfo v1alpha1.LocalModelInfo) (resource.Quantity, bool, error) {
+	if modelInfo.Namespace == "" {
+		cache := &v1alpha1.LocalModelCache{}
+		if err := c.Get(ctx, types.NamespacedName{Name: modelInfo.ModelName}, cache); err != nil {
+			if errors.IsNotFound(err) {
+				return resource.Quantity{}, false, nil
+			}
+			return resource.Quantity{}, false, err
+		}
+		return cache.Spec.ModelSize.DeepCopy(), true, nil
+	}
+
+	cache := &v1alpha1.LocalModelNamespaceCache{}
+	if err := c.Get(ctx, types.NamespacedName{Name: modelInfo.ModelName, Namespace: modelInfo.Namespace}, cache); err != nil {
+		if errors.IsNotFound(err) {
+			return resource.Quantity{}, false, nil
+		}
+		return resource.Quantity{}, false, err
+	}
+	return cache.Spec.ModelSize.DeepCopy(), true, nil
+}
+
+func (c *LocalModelNodeReconciler) availableStorage(ctx context.Context, modelInfo v1alpha1.LocalModelInfo, availableByNodeGroup map[string]resource.Quantity) (*v1alpha1.LocalModelNodeGroup, resource.Quantity, error) {
+	nodeGroup, err := c.getNodeGroup(ctx, modelInfo)
+	if err != nil {
+		return nil, resource.Quantity{}, err
+	}
+	if available, ok := availableByNodeGroup[nodeGroup.Name]; ok {
+		return nodeGroup, available.DeepCopy(), nil
+	}
+
+	used, filesystemAvailable, err := fsHelper.getStorageUsage()
+	if err != nil {
+		return nil, resource.Quantity{}, err
+	}
+	available := nodeGroup.Spec.StorageLimit.DeepCopy()
+	available.Sub(used)
+	if available.Sign() < 0 {
+		available.Set(0)
+	}
+	if filesystemAvailable.Cmp(available) < 0 {
+		available = filesystemAvailable.DeepCopy()
+	}
+	if nodeGroup.Status.Used.Cmp(used) != 0 || nodeGroup.Status.Available.Cmp(available) != 0 {
+		nodeGroup.Status.Used = used.DeepCopy()
+		nodeGroup.Status.Available = available.DeepCopy()
+		if err := c.Update(ctx, nodeGroup); err != nil {
+			return nil, resource.Quantity{}, err
+		}
+	}
+	availableByNodeGroup[nodeGroup.Name] = available.DeepCopy()
+	return nodeGroup, available, nil
+}
+
+func (c *LocalModelNodeReconciler) reserveStorageForDownload(ctx context.Context, modelInfo v1alpha1.LocalModelInfo, availableByNodeGroup map[string]resource.Quantity) error {
+	nodeGroup, available, err := c.availableStorage(ctx, modelInfo, availableByNodeGroup)
+	if err != nil {
+		return err
+	}
+	modelSize, found, err := c.getModelSize(ctx, modelInfo)
+	if err != nil || !found {
+		return err
+	}
+	if modelSize.Cmp(available) > 0 {
+		return fmt.Errorf("model %q requires %s but node group %q has only %s available", modelInfo.ModelName, modelSize.String(), nodeGroup.Name, available.String())
+	}
+	available.Sub(modelSize)
+	availableByNodeGroup[nodeGroup.Name] = available.DeepCopy()
+	return nil
+}
+
 func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode v1alpha1.LocalModelNode, modelInfo v1alpha1.LocalModelInfo) (*batchv1.Job, error) {
 	jobName := modelInfo.ModelName + "-" + localModelNode.Name
 
-	// Use NodeGroup from modelInfo if set, otherwise fall back to getNodeGroupFromNode
-	nodeGroupName := modelInfo.NodeGroup
-	if nodeGroupName == "" {
-		nodeGroup, err := c.getNodeGroupFromNode(ctx, nodeName)
-		if nodeGroup == nil {
-			c.Log.Error(err, "Failed to get node group for current node", "node name", nodeName)
-			return nil, err
-		}
-		nodeGroupName = nodeGroup.Name
+	nodeGroup, err := c.getNodeGroup(ctx, modelInfo)
+	if err != nil {
+		c.Log.Error(err, "Failed to get node group for current node", "node name", nodeName)
+		return nil, err
 	}
+	nodeGroupName := nodeGroup.Name
 
 	pvcName := modelInfo.ModelName + "-" + nodeGroupName
 	if modelInfo.Namespace != "" {
@@ -350,11 +430,16 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 	newStatus := map[string]v1alpha1.ModelStatus{}
 	// Track which storage keys (URI hashes) have been processed for download deduplication
 	processedStorageKeys := map[string]v1alpha1.ModelStatus{}
+	availableByNodeGroup := map[string]resource.Quantity{}
 
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
 		statusKey := modelInfo.GetStatusKey()
 		storageKey := v1alpha1.GetStorageKey(modelInfo.SourceModelUri)
 		c.Log.Info("checking model from spec", "model", modelInfo.ModelName, "namespace", modelInfo.Namespace, "statusKey", statusKey, "storageKey", storageKey)
+		if _, _, err := c.availableStorage(ctx, modelInfo, availableByNodeGroup); err != nil {
+			c.Log.Error(err, "Failed to get available storage", "model", modelInfo.ModelName)
+			return err
+		}
 
 		// Check if another CR with the same URI has already been processed
 		// If so, reuse its status (storage deduplication - same folder on disk)
@@ -389,6 +474,9 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 			// If job is not found, create a new one. Because download could be incomplete.
 			if job == nil {
 				c.Log.Info("Model folder exists, creating download job", "model", modelInfo.ModelName, "storageKey", storageKey)
+				if err := c.reserveStorageForDownload(ctx, modelInfo, availableByNodeGroup); err != nil {
+					return err
+				}
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
 				if err != nil {
 					c.Log.Error(err, "Failed to create Job", "model", modelInfo.ModelName, "node", nodeName)
@@ -416,6 +504,9 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 			// To retry the download, users can manually fix the issue and delete the failed job.
 			// Add the job count check for protection to ensure not creating more than 2 jobs including the previous one.
 			if job == nil || (job.Status.Succeeded > 0 && jobCount < 2) {
+				if err := c.reserveStorageForDownload(ctx, modelInfo, availableByNodeGroup); err != nil {
+					return err
+				}
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
 				if err != nil {
 					c.Log.Error(err, "Failed to create job", "model", modelInfo.ModelName, "node", nodeName)
