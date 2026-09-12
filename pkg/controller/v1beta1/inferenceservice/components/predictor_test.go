@@ -106,6 +106,28 @@ func TestAddStorageInitializerAnnotationsOciNative(t *testing.T) {
 	assert.Equal(t, ociNativeURI, annotationVal)
 }
 
+func TestAddStorageInitializerAnnotationsInvalidURI(t *testing.T) {
+	// ftp:// is not in SupportedStorageURIPrefixList, so ValidateStorageURI should fail
+	s := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(s); err != nil {
+		t.Fatalf("failed to add v1alpha1 to scheme: %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(s).Build()
+	p := &Predictor{client: fakeClient}
+
+	unsupportedURI := "ftp://example.com/model"
+	model := &v1beta1.ModelSpec{
+		PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+			StorageURI: &unsupportedURI,
+		},
+	}
+	annotations := map[string]string{}
+
+	err := p.addStorageInitializerAnnotations(context.Background(), model, annotations, nil)
+	assert.Error(t, err, "ftp:// should fail ValidateStorageURI")
+	assert.Contains(t, err.Error(), "StorageURI not supported")
+}
+
 func ptrInt32(v int32) *int32 { return &v }
 
 func TestAdjustStableMinReplicasForCanaries(t *testing.T) {
