@@ -1836,3 +1836,59 @@ func TestDefaultInferenceServiceTracing(t *testing.T) {
 		})
 	}
 }
+
+func TestDefaultInferenceServiceSuspend(t *testing.T) {
+	tests := map[string]struct {
+		suspend  *bool
+		expected *bool
+	}{
+		"omitted suspend is left unset": {
+			suspend:  nil,
+			expected: nil,
+		},
+		"explicit true survives defaulting": {
+			suspend:  proto.Bool(true),
+			expected: proto.Bool(true),
+		},
+		"explicit false survives defaulting": {
+			suspend:  proto.Bool(false),
+			expected: proto.Bool(false),
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			isvc := InferenceService{
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{ModelFormat: ModelFormat{Name: "sklearn"}},
+					},
+					Suspend: tt.suspend,
+				},
+			}
+
+			isvc.DefaultInferenceService(nil, nil, nil, nil, nil)
+
+			g.Expect(isvc.Spec.Suspend).To(gomega.Equal(tt.expected))
+		})
+	}
+}
+
+// Suspend is a pointer field, so a DeepCopy must not share its backing value
+// with the original spec.
+func TestInferenceServiceSpecDeepCopySuspend(t *testing.T) {
+	g := gomega.NewWithT(t)
+	original := InferenceServiceSpec{
+		Predictor: PredictorSpec{
+			Model: &ModelSpec{ModelFormat: ModelFormat{Name: "sklearn"}},
+		},
+		Suspend: proto.Bool(true),
+	}
+
+	copied := original.DeepCopy()
+	g.Expect(copied.Suspend).ToNot(gomega.BeIdenticalTo(original.Suspend))
+
+	*copied.Suspend = false
+	g.Expect(*original.Suspend).To(gomega.BeTrue())
+}

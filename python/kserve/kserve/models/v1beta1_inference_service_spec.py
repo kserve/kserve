@@ -50,6 +50,7 @@ class V1beta1InferenceServiceSpec(object):
         'canary': 'list[V1beta1CanarySpec]',
         'explainer': 'V1beta1ExplainerSpec',
         'predictor': 'V1beta1PredictorSpec',
+        'suspend': 'bool',
         'tracing': 'V1beta1TracingSpec',
         'transformer': 'V1beta1TransformerSpec'
     }
@@ -58,11 +59,12 @@ class V1beta1InferenceServiceSpec(object):
         'canary': 'canary',
         'explainer': 'explainer',
         'predictor': 'predictor',
+        'suspend': 'suspend',
         'tracing': 'tracing',
         'transformer': 'transformer'
     }
 
-    def __init__(self, canary=None, explainer=None, predictor=None, tracing=None, transformer=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, canary=None, explainer=None, predictor=None, suspend=None, tracing=None, transformer=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1InferenceServiceSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -71,6 +73,7 @@ class V1beta1InferenceServiceSpec(object):
         self._canary = None
         self._explainer = None
         self._predictor = None
+        self._suspend = None
         self._tracing = None
         self._transformer = None
         self.discriminator = None
@@ -80,6 +83,8 @@ class V1beta1InferenceServiceSpec(object):
         if explainer is not None:
             self.explainer = explainer
         self.predictor = predictor
+        if suspend is not None:
+            self.suspend = suspend
         if tracing is not None:
             self.tracing = tracing
         if transformer is not None:
@@ -151,6 +156,29 @@ class V1beta1InferenceServiceSpec(object):
             raise ValueError("Invalid value for `predictor`, must not be `None`")  # noqa: E501
 
         self._predictor = predictor
+
+    @property
+    def suspend(self):
+        """Gets the suspend of this V1beta1InferenceServiceSpec.  # noqa: E501
+
+        Suspend controls whether KServe creates serving workloads for this InferenceService. When true, the controller does not create child workloads and removes any that already exist. When false or unset, the InferenceService reconciles normally.  This field is the suspension point used by external queueing systems (for example Kueue) that admit an InferenceService against a quota. Suspension is all-or-nothing: a single value covers every workload the service manages, including the transformer, explainer and any canaries.  Note: this field is not yet honored by the KServe controller; the reconciliation behavior lands in a follow-up change.  # noqa: E501
+
+        :return: The suspend of this V1beta1InferenceServiceSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._suspend
+
+    @suspend.setter
+    def suspend(self, suspend):
+        """Sets the suspend of this V1beta1InferenceServiceSpec.
+
+        Suspend controls whether KServe creates serving workloads for this InferenceService. When true, the controller does not create child workloads and removes any that already exist. When false or unset, the InferenceService reconciles normally.  This field is the suspension point used by external queueing systems (for example Kueue) that admit an InferenceService against a quota. Suspension is all-or-nothing: a single value covers every workload the service manages, including the transformer, explainer and any canaries.  Note: this field is not yet honored by the KServe controller; the reconciliation behavior lands in a follow-up change.  # noqa: E501
+
+        :param suspend: The suspend of this V1beta1InferenceServiceSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._suspend = suspend
 
     @property
     def tracing(self):
