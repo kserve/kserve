@@ -123,10 +123,10 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 
 	var podSpec corev1.PodSpec
 	var sRuntime v1alpha1.ServingRuntimeSpec
+	var runtimeAnnotations map[string]string
 
 	// If Model is specified, prioritize using that. Otherwise, we will assume a framework object was specified.
 	if isvc.Spec.Predictor.Model != nil {
-		var runtimeAnnotations map[string]string
 		var err error
 		sRuntime, runtimeAnnotations, err = p.reconcileModel(ctx, isvc, multiNodeEnabled)
 		if err != nil {
@@ -153,6 +153,18 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 		containerName := podSpec.Containers[i].Name
 		if err := isvcutils.AddEnvVarToPodSpec(&podSpec, containerName, constants.InferenceServiceNameEnvVarKey, isvc.Name); err != nil {
 			return nil, errors.Wrapf(err, "failed to add INFERENCE_SERVICE_NAME environment variable to container %s", containerName)
+		}
+	}
+
+	if isvc.Spec.Tracing != nil {
+		serverType := runtimeAnnotations[constants.ServerTypeAnnotationKey]
+		if serverType == "" && isvc.Spec.Predictor.Model != nil && isvc.Spec.Predictor.Model.Runtime != nil {
+			serverType = constants.GetServerTypeFromRuntimeName(*isvc.Spec.Predictor.Model.Runtime)
+		}
+		variant := isvc.Spec.Predictor.Name
+
+		for i := range podSpec.Containers {
+			isvcutils.InjectPredictorTracing(isvc.Spec.Tracing, isvc.Namespace, isvc.Name, variant, serverType, &podSpec.Containers[i])
 		}
 	}
 
