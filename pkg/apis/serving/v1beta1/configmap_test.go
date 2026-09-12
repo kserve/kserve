@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -792,4 +793,36 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(cfg.OciModelMode).To(gomega.Equal("fetch"))
 	})
+}
+
+func TestNewIngressConfigLoRAModelRoutingStrategy(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		value   string // omitted from the ingress JSON when empty
+		want    string
+		wantErr string
+	}{
+		{name: "defaults to exact when omitted", want: constants.LoRAModelRoutingStrategyExact},
+		{name: "normalizes case and whitespace", value: " ReGeX ", want: constants.LoRAModelRoutingStrategyRegex},
+		{name: "rejects unsupported values", value: "regexp", wantErr: `loraModelRoutingStrategy must be "exact" or "regex", got "regexp"`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			ingress := `{"ingressGateway": "knative-serving/knative-ingress-gateway"`
+			if tt.value != "" {
+				ingress += `, "loraModelRoutingStrategy": ` + strconv.Quote(tt.value)
+			}
+			ingress += `}`
+
+			cfg, err := NewIngressConfig(&corev1.ConfigMap{Data: map[string]string{IngressConfigKeyName: ingress}})
+
+			if tt.wantErr != "" {
+				g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(tt.wantErr)))
+				g.Expect(cfg).To(gomega.BeNil())
+				return
+			}
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(cfg.LoRAModelRoutingStrategy).To(gomega.Equal(tt.want))
+		})
+	}
 }

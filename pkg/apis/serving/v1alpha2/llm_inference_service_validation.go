@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 
 	"k8s.io/utils/ptr"
 
@@ -35,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/kserve/kserve/pkg/constants"
 	kservevalidation "github.com/kserve/kserve/pkg/validation"
 )
 
@@ -102,6 +104,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
 	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
 	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
+	allErrs = append(allErrs, l.validateLoRAModelRoutingStrategyAnnotation(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
@@ -979,4 +982,32 @@ func validatePositiveIntOrPercent(fldPath *field.Path, val intstr.IntOrString) f
 	}
 
 	return allErrs
+}
+
+// validateLoRAModelRoutingStrategyAnnotation rejects an unusable
+// serving.kserve.io/lora-model-routing-strategy at admission, so a typo fails
+// the apply instead of parking the service in RoutingPreconditionNotMet. The
+// merged spec is re-validated at reconcile, which covers a preset-carried value.
+// Trimmed and case-insensitive, matching the consumer.
+func (l *LLMInferenceServiceValidator) validateLoRAModelRoutingStrategyAnnotation(llmSvc *LLMInferenceService) field.ErrorList {
+	return ValidateLoRAModelRoutingStrategyAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))
+}
+
+// ValidateLoRAModelRoutingStrategyAnnotation is shared with the v1alpha1
+// validator, which keeps its own checklist, so both API versions reject the
+// same values.
+func ValidateLoRAModelRoutingStrategyAnnotation(annotations map[string]string, path *field.Path) field.ErrorList {
+	raw, ok := annotations[constants.LoRAModelRoutingStrategyAnnotationKey]
+	if !ok {
+		return nil
+	}
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", constants.LoRAModelRoutingStrategyExact, constants.LoRAModelRoutingStrategyRegex:
+		return nil
+	}
+	return field.ErrorList{field.NotSupported(
+		path.Key(constants.LoRAModelRoutingStrategyAnnotationKey),
+		raw,
+		[]string{constants.LoRAModelRoutingStrategyExact, constants.LoRAModelRoutingStrategyRegex},
+	)}
 }

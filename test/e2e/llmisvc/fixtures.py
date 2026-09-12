@@ -20,6 +20,7 @@ import re
 import time
 
 import pytest
+from ..common.utils import project_root
 from ..common.gw_api import (
     create_or_update_gateway,
     create_or_update_route,
@@ -315,6 +316,48 @@ def _router_with_gateway_ref(namespace):
     }
 
 
+# Adapter names come from the realistic-v1 fixture the controller's golden test
+# pins, so the two stay name-for-name identical. Every adapter mounts the same
+# PVC, seeded once by ensure_pvc_with_lora_adapter, so N adapters cost one 2 MB
+# download rather than N.
+LORA_ADAPTER_URI = "hf://edbeeching/opt-125m-lora"
+LORA_ADAPTER_RANK = 16  # r in the artifact's adapter_config.json
+LORA_ADAPTER_PVC_NAME = "e2e-lora-adapter"
+LORA_ADAPTER_DOWNLOAD_JOB_NAME = "e2e-lora-adapter-download"
+LORA_REALISTIC_FIXTURE_SIZE = 100
+# The exact strategy routes at most 7 adapters: rule 4 of the shipped router
+# route carries 8 model-routing header matches (4 endpoints, each with and
+# without a trailing slash), expandLoRAAdapterMatches duplicates every one of
+# them per adapter, and Gateway API caps HTTPRouteRule.matches at 64 -
+# 8 * (1 + 7) == 64, and an eighth adapter is rejected at admission.
+LORA_EXACT_STRATEGY_MAX_ADAPTERS = 7
+_LORA_REALISTIC_FIXTURE = (
+    project_root()
+    / "pkg/controller/v1alpha2/llmisvc/testdata/lora-adapter-names-realistic-v1.txt"
+)
+_LORA_REALISTIC_FIXTURE_NAMES = _LORA_REALISTIC_FIXTURE.read_text().split()
+assert len(_LORA_REALISTIC_FIXTURE_NAMES) == LORA_REALISTIC_FIXTURE_SIZE, (
+    f"{_LORA_REALISTIC_FIXTURE} no longer holds {LORA_REALISTIC_FIXTURE_SIZE} names"
+)
+
+# How many of those names the regex-strategy tests deploy, as a prefix of the
+# fixture. This sizes one adapter set and nothing else: the exact strategy keeps
+# its own two-adapter set whatever this is, so no value here can cost a run its
+# exact coverage. The default is past LORA_EXACT_STRATEGY_MAX_ADAPTERS with room
+# for the route preset to grow a fifth endpoint pair, so a stock run still shows
+# regex carrying a set Exact cannot, and small enough to warm up on a two-core
+# CI runner. Values at or below the ceiling are allowed on purpose - probing
+# where the budget actually binds is the point of the knob. Empty reads as
+# unset, so `export E2E_LORA_ADAPTER_COUNT=` gets the default, not a traceback.
+LORA_ADAPTER_COUNT = int(os.environ.get("E2E_LORA_ADAPTER_COUNT") or "12")
+if not 1 <= LORA_ADAPTER_COUNT <= LORA_REALISTIC_FIXTURE_SIZE:
+    raise ValueError(
+        f"E2E_LORA_ADAPTER_COUNT={LORA_ADAPTER_COUNT} outside "
+        f"[1, {LORA_REALISTIC_FIXTURE_SIZE}]: {_LORA_REALISTIC_FIXTURE.name} "
+        f"holds {LORA_REALISTIC_FIXTURE_SIZE} pinned names"
+    )
+LORA_REALISTIC_ADAPTER_NAMES = _LORA_REALISTIC_FIXTURE_NAMES[:LORA_ADAPTER_COUNT]
+
 LLMINFERENCESERVICE_CONFIGS = {
     "workload-single-cpu": {
         "template": {
@@ -460,9 +503,54 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "uri": "hf://edbeeching/opt-125m-lora",
                     },
                 ],
-                "maxRank": 64,
+                "maxRank": LORA_ADAPTER_RANK,
                 "maxAdapters": 2,
                 "maxCpuAdapters": 4,
+            },
+        },
+    },
+    # Adapters with OpenAI-model-identifier-style served names (org prefix,
+    # dots). These exercise regex escaping in the generated HTTPRoute match and
+    # the served-name sanitization in workload naming. maxAdapters covers both
+    # registered forms per adapter (short name + publishers/<ns>/models/ alias).
+    "model-fb-opt-125m-with-lora-adversarial-names": {
+        "model": {
+            "uri": OPT_125M_MODEL_URI,
+            "name": "facebook/opt-125m",
+            "lora": {
+                "adapters": [
+                    {
+                        "name": "acme/billing-summarize-en-v1.r16",
+                        "uri": "hf://edbeeching/opt-125m-lora",
+                    },
+                    {
+                        "name": "support-triage-de-v2",
+                        "uri": "hf://edbeeching/opt-125m-lora",
+                    },
+                ],
+                "maxRank": LORA_ADAPTER_RANK,
+                "maxAdapters": 4,
+                "maxCpuAdapters": 8,
+            },
+        },
+    },
+    # Past the exact strategy's per-rule match budget, so only the regex strategy
+    # can route this set - see LORA_EXACT_STRATEGY_MAX_ADAPTERS for the ceiling
+    # and LORA_ADAPTER_COUNT for how many are used. maxAdapters is 2N because the
+    # controller registers each adapter under its short name and its publisher
+    # identity. Requires ensure_pvc_with_lora_adapter in the service's namespace.
+    "model-fb-opt-125m-with-lora-realistic": {
+        "model": {
+            "uri": OPT_125M_MODEL_URI,
+            "name": "facebook/opt-125m",
+            "lora": {
+                "adapters": [
+                    {"name": name, "uri": f"pvc://{LORA_ADAPTER_PVC_NAME}"}
+                    for name in LORA_REALISTIC_ADAPTER_NAMES
+                ],
+                "maxRank": LORA_ADAPTER_RANK,
+                "maxAdapters": 2 * len(LORA_REALISTIC_ADAPTER_NAMES),
+                "maxCpuAdapters": 2 * len(LORA_REALISTIC_ADAPTER_NAMES),
             },
         },
     },
@@ -2387,6 +2475,19 @@ def delete_model_download_job(
     except client.rest.ApiException as e:
         if e.status != 404:
             raise
+
+
+def ensure_pvc_with_lora_adapter(namespace):
+    """Seed one LoRA artifact into a PVC that any number of adapters mount by name."""
+    inject_k8s_proxy()
+    create_pvc(LORA_ADAPTER_PVC_NAME, namespace=namespace, storage="1Gi")
+    create_model_download_job(
+        LORA_ADAPTER_DOWNLOAD_JOB_NAME,
+        LORA_ADAPTER_PVC_NAME,
+        namespace=namespace,
+        model_uri=LORA_ADAPTER_URI,
+    )
+    wait_for_job_completion(LORA_ADAPTER_DOWNLOAD_JOB_NAME, namespace=namespace)
 
 
 def ensure_pvc_with_model(namespace):

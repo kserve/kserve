@@ -964,3 +964,15 @@ func GetRouterReadinessProbe() *corev1.Probe {
 	}
 	return probe
 }
+
+// LoRAModelRoutingStrategyAnnotationKey pins the LoRA routing strategy for one
+// LLMInferenceService, overriding the cluster-wide loraModelRoutingStrategy.
+// Set on spec.annotations, so a preset can carry it.
+const LoRAModelRoutingStrategyAnnotationKey = KServeAPIGroupName + "/lora-model-routing-strategy"
+
+// Values accepted by the loraModelRoutingStrategy ConfigMap key and the
+// LoRAModelRoutingStrategyAnnotationKey annotation; compared case-insensitively.
+const (
+	LoRAModelRoutingStrategyExact = "exact"
+	LoRAModelRoutingStrategyRegex = "regex"
+)
