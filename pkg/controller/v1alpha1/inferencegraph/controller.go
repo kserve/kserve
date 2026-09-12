@@ -323,6 +323,9 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 }
 
 func (r *InferenceGraphReconciler) updateStatus(ctx context.Context, desiredGraph *v1alpha1.InferenceGraph) error {
+	// Record the generation the controller has observed. This must use the
+	// InferenceGraph's own metadata.Generation, not a child object's counter.
+	desiredGraph.Status.ObservedGeneration = desiredGraph.Generation
 	graph := &v1alpha1.InferenceGraph{}
 	namespacedName := types.NamespacedName{Name: desiredGraph.Name, Namespace: desiredGraph.Namespace}
 	if err := r.Get(ctx, namespacedName, graph); err != nil {

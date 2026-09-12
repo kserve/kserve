@@ -422,6 +422,9 @@ func (r *InferenceServiceReconciler) updateStatus(ctx context.Context, desiredSe
 ) error {
 	// set the DeploymentMode used for the InferenceService in the status
 	desiredService.Status.DeploymentMode = string(deploymentMode)
+	// Record the generation the controller has observed. This must use the
+	// InferenceService's own metadata.Generation, not a child object's counter.
+	desiredService.Status.ObservedGeneration = desiredService.Generation
 
 	existingService := &v1beta1.InferenceService{}
 	namespacedName := types.NamespacedName{Name: desiredService.Name, Namespace: desiredService.Namespace}
