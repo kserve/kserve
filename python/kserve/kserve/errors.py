@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from http import HTTPStatus
-from .logging import logger
+from .log_config import logger
 from fastapi.responses import JSONResponse
 
 

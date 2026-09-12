@@ -21,7 +21,7 @@ from kserve.protocol.rest.timeseries.types import (
     ErrorResponse,
 )
 
-from kserve.logging import logger
+from kserve.log_config import logger
 
 
 class TimeSeriesEndpoints:

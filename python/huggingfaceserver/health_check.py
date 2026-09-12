@@ -19,7 +19,7 @@ import os
 
 import ray
 import requests
-from kserve.logging import logger
+from kserve.log_config import logger
 
 
 def initialize_ray_cluster(ray_address="auto"):

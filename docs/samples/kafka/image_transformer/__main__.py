@@ -14,7 +14,7 @@
 import kserve
 import argparse
 
-from kserve import logging
+from kserve import log_config
 from .image_transformer import ImageTransformer
 
 DEFAULT_MODEL_NAME = "model"
@@ -33,7 +33,7 @@ args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     if args.configure_logging:
-        logging.configure_logging(args.log_config_file)
+        log_config.configure_logging(args.log_config_file)
     transformer = ImageTransformer(args.model_name, predictor_host=args.predictor_host)
     server = kserve.ModelServer()
     server.start(models=[transformer])

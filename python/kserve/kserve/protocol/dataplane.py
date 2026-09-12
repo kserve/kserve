@@ -28,7 +28,7 @@ from ..constants import constants
 from ..constants.constants import INFERENCE_CONTENT_LENGTH_HEADER, PredictorProtocol
 from ..errors import InvalidInput, ModelNotFound
 from ..inference_client import RESTConfig
-from ..logging import logger
+from ..log_config import logger
 from ..model import BaseKServeModel, InferenceModel, InferenceVerb
 from ..predictor_config import PredictorConfig
 from ..model_repository import ModelRepository

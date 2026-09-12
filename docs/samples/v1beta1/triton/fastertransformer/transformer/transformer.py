@@ -4,7 +4,7 @@ from uuid import uuid4
 from typing import Dict, List, Union
 
 import kserve
-from kserve import logging
+from kserve import log_config
 from kserve.protocol.infer_type import (
     InferInput,
     InferOutput,
@@ -12,7 +12,7 @@ from kserve.protocol.infer_type import (
     InferResponse,
 )
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
-from kserve.logging import logger
+from kserve.log_config import logger
 import numpy as np
 from transformers import AutoTokenizer
 from pydantic import BaseModel
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     )
     args, _ = parser.parse_known_args()
     if args.configure_logging:
-        logging.configure_logging(args.log_config_file)
+        log_config.configure_logging(args.log_config_file)
 
     transformer = Transformer(
         name=args.model_name,

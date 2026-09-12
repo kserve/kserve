@@ -22,7 +22,7 @@ from orjson import orjson
 
 from .constants.constants import PredictorProtocol, INFERENCE_CONTENT_LENGTH_HEADER
 from .errors import UnsupportedProtocol, InvalidInput
-from .logging import trace_logger as logger
+from .log_config import trace_logger as logger
 from .protocol.grpc.grpc_predict_v2_pb2 import (
     ServerReadyResponse,
     ServerLiveResponse,

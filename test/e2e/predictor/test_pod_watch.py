@@ -31,7 +31,7 @@ from kserve import (
     V1beta1SKLearnSpec,
     constants,
 )
-from kserve.logging import trace_logger as logger
+from kserve.log_config import trace_logger as logger
 
 from ..common.utils import KSERVE_TEST_NAMESPACE
 

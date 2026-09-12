@@ -14,12 +14,12 @@
 
 import argparse
 
-from kserve import logging
+from kserve import log_config
 from sklearnserver import SKLearnModel, SKLearnModelRepository
 
 import kserve
 from kserve.errors import ModelMissingError
-from kserve.logging import logger
+from kserve.log_config import logger
 
 parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 parser.add_argument(
@@ -29,7 +29,7 @@ args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     if args.configure_logging:
-        logging.configure_logging(args.log_config_file)
+        log_config.configure_logging(args.log_config_file)
     model = SKLearnModel(args.model_name, args.model_dir)
     try:
         model.load()

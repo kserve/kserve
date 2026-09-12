@@ -14,13 +14,13 @@
 
 import argparse
 
-from kserve import logging
+from kserve import log_config
 from lgbserver.lightgbm_model_repository import LightGBMModelRepository
 from lgbserver.model import LightGBMModel
 
 import kserve
 from kserve.errors import ModelMissingError
-from kserve.logging import logger
+from kserve.log_config import logger
 
 DEFAULT_NTHREAD = 1
 
@@ -38,7 +38,7 @@ args, _ = parser.parse_known_args()
 
 if __name__ == "__main__":
     if args.configure_logging:
-        logging.configure_logging(args.log_config_file)
+        log_config.configure_logging(args.log_config_file)
     model = LightGBMModel(args.model_name, args.model_dir, args.nthread)
     try:
         model.load()

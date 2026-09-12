@@ -28,7 +28,7 @@ from ...errors import (
     ServerNotReady,
     ServerNotLive,
 )
-from ...logging import logger
+from ...log_config import logger
 
 
 class LoggingInterceptor(ServerInterceptor):
