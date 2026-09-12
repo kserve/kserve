@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -41,12 +42,24 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
+// webhookNotReadyRequeueInterval is the requeue delay used when IsWebhookReady
+// reports the webhook server has not started yet.
+const webhookNotReadyRequeueInterval = 2 * time.Second
+
 // LLMISVCConfigReconciler reconciles LLMInferenceServiceConfig objects.
 // It manages a finalizer to prevent deletion of configs that are still
 // referenced by LLMInferenceService instances via spec.baseRefs or status.annotations.
 type LLMISVCConfigReconciler struct {
 	client.Client
 	record.EventRecorder
+
+	// IsWebhookReady reports whether the manager's webhook server has started.
+	// Reconcile requeues until it returns nil, since the finalizer Update() calls
+	// below are intercepted by a validating webhook that must be listening.
+	// Callers must always set this (e.g. wired from
+	// mgr.GetWebhookServer().StartedChecker()) — there is no nil-disables-gate
+	// fallback, since a webhook server is always present in production.
+	IsWebhookReady func() error
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceserviceconfigs,verbs=get;list;watch;update;patch
@@ -62,6 +75,11 @@ func (r *LLMISVCConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	logger := log.FromContext(ctx).WithName("LLMInferenceServiceConfig").
 		WithValues("Namespace", req.Namespace, "Name", req.Name)
 	ctx = log.IntoContext(ctx, logger)
+
+	if err := r.IsWebhookReady(); err != nil {
+		logger.V(1).Info("Webhook server not ready yet, requeueing", "reason", err.Error())
+		return ctrl.Result{RequeueAfter: webhookNotReadyRequeueInterval}, nil
+	}
 
 	original := &v1alpha2.LLMInferenceServiceConfig{}
 	if err := r.Get(ctx, req.NamespacedName, original); err != nil {
