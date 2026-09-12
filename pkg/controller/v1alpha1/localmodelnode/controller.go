@@ -55,6 +55,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/kserve/kserve/pkg/credentials/s3"
 	pkgtypes "github.com/kserve/kserve/pkg/types"
 )
 
@@ -75,6 +76,7 @@ type LocalModelNodeReconciler struct {
 const (
 	DownloadContainerName = "kserve-localmodel-download"
 	PvcSourceMountName    = "kserve-pvc-source"
+	CaBundleVolumeName    = "cabundle-cert"
 )
 
 var (
@@ -178,6 +180,9 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 		}
 	}
 
+	// Mount CA bundle ConfigMap as volume if AWS_CA_BUNDLE_CONFIGMAP env was injected
+	c.mountCaBundleVolume(container, &volumes)
+
 	// Note: statusKey (namespace/modelName) cannot be used as a label value since labels
 	// cannot contain '/'. We store namespace separately and reconstruct statusKey when needed.
 	jobLabels := map[string]string{
@@ -259,8 +264,8 @@ func (c *LocalModelNodeReconciler) injectCredentials(ctx context.Context, contai
 			params = *modelInfo.Storage.Parameters
 		}
 		c.Log.Info("Injecting storage spec credentials", "storageKey", *modelInfo.Storage.StorageKey)
-		return c.CredentialBuilder.CreateStorageSpecSecretEnvs(
-			ctx, jobNs, nil, *modelInfo.Storage.StorageKey, params, container)
+		return c.CredentialBuilder.CreateStorageSpecSecretEnvsWithSecretFallback(
+			ctx, jobNs, nil, *modelInfo.Storage.StorageKey, params, container, volumes)
 	}
 
 	// Use service account credentials
@@ -271,6 +276,66 @@ func (c *LocalModelNodeReconciler) injectCredentials(ctx context.Context, contai
 	c.Log.Info("Injecting service account credentials", "serviceAccountName", serviceAccountName)
 	return c.CredentialBuilder.CreateSecretVolumeAndEnv(
 		ctx, jobNs, nil, serviceAccountName, container, volumes)
+}
+
+// mountCaBundleVolume checks if the container has AWS_CA_BUNDLE_CONFIGMAP env var set and,
+// if so, mounts the referenced ConfigMap as a volume so the storage initializer can read the
+// CA certificates. This mirrors the behavior of the storage-initializer webhook injector.
+func (c *LocalModelNodeReconciler) mountCaBundleVolume(container *corev1.Container, volumes *[]corev1.Volume) {
+	var caBundleConfigMapName string
+	for _, envVar := range container.Env {
+		if envVar.Name == s3.AWSCABundleConfigMap {
+			caBundleConfigMapName = envVar.Value
+			break
+		}
+	}
+	if caBundleConfigMapName == "" {
+		return
+	}
+
+	mountPath := constants.DefaultCaBundleVolumeMountPath
+
+	caBundleVolume := corev1.Volume{
+		Name: CaBundleVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: caBundleConfigMapName,
+				},
+			},
+		},
+	}
+	caBundleVolumeMount := corev1.VolumeMount{
+		Name:      CaBundleVolumeName,
+		MountPath: mountPath,
+		ReadOnly:  true,
+	}
+
+	*volumes = append(*volumes, caBundleVolume)
+	container.VolumeMounts = append(container.VolumeMounts, caBundleVolumeMount)
+
+	if !envVarExists(container.Env, constants.CaBundleConfigMapNameEnvVarKey) {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  constants.CaBundleConfigMapNameEnvVarKey,
+			Value: caBundleConfigMapName,
+		})
+	}
+	if !envVarExists(container.Env, constants.CaBundleVolumeMountPathEnvVarKey) {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  constants.CaBundleVolumeMountPathEnvVarKey,
+			Value: mountPath,
+		})
+	}
+	c.Log.Info("Mounted CA bundle ConfigMap volume", "configMap", caBundleConfigMapName, "mountPath", mountPath)
+}
+
+func envVarExists(envs []corev1.EnvVar, name string) bool {
+	for _, e := range envs {
+		if e.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 // Fetches container spec for model download container, use the default KServe image if not found
