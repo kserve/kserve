@@ -1,4 +1,6 @@
-# This patch enables Prometheus scraping for the manager pod.
+# This patch exposes manager metrics directly over unauthenticated HTTP.
+# It is mutually exclusive with manager_auth_proxy_patch.yaml and does not
+# configure controller-runtime SecureServing.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
