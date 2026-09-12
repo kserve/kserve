@@ -19,7 +19,7 @@ readme = "README.md"
 
 [tool.uv]
 override-dependencies = [
-    "aiohttp>=3.13.4", # CVE-2026-34520
+    "aiohttp>=3.14.3", # CVE-2026-69244
     "h11>=0.16.0", # CVE-2025-43859
     "cryptography>=48.0.1", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36
     "python-multipart>=0.0.27", # CVE-2026-42561
