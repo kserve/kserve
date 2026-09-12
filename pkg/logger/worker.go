@@ -59,6 +59,7 @@ var WorkQueue = make(chan LogRequest, LoggerWorkerQueueSize)
 
 func QueueLogRequest(req LogRequest) error {
 	WorkQueue <- req
+	WorkQueueDepth.Set(float64(len(WorkQueue)))
 	return nil
 }
 
@@ -150,18 +151,28 @@ func (w *Worker) sendHttpCloudEvent(logReq LogRequest) error {
 		return fmt.Errorf("while setting cloudevents data: %w", err)
 	}
 	ceCtx := cloudevents.WithEncodingBinary(context.Background())
+	sendStart := time.Now()
 	res := c.Send(ceCtx, event)
+	DeliveryDuration.WithLabelValues(logReq.ReqType).Observe(time.Since(sendStart).Seconds())
 	if cloudevents.IsUndelivered(res) {
+		EventsFailedTotal.WithLabelValues(logReq.ReqType).Inc()
 		return fmt.Errorf("while sending event: %w", res)
 	} else {
 		var httpResult *cehttp.Result
 		if cloudevents.ResultAs(res, &httpResult) {
 			var err error
-			if httpResult.StatusCode != http.StatusOK {
+			// Knative's broker ingress (the log sink in every real deployment
+			// of this) responds 202 Accepted, not 200 -- treat the whole 2xx
+			// range as success, not just an exact match on 200.
+			if httpResult.StatusCode < 200 || httpResult.StatusCode >= 300 {
 				err = fmt.Errorf(httpResult.Format, httpResult.Args...)
+				EventsFailedTotal.WithLabelValues(logReq.ReqType).Inc()
+			} else {
+				EventsSentTotal.WithLabelValues(logReq.ReqType).Inc()
 			}
 			w.Log.Infof("Sent with status code %d, error: %v", httpResult.StatusCode, err)
 		} else {
+			EventsFailedTotal.WithLabelValues(logReq.ReqType).Inc()
 			w.Log.Infof("Send did not return an HTTP response: %s", res)
 		}
 	}
