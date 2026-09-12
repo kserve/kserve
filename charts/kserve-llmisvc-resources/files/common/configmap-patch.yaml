@@ -88,6 +88,27 @@ data:
         "disableIstioVirtualHost": {{ .Values.kserve.controller.gateway.disableIstioVirtualHost }},
         "disableIngressCreation": {{ .Values.kserve.controller.gateway.disableIngressCreation }},
         "disableHTTPRouteTimeout": {{ .Values.kserve.controller.gateway.disableHTTPRouteTimeout }}
+        {{- $rd := .Values.kserve.controller.gateway.rawDeployment -}}
+        {{- if and $rd (or $rd.gatewayListenerName $rd.pathMatchType $rd.pathRewriteTarget $rd.disableHostBasedRouting (and $rd.routeLabels (not (eq (len $rd.routeLabels) 0))) $rd.requestTimeout $rd.backendRequestTimeout $rd.disableHTTPRouteTimeout) }},
+        "rawDeployment": {
+            "gatewayListenerName": "{{ $rd.gatewayListenerName }}",
+            "pathMatchType": "{{ $rd.pathMatchType }}",
+            "pathRewriteTarget": "{{ $rd.pathRewriteTarget }}",
+            "disableHostBasedRouting": {{ $rd.disableHostBasedRouting | default false }},
+            "routeLabels": {
+                {{- $labels := $rd.routeLabels }}
+                {{- $i := 0 }}
+                {{- range $key, $value := $labels }}
+                {{- if $i }},{{ end }}
+                {{ $key | quote }}: {{ $value | quote }}
+                {{- $i = 1 }}
+                {{- end }}
+            },
+            "requestTimeout": "{{ $rd.requestTimeout }}",
+            "backendRequestTimeout": "{{ $rd.backendRequestTimeout }}",
+            "disableHTTPRouteTimeout": {{ $rd.disableHTTPRouteTimeout | default false }}
+        }
+        {{- end }}
     }
   logger: |-
     {

@@ -64,6 +64,7 @@ class V1beta1IngressConfig(object):
         'model_based_routing_header_name': 'str',
         'model_based_routing_mode': 'str',
         'path_template': 'str',
+        'raw_deployment': 'V1beta1RawDeploymentIngressConfig',
         'url_scheme': 'str'
     }
 
@@ -85,10 +86,11 @@ class V1beta1IngressConfig(object):
         'model_based_routing_header_name': 'modelBasedRoutingHeaderName',
         'model_based_routing_mode': 'modelBasedRoutingMode',
         'path_template': 'pathTemplate',
+        'raw_deployment': 'rawDeployment',
         'url_scheme': 'urlScheme'
     }
 
-    def __init__(self, additional_ingress_domains=None, disable_http_route_timeout=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, enable_llm_inference_service_tls=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, local_gateway=None, local_gateway_service=None, model_based_routing_header_name=None, model_based_routing_mode=None, path_template=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, additional_ingress_domains=None, disable_http_route_timeout=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, enable_llm_inference_service_tls=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, local_gateway=None, local_gateway_service=None, model_based_routing_header_name=None, model_based_routing_mode=None, path_template=None, raw_deployment=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1IngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -111,6 +113,7 @@ class V1beta1IngressConfig(object):
         self._model_based_routing_header_name = None
         self._model_based_routing_mode = None
         self._path_template = None
+        self._raw_deployment = None
         self._url_scheme = None
         self.discriminator = None
 
@@ -148,6 +151,8 @@ class V1beta1IngressConfig(object):
             self.model_based_routing_mode = model_based_routing_mode
         if path_template is not None:
             self.path_template = path_template
+        if raw_deployment is not None:
+            self.raw_deployment = raw_deployment
         if url_scheme is not None:
             self.url_scheme = url_scheme
 
@@ -176,6 +181,7 @@ class V1beta1IngressConfig(object):
     def disable_http_route_timeout(self):
         """Gets the disable_http_route_timeout of this V1beta1IngressConfig.  # noqa: E501
 
+        Deprecated: use rawDeployment.disableHTTPRouteTimeout instead. Kept for backward compatibility in current (0.18) and near-future versions. Will be removed in a future version; users should migrate before that. At runtime, whichever field is true will disable the timeout (OR logic).  # noqa: E501
 
         :return: The disable_http_route_timeout of this V1beta1IngressConfig.  # noqa: E501
         :rtype: bool
@@ -186,6 +192,7 @@ class V1beta1IngressConfig(object):
     def disable_http_route_timeout(self, disable_http_route_timeout):
         """Sets the disable_http_route_timeout of this V1beta1IngressConfig.
 
+        Deprecated: use rawDeployment.disableHTTPRouteTimeout instead. Kept for backward compatibility in current (0.18) and near-future versions. Will be removed in a future version; users should migrate before that. At runtime, whichever field is true will disable the timeout (OR logic).  # noqa: E501
 
         :param disable_http_route_timeout: The disable_http_route_timeout of this V1beta1IngressConfig.  # noqa: E501
         :type: bool
@@ -507,6 +514,27 @@ class V1beta1IngressConfig(object):
         """
 
         self._path_template = path_template
+
+    @property
+    def raw_deployment(self):
+        """Gets the raw_deployment of this V1beta1IngressConfig.  # noqa: E501
+
+
+        :return: The raw_deployment of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: V1beta1RawDeploymentIngressConfig
+        """
+        return self._raw_deployment
+
+    @raw_deployment.setter
+    def raw_deployment(self, raw_deployment):
+        """Sets the raw_deployment of this V1beta1IngressConfig.
+
+
+        :param raw_deployment: The raw_deployment of this V1beta1IngressConfig.  # noqa: E501
+        :type: V1beta1RawDeploymentIngressConfig
+        """
+
+        self._raw_deployment = raw_deployment
 
     @property
     def url_scheme(self):

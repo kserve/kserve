@@ -86,7 +86,17 @@ kserve:
       urlScheme: http
       disableIstioVirtualHost: false
       disableIngressCreation: false
+      # Deprecated: use rawDeployment.disableHTTPRouteTimeout instead. Kept for backward compatibility.
       disableHTTPRouteTimeout: false
+      rawDeployment:
+        gatewayListenerName: ''
+        pathMatchType: ''
+        pathRewriteTarget: ''
+        disableHostBasedRouting: false
+        routeLabels: {}
+        requestTimeout: ''
+        backendRequestTimeout: ''
+        disableHTTPRouteTimeout: false
       localGateway:
         gateway: knative-serving/knative-local-gateway
         gatewayService: knative-local-gateway.istio-system.svc.cluster.local

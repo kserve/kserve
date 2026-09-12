@@ -4,7 +4,7 @@
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **additional_ingress_domains** | **list[str]** |  | [optional] 
-**disable_http_route_timeout** | **bool** |  | [optional] 
+**disable_http_route_timeout** | **bool** | Deprecated: use rawDeployment.disableHTTPRouteTimeout instead. Kept for backward compatibility in current (0.18) and near-future versions. Will be removed in a future version; users should migrate before that. At runtime, whichever field is true will disable the timeout (OR logic). | [optional] 
 **disable_ingress_creation** | **bool** |  | [optional] 
 **disable_istio_virtual_host** | **bool** |  | [optional] 
 **domain_template** | **str** |  | [optional] 
@@ -20,6 +20,7 @@ Name | Type | Description | Notes
 **model_based_routing_header_name** | **str** |  | [optional] 
 **model_based_routing_mode** | **str** |  | [optional] 
 **path_template** | **str** |  | [optional] 
+**raw_deployment** | [**V1beta1RawDeploymentIngressConfig**](V1beta1RawDeploymentIngressConfig.md) |  | [optional] 
 **url_scheme** | **str** |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
