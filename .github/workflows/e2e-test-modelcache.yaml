@@ -418,16 +418,20 @@ jobs:
         run: |
           kubectl create ns kserve-localmodel-jobs
 
+      - name: Setup RWX storage (csi-driver-nfs) for shared-PVC modelcache
+        run: |
+          ./test/scripts/gh-actions/setup-nfs-csi.sh
+
       - name: Label worker nodes for modelcache
         run: |
           kubectl label nodes -l '!node-role.kubernetes.io/control-plane' kserve/localmodel=worker
 
-      - name: Enable nodeselector in knative
+      - name: Enable pod scheduling features in knative
         run: |
-          kubectl patch configmaps -n knative-serving config-features --patch '{"data": {"kubernetes.podspec-nodeselector": "enabled"}}'
+          kubectl patch configmaps -n knative-serving config-features --patch '{"data": {"kubernetes.podspec-nodeselector": "enabled", "kubernetes.podspec-affinity": "enabled"}}'
 
       - name: Run E2E tests
-        timeout-minutes: 15
+        timeout-minutes: 25
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "modelcache" "1"
 

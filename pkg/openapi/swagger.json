@@ -671,12 +671,11 @@
       }
     },
     "v1alpha1.LocalModelNamespaceCacheSpec": {
-      "description": "LocalModelNamespaceCacheSpec defines the spec for namespace-scoped local model cache",
+      "description": "LocalModelNamespaceCacheSpec defines the spec for namespace-scoped local model cache.\n\nExactly one storage mode must be selected: either node-local caching via nodeGroups, or shared-PVC import via pvcRef. The two are mutually exclusive.",
       "type": "object",
       "required": [
         "sourceModelUri",
-        "modelSize",
-        "nodeGroups"
+        "modelSize"
       ],
       "properties": {
         "modelSize": {
@@ -684,12 +683,16 @@
           "$ref": "#/definitions/resource.Quantity"
         },
         "nodeGroups": {
-          "description": "group of nodes to cache the model on.",
+          "description": "group of nodes to cache the model on. Selects the legacy node-local caching mode. Mutually exclusive with pvcRef.",
           "type": "array",
           "items": {
             "type": "string",
             "default": ""
           }
+        },
+        "pvcRef": {
+          "description": "PVCRef is the name of a pre-created PersistentVolumeClaim in the cache CR's namespace. Selects shared-PVC import mode: the model is imported once onto the referenced claim and shared read-only by serving replicas. The claim must be ReadWriteMany with filesystem volume mode. It is immutable; changing the destination requires a new cache CR. Mutually exclusive with nodeGroups.",
+          "type": "string"
         },
         "serviceAccountName": {
           "description": "ServiceAccountName specifies the service account to use for credential lookup.",
