@@ -1359,6 +1359,23 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectResourceToExist(context.Background(), &corev1.Service{}, graphServiceKey)
 				expectIGToExist(context.Background(), graphServiceKey)
 
+				// The graph's deployment and service must be owned by the InferenceGraph so
+				// they are garbage-collected with it (guards the inference-graph caller
+				// passing the owner into RawKubeReconciler.Reconcile).
+				rawDeployment := &appsv1.Deployment{}
+				Expect(k8sClient.Get(context.Background(), graphServiceKey, rawDeployment)).To(Succeed())
+				depRef := metav1.GetControllerOf(rawDeployment)
+				Expect(depRef).NotTo(BeNil(), "graph deployment has no controller owner reference (orphaned)")
+				Expect(depRef.Kind).To(Equal("InferenceGraph"))
+				Expect(depRef.Name).To(Equal(graphServiceKey.Name))
+
+				rawService := &corev1.Service{}
+				Expect(k8sClient.Get(context.Background(), graphServiceKey, rawService)).To(Succeed())
+				svcRef := metav1.GetControllerOf(rawService)
+				Expect(svcRef).NotTo(BeNil(), "graph service has no controller owner reference (orphaned)")
+				Expect(svcRef.Kind).To(Equal("InferenceGraph"))
+				Expect(svcRef.Name).To(Equal(graphServiceKey.Name))
+
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
 			})
 

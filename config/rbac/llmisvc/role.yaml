@@ -253,6 +253,17 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - clusterservingruntimes
+  - localmodelcaches
+  - localmodelnamespacecaches
+  - servingruntimes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
   - llminferenceserviceconfigs
   - llminferenceservices
   verbs:

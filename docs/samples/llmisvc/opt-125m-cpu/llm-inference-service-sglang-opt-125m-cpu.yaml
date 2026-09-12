@@ -1,0 +1,30 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: sglang-opt-125m-cpu
+spec:
+  # References the kserve-llm-sglang ClusterServingRuntime for its container
+  # spec. The runtime pins the default CUDA image; the CPU-only image is
+  # substituted below via spec.template so this sample runs without a GPU.
+  runtime: kserve-llm-sglang
+  model:
+    uri: hf://facebook/opt-125m
+    name: facebook/opt-125m
+  replicas: 1
+  router:
+    scheduler: {}
+    route: {}
+    gateway: {}
+  template:
+    containers:
+      - name: main
+        # CPU-only SGLang build (~1.3 GB) — much smaller than the default
+        # CUDA image and does not require an NVIDIA GPU.
+        image: lmsysorg/sglang:v0.5.13-xeon
+        resources:
+          limits:
+            cpu: '4'
+            memory: 16Gi
+          requests:
+            cpu: '1'
+            memory: 8Gi

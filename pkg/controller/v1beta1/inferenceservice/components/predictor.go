@@ -30,9 +30,9 @@ import (
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
@@ -227,13 +227,30 @@ func (p *Predictor) Reconcile(ctx context.Context, isvc *v1beta1.InferenceServic
 		// Reconcile canary first so CanaryStatuses is fresh when the stable
 		// minReplicas reduction decision is made below. This ensures the
 		// stable Deployment is not scaled down until canary pods are Ready.
-		if err := p.reconcileCanaryDeployments(ctx, isvc); err != nil {
+		expectedNames, err := p.reconcileCanaryDeployments(ctx, isvc)
+		if err != nil {
 			return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile canary deployments")
 		}
 		// This is main RawKubeReconciler to create objects (deployment, svc, scaler)
-		if err := p.reconcileRawDeployment(ctx, isvc, objectMeta, workerObjectMeta, &podSpec, workerPodSpec); err != nil {
+		r, err := p.reconcileRawDeployment(ctx, isvc, objectMeta, workerObjectMeta, &podSpec, workerPodSpec)
+		if err != nil {
 			isvc.Status.PropagateRawStatusWithMessages(v1beta1.PredictorComponent, "ReconcileFailed", err.Error(), corev1.ConditionFalse)
 			return ctrl.Result{}, err
+		}
+		// Clean up orphaned resources (deployments, services, HPAs, OTel collectors)
+		// whose names no longer match expected stable + canary deployment names.
+		if expectedNames != nil {
+			scope := isvcutils.OrphanScope{
+				Namespace: isvc.Namespace,
+				Labels: client.MatchingLabels{
+					constants.InferenceServicePodLabelKey: isvc.Name,
+					constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
+				},
+				RetainNames: expectedNames,
+			}
+			if err := r.CleanupOrphans(ctx, scope); err != nil {
+				return ctrl.Result{}, errors.Wrapf(err, "fails to clean up orphaned predictor resources")
+			}
 		}
 	} else {
 		var err error
@@ -767,15 +784,15 @@ func computeMpNodeAndGPUs(pipelineParallelSize, tensorParallelSize int) (int, in
 	return nodeCount, gpuPerNode, gpuPerNode
 }
 
-func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta, workerObjectMeta metav1.ObjectMeta, podSpec, workerPodSpec *corev1.PodSpec) error {
+func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta, workerObjectMeta metav1.ObjectMeta, podSpec, workerPodSpec *corev1.PodSpec) (*raw.RawKubeReconciler, error) {
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, p.clientset)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get InferenceService ConfigMap")
+		return nil, errors.Wrapf(err, "failed to get InferenceService ConfigMap")
 	}
 
 	storageInitializerConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
 	if err != nil {
-		return errors.Wrapf(err, "failed to get StorageInitializer config")
+		return nil, errors.Wrapf(err, "failed to get StorageInitializer config")
 	}
 
 	modelStorageSpec := isvc.Spec.Predictor.GetImplementation().GetStorageSpec()
@@ -785,7 +802,7 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 	if len(isvc.Spec.Predictor.StorageUris) > 0 {
 		storageContainerSpec, err = pod.GetStorageContainerSpec(ctx, isvc.Spec.Predictor.StorageUris[0].Uri, isvc.Spec.Predictor.StorageContainerName, p.client)
 		if err != nil {
-			return errors.Wrapf(err, "failed to get storage container spec")
+			return nil, errors.Wrapf(err, "failed to get storage container spec")
 		}
 	}
 
@@ -800,19 +817,19 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 	r, err := raw.NewRawKubeReconciler(ctx, p.client, p.clientset, p.scheme, objectMeta, workerObjectMeta, &componentExt,
 		podSpec, workerPodSpec, &isvc.Spec.Predictor.StorageUris, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec)
 	if err != nil {
-		return errors.Wrapf(err, "fails to create NewRawKubeReconciler for predictor")
+		return nil, errors.Wrapf(err, "fails to create NewRawKubeReconciler for predictor")
 	}
 
 	deploymentList, err := r.Reconcile(ctx, isvc)
 	if err != nil {
-		return errors.Wrapf(err, "fails to reconcile predictor")
+		return nil, errors.Wrapf(err, "fails to reconcile predictor")
 	}
 
 	if !utils.GetForceStopRuntime(isvc) {
 		isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)
 	}
 
-	return nil
+	return r, nil
 }
 
 func (p *Predictor) reconcileKnativeDeployment(ctx context.Context, isvc *v1beta1.InferenceService, objectMeta *metav1.ObjectMeta, podSpec *corev1.PodSpec) (*knservingv1.ServiceStatus, error) {
@@ -915,28 +932,39 @@ func buildCanaryPredictor(stable v1beta1.PredictorSpec, canary v1beta1.CanarySpe
 	return canaryPredictor, nil
 }
 
-func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta1.InferenceService) error {
+func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta1.InferenceService) (sets.Set[string], error) {
 	stableName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
-	expectedNames := map[string]bool{stableName: true}
+	expectedNames := sets.New(stableName)
+
+	// Add stable worker deployment and services if multi-node is enabled
+	if isvc.Spec.Predictor.WorkerSpec != nil {
+		isvcGeneration := strconv.FormatInt(isvc.Generation, 10)
+		// Worker deployment
+		expectedNames.Insert(constants.PredictorWorkerServiceName(isvc.Name))
+		// Head headless service
+		expectedNames.Insert(constants.GetHeadServiceName(stableName, isvcGeneration))
+		// Worker headless service
+		expectedNames.Insert(constants.GetWorkerServiceName(stableName, isvcGeneration))
+	}
 
 	stablePredictor := isvc.Spec.Predictor
 
 	for i := range isvc.Spec.Canary {
 		canary := &isvc.Spec.Canary[i]
 		canaryName := constants.PredictorServiceName(isvc.Name, canary.Predictor.Name)
-		expectedNames[canaryName] = true
+		expectedNames.Insert(canaryName)
 
 		replicas := canaryReplicaCount(isvc, canary)
 		canaryPredictor, err := buildCanaryPredictor(stablePredictor, *canary, replicas)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		canaryISVC := isvc.DeepCopy()
 		canaryISVC.Spec.Predictor = canaryPredictor
 		res, err := p.buildPredictorResources(ctx, canaryISVC, false)
 		if err != nil {
-			return errors.Wrapf(err, "fails to build resources for canary %s", canary.Predictor.Name)
+			return nil, errors.Wrapf(err, "fails to build resources for canary %s", canary.Predictor.Name)
 		}
 
 		componentExt := v1beta1.ComponentExtensionSpec{}
@@ -945,11 +973,11 @@ func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta
 		r, err := raw.NewRawKubeReconciler(ctx, p.client, p.clientset, p.scheme, res.objectMeta, metav1.ObjectMeta{},
 			&componentExt, &res.podSpec, nil, nil, nil, nil, nil, nil)
 		if err != nil {
-			return errors.Wrapf(err, "fails to create canary reconciler for %s", canary.Predictor.Name)
+			return nil, errors.Wrapf(err, "fails to create canary reconciler for %s", canary.Predictor.Name)
 		}
 
 		if _, err := r.Reconcile(ctx, isvc); err != nil {
-			return errors.Wrapf(err, "fails to reconcile canary %s", canary.Predictor.Name)
+			return nil, errors.Wrapf(err, "fails to reconcile canary %s", canary.Predictor.Name)
 		}
 		p.Log.Info("Reconciled canary deployment", "canary", canary.Predictor.Name, "trafficPercent", canary.TrafficPercent)
 	}
@@ -997,42 +1025,5 @@ func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta
 		isvc.Status.ClearCondition(v1beta1.CanaryPredictorReady)
 	}
 
-	// Cleanup orphaned predictor deployments and services
-	deployList := &appsv1.DeploymentList{}
-	if err := p.client.List(ctx, deployList, client.InNamespace(isvc.Namespace), client.MatchingLabels{
-		constants.InferenceServicePodLabelKey: isvc.Name,
-		constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
-	}); err != nil {
-		return errors.Wrapf(err, "fails to list predictor deployments for cleanup")
-	}
-	for i := range deployList.Items {
-		deploy := &deployList.Items[i]
-		if expectedNames[deploy.Name] {
-			continue
-		}
-		p.Log.Info("Deleting orphaned predictor deployment", "name", deploy.Name)
-		if err := p.client.Delete(ctx, deploy); err != nil && !apierrors.IsNotFound(err) {
-			return errors.Wrapf(err, "fails to delete orphaned deployment %s", deploy.Name)
-		}
-	}
-
-	svcList := &corev1.ServiceList{}
-	if err := p.client.List(ctx, svcList, client.InNamespace(isvc.Namespace), client.MatchingLabels{
-		constants.InferenceServicePodLabelKey: isvc.Name,
-		constants.KServiceComponentLabel:      string(v1beta1.PredictorComponent),
-	}); err != nil {
-		return errors.Wrapf(err, "fails to list predictor services for cleanup")
-	}
-	for i := range svcList.Items {
-		svc := &svcList.Items[i]
-		if expectedNames[svc.Name] {
-			continue
-		}
-		p.Log.Info("Deleting orphaned predictor service", "name", svc.Name)
-		if err := p.client.Delete(ctx, svc); err != nil && !apierrors.IsNotFound(err) {
-			return errors.Wrapf(err, "fails to delete orphaned service %s", svc.Name)
-		}
-	}
-
-	return nil
+	return expectedNames, nil
 }

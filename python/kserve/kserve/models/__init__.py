@@ -1,4 +1,4 @@
-# Copyright 2023 The KServe Authors.
+# Copyright 2021 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -136,6 +136,7 @@ from kserve.models.v1beta1_storage_spec import V1beta1StorageSpec
 from kserve.models.v1beta1_storage_uri import V1beta1StorageUri
 from kserve.models.v1beta1_tf_serving_spec import V1beta1TFServingSpec
 from kserve.models.v1beta1_torch_serve_spec import V1beta1TorchServeSpec
+from kserve.models.v1beta1_tracing_spec import V1beta1TracingSpec
 from kserve.models.v1beta1_transformer_spec import V1beta1TransformerSpec
 from kserve.models.v1beta1_triton_spec import V1beta1TritonSpec
 from kserve.models.v1beta1_worker_spec import V1beta1WorkerSpec

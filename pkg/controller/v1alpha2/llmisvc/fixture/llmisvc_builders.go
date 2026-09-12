@@ -688,6 +688,26 @@ func WithConfigSchedulerReplicas(replicas int32) LLMInferenceServiceConfigOption
 	}
 }
 
+func WithConfigSchedulerTemplate(version string) LLMInferenceServiceConfigOption {
+	return func(config *v1alpha2.LLMInferenceServiceConfig) {
+		ensureSchedulerSpec(&config.Spec)
+		config.Spec.Router.Scheduler.Annotations = map[string]string{
+			"app.kubernetes.io/version": version,
+		}
+		config.Spec.Router.Scheduler.Template = &corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:  "main",
+				Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v" + version,
+				Ports: []corev1.ContainerPort{
+					{Name: "grpc", ContainerPort: 9002, Protocol: corev1.ProtocolTCP},
+					{Name: "grpc-health", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
+					{Name: "metrics", ContainerPort: 9090, Protocol: corev1.ProtocolTCP},
+				},
+			}},
+		}
+	}
+}
+
 // ensureSchedulerSpec ensures the router and scheduler spec are initialized
 func ensureSchedulerSpec(spec *v1alpha2.LLMInferenceServiceSpec) {
 	if spec.Router == nil {
