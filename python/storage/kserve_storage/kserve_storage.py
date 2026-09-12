@@ -123,6 +123,12 @@ _LAYER_MEDIA_TYPE_MODES = {
     "application/vnd.oci.image.layer.v1.tar": "r|",
 }
 
+# CNCF ModelPack (https://github.com/modelpack/model-spec) discriminators. A
+# manifest declaring either carries model files directly, with no modelcar
+# /models/ subtree, so it cannot be read as a container image.
+_MODELPACK_ARTIFACT_TYPE = "application/vnd.cncf.model.manifest.v1+json"
+_MODELPACK_CONFIG_MEDIA_TYPE = "application/vnd.cncf.model.config.v1+json"
+
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
 _HDFS_FILE_SECRETS = ["KERBEROS_KEYTAB", "TLS_CERT", "TLS_KEY", "TLS_CA"]
 
@@ -1482,6 +1488,11 @@ class Storage(object):
             manifest = client.get_manifest(target)
 
         os.makedirs(out_dir, exist_ok=True)
+
+        if Storage._is_modelpack_manifest(manifest):
+            logger.info("Detected CNCF ModelPack artifact at %s", uri)
+            return Storage._download_modelpack_via_llmman(target, out_dir)
+
         extracted_any = False
         seen_top_level: set = set()
         for layer in manifest.get("layers", []):
@@ -1526,6 +1537,75 @@ class Storage(object):
                 % (uri, sorted(seen_top_level)[:10])
             )
         return out_dir
+
+    @staticmethod
+    def _is_modelpack_manifest(manifest: dict) -> bool:
+        """True if the manifest describes a CNCF ModelPack artifact.
+
+        artifactType is the spec's own discriminator. The config mediaType is checked as
+        well because registries and clients that predate artifactType (or strip it) still
+        carry the ModelPack config descriptor.
+        """
+        if manifest.get("artifactType") == _MODELPACK_ARTIFACT_TYPE:
+            return True
+        return (
+            manifest.get("config", {}).get("mediaType") == _MODELPACK_CONFIG_MEDIA_TYPE
+        )
+
+    @staticmethod
+    def _download_modelpack_via_llmman(reference: str, out_dir: str) -> str:
+        """Acquire a ModelPack artifact through a running `llmman serve`.
+
+        The daemon does the pull (POST /api/pull, streamed so a multi-gigabyte
+        fetch is not silent) but deliberately exposes no local path, so
+        `llmman resolve --no-pull` reports where the bytes landed. Both the
+        daemon and the binary are therefore required, and each missing piece
+        has its own actionable error.
+        """
+        from kserve_storage import llmman
+
+        def _progress(status, completed, total):
+            if total:
+                logger.info("llmman: %s (%s/%s bytes)", status, completed, total)
+            else:
+                logger.info("llmman: %s", status)
+
+        resolved = llmman.pull_and_resolve(reference, progress=_progress)
+        Storage._materialize_resolved_model(resolved, out_dir)
+        logger.info("Fetched ModelPack artifact %s into %s", reference, out_dir)
+        return out_dir
+
+    @staticmethod
+    def _materialize_resolved_model(src: str, out_dir: str) -> None:
+        """Place llmman's extracted model at out_dir.
+
+        Files are hard-linked where possible so a model shared with llmman's
+        store costs its bytes once, falling back to a copy across filesystems.
+        """
+        os.makedirs(out_dir, exist_ok=True)
+
+        if not os.path.isdir(src):
+            Storage._link_or_copy(src, os.path.join(out_dir, os.path.basename(src)))
+            return
+
+        for root, _, files in os.walk(src):
+            rel_root = os.path.relpath(root, src)
+            dest_root = out_dir if rel_root == "." else os.path.join(out_dir, rel_root)
+            os.makedirs(dest_root, exist_ok=True)
+            for name in files:
+                Storage._link_or_copy(
+                    os.path.join(root, name), os.path.join(dest_root, name)
+                )
+
+    @staticmethod
+    def _link_or_copy(src: str, dest: str) -> None:
+        if os.path.lexists(dest):
+            os.remove(dest)
+        try:
+            os.link(src, dest)
+        except OSError:
+            # Different filesystem, or a filesystem without hard links.
+            shutil.copy2(src, dest)
 
     @staticmethod
     def _download_git_repo(uri: str, out_dir: str) -> str:

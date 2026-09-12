@@ -149,8 +149,8 @@ def _make_client(
         extra_dirs=extra_dirs,
         compress=compress,
     )
-    client.get_blob.side_effect = lambda target, digest, stream=True: (
-        _FakeBlobResponse(layer_bytes)
+    client.get_blob.side_effect = lambda target, digest, stream=True: _FakeBlobResponse(
+        layer_bytes
     )
     return client
 
@@ -299,8 +299,8 @@ def test_oci_multi_arch_index_resolves_to_platform(tmp_path):
     # the per-platform manifest whose layers are actually streamed.
     client.get_manifest.side_effect = [_INDEX, per_platform_manifest]
     layer_bytes = _build_layer_tar_bytes()
-    client.get_blob.side_effect = lambda target, digest, stream=True: (
-        _FakeBlobResponse(layer_bytes)
+    client.get_blob.side_effect = lambda target, digest, stream=True: _FakeBlobResponse(
+        layer_bytes
     )
     with (
         mock.patch("oras.client.OrasClient", return_value=client),
@@ -571,4 +571,138 @@ def test_oras_get_blob_signature_drift():
         assert kw in sig.parameters, (
             f"oras.provider.Registry.get_blob missing parameter '{kw}' — "
             f"API drift; update _download_oci call site."
+        )
+
+
+# ---------------------------------------------------------------------------
+# CNCF ModelPack artifacts (https://github.com/modelpack/model-spec)
+#
+# A ModelPack manifest carries model files directly rather than a modelcar
+# /models/ subtree, so acquisition is delegated to a running `llmman serve`.
+# These pin detection, the daemon protocol, and that a plain container image
+# still takes the modelcar path unchanged.
+# ---------------------------------------------------------------------------
+
+_MP_ARTIFACT_TYPE = "application/vnd.cncf.model.manifest.v1+json"
+_MP_CONFIG_TYPE = "application/vnd.cncf.model.config.v1+json"
+
+
+def _mp_manifest(by_config=False):
+    manifest = {"mediaType": "application/vnd.oci.image.manifest.v1+json", "layers": []}
+    if by_config:
+        manifest["config"] = {"mediaType": _MP_CONFIG_TYPE}
+    else:
+        manifest["artifactType"] = _MP_ARTIFACT_TYPE
+    return manifest
+
+
+class TestModelPackDetection:
+    def test_detected_by_artifact_type(self):
+        assert Storage._is_modelpack_manifest(_mp_manifest())
+
+    def test_detected_by_config_media_type(self):
+        # Some registries and older clients drop artifactType.
+        assert Storage._is_modelpack_manifest(_mp_manifest(by_config=True))
+
+    def test_plain_container_image_not_claimed(self):
+        assert not Storage._is_modelpack_manifest(
+            {"config": {"mediaType": "application/vnd.oci.image.config.v1+json"}}
+        )
+        assert not Storage._is_modelpack_manifest({})
+
+
+def test_modelpack_manifest_delegates_to_llmman(tmp_path):
+    out = str(tmp_path / "out")
+    client = mock.MagicMock()
+    client.get_manifest.return_value = _mp_manifest()
+
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+        mock.patch(
+            "kserve_storage.kserve_storage.Storage._download_modelpack_via_llmman",
+            return_value=out,
+        ) as delegate,
+    ):
+        assert Storage._download_oci("oci://registry.io/mymodel:v1", out) == out
+
+    # The daemon receives the scheme-less reference, and no blob is fetched
+    # through oras: llmman owns the download.
+    delegate.assert_called_once_with("registry.io/mymodel:v1", out)
+    client.get_blob.assert_not_called()
+
+
+def test_modelcar_image_still_uses_the_models_subtree(tmp_path):
+    """A plain container image must not take the ModelPack path."""
+    out = str(tmp_path / "out")
+    client = _make_client(_IMAGE_MANIFEST)
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+    ):
+        Storage._download_oci("oci://registry.io/mymodel:v1", out)
+    assert os.path.isfile(os.path.join(out, "model.joblib"))
+
+
+class TestMaterializeResolvedModel:
+    def test_hard_links_a_directory(self, tmp_path):
+        src = tmp_path / "store"
+        (src / "sub").mkdir(parents=True)
+        (src / "config.json").write_text("{}")
+        (src / "sub" / "model.safetensors").write_text("w")
+        out = str(tmp_path / "out")
+
+        Storage._materialize_resolved_model(str(src), out)
+
+        assert open(os.path.join(out, "sub", "model.safetensors")).read() == "w"
+        # A model shared with llmman's store should cost its bytes once.
+        assert (
+            os.stat(os.path.join(out, "config.json")).st_ino
+            == os.stat(str(src / "config.json")).st_ino
+        )
+
+    def test_handles_a_single_file_payload(self, tmp_path):
+        src = tmp_path / "model.gguf"
+        src.write_text("gguf")
+        out = str(tmp_path / "out")
+
+        Storage._materialize_resolved_model(str(src), out)
+
+        assert open(os.path.join(out, "model.gguf")).read() == "gguf"
+
+    def test_overwrites_a_stale_destination(self, tmp_path):
+        src = tmp_path / "store"
+        src.mkdir()
+        (src / "config.json").write_text("new")
+        out = tmp_path / "out"
+        out.mkdir()
+        (out / "config.json").write_text("stale")
+
+        Storage._materialize_resolved_model(str(src), str(out))
+
+        assert (out / "config.json").read_text() == "new"
+
+    def test_falls_back_to_copy_when_linking_fails(self, tmp_path):
+        src = tmp_path / "store"
+        src.mkdir()
+        (src / "config.json").write_text("{}")
+        out = str(tmp_path / "out")
+
+        with mock.patch(
+            "kserve_storage.kserve_storage.os.link", side_effect=OSError("EXDEV")
+        ):
+            Storage._materialize_resolved_model(str(src), out)
+
+        assert open(os.path.join(out, "config.json")).read() == "{}"
+        assert (
+            os.stat(os.path.join(out, "config.json")).st_ino
+            != os.stat(str(src / "config.json")).st_ino
         )
