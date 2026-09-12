@@ -106,6 +106,46 @@ func TestAddStorageInitializerAnnotationsOciNative(t *testing.T) {
 	assert.Equal(t, ociNativeURI, annotationVal)
 }
 
+func TestBuildPredictorResourcesUnsupportedStorageURIWritesInvalidSpec(t *testing.T) {
+	// An unsupported storageUri scheme is a spec error caught only on the controller
+	// side (the webhook does not check scheme support). buildPredictorResources must
+	// surface it as InvalidSpec in status instead of failing silently.
+	s := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(s); err != nil {
+		t.Fatalf("failed to add v1alpha1 to scheme: %v", err)
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(s).Build()
+	p := &Predictor{
+		client:                 fakeClient,
+		inferenceServiceConfig: &v1beta1.InferenceServicesConfig{},
+	}
+
+	storageURI := "ftp://example.com/model"
+	isvc := &v1beta1.InferenceService{
+		Spec: v1beta1.InferenceServiceSpec{
+			Predictor: v1beta1.PredictorSpec{
+				Model: &v1beta1.ModelSpec{
+					ModelFormat: v1beta1.ModelFormat{Name: "sklearn"},
+					PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+						StorageURI: &storageURI,
+					},
+				},
+			},
+		},
+	}
+	// Simulate a service that was previously mid-rollout, to show the stale
+	// transition status is overwritten rather than left untouched.
+	isvc.Status.ModelStatus.TransitionStatus = v1beta1.InProgress
+
+	_, err := p.buildPredictorResources(context.Background(), isvc, false)
+	assert.Error(t, err, "unsupported storageUri scheme must fail resource building")
+	assert.Equal(t, v1beta1.InvalidSpec, isvc.Status.ModelStatus.TransitionStatus,
+		"status must report InvalidSpec instead of leaving the stale transition status")
+	if assert.NotNil(t, isvc.Status.ModelStatus.LastFailureInfo) {
+		assert.Equal(t, v1beta1.InvalidPredictorSpec, isvc.Status.ModelStatus.LastFailureInfo.Reason)
+	}
+}
+
 func ptrInt32(v int32) *int32 { return &v }
 
 func TestAdjustStableMinReplicasForCanaries(t *testing.T) {
