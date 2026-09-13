@@ -226,7 +226,15 @@ func DeleteModelFromNodes(
 	}
 	log.Info("deleting model", "name", params.Name, "namespace", params.Namespace)
 
-	for nodeGroupName, nodeGroup := range nodeGroups {
+	// A nil entry means the referenced node group no longer exists. Its nodes
+	// cannot be enumerated through group membership, so only the all-node
+	// sweep below applies.
+	missingGroup := false
+	for _, nodeGroup := range nodeGroups {
+		if nodeGroup == nil {
+			missingGroup = true
+			continue
+		}
 		readyNodes, notReadyNodes, err := GetNodesFromNodeGroup(ctx, nodeGroup, c)
 		if err != nil {
 			log.Error(err, "getNodesFromNodeGroup node error")
@@ -250,38 +258,63 @@ func DeleteModelFromNodes(
 				return ctrl.Result{}, err
 			}
 		}
+	}
 
-		// For namespace-scoped LocalModelNamespaceCache, PVs cannot have owner references
-		// (Kubernetes limitation: cluster-scoped resources cannot be owned by namespace-scoped resources)
-		// So we must explicitly delete them here
-		if params.IsNamespaceScoped {
+	// A node group deleted before the cache (nothing guards that order) leaves
+	// per-node entries that cannot be reached through group membership. Sweep
+	// every node for a matching entry before the finalizer is removed so that a
+	// failure here is retried instead of stranding entries forever.
+	if missingGroup {
+		if err := deleteModelFromAllNodes(ctx, c, log, params); err != nil {
+			log.Error(err, "failed to sweep leftover model entries from LocalModelNodes")
+			return ctrl.Result{}, err
+		}
+	}
+
+	// For namespace-scoped LocalModelNamespaceCache, PVs cannot have owner references
+	// (Kubernetes limitation: cluster-scoped resources cannot be owned by namespace-scoped resources)
+	// So we must explicitly delete them here. Any failure aborts the run before
+	// the finalizer is removed so deletion is retried instead of leaking storage.
+	if params.IsNamespaceScoped && len(nodeGroups) > 0 {
+		// The download PVC lives in the job namespace from the config map; it
+		// cannot be deleted without it, so a read failure aborts the deletion.
+		isvcConfigMap, cfgErr := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
+		if cfgErr != nil {
+			log.Error(cfgErr, "failed to get configmap for download PVC cleanup")
+			return ctrl.Result{}, cfgErr
+		}
+		localModelConfig, cfgErr := v1beta1.NewLocalModelConfig(isvcConfigMap)
+		if cfgErr != nil {
+			log.Error(cfgErr, "failed to parse configmap for download PVC cleanup")
+			return ctrl.Result{}, cfgErr
+		}
+		for nodeGroupName := range nodeGroups {
 			// Delete download PV: {modelName}-{nodeGroup}-{namespace}-download
 			downloadPVName := params.Name + "-" + nodeGroupName + "-" + params.Namespace + "-download"
 			if err := DeletePV(ctx, clientset, log, downloadPVName); err != nil {
 				log.Error(err, "failed to delete download PV", "name", downloadPVName)
+				return ctrl.Result{}, err
 			}
 
 			// Delete download PVC from jobNamespace (where download jobs run)
 			downloadPVCName := downloadPVName
-			isvcConfigMap, cfgErr := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
-			if cfgErr == nil {
-				localModelConfig, cfgErr := v1beta1.NewLocalModelConfig(isvcConfigMap)
-				if cfgErr == nil {
-					if err := DeletePVC(ctx, clientset, log, downloadPVCName, localModelConfig.JobNamespace); err != nil {
-						log.Error(err, "failed to delete download PVC from jobNamespace", "name", downloadPVCName, "namespace", localModelConfig.JobNamespace)
-					}
-				}
+			if err := DeletePVC(ctx, clientset, log, downloadPVCName, localModelConfig.JobNamespace); err != nil {
+				log.Error(err, "failed to delete download PVC from jobNamespace", "name", downloadPVCName, "namespace", localModelConfig.JobNamespace)
+				return ctrl.Result{}, err
 			}
 
 			// Delete serving PV: {modelName}-{nodeGroup}-{namespace}
 			servingPVName := params.Name + "-" + nodeGroupName + "-" + params.Namespace
 			if err := DeletePV(ctx, clientset, log, servingPVName); err != nil {
 				log.Error(err, "failed to delete serving PV", "name", servingPVName)
+				return ctrl.Result{}, err
 			}
 		}
 	}
 
-	// Remove finalizer
+	// Remove finalizer last: every cleanup above must succeed first so that a
+	// failure is retried on the next reconcile instead of being lost once the
+	// object is gone.
 	if localModelCache != nil {
 		patch := client.MergeFrom(localModelCache.DeepCopy())
 		localModelCache.Finalizers = utils.RemoveString(localModelCache.Finalizers, params.FinalizerName)
@@ -768,6 +801,24 @@ func ReconcileLocalModelNode(
 			if err := c.Status().Update(ctx, localModelNamespaceCache); err != nil {
 				log.Error(err, "cannot update model status from node", "name", params.Name, "namespace", params.Namespace)
 			}
+		}
+	}
+	return nil
+}
+
+// deleteModelFromAllNodes removes the cache's model entry from every LocalModelNode.
+// It is used when a node group referenced by a deleting cache no longer exists, so
+// its nodes cannot be enumerated through group membership. Removal is a no-op on
+// nodes that do not hold the model.
+func deleteModelFromAllNodes(ctx context.Context, c client.Client, log logr.Logger, params LocalModelParams) error {
+	nodeList := &v1alpha1.LocalModelNodeList{}
+	if err := c.List(ctx, nodeList); err != nil {
+		log.Error(err, "failed to list LocalModelNodes during cache deletion sweep")
+		return err
+	}
+	for i := range nodeList.Items {
+		if err := DeleteModelFromNode(ctx, c, log, &nodeList.Items[i], params.Name, params.Namespace); err != nil {
+			return err
 		}
 	}
 	return nil
