@@ -35,6 +35,9 @@ type StorageMountParams struct {
 	VolumeName string
 	PVCName    string
 	ReadOnly   bool
+	// DefaultVolumeSource overrides the emptyDir used when PVCName is empty.
+	// When nil, emptyDir is used (backward-compatible default).
+	DefaultVolumeSource *corev1.VolumeSource
 }
 
 // ParsePvcURI parses a PVC URI of the form "pvc://<name>[/path]" into its components.
@@ -106,14 +109,16 @@ func addVolumeMountToContainer(container *corev1.Container, storageMountParams S
 //   - error: An error if the modelUri is invalid or if any other issue occurs; otherwise, nil.
 func AddModelMount(storageMountParams StorageMountParams, containerName string, podSpec *corev1.PodSpec) error {
 	var volumeSource corev1.VolumeSource
-
-	if storageMountParams.PVCName != "" {
+	switch {
+	case storageMountParams.PVCName != "":
 		volumeSource = corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: storageMountParams.PVCName,
 			},
 		}
-	} else {
+	case storageMountParams.DefaultVolumeSource != nil:
+		volumeSource = *storageMountParams.DefaultVolumeSource
+	default:
 		volumeSource = corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		}
