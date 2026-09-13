@@ -34,7 +34,11 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	kernelcachecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcache"
+	kernelcachecapturecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcachecapture"
 	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
 	kservetls "github.com/kserve/kserve/pkg/tls"
@@ -162,6 +166,36 @@ func main() {
 		Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "LocalModelNamespaceCache")
+		os.Exit(1)
+	}
+
+	// Setup KernelCache controller
+	kernelCacheEventBroadcaster := record.NewBroadcaster()
+	setupLog.Info("Setting up v1alpha1 KernelCache controller")
+	kernelCacheEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+	if err = (&kernelcachecontroller.KernelCacheReconciler{
+		Client:    mgr.GetClient(),
+		Clientset: clientSet,
+		Log:       ctrl.Log.WithName("v1alpha1Controllers").WithName("KernelCache"),
+		Scheme:    mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCache")
+		os.Exit(1)
+	}
+
+	// Setup KernelCacheCapture controller
+	kccEventBroadcaster := record.NewBroadcaster()
+	setupLog.Info("Setting up v1alpha1 KernelCacheCapture controller")
+	kccEventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientSet.CoreV1().Events("")})
+	if err = (&kernelcachecapturecontroller.KernelCacheCaptureReconciler{
+		Client:       mgr.GetClient(),
+		Clientset:    clientSet,
+		ClientConfig: cfg,
+		Log:          ctrl.Log.WithName("v1alpha1Controllers").WithName("KernelCacheCapture"),
+		Scheme:       mgr.GetScheme(),
+		Recorder:     kccEventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "KernelCacheCaptureController"}),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCacheCapture")
 		os.Exit(1)
 	}
 
