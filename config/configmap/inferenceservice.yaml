@@ -305,7 +305,7 @@ data:
        {
            "enableGatewayApi": false,
            "kserveIngressGateway": "kserve/kserve-ingress-gateway",
-           "ingressGateway" : "knative-serving/knative-ingress-gateway",
+           "ingressGateways": ["knative-serving/knative-ingress-gateway"],
            "localGateway" : "knative-serving/knative-local-gateway",
            "localGatewayService" : "knative-local-gateway.istio-system.svc.cluster.local",
            "ingressDomain"  : "example.com",
@@ -329,8 +329,18 @@ data:
            # NOTE: This configuration only applicable for raw deployment.
            "kserveIngressGateway": "kserve/kserve-ingress-gateway",
 
+           # ingressGateways specifies the ingress gateways to serve external traffic.
+           # Each gateway should be specified in format <gateway namespace>/<gateway name>
+           # Every InferenceService is exposed on all of the listed gateways, so listing more than one
+           # gateway makes a single InferenceService reachable through several ingress paths, e.g. a
+           # public cloud load balancer gateway and a private VPN-only gateway.
+           # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
+           "ingressGateways": ["knative-serving/knative-ingress-gateway"],
+
            # ingressGateway specifies the ingress gateway to serve external traffic.
            # The gateway should be specified in format <gateway namespace>/<gateway name>
+           # DEPRECATED: use "ingressGateways" instead. This field is still honored, but it is ignored
+           # when "ingressGateways" is set.
            # NOTE: This configuration only applicable for serverless deployment with Istio configured as network layer.
            "ingressGateway" : "knative-serving/knative-ingress-gateway",
 

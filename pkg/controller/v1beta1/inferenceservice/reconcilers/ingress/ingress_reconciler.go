@@ -424,6 +424,9 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, additionalH
 		},
 	}
 	if !isInternal {
+		// The external hosts are matched on every configured external gateway, so that a
+		// single InferenceService can be reached through more than one ingress path.
+		externalGateways := config.ExternalGateways()
 		// We only create the HTTPMatchRequest for the targetHost and the additional hosts, when the ingress is not internal.
 		matchRequests = append(matchRequests,
 			&istiov1beta1.HTTPMatchRequest{
@@ -433,7 +436,7 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, additionalH
 						Regex: constants.HostRegExp(targetHost),
 					},
 				},
-				Gateways: []string{config.IngressGateway},
+				Gateways: externalGateways,
 			})
 
 		if additionalHosts != nil && len(*additionalHosts) != 0 {
@@ -445,7 +448,7 @@ func createHTTPMatchRequest(prefix, targetHost, internalHost string, additionalH
 							Regex: constants.HostRegExp(host),
 						},
 					},
-					Gateways: []string{config.IngressGateway},
+					Gateways: externalGateways,
 				}
 				if !containsHTTPMatchRequest(matchRequest, matchRequests) {
 					matchRequests = append(matchRequests, matchRequest)
@@ -590,7 +593,7 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 	}
 	if !isInternal {
 		hosts = append(hosts, serviceHost)
-		gateways = append(gateways, config.IngressGateway)
+		gateways = append(gateways, config.ExternalGateways()...)
 	}
 
 	if config.PathTemplate != "" {
@@ -602,6 +605,7 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 		url := &apis.URL{}
 		url.Path = strings.TrimSuffix(path, "/") // remove trailing "/" if present
 		url.Host = config.IngressDomain
+		externalGateways := config.ExternalGateways()
 		// In this case, we have a path-based URL so we add a path-based rule
 		if isvc.Spec.Explainer != nil {
 			httpRoutes = append(httpRoutes, &istiov1beta1.HTTPRoute{
@@ -617,7 +621,7 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 								Regex: constants.HostRegExp(url.Host),
 							},
 						},
-						Gateways: []string{config.IngressGateway},
+						Gateways: externalGateways,
 					},
 				},
 				Rewrite: &istiov1beta1.HTTPRewrite{
@@ -653,7 +657,7 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 							Regex: constants.HostRegExp(url.Host),
 						},
 					},
-					Gateways: []string{config.IngressGateway},
+					Gateways: externalGateways,
 				},
 				{
 					Uri: &istiov1beta1.StringMatch{
@@ -666,7 +670,7 @@ func createIngress(isvc *v1beta1.InferenceService, config *v1beta1.IngressConfig
 							Regex: constants.HostRegExp(url.Host),
 						},
 					},
-					Gateways: []string{config.IngressGateway},
+					Gateways: externalGateways,
 				},
 			},
 			Rewrite: &istiov1beta1.HTTPRewrite{
