@@ -36,8 +36,8 @@ import (
 	"github.com/kserve/kserve/pkg/credentials/hdfs"
 	"github.com/kserve/kserve/pkg/credentials/hf"
 	"github.com/kserve/kserve/pkg/credentials/https"
-	"github.com/kserve/kserve/pkg/credentials/ms"
 	"github.com/kserve/kserve/pkg/credentials/mlflow"
+	"github.com/kserve/kserve/pkg/credentials/ms"
 	"github.com/kserve/kserve/pkg/credentials/s3"
 	"github.com/kserve/kserve/pkg/utils"
 )

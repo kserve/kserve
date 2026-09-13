@@ -104,9 +104,9 @@ model_dir = Storage.download("hf://org-name/model-name:revision")
 
 ```python
 # Using model version alias
-model_dir = Storage.download("mlflow://models:/model@dev")
+model_dir = Storage.download("mlflow://models/model@dev")
 # Using model version number
-model_dir = Storage.download("mlflow://models:/model/v2")
+model_dir = Storage.download("mlflow://models/model/v2")
 ```
 
 ## Environment Variables
