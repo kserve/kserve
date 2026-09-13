@@ -424,8 +424,12 @@ class TestInferRequest:
             model_name="test_model",
             infer_inputs=[infer_input],
         )
-        with pytest.raises(InvalidInput):
+        with pytest.raises(InvalidInput) as err:
             infer_request_bytes, json_length = infer_request.to_rest()
+        assert (
+            err.value.reason
+            == "'data' field is missing for input 'input1' for model 'test_model'"
+        )
 
     def test_infer_request_from_bytes_valid_input(self):
         infer_input_1 = InferInput(
