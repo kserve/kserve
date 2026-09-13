@@ -647,6 +647,7 @@ spec:
                         - message: horizontalPodAutoscalerConfig.name must not be
                             set; the controller manages the HPA name
                           rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                             || size(self.advanced.horizontalPodAutoscalerConfig.name)
                             == 0'
                       maxReplicas:
@@ -867,6 +868,7 @@ spec:
                             - message: horizontalPodAutoscalerConfig.name must not
                                 be set; the controller manages the HPA name
                               rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                                || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                                 || size(self.advanced.horizontalPodAutoscalerConfig.name)
                                 == 0'
                           variantCost:
@@ -877,7 +879,7 @@ spec:
                         x-kubernetes-validations:
                         - message: scalingModifiers must not be set; WVA controls
                             the scaling metric formula and logic
-                          rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                          rule: '!has(self.keda) || !has(self.keda.advanced) || !has(self.keda.advanced.scalingModifiers) || (size(self.keda.advanced.scalingModifiers.formula)
                             == 0 && size(self.keda.advanced.scalingModifiers.target)
                             == 0 && size(self.keda.advanced.scalingModifiers.activationTarget)
                             == 0 && size(self.keda.advanced.scalingModifiers.metricType)
@@ -17301,6 +17303,7 @@ spec:
                     - message: horizontalPodAutoscalerConfig.name must not be set;
                         the controller manages the HPA name
                       rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                        || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                         || size(self.advanced.horizontalPodAutoscalerConfig.name)
                         == 0'
                   maxReplicas:
@@ -17521,6 +17524,7 @@ spec:
                         - message: horizontalPodAutoscalerConfig.name must not be
                             set; the controller manages the HPA name
                           rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || !has(self.advanced.horizontalPodAutoscalerConfig.name)
                             || size(self.advanced.horizontalPodAutoscalerConfig.name)
                             == 0'
                       variantCost:
@@ -17531,7 +17535,7 @@ spec:
                     x-kubernetes-validations:
                     - message: scalingModifiers must not be set; WVA controls the
                         scaling metric formula and logic
-                      rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                      rule: '!has(self.keda) || !has(self.keda.advanced) || !has(self.keda.advanced.scalingModifiers) || (size(self.keda.advanced.scalingModifiers.formula)
                         == 0 && size(self.keda.advanced.scalingModifiers.target) ==
                         0 && size(self.keda.advanced.scalingModifiers.activationTarget)
                         == 0 && size(self.keda.advanced.scalingModifiers.metricType)
