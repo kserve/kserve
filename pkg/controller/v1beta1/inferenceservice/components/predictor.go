@@ -968,6 +968,12 @@ func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta
 		canaryISVC.Spec.Predictor = canaryPredictor
 		res, err := p.buildPredictorResources(ctx, canaryISVC, false)
 		if err != nil {
+			// buildPredictorResources records spec failures on the InferenceService it is handed,
+			// which is a deep copy here. Copy the status back so an invalid canary spec surfaces on
+			// the real InferenceService instead of being discarded with the copy.
+			if canaryISVC.Status.ModelStatus.TransitionStatus == v1beta1.InvalidSpec {
+				isvc.Status.ModelStatus = canaryISVC.Status.ModelStatus
+			}
 			return nil, errors.Wrapf(err, "fails to build resources for canary %s", canary.Predictor.Name)
 		}
 

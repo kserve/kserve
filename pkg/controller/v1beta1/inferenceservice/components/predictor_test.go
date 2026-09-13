@@ -19,7 +19,10 @@ import (
 	"context"
 	"testing"
 
+	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -257,4 +260,99 @@ func TestAdjustStableMinReplicasForCanaries(t *testing.T) {
 			assert.Equal(t, tt.expectedStable, *componentExt.MinReplicas)
 		})
 	}
+}
+
+func TestReconcileCanaryDeploymentsPropagatesInvalidSpec(t *testing.T) {
+	// buildPredictorResources is called with a deep copy of the InferenceService on the canary
+	// path, so a spec failure it records there is discarded unless it is copied back. Without the
+	// propagation the canary reports no status at all, which is the silent failure this fixes.
+	s := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(s); err != nil {
+		t.Fatalf("failed to add v1alpha1 to scheme: %v", err)
+	}
+	if err := v1beta1.AddToScheme(s); err != nil {
+		t.Fatalf("failed to add v1beta1 to scheme: %v", err)
+	}
+
+	unsupportedURI := "ftp://example.com/model"
+	p := &Predictor{
+		client:                 fake.NewClientBuilder().WithScheme(s).Build(),
+		scheme:                 s,
+		inferenceServiceConfig: &v1beta1.InferenceServicesConfig{},
+		Log:                    logr.Discard(),
+	}
+
+	isvc := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "canary-invalid-uri", Namespace: "default"},
+		Spec: v1beta1.InferenceServiceSpec{
+			Predictor: v1beta1.PredictorSpec{},
+			Canary: []v1beta1.CanarySpec{
+				{
+					TrafficPercent: 10,
+					Predictor: v1beta1.PredictorSpec{
+						Name: "v2",
+						Model: &v1beta1.ModelSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: &unsupportedURI,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	_, err := p.reconcileCanaryDeployments(context.Background(), isvc)
+
+	require.Error(t, err, "an unsupported canary storageUri must fail the reconcile")
+	assert.Contains(t, err.Error(), "fails to build resources for canary v2")
+	assert.Equal(t, v1beta1.InvalidSpec, isvc.Status.ModelStatus.TransitionStatus,
+		"the canary spec failure must land on the real InferenceService, not the discarded deep copy")
+	require.NotNil(t, isvc.Status.ModelStatus.LastFailureInfo)
+	assert.Equal(t, v1beta1.InvalidPredictorSpec, isvc.Status.ModelStatus.LastFailureInfo.Reason)
+	assert.Contains(t, isvc.Status.ModelStatus.LastFailureInfo.Message, "Invalid storage URI")
+}
+
+func TestReconcileCanaryDeploymentsPropagatesRuntimeFailureReason(t *testing.T) {
+	// The propagation must carry whichever reason the canary actually recorded, not a hardcoded
+	// one. A canary with no resolvable serving runtime is a different InvalidSpec failure
+	// (NoSupportingRuntime) and must surface as such.
+	s := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(s); err != nil {
+		t.Fatalf("failed to add v1alpha1 to scheme: %v", err)
+	}
+	if err := v1beta1.AddToScheme(s); err != nil {
+		t.Fatalf("failed to add v1beta1 to scheme: %v", err)
+	}
+
+	p := &Predictor{
+		client:                 fake.NewClientBuilder().WithScheme(s).Build(),
+		scheme:                 s,
+		inferenceServiceConfig: &v1beta1.InferenceServicesConfig{},
+		Log:                    logr.Discard(),
+	}
+
+	isvc := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "canary-no-runtime", Namespace: "default"},
+		Spec: v1beta1.InferenceServiceSpec{
+			Predictor: v1beta1.PredictorSpec{},
+			Canary: []v1beta1.CanarySpec{
+				{
+					TrafficPercent: 10,
+					Predictor: v1beta1.PredictorSpec{
+						Name:  "v2",
+						Model: &v1beta1.ModelSpec{},
+					},
+				},
+			},
+		},
+	}
+
+	_, err := p.reconcileCanaryDeployments(context.Background(), isvc)
+
+	require.Error(t, err, "a canary with no resolvable runtime must fail")
+	assert.Equal(t, v1beta1.InvalidSpec, isvc.Status.ModelStatus.TransitionStatus)
+	require.NotNil(t, isvc.Status.ModelStatus.LastFailureInfo)
+	assert.Equal(t, v1beta1.NoSupportingRuntime, isvc.Status.ModelStatus.LastFailureInfo.Reason,
+		"the canary's own failure reason must survive the copy, not be replaced by the storage-URI reason")
 }
