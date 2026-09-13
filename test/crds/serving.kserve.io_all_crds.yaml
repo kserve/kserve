@@ -50466,7 +50466,7 @@ spec:
                         x-kubernetes-validations:
                         - message: scalingModifiers must not be set; WVA controls
                             the scaling metric formula and logic
-                          rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                          rule: '!has(self.keda) || !has(self.keda.advanced) || !has(self.keda.advanced.scalingModifiers) || (size(self.keda.advanced.scalingModifiers.formula)
                             == 0 && size(self.keda.advanced.scalingModifiers.target)
                             == 0 && size(self.keda.advanced.scalingModifiers.activationTarget)
                             == 0 && size(self.keda.advanced.scalingModifiers.metricType)
@@ -67015,7 +67015,7 @@ spec:
                     x-kubernetes-validations:
                     - message: scalingModifiers must not be set; WVA controls the
                         scaling metric formula and logic
-                      rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                      rule: '!has(self.keda) || !has(self.keda.advanced) || !has(self.keda.advanced.scalingModifiers) || (size(self.keda.advanced.scalingModifiers.formula)
                         == 0 && size(self.keda.advanced.scalingModifiers.target) ==
                         0 && size(self.keda.advanced.scalingModifiers.activationTarget)
                         == 0 && size(self.keda.advanced.scalingModifiers.metricType)
@@ -75434,7 +75434,7 @@ spec:
                         x-kubernetes-validations:
                         - message: scalingModifiers must not be set; WVA controls
                             the scaling metric formula and logic
-                          rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                          rule: '!has(self.keda) || !has(self.keda.advanced) || !has(self.keda.advanced.scalingModifiers) || (size(self.keda.advanced.scalingModifiers.formula)
                             == 0 && size(self.keda.advanced.scalingModifiers.target)
                             == 0 && size(self.keda.advanced.scalingModifiers.activationTarget)
                             == 0 && size(self.keda.advanced.scalingModifiers.metricType)
@@ -92014,7 +92014,7 @@ spec:
                     x-kubernetes-validations:
                     - message: scalingModifiers must not be set; WVA controls the
                         scaling metric formula and logic
-                      rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                      rule: '!has(self.keda) || !has(self.keda.advanced) || !has(self.keda.advanced.scalingModifiers) || (size(self.keda.advanced.scalingModifiers.formula)
                         == 0 && size(self.keda.advanced.scalingModifiers.target) ==
                         0 && size(self.keda.advanced.scalingModifiers.activationTarget)
                         == 0 && size(self.keda.advanced.scalingModifiers.metricType)
@@ -100211,7 +100211,7 @@ spec:
                         x-kubernetes-validations:
                         - message: scalingModifiers must not be set; WVA controls
                             the scaling metric formula and logic
-                          rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                          rule: '!has(self.keda) || !has(self.keda.advanced) || !has(self.keda.advanced.scalingModifiers) || (size(self.keda.advanced.scalingModifiers.formula)
                             == 0 && size(self.keda.advanced.scalingModifiers.target)
                             == 0 && size(self.keda.advanced.scalingModifiers.activationTarget)
                             == 0 && size(self.keda.advanced.scalingModifiers.metricType)
@@ -117458,7 +117458,7 @@ spec:
                     x-kubernetes-validations:
                     - message: scalingModifiers must not be set; WVA controls the
                         scaling metric formula and logic
-                      rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                      rule: '!has(self.keda) || !has(self.keda.advanced) || !has(self.keda.advanced.scalingModifiers) || (size(self.keda.advanced.scalingModifiers.formula)
                         == 0 && size(self.keda.advanced.scalingModifiers.target) ==
                         0 && size(self.keda.advanced.scalingModifiers.activationTarget)
                         == 0 && size(self.keda.advanced.scalingModifiers.metricType)
@@ -126064,7 +126064,7 @@ spec:
                         x-kubernetes-validations:
                         - message: scalingModifiers must not be set; WVA controls
                             the scaling metric formula and logic
-                          rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                          rule: '!has(self.keda) || !has(self.keda.advanced) || !has(self.keda.advanced.scalingModifiers) || (size(self.keda.advanced.scalingModifiers.formula)
                             == 0 && size(self.keda.advanced.scalingModifiers.target)
                             == 0 && size(self.keda.advanced.scalingModifiers.activationTarget)
                             == 0 && size(self.keda.advanced.scalingModifiers.metricType)
@@ -143353,7 +143353,7 @@ spec:
                     x-kubernetes-validations:
                     - message: scalingModifiers must not be set; WVA controls the
                         scaling metric formula and logic
-                      rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                      rule: '!has(self.keda) || !has(self.keda.advanced) || !has(self.keda.advanced.scalingModifiers) || (size(self.keda.advanced.scalingModifiers.formula)
                         == 0 && size(self.keda.advanced.scalingModifiers.target) ==
                         0 && size(self.keda.advanced.scalingModifiers.activationTarget)
                         == 0 && size(self.keda.advanced.scalingModifiers.metricType)
