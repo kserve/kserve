@@ -34,6 +34,7 @@ ENABLE_KEDA="${3:-false}"
 ENABLE_LLMISVC="${4:-false}"
 LLMISVC_AUTOSCALER="${5:-none}"
 OBSERVABILITY="${6:-none}"
+LLMISVC_GATEWAY_PROVIDER="${7:-envoy}"
 
 # Parse network layer configuration
 USES_GATEWAY_API=false
@@ -101,22 +102,36 @@ if [[ $ENABLE_LLMISVC == "false" ]]; then
     NETWORK_LAYER="${NETWORK_LAYER}" ${REPO_ROOT}/hack/setup/infra/knative/manage.knative-operator-helm.sh
   fi
 else
-  if [[ $USES_ISTIO == true ]]; then
-    echo "Installing LLMISvc dependencies with Istio gateway..."
-    ${REPO_ROOT}/hack/setup/cli/install-yq.sh
-    ${REPO_ROOT}/hack/setup/cli/install-helm.sh
-    ${REPO_ROOT}/hack/setup/infra/manage.cert-manager-helm.sh
-    ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-crd.sh
-    ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-extension-crd.sh
-    export ISTIOD_EXTRA_ARGS="--set resources.requests.cpu=5m --set resources.requests.memory=32Mi --set meshConfig.accessLogFile=/dev/stdout"
-    export ISTIO_GATEWAY_EXTRA_ARGS="--set resources.requests.cpu=5m --set resources.requests.memory=32Mi --set resources.limits.cpu=100m --set resources.limits.memory=128Mi"
-    ${REPO_ROOT}/hack/setup/infra/manage.istio-helm.sh
-    export GATEWAYCLASS_NAME="istio"
-    ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-gw.sh
-    ${REPO_ROOT}/hack/setup/infra/manage.lws-operator.sh
-  else
-    ${REPO_ROOT}/hack/setup/quick-install/llmisvc-dependency-install.sh
-  fi
+  case "${LLMISVC_GATEWAY_PROVIDER}" in
+    envoy)
+      if [[ $USES_ISTIO == true ]]; then
+        echo "Installing LLMISvc dependencies with Istio gateway..."
+        ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-crd.sh
+        ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-extension-crd.sh
+        export ISTIOD_EXTRA_ARGS="--set resources.requests.cpu=5m --set resources.requests.memory=32Mi --set meshConfig.accessLogFile=/dev/stdout"
+        export ISTIO_GATEWAY_EXTRA_ARGS="--set resources.requests.cpu=5m --set resources.requests.memory=32Mi --set resources.limits.cpu=100m --set resources.limits.memory=128Mi"
+        ${REPO_ROOT}/hack/setup/infra/manage.istio-helm.sh
+        export GATEWAYCLASS_NAME="istio"
+        ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-gw.sh
+        ${REPO_ROOT}/hack/setup/infra/manage.lws-operator.sh
+      else
+        ${REPO_ROOT}/hack/setup/quick-install/llmisvc-dependency-install.sh
+      fi
+      ;;
+    agentgateway)
+      # The focused agentgateway path installs only the dependencies needed by
+      # the portable Gateway -> HTTPRoute -> InferencePool smoke test.
+      ${REPO_ROOT}/hack/setup/infra/external-lb/manage.external-lb.sh
+      ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-crd.sh
+      ${REPO_ROOT}/hack/setup/infra/gateway-api/manage.gateway-api-extension-crd.sh
+      ${REPO_ROOT}/hack/setup/infra/manage.agentgateway-helm.sh
+      ${REPO_ROOT}/hack/setup/infra/manage.lws-operator.sh
+      ;;
+    *)
+      log_error "Unsupported LLMISvc gateway provider: ${LLMISVC_GATEWAY_PROVIDER}"
+      exit 1
+      ;;
+  esac
 
   # reduce lws operator resources
   kubectl scale deployment lws-controller-manager -n lws-system --replicas=1

@@ -25,6 +25,10 @@ inputs:
     description: 'Observability backend to deploy (e.g. jaeger for tracing tests)'
     required: false
     default: 'none'
+  llmisvc-gateway-provider:
+    description: 'Gateway provider for LLMISvc tests: envoy or agentgateway'
+    required: false
+    default: 'envoy'
 runs:
   using: "composite"
   steps:
@@ -33,7 +37,7 @@ runs:
       run: |
         shopt -s nocasematch         
         echo "Selected network layer ${{ inputs.network-layer }}"
-        ./test/scripts/gh-actions/setup-deps.sh ${{ inputs.deployment-mode }} "${{ inputs.network-layer }}" "${{ inputs.enable-keda }}" "${{ inputs.deploy-llmisvc }}" "${{ inputs.autoscaler }}" "${{ inputs.observability }}"
+        ./test/scripts/gh-actions/setup-deps.sh ${{ inputs.deployment-mode }} "${{ inputs.network-layer }}" "${{ inputs.enable-keda }}" "${{ inputs.deploy-llmisvc }}" "${{ inputs.autoscaler }}" "${{ inputs.observability }}" "${{ inputs.llmisvc-gateway-provider }}"
       
 
     - name: Update test overlays
