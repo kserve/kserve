@@ -124,14 +124,15 @@ func appendTreeToTar(tw *tar.Writer, srcDir, prefix string) error {
 			header.Name += "/"
 		}
 
-		if err := tw.WriteHeader(header); err != nil {
-			return err
+		if writeErr := tw.WriteHeader(header); writeErr != nil {
+			return writeErr
 		}
 		if info.Mode()&os.ModeType != 0 || info.IsDir() {
 			return nil
 		}
 
-		file, err := os.Open(path)
+		var file *os.File
+		file, err = os.Open(path)
 		if err != nil {
 			return err
 		}
