@@ -5823,6 +5823,8 @@ spec:
               rule: '!(has(self.nodeGroups) && has(self.pvcRef))'
             - message: one of nodeGroups or pvcRef must be set
               rule: has(self.nodeGroups) || has(self.pvcRef)
+            - message: storage mode is immutable
+              rule: has(self.pvcRef) == has(oldSelf.pvcRef)
           status:
             properties:
               conditions:
