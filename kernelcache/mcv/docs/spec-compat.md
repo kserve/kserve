@@ -154,8 +154,10 @@ mcv -c -i quay.io/example/my-cache:latest -d /path/to/cache --buildah
 MCV stages cache + manifest, squashes to a single layer, and sets labels from
 the staged content.
 
-Docker uses a multi-stage `FROM scratch` Dockerfile (`COPY --from=build / /`)
-so the final image has one rootfs layer. Buildah uses `commit --squash`.
+The Docker builder loads a Docker Schema 2 image directly into the daemon
+(consistent manifest and layer media types). Buildah uses `commit --squash`.
+Manual `docker build` with the Dockerfile below can still produce an OCI manifest
+with Docker layer types; use `mcv -c` or `--builder buildah` to avoid that.
 
 ### Manual Docker build
 

@@ -102,7 +102,10 @@ func (b *buildahBuilder) CreateImage(imageName, cacheDir string) error {
 		builder.SetLabel(k, v)
 	}
 
-	imageID, _, _, err := builder.Commit(ctx, imageRef, buildah.CommitOptions{Squash: true})
+	imageID, _, _, err := builder.Commit(ctx, imageRef, buildah.CommitOptions{
+		Squash:                true,
+		PreferredManifestType: buildah.Dockerv2ImageManifest,
+	})
 	if err != nil {
 		return err
 	}
