@@ -111,6 +111,12 @@ data:
         "uidModelcar": {{ .Values.kserve.storage.uidModelcar }},
         "cpuModelcar": "{{ .Values.kserve.storage.cpuModelcar }}",
         "memoryModelcar": "{{ .Values.kserve.storage.memoryModelcar }}"
+        {{- if .Values.kserve.storage.enableOciModelSupport }},
+        "enableOciModelSupport": {{ .Values.kserve.storage.enableOciModelSupport }}
+        {{- end }}
+        {{- if .Values.kserve.storage.ociModelMode }},
+        "ociModelMode": "{{ .Values.kserve.storage.ociModelMode }}"
+        {{- end }}
     }
   metricsAggregator: |-
     {

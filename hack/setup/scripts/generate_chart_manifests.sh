@@ -25,7 +25,7 @@ kustomize build ${REPO_ROOT}/config/storagecontainers > ${REPO_ROOT}/charts/kser
 echo "✅ Built storagecontainer resources"
 
 # LocalModel and Common
-kustomize build ${REPO_ROOT}/config/localmodels > ${REPO_ROOT}/charts/kserve-localmodel-resources/files/resources.yaml
+kustomize build ${REPO_ROOT}/config/overlays/charts-localmodel > ${REPO_ROOT}/charts/kserve-localmodel-resources/files/resources.yaml
 
 # Generate values.yaml from common sections
 echo "Generating values.yaml files from common sections..."

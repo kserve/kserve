@@ -222,7 +222,8 @@ When you specify `spec.model.lora.adapters`, the controller automatically:
    - Mounts adapters to `/mnt/lora/<adapter-name>`
 
 2. **Mounts PVC Adapters** (for `pvc://`):
-   - Creates volume mounts for each PVC
+   - Declares one volume per claim, with one mount per adapter - adapters sharing a claim,
+     including one they share with a `pvc://` base model, resolve to a single volume
    - Mounts to `/mnt/lora/<adapter-name>`
    - Read-only to prevent accidental modification
 
@@ -248,7 +249,7 @@ For `hf://` and `s3://` adapters:
 
 For `pvc://` adapters:
 - **No storage-initializer required**
-- PVC is mounted directly to the pod
+- PVC is mounted directly to the pod, once per claim however many adapters it backs
 - Faster startup (no download phase)
 
 ## Using LoRA Adapters at Inference Time

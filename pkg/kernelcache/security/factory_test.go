@@ -22,31 +22,33 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kserve/kserve/pkg/kernelcache/types"
 )
 
 func TestNewVerifier(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("disabled returns a working no-op", func(t *testing.T) {
-		v, err := NewVerifier(ctx, SecurityConfig{Mode: ModeDisabled}, nil)
+		v, err := NewVerifier(ctx, types.SecurityConfig{Mode: types.ModeDisabled}, nil)
 		require.NoError(t, err)
 		require.NotNil(t, v)
 
-		res, err := v.Verify(ctx, VerifyRequest{ImageRef: "registry/img:tag"})
+		res, err := v.Verify(ctx, types.VerifyRequest{ImageRef: "registry/img:tag"})
 		require.NoError(t, err)
 		assert.False(t, res.Verified)
-		assert.Equal(t, ModeDisabled, res.Mode)
+		assert.Equal(t, types.ModeDisabled, res.Mode)
 	})
 
 	t.Run("empty mode defaults to disabled", func(t *testing.T) {
-		v, err := NewVerifier(ctx, SecurityConfig{}, nil)
+		v, err := NewVerifier(ctx, types.SecurityConfig{}, nil)
 		require.NoError(t, err)
 		assert.IsType(t, noopVerifier{}, v)
 	})
 
 	t.Run("unknown mode errors", func(t *testing.T) {
-		v, err := NewVerifier(ctx, SecurityConfig{Mode: "bogus"}, nil)
+		v, err := NewVerifier(ctx, types.SecurityConfig{Mode: "bogus"}, nil)
 		assert.Nil(t, v)
-		assert.ErrorIs(t, err, ErrUnknownMode)
+		assert.ErrorIs(t, err, types.ErrUnknownMode)
 	})
 }

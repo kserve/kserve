@@ -491,12 +491,35 @@ configuration. This is useful for testing or CI environments.
 Run MCV with the `--stub` flag. It will use the static config and behave as
 if those devices are present.
 
+## Container Image Variants
+
+MCV is built as a multi-target Dockerfile with five variants, each tailored
+to a specific GPU environment:
+
+| Variant | Target | Base Image | GPU Support | Make Target |
+|---------|--------|------------|-------------|-------------|
+| **minimal** | `mcv-minimal` | `debian:bookworm-slim` | None (use `--no-gpu`) | `make docker-build-mcv-minimal` |
+| **rocm** | `mcv-rocm` | `debian:bookworm-slim` | AMD (ROCm, `amd-smi`, `rocm-smi`) | `make docker-build-mcv-rocm` |
+| **gaudi** | `mcv-gaudi` | `ubuntu:24.04` | Intel Gaudi (`hl-smi`) | `make docker-build-mcv-gaudi` |
+| **cuda** | `mcv-cuda` | `nvidia/cuda:12.6.3-base-ubuntu24.04` | NVIDIA (CUDA, NVML) | `make docker-build-mcv-cuda` |
+| **unified** | `mcv-unified` | `nvidia/cuda:12.6.3-base-ubuntu24.04` | All vendors (NVIDIA + AMD + Gaudi) | `make docker-build-mcv-unified` |
+
+Build all variants at once:
+
+```bash
+make docker-build-mcv
+```
+
+All images run as non-root (`appuser`, UID 1000) and use the `vfs` storage
+driver for rootless buildah operation.
+
 ## Using MCV image to build cache images
 
-MCV provides a container image called `quay.io/gkm/mcv`. This image can be
-used to wrap a vLLM/Triton cache in an OCI container image that can then be
-pushed to a container registry (without having to install mcv locally). This
-image can also be used as part of a
+MCV provides container images that can be used to wrap a vLLM/Triton cache
+in an OCI container image that can then be pushed to a container registry
+(without having to install mcv locally). Use the **minimal** variant for
+cache creation (`--create`, `--no-gpu`) and a GPU-specific variant for
+extraction with preflight checks. These images can also be used as part of a
 [github workflow](../../.github/workflows/mcv-build-test.yml).
 
 ### MCV container image with docker
@@ -507,9 +530,9 @@ directory to the container and run the following command:
 ```bash
 docker run --rm -it --privileged \
   -v <path-to-cache>/example:/example \
-  quay.io/gkm/mcv bash -lc '
+  kserve/kserve-mcv:latest-minimal bash -lc '
     /mcv -c -i quay.io/gkm/vector-add-cache:rocm \
-        -d /example/vector-add-cache-rocm &&
+        -d /example/vector-add-cache-rocm --no-gpu &&
     buildah push containers-storage:quay.io/gkm/vector-add-cache:rocm \
         docker-archive:/example/vector-add-cache-rocm.tar:quay.io/gkm/vector-add-cache:rocm
   '

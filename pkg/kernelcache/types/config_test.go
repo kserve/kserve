@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package security
+package types
 
 import (
 	"encoding/json"
@@ -64,7 +64,7 @@ func TestSecurityConfigValidate(t *testing.T) {
 	}{
 		{"disabled reject", SecurityConfig{Mode: ModeDisabled, FailurePolicy: FailurePolicyReject}, false},
 		{"disabled warn", SecurityConfig{Mode: ModeDisabled, FailurePolicy: FailurePolicyWarn}, false},
-		{"unknown mode", SecurityConfig{Mode: "cert", FailurePolicy: FailurePolicyReject}, true},
+		{"unknown mode", SecurityConfig{Mode: "bogus", FailurePolicy: FailurePolicyReject}, true},
 		{"empty mode", SecurityConfig{Mode: "", FailurePolicy: FailurePolicyReject}, true},
 		{"bad failure policy", SecurityConfig{Mode: ModeDisabled, FailurePolicy: "explode"}, true},
 	}

@@ -30,6 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
 
@@ -184,6 +185,15 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					Kind:     "Deployment",
 					Name:     kmeta.ChildName(svcName, "-kserve-router-scheduler"),
 				}))
+
+				// The refs are populated on the first reconcile after the
+				// Deployments exist, before the Deployment status writes this test
+				// makes are observed. Ready plus the observed replica counts is
+				// what tells us the status has settled, which the idempotency
+				// snapshot below depends on.
+				g.Expect(current.Status).To(HaveCondition("Ready", "True"))
+				g.Expect(current.Status.Workloads.Primary.ReadyReplicas).To(Equal(ptr.To[int32](1)))
+				g.Expect(current.Status.Workloads.Scheduler.ReadyReplicas).To(Equal(ptr.To[int32](1)))
 			})).WithContext(ctx).Should(Succeed())
 
 			// Idempotency: trigger a no-op requeue and verify status.workloads
@@ -1076,8 +1086,6 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				updatedRoute := expectedHTTPRoute.DeepCopy()
 				WithHTTPRouteReadyStatus(DefaultGatewayControllerName)(updatedRoute)
 				Expect(envTest.Client.Status().Update(ctx, updatedRoute)).To(Succeed())
-
-				ensureSchedulerDeploymentReady(ctx, envTest.Client, llmSvc)
 
 				Eventually(LLMInferenceServiceIsReady(llmSvc, func(g Gomega, current *v1alpha2.LLMInferenceService) {
 					g.Expect(current.Status).To(HaveCondition(string(v1alpha2.HTTPRoutesReady), "True"))
@@ -2452,14 +2460,24 @@ func ensureRouterManagedResourcesAreReady(ctx context.Context, c client.Client, 
 			g.Expect(c.Status().Update(ctx, updatedPool)).To(gomega.Succeed())
 		}
 
-		ensureSchedulerDeploymentReady(ctx, c, llmSvc)
-		ensureMainDeploymentAvailable(ctx, c, llmSvc)
+		// A managed InferencePool exists exactly when a scheduler Deployment does:
+		// reconcileSchedulerDeployment and reconcileSchedulerInferencePool are gated
+		// on the same predicate, and the Deployment is reconciled first. Specs
+		// without a scheduler spec, or with an external pool ref, have neither.
+		if len(infPools.Items) > 0 {
+			g.Expect(ensureSchedulerDeploymentReady(ctx, c, llmSvc)).To(gomega.Succeed())
+		}
+		g.Expect(ensureMainDeploymentAvailable(ctx, c, llmSvc)).To(gomega.Succeed())
 	}).WithContext(ctx).Should(gomega.Succeed())
 }
 
-func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) {
+// ensureSchedulerDeploymentReady writes ready status onto the scheduler Deployment,
+// standing in for the Deployment controller that envtest does not run. It errors when
+// there is none, so it cannot report success having written nothing. Only call it for
+// specs that configure a scheduler.
+func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) error {
 	if envTest.UsingExistingCluster() {
-		return
+		return nil
 	}
 
 	schedulerListOpts := &client.ListOptions{
@@ -2467,12 +2485,14 @@ func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc
 		LabelSelector: labels.SelectorFromSet(llmisvc.SchedulerLabels(llmSvc)),
 	}
 	deployments := &appsv1.DeploymentList{}
-	err := c.List(ctx, deployments, schedulerListOpts)
-	if err != nil && !errors.IsNotFound(err) {
-		Expect(err).NotTo(gomega.HaveOccurred())
+	if err := c.List(ctx, deployments, schedulerListOpts); err != nil {
+		return fmt.Errorf("failed to list scheduler deployments for %s: %w", llmSvc.Name, err)
+	}
+	if len(deployments.Items) == 0 {
+		return fmt.Errorf("no scheduler Deployment for %s alongside the managed InferencePool", llmSvc.Name)
 	}
 
-	logf.FromContext(ctx).Info("Marking scheduler ready (if any)", "deployments", deployments)
+	logf.FromContext(ctx).Info("Marking scheduler ready", "deployments", deployments)
 	for _, d := range deployments.Items {
 		dep := d.DeepCopy()
 		dep.Status.Replicas = 1
@@ -2482,13 +2502,21 @@ func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc
 			Type:   appsv1.DeploymentAvailable,
 			Status: corev1.ConditionTrue,
 		})
-		Expect(c.Status().Update(ctx, dep)).To(gomega.Succeed())
+		if err := c.Status().Update(ctx, dep); err != nil {
+			return fmt.Errorf("failed to update scheduler deployment %s status: %w", dep.Name, err)
+		}
 	}
+	return nil
 }
 
-func ensureMainDeploymentAvailable(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) {
+// ensureMainDeploymentAvailable writes available status onto the main workload
+// Deployment, standing in for the Deployment controller that envtest does not run. The
+// workload is a Deployment for single-node specs and a LeaderWorkerSet when spec.worker
+// is set, so it errors unless one of the two exists and cannot report success having
+// written nothing.
+func ensureMainDeploymentAvailable(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) error {
 	if envTest.UsingExistingCluster() {
-		return
+		return nil
 	}
 
 	workloadListOpts := &client.ListOptions{
@@ -2499,9 +2527,28 @@ func ensureMainDeploymentAvailable(ctx context.Context, c client.Client, llmSvc 
 		}),
 	}
 	deployments := &appsv1.DeploymentList{}
-	err := c.List(ctx, deployments, workloadListOpts)
-	if err != nil && !errors.IsNotFound(err) {
-		Expect(err).NotTo(gomega.HaveOccurred())
+	if err := c.List(ctx, deployments, workloadListOpts); err != nil {
+		return fmt.Errorf("failed to list workload deployments for %s: %w", llmSvc.Name, err)
+	}
+
+	if len(deployments.Items) == 0 {
+		// An LWS carries the kserve component label only when its leader template is
+		// nil, so the workload selector above cannot find it. App name and part-of are
+		// set unconditionally. This matches the prefill LWS too, which is fine for an
+		// existence check.
+		lwss := &lwsapi.LeaderWorkerSetList{}
+		if err := c.List(ctx, lwss, &client.ListOptions{
+			Namespace: llmSvc.Namespace,
+			LabelSelector: labels.SelectorFromSet(map[string]string{
+				constants.KubernetesAppNameLabelKey: llmSvc.Name,
+				constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+			}),
+		}); err != nil {
+			return fmt.Errorf("failed to list leader worker sets for %s: %w", llmSvc.Name, err)
+		}
+		if len(lwss.Items) == 0 {
+			return fmt.Errorf("no main workload for %s as either a Deployment or a LeaderWorkerSet", llmSvc.Name)
+		}
 	}
 
 	for _, d := range deployments.Items {
@@ -2513,8 +2560,11 @@ func ensureMainDeploymentAvailable(ctx context.Context, c client.Client, llmSvc 
 			Type:   appsv1.DeploymentAvailable,
 			Status: corev1.ConditionTrue,
 		})
-		Expect(c.Status().Update(ctx, dep)).To(gomega.Succeed())
+		if err := c.Status().Update(ctx, dep); err != nil {
+			return fmt.Errorf("failed to update workload deployment %s status: %w", dep.Name, err)
+		}
 	}
+	return nil
 }
 
 func customRouteSpec(ctx context.Context, c client.Client, nsName, gatewayRefName, backendRefName string) *gwapiv1.HTTPRouteSpec {

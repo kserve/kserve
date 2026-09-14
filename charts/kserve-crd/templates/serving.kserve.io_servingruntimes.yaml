@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.19.0
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: servingruntimes.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -1997,6 +1997,10 @@ spec:
                                       type: integer
                                     signerName:
                                       type: string
+                                    userAnnotations:
+                                      additionalProperties:
+                                        type: string
+                                      type: object
                                   required:
                                     - keyType
                                     - signerName
@@ -4021,6 +4025,10 @@ spec:
                                           type: integer
                                         signerName:
                                           type: string
+                                        userAnnotations:
+                                          additionalProperties:
+                                            type: string
+                                          type: object
                                       required:
                                         - keyType
                                         - signerName

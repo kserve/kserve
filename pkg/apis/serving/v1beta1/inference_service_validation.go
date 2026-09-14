@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
 	"regexp"
 	"slices"
@@ -30,11 +31,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -66,37 +65,21 @@ var (
 type InferenceServiceValidator struct{}
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-inferenceservices,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=inferenceservices,versions=v1beta1,name=inferenceservice.kserve-webhook-server.validator
-var _ webhook.CustomValidator = &InferenceServiceValidator{}
+var _ admission.Validator[*InferenceService] = &InferenceServiceValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (v *InferenceServiceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	isvc, err := utils.Convert[*InferenceService](obj)
-	if err != nil {
-		validatorLogger.Error(err, "Unable to convert object to InferenceService")
-		return nil, err
-	}
+func (v *InferenceServiceValidator) ValidateCreate(ctx context.Context, isvc *InferenceService) (admission.Warnings, error) {
 	validatorLogger.Info("validate create", "name", isvc.Name)
 	return validateInferenceService(isvc)
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	isvc, err := utils.Convert[*InferenceService](newObj)
-	if err != nil {
-		validatorLogger.Error(err, "Unable to convert object to InferenceService")
-		return nil, err
-	}
-	oldIsvc, err := utils.Convert[*InferenceService](oldObj)
-	if err != nil {
-		validatorLogger.Error(err, "Unable to convert object to InferenceService")
-		return nil, err
-	}
+func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldIsvc, isvc *InferenceService) (admission.Warnings, error) {
 	if isvc.GetDeletionTimestamp() != nil {
 		return nil, nil
 	}
 	validatorLogger.Info("validate update", "name", isvc.Name)
-	err = validateDeploymentMode(isvc, oldIsvc)
-	if err != nil {
+	if err := validateDeploymentMode(isvc, oldIsvc); err != nil {
 		return nil, err
 	}
 	if err := validatePredictorNameChange(isvc, oldIsvc); err != nil {
@@ -106,12 +89,7 @@ func (v *InferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, 
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	isvc, err := utils.Convert[*InferenceService](obj)
-	if err != nil {
-		validatorLogger.Error(err, "Unable to convert object to InferenceService")
-		return nil, err
-	}
+func (v *InferenceServiceValidator) ValidateDelete(ctx context.Context, isvc *InferenceService) (admission.Warnings, error) {
 	validatorLogger.Info("validate delete", "name", isvc.Name)
 	return nil, nil
 }
@@ -121,6 +99,10 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 	annotations := isvc.Annotations
 
 	if err := validateInferenceServiceName(isvc); err != nil {
+		return allWarnings, err
+	}
+
+	if err := validateTracing(isvc.Spec.Tracing); err != nil {
 		return allWarnings, err
 	}
 
@@ -178,6 +160,40 @@ func validateInferenceService(isvc *InferenceService) (admission.Warnings, error
 	}
 
 	return allWarnings, nil
+}
+
+func validateTracing(tracing *TracingSpec) error {
+	if tracing == nil {
+		return nil
+	}
+
+	tracingPath := field.NewPath("spec", "tracing")
+	if tracing.Sampler != nil {
+		supportedSamplers := []string{
+			"always_on",
+			"always_off",
+			"traceidratio",
+			"parentbased_always_on",
+			"parentbased_always_off",
+			"parentbased_traceidratio",
+		}
+		if !slices.Contains(supportedSamplers, *tracing.Sampler) {
+			return field.NotSupported(tracingPath.Child("sampler"), *tracing.Sampler, supportedSamplers)
+		}
+	}
+
+	if tracing.ExporterEndpoint != nil {
+		endpoint, err := url.Parse(*tracing.ExporterEndpoint)
+		if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") {
+			return field.Invalid(
+				tracingPath.Child("exporterEndpoint"),
+				*tracing.ExporterEndpoint,
+				"must be an absolute HTTP or HTTPS URL with a host",
+			)
+		}
+	}
+
+	return nil
 }
 
 func validateCanarySpecs(isvc *InferenceService) error {

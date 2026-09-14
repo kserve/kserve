@@ -435,7 +435,7 @@ jobs:
         if: always()
         run: |
           echo "::group::Minikube tunnel logs"
-          cat minikube-tunnel.log
+          cat minikube-tunnel.log 2>/dev/null || echo "No minikube tunnel log found"
           echo "::endgroup::"
           ./test/scripts/gh-actions/status-check.sh
 

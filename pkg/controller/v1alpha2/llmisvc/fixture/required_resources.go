@@ -18,13 +18,16 @@ package fixture
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -92,6 +95,39 @@ func DefaultGatewayClass() *gwapiv1.GatewayClass {
 
 func InferenceServiceCfgMap(ns string) *corev1.ConfigMap {
 	return InferenceServiceCfgMapWithUrlScheme(ns, "")
+}
+
+// SetIngressConfigKey sets one key in the ingress section of an
+// inferenceservice-config ConfigMap; a nil value removes the key.
+func SetIngressConfigKey(cm *corev1.ConfigMap, key string, value any) {
+	var ingress map[string]any
+	if err := json.Unmarshal([]byte(cm.Data["ingress"]), &ingress); err != nil {
+		panic(err) // For test fixtures, panic is acceptable
+	}
+	if value == nil {
+		delete(ingress, key)
+	} else {
+		ingress[key] = value
+	}
+	raw, err := json.Marshal(ingress)
+	if err != nil {
+		panic(err)
+	}
+	cm.Data["ingress"] = string(raw)
+}
+
+// PatchIngressConfigKey applies SetIngressConfigKey to the live
+// inferenceservice-config ConfigMap.
+func PatchIngressConfigKey(ctx context.Context, c client.Client, key string, value any) {
+	ginkgo.GinkgoHelper()
+	cm := &corev1.ConfigMap{}
+	gomega.Expect(c.Get(ctx, types.NamespacedName{
+		Name:      constants.InferenceServiceConfigMapName,
+		Namespace: constants.KServeNamespace,
+	}, cm)).To(gomega.Succeed())
+	patch := client.MergeFrom(cm.DeepCopy())
+	SetIngressConfigKey(cm, key, value)
+	gomega.Expect(c.Patch(ctx, cm, patch)).To(gomega.Succeed())
 }
 
 func InferenceServiceCfgMapWithUrlScheme(ns, urlScheme string) *corev1.ConfigMap {
