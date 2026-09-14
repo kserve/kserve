@@ -421,8 +421,6 @@ jobs:
         with:
           deploy-llmisvc: "true"
           network-layer: "istio-gatewayapi"
-        env:
-          ISTIO_VERSION_OVERRIDE: "1.29.6"
 
       - name: Install UV
         run: ./test/scripts/gh-actions/setup-uv.sh
