@@ -225,9 +225,27 @@ type PodMetricSource struct {
 	Target MetricTarget `json:"target"`
 }
 
+// TriggerAuthenticationKind indicates the kind of KEDA authentication resource.
+// +kubebuilder:validation:Enum=TriggerAuthentication;ClusterTriggerAuthentication
+type TriggerAuthenticationKind string
+
+const (
+	// TriggerAuthenticationKindNamespaced references a namespaced TriggerAuthentication
+	// in the same namespace as the InferenceService.
+	TriggerAuthenticationKindNamespaced TriggerAuthenticationKind = "TriggerAuthentication"
+	// TriggerAuthenticationKindCluster references a cluster-scoped ClusterTriggerAuthentication.
+	TriggerAuthenticationKindCluster TriggerAuthenticationKind = "ClusterTriggerAuthentication"
+)
+
 type AuthenticationRef struct {
-	// name is the name of the authentication secret
+	// name is the name of the TriggerAuthentication or ClusterTriggerAuthentication
 	Name string `json:"name"`
+
+	// kind is the kind of the referenced authentication resource.
+	// Possible values are TriggerAuthentication and ClusterTriggerAuthentication.
+	// Defaults to TriggerAuthentication when empty.
+	// +optional
+	Kind TriggerAuthenticationKind `json:"kind,omitempty"`
 }
 
 type ExtMetricAuthentication struct {
