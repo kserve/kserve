@@ -203,6 +203,20 @@ kserve:
         sizeLimit: ""
       hostIPC:
         enabled: false
+    openvinoserver:
+      disabled: false
+      image: openvino/model_server
+      tag: latest
+      imagePullSecrets: []
+      imagePullPolicy: IfNotPresent
+      securityContext:
+        runAsUser: 5000
+        allowPrivilegeEscalation: false
+        privileged: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
     art:
       image: kserve/art-explainer
       defaultVersion: ""
