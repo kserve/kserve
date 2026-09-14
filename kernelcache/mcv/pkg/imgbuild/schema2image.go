@@ -2,7 +2,6 @@ package imgbuild
 
 import (
 	"archive/tar"
-	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -49,7 +48,7 @@ func schema2ImageFromBuildContext(prep *buildContext, imageName string) (v1.Imag
 		Layer:     layer,
 		MediaType: types.DockerLayer,
 		History: v1.History{
-			Created: v1.Time{Time: now},
+			Created:   v1.Time{Time: now},
 			CreatedBy: "mcv",
 		},
 	})
@@ -77,15 +76,24 @@ func schema2ImageFromBuildContext(prep *buildContext, imageName string) (v1.Imag
 }
 
 func compatLayerFromBuildContext(prep *buildContext) (v1.Layer, error) {
-	var rawLayer bytes.Buffer
-	if err := writeCompatLayerTar(&rawLayer, prep.CacheBuildDir, prep.ManifestBuildDir, prep.CacheTag, prep.ManifestTag); err != nil {
+	f, err := os.CreateTemp("", "mcv-layer-*.tar")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp layer file: %w", err)
+	}
+	tmpPath := f.Name()
+
+	if err := writeCompatLayerTar(f, prep.CacheBuildDir, prep.ManifestBuildDir, prep.CacheTag, prep.ManifestTag); err != nil {
+		f.Close()
+		os.Remove(tmpPath)
 		return nil, err
 	}
+	if err := f.Close(); err != nil {
+		os.Remove(tmpPath)
+		return nil, fmt.Errorf("failed to close temp layer file: %w", err)
+	}
 
-	layerBytes := rawLayer.Bytes()
-	return tarball.LayerFromOpener(func() (io.ReadCloser, error) {
-		return io.NopCloser(bytes.NewReader(layerBytes)), nil
-	})
+	prep.TempLayerFile = tmpPath
+	return tarball.LayerFromFile(tmpPath)
 }
 
 func writeCompatLayerTar(w io.Writer, cacheDir, manifestDir, cacheTag, manifestTag string) error {

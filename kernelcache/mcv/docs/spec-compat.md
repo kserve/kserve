@@ -96,7 +96,7 @@ included in validation.
          fail compat path
 3. If compat path failed, optionally try legacy artifact layers
    (application/cache.<type>.content.layer.v1+<type>) — not produced by MCV create
-4. Validate cache-size-bytes against bytes written in step 2
+4. Validate cache-size-bytes against bytes written by whichever extraction path succeeded (step 2 or step 3)
 ```
 
 MCV **create** (Docker and Buildah) only produces compat images. The artifact

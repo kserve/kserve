@@ -25,6 +25,9 @@ alt Summary check passes (or skipped)
     Extractor -> Extractor : extractCompatImg()\n(layer type: docker gzip | oci gzip)
     alt compat extraction fails
         Extractor -> Extractor : extractOCIArtifactImg()\n(legacy custom layer type)
+        alt fallback extraction also fails
+            Extractor --> CLI : Extraction Error
+        end
     end
     Extractor -> FS : write cache + manifest from tarball
     FS --> Extractor : extractedDirs, extractedBytes

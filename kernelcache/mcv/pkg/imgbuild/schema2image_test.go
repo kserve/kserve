@@ -83,6 +83,9 @@ func TestCompatLayerContainsExpectedPaths(t *testing.T) {
 
 	layer, err := compatLayerFromBuildContext(prep)
 	assert.NoError(t, err)
+	if prep.TempLayerFile != "" {
+		t.Cleanup(func() { os.Remove(prep.TempLayerFile) })
+	}
 
 	compressed, err := layer.Compressed()
 	assert.NoError(t, err)
