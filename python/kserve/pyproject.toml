@@ -34,7 +34,7 @@ dependencies = [
     # [tool.uv] override-dependencies) so consumers installing kserve from PyPI
     # also inherit the CVE fixes; override-dependencies applies to this
     # workspace's resolver only and is stripped from the published wheel.
-    "aiohttp>=3.13.4", # CVE-2026-34520
+    "aiohttp>=3.14.3", # CVE-2026-69244
     "h11>=0.16.0", # CVE-2025-43859
     "cryptography>=50.0.0", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36, GHSA-g6cj-pr64-35w5
     "python-multipart>=0.0.27", # CVE-2026-42561
@@ -112,7 +112,7 @@ index-strategy = "unsafe-best-match"
 # Keeping these here too unconditionally overrides versions even if a sub-dependency strictly requires an older version.
 override-dependencies = [
     "urllib3>=2.7.0", # CVE-2026-21441
-    "aiohttp>=3.13.4", # CVE-2026-34520
+    "aiohttp>=3.14.3", # CVE-2026-69244
     "h11>=0.16.0", # CVE-2025-43859
     "cryptography>=50.0.0", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36, GHSA-g6cj-pr64-35w5
     "python-multipart>=0.0.27", # CVE-2026-42561

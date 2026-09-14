@@ -2391,6 +2391,7 @@ spec:
         eval "exec vllm serve /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
+          --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
           ${KV_TRANSFER_ARGS} \
@@ -2746,6 +2747,7 @@ spec:
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
+          --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
@@ -3104,6 +3106,7 @@ spec:
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
+          --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --data-parallel-size {{ or (and .Spec.Parallelism .Spec.Parallelism.Data) 1 }} \
@@ -3367,6 +3370,7 @@ spec:
           eval "exec vllm serve /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" \
             --port 8000 \
+            --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
             ${ACCESS_LOG_ARGS} \
             ${SHUTDOWN_TIMEOUT_ARGS} \
             ${KV_TRANSFER_ARGS} \
@@ -3663,6 +3667,7 @@ spec:
             /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
+            --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
             --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
             {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
             {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
@@ -3960,6 +3965,7 @@ spec:
             /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
+            --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
             {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
             {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
             --data-parallel-size {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Data) 1 }} \
@@ -4883,6 +4889,7 @@ spec:
         eval "exec vllm serve /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
+          --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
           ${KV_TRANSFER_ARGS} \
@@ -5250,6 +5257,7 @@ spec:
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
+          --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
@@ -5529,6 +5537,7 @@ spec:
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
+          --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --data-parallel-size {{ or (and .Spec.Parallelism .Spec.Parallelism.Data) 1 }} \
