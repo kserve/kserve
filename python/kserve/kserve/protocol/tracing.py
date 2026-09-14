@@ -33,6 +33,7 @@ from opentelemetry.sdk.environment_variables import (
     OTEL_EXPORTER_OTLP_TRACES_ENDPOINT,
     OTEL_EXPORTER_OTLP_TRACES_PROTOCOL,
     OTEL_SDK_DISABLED,
+    OTEL_SERVICE_NAME,
 )
 from opentelemetry.sdk.resources import SERVICE_NAME, Resource
 from opentelemetry.sdk.trace import TracerProvider
@@ -124,6 +125,9 @@ def get_tracer_provider() -> Optional[TracerProvider]:
         return _TRACER_PROVIDER
 
     _TRACING_INITIALIZED = True
+    if _is_truthy(os.getenv(OTEL_SDK_DISABLED)):
+        logger.info("OpenTelemetry SDK disabled via 'OTEL_SDK_DISABLED'")
+        return None
     try:
         configured_exporters = _configured_exporter_names()
         span_processors = [
@@ -139,22 +143,21 @@ def get_tracer_provider() -> Optional[TracerProvider]:
         )
         return None
 
-    if _is_truthy(os.getenv(OTEL_SDK_DISABLED)):
-        logger.info("OpenTelemetry SDK disabled via 'OTEL_SDK_DISABLED'")
-    else:
-        tracer_provider = TracerProvider(
-            resource=Resource.create({SERVICE_NAME: KSERVE_MODEL_SERVER_NAME})
+    tracer_provider = TracerProvider(
+        resource=Resource.create(
+            {SERVICE_NAME: os.getenv(OTEL_SERVICE_NAME, KSERVE_MODEL_SERVER_NAME)}
         )
-        trace.set_tracer_provider(tracer_provider)
-        for processor in span_processors:
-            tracer_provider.add_span_processor(processor)
-        if configured_exporters:
-            logger.info(
-                "OpenTelemetry trace exporters configured: %s",
-                ", ".join(configured_exporters),
-            )
-        else:
-            logger.info("OpenTelemetry trace exporting disabled")
+    )
+    trace.set_tracer_provider(tracer_provider)
+    for processor in span_processors:
+        tracer_provider.add_span_processor(processor)
+    if configured_exporters:
+        logger.info(
+            "OpenTelemetry trace exporters configured: %s",
+            ", ".join(configured_exporters),
+        )
+    else:
+        logger.info("OpenTelemetry trace exporting disabled")
 
-        _TRACER_PROVIDER = tracer_provider
+    _TRACER_PROVIDER = tracer_provider
     return _TRACER_PROVIDER
