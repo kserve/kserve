@@ -710,8 +710,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		// mutually exclusive in a valid LLMInferenceService.
 		llmSvcCfg.Spec.Router.Scheduler.Config.Ref = nil
 
-		// Warn if the resolved ConfigMap contains predicted-latency-producer but the
-		// well-known config was not injected (because detection runs before Ref resolution).
+		// If predicted-latency-producer plugin is still in use, emit Event on Warning
 		if hasPluginInSpec(llmSvcCfg.Spec, "predicted-latency-producer") {
 			r.Eventf(llmSvc, corev1.EventTypeWarning, "LatencyPredictorConfigRef",
 				"predicted-latency-producer plugin is deprecated, should be removed to avoid disruptions in the future")
