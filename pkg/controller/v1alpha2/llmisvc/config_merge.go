@@ -714,7 +714,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		// well-known config was not injected (because detection runs before Ref resolution).
 		if hasPluginInSpec(llmSvcCfg.Spec, "predicted-latency-producer") {
 			r.Eventf(llmSvc, corev1.EventTypeWarning, "LatencyPredictorConfigRef",
-				"predicted-latency-producer plugin is deprecated, should be removed from Config.Inline")
+				"predicted-latency-producer plugin is deprecated, should be removed to avoid disruptions in the future")
 		}
 	}
 
