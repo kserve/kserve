@@ -48,6 +48,7 @@ from kubernetes import client as k8s_client, config
 from .diagnostic import collect_diagnostics
 from .fixtures import DEFAULT_LLMISVC_ANNOTATIONS, LLMD_SIMULATOR_SECURITY_CONTEXT
 from .namespace import skip_deletion, skip_deletion_on_failure
+from .test_llm_inference_service import MODEL_ROUTING_HEADER, publisher_model
 
 logger = logging.getLogger(__name__)
 
@@ -899,7 +900,7 @@ class TestCanaryLifecycle:
         gateway = get_gateway_base_url(api, v1, ns)
         driver = traffic_driver(
             url=f"{gateway}/v1/completions",
-            headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+            headers={MODEL_ROUTING_HEADER: publisher_model(ns, MODEL)},
             payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
             rate=2,
             timeout=15.0,
@@ -918,7 +919,7 @@ class TestCanaryLifecycle:
         wait_for_healthy_route(
             f"{gateway}/v1/completions",
             {
-                "X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}",
+                MODEL_ROUTING_HEADER: publisher_model(ns, MODEL),
                 "Content-Type": "application/json",
             },
             {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
@@ -934,7 +935,7 @@ class TestCanaryLifecycle:
         wait_for_healthy_route(
             f"{gateway}/v1/completions",
             {
-                "X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}",
+                MODEL_ROUTING_HEADER: publisher_model(ns, MODEL),
                 "Content-Type": "application/json",
             },
             {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
@@ -1023,7 +1024,7 @@ class TestCanaryLifecycle:
             gateway = get_gateway_base_url(api, v1.name, ns)
             driver = traffic_driver(
                 url=f"{gateway}/v1/completions",
-                headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                headers={MODEL_ROUTING_HEADER: publisher_model(ns, MODEL)},
                 payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
                 rate=2,
                 timeout=15.0,
@@ -1038,7 +1039,7 @@ class TestCanaryLifecycle:
 
             wait_for_healthy_route(
                 f"{gateway}/v1/completions",
-                {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                {MODEL_ROUTING_HEADER: publisher_model(ns, MODEL)},
                 {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
                 expect_header=("x-inference-pod", v1.name),
             )
@@ -1104,7 +1105,7 @@ class TestCanaryLifecycle:
             gateway = get_gateway_base_url(api, v1.name, ns)
             driver = traffic_driver(
                 url=f"{gateway}/v1/completions",
-                headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                headers={MODEL_ROUTING_HEADER: publisher_model(ns, MODEL)},
                 payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
                 rate=2,
                 timeout=15.0,
@@ -1204,7 +1205,7 @@ class TestCanaryLifecycle:
             wait_for_member_count(api, v1.name, ns, 3)
 
             gateway = get_gateway_base_url(api, v1.name, ns)
-            route_headers = {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"}
+            route_headers = {MODEL_ROUTING_HEADER: publisher_model(ns, MODEL)}
             route_payload = {"model": MODEL, "prompt": "Hello", "max_tokens": 5}
 
             wait_for_healthy_route(
@@ -1256,7 +1257,7 @@ class TestCanaryLifecycle:
             gateway = get_gateway_base_url(api, v1.name, ns)
             driver = traffic_driver(
                 url=f"{gateway}/v1/completions",
-                headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                headers={MODEL_ROUTING_HEADER: publisher_model(ns, MODEL)},
                 payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
                 rate=2,
                 timeout=15.0,
@@ -1272,7 +1273,7 @@ class TestCanaryLifecycle:
             wait_for_member_count(api, v1.name, ns, 2)
             wait_for_healthy_route(
                 f"{gateway}/v1/completions",
-                {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                {MODEL_ROUTING_HEADER: publisher_model(ns, MODEL)},
                 {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
             )
 
@@ -1313,7 +1314,7 @@ class TestCanaryLifecycle:
             gateway = get_gateway_base_url(api, v1.name, ns)
             driver = traffic_driver(
                 url=f"{gateway}/v1/completions",
-                headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                headers={MODEL_ROUTING_HEADER: publisher_model(ns, MODEL)},
                 payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
                 rate=2,
                 timeout=15.0,
@@ -1356,14 +1357,14 @@ class TestCanaryLifecycle:
             gateway = get_gateway_base_url(api, v1.name, ns)
             driver = traffic_driver(
                 url=f"{gateway}/v1/completions",
-                headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                headers={MODEL_ROUTING_HEADER: publisher_model(ns, MODEL)},
                 payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
                 rate=2,
                 timeout=15.0,
                 warmup=True,
             )
 
-            route_headers = {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"}
+            route_headers = {MODEL_ROUTING_HEADER: publisher_model(ns, MODEL)}
             route_payload = {"model": MODEL, "prompt": "Hello", "max_tokens": 5}
 
             # Promote v2
@@ -1428,7 +1429,7 @@ class TestCanaryLifecycle:
             gateway = get_gateway_base_url(api, v1.name, ns)
             driver = traffic_driver(
                 url=f"{gateway}/v1/completions",
-                headers={"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                headers={MODEL_ROUTING_HEADER: publisher_model(ns, MODEL)},
                 payload={"model": MODEL, "prompt": "Hello", "max_tokens": 5},
                 rate=2,
                 timeout=15.0,
@@ -1445,7 +1446,7 @@ class TestCanaryLifecycle:
             # Route ownership handoff: v1's route is deleted, v2 creates a new one.
             wait_for_healthy_route(
                 f"{gateway}/v1/completions",
-                {"X-Gateway-Model-Name": f"publishers/{ns}/models/{MODEL}"},
+                {MODEL_ROUTING_HEADER: publisher_model(ns, MODEL)},
                 {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
                 expect_header=("x-inference-pod", v2.name),
             )
