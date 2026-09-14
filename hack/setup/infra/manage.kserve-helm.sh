@@ -172,6 +172,7 @@ fi
 if is_positive "${ENABLE_LOCALMODEL}"; then
     log_info "LocalModel is enabled"
     CRD_CHARTS+=("kserve-localmodel-crd")
+    CRD_CHARTS+=("kserve-kernelcache-crd")
     RESOURCE_CHARTS+=("kserve-localmodel-resources")
     RESOURCE_EXTRA_ARGS_LIST+=("${LOCALMODEL_EXTRA_ARGS:-} ${PULL_POLICY_LOCALMODEL}")
     TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
