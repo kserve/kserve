@@ -396,3 +396,24 @@ func TestValidateCreate_SharedPVCDestinationConflict(t *testing.T) {
 	_, err = validator.ValidateCreate(t.Context(), &differentModel)
 	g.Expect(err).ToNot(gomega.HaveOccurred())
 }
+
+func TestValidateUpdate_SharedPVCSkipsDestinationConflict(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	s := runtime.NewScheme()
+	g.Expect(v1alpha1.AddToScheme(s)).To(gomega.Succeed())
+
+	// A contender with the same (pvcRef, storageKey) exists, as after a create race. The
+	// reconciler resolves ownership; the webhook must not block updates (e.g. finalizer
+	// patches) on either side.
+	existing := makeTestSharedPVCCache("shared-pvc")
+	existing.Name = "other-cache"
+	fakeClient := fake.NewClientBuilder().WithObjects(&existing).WithScheme(s).Build()
+	validator := LocalModelNamespaceCacheValidator{Client: fakeClient}
+
+	oldCache := makeTestSharedPVCCache("shared-pvc")
+	newCache := makeTestSharedPVCCache("shared-pvc")
+	newCache.Finalizers = []string{"serving.kserve.io/test-finalizer"}
+	warnings, err := validator.ValidateUpdate(t.Context(), &oldCache, &newCache)
+	g.Expect(warnings).To(gomega.BeNil())
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+}

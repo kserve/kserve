@@ -520,8 +520,11 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 				switch {
 				case nsModel.Spec.SharedPVCMode():
 					// Shared-PVC mode: select only once Ready=True; the serving PVC is the
-					// referenced claim itself (node groups do not apply).
-					if !nsModel.IsReady() {
+					// referenced claim itself (node groups do not apply). An ISVC already
+					// bound to this cache stays bound if the cache later drops to NotReady
+					// (spec-generation bump, Job re-import), so a concurrent ISVC update does
+					// not strip the labels and roll pods back to downloading from source.
+					if !nsModel.IsReady() && isvc.Labels[constants.LocalModelLabel] != nsModel.Name {
 						continue
 					}
 					localModelPVCName = *nsModel.Spec.PVCRef

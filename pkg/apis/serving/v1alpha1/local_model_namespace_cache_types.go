@@ -28,6 +28,7 @@ import (
 // +k8s:openapi-gen=true
 // +kubebuilder:validation:XValidation:rule="!(has(self.nodeGroups) && has(self.pvcRef))",message="nodeGroups and pvcRef are mutually exclusive"
 // +kubebuilder:validation:XValidation:rule="has(self.nodeGroups) || has(self.pvcRef)",message="one of nodeGroups or pvcRef must be set"
+// +kubebuilder:validation:XValidation:rule="has(self.pvcRef) == has(oldSelf.pvcRef)",message="storage mode is immutable"
 type LocalModelNamespaceCacheSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="StorageUri is immutable"
 	// Original StorageUri

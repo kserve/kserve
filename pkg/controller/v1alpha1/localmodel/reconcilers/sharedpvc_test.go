@@ -321,6 +321,93 @@ func TestValidateExistingImportJobUsesForegroundDeletion(t *testing.T) {
 	}
 }
 
+func TestValidateExistingImportJobReplacesNonCompletedJobOnSpecHashChange(t *testing.T) {
+	cache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "ns", UID: "cache-uid"},
+		Spec:       v1alpha1.LocalModelNamespaceCacheSpec{ServiceAccountName: "fixed-sa"},
+	}
+	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{UID: "pvc-uid"}}
+	stale := cache.DeepCopy()
+	stale.Spec.ServiceAccountName = "broken-sa"
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cache-import", Namespace: "ns",
+			Annotations: map[string]string{
+				importPVCUIDAnnotation:     string(pvc.UID),
+				importStorageKeyAnnotation: "storage-key",
+				importSpecHashAnnotation:   importSpecHash(stale),
+			},
+			OwnerReferences: []metav1.OwnerReference{{Name: cache.Name, UID: cache.UID, Controller: ptrTo(true)}},
+		},
+		Status: batchv1.JobStatus{Conditions: []batchv1.JobCondition{{Type: batchv1.JobFailed, Status: corev1.ConditionTrue}}},
+	}
+	trackingClient := &deleteTrackingClient{}
+	reconciler := &LocalModelNamespaceCacheReconciler{Client: trackingClient}
+
+	gotJob, pending, err := reconciler.validateExistingImportJob(context.Background(), job, cache, pvc, "storage-key")
+	if err != nil {
+		t.Fatalf("validateExistingImportJob() error = %v", err)
+	}
+	if gotJob != nil || !pending {
+		t.Fatalf("validateExistingImportJob() = (%v, %v), want (nil, true)", gotJob, pending)
+	}
+	if trackingClient.propagation == nil {
+		t.Fatalf("expected the failed Job to be deleted after the credential spec changed")
+	}
+}
+
+func TestValidateExistingImportJobKeepsCompletedJobOnSpecHashChange(t *testing.T) {
+	cache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "ns", UID: "cache-uid"},
+		Spec:       v1alpha1.LocalModelNamespaceCacheSpec{ServiceAccountName: "new-sa"},
+	}
+	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{UID: "pvc-uid"}}
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cache-import", Namespace: "ns",
+			Annotations: map[string]string{
+				importPVCUIDAnnotation:     string(pvc.UID),
+				importStorageKeyAnnotation: "storage-key",
+				importSpecHashAnnotation:   "stale-hash",
+			},
+			OwnerReferences: []metav1.OwnerReference{{Name: cache.Name, UID: cache.UID, Controller: ptrTo(true)}},
+		},
+		Status: batchv1.JobStatus{Conditions: []batchv1.JobCondition{{Type: batchv1.JobComplete, Status: corev1.ConditionTrue}}},
+	}
+	trackingClient := &deleteTrackingClient{}
+	reconciler := &LocalModelNamespaceCacheReconciler{Client: trackingClient}
+
+	gotJob, pending, err := reconciler.validateExistingImportJob(context.Background(), job, cache, pvc, "storage-key")
+	if err != nil {
+		t.Fatalf("validateExistingImportJob() error = %v", err)
+	}
+	if gotJob != job || pending {
+		t.Fatalf("validateExistingImportJob() = (%v, %v), want (job, false)", gotJob, pending)
+	}
+	if trackingClient.propagation != nil {
+		t.Fatalf("completed Job must not be deleted on a credential spec change")
+	}
+}
+
+func TestImportSpecHash(t *testing.T) {
+	base := &v1alpha1.LocalModelNamespaceCache{}
+	sameAsBase := &v1alpha1.LocalModelNamespaceCache{}
+	if importSpecHash(base) != importSpecHash(sameAsBase) {
+		t.Fatalf("importSpecHash() must be stable for equal specs")
+	}
+	withSA := base.DeepCopy()
+	withSA.Spec.ServiceAccountName = "sa"
+	if importSpecHash(withSA) == importSpecHash(base) {
+		t.Fatalf("importSpecHash() must change when serviceAccountName changes")
+	}
+	key := "key"
+	withStorage := base.DeepCopy()
+	withStorage.Spec.Storage = &v1alpha1.LocalModelStorageSpec{StorageKey: &key}
+	if importSpecHash(withStorage) == importSpecHash(base) {
+		t.Fatalf("importSpecHash() must change when storage changes")
+	}
+}
+
 func TestValidateExistingImportJobWaitsForTerminatingMatchingJob(t *testing.T) {
 	cache := &v1alpha1.LocalModelNamespaceCache{ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "ns", UID: "cache-uid"}}
 	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{UID: "pvc-uid"}}

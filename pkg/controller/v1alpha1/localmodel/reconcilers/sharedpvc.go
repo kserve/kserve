@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -47,6 +48,7 @@ const (
 	importJobNameSuffix        = "-import"
 	importPVCUIDAnnotation     = "serving.kserve.io/import-pvc-uid"
 	importStorageKeyAnnotation = "serving.kserve.io/import-storage-key"
+	importSpecHashAnnotation   = "serving.kserve.io/import-spec-hash"
 )
 
 var errImportJobConflict = errors.New("import Job name conflict")
@@ -334,13 +336,20 @@ func (c *LocalModelNamespaceCacheReconciler) validateExistingImportJob(ctx conte
 	if !job.DeletionTimestamp.IsZero() {
 		return job, true, nil
 	}
-	if job.Annotations[importPVCUIDAnnotation] == string(pvc.UID) &&
-		job.Annotations[importStorageKeyAnnotation] == storageKey {
+	destinationMatches := job.Annotations[importPVCUIDAnnotation] == string(pvc.UID) &&
+		job.Annotations[importStorageKeyAnnotation] == storageKey
+	// A completed import is kept even if the credential spec has since changed: the data is
+	// already on the claim and a re-import would only churn Ready. A pending, running, or
+	// failed Job is replaced so a credential fix (serviceAccountName/storage) takes effect
+	// without the user having to find and delete the Job by hand.
+	specMatches := jobHasCondition(job, batchv1.JobComplete) ||
+		job.Annotations[importSpecHashAnnotation] == importSpecHash(localModel)
+	if destinationMatches && specMatches {
 		return job, false, nil
 	}
 
 	c.Log.Info("Replacing stale shared-PVC import job", "name", job.Name, "namespace", job.Namespace,
-		"pvcUID", pvc.UID, "storageKey", storageKey)
+		"pvcUID", pvc.UID, "storageKey", storageKey, "specHash", importSpecHash(localModel))
 	if err := c.deleteImportJob(ctx, job); err != nil && !apierr.IsNotFound(err) {
 		return nil, false, err
 	}
@@ -405,6 +414,7 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 			Annotations: map[string]string{
 				importPVCUIDAnnotation:     string(pvc.UID),
 				importStorageKeyAnnotation: storageKey,
+				importSpecHashAnnotation:   importSpecHash(localModel),
 			},
 			Labels: map[string]string{
 				"model":          localModel.Name,
@@ -490,6 +500,28 @@ func importPendingState(message string) sharedState {
 		reason:  v1alpha1.ReasonImportPending,
 		message: message,
 	}
+}
+
+// importSpecHash returns a stable hash of the spec fields that shape the import Job's
+// credentials (serviceAccountName and storage). It is stamped on the Job so a credential
+// fix invalidates a non-completed Job and triggers a fresh import.
+func importSpecHash(localModel *v1alpha1.LocalModelNamespaceCache) string {
+	// Marshal a fixed-shape struct so the hash is stable across field ordering and nil vs
+	// empty; json.Marshal of a *string / *struct is deterministic for this input.
+	payload, err := json.Marshal(struct {
+		ServiceAccountName string                          `json:"serviceAccountName"`
+		Storage            *v1alpha1.LocalModelStorageSpec `json:"storage"`
+	}{
+		ServiceAccountName: localModel.Spec.ServiceAccountName,
+		Storage:            localModel.Spec.Storage,
+	})
+	if err != nil {
+		// Marshalling plain strings and maps cannot fail; fall back to a constant so a
+		// hypothetical error never causes perpetual Job replacement.
+		return ""
+	}
+	sum := sha256.Sum256(payload)
+	return hex.EncodeToString(sum[:])
 }
 
 // importJobName returns a deterministic, DNS-1123 (<=63 char) Job name derived from the cache

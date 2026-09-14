@@ -87,10 +87,11 @@ func (v *LocalModelNamespaceCacheValidator) ValidateUpdate(ctx context.Context, 
 		return nil, err
 	}
 
+	// pvcRef and sourceModelUri are both immutable, so the (pvcRef, storageKey) destination
+	// cannot change on update; the create-time conflict check is sufficient. Re-checking here
+	// would wedge both sides of a create race, since neither cache could be patched (for
+	// example to add the finalizer) while the other exists.
 	if localModelNamespaceCache.Spec.SharedPVCMode() {
-		if err := v.validateDestinationConflict(ctx, localModelNamespaceCache); err != nil {
-			return nil, err
-		}
 		return nil, nil
 	}
 

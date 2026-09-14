@@ -776,5 +776,58 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 				return k8sClient.Get(ctx, types.NamespacedName{Name: "keep-pvc", Namespace: ns}, &corev1.PersistentVolumeClaim{})
 			}, duration, interval).Should(Succeed())
 		})
+
+		It("Should reject switching storage mode on a live cache", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+
+			ns := fmt.Sprintf("test-shared-mode-flip-%d", time.Now().UnixNano())
+			defer k8sClient.Delete(ctx, createTestNamespace(ctx, ns))
+
+			// Shared-PVC -> node-local is rejected by the CRD transition rule.
+			shared := makeSharedCache("shared-flip", ns, "any-pvc")
+			Expect(k8sClient.Create(ctx, shared)).Should(Succeed())
+			defer k8sClient.Delete(ctx, shared)
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: shared.Name, Namespace: ns}, current); err != nil {
+					return err
+				}
+				current.Spec.PVCRef = nil
+				current.Spec.NodeGroups = []string{"gpu"}
+				return k8sClient.Update(ctx, current)
+			})).To(MatchError(ContainSubstring("storage mode is immutable")))
+
+			// Node-local -> shared-PVC is rejected as well, so DeleteModelFromNodes is never skipped.
+			nodeLocal := &v1alpha1.LocalModelNamespaceCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "node-flip", Namespace: ns},
+				Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+					SourceModelUri: sourceModelUri,
+					ModelSize:      resource.MustParse("1Gi"),
+					NodeGroups:     []string{"gpu"},
+				},
+			}
+			Expect(k8sClient.Create(ctx, nodeLocal)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeLocal)
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeLocal.Name, Namespace: ns}, current); err != nil {
+					return err
+				}
+				current.Spec.NodeGroups = nil
+				current.Spec.PVCRef = ptr.To("any-pvc")
+				return k8sClient.Update(ctx, current)
+			})).To(MatchError(ContainSubstring("storage mode is immutable")))
+
+			// Edits that keep the mode remain allowed.
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: shared.Name, Namespace: ns}, current); err != nil {
+					return err
+				}
+				current.Spec.ModelSize = resource.MustParse("2Gi")
+				return k8sClient.Update(ctx, current)
+			})).To(Succeed())
+		})
 	})
 })

@@ -1767,8 +1767,8 @@ func TestDefaultInferenceServiceWithLocalModelNamespaceCache(t *testing.T) {
 	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelNamespaceLabel, "default"))
 }
 
-func makeSharedPVCNSCache(pvcRef string, ready bool) *v1alpha1.LocalModelNamespaceCacheList {
-	ref := pvcRef
+func makeSharedPVCNSCache(ready bool) *v1alpha1.LocalModelNamespaceCacheList {
+	ref := "shared-pvc"
 	cache := v1alpha1.LocalModelNamespaceCache{
 		ObjectMeta: metav1.ObjectMeta{Name: "shared-ns-cache", Namespace: "default", Generation: 1},
 		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
@@ -1801,7 +1801,7 @@ func makeSharedPVCTestISVC() InferenceService {
 func TestSetLocalModelLabel_SharedPVCReady(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeSharedPVCTestISVC()
-	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache("shared-pvc", true))
+	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache(true))
 
 	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "shared-ns-cache"))
 	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelNamespaceLabel, "default"))
@@ -1811,9 +1811,31 @@ func TestSetLocalModelLabel_SharedPVCReady(t *testing.T) {
 func TestSetLocalModelLabel_SharedPVCNotReadySkipped(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeSharedPVCTestISVC()
-	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache("shared-pvc", false))
+	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache(false))
 
 	g.Expect(isvc.Labels).ToNot(gomega.HaveKey(constants.LocalModelLabel))
+}
+
+func TestSetLocalModelLabel_SharedPVCNotReadyKeepsBoundISVC(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeSharedPVCTestISVC()
+	isvc.Labels = map[string]string{constants.LocalModelLabel: "shared-ns-cache"}
+	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache(false))
+
+	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "shared-ns-cache"))
+	g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "shared-pvc"))
+}
+
+func TestSetLocalModelLabel_SharedPVCNotReadySkipsISVCBoundElsewhere(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeSharedPVCTestISVC()
+	isvc.Labels = map[string]string{constants.LocalModelLabel: "some-other-cache"}
+	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache(false))
+
+	// Bound to a different cache: the not-ready shared cache is skipped, and the stale
+	// binding is cleared by the existing no-match fallback.
+	g.Expect(isvc.Labels).ToNot(gomega.HaveKey(constants.LocalModelLabel))
+	g.Expect(isvc.Annotations).ToNot(gomega.HaveKey(constants.LocalModelPVCNameAnnotationKey))
 }
 
 func TestDefaultInferenceServiceTracing(t *testing.T) {
