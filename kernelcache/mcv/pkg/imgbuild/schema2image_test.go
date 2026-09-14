@@ -1,3 +1,19 @@
+/*
+Copyright 2026 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package imgbuild
 
 import (
@@ -9,8 +25,9 @@ import (
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/redhat-et/GKM/mcv/pkg/cache"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/cache"
 )
 
 func TestImageTitleFromName(t *testing.T) {
@@ -25,12 +42,12 @@ func TestSchema2ImageManifestMediaTypes(t *testing.T) {
 	cacheDir := filepath.Join(tmpDir, cacheTag)
 	manifestDir := filepath.Join(tmpDir, manifestTag)
 
-	assert.NoError(t, os.MkdirAll(cacheDir, 0o755))
-	assert.NoError(t, os.MkdirAll(manifestDir, 0o755))
+	assert.NoError(t, os.MkdirAll(cacheDir, 0o750))
+	assert.NoError(t, os.MkdirAll(manifestDir, 0o750))
 	assert.NoError(t, cache.WriteManifest(filepath.Join(manifestDir, "manifest.json"), cache.Manifest{
 		"vllm": []cache.CacheEntry{},
 	}))
-	assert.NoError(t, os.WriteFile(filepath.Join(cacheDir, "example.txt"), []byte("cache-data"), 0o644))
+	assert.NoError(t, os.WriteFile(filepath.Join(cacheDir, "example.txt"), []byte("cache-data"), 0o640))
 
 	prep := &buildContext{
 		Labels: cache.Labels{
@@ -69,10 +86,10 @@ func TestCompatLayerContainsExpectedPaths(t *testing.T) {
 	cacheDir := filepath.Join(tmpDir, cacheTag)
 	manifestDir := filepath.Join(tmpDir, manifestTag)
 
-	assert.NoError(t, os.MkdirAll(cacheDir, 0o755))
-	assert.NoError(t, os.MkdirAll(manifestDir, 0o755))
-	assert.NoError(t, os.WriteFile(filepath.Join(cacheDir, "kernel.bin"), []byte("kernels"), 0o644))
-	assert.NoError(t, os.WriteFile(filepath.Join(manifestDir, "manifest.json"), []byte(`{}`), 0o644))
+	assert.NoError(t, os.MkdirAll(cacheDir, 0o750))
+	assert.NoError(t, os.MkdirAll(manifestDir, 0o750))
+	assert.NoError(t, os.WriteFile(filepath.Join(cacheDir, "kernel.bin"), []byte("kernels"), 0o640))
+	assert.NoError(t, os.WriteFile(filepath.Join(manifestDir, "manifest.json"), []byte(`{}`), 0o640))
 
 	prep := &buildContext{
 		CacheTag:         cacheTag,
@@ -84,7 +101,7 @@ func TestCompatLayerContainsExpectedPaths(t *testing.T) {
 	layer, err := compatLayerFromBuildContext(prep)
 	assert.NoError(t, err)
 	if prep.TempLayerFile != "" {
-		t.Cleanup(func() { os.Remove(prep.TempLayerFile) })
+		t.Cleanup(func() { _ = os.Remove(prep.TempLayerFile) })
 	}
 
 	compressed, err := layer.Compressed()
