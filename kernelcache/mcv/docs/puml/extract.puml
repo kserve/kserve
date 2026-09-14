@@ -1,20 +1,55 @@
 @startuml
 actor User
 participant "MCV CLI" as CLI
+participant "ImgMgr" as Mgr
 participant "ImgFetcher" as Fetcher
+participant "Docker" as Docker
+participant "Podman" as Podman
+participant "Remote Registry" as Registry
 participant "CacheExtractor" as Extractor
-participant "Registry" as Registry
 participant "PreflightCheck" as Check
 participant "Filesystem" as FS
 
-User -> CLI : mcv -e -i <image>
-CLI -> Fetcher : FetchImg(image)
-Fetcher -> Registry : Pull image (remote or docker save)
-Registry --> Fetcher : v1.Image
-Fetcher --> CLI : return image
+User -> CLI : mcv -e -i <image> [-d <extractDir>]
+CLI -> Mgr : FetchAndExtractCache(image)
 
-CLI -> Extractor : ExtractCache(image)
-Extractor -> Extractor : DetectCacheTypeFromLabels()
+Mgr -> Fetcher : FetchImg(image)
+
+loop local fetchers (docker, then podman)
+    alt Docker image present
+        Fetcher -> Docker : ImageSave(image)
+        Docker --> Fetcher : docker-archive tarball
+        Fetcher --> Mgr : v1.Image
+    else Podman image present
+        Fetcher -> Podman : Exists + Export(docker-archive)
+        Podman --> Fetcher : docker-archive tarball
+        Fetcher --> Mgr : v1.Image
+    end
+end
+
+alt not found locally
+    Fetcher -> Registry : remote.Image(ref)
+    Registry --> Fetcher : v1.Image
+    Fetcher --> Mgr : v1.Image
+end
+
+Mgr -> Extractor : ExtractCache(image)
+
+Extractor -> Extractor : read image labels
+
+alt cache.vllm.image/summary label
+    Extractor --> Extractor : cache type = vllm
+    note right of Extractor
+      default extract dir:
+      ~/.cache/vllm
+    end note
+else cache.triton.image/summary label
+    Extractor --> Extractor : cache type = triton
+    note right of Extractor
+      default extract dir:
+      ~/.triton/cache
+    end note
+end
 
 alt GPU preflight enabled
     Extractor -> Check : CompareCacheSummaryLabelToGPU()
@@ -22,23 +57,31 @@ alt GPU preflight enabled
 end
 
 alt Summary check passes (or skipped)
-    Extractor -> Extractor : extractCompatImg()\n(layer type: docker gzip | oci gzip)
+    Extractor -> Extractor : extractCompatImg()\n(docker gzip | oci gzip layers)
     alt compat extraction fails
-        Extractor -> Extractor : extractOCIArtifactImg()\n(legacy custom layer type)
+        Extractor -> Extractor : extractOCIArtifactImg()\n(custom application/cache.<type>.content.layer.v1+<type>)
         alt fallback extraction also fails
             Extractor --> CLI : Extraction Error
         end
     end
-    Extractor -> FS : write cache + manifest from tarball
+
+    Extractor -> FS : write cache + manifest from tarball\n(io.vllm.* or io.triton.* paths)
     FS --> Extractor : extractedDirs, extractedBytes
+
     Extractor -> Extractor : validateExtractedCacheSize(label vs bytes written)
+
     alt GPU baremetal manifest check enabled
-        Extractor -> Check : CompareCacheManifestToGPU()
+        Extractor -> Check : CompareCacheManifestToGPU(manifest, cacheType)
+        note right of Check
+          vllm -> CompareVLLMCacheManifestToGPU
+          triton -> CompareTritonCacheManifestToGPU
+        end note
         alt Manifest check fails
-            Extractor -> FS : Remove ExtractedDirs
+            Extractor -> FS : Remove extracted dirs
             Extractor --> CLI : Extraction Error
         end
     end
+
     Extractor --> CLI : Extraction Success
 else Summary check fails
     Extractor --> CLI : Exit early with error
