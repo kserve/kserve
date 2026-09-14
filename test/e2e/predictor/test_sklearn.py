@@ -51,6 +51,7 @@ from ..common.utils import (
     predict_isvc,
     predict_grpc,
     get_container_worker_count,
+    wait_for_pod_logs,
 )
 
 
@@ -90,6 +91,20 @@ async def test_sklearn_kserve(rest_v1_client, network_layer):
         network_layer=network_layer,
     )
     assert res["predictions"] == [1, 1]
+
+    pods = kserve_client.core_api.list_namespaced_pod(
+        KSERVE_TEST_NAMESPACE,
+        label_selector=f"serving.kserve.io/inferenceservice={service_name}",
+    )
+    assert len(pods.items) == 1
+    logs = await wait_for_pod_logs(
+        kserve_client.core_api,
+        pods.items[0].metadata.name,
+        KSERVE_TEST_NAMESPACE,
+        expected_substring=f"POST /v1/models/{service_name}:predict",
+    )
+    assert f"POST /v1/models/{service_name}:predict" in logs
+    assert '"telemetry.sdk.name": "opentelemetry"' not in logs
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
