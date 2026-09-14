@@ -64,6 +64,8 @@ func (d *dockerBuilder) CreateImage(imageName, cacheDir string) error {
 		NoCache:    true,
 		Remove:     false,
 		Labels:     prep.Labels,
+		// Multi-stage Dockerfile (see DockerfileTemplate) squashes content into a
+		// single rootfs layer. Docker BuildKit v23+ does not support --squash.
 	}
 
 	buildResponse, err := apiClient.ImageBuild(context.Background(), tar, buildOptions)

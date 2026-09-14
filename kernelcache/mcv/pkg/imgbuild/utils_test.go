@@ -34,9 +34,31 @@ func TestGenerateDockerfile(t *testing.T) {
 
 	content, err := os.ReadFile(filepath.Clean(outputPath))
 	assert.NoError(t, err)
-	assert.Contains(t, string(content), "FROM scratch")
-	assert.Contains(t, string(content), "COPY \"./cacheLayer\" \"./cacheLayer\"")
-	assert.Contains(t, string(content), "COPY \"./manifestLayer/manifest.json")
+	dockerfile := string(content)
+
+	// Assert multi-stage structure
+	assert.Contains(t, dockerfile, "FROM scratch AS build")
+	assert.Contains(t, dockerfile, "COPY --from=build / /")
+
+	// Assert title label is on final stage (after second FROM scratch)
+	assert.Contains(t, dockerfile, "LABEL org.opencontainers.image.title=myimage")
+
+	// Assert exactly two FROM scratch lines (build + final)
+	assert.Equal(t, 2, countOccurrences(dockerfile, "FROM scratch"))
+
+	// Assert COPY instructions exist
+	assert.Contains(t, dockerfile, "COPY \"./cacheLayer\" \"./cacheLayer\"")
+	assert.Contains(t, dockerfile, "COPY \"./manifestLayer/manifest.json")
+}
+
+func countOccurrences(s, substr string) int {
+	count := 0
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			count++
+		}
+	}
+	return count
 }
 
 func TestCleanupDirs(t *testing.T) {

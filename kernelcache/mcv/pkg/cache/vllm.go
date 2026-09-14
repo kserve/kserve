@@ -525,7 +525,11 @@ func (v *VLLMCache) EntryCount() int {
 }
 
 func (v *VLLMCache) CacheSizeBytes() int64 {
-	size, _ := getTotalDirSize(v.rootPath)
+	dir := v.rootPath
+	if v.tmpPath != "" {
+		dir = v.tmpPath
+	}
+	size, _ := getTotalDirSize(dir)
 	return size
 }
 
@@ -835,7 +839,7 @@ func (v *VLLMCache) SetTmpPath(path string) {
 
 // Extracts the vllm cache and manifest in a given reader for tar.gz.
 // This is only used for *compat* variant.
-func ExtractVLLMCacheDirectory(r io.Reader) ([]string, error) {
+func ExtractVLLMCacheDirectory(r io.Reader) ([]string, int64, error) {
 	return extractCacheAndManifestDirectory(
 		r,
 		constants.MCVVLLMCacheDir,
