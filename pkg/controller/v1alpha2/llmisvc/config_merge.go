@@ -709,6 +709,13 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		// Clear the Ref since it has been resolved to Inline; the two fields are
 		// mutually exclusive in a valid LLMInferenceService.
 		llmSvcCfg.Spec.Router.Scheduler.Config.Ref = nil
+
+		// Warn if the resolved ConfigMap contains predicted-latency-producer but the
+		// well-known config was not injected (because detection runs before Ref resolution).
+		if hasPluginInSpec(llmSvcCfg.Spec, "predicted-latency-producer") {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "LatencyPredictorConfigRef",
+				"predicted-latency-producer plugin is deprecated, should be removed from Config.Inline")
+		}
 	}
 
 	// The v1 InferencePool CRD requires port when endpointPickerRef.kind is "Service" (or
