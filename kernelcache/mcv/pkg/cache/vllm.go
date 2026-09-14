@@ -839,7 +839,7 @@ func (v *VLLMCache) SetTmpPath(path string) {
 
 // Extracts the vllm cache and manifest in a given reader for tar.gz.
 // This is only used for *compat* variant.
-func ExtractVLLMCacheDirectory(r io.Reader) ([]string, int64, error) {
+func ExtractVLLMCacheDirectory(r io.Reader) (extractedDirs []string, extractedBytes int64, err error) {
 	return extractCacheAndManifestDirectory(
 		r,
 		constants.MCVVLLMCacheDir,

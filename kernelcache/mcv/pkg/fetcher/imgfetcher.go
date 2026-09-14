@@ -293,7 +293,7 @@ func (i *imgMgr) FetchAndExtractCache(imgName string) error {
 
 // extractOCIArtifactImg extracts the triton/vllm cache from the
 // *oci* variant Kernel Cache image:  //TODO ADD URL
-func extractOCIArtifactImg(img v1.Image, cacheType string) ([]string, int64, error) {
+func extractOCIArtifactImg(img v1.Image, cacheType string) (extractedDirs []string, extractedBytes int64, err error) {
 	if cacheType == "" {
 		return nil, 0, errors.New("cache type is empty")
 	}
@@ -351,7 +351,7 @@ func isCompatLayerMediaType(mt types.MediaType) bool {
 
 // extractCompatImg extracts cache from compat-format images (standard tar.gz layers).
 // See mcv/docs/spec-compat.md.
-func extractCompatImg(img v1.Image, cacheType string) ([]string, int64, error) {
+func extractCompatImg(img v1.Image, cacheType string) (extractedDirs []string, extractedBytes int64, err error) {
 	if cacheType == "" {
 		return nil, 0, errors.New("cache type is empty")
 	}
@@ -366,8 +366,6 @@ func extractCompatImg(img v1.Image, cacheType string) ([]string, int64, error) {
 		return nil, 0, errors.New("number of layers must be greater than zero")
 	}
 
-	var allDirs []string
-	var totalBytes int64
 	for _, layer := range layers {
 		mt, err := layer.MediaType()
 		if err != nil {
@@ -388,10 +386,10 @@ func extractCompatImg(img v1.Image, cacheType string) ([]string, int64, error) {
 		if err != nil {
 			return nil, 0, fmt.Errorf("could not extract %s Kernel Cache: %w", cacheType, err)
 		}
-		allDirs = append(allDirs, dirs...)
-		totalBytes += bytesWritten
+		extractedDirs = append(extractedDirs, dirs...)
+		extractedBytes += bytesWritten
 	}
-	return allDirs, totalBytes, nil
+	return extractedDirs, extractedBytes, nil
 }
 
 // validateExtractedCacheSize validates that the extracted cache size matches the image label.

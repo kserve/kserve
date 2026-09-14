@@ -377,7 +377,7 @@ func (t *TritonCache) SetTmpPath(path string) {
 	}
 }
 
-func ExtractTritonCacheDirectory(r io.Reader) ([]string, int64, error) {
+func ExtractTritonCacheDirectory(r io.Reader) (extractedDirs []string, extractedBytes int64, err error) {
 	return extractCacheAndManifestDirectory(
 		r,
 		constants.MCVTritonCacheDir,

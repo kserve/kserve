@@ -182,7 +182,7 @@ func SetCachesBuildDir(caches []Cache, path string) {
 	}
 }
 
-func ExtractCacheDirectory(r io.Reader, cacheType string) ([]string, int64, error) {
+func ExtractCacheDirectory(r io.Reader, cacheType string) (extractedDirs []string, extractedBytes int64, err error) {
 	if cacheType == "" {
 		return nil, 0, errors.New("cache type is empty")
 	}
@@ -200,9 +200,7 @@ func ExtractCacheDirectory(r io.Reader, cacheType string) ([]string, int64, erro
 func extractCacheAndManifestDirectory(
 	r io.Reader,
 	cacheDirPrefix, manifestDirPrefix, extractCacheDir, extractManifestDir string,
-) ([]string, int64, error) {
-	var extractedDirs []string
-	var extractedBytes int64
+) (extractedDirs []string, extractedBytes int64, err error) {
 	gr, err := gzip.NewReader(r)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to parse layer as tar.gz: %w", err)

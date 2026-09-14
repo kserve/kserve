@@ -51,8 +51,7 @@ func (d *dockerBuilder) CreateImage(imageName, cacheDir string) error {
 		return fmt.Errorf("failed to create Docker client: %w", err)
 	}
 
-	//nolint:staticcheck // SA1019: archive.TarWithOptions is deprecated but no alternative exists
-	tar, err := archive.TarWithOptions(prep.BuildRoot, &archive.TarOptions{IncludeSourceDir: false})
+	tar, err := archive.TarWithOptions(prep.BuildRoot, &archive.TarOptions{IncludeSourceDir: false}) //nolint:staticcheck // SA1019: no non-deprecated alternative
 	if err != nil {
 		return fmt.Errorf("error creating tar: %w", err)
 	}
