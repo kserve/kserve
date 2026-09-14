@@ -1,0 +1,163 @@
+From 847202cc66d7ae31d509a7bacffccb6fc5f5b67a Mon Sep 17 00:00:00 2001
+From: Maryam Tahhan <mtahhan@redhat.com>
+Date: Tue, 28 Jul 2026 09:53:13 +0100
+Subject: [PATCH] Document single-layer manual Docker build and tighten
+ Dockerfile test.
+
+Expand spec-compat with multi-stage build steps and layer verification,
+and assert the title label appears only on the final FROM scratch stage.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+Signed-off-by: Maryam Tahhan <mtahhan@redhat.com>
+---
+ mcv/docs/spec-compat.md        | 63 ++++++++++++++++++++++++++++++++--
+ mcv/pkg/imgbuild/utils_test.go | 38 ++++++++++++++++++--
+ 2 files changed, 97 insertions(+), 4 deletions(-)
+
+diff --git a/mcv/docs/spec-compat.md b/mcv/docs/spec-compat.md
+index ee6d9f96..315760ce 100644
+--- a/mcv/docs/spec-compat.md
++++ b/mcv/docs/spec-compat.md
+@@ -159,6 +159,30 @@ so the final image has one rootfs layer. Buildah uses `commit --squash`.
+ 
+ ### Manual Docker build
+ 
++A single-stage `FROM scratch` Dockerfile with multiple `COPY` instructions
++produces **one layer per COPY** in the final image. MCV instead uses a
++**multi-stage** build so the published image has **exactly one** rootfs layer
++(cosign-friendly, matches `extractCompatImg` expectations).
++
++#### 1. Prepare the build context
++
++Stage cache and manifest under a build root (same layout MCV uses):
++
++```bash
++BUILD_ROOT=/tmp/cache-image-build
++mkdir -p "${BUILD_ROOT}/io.triton.cache"
++mkdir -p "${BUILD_ROOT}/io.triton.manifest"
++
++cp -a /path/to/.triton/cache/. "${BUILD_ROOT}/io.triton.cache/"
++# Write or copy manifest.json into io.triton.manifest/
++```
++
++For vLLM, use `io.vllm.cache/` and `io.vllm.manifest/` instead.
++
++#### 2. Dockerfile (single published layer)
++
++This matches `DockerfileTemplate` in MCV:
++
+ ```dockerfile
+ FROM scratch AS build
+ COPY "./io.triton.cache/" "./io.triton.cache/"
+@@ -169,8 +193,43 @@ LABEL org.opencontainers.image.title=my-cache
+ COPY --from=build / /
+ ```
+ 
+-Add `cache.triton.image/*` or `cache.vllm.image/*` labels matching the staged
+-cache size and metadata.
++- **`build` stage**: collects cache + manifest (intermediate layers are discarded).
++- **Final stage**: `COPY --from=build / /` emits **one** gzip tarball layer
++  containing both paths.
++- Place `org.opencontainers.image.title` on the **final** stage (after the
++  second `FROM scratch`), not the build stage.
++
++#### 3. Build and label
++
++Pass cache metadata labels at build time (MCV sets these via `ImageBuildOptions.Labels`):
++
++```bash
++cd "${BUILD_ROOT}"
++
++docker build \
++  -t quay.io/example/my-cache:latest \
++  --label cache.triton.image/entry-count=1 \
++  --label cache.triton.image/cache-size-bytes=80415 \
++  --label 'cache.triton.image/summary={"targets":[{"backend":"hip","arch":"gfx90a","warp_size":64}]}' \
++  -f Dockerfile \
++  .
++```
++
++Compute `cache-size-bytes` from the staged `io.triton.cache/` (or
++`io.vllm.cache/`) tree—the same bytes that end up in the layer.
++
++#### 4. Verify a single layer
++
++```bash
++docker inspect quay.io/example/my-cache:latest | jq '.[0].RootFS.Layers | length'
++# Expected: 1
++
++docker push quay.io/example/my-cache:latest
++```
++
++If `RootFS.Layers | length` is greater than 1, the image was not squashed
++into a single published layer (for example a single-stage Dockerfile with
++multiple `COPY` lines).
+ 
+ ### Manual Buildah build
+ 
+diff --git a/mcv/pkg/imgbuild/utils_test.go b/mcv/pkg/imgbuild/utils_test.go
+index 3c8ffe82..09ed5cc3 100644
+--- a/mcv/pkg/imgbuild/utils_test.go
++++ b/mcv/pkg/imgbuild/utils_test.go
+@@ -3,6 +3,7 @@ package imgbuild
+ import (
+ 	"os"
+ 	"path/filepath"
++	"strings"
+ 	"testing"
+ 	"time"
+ 
+@@ -25,8 +26,10 @@ func TestGenerateDockerfile(t *testing.T) {
+ 	assert.Contains(t, dockerfile, "FROM scratch AS build")
+ 	assert.Contains(t, dockerfile, "COPY --from=build / /")
+ 
+-	// Assert title label is on final stage (after second FROM scratch)
+-	assert.Contains(t, dockerfile, "LABEL org.opencontainers.image.title=myimage")
++	// Assert title label is on final stage only (after bare "FROM scratch", not build stage)
++	finalStage := finalStageDockerfile(dockerfile)
++	assert.Contains(t, finalStage, "LABEL org.opencontainers.image.title=myimage")
++	assert.NotContains(t, strings.Split(dockerfile, finalStage)[0], "LABEL org.opencontainers.image.title=")
+ 
+ 	// Assert exactly two FROM scratch lines (build + final)
+ 	assert.Equal(t, 2, countOccurrences(dockerfile, "FROM scratch"))
+@@ -46,6 +49,37 @@ func countOccurrences(s, substr string) int {
+ 	return count
+ }
+ 
++// finalStageDockerfile returns the Dockerfile content starting at the last
++// standalone "FROM scratch" line (excludes "FROM scratch AS build").
++func finalStageDockerfile(content string) string {
++	lines := strings.Split(content, "\n")
++	finalStart := -1
++	for i, line := range lines {
++		if strings.TrimSpace(line) == "FROM scratch" {
++			finalStart = i
++		}
++	}
++	if finalStart < 0 {
++		return ""
++	}
++	return strings.Join(lines[finalStart:], "\n")
++}
++
++func TestFinalStageDockerfile(t *testing.T) {
++	df := `FROM scratch AS build
++LABEL org.opencontainers.image.title=wrong
++COPY "./cache" "./cache"
++
++FROM scratch
++LABEL org.opencontainers.image.title=right
++COPY --from=build / /
++`
++	final := finalStageDockerfile(df)
++	assert.Contains(t, final, "LABEL org.opencontainers.image.title=right")
++	assert.NotContains(t, final, "title=wrong")
++	assert.NotContains(t, strings.Split(df, final)[0], "title=right")
++}
++
+ func TestCleanupDirs(t *testing.T) {
+ 	tmpDir := t.TempDir()
+ 	testFile := filepath.Join(tmpDir, "dummy.txt")
+-- 
+2.50.1 (Apple Git-155)
+

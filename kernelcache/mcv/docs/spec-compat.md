@@ -159,6 +159,30 @@ so the final image has one rootfs layer. Buildah uses `commit --squash`.
 
 ### Manual Docker build
 
+A single-stage `FROM scratch` Dockerfile with multiple `COPY` instructions
+produces **one layer per COPY** in the final image. MCV instead uses a
+**multi-stage** build so the published image has **exactly one** rootfs layer
+(cosign-friendly, matches `extractCompatImg` expectations).
+
+#### 1. Prepare the build context
+
+Stage cache and manifest under a build root (same layout MCV uses):
+
+```bash
+BUILD_ROOT=/tmp/cache-image-build
+mkdir -p "${BUILD_ROOT}/io.triton.cache"
+mkdir -p "${BUILD_ROOT}/io.triton.manifest"
+
+cp -a /path/to/.triton/cache/. "${BUILD_ROOT}/io.triton.cache/"
+# Write or copy manifest.json into io.triton.manifest/
+```
+
+For vLLM, use `io.vllm.cache/` and `io.vllm.manifest/` instead.
+
+#### 2. Dockerfile (single published layer)
+
+This matches `DockerfileTemplate` in MCV:
+
 ```dockerfile
 FROM scratch AS build
 COPY "./io.triton.cache/" "./io.triton.cache/"
@@ -169,8 +193,43 @@ LABEL org.opencontainers.image.title=my-cache
 COPY --from=build / /
 ```
 
-Add `cache.triton.image/*` or `cache.vllm.image/*` labels matching the staged
-cache size and metadata.
+- **`build` stage**: collects cache + manifest (intermediate layers are discarded).
+- **Final stage**: `COPY --from=build / /` emits **one** gzip tarball layer
+  containing both paths.
+- Place `org.opencontainers.image.title` on the **final** stage (after the
+  second `FROM scratch`), not the build stage.
+
+#### 3. Build and label
+
+Pass cache metadata labels at build time (MCV sets these via `ImageBuildOptions.Labels`):
+
+```bash
+cd "${BUILD_ROOT}"
+
+docker build \
+  -t quay.io/example/my-cache:latest \
+  --label cache.triton.image/entry-count=1 \
+  --label cache.triton.image/cache-size-bytes=80415 \
+  --label 'cache.triton.image/summary={"targets":[{"backend":"hip","arch":"gfx90a","warp_size":64}]}' \
+  -f Dockerfile \
+  .
+```
+
+Compute `cache-size-bytes` from the staged `io.triton.cache/` (or
+`io.vllm.cache/`) tree—the same bytes that end up in the layer.
+
+#### 4. Verify a single layer
+
+```bash
+docker inspect quay.io/example/my-cache:latest | jq '.[0].RootFS.Layers | length'
+# Expected: 1
+
+docker push quay.io/example/my-cache:latest
+```
+
+If `RootFS.Layers | length` is greater than 1, the image was not squashed
+into a single published layer (for example a single-stage Dockerfile with
+multiple `COPY` lines).
 
 ### Manual Buildah build
 
