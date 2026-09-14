@@ -23,8 +23,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
 
 	"github.com/kserve/kserve/pkg/constants"
 )
@@ -37,7 +38,7 @@ var (
 	SchemeGroupVersion = schema.GroupVersion{Group: constants.KServeAPIGroupName, Version: APIVersion}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
-	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
 
 	// LLMInferenceServiceGVK is the GroupVersionKind for LLMInferenceService
 	LLMInferenceServiceGVK = SchemeGroupVersion.WithKind("LLMInferenceService")
@@ -54,9 +55,22 @@ func Resource(resource string) schema.GroupResource {
 	return SchemeGroupVersion.WithResource(resource).GroupResource()
 }
 
-func init() {
-	SchemeBuilder.Register(&TrainedModel{}, &TrainedModelList{})
-	SchemeBuilder.Register(&InferenceGraph{}, &InferenceGraphList{})
-	SchemeBuilder.Register(&LLMInferenceService{}, &LLMInferenceServiceList{})
-	SchemeBuilder.Register(&LLMInferenceServiceConfig{}, &LLMInferenceServiceConfigList{})
+// addKnownTypes registers every type belonging to this API group with the scheme.
+// Keep this list in sync when adding a new type to the group.
+func addKnownTypes(s *runtime.Scheme) error {
+	s.AddKnownTypes(SchemeGroupVersion,
+		&TrainedModel{}, &TrainedModelList{},
+		&InferenceGraph{}, &InferenceGraphList{},
+		&LLMInferenceService{}, &LLMInferenceServiceList{},
+		&LLMInferenceServiceConfig{}, &LLMInferenceServiceConfigList{},
+		&ServingRuntime{}, &ServingRuntimeList{},
+		&ClusterServingRuntime{}, &ClusterServingRuntimeList{},
+		&ClusterStorageContainer{}, &ClusterStorageContainerList{},
+		&LocalModelCache{}, &LocalModelCacheList{},
+		&LocalModelNode{}, &LocalModelNodeList{},
+		&LocalModelNodeGroup{}, &LocalModelNodeGroupList{},
+		&LocalModelNamespaceCache{}, &LocalModelNamespaceCacheList{},
+	)
+	metav1.AddToGroupVersion(s, SchemeGroupVersion)
+	return nil
 }

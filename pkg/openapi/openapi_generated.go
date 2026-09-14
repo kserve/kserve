@@ -3933,7 +3933,7 @@ func schema_pkg_apis_serving_v1beta1_CustomExplainer(ref common.ReferenceCallbac
 					},
 					"hostUsers": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host. This field is alpha-level and is only honored by servers that enable the UserNamespacesSupport feature.",
+							Description: "Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -3999,10 +3999,10 @@ func schema_pkg_apis_serving_v1beta1_CustomExplainer(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
-					"workloadRef": {
+					"schedulingGroup": {
 						SchemaProps: spec.SchemaProps{
-							Description: "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-							Ref:         ref("k8s.io/api/core/v1.WorkloadReference"),
+							Description: "SchedulingGroup provides a reference to the immediate scheduling runtime grouping object that this Pod belongs to. This field is used by the scheduler to identify the group and apply the correct group scheduling policies. The association with a group also impacts other lifecycle aspects of a Pod that are relevant in a wider context of scheduling like preemption, resource attachment, etc. If not specified, the Pod is treated as a single unit in all of these aspects. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
+							Ref:         ref("k8s.io/api/core/v1.PodSchedulingGroup"),
 						},
 					},
 				},
@@ -4010,7 +4010,7 @@ func schema_pkg_apis_serving_v1beta1_CustomExplainer(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/api/core/v1.WorkloadReference", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSchedulingGroup", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -4436,7 +4436,7 @@ func schema_pkg_apis_serving_v1beta1_CustomPredictor(ref common.ReferenceCallbac
 					},
 					"hostUsers": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host. This field is alpha-level and is only honored by servers that enable the UserNamespacesSupport feature.",
+							Description: "Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -4502,10 +4502,10 @@ func schema_pkg_apis_serving_v1beta1_CustomPredictor(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
-					"workloadRef": {
+					"schedulingGroup": {
 						SchemaProps: spec.SchemaProps{
-							Description: "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-							Ref:         ref("k8s.io/api/core/v1.WorkloadReference"),
+							Description: "SchedulingGroup provides a reference to the immediate scheduling runtime grouping object that this Pod belongs to. This field is used by the scheduler to identify the group and apply the correct group scheduling policies. The association with a group also impacts other lifecycle aspects of a Pod that are relevant in a wider context of scheduling like preemption, resource attachment, etc. If not specified, the Pod is treated as a single unit in all of these aspects. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
+							Ref:         ref("k8s.io/api/core/v1.PodSchedulingGroup"),
 						},
 					},
 				},
@@ -4513,7 +4513,7 @@ func schema_pkg_apis_serving_v1beta1_CustomPredictor(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/api/core/v1.WorkloadReference", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSchedulingGroup", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -4939,7 +4939,7 @@ func schema_pkg_apis_serving_v1beta1_CustomTransformer(ref common.ReferenceCallb
 					},
 					"hostUsers": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host. This field is alpha-level and is only honored by servers that enable the UserNamespacesSupport feature.",
+							Description: "Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -5005,10 +5005,10 @@ func schema_pkg_apis_serving_v1beta1_CustomTransformer(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
-					"workloadRef": {
+					"schedulingGroup": {
 						SchemaProps: spec.SchemaProps{
-							Description: "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-							Ref:         ref("k8s.io/api/core/v1.WorkloadReference"),
+							Description: "SchedulingGroup provides a reference to the immediate scheduling runtime grouping object that this Pod belongs to. This field is used by the scheduler to identify the group and apply the correct group scheduling policies. The association with a group also impacts other lifecycle aspects of a Pod that are relevant in a wider context of scheduling like preemption, resource attachment, etc. If not specified, the Pod is treated as a single unit in all of these aspects. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
+							Ref:         ref("k8s.io/api/core/v1.PodSchedulingGroup"),
 						},
 					},
 				},
@@ -5016,7 +5016,7 @@ func schema_pkg_apis_serving_v1beta1_CustomTransformer(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/api/core/v1.WorkloadReference", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSchedulingGroup", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -5909,10 +5909,10 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
-					"workloadRef": {
+					"schedulingGroup": {
 						SchemaProps: spec.SchemaProps{
-							Description: "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-							Ref:         ref("k8s.io/api/core/v1.WorkloadReference"),
+							Description: "SchedulingGroup declares the group scheduling membership of the Pod. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies.",
+							Ref:         ref("k8s.io/api/core/v1.PodSchedulingGroup"),
 						},
 					},
 					"minReplicas": {
@@ -6050,7 +6050,7 @@ func schema_pkg_apis_serving_v1beta1_ExplainerSpec(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageUri", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/api/core/v1.WorkloadReference", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.ARTExplainerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageUri", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSchedulingGroup", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -9907,17 +9907,17 @@ func schema_pkg_apis_serving_v1beta1_PodSpec(ref common.ReferenceCallback) commo
 							Format:      "",
 						},
 					},
-					"workloadRef": {
+					"schedulingGroup": {
 						SchemaProps: spec.SchemaProps{
-							Description: "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-							Ref:         ref("k8s.io/api/core/v1.WorkloadReference"),
+							Description: "SchedulingGroup declares the group scheduling membership of the Pod. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies.",
+							Ref:         ref("k8s.io/api/core/v1.PodSchedulingGroup"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/api/core/v1.WorkloadReference", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSchedulingGroup", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -10831,10 +10831,10 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
-					"workloadRef": {
+					"schedulingGroup": {
 						SchemaProps: spec.SchemaProps{
-							Description: "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-							Ref:         ref("k8s.io/api/core/v1.WorkloadReference"),
+							Description: "SchedulingGroup declares the group scheduling membership of the Pod. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies.",
+							Ref:         ref("k8s.io/api/core/v1.PodSchedulingGroup"),
 						},
 					},
 					"minReplicas": {
@@ -10953,7 +10953,7 @@ func schema_pkg_apis_serving_v1beta1_PredictorSpec(ref common.ReferenceCallback)
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageUri", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.WorkerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/api/core/v1.WorkloadReference", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.HuggingFaceRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ModelSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.ONNXRuntimeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PMMLSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.PaddleServerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.SKLearnSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageUri", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TFServingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TorchServeSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.TritonSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.WorkerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.XGBoostSpec", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSchedulingGroup", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -12711,10 +12711,10 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
-					"workloadRef": {
+					"schedulingGroup": {
 						SchemaProps: spec.SchemaProps{
-							Description: "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-							Ref:         ref("k8s.io/api/core/v1.WorkloadReference"),
+							Description: "SchedulingGroup declares the group scheduling membership of the Pod. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies.",
+							Ref:         ref("k8s.io/api/core/v1.PodSchedulingGroup"),
 						},
 					},
 					"minReplicas": {
@@ -12852,7 +12852,7 @@ func schema_pkg_apis_serving_v1beta1_TransformerSpec(ref common.ReferenceCallbac
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageUri", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/api/core/v1.WorkloadReference", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.AutoScalingSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.Batcher", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.StorageUri", "k8s.io/api/apps/v1.DeploymentStrategy", "k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSchedulingGroup", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -13660,10 +13660,10 @@ func schema_pkg_apis_serving_v1beta1_WorkerSpec(ref common.ReferenceCallback) co
 							Format:      "",
 						},
 					},
-					"workloadRef": {
+					"schedulingGroup": {
 						SchemaProps: spec.SchemaProps{
-							Description: "WorkloadRef provides a reference to the Workload object that this Pod belongs to. This field is used by the scheduler to identify the PodGroup and apply the correct group scheduling policies. The Workload object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a Workload object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
-							Ref:         ref("k8s.io/api/core/v1.WorkloadReference"),
+							Description: "SchedulingGroup declares the group scheduling membership of the Pod. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies.",
+							Ref:         ref("k8s.io/api/core/v1.PodSchedulingGroup"),
 						},
 					},
 					"pipelineParallelSize": {
@@ -13684,7 +13684,7 @@ func schema_pkg_apis_serving_v1beta1_WorkerSpec(ref common.ReferenceCallback) co
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/api/core/v1.WorkloadReference", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"k8s.io/api/core/v1.Affinity", "k8s.io/api/core/v1.Container", "k8s.io/api/core/v1.EphemeralContainer", "k8s.io/api/core/v1.HostAlias", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/api/core/v1.PodDNSConfig", "k8s.io/api/core/v1.PodOS", "k8s.io/api/core/v1.PodReadinessGate", "k8s.io/api/core/v1.PodResourceClaim", "k8s.io/api/core/v1.PodSchedulingGate", "k8s.io/api/core/v1.PodSchedulingGroup", "k8s.io/api/core/v1.PodSecurityContext", "k8s.io/api/core/v1.ResourceRequirements", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint", "k8s.io/api/core/v1.Volume", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
