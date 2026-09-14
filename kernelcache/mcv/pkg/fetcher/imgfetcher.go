@@ -293,7 +293,7 @@ func (i *imgMgr) FetchAndExtractCache(imgName string) error {
 
 // extractOCIArtifactImg extracts the triton/vllm cache from the
 // *oci* variant Kernel Cache image:  //TODO ADD URL
-func extractOCIArtifactImg(img v1.Image, cacheType string) ([]string, int64, error) {
+func extractOCIArtifactImg(img v1.Image, cacheType string) (extractedDirs []string, extractedBytes int64, err error) {
 	if cacheType == "" {
 		return nil, 0, errors.New("cache type is empty")
 	}
@@ -349,13 +349,9 @@ func isCompatLayerMediaType(mt types.MediaType) bool {
 	return mt == types.DockerLayer || mt == types.OCILayer
 }
 
-// extractCompatImg extracts the Triton/vLLM cache from *compat* variant images.
-// Compat images use standard registry layer media types (what MCV create produces):
-//   - application/vnd.docker.image.rootfs.diff.tar.gzip
-//   - application/vnd.oci.image.layer.v1.tar+gzip
-//
-// https://github.com/maryamtahhan/mcv/blob/main/spec-compat.md
-func extractCompatImg(img v1.Image, cacheType string) ([]string, int64, error) {
+// extractCompatImg extracts cache from compat-format images (standard tar.gz layers).
+// See mcv/docs/spec-compat.md.
+func extractCompatImg(img v1.Image, cacheType string) (extractedDirs []string, extractedBytes int64, err error) {
 	if cacheType == "" {
 		return nil, 0, errors.New("cache type is empty")
 	}
@@ -370,8 +366,6 @@ func extractCompatImg(img v1.Image, cacheType string) ([]string, int64, error) {
 		return nil, 0, errors.New("number of layers must be greater than zero")
 	}
 
-	var allDirs []string
-	var totalBytes int64
 	for _, layer := range layers {
 		mt, err := layer.MediaType()
 		if err != nil {
@@ -392,10 +386,10 @@ func extractCompatImg(img v1.Image, cacheType string) ([]string, int64, error) {
 		if err != nil {
 			return nil, 0, fmt.Errorf("could not extract %s Kernel Cache: %w", cacheType, err)
 		}
-		allDirs = append(allDirs, dirs...)
-		totalBytes += bytesWritten
+		extractedDirs = append(extractedDirs, dirs...)
+		extractedBytes += bytesWritten
 	}
-	return allDirs, totalBytes, nil
+	return extractedDirs, extractedBytes, nil
 }
 
 // validateExtractedCacheSize validates that the extracted cache size matches the image label.

@@ -2,37 +2,42 @@
 actor User
 participant "MCV CLI" as CLI
 participant "ImgFetcher" as Fetcher
-participant "tritonCacheExtractor" as Extractor
+participant "CacheExtractor" as Extractor
 participant "Registry" as Registry
 participant "PreflightCheck" as Check
 participant "Filesystem" as FS
 
 User -> CLI : mcv -e -i <image>
 CLI -> Fetcher : FetchImg(image)
-Fetcher -> Registry : Pull image
+Fetcher -> Registry : Pull image (remote or docker save)
 Registry --> Fetcher : v1.Image
 Fetcher --> CLI : return image
 
 CLI -> Extractor : ExtractCache(image)
-Extractor -> Check : GetAllGPUInfo(acc)
-Check --> Extractor : []GPUInfo
+Extractor -> Extractor : DetectCacheTypeFromLabels()
 
-Extractor -> Check : CompareCacheSummaryLabelToGPU(img, devInfo)
-Check --> Extractor : OK or Fail
+alt GPU preflight enabled
+    Extractor -> Check : CompareCacheSummaryLabelToGPU()
+    Check --> Extractor : OK or Fail
+end
 
-alt Summary Check Passes
-    Extractor -> Extractor : Determine manifest type
-    Extractor -> FS : extractDockerImg / extractOCI*
-
-    FS -> Extractor : []ExtractedDirs
-    Extractor -> Check : CompareTritonCacheManifestToGPU(manifest, devInfo)
-    alt Manifest Check Passes
-        Extractor --> CLI : Extraction Success
-    else Manifest Check Fails
-        Extractor -> FS : Remove ExtractedDirs
-        Extractor --> CLI : Extraction Error
+alt Summary check passes (or skipped)
+    Extractor -> Extractor : extractCompatImg()\n(layer type: docker gzip | oci gzip)
+    alt compat extraction fails
+        Extractor -> Extractor : extractOCIArtifactImg()\n(legacy custom layer type)
     end
-else Summary Check Fails
+    Extractor -> FS : write cache + manifest from tarball
+    FS --> Extractor : extractedDirs, extractedBytes
+    Extractor -> Extractor : validateExtractedCacheSize(label vs bytes written)
+    alt GPU baremetal manifest check enabled
+        Extractor -> Check : CompareCacheManifestToGPU()
+        alt Manifest check fails
+            Extractor -> FS : Remove ExtractedDirs
+            Extractor --> CLI : Extraction Error
+        end
+    end
+    Extractor --> CLI : Extraction Success
+else Summary check fails
     Extractor --> CLI : Exit early with error
 end
 @enduml
