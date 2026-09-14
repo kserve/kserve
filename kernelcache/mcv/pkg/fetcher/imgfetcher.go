@@ -349,12 +349,8 @@ func isCompatLayerMediaType(mt types.MediaType) bool {
 	return mt == types.DockerLayer || mt == types.OCILayer
 }
 
-// extractCompatImg extracts the Triton/vLLM cache from *compat* variant images.
-// Compat images use standard registry layer media types (what MCV create produces):
-//   - application/vnd.docker.image.rootfs.diff.tar.gzip
-//   - application/vnd.oci.image.layer.v1.tar+gzip
-//
-// https://github.com/maryamtahhan/mcv/blob/main/spec-compat.md
+// extractCompatImg extracts cache from compat-format images (standard tar.gz layers).
+// See mcv/docs/spec-compat.md.
 func extractCompatImg(img v1.Image, cacheType string) ([]string, int64, error) {
 	if cacheType == "" {
 		return nil, 0, errors.New("cache type is empty")

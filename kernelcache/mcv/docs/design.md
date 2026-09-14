@@ -18,13 +18,18 @@ validation, and developer-friendly debugging workflows.
   - Full manifest analysis (for detailed checks)
 
 ## Supported Image Formats
-<!-- markdownlint-disable  MD013 -->
-<!-- Teporarily disable MD013 - Line length to keep the table formatting  -->
-| Format Type          | Description                         | Media Type(s)                                       | Support |
-|----------------------|-------------------------------------|-----------------------------------------------------|---------|
-| **Docker V2 Schema** | Standard Docker images              | `application/vnd.docker.image.rootfs.diff.tar.gzip` | ✅      |
-| **OCI Standard**     | OCI images via tools like `buildah` | `application/vnd.oci.image.layer.v1.tar`            | ✅      |
-<!-- markdownlint-enable MD013 -->
+
+MCV **create** produces **compat** cache images: cache content in a standard
+gzip tarball layer. MCV **extract** selects the code path from **layer media
+type**, not manifest type (OCI vs Docker Schema 2).
+
+| Layer media type | Typical builder | Extract support |
+|------------------|-----------------|-----------------|
+| `application/vnd.docker.image.rootfs.diff.tar.gzip` | Docker / MCV `-c` | Yes (compat) |
+| `application/vnd.oci.image.layer.v1.tar+gzip` | Buildah / Podman / MCV `-c --buildah` | Yes (compat) |
+| `application/cache.<type>.content.layer.v1+<type>` | External / legacy | Yes (fallback only) |
+
+See [spec-compat.md](./spec-compat.md) for the full compat specification.
 
 ## Key Features
 

@@ -88,9 +88,9 @@ Flags:
 
 ### Cache Image Container Specification
 
-The Cache Image specification defines how to bundle caches as container
-images. A compatible Cache image consists of cache directory for a Triton
-Kernel/vLLM model. The details can be found in
+The Cache Image specification defines how MCV packages and extracts Triton/vLLM
+caches as container images. **Compat** images use standard gzip tarball layers;
+extract routing is based on **layer media type**, not manifest type. Details:
 [spec-compat.md](./docs/spec-compat.md)
 
 ### vLLM Binary Cache Support
