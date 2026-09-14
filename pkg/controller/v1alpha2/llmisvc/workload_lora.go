@@ -286,6 +286,114 @@ func loraMountSegments(adapters []v1alpha2.LLMModelSpec) ([]string, error) {
 	return segments, nil
 }
 
+// loraPVCVolumeNames returns the pod Volume name for each adapter, positionally; entries for
+// adapters that are not pvc:// are empty.
+//
+// One volume per claim, not per adapter. kubelet's actual-state-of-world keys a non-attachable
+// PVC volume by PV name while desired-state holds every pod volume name, so several volumes on
+// one claim leave WaitForAttachAndMount comparing one mounted entry against N desired ones: on
+// Kubernetes 1.34 and earlier the pod never leaves Init, with no FailedMount event and no
+// self-recovery. The name comes from the first rule that applies:
+//
+//  1. the pod spec already has a Volume for that claim - in practice the base model's
+//     constants.PvcSourceMountName, since attachLoRAAdapters runs after
+//     attachPVCModelArtifact - so mount into it rather than declaring a second one.
+//  2. two or more adapters share the claim: name it after the claim.
+//  3. otherwise name it after the adapter, which is what the controller has always done.
+//     Volume names are part of the pod template, so renaming this case would restart every
+//     running pod whose claim backs a single adapter.
+//
+// No rule reads adapter order, so reordering spec.model.lora.adapters never renames anything. The
+// shared name is derived from the claim alone, so it is stable for as long as the claim stays
+// shared; a claim moving between one mounted adapter and several does switch naming rule, which
+// is a pod template change, but such an edit already rewrites --lora-modules and rolls the
+// workload regardless. Names are resolved against the pod spec as it is on entry, not as the
+// attach loop grows it, so the result does not depend on how far the loop has got.
+func loraPVCVolumeNames(podSpec *corev1.PodSpec, containerName string, adapters []resolvedLoRAAdapter) ([]string, error) {
+	// Claim per adapter, positionally, empty for adapters that are not pvc://, and a count of
+	// the adapters the controller will actually mount on each claim.
+	claims := make([]string, len(adapters))
+	perClaim := make(map[string]int, len(adapters))
+	for i, adapter := range adapters {
+		if adapter.scheme != constants.PvcURIPrefix {
+			continue
+		}
+		claim, _, err := utils.ParsePvcURI(adapter.uri)
+		if err != nil {
+			return nil, fmt.Errorf("LoRA adapter %q: %w", adapter.name, err)
+		}
+		// ParsePvcURI accepts "pvc:///path", which yields no claim at all. An empty claim is
+		// also how claims marks an adapter that is not pvc://, so letting it through would
+		// leave the adapter with no volume name and the Deployment with an unnamed volume -
+		// rejected by the API server, with nothing in the message pointing back to the adapter.
+		if claim == "" {
+			return nil, fmt.Errorf("LoRA adapter %q: invalid URI %q: missing PVC claim name, want pvc://<claim>[/path]",
+				adapter.name, adapter.uri)
+		}
+		claims[i] = claim
+		// An adapter the workload already mounts itself never gets a controller volume, so it
+		// does not make its claim shared. Counting it could rename the volume of the adapter
+		// that is mounted, and a rename is a pod template change that rolls a running workload.
+		if loRAMountOverride(podSpec, containerName, adapter.mountPath) != nil {
+			continue
+		}
+		perClaim[claim]++
+	}
+
+	// Volume already carrying each claim, if any. First one wins: a pod spec may hold several
+	// volumes on one claim, and picking a later one would make the name depend on volume order.
+	attached := make(map[string]string, len(podSpec.Volumes))
+	for _, v := range podSpec.Volumes {
+		if v.PersistentVolumeClaim == nil {
+			continue
+		}
+		if _, taken := attached[v.PersistentVolumeClaim.ClaimName]; !taken {
+			attached[v.PersistentVolumeClaim.ClaimName] = v.Name
+		}
+	}
+
+	names := make([]string, len(adapters))
+	for i, adapter := range adapters {
+		switch claim := claims[i]; {
+		case claim == "":
+			continue
+		case attached[claim] != "":
+			names[i] = attached[claim]
+		case perClaim[claim] > 1:
+			names[i] = utils.SafeObjectName(kmeta.ChildName("lora-claim-", claim))
+		default:
+			names[i] = utils.SafeObjectName(kmeta.ChildName("lora-pvc-", adapter.name))
+		}
+	}
+	return names, nil
+}
+
+// loRAMountOverride returns the workload's own mount at an adapter's mount path, if there is one.
+//
+// The adapter's mount path is the override boundary. A workload that mounts its own storage there
+// owns that adapter's content and the controller leaves it alone. A mount carrying the adapter's
+// volume name at some other path is not an override: the controller still names the adapter's own
+// path in --lora-modules, so leaving that path unmounted would point vLLM at content that is not
+// there.
+//
+// Only the merged service template can be the source of such a mount. The desired pod spec is
+// rebuilt from spec.template on every reconcile and the live workload is never read back into it,
+// so the controller cannot mistake its own output for an override, and the result does not drift
+// between reconciles.
+func loRAMountOverride(podSpec *corev1.PodSpec, containerName, mountPath string) *corev1.VolumeMount {
+	for i := range podSpec.Containers {
+		if podSpec.Containers[i].Name != containerName {
+			continue
+		}
+		for j := range podSpec.Containers[i].VolumeMounts {
+			if podSpec.Containers[i].VolumeMounts[j].MountPath == mountPath {
+				return &podSpec.Containers[i].VolumeMounts[j]
+			}
+		}
+	}
+	return nil
+}
+
 // collectLoRADownloadPairs filters pre-resolved adapters to hf:// and s3:// uri/path pairs
 // for a single storage-initializer run.
 func collectLoRADownloadPairs(adapters []resolvedLoRAAdapter) []storageDownloadPair {
@@ -313,12 +421,26 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 		return nil
 	}
 
+	volNames, err := loraPVCVolumeNames(podSpec, containerName, adapters)
+	if err != nil {
+		return err
+	}
+
 	var loraModules []string
-	for _, a := range adapters {
+	for i, a := range adapters {
 		switch a.scheme {
 		case constants.PvcURIPrefix:
-			volName := utils.SafeObjectName(kmeta.ChildName("lora-pvc-", a.name))
-			if err := attachLoraPVCAdapter(a.uri, podSpec, containerName, a.mountPath, volName); err != nil {
+			// A workload-provided mount is trusted rather than rejected: the point of the
+			// boundary is to let a workload supply the adapter itself, and refusing here would
+			// break the configurations that already do. What it serves is no longer described
+			// by the adapter URI, so record that rather than leaving it to be inferred from the
+			// pod spec. Kubernetes rejects a mount naming a volume the pod does not declare, so
+			// the workload cannot leave the path dangling.
+			if override := loRAMountOverride(podSpec, containerName, a.mountPath); override != nil {
+				log.FromContext(ctx).Info("Retaining workload-provided mount for LoRA adapter path; the adapter URI does not describe what is served there",
+					"llmService", llmSvc.Name, "namespace", llmSvc.Namespace,
+					"adapter", a.name, "mountPath", a.mountPath, "volume", override.Name, "uri", a.uri)
+			} else if err := attachLoraPVCAdapter(a.uri, podSpec, containerName, a.mountPath, volNames[i]); err != nil {
 				return fmt.Errorf("LoRA adapter %q: %w", a.name, err)
 			}
 		case constants.HfURIPrefix, constants.S3URIPrefix:
@@ -452,6 +574,8 @@ func attachLoraPVCAdapter(modelURI string, podSpec *corev1.PodSpec, workloadCont
 		ReadOnly:   true,
 		PVCName:    pvcName,
 		SubPath:    pvcPath,
+		// Adapters sharing a claim share one volume, so each needs its own mount under it.
+		MountsPerPath: true,
 	}
 	return utils.AddModelMount(storageMountParams, workloadContainerName, podSpec)
 }
