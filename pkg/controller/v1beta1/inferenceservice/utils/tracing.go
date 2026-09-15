@@ -62,28 +62,40 @@ func otelResourceAttributeEnvVars(namespace, isvcName, component, variant string
 	}
 }
 
-// InjectPredictorTracing injects OTEL tracing env vars and runtime-specific
-// configuration into a predictor container. Returns true if the container was
-// mutated.
-//
-// variant identifies the canary variant name (empty for the primary predictor).
-// serverType is the serving runtime type (e.g. constants.ServerTypeVLLMServer).
-func InjectPredictorTracing(t *v1beta1.TracingSpec, namespace, isvcName, variant, serverType string, container *corev1.Container) bool {
+// injectTracingEnvVars injects the OTEL environment shared by all traced
+// InferenceService components. Returns true when tracing is enabled.
+func injectTracingEnvVars(t *v1beta1.TracingSpec, namespace, isvcName, component, variant string, container *corev1.Container) bool {
 	if t == nil {
 		return false
 	}
 
 	endpoint := ptr.Deref(t.ExporterEndpoint, "")
-	resourceAttrs := otelResourceAttributeEnvVars(namespace, isvcName, "predictor", variant)
-	tracingEnvVars := make([]corev1.EnvVar, 0, 6+len(resourceAttrs))
+	resourceAttrs := otelResourceAttributeEnvVars(namespace, isvcName, component, variant)
+	tracingEnvVars := make([]corev1.EnvVar, 0, 5+len(resourceAttrs))
 	tracingEnvVars = append(tracingEnvVars,
-		corev1.EnvVar{Name: tracing.EnvOtelServiceName, Value: isvcName + "-predictor"},
+		corev1.EnvVar{Name: tracing.EnvOtelServiceName, Value: isvcName + "-" + component},
 		corev1.EnvVar{Name: tracing.EnvOtelExporterEndpoint, Value: endpoint},
 		corev1.EnvVar{Name: tracing.EnvOtelTracesExporter, Value: ptr.Deref(t.Exporter, "")},
 		corev1.EnvVar{Name: tracing.EnvOtelTracesSampler, Value: ptr.Deref(t.Sampler, "")},
 		corev1.EnvVar{Name: tracing.EnvOtelTracesSamplerArg, Value: ptr.Deref(t.SamplerArg, "")},
 	)
 	tracingEnvVars = append(tracingEnvVars, resourceAttrs...)
+	container.Env = utils.AppendEnvVarIfNotExists(container.Env, tracingEnvVars...)
+	return true
+}
+
+// InjectPredictorTracing injects OTEL tracing env vars and predictor
+// runtime-specific configuration into a predictor container. Returns true if
+// tracing is enabled.
+//
+// variant identifies the canary variant name (empty for the primary predictor).
+// serverType is the serving runtime type (e.g. constants.ServerTypeVLLMServer).
+func InjectPredictorTracing(t *v1beta1.TracingSpec, namespace, isvcName, variant, serverType string, container *corev1.Container) bool {
+	if !injectTracingEnvVars(t, namespace, isvcName, string(v1beta1.PredictorComponent), variant, container) {
+		return false
+	}
+
+	endpoint := ptr.Deref(t.ExporterEndpoint, "")
 
 	switch serverType {
 	case constants.ServerTypeVLLMServer:
@@ -94,11 +106,20 @@ func InjectPredictorTracing(t *v1beta1.TracingSpec, namespace, isvcName, variant
 			container.Args = append(container.Args, "--collect-detailed-traces", "all")
 		}
 	case constants.ServerTypeMLServer:
-		tracingEnvVars = append(tracingEnvVars,
+		container.Env = utils.AppendEnvVarIfNotExists(container.Env,
 			corev1.EnvVar{Name: tracing.EnvMLServerTracingServer, Value: endpoint},
 		)
 	}
 
-	container.Env = utils.AppendEnvVarIfNotExists(container.Env, tracingEnvVars...)
 	return true
+}
+
+// InjectTransformerTracing injects the standard OTEL tracing environment into
+// a transformer container. Transformers do not receive predictor runtime
+// arguments such as vLLM tracing flags or MLSERVER_TRACING_SERVER.
+//
+// variant identifies the predictor variant for a collocated transformer. It
+// should be empty for a standalone transformer.
+func InjectTransformerTracing(t *v1beta1.TracingSpec, namespace, isvcName, variant string, container *corev1.Container) bool {
+	return injectTracingEnvVars(t, namespace, isvcName, string(v1beta1.TransformerComponent), variant, container)
 }

@@ -196,6 +196,41 @@ func TestInjectPredictorTracing(t *testing.T) {
 	}
 }
 
+func TestInjectTransformerTracing(t *testing.T) {
+	g := NewGomegaWithT(t)
+	container := &corev1.Container{
+		Name: "transformer",
+		Args: []string{"--predictor_host", "predictor.default"},
+		Env:  []corev1.EnvVar{{Name: "USER_ENV", Value: "preserved"}},
+	}
+
+	mutated := InjectTransformerTracing(fullTracingSpec(), "prod-ns", "llm-prod", "canary-v2", container)
+
+	g.Expect(mutated).To(BeTrue())
+	envMap := envToMap(container.Env)
+	g.Expect(envMap).To(HaveKeyWithValue(tracing.EnvOtelServiceName, "llm-prod-transformer"))
+	g.Expect(envMap).To(HaveKeyWithValue(tracing.EnvOtelExporterEndpoint, "http://collector:4317"))
+	g.Expect(envMap).To(HaveKeyWithValue(tracing.EnvOtelTracesExporter, "otlp"))
+	g.Expect(envMap).To(HaveKeyWithValue(tracing.EnvOtelTracesSampler, "parentbased_traceidratio"))
+	g.Expect(envMap).To(HaveKeyWithValue(tracing.EnvOtelTracesSamplerArg, "0.1"))
+	g.Expect(envMap[tracing.EnvOtelResourceAttributes]).To(ContainSubstring("isvc.component=transformer"))
+	g.Expect(envMap[tracing.EnvOtelResourceAttributes]).To(ContainSubstring("isvc.predictor.variant=canary-v2"))
+	g.Expect(envMap).To(HaveKeyWithValue("USER_ENV", "preserved"))
+	g.Expect(envMap).NotTo(HaveKey(tracing.EnvMLServerTracingServer))
+	g.Expect(container.Args).To(Equal([]string{"--predictor_host", "predictor.default"}))
+}
+
+func TestInjectTransformerTracing_NilSpec(t *testing.T) {
+	g := NewGomegaWithT(t)
+	container := &corev1.Container{Name: "transformer"}
+
+	mutated := InjectTransformerTracing(nil, "ns", "isvc", "", container)
+
+	g.Expect(mutated).To(BeFalse())
+	g.Expect(container.Env).To(BeEmpty())
+	g.Expect(container.Args).To(BeEmpty())
+}
+
 func TestOtelResourceAttributeEnvVars(t *testing.T) {
 	g := NewGomegaWithT(t)
 	envVars := otelResourceAttributeEnvVars("my-namespace", "my-isvc", "predictor", "")
