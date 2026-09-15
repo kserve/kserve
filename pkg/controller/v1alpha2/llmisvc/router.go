@@ -257,6 +257,13 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Route != nil && llmSvc.Spec.Router.Route.HTTP.HasSpec() {
 		httpRoute.Spec = *llmSvc.Spec.Router.Route.HTTP.Spec.DeepCopy()
 
+		// Some Gateway implementations (e.g. GKE) reject spec.rules.timeouts.
+		if cfg.DisableHTTPRouteTimeout {
+			for i := range httpRoute.Spec.Rules {
+				httpRoute.Spec.Rules[i].Timeouts = nil
+			}
+		}
+
 		if r.isModelBasedRoutingEnabled(ctx, llmSvc, cfg) {
 			if llmSvc.Spec.Model.LoRA != nil {
 				expandLoRAAdapterMatches(
