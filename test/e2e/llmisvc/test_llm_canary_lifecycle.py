@@ -924,7 +924,7 @@ class TestCanaryLifecycle:
             {"model": MODEL, "prompt": "Hello", "max_tokens": 5},
         )
         driver.mark("canary")
-        driver.collect(40)
+        driver.collect(80)
 
         # Phase 3: promote (v1=0, v2=9)
         driver.mark("promote_mutation")
