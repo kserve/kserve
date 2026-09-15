@@ -336,6 +336,18 @@ class DummyFP16InputModel(Model):
         return infer_response
 
 
+class StringOutputModel(Model):
+    def __init__(self, name):
+        super().__init__(name)
+        self.ready = False
+
+    def load(self):
+        self.ready = True
+
+    async def predict(self, payload, headers=None, response_headers=None):
+        return get_predict_response(payload, np.array(["cat", "dog"]), self.name)
+
+
 class DateTimeModel(Model):
     def __init__(self, name):
         super().__init__(name)
@@ -499,11 +511,15 @@ class TestV2Endpoints:
         datetime_model = DateTimeModel("DateTimeModel")
         datetime_model.load()
         server.register_model(datetime_model)
+        string_output_model = StringOutputModel("StringOutputModel")
+        string_output_model.load()
+        server.register_model(string_output_model)
         yield kserve_app
         await server.model_repository_extension.unload("TestModel")
         await server.model_repository_extension.unload("FP16InputModel")
         await server.model_repository_extension.unload("FP16OutputModel")
         await server.model_repository_extension.unload("DateTimeModel")
+        await server.model_repository_extension.unload("StringOutputModel")
 
     def test_list_models_v2(self, http_server_client):
         resp = http_server_client.get("/v2/models")
@@ -514,6 +530,7 @@ class TestV2Endpoints:
                 "FP16InputModel",
                 "FP16OutputModel",
                 "DateTimeModel",
+                "StringOutputModel",
             ]
         }
 
@@ -867,6 +884,26 @@ class TestV2Endpoints:
         datetime_now = datetime.datetime.now(tz=datetime.timezone.utc)
         assert result_datetime.date() == datetime_now.date()
         assert result_datetime.tzinfo == datetime_now.tzinfo
+
+    def test_string_output(self, http_server_client):
+        input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}]}'
+        resp = http_server_client.post(
+            "/v2/models/StringOutputModel/infer",
+            content=input_data,
+        )
+        assert resp.status_code == 200
+        result = json.loads(resp.content)
+        assert result["outputs"][0]["datatype"] == "BYTES"
+        assert result["outputs"][0]["data"] == ["cat", "dog"]
+
+    def test_string_output_binary_data(self, http_server_client):
+        input_data = b'{"inputs": [{"name": "input-0","shape": [1, 2],"datatype": "INT32","data": [[1,2]]}], "outputs": [{"name": "output-0", "parameters": {"binary_data": true}}]}'
+        resp = http_server_client.post(
+            "/v2/models/StringOutputModel/infer",
+            content=input_data,
+        )
+        assert resp.status_code == 200
+        assert resp.content.endswith(b"\x03\x00\x00\x00cat\x03\x00\x00\x00dog")
 
 
 class TestRayServer:
