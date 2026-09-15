@@ -517,13 +517,24 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 		for i, nsModel := range nsModels.Items {
 			if nsModel.Spec.MatchStorageURI(isvcStorageUri) {
 				var localModelPVCName string
-				if isvcNodeGroupExists {
+				switch {
+				case nsModel.Spec.SharedPVCMode():
+					// Shared-PVC mode: select only once Ready=True; the serving PVC is the
+					// referenced claim itself (node groups do not apply). An ISVC already
+					// bound to this cache stays bound if the cache later drops to NotReady
+					// (spec-generation bump, Job re-import), so a concurrent ISVC update does
+					// not strip the labels and roll pods back to downloading from source.
+					if !nsModel.IsReady() && isvc.Labels[constants.LocalModelLabel] != nsModel.Name {
+						continue
+					}
+					localModelPVCName = *nsModel.Spec.PVCRef
+				case isvcNodeGroupExists:
 					if slices.Contains(nsModel.Spec.NodeGroups, isvcNodeGroup) {
 						localModelPVCName = nsModel.Name + "-" + isvcNodeGroup
 					} else {
 						continue
 					}
-				} else {
+				default:
 					localModelPVCName = nsModel.Name + "-" + nsModel.Spec.NodeGroups[0]
 				}
 				if isvc.Labels == nil {
