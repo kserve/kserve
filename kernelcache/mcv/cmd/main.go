@@ -137,12 +137,13 @@ func handleRunCommand(imageName, cacheDirName, logLevel, builder string, createF
 		os.Exit(exitLogError)
 	}
 
+	// Configure flags before any operations so --no-gpu works with --create
+	configureBoolFlags(baremetalFlag, noGPUFlag, stubFlag)
+
 	if createFlag {
 		runCreate(imageName, cacheDirName, builder)
 		return
 	}
-
-	configureBoolFlags(baremetalFlag, noGPUFlag, stubFlag)
 
 	if gpuInfoFlag {
 		handleGPUInfo(timeout)

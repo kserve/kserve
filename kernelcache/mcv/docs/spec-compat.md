@@ -74,7 +74,7 @@ on cache type:
 | `cache.vllm.image/cache-size-bytes` | Total bytes of **packaged** cache files |
 | `cache.vllm.image/format` | Cache format(s) present (`triton`, `binary`, `aot_compile`, etc.) |
 
-### `cache-size-bytes` semantics
+#### `cache-size-bytes` semantics
 
 At **create** time, MCV computes `cache-size-bytes` from the **staging
 directory** copied into the image layer (the same bytes that are packaged),
@@ -84,6 +84,22 @@ At **extract** time, MCV validates that the number of cache bytes written
 from the layer tarball matches the label. Pre-existing files in the target
 cache directory (for example `~/.triton/cache` or `~/.cache/vllm`) are not
 included in validation.
+
+### Directory Structure Labels
+
+When MCV creates an OCI Image, it applies a set of labels describing what
+the source directory structure of the cache looked like. This provides hints
+to applications like the KServe Kernel Manager, so they can extract the cache
+in their workload pods in the same directory format they were generated from.
+This is just a hint and applications can extract anywhere they choose.
+
+| Label | Description |
+|-------|-------------|
+| `io.kserve.km/cache-hash` | Hash or comma-separated list of hashes identifying cached kernels (e.g., `d4ec7c2a7d` or `abc123,def456`) |
+| `io.kserve.km/cache-mount-subpath` | Relative path from cache root to mount point (e.g., `torch_compile_cache` or `torch_compile_cache/torch_aot_compile`) |
+| `io.kserve.km/cache-root-env` | Environment variable and value for framework's cache root directory (e.g., `VLLM_CACHE_ROOT=/home/kserve/.cache/vllm`) |
+| `io.kserve.km/cache-type` | Type of cache packaged (e.g., `torch-compile`) |
+| `io.kserve.km/framework` | ML framework that generated the cache (e.g., `vllm`) |
 
 ## MCV extract algorithm
 
