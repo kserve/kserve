@@ -3898,6 +3898,10 @@
         "localGatewayService": {
           "type": "string"
         },
+        "loraModelRoutingStrategy": {
+          "description": "LoRAModelRoutingStrategy selects how LLMInferenceService LoRA adapter expansion represents model identities in generated HTTPRoutes: \"exact\" (the default) or \"regex\", compared case-insensitively. Any other value fails config loading like the other ingress keys.",
+          "type": "string"
+        },
         "modelBasedRoutingHeaderName": {
           "type": "string"
         },

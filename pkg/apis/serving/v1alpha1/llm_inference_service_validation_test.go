@@ -34,6 +34,33 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
+// The v1alpha1 validator keeps its own checklist, so the shared annotation
+// check must be wired here explicitly - the python SDK creates v1alpha1 objects.
+func TestValidateCreateRejectsUnsupportedLoRARoutingStrategyAnnotation(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	for _, tt := range []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		{name: "valid value is admitted", value: " Regex "},
+		{name: "typo is rejected", value: "regexp", wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceService()
+			svc.Spec.Annotations = map[string]string{constants.LoRAModelRoutingStrategyAnnotationKey: tt.value}
+
+			_, err := validator.ValidateCreate(t.Context(), svc)
+
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, constants.LoRAModelRoutingStrategyAnnotationKey)
+		})
+	}
+}
+
 func newBaseLLMInferenceService() *LLMInferenceService {
 	return &LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{

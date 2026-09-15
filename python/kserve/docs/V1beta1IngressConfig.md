@@ -17,6 +17,7 @@ Name | Type | Description | Notes
 **kserve_ingress_gateway** | **str** |  | [optional] 
 **local_gateway** | **str** |  | [optional] 
 **local_gateway_service** | **str** |  | [optional] 
+**lora_model_routing_strategy** | **str** | LoRAModelRoutingStrategy selects how LLMInferenceService LoRA adapter expansion represents model identities in generated HTTPRoutes: \&quot;exact\&quot; (the default) or \&quot;regex\&quot;, compared case-insensitively. Any other value fails config loading like the other ingress keys. | [optional] 
 **model_based_routing_header_name** | **str** |  | [optional] 
 **model_based_routing_mode** | **str** |  | [optional] 
 **path_template** | **str** |  | [optional] 
