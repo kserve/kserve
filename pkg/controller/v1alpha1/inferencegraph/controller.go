@@ -51,6 +51,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	knutils "github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
+	"github.com/kserve/kserve/pkg/oteljson"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -131,6 +132,11 @@ func getRouterConfigs(configMap *corev1.ConfigMap) (*RouterConfig, error) {
 }
 
 func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = oteljson.IntoContext(ctx)
+	reconciler := *r
+	reconciler.Log = oteljson.WithContext(ctx, r.Log)
+	r = &reconciler
+
 	// Fetch the InferenceService instance
 	graph := &v1alpha1.InferenceGraph{}
 	if err := r.Get(ctx, req.NamespacedName, graph); err != nil {

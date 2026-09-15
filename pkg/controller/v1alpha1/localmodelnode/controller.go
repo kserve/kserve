@@ -55,6 +55,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/kserve/kserve/pkg/oteljson"
 	pkgtypes "github.com/kserve/kserve/pkg/types"
 )
 
@@ -525,6 +526,11 @@ func (c *LocalModelNodeReconciler) cleanupJobs(ctx context.Context, localModelNo
 }
 
 func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ctx = oteljson.IntoContext(ctx)
+	reconciler := *c
+	reconciler.Log = oteljson.WithContext(ctx, c.Log)
+	c = &reconciler
+
 	if req.Name != nodeName {
 		c.Log.Info("Skipping LocalModelNode because it is not for current node", "name", req.Name, "current node", nodeName)
 		return reconcile.Result{}, nil
