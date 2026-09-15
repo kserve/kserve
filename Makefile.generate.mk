@@ -15,6 +15,7 @@ generate-quick-install-scripts: validate-infra-scripts $(PYTHON_VENV)
 generate-chart-manifests:
 	@bash hack/setup/scripts/generate_chart_manifests.sh
 	make lint-helm-charts
+	make verify-helm-storage-overrides
 	make verify-helm-helpers-consistency
 
 # Generate manifests e.g. CRD, RBAC etc.
