@@ -196,6 +196,8 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		}
 	}
 
+	applyWorkloadRevision(&d.Spec.Template, config)
+
 	log.FromContext(ctx).V(2).Info("Expected main deployment", "deployment", d)
 
 	return d, nil
@@ -306,6 +308,8 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 			injectServerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-prefill", &d.Spec.Template.Spec.Containers[mainIdx])
 		}
 	}
+
+	applyWorkloadRevision(&d.Spec.Template, config)
 
 	log.FromContext(ctx).V(2).Info("Expected prefill deployment", "deployment", d)
 
