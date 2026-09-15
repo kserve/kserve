@@ -17,6 +17,7 @@ limitations under the License.
 package pod
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"testing"
@@ -5821,4 +5822,190 @@ func TestCommonStorageInitializationSkipsOciNativeURI(t *testing.T) {
 		}
 	}
 	require.NotNil(t, imgVol, "oci+native:// must produce an ImageVolume on the pod spec")
+}
+
+func TestModelVolumeSource(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	ctx := context.Background()
+
+	storageClassName := "fast-nvme"
+
+	baseConfig := &kserveTypes.StorageInitializerConfig{
+		CpuRequest:    StorageInitializerDefaultCPURequest,
+		CpuLimit:      StorageInitializerDefaultCPULimit,
+		MemoryRequest: StorageInitializerDefaultMemoryRequest,
+		MemoryLimit:   StorageInitializerDefaultMemoryLimit,
+	}
+
+	makePodSpec := func() *corev1.PodSpec {
+		return &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+	}
+
+	// Use a PVC URI so credential injection is skipped — we only care about the
+	// VolumeSource selection logic tested here.
+	pvcURI := "pvc://my-pvc/models"
+
+	t.Run("nil ModelVolumeSource uses emptyDir for non-PVC shared volume", func(t *testing.T) {
+		cfg := *baseConfig
+		cfg.ModelVolumeSource = nil
+		podSpec := makePodSpec()
+		err := CommonStorageInitialization(ctx, &StorageInitializerParams{
+			Namespace:         "default",
+			StorageURIs:       []v1beta1.StorageUri{{Uri: pvcURI, MountPath: constants.DefaultModelLocalMountPath}},
+			IsReadOnly:        true,
+			PodSpec:           podSpec,
+			CredentialBuilder: &credentials.CredentialBuilder{},
+			Config:            &cfg,
+			IsvcAnnotations:   map[string]string{},
+			IsLegacyURI:       true,
+		})
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		var modelVol *corev1.Volume
+		for i := range podSpec.Volumes {
+			if podSpec.Volumes[i].Name == constants.PvcSourceMountName {
+				modelVol = &podSpec.Volumes[i]
+				break
+			}
+		}
+		g.Expect(modelVol).ToNot(gomega.BeNil(), "PVC volume must be present")
+		g.Expect(modelVol.PersistentVolumeClaim).ToNot(gomega.BeNil())
+		g.Expect(modelVol.PersistentVolumeClaim.ClaimName).To(gomega.Equal("my-pvc"))
+	})
+
+	t.Run("ephemeral VolumeClaimTemplate from ModelVolumeSource wired through injector", func(t *testing.T) {
+		cfg := *baseConfig
+		cfg.ModelVolumeSource = &corev1.VolumeSource{
+			Ephemeral: &corev1.EphemeralVolumeSource{
+				VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						StorageClassName: &storageClassName,
+					},
+				},
+			},
+		}
+		podSpec := makePodSpec()
+		s3URI := "s3://my-bucket/model"
+		params := &StorageInitializerParams{
+			Namespace:         "default",
+			StorageURIs:       []v1beta1.StorageUri{{Uri: s3URI, MountPath: constants.DefaultModelLocalMountPath}},
+			IsReadOnly:        true,
+			PodSpec:           podSpec,
+			CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+			Client:            c,
+			Config:            &cfg,
+			IsvcAnnotations:   map[string]string{},
+			IsLegacyURI:       false,
+		}
+		err := CommonStorageInitialization(ctx, params)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		volumeName := utils.GetVolumeNameFromPath(constants.DefaultModelLocalMountPath)
+		var modelVol *corev1.Volume
+		for i := range podSpec.Volumes {
+			if podSpec.Volumes[i].Name == volumeName {
+				modelVol = &podSpec.Volumes[i]
+				break
+			}
+		}
+		g.Expect(modelVol).ToNot(gomega.BeNil(), "model staging volume must exist")
+		g.Expect(modelVol.Ephemeral).ToNot(gomega.BeNil(), "volume must be ephemeral")
+		g.Expect(modelVol.EmptyDir).To(gomega.BeNil())
+		g.Expect(modelVol.Ephemeral.VolumeClaimTemplate.Spec.StorageClassName).To(
+			gomega.HaveValue(gomega.Equal("fast-nvme")),
+		)
+	})
+
+	t.Run("per-service volume named kserve-provision-location is preserved", func(t *testing.T) {
+		cfg := *baseConfig
+		cfg.ModelVolumeSource = &corev1.VolumeSource{
+			Ephemeral: &corev1.EphemeralVolumeSource{
+				VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					},
+				},
+			},
+		}
+		userSC := "user-storage-class"
+		podSpec := makePodSpec()
+		podSpec.Volumes = []corev1.Volume{
+			{
+				Name: constants.StorageInitializerVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					Ephemeral: &corev1.EphemeralVolumeSource{
+						VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+							Spec: corev1.PersistentVolumeClaimSpec{
+								StorageClassName: &userSC,
+							},
+						},
+					},
+				},
+			},
+		}
+		params := &StorageInitializerParams{
+			Namespace:         "default",
+			StorageURIs:       []v1beta1.StorageUri{{Uri: "s3://bucket/model", MountPath: constants.DefaultModelLocalMountPath}},
+			IsReadOnly:        true,
+			PodSpec:           podSpec,
+			CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+			Client:            c,
+			Config:            &cfg,
+			IsvcAnnotations:   map[string]string{},
+			IsLegacyURI:       true,
+		}
+		err := CommonStorageInitialization(ctx, params)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		var modelVol *corev1.Volume
+		for i := range podSpec.Volumes {
+			if podSpec.Volumes[i].Name == constants.StorageInitializerVolumeName {
+				modelVol = &podSpec.Volumes[i]
+				break
+			}
+		}
+		g.Expect(modelVol).ToNot(gomega.BeNil())
+		g.Expect(modelVol.Ephemeral.VolumeClaimTemplate.Spec.StorageClassName).To(
+			gomega.HaveValue(gomega.Equal("user-storage-class")),
+			"user-defined per-service volume must not be overwritten by ModelVolumeSource",
+		)
+	})
+
+	t.Run("pvc:// storageUri ignores ModelVolumeSource", func(t *testing.T) {
+		cfg := *baseConfig
+		cfg.ModelVolumeSource = &corev1.VolumeSource{
+			Ephemeral: &corev1.EphemeralVolumeSource{
+				VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					},
+				},
+			},
+		}
+		podSpec := makePodSpec()
+		err := CommonStorageInitialization(ctx, &StorageInitializerParams{
+			Namespace:         "default",
+			StorageURIs:       []v1beta1.StorageUri{{Uri: pvcURI, MountPath: constants.DefaultModelLocalMountPath}},
+			IsReadOnly:        true,
+			PodSpec:           podSpec,
+			CredentialBuilder: &credentials.CredentialBuilder{},
+			Config:            &cfg,
+			IsvcAnnotations:   map[string]string{},
+			IsLegacyURI:       true,
+		})
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		var modelVol *corev1.Volume
+		for i := range podSpec.Volumes {
+			if podSpec.Volumes[i].Name == constants.PvcSourceMountName {
+				modelVol = &podSpec.Volumes[i]
+				break
+			}
+		}
+		g.Expect(modelVol).ToNot(gomega.BeNil(), "PVC volume must be present")
+		g.Expect(modelVol.PersistentVolumeClaim).ToNot(gomega.BeNil(), "must be a PVC volume, not ephemeral")
+		g.Expect(modelVol.PersistentVolumeClaim.ClaimName).To(gomega.Equal("my-pvc"))
+		g.Expect(modelVol.Ephemeral).To(gomega.BeNil(), "ModelVolumeSource must not override pvc:// URI")
+	})
 }
