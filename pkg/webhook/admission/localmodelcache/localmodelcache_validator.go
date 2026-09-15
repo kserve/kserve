@@ -60,6 +60,18 @@ func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, localMode
 	if localModelCacheWithSameStorageURI != nil {
 		return admission.Warnings{}, fmt.Errorf("LocalModelCache %s has the same StorageURI %s", localModelCacheWithSameStorageURI.Name, localModelCacheWithSameStorageURI.Spec.SourceModelUri)
 	}
+
+	if err := localmodelcache.ValidateStorageCapacity(
+		ctx,
+		v.Client,
+		localmodelcache.StorageReservation{
+			Name:       localModelCache.Name,
+			ModelSize:  localModelCache.Spec.ModelSize,
+			NodeGroups: localModelCache.Spec.NodeGroups,
+		},
+	); err != nil {
+		return nil, err
+	}
 	return nil, nil
 }
 
@@ -76,6 +88,17 @@ func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, _, localM
 	}
 	if localModelCacheWithSameStorageURI != nil {
 		return admission.Warnings{}, fmt.Errorf("LocalModelCache %s has the same StorageURI %s", localModelCacheWithSameStorageURI.Name, localModelCacheWithSameStorageURI.Spec.SourceModelUri)
+	}
+	if err := localmodelcache.ValidateStorageCapacity(
+		ctx,
+		v.Client,
+		localmodelcache.StorageReservation{
+			Name:       localModelCache.Name,
+			ModelSize:  localModelCache.Spec.ModelSize,
+			NodeGroups: localModelCache.Spec.NodeGroups,
+		},
+	); err != nil {
+		return nil, err
 	}
 	return nil, nil
 }
