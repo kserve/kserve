@@ -593,6 +593,11 @@ func (in *LLMInferenceServiceSpec) DeepCopyInto(out *LLMInferenceServiceSpec) {
 		*out = new(WorkloadSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Encode != nil {
+		in, out := &in.Encode, &out.Encode
+		*out = new(WorkloadSpec)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.Tracing != nil {
 		in, out := &in.Tracing, &out.Tracing
 		*out = new(TracingSpec)
@@ -1327,6 +1332,11 @@ func (in *WorkloadStatus) DeepCopyInto(out *WorkloadStatus) {
 	}
 	if in.Prefill != nil {
 		in, out := &in.Prefill, &out.Prefill
+		*out = new(ObservedWorkloadStatus)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.Encode != nil {
+		in, out := &in.Encode, &out.Encode
 		*out = new(ObservedWorkloadStatus)
 		(*in).DeepCopyInto(*out)
 	}
