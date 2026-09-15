@@ -1205,9 +1205,31 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelCacheSpec(ref common.ReferenceCa
 					},
 					"serviceAccountName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ServiceAccountName specifies the service account to use for credential lookup.",
+							Description: "ServiceAccountName specifies the service account to use for credential lookup. The service account must exist in the download job namespace (localModel.jobNamespace).",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"imagePullSecrets": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job namespace used to authenticate OCI (oci://) imports. Only the first secret is projected into the download container; merge multiple registries into one secret. Do not use serviceAccountName for dockerconfigjson — the shared credential dispatcher has no OCI/oras branch.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.LocalObjectReference"),
+									},
+								},
+							},
 						},
 					},
 					"storage": {
@@ -1220,7 +1242,7 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelCacheSpec(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelStorageSpec", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelStorageSpec", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
@@ -1358,9 +1380,31 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelNamespaceCacheSpec(ref common.Re
 					},
 					"serviceAccountName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ServiceAccountName specifies the service account to use for credential lookup.",
+							Description: "ServiceAccountName specifies the service account to use for credential lookup. The service account must exist in the download job namespace (localModel.jobNamespace).",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"imagePullSecrets": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-map-keys": []interface{}{
+									"name",
+								},
+								"x-kubernetes-list-type": "map",
+							},
+						},
+						SchemaProps: spec.SchemaProps{
+							Description: "ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job namespace used to authenticate OCI (oci://) imports. Only the first secret is projected into the download container; merge multiple registries into one secret.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/api/core/v1.LocalObjectReference"),
+									},
+								},
+							},
 						},
 					},
 					"storage": {
@@ -1373,7 +1417,7 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelNamespaceCacheSpec(ref common.Re
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelStorageSpec", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1alpha1.LocalModelStorageSpec", "k8s.io/api/core/v1.LocalObjectReference", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 

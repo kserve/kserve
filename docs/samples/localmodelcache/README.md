@@ -19,6 +19,9 @@ Now you can specify credentials directly in the `LocalModelCache` CRD using the 
 - `serviceAccountName`: Reference a service account with attached secrets
 - `storage.key`: Reference a specific key in the storage-config secret
 - `storage.parameters`: Inline parameters for storage configuration
+- `imagePullSecrets`: `kubernetes.io/dockerconfigjson` secrets for `oci://` imports (projected as `config.json` + `KSERVE_OCI_DOCKER_CONFIG`; first secret only)
+
+Secrets and service accounts must exist in the download job namespace (`localModel.jobNamespace`, default `kserve-localmodel-jobs`). They are **not** copied from the user namespace.
 
 ## Credential Specification Methods
 
@@ -95,7 +98,36 @@ stringData:
     }
 ```
 
-### Method 3: Inline Parameters
+### Method 3: ImagePullSecrets (OCI / private registry)
+
+Use a dockerconfigjson secret in the job namespace. Do **not** put registry credentials on `serviceAccountName` — that path has no OCI/oras branch.
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: reg-cred
+  namespace: kserve-localmodel-jobs
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: <base64 docker config.json>
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: LocalModelCache
+metadata:
+  name: oci-model
+spec:
+  sourceModelUri: "oci://registry.example.com/models/my-model:v1"
+  modelSize: 5Gi
+  nodeGroups:
+    - workers
+  imagePullSecrets:
+    - name: reg-cred
+```
+
+Only the first secret is used. Combine credentials for multiple registries into a single dockerconfigjson secret. For HTTP or self-signed registries, set `storageInitializer.ociInsecureRegistry` in `inferenceservice-config`.
+
+### Method 4: Inline Parameters
 
 Provide storage parameters inline for additional configuration.
 

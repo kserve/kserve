@@ -283,7 +283,18 @@ def _login_from_docker_config(
     except (ValueError, UnicodeDecodeError):
         return
     try:
-        client.login(username=username, password=password, hostname=registry)
+        login_kwargs = {
+            "username": username,
+            "password": password,
+            "hostname": registry,
+        }
+        if os.environ.get(_OCI_INSECURE_REGISTRY_ENV, "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        ):
+            login_kwargs["tls_verify"] = False
+        client.login(**login_kwargs)
     except Exception:  # noqa: BLE001
         # Login failed (network, bad creds) — fall to anonymous; the
         # subsequent get_manifest/pull will surface a clear error
@@ -1460,7 +1471,14 @@ class Storage(object):
             "true",
             "yes",
         )
-        client = oras.client.OrasClient(insecure=insecure)
+        # Docker Distribution with htpasswd (typical in-cluster HTTP registry) does
+        # not issue bearer tokens. oras-py defaults to auth_backend="token", which
+        # then sends invalid token challenges and the pull looks like anonymous 401.
+        # Use basic auth whenever a docker config is present.
+        auth_backend = "basic" if config_path else "token"
+        client = oras.client.OrasClient(
+            insecure=insecure, auth_backend=auth_backend
+        )
         if config_path:
             _login_from_docker_config(client, target, config_path)
 

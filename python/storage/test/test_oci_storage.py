@@ -159,7 +159,7 @@ def test_oci_anonymous_pull_no_config(tmp_path):
     out = str(tmp_path / "out")
     client = _make_client(_IMAGE_MANIFEST)
     with (
-        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch("oras.client.OrasClient", return_value=client) as ctor,
         mock.patch(
             "kserve_storage.kserve_storage.os.path.exists",
             side_effect=_fake_config_exists(False),
@@ -174,6 +174,7 @@ def test_oci_anonymous_pull_no_config(tmp_path):
     assert os.path.isfile(os.path.join(out, "model.joblib"))
     # No config file present -> _login_from_docker_config never invoked (anonymous pull).
     mock_login.assert_not_called()
+    ctor.assert_called_once_with(insecure=False, auth_backend="token")
     # get_manifest has no auth param in oras-py; it is called with the target only.
     assert client.get_manifest.call_args.args[0] == "registry.io/mymodel:v1"
     assert "config_path" not in client.get_manifest.call_args.kwargs
@@ -184,7 +185,7 @@ def test_oci_with_config(tmp_path):
     client = _make_client(_IMAGE_MANIFEST)
 
     with (
-        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch("oras.client.OrasClient", return_value=client) as ctor,
         mock.patch(
             "kserve_storage.kserve_storage.os.path.exists",
             side_effect=_fake_config_exists(True),
@@ -194,6 +195,8 @@ def test_oci_with_config(tmp_path):
         ) as mock_login,
     ):
         Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    ctor.assert_called_once_with(insecure=False, auth_backend="basic")
 
     mock_login.assert_called_once_with(
         client, "registry.io/mymodel:v1", _OCI_DOCKER_CONFIG_PATH
@@ -502,6 +505,23 @@ def test_oci_login_from_docker_config(tmp_path):
 
     client.login.assert_called_once_with(
         username="alice", password="s3cret", hostname="registry.io"
+    )
+
+
+def test_oci_login_insecure_skips_tls_verify(tmp_path, monkeypatch):
+    monkeypatch.setenv("KSERVE_OCI_INSECURE_REGISTRY", "true")
+    cfg = tmp_path / "config.json"
+    token = base64.b64encode(b"alice:s3cret").decode("utf-8")
+    cfg.write_text(json.dumps({"auths": {"registry.io": {"auth": token}}}))
+
+    client = mock.MagicMock()
+    _login_from_docker_config(client, "registry.io/ns/model:v1", str(cfg))
+
+    client.login.assert_called_once_with(
+        username="alice",
+        password="s3cret",
+        hostname="registry.io",
+        tls_verify=False,
     )
 
 
