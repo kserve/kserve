@@ -33,7 +33,9 @@ from typing import List, Optional, TYPE_CHECKING
 import zipfile
 from pathlib import Path
 from typing import Tuple
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 import certifi
 import requests
 
@@ -106,6 +108,53 @@ def _oci_insecure_registry_enabled() -> bool:
         "true",
         "yes",
     )
+
+
+def _oci_auth_backend_from_www_authenticate(header: str) -> str:
+    """Map a Www-Authenticate challenge to oras-py's auth_backend.
+
+    Bearer (Docker Hub, GHCR, quay.io) uses the token backend. Basic-only
+    (Distribution htpasswd) uses basic. When both appear, prefer token so
+    bearer-only registries keep working.
+    """
+    if not header:
+        return "token"
+    found = [m.lower() for m in re.findall(r"(?i)(?:^|,\s*)(Bearer|Basic)\b", header)]
+    if "bearer" in found:
+        return "token"
+    if "basic" in found:
+        return "basic"
+    return "token"
+
+
+def _oci_auth_backend_for_registry(registry: str, insecure: bool) -> str:
+    """Probe GET /v2/ and select basic vs token from the 401 challenge.
+
+    Probe failure defaults to token so imagePullSecrets against bearer
+    registries do not break if /v2/ is unreachable.
+    """
+    urls = []
+    if insecure:
+        urls.append("http://%s/v2/" % registry)
+    urls.append("https://%s/v2/" % registry)
+    for url in urls:
+        try:
+            ctx = None
+            if url.startswith("https://") and insecure:
+                ctx = ssl._create_unverified_context()
+            req = Request(url, method="GET")
+            with urlopen(req, timeout=5, context=ctx) as resp:
+                header = resp.headers.get("Www-Authenticate", "")
+                if header:
+                    return _oci_auth_backend_from_www_authenticate(header)
+                return "token"
+        except HTTPError as err:
+            header = err.headers.get("Www-Authenticate", "") if err.headers else ""
+            if header:
+                return _oci_auth_backend_from_www_authenticate(header)
+        except (URLError, TimeoutError, OSError, ValueError):
+            continue
+    return "token"
 
 
 # Prefix identifying the modelcar layout's model subtree within an OCI layer tar.
@@ -1472,11 +1521,15 @@ class Storage(object):
             config_path = None
 
         insecure = _oci_insecure_registry_enabled()
-        # Docker Distribution with htpasswd (typical in-cluster HTTP registry) does
-        # not issue bearer tokens. oras-py defaults to auth_backend="token", which
-        # then sends invalid token challenges and the pull looks like anonymous 401.
-        # Use basic auth whenever a docker config is present.
-        auth_backend = "basic" if config_path else "token"
+        # oras-py's default token backend 401s against htpasswd HTTP registries.
+        # Always-basic breaks Docker Hub / quay.io (bearer-only). Probe /v2/ and
+        # match the Www-Authenticate scheme; anonymous pulls stay on token.
+        registry = target.split("/", 1)[0]
+        auth_backend = (
+            _oci_auth_backend_for_registry(registry, insecure)
+            if config_path
+            else "token"
+        )
         client = oras.client.OrasClient(insecure=insecure, auth_backend=auth_backend)
         if config_path:
             _login_from_docker_config(client, target, config_path)

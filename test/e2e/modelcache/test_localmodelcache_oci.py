@@ -18,6 +18,7 @@ import base64
 import hashlib
 import json
 import os
+import socket
 import subprocess
 import time
 
@@ -128,14 +129,24 @@ def _ensure_job_namespace(core: client.CoreV1Api):
         )
 
 
-def _enable_oci_insecure(core: client.CoreV1Api):
+def _patch_oci_insecure(core: client.CoreV1Api, enabled: bool) -> str:
+    """Set ociInsecureRegistry. Returns the original storageInitializer JSON."""
     cm = core.read_namespaced_config_map("inferenceservice-config", KSERVE_NAMESPACE)
-    raw = cm.data.get("storageInitializer", "{}")
-    cfg = json.loads(raw)
-    if cfg.get("ociInsecureRegistry") is True:
-        return
-    cfg["ociInsecureRegistry"] = True
+    original = cm.data.get("storageInitializer", "{}")
+    cfg = json.loads(original)
+    if bool(cfg.get("ociInsecureRegistry")) == enabled:
+        return original
+    cfg["ociInsecureRegistry"] = enabled
     cm.data["storageInitializer"] = json.dumps(cfg)
+    core.patch_namespaced_config_map("inferenceservice-config", KSERVE_NAMESPACE, cm)
+    return original
+
+
+def _restore_storage_initializer(core: client.CoreV1Api, original: str):
+    cm = core.read_namespaced_config_map("inferenceservice-config", KSERVE_NAMESPACE)
+    if cm.data.get("storageInitializer") == original:
+        return
+    cm.data["storageInitializer"] = original
     core.patch_namespaced_config_map("inferenceservice-config", KSERVE_NAMESPACE, cm)
 
 
@@ -271,71 +282,76 @@ def test_localmodelcache_private_oci_import_with_pull_secret():
     apps = client.AppsV1Api()
     custom = client.CustomObjectsApi()
     _ensure_job_namespace(core)
-    _enable_oci_insecure(core)
-    nodes = _worker_node_names(core)
-    assert nodes
+    original_storage_init = _patch_oci_insecure(core, True)
+    try:
+        nodes = _worker_node_names(core)
+        assert nodes
 
-    user, password = "ociuser", "ocipass"
-    _create_secret(
-        core,
-        client.V1Secret(
-            metadata=client.V1ObjectMeta(
-                name="oci-registry-htpasswd", namespace=JOB_NAMESPACE
+        user, password = "ociuser", "ocipass"
+        _create_secret(
+            core,
+            client.V1Secret(
+                metadata=client.V1ObjectMeta(
+                    name="oci-registry-htpasswd", namespace=JOB_NAMESPACE
+                ),
+                string_data={"htpasswd": _htpasswd_line(user, password)},
             ),
-            string_data={"htpasswd": _htpasswd_line(user, password)},
-        ),
-    )
-    _ensure_auth_registry(core, apps)
-    _wait_deployment_ready(apps, JOB_NAMESPACE, REGISTRY_NAME)
-    _push_fixture_via_port_forward(user, password)
+        )
+        _ensure_auth_registry(core, apps)
+        _wait_deployment_ready(apps, JOB_NAMESPACE, REGISTRY_NAME)
+        _push_fixture_via_port_forward(user, password)
 
-    dockerconfig = {
-        "auths": {
-            f"{REGISTRY_NAME}.{JOB_NAMESPACE}.svc.cluster.local:5000": {
-                "username": user,
-                "password": password,
-                "auth": base64.b64encode(f"{user}:{password}".encode()).decode(),
+        dockerconfig = {
+            "auths": {
+                f"{REGISTRY_NAME}.{JOB_NAMESPACE}.svc.cluster.local:5000": {
+                    "username": user,
+                    "password": password,
+                    "auth": base64.b64encode(f"{user}:{password}".encode()).decode(),
+                }
             }
         }
-    }
-    _create_secret(
-        core,
-        client.V1Secret(
-            metadata=client.V1ObjectMeta(name="oci-reg-cred", namespace=JOB_NAMESPACE),
-            type="kubernetes.io/dockerconfigjson",
-            data={
-                ".dockerconfigjson": base64.b64encode(
-                    json.dumps(dockerconfig).encode()
-                ).decode()
-            },
-        ),
-    )
+        _create_secret(
+            core,
+            client.V1Secret(
+                metadata=client.V1ObjectMeta(
+                    name="oci-reg-cred", namespace=JOB_NAMESPACE
+                ),
+                type="kubernetes.io/dockerconfigjson",
+                data={
+                    ".dockerconfigjson": base64.b64encode(
+                        json.dumps(dockerconfig).encode()
+                    ).decode()
+                },
+            ),
+        )
 
-    group_name = "oci-private-nodegroup"
-    cache_name = "oci-private-fixture"
-    storage_uri = (
-        f"oci://{REGISTRY_NAME}.{JOB_NAMESPACE}.svc.cluster.local:5000/"
-        "oci-test-fixture:v1"
-    )
-    node_group = _node_group(group_name, nodes)
-    model_cache = V1alpha1LocalModelCache(
-        api_version=constants.KSERVE_V1ALPHA1,
-        kind=constants.KSERVE_KIND_LOCALMODELCACHE,
-        metadata=client.V1ObjectMeta(name=cache_name),
-        spec=V1alpha1LocalModelCacheSpec(
-            model_size="50Mi",
-            node_groups=[group_name],
-            source_model_uri=storage_uri,
-            image_pull_secrets=[client.V1LocalObjectReference(name="oci-reg-cred")],
-        ),
-    )
-    _create_or_get_node_group(kserve_client, node_group)
-    _create_or_get_cache(kserve_client, model_cache)
-    try:
-        _wait_cache_downloaded(custom, cache_name)
+        group_name = "oci-private-nodegroup"
+        cache_name = "oci-private-fixture"
+        storage_uri = (
+            f"oci://{REGISTRY_NAME}.{JOB_NAMESPACE}.svc.cluster.local:5000/"
+            "oci-test-fixture:v1"
+        )
+        node_group = _node_group(group_name, nodes)
+        model_cache = V1alpha1LocalModelCache(
+            api_version=constants.KSERVE_V1ALPHA1,
+            kind=constants.KSERVE_KIND_LOCALMODELCACHE,
+            metadata=client.V1ObjectMeta(name=cache_name),
+            spec=V1alpha1LocalModelCacheSpec(
+                model_size="50Mi",
+                node_groups=[group_name],
+                source_model_uri=storage_uri,
+                image_pull_secrets=[client.V1LocalObjectReference(name="oci-reg-cred")],
+            ),
+        )
+        _create_or_get_node_group(kserve_client, node_group)
+        _create_or_get_cache(kserve_client, model_cache)
+        try:
+            _wait_cache_downloaded(custom, cache_name)
+        finally:
+            kserve_client.delete_local_model_cache(cache_name)
+            kserve_client.delete_local_model_node_group(group_name)
     finally:
-        kserve_client.delete_local_model_cache(cache_name)
-        kserve_client.delete_local_model_node_group(group_name)
+        _restore_storage_initializer(core, original_storage_init)
 
 
 def _htpasswd_line(user: str, password: str) -> str:
@@ -448,6 +464,17 @@ def _wait_deployment_ready(
     pytest.fail(f"deployment {name} not ready")
 
 
+def _wait_tcp(host: str, port: int, timeout=30):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=1):
+                return
+        except OSError:
+            time.sleep(0.2)
+    pytest.fail(f"{host}:{port} did not accept connections within {timeout}s")
+
+
 def _push_fixture_via_port_forward(user: str, password: str):
     subprocess.check_call(["docker", "pull", OCI_FETCH_TEST_IMAGE])
     pf = subprocess.Popen(
@@ -463,7 +490,7 @@ def _push_fixture_via_port_forward(user: str, password: str):
         stderr=subprocess.DEVNULL,
     )
     try:
-        time.sleep(3)
+        _wait_tcp("127.0.0.1", 15000)
         subprocess.run(
             ["docker", "login", "localhost:15000", "-u", user, "--password-stdin"],
             input=password,

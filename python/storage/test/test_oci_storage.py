@@ -18,6 +18,7 @@ import json
 import os
 import tarfile
 import unittest.mock as mock
+from urllib.error import HTTPError
 
 import pytest
 
@@ -28,6 +29,8 @@ from kserve_storage.kserve_storage import (
     _OCI_INSECURE_REGISTRY_ENV,
     _detect_goarch,
     _login_from_docker_config,
+    _oci_auth_backend_from_www_authenticate,
+    _oci_auth_backend_for_registry,
     _pick_platform,
     _rewrite_with_digest,
     _setup_oci_tls,
@@ -193,6 +196,10 @@ def test_oci_with_config(tmp_path):
         mock.patch(
             "kserve_storage.kserve_storage._login_from_docker_config"
         ) as mock_login,
+        mock.patch(
+            "kserve_storage.kserve_storage._oci_auth_backend_for_registry",
+            return_value="basic",
+        ),
     ):
         Storage._download_oci("oci://registry.io/mymodel:v1", out)
 
@@ -203,6 +210,83 @@ def test_oci_with_config(tmp_path):
     )
     # get_manifest takes no config_path; auth is pre-established via client.login().
     assert "config_path" not in client.get_manifest.call_args.kwargs
+
+
+def test_oci_www_authenticate_basic_realm():
+    assert (
+        _oci_auth_backend_from_www_authenticate('Basic realm="Registry Realm"')
+        == "basic"
+    )
+
+
+def test_oci_www_authenticate_bearer_realm():
+    assert (
+        _oci_auth_backend_from_www_authenticate(
+            'Bearer realm="https://auth.docker.io/token",service="registry.docker.io"'
+        )
+        == "token"
+    )
+
+
+def test_oci_www_authenticate_prefers_bearer_when_both():
+    assert (
+        _oci_auth_backend_from_www_authenticate(
+            'Bearer realm="https://auth.example/token", Basic realm="Registry Realm"'
+        )
+        == "token"
+    )
+
+
+def test_oci_auth_backend_probe_basic_401():
+    err = HTTPError(
+        "http://registry.local/v2/",
+        401,
+        "Unauthorized",
+        {"Www-Authenticate": 'Basic realm="Registry Realm"'},
+        io.BytesIO(),
+    )
+    with mock.patch(
+        "kserve_storage.kserve_storage.urlopen", side_effect=err
+    ):
+        assert _oci_auth_backend_for_registry("registry.local:5000", True) == "basic"
+
+
+def test_oci_auth_backend_probe_bearer_401():
+    err = HTTPError(
+        "https://ghcr.io/v2/",
+        401,
+        "Unauthorized",
+        {
+            "Www-Authenticate": (
+                'Bearer realm="https://ghcr.io/token",service="ghcr.io"'
+            )
+        },
+        io.BytesIO(),
+    )
+    with mock.patch(
+        "kserve_storage.kserve_storage.urlopen", side_effect=err
+    ):
+        assert _oci_auth_backend_for_registry("ghcr.io", False) == "token"
+
+
+def test_oci_with_config_uses_bearer_backend(tmp_path):
+    out = str(tmp_path / "out")
+    client = _make_client(_IMAGE_MANIFEST)
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client) as ctor,
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(True),
+        ),
+        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+        mock.patch(
+            "kserve_storage.kserve_storage._oci_auth_backend_for_registry",
+            return_value="token",
+        ),
+    ):
+        Storage._download_oci("oci://ghcr.io/org/model:v1", out)
+
+    ctor.assert_called_once_with(insecure=False, auth_backend="token")
 
 
 def test_oci_uncompressed_tar_layer_extracts(tmp_path):
@@ -422,6 +506,10 @@ def test_oci_honors_env_var_for_config_path(tmp_path):
         mock.patch(
             "kserve_storage.kserve_storage._login_from_docker_config"
         ) as mock_login,
+        mock.patch(
+            "kserve_storage.kserve_storage._oci_auth_backend_for_registry",
+            return_value="token",
+        ),
     ):
         Storage._download_oci("oci://registry.io/mymodel:v1", out)
 
