@@ -29,7 +29,7 @@ import (
 type remoteFetcher struct{}
 
 func (r *remoteFetcher) FetchImg(imgName string) (v1.Image, error) {
-	// Parse the image name into a reference (e.g., quay.io/tkm/triton-cache)
+	// Parse the image name into a reference (e.g., quay.io/gkm/triton-cache)
 	ref, err := name.ParseReference(imgName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse image name: %w", err)
