@@ -337,6 +337,47 @@ func TestValidateIngressGateway(t *testing.T) {
 	}
 }
 
+func TestIngressConfigExternalGateways(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	privateIngressGateway := "istio-system/private-ingressgateway"
+
+	scenarios := map[string]struct {
+		ingressConfig *IngressConfig
+		expected      []string
+	}{
+		"only the deprecated ingressGateway is set": {
+			ingressConfig: &IngressConfig{
+				IngressGateway: KnativeIngressGateway,
+			},
+			expected: []string{KnativeIngressGateway},
+		},
+		"only ingressGateways is set": {
+			ingressConfig: &IngressConfig{
+				IngressGateways: []string{KnativeIngressGateway, privateIngressGateway},
+			},
+			expected: []string{KnativeIngressGateway, privateIngressGateway},
+		},
+		"ingressGateways takes precedence over the deprecated ingressGateway": {
+			ingressConfig: &IngressConfig{
+				IngressGateways: []string{privateIngressGateway},
+				IngressGateway:  KnativeIngressGateway,
+			},
+			expected: []string{privateIngressGateway},
+		},
+		"no gateway is set": {
+			ingressConfig: &IngressConfig{},
+			expected:      nil,
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			g.Expect(scenario.ingressConfig.ExternalGateways()).To(gomega.Equal(scenario.expected))
+		})
+	}
+}
+
 func TestNewOtelCollectorConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -596,6 +637,79 @@ func TestNewIngressConfig_Validation(t *testing.T) {
 		g.Expect(err).Should(gomega.HaveOccurred())
 		g.Expect(cfg).To(gomega.BeNil())
 		g.Expect(err.Error()).To(gomega.ContainSubstring("ingressGateway is required"))
+	})
+
+	t.Run("returns config if only ingressGateways is set", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateways": ["knative-serving/knative-ingress-gateway", "istio-system/private-ingressgateway"]
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(cfg).ShouldNot(gomega.BeNil())
+		g.Expect(cfg.IngressGateways).To(gomega.Equal([]string{
+			"knative-serving/knative-ingress-gateway", "istio-system/private-ingressgateway",
+		}))
+		g.Expect(cfg.IngressGateway).To(gomega.BeEmpty())
+	})
+
+	t.Run("returns error if an ingressGateways entry is not namespaced", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateways": ["knative-ingress-gateway"]
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("should be in the format <namespace>/<name>"))
+	})
+
+	t.Run("returns error if an ingressGateways entry has an invalid namespace", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateways": ["Invalid_Namespace/knative-ingress-gateway"]
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("gateway namespace is invalid"))
+	})
+
+	t.Run("returns error if an ingressGateways entry has an invalid name", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateways": ["knative-serving/Invalid_Name"]
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+		g.Expect(err.Error()).To(gomega.ContainSubstring("gateway name is invalid"))
+	})
+
+	t.Run("returns error if both ingressGateways and ingressGateway are missing", func(t *testing.T) {
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{
+				IngressConfigKeyName: `{
+					"ingressGateways": []
+				}`,
+			},
+		}
+		cfg, err := NewIngressConfig(cm)
+		g.Expect(err).Should(gomega.HaveOccurred())
+		g.Expect(cfg).To(gomega.BeNil())
+		g.Expect(err.Error()).To(gomega.Equal(ErrIngressGatewayRequired))
 	})
 
 	t.Run("returns error if pathTemplate is invalid template", func(t *testing.T) {

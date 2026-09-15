@@ -71,6 +71,11 @@ data:
     {
         "enableGatewayApi": {{ .Values.kserve.controller.gateway.ingressGateway.enableGatewayApi }},
         "kserveIngressGateway" : "{{ .Values.kserve.controller.gateway.ingressGateway.kserveGateway }}",
+        "ingressGateways": [
+            {{- range $index, $gateway := .Values.kserve.controller.gateway.ingressGateway.gateways }}
+              {{ $gateway | quote }} {{ if ne $index (sub (len $.Values.kserve.controller.gateway.ingressGateway.gateways) 1)}}, {{ end }}
+            {{- end}}
+        ],
         "ingressGateway" : "{{ .Values.kserve.controller.gateway.ingressGateway.gateway }}",
         "knativeLocalGatewayService" : "{{ .Values.kserve.controller.gateway.localGateway.knativeGatewayService }}",
         "localGateway" : "{{ .Values.kserve.controller.gateway.localGateway.gateway }}",

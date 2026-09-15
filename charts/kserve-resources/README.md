@@ -39,6 +39,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.gateway.ingressGateway.createGateway | bool | `false` |  |
 | kserve.controller.gateway.ingressGateway.enableGatewayApi | bool | `false` |  |
 | kserve.controller.gateway.ingressGateway.gateway | string | `"knative-serving/knative-ingress-gateway"` |  |
+| kserve.controller.gateway.ingressGateway.gateways | list | `[]` |  |
 | kserve.controller.gateway.ingressGateway.kserveGateway | string | `"kserve/kserve-ingress-gateway"` |  |
 | kserve.controller.gateway.localGateway.gateway | string | `"knative-serving/knative-local-gateway"` |  |
 | kserve.controller.gateway.localGateway.gatewayService | string | `"knative-local-gateway.istio-system.svc.cluster.local"` |  |
