@@ -36,6 +36,9 @@ jobs:
         with:
             python-version: "3.12"
 
+      - name: Setup Helm
+        uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
