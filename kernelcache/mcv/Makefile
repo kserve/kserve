@@ -122,3 +122,80 @@ install: ## Install mcv binary to $(GOBIN)
 uninstall: ## Uninstall mcv binary from $(GOBIN)
 	@echo "Uninstalling mcv from $(GOBIN)"
 	@rm -f "$(GOBIN)/mcv"
+
+##@ Container Images
+IMAGE_REGISTRY ?= quay.io
+IMAGE_REPOSITORY ?= gkm
+IMAGE_NAME ?= mcv
+
+# Detect container runtime (docker or podman) - only evaluated when needed
+CONTAINER_RUNTIME = $(shell command -v docker 2>/dev/null || command -v podman 2>/dev/null)
+
+.PHONY: image-minimal
+image-minimal: ## Build minimal container image (no GPU libraries, ~176MB)
+	@if [ -z "$(CONTAINER_RUNTIME)" ]; then \
+		echo "Error: No container runtime found. Please install docker or podman"; \
+		exit 1; \
+	fi
+	@echo "Building minimal MCV image using $(CONTAINER_RUNTIME)..."
+	$(CONTAINER_RUNTIME) build --platform linux/amd64 \
+		--target mcv-minimal \
+		-t $(IMAGE_REGISTRY)/$(IMAGE_REPOSITORY)/$(IMAGE_NAME):minimal \
+		-f images/amd64.dockerfile \
+		..
+
+.PHONY: image-amd
+image-amd: ## Build AMD container image (with ROCm libraries, ~923MB)
+	@if [ -z "$(CONTAINER_RUNTIME)" ]; then \
+		echo "Error: No container runtime found. Please install docker or podman"; \
+		exit 1; \
+	fi
+	@echo "Building AMD MCV image using $(CONTAINER_RUNTIME)..."
+	$(CONTAINER_RUNTIME) build --platform linux/amd64 \
+		--target mcv-amd \
+		-t $(IMAGE_REGISTRY)/$(IMAGE_REPOSITORY)/$(IMAGE_NAME):amd \
+		-f images/amd64.dockerfile \
+		..
+
+.PHONY: image-nvidia
+image-nvidia: ## Build NVIDIA container image (with CUDA+NVML, ~356MB)
+	@if [ -z "$(CONTAINER_RUNTIME)" ]; then \
+		echo "Error: No container runtime found. Please install docker or podman"; \
+		exit 1; \
+	fi
+	@echo "Building NVIDIA MCV image using $(CONTAINER_RUNTIME)..."
+	$(CONTAINER_RUNTIME) build --platform linux/amd64 \
+		--target mcv-nvidia \
+		-t $(IMAGE_REGISTRY)/$(IMAGE_REPOSITORY)/$(IMAGE_NAME):nvidia \
+		-f images/amd64.dockerfile \
+		..
+
+.PHONY: image-unified
+image-unified: ## Build unified container image (with NVIDIA+AMD, ~1.2GB) - NEW DEFAULT
+	@if [ -z "$(CONTAINER_RUNTIME)" ]; then \
+		echo "Error: No container runtime found. Please install docker or podman"; \
+		exit 1; \
+	fi
+	@echo "Building unified MCV image (NVIDIA+AMD) using $(CONTAINER_RUNTIME)..."
+	$(CONTAINER_RUNTIME) build --platform linux/amd64 \
+		--target mcv-unified \
+		-t $(IMAGE_REGISTRY)/$(IMAGE_REPOSITORY)/$(IMAGE_NAME):unified \
+		-t $(IMAGE_REGISTRY)/$(IMAGE_REPOSITORY)/$(IMAGE_NAME):latest \
+		-f images/amd64.dockerfile \
+		..
+
+.PHONY: images
+images: image-unified image-minimal image-nvidia image-amd ## Build all container image variants (unified is default)
+
+.PHONY: image-push
+image-push: ## Push all container images to registry
+	@if [ -z "$(CONTAINER_RUNTIME)" ]; then \
+		echo "Error: No container runtime found. Please install docker or podman"; \
+		exit 1; \
+	fi
+	@echo "Pushing images to $(IMAGE_REGISTRY)/$(IMAGE_REPOSITORY)/$(IMAGE_NAME)..."
+	$(CONTAINER_RUNTIME) push $(IMAGE_REGISTRY)/$(IMAGE_REPOSITORY)/$(IMAGE_NAME):unified
+	$(CONTAINER_RUNTIME) push $(IMAGE_REGISTRY)/$(IMAGE_REPOSITORY)/$(IMAGE_NAME):minimal
+	$(CONTAINER_RUNTIME) push $(IMAGE_REGISTRY)/$(IMAGE_REPOSITORY)/$(IMAGE_NAME):amd
+	$(CONTAINER_RUNTIME) push $(IMAGE_REGISTRY)/$(IMAGE_REPOSITORY)/$(IMAGE_NAME):nvidia
+	$(CONTAINER_RUNTIME) push $(IMAGE_REGISTRY)/$(IMAGE_REPOSITORY)/$(IMAGE_NAME):latest

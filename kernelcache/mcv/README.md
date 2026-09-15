@@ -80,6 +80,48 @@ Flags:
   -h, --help                 help for mcv
 ```
 
+### No-GPU Mode
+
+MCV supports creating and extracting cache images **without GPU hardware** using the `--no-gpu` flag. This is useful for CI/CD pipelines, development environments, and containerized workflows where GPU access isn't available.
+
+**Quick Start:**
+
+```bash
+# Create cache image without GPU
+mcv --create --image quay.io/myorg/cache:v1 --dir /path/to/cache --no-gpu
+
+# Extract cache without GPU validation
+mcv --extract --image quay.io/myorg/cache:v1 --dir /path/to/cache --no-gpu
+```
+
+**Container Images:**
+
+Three image variants are available:
+
+1. **Minimal** (~176MB) - For `--no-gpu` workflows, no CUDA/ROCm libraries **(DEFAULT)**
+   ```bash
+   podman build --target mcv-minimal -t quay.io/gkm/mcv:minimal -f mcv/images/amd64.dockerfile .
+   # OR (minimal is default):
+   podman build -t quay.io/gkm/mcv -f mcv/images/amd64.dockerfile .
+   ```
+
+2. **AMD** (~923MB) - Includes ROCm libraries for AMD GPU validation
+   ```bash
+   podman build --target mcv-amd -t quay.io/gkm/mcv:amd -f mcv/images/amd64.dockerfile .
+   ```
+
+3. **NVIDIA** (~356MB) - Includes CUDA runtime and NVML for NVIDIA GPU validation
+   ```bash
+   podman build --target mcv-nvidia -t quay.io/gkm/mcv:nvidia -f mcv/images/amd64.dockerfile .
+   ```
+
+**How it works:** With `--no-gpu`, MCV extracts GPU information (backend, architecture, warp size) from cache metadata rather than detecting actual hardware. The cache files created by vLLM/Triton already contain all necessary GPU information in environment variables.
+
+**GPU access flags** (e.g., `--gpus all` for NVIDIA, `--device /dev/kfd --device /dev/dri` for AMD) are **ONLY** required for GPU validation/preflight checks. They are **NOT** needed when using `--no-gpu` for cache creation or extraction.
+
+For detailed usage examples, container configuration, GPU access requirements, and CI/CD integration, see [docs/no-gpu-usage.md](./docs/no-gpu-usage.md).
+
+
 ## Dependencies
 
 - [buildah dependencies](https://github.com/containers/buildah/blob/main/install.md#building-from-scratch)
@@ -526,11 +568,14 @@ driver for rootless buildah operation.
 
 ## Using MCV image to build cache images
 
-MCV provides container images that can be used to wrap a vLLM/Triton cache
-in an OCI container image that can then be pushed to a container registry
-(without having to install mcv locally). Use the **minimal** variant for
-cache creation (`--create`, `--no-gpu`) and a GPU-specific variant for
-extraction with preflight checks. These images can also be used as part of a
+// TODO - Update with the KServe ones once available.
+
+MCV provides container images at `quay.io/gkm/mcv`. The default (`quay.io/gkm/mcv:latest`)
+is the minimal variant (~200MB), which can be used to wrap a vLLM/Triton cache in an OCI
+container image that can then be pushed to a container registry (without having to install
+mcv locally). For GPU validation, use `quay.io/gkm/mcv:amd` or `quay.io/gkm/mcv:nvidia`.
+
+These images can also be used as part of a
 [github workflow](../../.github/workflows/mcv-build-test.yml).
 
 ### MCV container image with docker

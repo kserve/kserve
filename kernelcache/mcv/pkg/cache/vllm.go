@@ -605,6 +605,13 @@ func detectActualGPUInfo() (backend, arch string, warpSize, ptxVersion int) {
 		}
 	}
 
+	// Skip GPU detection if disabled via --no-gpu flag
+	// This allows cache creation without GPU hardware by using cache metadata
+	if !config.IsGPUEnabled() {
+		logging.Info("GPU detection disabled (--no-gpu), will use cache metadata for hardware info")
+		return UnknownBackend, UnknownBackend, 0, 0
+	}
+
 	// Get device registry
 	registry := devices.GetRegistry()
 	if registry == nil {
