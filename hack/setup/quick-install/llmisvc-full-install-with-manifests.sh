@@ -108721,7 +108721,6 @@ rules:
 - apiGroups:
   - authentication.k8s.io
   resources:
-  - subjectaccessreviews
   - tokenreviews
   verbs:
   - create
