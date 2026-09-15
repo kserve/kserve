@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -74,6 +75,105 @@ func TestMatchCacheForURI_NamespaceScopedPrecedence(t *testing.T) {
 	assert.Equal(t, "ns-cache", match.Cache)
 	assert.Equal(t, "default", match.Namespace)
 	assert.Equal(t, "ns-cache-gpu2", match.PVCName)
+}
+
+func TestMatchCacheForURIWithNodeSelector(t *testing.T) {
+	const (
+		storageURI = "hf://org/model"
+		gpuKey     = "nvidia.com/gpu.product"
+		h100       = "NVIDIA-H100-80GB-HBM3"
+		a100       = "NVIDIA-A100-PCIE-40GB"
+	)
+	models := &v1alpha1.LocalModelCacheList{Items: []v1alpha1.LocalModelCache{{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster-cache"},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			SourceModelUri: storageURI,
+			NodeGroups:     []string{"h100-workers", "a100-workers"},
+		},
+	}}}
+	nodeGroups := &v1alpha1.LocalModelNodeGroupList{Items: []v1alpha1.LocalModelNodeGroup{
+		newNodeGroup("h100-workers", gpuKey, h100),
+		newNodeGroup("a100-workers", gpuKey, a100),
+	}}
+
+	tests := []struct {
+		name            string
+		nodeGroup       string
+		nodeGroupExists bool
+		nodeSelector    map[string]string
+		nodeGroups      *v1alpha1.LocalModelNodeGroupList
+		models          *v1alpha1.LocalModelCacheList
+		wantPVC         string
+	}{
+		{
+			name:         "selects compatible node group",
+			nodeSelector: map[string]string{gpuKey: a100},
+			models:       models,
+			wantPVC:      "cluster-cache-a100-workers",
+		},
+		{
+			name:         "rejects sole incompatible node group",
+			nodeSelector: map[string]string{gpuKey: a100},
+			models: &v1alpha1.LocalModelCacheList{Items: []v1alpha1.LocalModelCache{{
+				ObjectMeta: metav1.ObjectMeta{Name: "cluster-cache"},
+				Spec:       v1alpha1.LocalModelCacheSpec{SourceModelUri: storageURI, NodeGroups: []string{"h100-workers"}},
+			}}},
+		},
+		{
+			name:         "rejects cache when node group inventory is empty",
+			nodeSelector: map[string]string{gpuKey: a100},
+			nodeGroups:   &v1alpha1.LocalModelNodeGroupList{},
+			models:       models,
+		},
+		{
+			name:            "explicit node group takes precedence",
+			nodeGroup:       "h100-workers",
+			nodeGroupExists: true,
+			nodeSelector:    map[string]string{gpuKey: a100},
+			models:          models,
+			wantPVC:         "cluster-cache-h100-workers",
+		},
+		{
+			name:    "without node selector uses first node group",
+			models:  models,
+			wantPVC: "cluster-cache-h100-workers",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			availableNodeGroups := nodeGroups
+			if tt.nodeGroups != nil {
+				availableNodeGroups = tt.nodeGroups
+			}
+			match := MatchCacheForURIWithNodeSelector(
+				storageURI, tt.nodeGroup, tt.nodeGroupExists, tt.nodeSelector, availableNodeGroups, tt.models, nil,
+			)
+			if tt.wantPVC == "" {
+				assert.Nil(t, match)
+				return
+			}
+			assert.NotNil(t, match)
+			assert.Equal(t, tt.wantPVC, match.PVCName)
+		})
+	}
+}
+
+func newNodeGroup(name, key, value string) v1alpha1.LocalModelNodeGroup {
+	return v1alpha1.LocalModelNodeGroup{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: v1alpha1.LocalModelNodeGroupSpec{
+			PersistentVolumeSpec: corev1.PersistentVolumeSpec{
+				NodeAffinity: &corev1.VolumeNodeAffinity{Required: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+						MatchExpressions: []corev1.NodeSelectorRequirement{{
+							Key: key, Operator: corev1.NodeSelectorOpIn, Values: []string{value},
+						}},
+					}},
+				}},
+			},
+		},
+	}
 }
 
 func TestMarshalParseLoRACacheAnnotation(t *testing.T) {
