@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kserve/kserve/pkg/constants"
+	kservetls "github.com/kserve/kserve/pkg/tls"
 	"github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -114,22 +115,24 @@ type MultiNodeConfig struct {
 
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
-	EnableGatewayAPI             bool      `json:"enableGatewayApi,omitempty"`
-	KserveIngressGateway         string    `json:"kserveIngressGateway,omitempty"`
-	IngressGateway               string    `json:"ingressGateway,omitempty"`
-	KnativeLocalGatewayService   string    `json:"knativeLocalGatewayService,omitempty"`
-	LocalGateway                 string    `json:"localGateway,omitempty"`
-	LocalGatewayServiceName      string    `json:"localGatewayService,omitempty"`
-	IngressDomain                string    `json:"ingressDomain,omitempty"`
-	IngressClassName             *string   `json:"ingressClassName,omitempty"`
-	AdditionalIngressDomains     *[]string `json:"additionalIngressDomains,omitempty"`
-	DomainTemplate               string    `json:"domainTemplate,omitempty"`
-	UrlScheme                    string    `json:"urlScheme,omitempty"`
-	EnableLLMInferenceServiceTLS bool      `json:"enableLLMInferenceServiceTLS,omitempty"`
-	DisableIstioVirtualHost      bool      `json:"disableIstioVirtualHost,omitempty"`
-	PathTemplate                 string    `json:"pathTemplate,omitempty"`
-	DisableIngressCreation       bool      `json:"disableIngressCreation,omitempty"`
-	DisableHTTPRouteTimeout      bool      `json:"disableHTTPRouteTimeout,omitempty"`
+	EnableGatewayAPI                   bool      `json:"enableGatewayApi,omitempty"`
+	KserveIngressGateway               string    `json:"kserveIngressGateway,omitempty"`
+	IngressGateway                     string    `json:"ingressGateway,omitempty"`
+	KnativeLocalGatewayService         string    `json:"knativeLocalGatewayService,omitempty"`
+	LocalGateway                       string    `json:"localGateway,omitempty"`
+	LocalGatewayServiceName            string    `json:"localGatewayService,omitempty"`
+	IngressDomain                      string    `json:"ingressDomain,omitempty"`
+	IngressClassName                   *string   `json:"ingressClassName,omitempty"`
+	AdditionalIngressDomains           *[]string `json:"additionalIngressDomains,omitempty"`
+	DomainTemplate                     string    `json:"domainTemplate,omitempty"`
+	UrlScheme                          string    `json:"urlScheme,omitempty"`
+	EnableLLMInferenceServiceTLS       bool      `json:"enableLLMInferenceServiceTLS,omitempty"`
+	LLMInferenceServiceTLSMinVersion   string    `json:"llmInferenceServiceTLSMinVersion,omitempty"`
+	LLMInferenceServiceTLSCipherSuites string    `json:"llmInferenceServiceTLSCipherSuites,omitempty"`
+	DisableIstioVirtualHost            bool      `json:"disableIstioVirtualHost,omitempty"`
+	PathTemplate                       string    `json:"pathTemplate,omitempty"`
+	DisableIngressCreation             bool      `json:"disableIngressCreation,omitempty"`
+	DisableHTTPRouteTimeout            bool      `json:"disableHTTPRouteTimeout,omitempty"`
 
 	ModelBasedRoutingHeaderName string `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       string `json:"modelBasedRoutingMode,omitempty"`
@@ -322,6 +325,13 @@ func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 			if ingressConfig.IngressDomain == "" {
 				return nil, errors.New("invalid ingress config - ingressDomain is required if pathTemplate is given")
 			}
+		}
+
+		if err := kservetls.Validate(
+			ingressConfig.LLMInferenceServiceTLSMinVersion,
+			ingressConfig.LLMInferenceServiceTLSCipherSuites,
+		); err != nil {
+			return nil, fmt.Errorf("invalid LLMInferenceService TLS configuration: %w", err)
 		}
 
 		if len(ingressConfig.KnativeLocalGatewayService) == 0 {

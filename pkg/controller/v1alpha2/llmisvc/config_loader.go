@@ -93,6 +93,9 @@ type Config struct {
 	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
 	UrlScheme               string `json:"urlScheme,omitempty"`
 	EnableTLS               bool   `json:"enableTLS,omitempty"`
+	TLSMinVersion           string `json:"tlsMinVersion,omitempty"`
+	TLSCipherSuites         string `json:"tlsCipherSuites,omitempty"`
+	TLSCipherSuitesOpenSSL  string `json:"tlsCipherSuitesOpenSSL,omitempty"`
 
 	ModelBasedRoutingHeaderName string                `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       ModelBasedRoutingMode `json:"modelBasedRoutingMode,omitempty"`
@@ -176,12 +179,40 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		IngressGatewayName:          igwName,
 		UrlScheme:                   ingressConfig.UrlScheme,
 		EnableTLS:                   ingressConfig.EnableLLMInferenceServiceTLS,
+		TLSMinVersion:               ingressConfig.LLMInferenceServiceTLSMinVersion,
+		TLSCipherSuites:             ingressConfig.LLMInferenceServiceTLSCipherSuites,
+		TLSCipherSuitesOpenSSL:      openSSLCipherSuites(ingressConfig.LLMInferenceServiceTLSCipherSuites),
 		ModelBasedRoutingHeaderName: ingressConfig.ModelBasedRoutingHeaderName,
 		ModelBasedRoutingMode:       parseModelBasedRoutingMode(ingressConfig.ModelBasedRoutingMode),
 		StorageConfig:               storageConfig,
 		CredentialConfig:            credentialConfig,
 		SchedulerConfig:             schedulerConfig,
 	}
+}
+
+var openSSLCipherSuiteNames = map[string]string{
+	"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA":          "ECDHE-ECDSA-AES128-SHA",
+	"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA":          "ECDHE-ECDSA-AES256-SHA",
+	"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA":            "ECDHE-RSA-AES128-SHA",
+	"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA":            "ECDHE-RSA-AES256-SHA",
+	"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256":       "ECDHE-ECDSA-AES128-GCM-SHA256",
+	"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384":       "ECDHE-ECDSA-AES256-GCM-SHA384",
+	"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":         "ECDHE-RSA-AES128-GCM-SHA256",
+	"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384":         "ECDHE-RSA-AES256-GCM-SHA384",
+	"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256":   "ECDHE-RSA-CHACHA20-POLY1305",
+	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256": "ECDHE-ECDSA-CHACHA20-POLY1305",
+}
+
+func openSSLCipherSuites(cipherSuites string) string {
+	if strings.TrimSpace(cipherSuites) == "" {
+		return ""
+	}
+
+	converted := make([]string, 0)
+	for _, cipherSuite := range strings.Split(cipherSuites, ",") {
+		converted = append(converted, openSSLCipherSuiteNames[strings.TrimSpace(cipherSuite)])
+	}
+	return strings.Join(converted, ":")
 }
 
 // LoadConfig loads configuration from the supplied Kubernetes object reader.

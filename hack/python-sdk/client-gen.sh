@@ -33,6 +33,16 @@ fi
 echo "Generating Python SDK for KServe ..."
 java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -g python -o ${SDK_OUTPUT_PATH} -c ${SWAGGER_CODEGEN_CONF}
 
+# Preserve the positional constructor contract that predates the LLM TLS fields.
+# New fields are keyword-only so generated clients cannot silently rebind existing
+# positional arguments when this model grows.
+INGRESS_CONFIG_MODEL="${SDK_OUTPUT_PATH}/kserve/models/v1beta1_ingress_config.py"
+sed -i'.bak' \
+    -e 's/, llm_inference_service_tls_cipher_suites=None, llm_inference_service_tls_min_version=None, local_gateway=/, local_gateway=/' \
+    -e 's/, local_vars_configuration=None):/, local_vars_configuration=None, *, llm_inference_service_tls_cipher_suites=None, llm_inference_service_tls_min_version=None):/' \
+    "${INGRESS_CONFIG_MODEL}"
+rm -f "${INGRESS_CONFIG_MODEL}.bak"
+
 # Fix openapi-generator 4.3.1 bug: model references with dots in swagger definition
 # names (e.g. "v1alpha2.LLMInferenceService") are emitted as broken Python expressions
 # like "kserve.models.v1alpha2/llm_inference_service.v1alpha2.LLMInferenceService("
