@@ -843,30 +843,67 @@ func (v *VLLMCache) Labels() map[string]string {
 		if len(hashes) > 0 {
 			labels[kmCacheHash] = strings.Join(hashes, ",")
 
-			// 3. Cache mount subpath - use first unique hash for mount point
-			// Mega-AOT caches use torch_compile_cache/torch_aot_compile/<hash>
-			// Regular torch compile caches use torch_compile_cache/<hash>
-			firstHash := hashes[0]
-			firstMeta := v.allMetadata[0]
+			// 3. Cache mount subpath - determines what gets mounted from the OCI image
+			//
+			// For MULTI-HASH images: Mount at parent directory to expose all hashes.
+			// This allows vLLM to discover and use any hash at runtime while still
+			// being able to write new caches to sibling directories (container FS is RW).
+			//
+			// For SINGLE-HASH images: Mount at parent directory for consistency.
+			// Previously mounted specific hash, but parent mounting is more flexible
+			// and doesn't change behavior (vLLM still sees the same cache, can still
+			// write new caches to siblings).
+			//
+			// Example multi-hash structure:
+			//   PVC: kernel-cache/<storageKey>/torch_compile_cache/torch_aot_compile/
+			//     hashA/rank_0_0/model
+			//     hashB/rank_0_0/model
+			//     hashC/rank_0_0/model
+			//
+			//   Mount: /home/kserve/.cache/vllm/torch_compile_cache/torch_aot_compile (RO from PVC)
+			//   Sibling writes: /home/kserve/.cache/vllm/torch_compile_cache/newHash/ (RW container FS)
+			//
+			// This design supports cache-miss rebuilds: vLLM reads precompiled caches
+			// from the RO mount and writes new caches to siblings in the container FS.
 
-			// Check if this is a mega-AOT binary cache
-			isMegaAOT := false
-			if firstMeta.CacheFormat == BinaryCacheFormat && len(firstMeta.BinaryCacheEntries) > 0 {
-				// Check if any binary entry has mega-aot save format
+			firstHash := hashes[0]
+
+			// Find the metadata entry that corresponds to firstHash
+			// (v.allMetadata[0] may have empty hash or different hash)
+			var firstMeta VLLMCacheMetadata
+			for _, meta := range v.allMetadata {
+				if meta.VllmHash == firstHash {
+					firstMeta = meta
+					break
+				}
+			}
+
+			// Check if this cache uses the torch_aot_compile directory structure
+			// Both AOTCompileCacheFormat and mega-AOT BinaryCacheFormat use:
+			// torch_compile_cache/torch_aot_compile/<hash>/...
+			usesTorchAOTCompile := false
+
+			if firstMeta.CacheFormat == AOTCompileCacheFormat {
+				// AOT compile caches always use torch_aot_compile directory
+				usesTorchAOTCompile = true
+			} else if firstMeta.CacheFormat == BinaryCacheFormat && len(firstMeta.BinaryCacheEntries) > 0 {
+				// Mega-AOT binary caches also use torch_aot_compile directory
 				for i := range firstMeta.BinaryCacheEntries {
 					if firstMeta.BinaryCacheEntries[i].CacheSaveFormat == megaAOTSaveFormat {
-						isMegaAOT = true
+						usesTorchAOTCompile = true
 						break
 					}
 				}
 			}
 
-			if isMegaAOT {
-				// Mega-AOT: torch_compile_cache/torch_aot_compile/<hash>
-				labels[kmCacheMountSubpath] = filepath.Join(constants.TorchCompileDir, torchAOTCompileDirName, firstHash)
+			if usesTorchAOTCompile {
+				// AOT compile or Mega-AOT: Mount parent to expose all hashes
+				// torch_compile_cache/torch_aot_compile (no hash suffix)
+				labels[kmCacheMountSubpath] = filepath.Join(constants.TorchCompileDir, torchAOTCompileDirName)
 			} else {
-				// Regular: torch_compile_cache/<hash>
-				labels[kmCacheMountSubpath] = filepath.Join(constants.TorchCompileDir, firstHash)
+				// Regular torch compile: Mount at torch_compile_cache parent
+				// This exposes all hash directories for both single and multi-hash images
+				labels[kmCacheMountSubpath] = constants.TorchCompileDir
 			}
 
 			// 4. Cache root environment variable
