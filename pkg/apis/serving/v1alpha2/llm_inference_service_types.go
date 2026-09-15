@@ -595,7 +595,7 @@ type ScalingSpec struct {
 
 // WVASpec configures the Workload Variant Autoscaler.
 // scalingModifiers under wva.keda.advanced are forbidden because WVA owns the metric formula.
-// +kubebuilder:validation:XValidation:rule="!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula) == 0 && size(self.keda.advanced.scalingModifiers.target) == 0 && size(self.keda.advanced.scalingModifiers.activationTarget) == 0 && size(self.keda.advanced.scalingModifiers.metricType) == 0)",message="scalingModifiers must not be set; WVA controls the scaling metric formula and logic"
+// +kubebuilder:validation:XValidation:rule="!has(self.keda) || !has(self.keda.advanced) || !has(self.keda.advanced.scalingModifiers) || (size(self.keda.advanced.scalingModifiers.formula) == 0 && size(self.keda.advanced.scalingModifiers.target) == 0 && size(self.keda.advanced.scalingModifiers.activationTarget) == 0 && size(self.keda.advanced.scalingModifiers.metricType) == 0)",message="scalingModifiers must not be set; WVA controls the scaling metric formula and logic"
 type WVASpec struct {
 	// VariantCost specifies the cost per replica for this variant (used in saturation analysis).
 	// Must be a non-negative numeric string (e.g., "10", "10.0", "0.5").
@@ -655,7 +655,7 @@ type HPAScalingSpec struct {
 // The fields are directly from the upstream KEDA ScaledObject API.
 // Note: WVA-only restrictions on scalingModifiers live on WVASpec so direct KEDA
 // (DirectKEDAScalingSpec) can use scalingModifiers when users define their own triggers.
-// +kubebuilder:validation:XValidation:rule="!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0",message="horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name"
+// +kubebuilder:validation:XValidation:rule="!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || !has(self.advanced.horizontalPodAutoscalerConfig.name) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0",message="horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name"
 type KEDAScalingSpec struct {
 	// PollingInterval is the interval in seconds to check each trigger on.
 	// Must be at least 1 second.

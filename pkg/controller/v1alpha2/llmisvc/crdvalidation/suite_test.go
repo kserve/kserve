@@ -23,6 +23,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/conversion"
 
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
@@ -44,5 +47,17 @@ var _ = BeforeSuite(func() {
 	envTest = pkgtest.Configure(
 		pkgtest.WithCRDs(filepath.Join(crdRoot, "llmisvc")),
 		pkgtest.WithScheme(kservescheme.AddAll),
-	).Start(context.Background())
+	).
+		// v1alpha1 is not the storage version, so the API server converts
+		// after schema and CEL validation pass. Rejection cases never reach
+		// that step, but an accepted v1alpha1 object does, and envtest has
+		// already rewritten the CRD's conversion endpoint to this suite's
+		// webhook server. Serve /convert so those creates complete instead
+		// of failing on a refused dial.
+		WithWebhooks(func(_ *rest.Config, mgr ctrl.Manager) error {
+			mgr.GetWebhookServer().Register("/convert", conversion.NewWebhookHandler(mgr.GetScheme()))
+
+			return nil
+		}).
+		Start(context.Background())
 })
