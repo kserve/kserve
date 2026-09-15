@@ -63,7 +63,11 @@ func (in *LLMInferenceServiceSpec) SetDefaults(_ context.Context) {
 		in.Prefill.Worker.Containers = []corev1.Container{}
 	}
 
-	if in.Router != nil && in.Router.Scheduler != nil && in.Router.Scheduler.Template != nil && in.Router.Scheduler.Template.Containers == nil {
-		in.Router.Scheduler.Template.Containers = []corev1.Container{}
-	}
+	// Note: unlike Template/Worker/Prefill, the scheduler template does NOT
+	// initialize Containers to an empty slice when nil. An empty slice is a
+	// non-nil value that json.Marshal emits, causing the strategic merge patch
+	// to replace the base config's containers (which supply the image, ports,
+	// etc.) with nothing. Leaving Containers nil lets the merge preserve the
+	// base config's containers when the user only customises pod-level fields
+	// (affinity, tolerations, etc.).
 }
