@@ -22,8 +22,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 )
 
 const (
