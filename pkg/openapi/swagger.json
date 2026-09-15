@@ -590,6 +590,18 @@
         "nodeGroups"
       ],
       "properties": {
+        "imagePullSecrets": {
+          "description": "ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job namespace used to authenticate OCI (oci://) imports. Only the first secret is projected into the download container; merge multiple registries into one secret. Do not use serviceAccountName for dockerconfigjson — the shared credential dispatcher has no OCI/oras branch.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.LocalObjectReference"
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
         "modelSize": {
           "description": "Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.",
           "$ref": "#/definitions/resource.Quantity"
@@ -603,7 +615,7 @@
           }
         },
         "serviceAccountName": {
-          "description": "ServiceAccountName specifies the service account to use for credential lookup.",
+          "description": "ServiceAccountName specifies the service account to use for credential lookup. The service account must exist in the download job namespace (localModel.jobNamespace).",
           "type": "string"
         },
         "sourceModelUri": {
@@ -679,6 +691,18 @@
         "nodeGroups"
       ],
       "properties": {
+        "imagePullSecrets": {
+          "description": "ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job namespace used to authenticate OCI (oci://) imports. Only the first secret is projected into the download container; merge multiple registries into one secret.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.LocalObjectReference"
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
         "modelSize": {
           "description": "Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.",
           "$ref": "#/definitions/resource.Quantity"
@@ -692,7 +716,7 @@
           }
         },
         "serviceAccountName": {
-          "description": "ServiceAccountName specifies the service account to use for credential lookup.",
+          "description": "ServiceAccountName specifies the service account to use for credential lookup. The service account must exist in the download job namespace (localModel.jobNamespace).",
           "type": "string"
         },
         "sourceModelUri": {

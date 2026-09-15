@@ -81,6 +81,7 @@ type LocalModelParams struct {
 	SourceModelUri     string
 	NodeGroups         []string
 	ServiceAccountName string
+	ImagePullSecrets   []corev1.LocalObjectReference
 	Storage            *v1alpha1.LocalModelStorageSpec
 	Finalizers         []string
 	FinalizerName      string
@@ -97,6 +98,7 @@ func ExtractLocalModelParams(localModelCache *v1alpha1.LocalModelCache, localMod
 			SourceModelUri:     localModelCache.Spec.SourceModelUri,
 			NodeGroups:         localModelCache.Spec.NodeGroups,
 			ServiceAccountName: localModelCache.Spec.ServiceAccountName,
+			ImagePullSecrets:   localModelCache.Spec.ImagePullSecrets,
 			Storage:            localModelCache.Spec.Storage,
 			Finalizers:         localModelCache.Finalizers,
 			FinalizerName:      FinalizerName,
@@ -110,6 +112,7 @@ func ExtractLocalModelParams(localModelCache *v1alpha1.LocalModelCache, localMod
 			SourceModelUri:     localModelNamespaceCache.Spec.SourceModelUri,
 			NodeGroups:         localModelNamespaceCache.Spec.NodeGroups,
 			ServiceAccountName: localModelNamespaceCache.Spec.ServiceAccountName,
+			ImagePullSecrets:   localModelNamespaceCache.Spec.ImagePullSecrets,
 			Storage:            localModelNamespaceCache.Spec.Storage,
 			Finalizers:         localModelNamespaceCache.Finalizers,
 			FinalizerName:      NamespaceCacheFinalizerName,
@@ -130,6 +133,7 @@ func CreateLocalModelInfo(localModelCache *v1alpha1.LocalModelCache, localModelN
 		Namespace:          params.Namespace,
 		NodeGroup:          nodeGroupName,
 		ServiceAccountName: params.ServiceAccountName,
+		ImagePullSecrets:   params.ImagePullSecrets,
 		Storage:            params.Storage,
 	}
 }
@@ -166,6 +170,13 @@ func GetNodesFromNodeGroup(ctx context.Context, nodeGroup *v1alpha1.LocalModelNo
 		}
 	}
 	return readyNodes, notReadyNodes, nil
+}
+
+// ImagePullSecretsEqual compares two imagePullSecrets slices by secret name order.
+func ImagePullSecretsEqual(a, b []corev1.LocalObjectReference) bool {
+	return slices.EqualFunc(a, b, func(x, y corev1.LocalObjectReference) bool {
+		return x.Name == y.Name
+	})
 }
 
 // StorageSpecEqual compares two LocalModelStorageSpec for equality
@@ -651,6 +662,7 @@ func UpdateLocalModelNode(
 			needsUpdate := modelInfo.SourceModelUri != params.SourceModelUri ||
 				modelInfo.ServiceAccountName != params.ServiceAccountName ||
 				modelInfo.NodeGroup != nodeGroupName ||
+				!ImagePullSecretsEqual(modelInfo.ImagePullSecrets, params.ImagePullSecrets) ||
 				!StorageSpecEqual(modelInfo.Storage, params.Storage)
 			if !needsUpdate {
 				return nil

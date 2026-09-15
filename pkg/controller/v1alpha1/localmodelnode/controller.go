@@ -56,6 +56,7 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/credentials"
 	pkgtypes "github.com/kserve/kserve/pkg/types"
+	kserveutils "github.com/kserve/kserve/pkg/utils"
 )
 
 type ensureModelRootFolderResult struct {
@@ -147,7 +148,11 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 
 	// Use hash-based folder path for storage deduplication
 	storageKey := v1alpha1.GetStorageKey(modelInfo.SourceModelUri)
-	container.Args = []string{modelInfo.SourceModelUri, MountPath}
+	storageUri := modelInfo.SourceModelUri
+	if _, normalized, isOci := kserveutils.ParseOciScheme(storageUri); isOci {
+		storageUri = normalized
+	}
+	container.Args = []string{storageUri, MountPath}
 	container.VolumeMounts = []corev1.VolumeMount{
 		{
 			MountPath: MountPath,
@@ -171,11 +176,15 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	jobNs := jobNamespace
 
 	// Only inject if credentials are explicitly configured in LocalModelCache
-	if modelInfo.ServiceAccountName != "" || modelInfo.Storage != nil {
+	if modelInfo.ServiceAccountName != "" || modelInfo.Storage != nil || len(modelInfo.ImagePullSecrets) > 0 {
 		if err := c.injectCredentials(ctx, container, &volumes, modelInfo, jobNs); err != nil {
 			c.Log.Error(err, "Failed to inject credentials", "model", modelInfo.ModelName)
 			// Don't fail the job creation, continue with whatever credentials were injected
 		}
+	}
+
+	if storageInitializerConfig != nil && storageInitializerConfig.OciInsecureRegistry {
+		credentials.SetOciInsecureRegistryEnv(container)
 	}
 
 	// Note: statusKey (namespace/modelName) cannot be used as a label value since labels
@@ -247,8 +256,15 @@ func (c *LocalModelNodeReconciler) getContainerSpecFromConfig(config *pkgtypes.S
 func (c *LocalModelNodeReconciler) injectCredentials(ctx context.Context, container *corev1.Container,
 	volumes *[]corev1.Volume, modelInfo v1alpha1.LocalModelInfo, jobNs string,
 ) error {
+	if len(modelInfo.ImagePullSecrets) > 0 {
+		c.Log.Info("Injecting OCI dockerconfigjson credentials", "secrets", modelInfo.ImagePullSecrets)
+		if err := credentials.MountImagePullSecretsAsDockerConfig(modelInfo.ImagePullSecrets, container, volumes); err != nil {
+			return err
+		}
+	}
+
 	if c.CredentialBuilder == nil {
-		c.Log.Info("CredentialBuilder not initialized, skipping credential injection")
+		c.Log.Info("CredentialBuilder not initialized, skipping service account / storage-spec credential injection")
 		return nil
 	}
 
@@ -263,11 +279,15 @@ func (c *LocalModelNodeReconciler) injectCredentials(ctx context.Context, contai
 			ctx, jobNs, nil, *modelInfo.Storage.StorageKey, params, container)
 	}
 
-	// Use service account credentials
+	if modelInfo.ServiceAccountName == "" && modelInfo.Storage == nil {
+		return nil
+	}
+
 	serviceAccountName := modelInfo.ServiceAccountName
 	if serviceAccountName == "" {
 		serviceAccountName = "default"
 	}
+
 	c.Log.Info("Injecting service account credentials", "serviceAccountName", serviceAccountName)
 	return c.CredentialBuilder.CreateSecretVolumeAndEnv(
 		ctx, jobNs, nil, serviceAccountName, container, volumes)

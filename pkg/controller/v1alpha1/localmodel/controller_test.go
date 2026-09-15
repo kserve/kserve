@@ -274,6 +274,67 @@ var _ = Describe("CachedModel controller", func() {
 			}, timeout, interval).Should(BeFalse(), "Should not get the local model after deletion")
 		})
 
+		It("Should copy imagePullSecrets onto LocalModelNode LocalModelInfo", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{Name: "gpu1"},
+				Spec:       localModelNodeGroupSpec1,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			nodeName := "node-oci-pull-secret"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu1",
+					},
+				},
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			modelName := fmt.Sprintf("oci-cache-%d", time.Now().UnixNano())
+			cachedModel := &v1alpha1.LocalModelCache{
+				ObjectMeta: metav1.ObjectMeta{Name: modelName},
+				Spec: v1alpha1.LocalModelCacheSpec{
+					SourceModelUri:   "oci://ghcr.io/example/model:v1",
+					ModelSize:        resource.MustParse("1Gi"),
+					NodeGroups:       []string{"gpu1"},
+					ImagePullSecrets: []corev1.LocalObjectReference{{Name: "reg-cred"}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, cachedModel)).Should(Succeed())
+			defer func() {
+				Expect(k8sClient.Delete(ctx, cachedModel)).Should(Succeed())
+				Eventually(func() bool {
+					err := k8sClient.Get(ctx, types.NamespacedName{Name: modelName}, cachedModel)
+					return err != nil && errors.IsNotFound(err)
+				}, timeout, interval).Should(BeTrue())
+			}()
+
+			localModelNode := &v1alpha1.LocalModelNode{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, localModelNode)
+				if err != nil {
+					return false
+				}
+				for _, info := range localModelNode.Spec.LocalModels {
+					if info.ModelName == modelName &&
+						len(info.ImagePullSecrets) == 1 &&
+						info.ImagePullSecrets[0].Name == "reg-cred" {
+						return true
+					}
+				}
+				return false
+			}, timeout, interval).Should(BeTrue(), "LocalModelInfo should include imagePullSecrets")
+		})
+
 		It("Should create pvs and pvcs for inference services", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)

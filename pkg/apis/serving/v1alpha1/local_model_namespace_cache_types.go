@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -33,8 +34,16 @@ type LocalModelNamespaceCacheSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	NodeGroups []string `json:"nodeGroups" validate:"required"`
 	// ServiceAccountName specifies the service account to use for credential lookup.
+	// The service account must exist in the download job namespace (localModel.jobNamespace).
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job
+	// namespace used to authenticate OCI (oci://) imports. Only the first secret is
+	// projected into the download container; merge multiple registries into one secret.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// +optional
 	Storage *LocalModelStorageSpec `json:"storage,omitempty"`
 }
