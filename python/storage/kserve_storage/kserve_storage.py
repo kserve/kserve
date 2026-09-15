@@ -107,6 +107,7 @@ def _oci_insecure_registry_enabled() -> bool:
         "yes",
     )
 
+
 # Prefix identifying the modelcar layout's model subtree within an OCI layer tar.
 _OCI_MODELS_PREFIX = "models/"
 
@@ -1476,9 +1477,7 @@ class Storage(object):
         # then sends invalid token challenges and the pull looks like anonymous 401.
         # Use basic auth whenever a docker config is present.
         auth_backend = "basic" if config_path else "token"
-        client = oras.client.OrasClient(
-            insecure=insecure, auth_backend=auth_backend
-        )
+        client = oras.client.OrasClient(insecure=insecure, auth_backend=auth_backend)
         if config_path:
             _login_from_docker_config(client, target, config_path)
 

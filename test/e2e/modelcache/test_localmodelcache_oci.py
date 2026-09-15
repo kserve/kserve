@@ -435,7 +435,9 @@ def _ensure_auth_registry(core: client.CoreV1Api, apps: client.AppsV1Api):
             raise
 
 
-def _wait_deployment_ready(apps: client.AppsV1Api, namespace: str, name: str, timeout=180):
+def _wait_deployment_ready(
+    apps: client.AppsV1Api, namespace: str, name: str, timeout=180
+):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         dep = apps.read_namespaced_deployment(name, namespace)
