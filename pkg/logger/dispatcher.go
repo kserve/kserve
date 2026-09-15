@@ -64,6 +64,7 @@ func StartDispatcher(nworkers int, store Store, batchStrategy BatchStrategy, log
 	// Dispatcher goroutine: read from WorkQueue, split HTTP vs blob.
 	go func() {
 		for work := range WorkQueue {
+			WorkQueueDepth.Set(float64(len(WorkQueue)))
 			strategy := GetStorageStrategy(work.Url.String())
 
 			if strategy == HttpStorage {
