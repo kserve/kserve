@@ -25,5 +25,9 @@
         "V1ObjectMeta": "from kubernetes.client import V1ObjectMeta",
         "V1ListMeta": "from kubernetes.client import V1ListMeta",
         "V1ResourceRequirements": "from kubernetes.client import V1ResourceRequirements"
+    },
+    "typeMappings": {
+        "GithubComKedacoreKedaV2ApisKedaV1alpha1AdvancedConfig": "object",
+        "GithubComKedacoreKedaV2ApisKedaV1alpha1Fallback": "object"
     }
 }
