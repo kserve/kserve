@@ -22,7 +22,7 @@ A Model/GPU kernel cache container packaging utility inspired by
 
 - Cache artifact signing with Cosign
 - Container image signing support with Cosign
-- **Single-layer images**: MCV uses a multi-stage `FROM scratch` build to squash cache content into a single rootfs layer, compatible with cosign signing and verification. Works with Docker (BuildKit) and Buildah without experimental features
+- **Single-layer images**: MCV produces one squashed compat layer with Docker Schema 2 media types (Docker builder) or OCI layer types (Buildah), compatible with cosign signing, `docker save`, and kind image load
 
 ## Build Instructions
 
