@@ -19,7 +19,7 @@ import cv2
 import kserve
 from kserve import InferRequest, InferResponse
 from kserve.protocol.grpc.grpc_predict_v2_pb2 import ModelInferResponse
-from kserve.logging import logger
+from kserve.log_config import logger
 
 session = boto3.Session()
 client = session.client(

@@ -17,7 +17,7 @@ from typing import Any, AsyncIterator, Optional, Union
 from pathlib import Path
 from contextlib import asynccontextmanager
 
-from kserve.logging import logger
+from kserve.log_config import logger
 
 try:
     from vllm.engine.arg_utils import AsyncEngineArgs

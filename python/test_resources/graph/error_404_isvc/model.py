@@ -18,7 +18,7 @@ from typing import Dict, Union
 import kserve
 from fastapi import HTTPException
 
-from kserve import logging, InferResponse
+from kserve import log_config, InferResponse
 from kserve.model import InferRequest, ModelInferRequest
 
 
@@ -43,6 +43,6 @@ parser = argparse.ArgumentParser(parents=[kserve.model_server.parser])
 args, _ = parser.parse_known_args()
 if __name__ == "__main__":
     if args.configure_logging:
-        logging.configure_logging(args.log_config_file)
+        log_config.configure_logging(args.log_config_file)
     model = SampleTemplateNode(name=args.model_name)
     kserve.ModelServer(workers=1).start([model])

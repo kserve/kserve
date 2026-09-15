@@ -49,7 +49,7 @@ from transformers import (
     PreTrainedTokenizerFast,
 )
 
-from kserve.logging import logger
+from kserve.log_config import logger
 from kserve.protocol.rest.openai import (
     ChatPrompt,
     OpenAIChatAdapterModel,

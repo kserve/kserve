@@ -24,8 +24,8 @@ from typing import Any, Callable, Dict, List, Optional
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
 
+from . import log_config
 from . import context as kserve_context
-from . import logging
 from .constants.constants import (
     DEFAULT_GRPC_PORT,
     DEFAULT_HTTP_PORT,
@@ -36,7 +36,7 @@ from .constants.constants import (
     MAX_GRPC_MESSAGE_LENGTH,
 )
 from .errors import NoModelReady
-from .logging import logger
+from .log_config import logger
 from .model import BaseKServeModel
 from .model_repository import ModelRepository
 from .predictor_config import PredictorConfig
@@ -307,7 +307,7 @@ class ModelServer:
             # If the logger does not have any handlers, then the logger is not configured.
             # For backward compatibility, we configure the logger here.
             if len(logger.handlers) == 0:
-                logging.configure_logging(args.log_config_file)
+                log_config.configure_logging(args.log_config_file)
         self.access_log_format = access_log_format
         self._custom_exception_handler = None
         if predictor_config is not None:

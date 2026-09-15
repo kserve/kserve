@@ -32,7 +32,7 @@ from transformers import (
 )
 
 from kserve.model import BaseKServeModel
-from kserve.logging import logger
+from kserve.log_config import logger
 from kserve.protocol.rest.timeseries.types import (
     ForecastRequest,
     ForecastResponse,

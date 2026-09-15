@@ -42,7 +42,7 @@ from .test_output import (
     vllm_text_embedding_expected_output,
 )
 
-from kserve.logging import trace_logger
+from kserve.log_config import trace_logger
 
 
 def assert_answers_four(text: str):

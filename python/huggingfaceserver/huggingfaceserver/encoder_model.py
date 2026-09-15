@@ -24,7 +24,7 @@ import numpy as np
 from kserve import InferOutput
 from accelerate import init_empty_weights
 from kserve import Model
-from kserve.logging import logger
+from kserve.log_config import logger
 from kserve.protocol.infer_type import InferInput, InferRequest, InferResponse
 from kserve.utils.utils import (
     from_np_dtype,

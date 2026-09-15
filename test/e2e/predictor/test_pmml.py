@@ -27,7 +27,7 @@ from kubernetes import client
 from kubernetes.client import V1ResourceRequirements, V1ContainerPort
 import pytest
 
-from kserve.logging import trace_logger as logger
+from kserve.log_config import trace_logger as logger
 from ..common.utils import KSERVE_TEST_NAMESPACE, predict_grpc
 from ..common.utils import predict_isvc
 

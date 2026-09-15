@@ -43,7 +43,7 @@ from .test_output import (
     huggingface_sequence_classification_with_raw_logits_expected_output,
 )
 
-from kserve.logging import trace_logger
+from kserve.log_config import trace_logger
 
 # Cold model loads + pinned-revision HuggingFace pulls can outrun the 600s default
 # on contended CI runners. Increase the timeout for all tests in this file.
