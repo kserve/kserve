@@ -804,6 +804,15 @@
         "storageLimit": {
           "description": "Max storage size per node in this node group",
           "$ref": "#/definitions/resource.Quantity"
+        },
+        "tolerations": {
+          "description": "Used to specify tolerations for download jobs",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.Toleration"
+          },
+          "x-kubernetes-list-type": "atomic"
         }
       }
     },
