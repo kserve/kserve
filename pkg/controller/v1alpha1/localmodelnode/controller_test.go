@@ -36,6 +36,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/credentials"
 )
 
 type MockFileInfo struct {
@@ -895,7 +896,7 @@ var _ = Describe("LocalModelNode controller", func() {
 
 			var dockerVol *corev1.Volume
 			for i := range job.Spec.Template.Spec.Volumes {
-				if job.Spec.Template.Spec.Volumes[i].Name == "kserve-oci-fetch-docker-config" {
+				if job.Spec.Template.Spec.Volumes[i].Name == credentials.OciFetchDockerConfigVolumeName {
 					dockerVol = &job.Spec.Template.Spec.Volumes[i]
 					break
 				}
@@ -906,25 +907,25 @@ var _ = Describe("LocalModelNode controller", func() {
 
 			var dockerMount *corev1.VolumeMount
 			for i := range container.VolumeMounts {
-				if container.VolumeMounts[i].Name == "kserve-oci-fetch-docker-config" {
+				if container.VolumeMounts[i].Name == credentials.OciFetchDockerConfigVolumeName {
 					dockerMount = &container.VolumeMounts[i]
 					break
 				}
 			}
 			Expect(dockerMount).NotTo(BeNil())
-			Expect(dockerMount.MountPath).To(Equal("/mnt/oci-fetch-auth"))
+			Expect(dockerMount.MountPath).To(Equal(credentials.OciFetchDockerConfigDir))
 
 			var dockerEnv, insecureEnv *corev1.EnvVar
 			for i := range container.Env {
 				switch container.Env[i].Name {
-				case "KSERVE_OCI_DOCKER_CONFIG":
+				case credentials.OciFetchDockerConfigPathEnvVar:
 					dockerEnv = &container.Env[i]
-				case "KSERVE_OCI_INSECURE_REGISTRY":
+				case credentials.OciInsecureRegistryEnvVar:
 					insecureEnv = &container.Env[i]
 				}
 			}
 			Expect(dockerEnv).NotTo(BeNil())
-			Expect(dockerEnv.Value).To(Equal("/mnt/oci-fetch-auth/config.json"))
+			Expect(dockerEnv.Value).To(Equal(credentials.OciFetchDockerConfigDir + "/config.json"))
 			Expect(insecureEnv).NotTo(BeNil())
 			Expect(insecureEnv.Value).To(Equal("true"))
 		})
@@ -1000,12 +1001,12 @@ var _ = Describe("LocalModelNode controller", func() {
 
 			job := &jobs.Items[0]
 			for _, vol := range job.Spec.Template.Spec.Volumes {
-				Expect(vol.Name).NotTo(Equal("kserve-oci-fetch-docker-config"))
+				Expect(vol.Name).NotTo(Equal(credentials.OciFetchDockerConfigVolumeName))
 			}
 			container := job.Spec.Template.Spec.Containers[0]
 			Expect(container.Args[0]).To(Equal("oci://ghcr.io/example/public-model:v1"))
 			for _, env := range container.Env {
-				Expect(env.Name).NotTo(Equal("KSERVE_OCI_DOCKER_CONFIG"))
+				Expect(env.Name).NotTo(Equal(credentials.OciFetchDockerConfigPathEnvVar))
 			}
 		})
 

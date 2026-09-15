@@ -61,3 +61,14 @@ func TestMountImagePullSecretsAsDockerConfig(t *testing.T) {
 		assert.Equal(t, "first", volumes[0].Secret.SecretName)
 	})
 }
+
+func TestSetOciInsecureRegistryEnv(t *testing.T) {
+	t.Run("sets env once", func(t *testing.T) {
+		container := &corev1.Container{Name: "storage-initializer"}
+		SetOciInsecureRegistryEnv(container)
+		SetOciInsecureRegistryEnv(container)
+		require.Len(t, container.Env, 1)
+		assert.Equal(t, OciInsecureRegistryEnvVar, container.Env[0].Name)
+		assert.Equal(t, "true", container.Env[0].Value)
+	})
+}

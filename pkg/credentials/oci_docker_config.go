@@ -103,6 +103,23 @@ func MountImagePullSecretsAsDockerConfig(
 	return nil
 }
 
+// SetOciInsecureRegistryEnv sets KSERVE_OCI_INSECURE_REGISTRY=true on the download
+// container when storageInitializer.ociInsecureRegistry is enabled. Idempotent.
+func SetOciInsecureRegistryEnv(container *corev1.Container) {
+	if container == nil {
+		return
+	}
+	for _, env := range container.Env {
+		if env.Name == OciInsecureRegistryEnvVar {
+			return
+		}
+	}
+	container.Env = append(container.Env, corev1.EnvVar{
+		Name:  OciInsecureRegistryEnvVar,
+		Value: "true",
+	})
+}
+
 func ociDockerConfigVolumeExists(volumes []corev1.Volume) bool {
 	for _, v := range volumes {
 		if v.Name == OciFetchDockerConfigVolumeName {

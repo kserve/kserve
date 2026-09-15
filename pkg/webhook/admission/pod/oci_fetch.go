@@ -28,11 +28,6 @@ import (
 )
 
 const (
-	// Aliases for credentials package constants so existing webhook tests keep compiling.
-	ociFetchDockerConfigVolumeName = credentials.OciFetchDockerConfigVolumeName
-	ociFetchDockerConfigDir        = credentials.OciFetchDockerConfigDir
-	ociFetchDockerConfigPathEnvVar = credentials.OciFetchDockerConfigPathEnvVar
-	ociFetchInsecureRegistryEnvVar = credentials.OciInsecureRegistryEnvVar
 	// ociFetchDefaultVolumeName is the fallback model volume name when modelPath does not
 	// yield a usable name (e.g. the root path).
 	ociFetchDefaultVolumeName = "oci-fetch-model"
@@ -46,7 +41,7 @@ const (
 // image's model layers into a shared emptyDir volume at modelPath.
 //
 // Registry authentication is supplied by projecting the pod's first imagePullSecret as a
-// docker config.json into the init container (see mountImagePullSecretsAsDockerConfig); a
+// docker config.json into the init container (credentials.MountImagePullSecretsAsDockerConfig); a
 // custom CA bundle for private-registry TLS is mounted when configured, mirroring the CA
 // bundle handling in CommonStorageInitialization.
 //
@@ -83,10 +78,7 @@ func ConfigureOciFetchToContainer(
 		}
 		mountCaBundleForFetch(storageConfig, namespace, initContainer, podSpec)
 		if storageConfig.OciInsecureRegistry {
-			initContainer.Env = append(initContainer.Env, corev1.EnvVar{
-				Name:  ociFetchInsecureRegistryEnvVar,
-				Value: "true",
-			})
+			credentials.SetOciInsecureRegistryEnv(initContainer)
 		}
 	} else if !initContainerArgsContainPair(initContainer.Args, modelUri, modelPath) {
 		// Additional fetch source: append its (uri, path) pair to the shared init container.
@@ -108,16 +100,6 @@ func ConfigureOciFetchToContainer(
 		return err
 	}
 	return utils.AddModelMount(mountParams, targetContainerName, podSpec)
-}
-
-// mountImagePullSecretsAsDockerConfig is a thin wrapper around the shared helper so
-// existing webhook unit tests can keep calling the unexported name.
-func mountImagePullSecretsAsDockerConfig(
-	imagePullSecrets []corev1.LocalObjectReference,
-	container *corev1.Container,
-	volumes *[]corev1.Volume,
-) error {
-	return credentials.MountImagePullSecretsAsDockerConfig(imagePullSecrets, container, volumes)
 }
 
 // mountCaBundleForFetch mounts a custom CA bundle configmap into the fetch init container

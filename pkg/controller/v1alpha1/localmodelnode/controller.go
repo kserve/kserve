@@ -184,12 +184,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	}
 
 	if storageInitializerConfig != nil && storageInitializerConfig.OciInsecureRegistry {
-		if !containerHasEnv(container, credentials.OciInsecureRegistryEnvVar) {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  credentials.OciInsecureRegistryEnvVar,
-				Value: "true",
-			})
-		}
+		credentials.SetOciInsecureRegistryEnv(container)
 	}
 
 	// Note: statusKey (namespace/modelName) cannot be used as a label value since labels
@@ -296,15 +291,6 @@ func (c *LocalModelNodeReconciler) injectCredentials(ctx context.Context, contai
 	c.Log.Info("Injecting service account credentials", "serviceAccountName", serviceAccountName)
 	return c.CredentialBuilder.CreateSecretVolumeAndEnv(
 		ctx, jobNs, nil, serviceAccountName, container, volumes)
-}
-
-func containerHasEnv(container *corev1.Container, name string) bool {
-	for _, env := range container.Env {
-		if env.Name == name {
-			return true
-		}
-	}
-	return false
 }
 
 // Fetches container spec for model download container, use the default KServe image if not found

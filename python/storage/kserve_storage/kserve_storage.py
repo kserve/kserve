@@ -87,17 +87,25 @@ _GIT_RE = r"https://.+\.git"
 # the docker config.json. oras-py ignores DOCKER_CONFIG and only reads ~/.docker/config.json,
 # so the handler reads this path and passes it as an explicit config_path.
 _OCI_DOCKER_CONFIG_PATH_ENV = "KSERVE_OCI_DOCKER_CONFIG"
-# Default docker config.json path if the env var is unset (e.g. direct CLI invocation). Kept
-# in sync with ociFetchDockerConfigDir in pkg/webhook/admission/pod/oci_fetch.go. It is under
-# /mnt, not /root, because the storage-initializer runs as UID 1000 and cannot read /root.
+# Default docker config.json path if the env var is unset (e.g. direct CLI invocation).
+# Must match credentials.OciFetchDockerConfigDir in pkg/credentials/oci_docker_config.go.
+# It is under /mnt, not /root, because the storage-initializer runs as UID 1000.
 _OCI_DOCKER_CONFIG_PATH = "/mnt/oci-fetch-auth/config.json"
 
-# Env var by which the Go webhook (ConfigureOciFetchToContainer) signals that the
+# Env var by which the Go webhook and LocalModelCache download Job signal that the
 # target registry should be treated as plain-HTTP/insecure (self-signed or no TLS).
 # Defaults to secure (verified HTTPS) when unset -- this is an explicit opt-in,
 # mirroring how CA_BUNDLE_VOLUME_MOUNT_POINT etc. are wired: Go-side config field ->
 # env var on the init container -> read here.
 _OCI_INSECURE_REGISTRY_ENV = "KSERVE_OCI_INSECURE_REGISTRY"
+
+
+def _oci_insecure_registry_enabled() -> bool:
+    return os.environ.get(_OCI_INSECURE_REGISTRY_ENV, "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
 # Prefix identifying the modelcar layout's model subtree within an OCI layer tar.
 _OCI_MODELS_PREFIX = "models/"
@@ -288,11 +296,7 @@ def _login_from_docker_config(
             "password": password,
             "hostname": registry,
         }
-        if os.environ.get(_OCI_INSECURE_REGISTRY_ENV, "").strip().lower() in (
-            "1",
-            "true",
-            "yes",
-        ):
+        if _oci_insecure_registry_enabled():
             login_kwargs["tls_verify"] = False
         client.login(**login_kwargs)
     except Exception:  # noqa: BLE001
@@ -1466,11 +1470,7 @@ class Storage(object):
         if not os.path.exists(config_path):
             config_path = None
 
-        insecure = os.environ.get(_OCI_INSECURE_REGISTRY_ENV, "").strip().lower() in (
-            "1",
-            "true",
-            "yes",
-        )
+        insecure = _oci_insecure_registry_enabled()
         # Docker Distribution with htpasswd (typical in-cluster HTTP registry) does
         # not issue bearer tokens. oras-py defaults to auth_backend="token", which
         # then sends invalid token challenges and the pull looks like anonymous 401.
