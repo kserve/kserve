@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 package llmisvc
 
 import (
@@ -23,19 +22,7 @@ import (
 	v1alpha2 "github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
-const (
-	predictedLatencyProducerPlugin = "predicted-latency-producer"
-)
-
-// hasLatencyProducerInSpec checks the LLMInferenceService spec's scheduler config,
-// supplied via either Config.Inline or a --config-text pair in
-// Template.Containers[].Args (see inlineSchedulerConfigBytes).
-// NOTE: This does not check Config.Ref (ConfigMap-based config). The ConfigMap
-// Ref is resolved later in expectedSchedulerDeployment, after
-// combineBaseRefsConfig has already run. If the plugin is specified via Ref,
-// the well-known config will not be auto-injected. This is a known limitation;
-// all llm-d guides and examples use Config.Inline.
-func hasLatencyProducerInSpec(spec v1alpha2.LLMInferenceServiceSpec) bool {
+func hasPluginInSpec(spec v1alpha2.LLMInferenceServiceSpec, plugin string) bool {
 	raw, ok := inlineSchedulerConfigBytes(spec)
 	if !ok {
 		return false
@@ -44,7 +31,7 @@ func hasLatencyProducerInSpec(spec v1alpha2.LLMInferenceServiceSpec) bool {
 	if err := yaml.Unmarshal(raw, &u.Object); err != nil {
 		return false
 	}
-	return hasPluginType(u.Object, predictedLatencyProducerPlugin)
+	return hasPluginType(u.Object, plugin)
 }
 
 func hasPluginType(obj map[string]interface{}, pluginType string) bool {
