@@ -1,192 +1,261 @@
-
-# GPU Kernel Cache Image Specification v0.0.0
+# GPU Kernel Cache Image Specification (compat)
 
 ## Introduction
 
-This document describes a variant of Triton/vLLM Artifact Image Specification
-which leverages the compatible layer media types. We call this variant "compat".
+This document describes the **compat** cache image format: the format MCV
+**create** produces and MCV **extract** (and `gkm-extract`) expects for
+Triton and vLLM kernel caches.
 
-## Description
+Compat images store cache content in a **standard registry layer** (a gzip
+tarball), not a custom OCI artifact media type. They work with Docker, Podman,
+Buildah, and registries such as Quay without custom artifact support.
 
-This *compat* variant makes use of compatible media type for layers, and is not
-based on custom OCI Artifact media types. This way users can operate with
-standard tools such as docker, podman, buildah, and standard container
-registries which don't yet support custom media types.
+## How to identify a compat image
 
-## Specification
+**Use layer media type, not manifest media type.**
 
-### Layer
+| Signal | Used for extract? | Notes |
+|--------|-------------------|-------|
+| Layer media type | **Yes** | Must be one of the compat types below |
+| Manifest media type (`OCI` vs `Docker Schema 2`) | **No** | Registries often serve compat layers under an OCI manifest |
+| `cache.*.image/variant=compat` annotation | **No** | Optional; informational only |
+| Image config labels (`cache.triton.image/*`, `cache.vllm.image/*`) | **Yes** | Cache type, size, summary, entry count |
 
-The *compat* variant must have the 1 layer whose media type is one of the
-following:
+### Compat layer media types
 
-- `application/vnd.oci.image.layer.v1.tar+gzip`
-- `application/vnd.docker.image.rootfs.diff.tar.gzip`
+Every layer that contains cache data must use one of:
 
-In addition, such a layer must consist of the Triton/vLLM cache directory
-contents.
+- `application/vnd.docker.image.rootfs.diff.tar.gzip` (typical for Docker-built images)
+- `application/vnd.oci.image.layer.v1.tar+gzip` (typical for Buildah/Podman-built images)
 
-### Annotation
+MCV extract accepts **both** types regardless of whether the image manifest
+is OCI or Docker Schema 2.
 
-If the media type equals `application/vnd.oci.image.layer.v1.tar+gzip`, then a
-*compat* variant image *should* add the annotation `cache.triton.image/variant=compat`
-or `cache.vllm.image/variant=compat` in the manifest to make it easy to distinguish
-this *compat* variant from the *oci* variant. Note that this is **optional**.
+### Common registry layout
 
-### Example with `application/vnd.oci.image.layer.v1.tar+gzip` media type
+After `docker push` or `buildah push`, it is normal to see:
 
-The following is an example OCI manifest of images with
-`application/vnd.oci.image.layer.v1.tar+gzip` layer media type:
+- Manifest: `application/vnd.oci.image.manifest.v1+json`
+- Layer: `application/vnd.docker.image.rootfs.diff.tar.gzip`
 
-```bash
-$ skopeo inspect docker://quay.io/tkm/triton-cache:01-vector-add-latest
-{
-    "Name": "quay.io/tkm/triton-cache",
-    "Digest": "sha256:6b869186b227d5819441d796a55ebed19b961a6143e5c7bbcd05d69b78f4cd29",
-    "RepoTags": [
-        "01-vector-add-latest"
-    ],
-    "Created": "2024-12-17T12:05:39.704993297Z",
-    "DockerVersion": "",
-    "Labels": {
-        "io.buildah.version": "1.33.11",
-        "org.opencontainers.image.title": "01-vector-add-latest"
-    },
-    "Architecture": "amd64",
-    "Os": "linux",
-    "Layers": [
-        "sha256:529cec732c6bfcd7ec14c620ecd89cd338578a34129c57d33ec3f30f9c4a069c"
-    ],
-    "LayersData": [
-        {
-            "MIMEType": "application/vnd.oci.image.layer.v1.tar+gzip",
-            "Digest": "sha256:529cec732c6bfcd7ec14c620ecd89cd338578a34129c57d33ec3f30f9c4a069c",
-            "Size": 18871,
-            "Annotations": null
-        }
-    ],
-    "Env": [
-        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-    ]
-}
+This is still a compat image. Extract must not branch on manifest type.
+
+## Layer contents
+
+A compat image has **one squashed layer** (recommended) containing:
+
+| Path | Content |
+|------|---------|
+| `io.triton.cache/` or `io.vllm.cache/` | Cache directory tree |
+| `io.triton.manifest/manifest.json` or `io.vllm.manifest/manifest.json` | Entry metadata written at create time |
+
+The gzip tarball layer holds the paths above. MCV unpacks cache files into
+the configured extract directory and manifest into `/tmp/.mcv/manifest/`.
+
+## Image config labels
+
+Labels are set on the image config (not the manifest). Required keys depend
+on cache type:
+
+### Triton
+
+| Label | Description |
+|-------|-------------|
+| `cache.triton.image/entry-count` | Number of cache entries |
+| `cache.triton.image/summary` | JSON summary of targets (backend, arch, warp size) |
+| `cache.triton.image/cache-size-bytes` | Total bytes of **packaged** cache files (see below) |
+
+### vLLM
+
+| Label | Description |
+|-------|-------------|
+| `cache.vllm.image/entry-count` | Number of cache entries |
+| `cache.vllm.image/summary` | JSON summary of targets |
+| `cache.vllm.image/cache-size-bytes` | Total bytes of **packaged** cache files |
+| `cache.vllm.image/format` | Cache format(s) present (`triton`, `binary`, `aot_compile`, etc.) |
+
+### `cache-size-bytes` semantics
+
+At **create** time, MCV computes `cache-size-bytes` from the **staging
+directory** copied into the image layer (the same bytes that are packaged),
+not from unrelated files elsewhere on the build host.
+
+At **extract** time, MCV validates that the number of cache bytes written
+from the layer tarball matches the label. Pre-existing files in the target
+cache directory (for example `~/.triton/cache` or `~/.cache/vllm`) are not
+included in validation.
+
+## MCV extract algorithm
+
+```
+1. Read cache type from config labels (triton | vllm)
+2. For each layer:
+     if layer media type is compat (docker gzip OR oci gzip):
+         extract cache + manifest from tarball
+     else:
+         fail compat path
+3. If compat path failed, optionally try legacy artifact layers
+   (application/cache.<type>.content.layer.v1+<type>) — not produced by MCV create
+4. Validate cache-size-bytes against bytes written by whichever extraction path succeeded (step 2 or step 3)
 ```
 
-> **Note**: The same can be done for a vLLM cache.
+MCV **create** (Docker and Buildah) only produces compat images. The artifact
+layer path exists for older or external images only.
 
-### Example with `application/vnd.docker.image.rootfs.diff.tar.gzip` media type
+## Examples
 
-The following is an example Docker manifest of images with
-`application/vnd.docker.image.rootfs.diff.tar.gzip` layer media type:
+### OCI manifest with Docker-format layer (Quay)
+
+Typical after Docker build + push:
 
 ```bash
-$ skopeo inspect docker://quay.io/tkm/triton-cache:01-vector-add-latest
+$ skopeo inspect docker://quay.io/example/vector-add-cache:latest
 {
-    "Name": "quay.io/tkm/triton-cache",
-    "Digest": "sha256:b6d7703261642df0bf95175a64a01548eb4baf265c5755c30ede0fea03cd5d97",
-    "RepoTags": [
-        "01-vector-add-latest"
-    ],
-    "Created": "2024-12-17T15:30:17.139084969Z",
-    "DockerVersion": "",
-    "Labels": {
-        "org.opencontainers.image.title": "01-vector-add-latest"
-    },
+    "Digest": "sha256:…",
     "Architecture": "amd64",
-    "Os": "linux",
-    "Layers": [
-        "sha256:1ad665f418818c34ae56491dff3949c31f81a0e089c2e7b95053aaf4e299f452"
-    ],
     "LayersData": [
         {
             "MIMEType": "application/vnd.docker.image.rootfs.diff.tar.gzip",
-            "Digest": "sha256:1ad665f418818c34ae56491dff3949c31f81a0e089c2e7b95053aaf4e299f452",
-            "Size": 18107,
-            "Annotations": null
+            "Size": 19287
         }
-    ],
-    "Env": [
-        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
     ]
+    "Labels": {
+        "cache.triton.image/cache-size-bytes": "80415",
+        "cache.triton.image/entry-count": "1",
+        "cache.triton.image/summary": "{\"targets\":[{\"backend\":\"hip\",\"arch\":\"gfx90a\",\"warp_size\":64}]}"
+    }
 }
 ```
 
-## Appendix 1: build a Triton *compat* image with Buildah
+The manifest descriptor may still report `application/vnd.oci.image.manifest.v1+json`.
 
-We demonstrate how to build a *compat* image with Buildah, a standard cli
-for building OCI images. We use v1.21.0 of Buildah here. Produced images
-have `application/vnd.oci.image.layer.v1.tar+gzip` layer media type
+### Buildah layer type
 
-We assume that you have a Triton cache that you want to package as an image.
+Buildah/Podman builds often report:
 
-1. First, we create a working container from `scratch` base image with
-`buildah ... from` command.
-
-```bash
-buildah --name quay.io/tkm/triton-cache:01-vector-add-latest from scratch
+```json
+"MIMEType": "application/vnd.oci.image.layer.v1.tar+gzip"
 ```
 
-1. Next, add the annotation described above via `buildah config` command
+Extract treats this identically to the Docker layer type above.
+
+## Building compat images
+
+### With MCV (recommended)
 
 ```bash
-buildah config --annotation "module.triton.image/variant=compat" quay.io/tkm/triton-cache:01-vector-add-latest
+# Docker
+mcv -c -i quay.io/example/my-cache:latest -d /path/to/cache
+
+# Buildah / Podman
+mcv -c -i quay.io/example/my-cache:latest -d /path/to/cache --buildah
 ```
 
-> Note: This step is optional. See [Annotation](#annotation) section.
+MCV stages cache + manifest, squashes to a single layer, and sets labels from
+the staged content.
 
-1. Then copy the files into that base image by `buildah copy` command
-to create the layer.
+The Docker builder loads a Docker Schema 2 image directly into the daemon
+(consistent manifest and layer media types). Buildah uses `commit --squash`.
+Manual `docker build` with the Dockerfile below can still produce an OCI manifest
+with Docker layer types; use `mcv -c` or `--builder buildah` to avoid that.
+
+### Manual Docker build
+
+A single-stage `FROM scratch` Dockerfile with multiple `COPY` instructions
+produces **one layer per COPY** in the final image. MCV instead uses a
+**multi-stage** build so the published image has **exactly one** rootfs layer
+(cosign-friendly, matches `extractCompatImg` expectations).
+
+#### 1. Prepare the build context
+
+Stage cache and manifest under a build root (same layout MCV uses):
 
 ```bash
-buildah copy quay.io/tkm/triton-cache:01-vector-add-latest vector-add-cache/ ./io.triton.cache
-612fd1391d341bcb9f738a4d0ed6a15095e68dfc3245d8a899af3ecb4b60b8b1
+BUILD_ROOT=/tmp/cache-image-build
+mkdir -p "${BUILD_ROOT}/io.triton.cache"
+mkdir -p "${BUILD_ROOT}/io.triton.manifest"
+
+cp -a /path/to/.triton/cache/. "${BUILD_ROOT}/io.triton.cache/"
+# Write or copy manifest.json into io.triton.manifest/
 ```
 
-> **Note**: you must execute `buildah copy` exactly once in order to end
-> up having only one layer in produced images**
+For vLLM, use `io.vllm.cache/` and `io.vllm.manifest/` instead.
 
-1. Now, you can build a *compat* image and push it to your registry
-via `buildah commit` command
+#### 2. Dockerfile (single published layer)
 
-```bash
-buildah commit quay.io/tkm/triton-cache:01-vector-add-latest docker://quay.io/tkm/triton-cache:01-vector-add-latest
-```
+This matches `DockerfileTemplate` in MCV:
 
-> **Note**: The same can be done for a vLLM cache.
+```dockerfile
+FROM scratch AS build
+COPY "./io.triton.cache/" "./io.triton.cache/"
+COPY "./io.triton.manifest/manifest.json" "./io.triton.manifest/manifest.json"
 
-## Appendix 2: build a Triton *compat* image with Docker CLI
-
-> **Note**: An example Triton cache can be found in the
-[tests](../tests/) directory (e.g., `vector-add-cache/`).
-
-We demonstrate how to build a *compat* image with Docker CLI. Produced
-images have `application/vnd.docker.image.rootfs.diff.tar.gzip` layer
-media type.
-
-We assume that you have a Triton cache that you want to package as an image.
-
-1. First, we prepare the following Dockerfile:
-
-```bash
-$ cat Dockerfile
 FROM scratch
-LABEL org.opencontainers.image.title=01-vector-add-latest
-COPY vector-add-cache ./io.triton.cache
+LABEL org.opencontainers.image.title=my-cache
+COPY --from=build / /
 ```
 
-> NOTE: you must have exactly one `COPY` instruction in the Dockerfile
-  at the end as only the last layer in produced images is going to be
-  taken into account to obtain the files.
+- **`build` stage**: collects cache + manifest (intermediate layers are discarded).
+- **Final stage**: `COPY --from=build / /` emits **one** gzip tarball layer
+  containing both paths.
+- Place `org.opencontainers.image.title` on the **final** stage (after the
+  second `FROM scratch`), not the build stage.
 
-1. Then, build your image via `docker build` command
+#### 3. Build and label
+
+Pass cache metadata labels at build time (MCV sets these via `ImageBuildOptions.Labels`):
 
 ```bash
-docker build -t quay.io/tkm/triton-cache:01-vector-add-latest .
+cd "${BUILD_ROOT}"
+
+docker build \
+  -t quay.io/example/my-cache:latest \
+  --label cache.triton.image/entry-count=1 \
+  --label cache.triton.image/cache-size-bytes=80415 \
+  --label 'cache.triton.image/summary={"targets":[{"backend":"hip","arch":"gfx90a","warp_size":64}]}' \
+  -f Dockerfile \
+  .
 ```
 
-1. Finally, push the image to your registry via `docker push` command
+Compute `cache-size-bytes` from the staged `io.triton.cache/` (or
+`io.vllm.cache/`) tree—the same bytes that end up in the layer.
+
+#### 4. Verify a single layer
 
 ```bash
-docker push quay.io/tkm/triton-cache:01-vector-add-latest
+docker inspect quay.io/example/my-cache:latest | jq '.[0].RootFS.Layers | length'
+# Expected: 1
+
+docker push quay.io/example/my-cache:latest
 ```
 
-> **Note**: The same can be done for a vLLM cache.
+If `RootFS.Layers | length` is greater than 1, the image was not squashed
+into a single published layer (for example a single-stage Dockerfile with
+multiple `COPY` lines).
+
+### Manual Buildah build
+
+```bash
+buildah from scratch
+buildah copy <container> ./io.triton.cache /io.triton.cache
+buildah copy <container> ./io.triton.manifest/manifest.json /io.triton.manifest/manifest.json
+# set labels …
+buildah commit --squash <container> docker://quay.io/example/my-cache:latest
+```
+
+## Legacy artifact layers (not MCV create output)
+
+Some images may use a custom layer media type:
+
+`application/cache.triton.content.layer.v1+triton`
+`application/cache.vllm.content.layer.v1+vllm`
+
+MCV extract attempts this path only if compat extraction fails. MCV create does
+**not** produce these images. New images should use compat layers only.
+
+## Appendix: example cache paths
+
+| Cache type | Staging dir (in layer) | Default extract dir |
+|------------|------------------------|---------------------|
+| Triton | `io.triton.cache/` | `~/.triton/cache/` |
+| vLLM | `io.vllm.cache/` | `~/.cache/vllm/` |

@@ -32,7 +32,7 @@ All tests collected from the `llmisvc/` directory automatically receive the
 | File pattern | Assigned markers | Example file |
 |---|---|---|
 | `test_llm_autoscaling_<variant>.py` | `llminferenceservice` + `llmisvc_autoscaling` + `autoscaling_<variant>` | `test_llm_autoscaling_wva.py` → `llminferenceservice`, `llmisvc_autoscaling`, `autoscaling_wva` |
-| Files in `_LLMISVC_CORE_EXCLUDED` | `llminferenceservice` only (manually marked for sub-group) | `test_llm_tracing.py` has its own `tracing` marker |
+| Files in `_LLMISVC_CORE_EXCLUDED` | `llminferenceservice` only (manually marked for sub-group) | `test_llm_tracing.py` has its own `tracing` marker, `test_llm_inference_service_config_deletion.py` and `test_llm_canary_lifecycle.py` carry `llmisvc_serial` |
 | Everything else | `llminferenceservice` + `llmisvc_core` | `test_llm_inference_service.py`, `test_pod_watch.py` |
 
 **Key rules:**
@@ -43,7 +43,7 @@ All tests collected from the `llmisvc/` directory automatically receive the
    and the variant marker (`autoscaling_<variant>`) is derived automatically.
    Adding `test_llm_autoscaling_keda.py` creates the `autoscaling_keda` marker
    with no further code changes.
-3. **Excluded files** — files in `_LLMISVC_CORE_EXCLUDED` (currently
+3. **Excluded files** — files in `_LLMISVC_CORE_EXCLUDED` (e.g.
    `test_llm_tracing.py`) opt out of automatic `llmisvc_core` and must carry
    their own explicit sub-group markers.
 4. **Default** — every other `test_*.py` under `test/e2e/llmisvc/` receives
@@ -55,6 +55,10 @@ When adding a new test file, decide which group it belongs to:
 - New autoscaling backend → name it `test_llm_autoscaling_<backend>.py`.
 - Completely new category → add the file to `_LLMISVC_CORE_EXCLUDED` and apply
   an explicit marker; register the marker in `pytest_configure` and `pytest.ini`.
+- Touches shared cluster state (the `kserve` namespace, cluster-scoped objects,
+  the controller) or asserts on traffic through the shared ingress gateway → add
+  the file to `_LLMISVC_CORE_EXCLUDED` and mark it `llmisvc_serial`. CI runs `llmisvc_core` on two xdist workers, then
+  `llmisvc_serial` one test at a time.
 
 ### Cluster capability markers (explicit, per test param)
 

@@ -321,20 +321,29 @@ jobs:
         timeout-minutes: 90
         env:
           OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
+          # xdist workers drop -s output and live logs, so the step log only shows captured
+          # logs of failed tests. Keep log records of every test (log_execution timings)
+          # in the uploaded junit XML.
+          PYTEST_ARGS: "-o junit_logging=log"
         run: |
           # Run only CPU tests for now using pytest markers (cluster_)
           # Available GPU vendors: amd, nvidia, intel
+          # Two workers: core tests keep their resources in a per-test namespace. Tests that
+          # touch shared cluster state or assert on traffic through the shared gateway carry
+          # llmisvc_serial and run in the next step.
           export PYTEST_MAXFAIL=3
-          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and llmisvc_core and cluster_cpu" 0 "envoy-gateway"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and llmisvc_core and cluster_cpu" 2 "envoy-gateway"
 
-      - name: Run conversion & storage-migration E2E tests
+      - name: Run serial LLMInferenceService E2E tests
         id: conversion-e2e-tests
         if: always() && steps.llmisvc-e2e-tests.conclusion != 'cancelled'
         timeout-minutes: 90
         env:
           OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
+          # -n 1 still runs tests in an xdist worker, which drops live logs.
+          PYTEST_ARGS: "-o junit_logging=log"
         run: |
-          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and conversion and cluster_cpu" 1 "envoy-gateway"
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and (conversion or llmisvc_serial) and cluster_cpu" 1 "envoy-gateway"
 
       - name: Check system status
         if: always()

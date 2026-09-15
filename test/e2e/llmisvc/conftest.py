@@ -43,6 +43,8 @@ _LLMISVC_CORE_EXCLUDED = {
     "test_llm_inference_service_conversion.py",
     "test_storage_version_migration.py",
     "test_llm_lora_regex_routing.py",
+    "test_llm_inference_service_config_deletion.py",
+    "test_llm_canary_lifecycle.py",
 }
 
 

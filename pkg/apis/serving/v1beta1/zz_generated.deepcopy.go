@@ -25,7 +25,7 @@ import (
 	"k8s.io/api/apps/v1"
 	"k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
-	runtime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -1209,10 +1209,10 @@ func (in *PodSpec) DeepCopyInto(out *PodSpec) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.WorkloadRef != nil {
-		in, out := &in.WorkloadRef, &out.WorkloadRef
-		*out = new(corev1.WorkloadReference)
-		**out = **in
+	if in.SchedulingGroup != nil {
+		in, out := &in.SchedulingGroup, &out.SchedulingGroup
+		*out = new(corev1.PodSchedulingGroup)
+		(*in).DeepCopyInto(*out)
 	}
 }
 

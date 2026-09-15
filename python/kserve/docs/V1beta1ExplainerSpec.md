@@ -49,6 +49,7 @@ Name | Type | Description | Notes
 **scale_target** | **int** | ScaleTarget specifies the integer target value of the metric type the Autoscaler watches for. concurrency and rps targets are supported by Knative Pod Autoscaler (https://knative.dev/docs/serving/autoscaling/autoscaling-targets/). | [optional] 
 **scheduler_name** | **str** | If specified, the pod will be dispatched by specified scheduler. If not specified, the pod will be dispatched by default scheduler. | [optional] 
 **scheduling_gates** | [**list[V1PodSchedulingGate]**](V1PodSchedulingGate.md) | SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.  SchedulingGates can only be set at pod creation time, and be removed only afterwards. | [optional] 
+**scheduling_group** | [**V1PodSchedulingGroup**](V1PodSchedulingGroup.md) |  | [optional] 
 **security_context** | [**V1PodSecurityContext**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1PodSecurityContext.md) |  | [optional] 
 **service_account** | **str** | DeprecatedServiceAccount is a deprecated alias for ServiceAccountName.  Deprecated: Use serviceAccountName instead. | [optional] 
 **service_account_name** | **str** | ServiceAccountName is the name of the ServiceAccount to use to run this pod. More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/ | [optional] 
@@ -61,7 +62,6 @@ Name | Type | Description | Notes
 **tolerations** | [**list[V1Toleration]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Toleration.md) | If specified, the pod&#39;s tolerations. | [optional] 
 **topology_spread_constraints** | [**list[V1TopologySpreadConstraint]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1TopologySpreadConstraint.md) | TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. All topologySpreadConstraints are ANDed. | [optional] 
 **volumes** | [**list[V1Volume]**](https://github.com/kubernetes-client/python/blob/master/kubernetes/docs/V1Volume.md) | List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes | [optional] 
-**workload_ref** | [**V1WorkloadReference**](V1WorkloadReference.md) |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

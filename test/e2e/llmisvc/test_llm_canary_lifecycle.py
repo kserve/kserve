@@ -704,6 +704,10 @@ def canary_env(request, test_namespace):
 # ---------------------------------------------------------------------------
 
 
+# Stable phases assert zero errors. Other tests creating and deleting routes and
+# InferencePools on the shared ingress gateway cause transient 500s on these routes,
+# so the class runs in the serial CI step.
+@pytest.mark.llmisvc_serial
 @pytest.mark.traffic
 @pytest.mark.llminferenceservice
 @pytest.mark.cluster_cpu
