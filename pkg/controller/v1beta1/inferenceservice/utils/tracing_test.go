@@ -51,7 +51,7 @@ func TestInjectPredictorTracing(t *testing.T) {
 		{
 			name:      "nil TracingSpec returns false",
 			spec:      nil,
-			container: &corev1.Container{Name: "main"},
+			container: &corev1.Container{Name: constants.InferenceServiceContainerName},
 			wantMut:   false,
 			check: func(g *GomegaWithT, c *corev1.Container) {
 				g.Expect(c.Env).To(BeEmpty())
@@ -63,7 +63,7 @@ func TestInjectPredictorTracing(t *testing.T) {
 			spec:      fullTracingSpec(),
 			namespace: "prod-ns",
 			isvcName:  "llm-prod",
-			container: &corev1.Container{Name: "main"},
+			container: &corev1.Container{Name: constants.InferenceServiceContainerName},
 			wantMut:   true,
 			check: func(g *GomegaWithT, c *corev1.Container) {
 				envMap := envToMap(c.Env)
@@ -80,7 +80,7 @@ func TestInjectPredictorTracing(t *testing.T) {
 			namespace:  "ns",
 			isvcName:   "vllm-isvc",
 			serverType: constants.ServerTypeVLLMServer,
-			container:  &corev1.Container{Name: "main"},
+			container:  &corev1.Container{Name: constants.InferenceServiceContainerName},
 			wantMut:    true,
 			check: func(g *GomegaWithT, c *corev1.Container) {
 				g.Expect(c.Args).To(ContainElements("--otlp-traces-endpoint", "http://collector:4317"))
@@ -93,7 +93,7 @@ func TestInjectPredictorTracing(t *testing.T) {
 			namespace:  "ns",
 			isvcName:   "triton-isvc",
 			serverType: "triton",
-			container:  &corev1.Container{Name: "main"},
+			container:  &corev1.Container{Name: constants.InferenceServiceContainerName},
 			wantMut:    true,
 			check: func(g *GomegaWithT, c *corev1.Container) {
 				g.Expect(c.Args).To(BeEmpty())
@@ -108,7 +108,7 @@ func TestInjectPredictorTracing(t *testing.T) {
 			namespace:  "ns",
 			isvcName:   "mlserver-isvc",
 			serverType: constants.ServerTypeMLServer,
-			container:  &corev1.Container{Name: "main"},
+			container:  &corev1.Container{Name: constants.InferenceServiceContainerName},
 			wantMut:    true,
 			check: func(g *GomegaWithT, c *corev1.Container) {
 				envMap := envToMap(c.Env)
@@ -128,7 +128,7 @@ func TestInjectPredictorTracing(t *testing.T) {
 			namespace: "ns",
 			isvcName:  "my-isvc",
 			variant:   "canary-v2",
-			container: &corev1.Container{Name: "main"},
+			container: &corev1.Container{Name: constants.InferenceServiceContainerName},
 			wantMut:   true,
 			check: func(g *GomegaWithT, c *corev1.Container) {
 				envMap := envToMap(c.Env)
@@ -141,7 +141,7 @@ func TestInjectPredictorTracing(t *testing.T) {
 			namespace: "ns",
 			isvcName:  "my-isvc",
 			variant:   "",
-			container: &corev1.Container{Name: "main"},
+			container: &corev1.Container{Name: constants.InferenceServiceContainerName},
 			wantMut:   true,
 			check: func(g *GomegaWithT, c *corev1.Container) {
 				envMap := envToMap(c.Env)
@@ -154,7 +154,7 @@ func TestInjectPredictorTracing(t *testing.T) {
 			namespace: "ns",
 			isvcName:  "my-isvc",
 			container: &corev1.Container{
-				Name: "main",
+				Name: constants.InferenceServiceContainerName,
 				Env: []corev1.EnvVar{
 					{Name: tracing.EnvOtelServiceName, Value: "user-override"},
 				},
@@ -172,16 +172,32 @@ func TestInjectPredictorTracing(t *testing.T) {
 			namespace:  "ns",
 			isvcName:   "my-isvc",
 			serverType: constants.ServerTypeVLLMServer,
-			container:  &corev1.Container{Name: "main"},
+			container:  &corev1.Container{Name: constants.InferenceServiceContainerName},
 			wantMut:    true,
 			check: func(g *GomegaWithT, c *corev1.Container) {
 				envCountBefore := len(c.Env)
 				argsCountBefore := len(c.Args)
 
-				InjectPredictorTracing(fullTracingSpec(), "ns", "my-isvc", "", constants.ServerTypeVLLMServer, c)
+				InjectComponentTracing(fullTracingSpec(), "ns", "my-isvc", "", constants.ServerTypeVLLMServer, "", c)
 
 				g.Expect(c.Env).To(HaveLen(envCountBefore))
 				g.Expect(c.Args).To(HaveLen(argsCountBefore))
+			},
+		},
+		{
+			name:      "unrecognized sidecar is not modified",
+			spec:      fullTracingSpec(),
+			namespace: "ns",
+			isvcName:  "my-isvc",
+			container: &corev1.Container{
+				Name: "logging-sidecar",
+				Args: []string{"--log-level=info"},
+				Env:  []corev1.EnvVar{{Name: "USER_ENV", Value: "preserved"}},
+			},
+			wantMut: false,
+			check: func(g *GomegaWithT, c *corev1.Container) {
+				g.Expect(c.Args).To(Equal([]string{"--log-level=info"}))
+				g.Expect(c.Env).To(Equal([]corev1.EnvVar{{Name: "USER_ENV", Value: "preserved"}}))
 			},
 		},
 	}
@@ -189,7 +205,7 @@ func TestInjectPredictorTracing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
-			mutated := InjectPredictorTracing(tt.spec, tt.namespace, tt.isvcName, tt.variant, tt.serverType, tt.container)
+			mutated := InjectComponentTracing(tt.spec, tt.namespace, tt.isvcName, tt.variant, tt.serverType, "", tt.container)
 			g.Expect(mutated).To(Equal(tt.wantMut))
 			tt.check(g, tt.container)
 		})
@@ -204,7 +220,7 @@ func TestInjectTransformerTracing(t *testing.T) {
 		Env:  []corev1.EnvVar{{Name: "USER_ENV", Value: "preserved"}},
 	}
 
-	mutated := InjectTransformerTracing(fullTracingSpec(), "prod-ns", "llm-prod", "canary-v2", container)
+	mutated := InjectComponentTracing(fullTracingSpec(), "prod-ns", "llm-prod", "canary-v2", constants.ServerTypeVLLMServer, string(v1beta1.TransformerComponent), container)
 
 	g.Expect(mutated).To(BeTrue())
 	envMap := envToMap(container.Env)
@@ -224,7 +240,7 @@ func TestInjectTransformerTracing_NilSpec(t *testing.T) {
 	g := NewGomegaWithT(t)
 	container := &corev1.Container{Name: "transformer"}
 
-	mutated := InjectTransformerTracing(nil, "ns", "isvc", "", container)
+	mutated := InjectComponentTracing(nil, "ns", "isvc", "", "", string(v1beta1.TransformerComponent), container)
 
 	g.Expect(mutated).To(BeFalse())
 	g.Expect(container.Env).To(BeEmpty())
