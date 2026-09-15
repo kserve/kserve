@@ -39,6 +39,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel/jobs"
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/utils"
@@ -51,7 +52,13 @@ const (
 	importSpecHashAnnotation   = "serving.kserve.io/import-spec-hash"
 )
 
-var errImportJobConflict = errors.New("import Job name conflict")
+var (
+	errImportJobConflict = errors.New("import Job name conflict")
+	// errImportCredentials marks a failure to resolve the credentials the import Job needs
+	// (serviceAccountName or storage spec). No Job is created in that case; the reconcile is
+	// retried with backoff so the import starts once the referenced secret/SA exists.
+	errImportCredentials = errors.New("import credential resolution failed")
+)
 
 // sharedState is the derived readiness/copies outcome for a shared-PVC cache.
 type sharedState struct {
@@ -125,6 +132,14 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 			if _, statusErr := c.applySharedStatus(ctx, localModel, sharedState{
 				status:  metav1.ConditionFalse,
 				reason:  v1alpha1.ReasonImportJobConflict,
+				message: err.Error(),
+			}, consumers); statusErr != nil {
+				return ctrl.Result{}, statusErr
+			}
+		} else if errors.Is(err, errImportCredentials) {
+			if _, statusErr := c.applySharedStatus(ctx, localModel, sharedState{
+				status:  metav1.ConditionFalse,
+				reason:  v1alpha1.ReasonImportCredentialError,
 				message: err.Error(),
 			}, consumers); statusErr != nil {
 				return ctrl.Result{}, statusErr
@@ -367,11 +382,11 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	container.Args = []string{localModel.Spec.SourceModelUri, jobs.MountPath}
+	container.Args = []string{localModel.Spec.SourceModelUri, constants.DefaultModelLocalMountPath}
 	container.VolumeMounts = []corev1.VolumeMount{
 		{
-			MountPath: jobs.MountPath,
-			Name:      jobs.PvcSourceMountName,
+			MountPath: constants.DefaultModelLocalMountPath,
+			Name:      constants.PvcSourceMountName,
 			ReadOnly:  false,
 			SubPath:   filepath.Join("models", storageKey),
 		},
@@ -379,7 +394,7 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 
 	volumes := []corev1.Volume{
 		{
-			Name: jobs.PvcSourceMountName,
+			Name: constants.PvcSourceMountName,
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: pvc.Name,
@@ -394,7 +409,10 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 		}
 		if err := jobs.InjectCredentials(ctx, c.CredentialBuilder, c.Log, container, &volumes,
 			localModel.Spec.ServiceAccountName, localModel.Spec.Storage, localModel.Namespace); err != nil {
-			c.Log.Error(err, "Failed to inject credentials", "model", localModel.Name)
+			// Do not create a credential-less Job: it would fail with an auth error, and since
+			// the spec hash is unchanged validateExistingImportJob would keep it, hiding the
+			// real cause behind ImportFailed.
+			return nil, fmt.Errorf("%w: %w", errImportCredentials, err)
 		}
 	}
 

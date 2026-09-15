@@ -111,6 +111,7 @@ The cache reports a single positive-polarity `Ready` condition (with
 | `False` | `ImportPending` | The import Job exists but has not started. |
 | `False` | `ImportRunning` | The import Job is running. |
 | `False` | `ImportFailed` | The import Job failed; delete the Job to retry. |
+| `False` | `ImportCredentialError` | The `serviceAccountName`/`storage` credentials could not be resolved; no Job is created and the import is retried with backoff once they exist. |
 | `False` | `ImportJobConflict` | The deterministic import Job name is occupied by a Job the cache does not own. |
 | `True`  | `ImportSucceeded` | The model is imported and available for serving. |
 

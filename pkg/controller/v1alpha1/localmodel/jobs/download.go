@@ -36,10 +36,6 @@ import (
 const (
 	// DownloadContainerName is the name of the model download container.
 	DownloadContainerName = "kserve-localmodel-download"
-	// PvcSourceMountName is the volume name for the destination PVC mount.
-	PvcSourceMountName = "kserve-pvc-source"
-	// MountPath is the path the model is written to inside the download container.
-	MountPath = "/mnt/models"
 	// DefaultJobImage is used when no StorageInitializerConfig image is set.
 	DefaultJobImage = "kserve/storage-initializer:latest"
 )

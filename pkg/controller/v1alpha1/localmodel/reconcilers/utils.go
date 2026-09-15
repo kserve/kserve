@@ -721,8 +721,43 @@ func ReconcileLocalModelNode(
 		status = &localModelNamespaceCache.Status
 	}
 
+	statusBefore := status.DeepCopy()
+	// Record consumers before the node fan-out so that a transient node-group error or an
+	// empty node-group set never leaves the consumer list stale. ValidateDelete relies on
+	// Status.InferenceServices/LLMInferenceServices to block deletion of an in-use cache.
+	setConsumerReferences(status, consumers)
+
+	reconcileErr := reconcileNodeGroupStatus(ctx, c, log, localModelCache, localModelNamespaceCache, nodeGroups, nodeStatus, status)
+
+	if !reflect.DeepEqual(statusBefore, status) {
+		if localModelCache != nil {
+			if err := c.Status().Update(ctx, localModelCache); err != nil {
+				log.Error(err, "cannot update model status from node", "name", params.Name)
+			}
+		} else if localModelNamespaceCache != nil {
+			if err := c.Status().Update(ctx, localModelNamespaceCache); err != nil {
+				log.Error(err, "cannot update model status from node", "name", params.Name, "namespace", params.Namespace)
+			}
+		}
+	}
+	return reconcileErr
+}
+
+// reconcileNodeGroupStatus fans the model out to the LocalModelNode of every ready node in the
+// node groups and folds the per-node download state into nodeStatus and status.ModelCopies.
+// It mutates status in place and never writes it; the caller persists the result once, even
+// when this returns an error, so partial progress and consumer references are not lost.
+func reconcileNodeGroupStatus(
+	ctx context.Context,
+	c client.Client,
+	log logr.Logger,
+	localModelCache *v1alpha1.LocalModelCache,
+	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
+	nodeGroups map[string]*v1alpha1.LocalModelNodeGroup,
+	nodeStatus map[string]v1alpha1.NodeStatus,
+	status *v1alpha1.LocalModelCacheStatus,
+) error {
 	for nodeGroupName, nodeGroup := range nodeGroups {
-		statusBefore := status.DeepCopy()
 		modelInfo := CreateLocalModelInfo(localModelCache, localModelNamespaceCache, nodeGroupName)
 		statusKey := modelInfo.GetStatusKey()
 		readyNodes, notReadyNodes, err := GetNodesFromNodeGroup(ctx, nodeGroup, c)
@@ -781,20 +816,7 @@ func ReconcileLocalModelNode(
 			}
 		}
 
-		modelCopies := &v1alpha1.ModelCopies{Total: len(nodeStatus), Available: successfulNodes, Failed: failedNodes}
-		setConsumerReferences(status, consumers)
-		status.ModelCopies = modelCopies
-		if !reflect.DeepEqual(statusBefore, status) {
-			if localModelCache != nil {
-				if err := c.Status().Update(ctx, localModelCache); err != nil {
-					log.Error(err, "cannot update model status from node", "name", params.Name)
-				}
-			} else if localModelNamespaceCache != nil {
-				if err := c.Status().Update(ctx, localModelNamespaceCache); err != nil {
-					log.Error(err, "cannot update model status from node", "name", params.Name, "namespace", params.Namespace)
-				}
-			}
-		}
+		status.ModelCopies = &v1alpha1.ModelCopies{Total: len(nodeStatus), Available: successfulNodes, Failed: failedNodes}
 	}
 	return nil
 }

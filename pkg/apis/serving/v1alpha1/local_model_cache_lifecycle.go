@@ -49,6 +49,9 @@ const (
 	ReasonImportRunning = "ImportRunning"
 	// ReasonImportFailed indicates the import Job failed terminally.
 	ReasonImportFailed = "ImportFailed"
+	// ReasonImportCredentialError indicates the credentials for the import Job (serviceAccountName
+	// or storage spec) could not be resolved, so no Job was created; retried with backoff.
+	ReasonImportCredentialError = "ImportCredentialError" //nolint:gosec // condition reason, not a credential
 	// ReasonImportJobConflict indicates the deterministic import Job name is occupied by a foreign Job.
 	ReasonImportJobConflict = "ImportJobConflict"
 	// ReasonImportSucceeded indicates the import Job completed successfully.

@@ -73,13 +73,7 @@ type LocalModelNodeReconciler struct {
 	IsvcConfigMap     *corev1.ConfigMap
 }
 
-const (
-	DownloadContainerName = "kserve-localmodel-download"
-	PvcSourceMountName    = "kserve-pvc-source"
-)
-
 var (
-	defaultJobImage            = "kserve/storage-initializer:latest" // Can be overwritten by the value in the configmap
 	FSGroup                    *int64
 	jobNamespace               string
 	jobTTLSecondsAfterFinished int32         = 3600                   // One hour. Can be overwritten by the value in the configmap
@@ -148,7 +142,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	container.VolumeMounts = []corev1.VolumeMount{
 		{
 			MountPath: MountPath,
-			Name:      PvcSourceMountName,
+			Name:      constants.PvcSourceMountName,
 			ReadOnly:  false,
 			SubPath:   filepath.Join("models", storageKey),
 		},
@@ -156,7 +150,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 
 	volumes := []corev1.Volume{
 		{
-			Name: PvcSourceMountName,
+			Name: constants.PvcSourceMountName,
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: pvcName,
