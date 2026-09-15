@@ -44,6 +44,17 @@ const (
 	cacheVLLMImageSummary    = cacheVLLMImagePrefix + "/summary"
 	cacheVLLMImageFormat     = cacheVLLMImagePrefix + "/format"
 
+	// Generic mounting labels (KServe Kernel Manager integration)
+	kmFramework         = constants.KMPrefix + "/framework"
+	kmCacheType         = constants.KMPrefix + "/cache-type"
+	kmCacheHash         = constants.KMPrefix + "/cache-hash"
+	kmCacheMountSubpath = constants.KMPrefix + "/cache-mount-subpath"
+	kmCacheRootEnv      = constants.KMPrefix + "/cache-root-env"
+
+	// vLLM-specific mounting defaults
+	vllmCacheRootPath       = constants.KServeHome + "/" + constants.VLLMCache
+	vllmCacheRootEnvDefault = constants.VLLMCacheRoot + "=" + vllmCacheRootPath
+
 	// Cache format constants
 	BinaryCacheFormat     = "binary"
 	AOTCompileCacheFormat = "aot_compile"
@@ -209,7 +220,7 @@ func DetectVLLMCache(cacheDir string) *VLLMCache {
 
 	var count int
 	if found {
-		torchCompileCachePath = filepath.Join(cacheDir, "torch_compile_cache")
+		torchCompileCachePath = filepath.Join(cacheDir, constants.TorchCompileDir)
 		if _, err := os.Stat(torchCompileCachePath); os.IsNotExist(err) {
 			logging.Warnf("Torch compile cache path does not exist: %s", torchCompileCachePath)
 			return nil
@@ -807,12 +818,64 @@ func (v *VLLMCache) Labels() map[string]string {
 		cacheFormat = strings.Join(formats, ",")
 	}
 
-	return map[string]string{
+	labels := map[string]string{
 		cacheVLLMImageEntryCount: strconv.Itoa(v.EntryCount()),
 		cacheVLLMImageCacheSize:  strconv.FormatInt(v.CacheSizeBytes(), 10),
 		cacheVLLMImageSummary:    v.Summary(),
 		cacheVLLMImageFormat:     cacheFormat,
 	}
+
+	// Add generic mounting labels for KServe Kernel Manager integration
+	if len(v.allMetadata) > 0 {
+		// 1. Framework and cache type - identifies what kind of cache this is
+		labels[kmFramework] = constants.VLLM
+		labels[kmCacheType] = constants.CacheTypeVLLMTorchCompile
+
+		// 2. Cache hash(es) - deduplicate while preserving first-seen order
+		var hashes []string
+		seen := make(map[string]bool)
+		for _, meta := range v.allMetadata {
+			if meta.VllmHash != "" && !seen[meta.VllmHash] {
+				hashes = append(hashes, meta.VllmHash)
+				seen[meta.VllmHash] = true
+			}
+		}
+		if len(hashes) > 0 {
+			labels[kmCacheHash] = strings.Join(hashes, ",")
+
+			// 3. Cache mount subpath - use first unique hash for mount point
+			// Mega-AOT caches use torch_compile_cache/torch_aot_compile/<hash>
+			// Regular torch compile caches use torch_compile_cache/<hash>
+			firstHash := hashes[0]
+			firstMeta := v.allMetadata[0]
+
+			// Check if this is a mega-AOT binary cache
+			isMegaAOT := false
+			if firstMeta.CacheFormat == BinaryCacheFormat && len(firstMeta.BinaryCacheEntries) > 0 {
+				// Check if any binary entry has mega-aot save format
+				for i := range firstMeta.BinaryCacheEntries {
+					if firstMeta.BinaryCacheEntries[i].CacheSaveFormat == megaAOTSaveFormat {
+						isMegaAOT = true
+						break
+					}
+				}
+			}
+
+			if isMegaAOT {
+				// Mega-AOT: torch_compile_cache/torch_aot_compile/<hash>
+				labels[kmCacheMountSubpath] = filepath.Join(constants.TorchCompileDir, torchAOTCompileDirName, firstHash)
+			} else {
+				// Regular: torch_compile_cache/<hash>
+				labels[kmCacheMountSubpath] = filepath.Join(constants.TorchCompileDir, firstHash)
+			}
+
+			// 4. Cache root environment variable
+			// Format: "VLLM_CACHE_ROOT=/home/kserve/.cache/vllm"
+			labels[kmCacheRootEnv] = vllmCacheRootEnvDefault
+		}
+	}
+
+	return labels
 }
 
 func (v *VLLMCache) Metadata() []CacheEntry {
