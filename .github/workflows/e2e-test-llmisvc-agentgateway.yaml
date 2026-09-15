@@ -1,0 +1,121 @@
+name: LLMInferenceService agentgateway E2E
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 6 * * 6"
+  pull_request:
+    paths:
+      - ".github/workflows/e2e-test-llmisvc-agentgateway.yaml"
+      - ".github/actions/kserve-dep-setup/action.yml"
+      - "kserve-deps.env"
+      - "hack/setup/infra/manage.agentgateway-helm.sh"
+      - "test/scripts/gh-actions/setup-deps.sh"
+      - "test/e2e/pytest.ini"
+      - "test/e2e/llmisvc/fixtures.py"
+      - "test/e2e/llmisvc/test_llm_inference_service.py"
+      - "test/e2e/llmisvc/test_resources.py"
+      - "config/llmisvcconfig/config-llm-router-route.yaml"
+      - "config/llmisvcconfig/config-llm-scheduler.yaml"
+      - "pkg/controller/v1alpha2/llmisvc/router*.go"
+      - "pkg/controller/v1alpha2/llmisvc/scheduler*.go"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  TAG: ${{ github.sha }}
+  KO_DOCKER_REPO: kserve
+  ENABLE_LLMISVC: "true"
+  GATEWAY_CLASS_NAME: agentgateway
+  GATEWAY_CONTROLLER_NAME: agentgateway.dev/agentgateway
+
+jobs:
+  agentgateway-smoke:
+    runs-on: cncf-ubuntu-16-64-x86
+    timeout-minutes: 60
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Merge target branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --unshallow origin
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git config user.email "ci@kserve.io"
+          git config user.name "CI Bot"
+          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Load KServe environment variables
+        run: ./kserve-images.sh --ci
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+
+      - name: Setup Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.9"
+
+      - name: Setup Minikube
+        uses: ./.github/actions/minikube-setup
+
+      - name: Build and load LLMISvc controller image
+        run: |
+          docker buildx build \
+            -f llmisvc-controller.Dockerfile \
+            -t "${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${TAG}" \
+            --load \
+            .
+          minikube image load "${KO_DOCKER_REPO}/${LLMISVC_CONTROLLER_IMG}:${TAG}"
+
+      - name: Install agentgateway and LLMISvc dependencies
+        uses: ./.github/actions/kserve-dep-setup
+        with:
+          deploy-llmisvc: "true"
+          llmisvc-gateway-provider: agentgateway
+
+      - name: Install test tools
+        run: |
+          ./test/scripts/gh-actions/setup-uv.sh
+          ./hack/setup/cli/install-kustomize.sh
+
+      - name: Install KServe LLMInferenceService controller
+        run: |
+          kubectl create namespace kserve-ci-e2e-test
+          kubectl label namespace kserve-ci-e2e-test kserve.io/e2e-test=true
+          pushd python/kserve >/dev/null
+          uv sync --active --group test
+          popd >/dev/null
+
+          export SET_KSERVE_VERSION="${TAG}"
+          export INSTALL_RUNTIMES=false
+          export INSTALL_LLMISVC_CONFIGS=true
+          export KSERVE_OVERLAY_DIR=test-llmisvc
+          export ENABLE_KSERVE=false
+          ./hack/setup/infra/manage.kserve-kustomize.sh
+
+      - name: Run agentgateway routing smoke test
+        timeout-minutes: 30
+        run: |
+          export PYTEST_MAXFAIL=1
+          ./test/scripts/gh-actions/run-e2e-tests.sh \
+            "gateway_provider_smoke and cluster_cpu" 0 "gateway-api"
+
+      - name: Check system status
+        if: always()
+        run: ./test/scripts/gh-actions/status-check.sh "llmisvc"
+
+      - name: Upload test results
+        if: always()
+        uses: ./.github/actions/upload-test-results
+        with:
+          name: test-results-llmisvc-agentgateway

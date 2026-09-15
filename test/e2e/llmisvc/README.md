@@ -99,6 +99,31 @@ pytest -m "llminferenceservice and (cluster_amd or cluster_nvidia or cluster_int
 pytest -m "llminferenceservice and (cluster_cpu or cluster_amd)" test/e2e/llmisvc/
 ```
 
+## Agentgateway provider smoke test
+
+The `gateway_provider_smoke` case validates the portable Gateway API data path
+through a real agentgateway installation:
+
+```text
+Gateway -> KServe-managed HTTPRoute -> KServe-managed InferencePool
+```
+
+It uses the llm-d simulator and verifies that agentgateway programs the
+Gateway, accepts and resolves the HTTPRoute and InferencePool, and returns a
+successful inference response. Run it against a cluster with agentgateway
+installed using:
+
+```bash
+GATEWAY_CLASS_NAME=agentgateway \
+GATEWAY_CONTROLLER_NAME=agentgateway.dev/agentgateway \
+pytest -m "gateway_provider_smoke and cluster_cpu" test/e2e/llmisvc/
+```
+
+This test covers KServe's portable path-based routing contract. Routing on an
+OpenAI request body's `model` field is agentgateway-specific and requires an
+`AgentgatewayPolicy`; that policy behavior is intentionally outside this
+provider portability smoke test.
+
 ## Adding New Configs
 
 1. Add to `LLMINFERENCESERVICE_CONFIGS` in `fixtures.py`

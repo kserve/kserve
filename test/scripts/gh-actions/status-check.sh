@@ -243,8 +243,8 @@ if [[ $# -eq 1 && "$1" == "llmisvc" ]]; then
   kubectl logs -n monitoring -l app.kubernetes.io/name=prometheus-adapter --tail=50 2>/dev/null || true
   echo "::endgroup::"
 
-  echo "::group::Gather logs in envoy-gateway-system envoy-ai-gateway-system"
-  NAMESPACES="envoy-gateway-system envoy-ai-gateway-system"
+  echo "::group::Gather gateway controller logs"
+  NAMESPACES="envoy-gateway-system envoy-ai-gateway-system agentgateway-system"
 
   for ns in $NAMESPACES; do
     if ! kubectl get namespace $ns &>/dev/null; then
