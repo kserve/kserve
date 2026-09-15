@@ -92,7 +92,7 @@ class V1beta1IngressConfig(object):
         'url_scheme': 'urlScheme'
     }
 
-    def __init__(self, additional_ingress_domains=None, disable_http_route_timeout=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, enable_llm_inference_service_tls=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, llm_inference_service_tls_cipher_suites=None, llm_inference_service_tls_min_version=None, local_gateway=None, local_gateway_service=None, model_based_routing_header_name=None, model_based_routing_mode=None, path_template=None, url_scheme=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, additional_ingress_domains=None, disable_http_route_timeout=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, enable_llm_inference_service_tls=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, local_gateway=None, local_gateway_service=None, model_based_routing_header_name=None, model_based_routing_mode=None, path_template=None, url_scheme=None, local_vars_configuration=None, *, llm_inference_service_tls_cipher_suites=None, llm_inference_service_tls_min_version=None):  # noqa: E501
         """V1beta1IngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()

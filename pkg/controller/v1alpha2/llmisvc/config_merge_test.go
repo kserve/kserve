@@ -3164,7 +3164,7 @@ spec:
           - |-
             exec vllm serve /mnt/models \
               {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-              {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+              {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
               $@
           - "--"
 `
@@ -3387,8 +3387,8 @@ func TestReplaceVariables_TLSProfileVLLM(t *testing.T) {
 			}
 
 			cfg := &llmisvc.Config{
-				EnableTLS:       tt.enableTLS,
-				TLSCipherSuites: tt.tlsCipherSuites,
+				EnableTLS:              tt.enableTLS,
+				TLSCipherSuitesOpenSSL: tt.tlsCipherSuites,
 			}
 
 			got, err := llmisvc.ReplaceVariables(&v1alpha2.LLMInferenceService{}, preset, cfg)

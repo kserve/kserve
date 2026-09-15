@@ -74,6 +74,8 @@ func TestParseCipherSuites(t *testing.T) {
 		{"unknown cipher is error", "BOGUS_CIPHER", 0, true},
 		{"mixed valid and invalid is error", "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,BOGUS", 0, true},
 		{"only commas is error", ",,", 0, true},
+		{"trailing empty entry is error", "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,", 0, true},
+		{"TLS 1.3 cipher is not configurable", "TLS_AES_128_GCM_SHA256", 0, true},
 	}
 
 	for _, tt := range tests {

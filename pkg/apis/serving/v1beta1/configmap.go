@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kserve/kserve/pkg/constants"
+	kservetls "github.com/kserve/kserve/pkg/tls"
 	"github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -324,6 +325,13 @@ func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 			if ingressConfig.IngressDomain == "" {
 				return nil, errors.New("invalid ingress config - ingressDomain is required if pathTemplate is given")
 			}
+		}
+
+		if err := kservetls.Validate(
+			ingressConfig.LLMInferenceServiceTLSMinVersion,
+			ingressConfig.LLMInferenceServiceTLSCipherSuites,
+		); err != nil {
+			return nil, fmt.Errorf("invalid LLMInferenceService TLS configuration: %w", err)
 		}
 
 		if len(ingressConfig.KnativeLocalGatewayService) == 0 {

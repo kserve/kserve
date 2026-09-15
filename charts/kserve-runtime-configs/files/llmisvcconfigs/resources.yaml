@@ -183,7 +183,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-          {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+          {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -551,7 +551,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-          {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+          {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -915,7 +915,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-          {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+          {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -1173,7 +1173,7 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-            {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+            {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
             ${VLLM_ADDITIONAL_ARGS} \
             $@"
         - --
@@ -1478,7 +1478,7 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-            {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+            {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
             ${VLLM_ADDITIONAL_ARGS} \
             $@"
         - --
@@ -1777,7 +1777,7 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-            {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+            {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
             ${VLLM_ADDITIONAL_ARGS} \
             $@"
         - --
@@ -2699,7 +2699,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-          {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+          {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -2806,7 +2806,7 @@ spec:
                 {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh \
                 --ssl-certfile /var/run/kserve/tls/tls.crt \
                 --ssl-keyfile /var/run/kserve/tls/tls.key{{ end }} \
-                {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{ end }}
+                {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{ end }}
             env:
             - name: HF_HOME
               value: /tmp/hf
@@ -3076,7 +3076,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-          {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+          {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -3357,7 +3357,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-          {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+          {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
