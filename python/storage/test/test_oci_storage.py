@@ -245,9 +245,7 @@ def test_oci_auth_backend_probe_basic_401():
         {"Www-Authenticate": 'Basic realm="Registry Realm"'},
         io.BytesIO(),
     )
-    with mock.patch(
-        "kserve_storage.kserve_storage.urlopen", side_effect=err
-    ):
+    with mock.patch("kserve_storage.kserve_storage.urlopen", side_effect=err):
         assert _oci_auth_backend_for_registry("registry.local:5000", True) == "basic"
 
 
@@ -263,9 +261,7 @@ def test_oci_auth_backend_probe_bearer_401():
         },
         io.BytesIO(),
     )
-    with mock.patch(
-        "kserve_storage.kserve_storage.urlopen", side_effect=err
-    ):
+    with mock.patch("kserve_storage.kserve_storage.urlopen", side_effect=err):
         assert _oci_auth_backend_for_registry("ghcr.io", False) == "token"
 
 
