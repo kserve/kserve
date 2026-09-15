@@ -9,13 +9,9 @@ The unified MCV container (`quay.io/gkm/mcv:unified`) includes **both NVIDIA (CU
 ### Build the Unified Image
 
 ```bash
-cd mcv/
-make image-unified
+make build-image-mcv
+# Tags as: quay.io/gkm/mcv:latest
 ```
-
-This builds and tags as:
-- `quay.io/gkm/mcv:unified`
-- `quay.io/gkm/mcv:latest` (unified is now the default!)
 
 ### Basic Usage
 
@@ -51,10 +47,8 @@ On CPU node:    both fail    → ✓ uses --no-gpu mode
 
 | Variant | Size | GPU Support | Use Case |
 |---------|------|-------------|----------|
-| `mcv:unified` (NEW!) | ~533 MB | NVIDIA + AMD | **Mixed clusters, single image for all nodes** |
-| `mcv:minimal` | ~174 MB | None | CI/CD, cache creation without GPU |
-| `mcv:nvidia` | ~354 MB | NVIDIA only | NVIDIA-only clusters |
-| `mcv:amd` | ~340 MB | AMD only | AMD-only clusters |
+| `mcv:unified` | ~533 MB | NVIDIA + AMD | Mixed clusters, single image for all GPU nodes |
+| `mcv:no-gpu` | ~174 MB | None | CI/CD, cache creation without GPU, arm64/mac |
 
 ## Usage Examples
 
@@ -269,54 +263,66 @@ jobs:
 | Variant | Image Pull (first time) | Disk Usage | GPU Detection |
 |---------|------------------------|------------|---------------|
 | `mcv:unified` | ~15-20s | 533 MB | Auto (NVIDIA or AMD) |
-| `mcv:nvidia` | ~10-15s | 354 MB | NVIDIA only |
-| `mcv:amd` | ~10-15s | 340 MB | AMD only |
-| `mcv:minimal` | ~5-10s | 174 MB | None |
+| `mcv:no-gpu` | ~5-10s | 174 MB | None |
 
 ### When to Use Each Variant
 
 **Use `mcv:unified` when:**
 - ✅ You have a mixed GPU cluster (NVIDIA + AMD)
-- ✅ You want a single image for all environments
+- ✅ You want a single image for all GPU environments
 - ✅ You deploy across multiple clusters with different GPU types
 - ✅ You want simplified deployment and maintenance
 
-**Use specific variants when:**
-- ✅ Homogeneous cluster (all NVIDIA or all AMD)
-- ✅ Minimizing image size is critical
-- ✅ Faster image pull time is important
-- ✅ Network bandwidth is limited
+**Use `mcv:no-gpu` when:**
+- ✅ Running on arm64 or mac development machines
+- ✅ CI/CD pipelines without GPU access
+- ✅ Cache creation or extraction without GPU validation
+- ✅ Minimizing image size and pull time is important
 
 ## Building from Source
 
-### Build the Unified Image
+### Build the Unified Image (GPU - NVIDIA + AMD)
 
 ```bash
-cd mcv/
-
-# Build unified image (tags as :unified and :latest)
-make image-unified
+# From the repo root
+make build-image-mcv
+# Tags as: quay.io/gkm/mcv:latest
 
 # Or with docker directly
 docker build --platform linux/amd64 \
   --target mcv-unified \
   -t quay.io/gkm/mcv:unified \
-  -t quay.io/gkm/mcv:latest \
-  -f images/amd64.dockerfile \
-  ..
+  -f mcv/images/amd64.dockerfile \
+  .
 ```
 
-### Build All Variants
+### Build the No-GPU Image (arm64/mac)
 
 ```bash
-# Builds: unified, minimal, nvidia, amd
-make images
+# From the repo root
+make build-image-mcv-no-gpu
+# Tags as: quay.io/gkm/mcv:latest-no-gpu
+
+# Or with docker directly
+docker build --platform linux/amd64 \
+  --target mcv-minimal \
+  -t quay.io/gkm/mcv:no-gpu \
+  -f mcv/images/amd64.dockerfile \
+  .
+```
+
+### Build Both Variants
+
+```bash
+make build-images      # unified (GPU) + all other GPU images
+make build-images-no-gpu  # no-gpu variants
 ```
 
 ### Push to Registry
 
 ```bash
-make image-push
+make push-images        # push GPU variants
+make push-images-no-gpu # push no-GPU variants
 ```
 
 ## Troubleshooting
@@ -351,28 +357,19 @@ podman run --rm \
   --extract --image myimage --dir /cache --no-gpu
 ```
 
-## Migration from Separate Variants
+## Choosing Between Variants
 
-### Before (Separate Images)
-
-```yaml
-# NVIDIA Job
-image: quay.io/gkm/mcv:nvidia
-nodeSelector:
-  nvidia.com/gpu.present: "true"
----
-# AMD Job
-image: quay.io/gkm/mcv:amd
-nodeSelector:
-  amd.com/gpu: "true"
-```
-
-### After (Unified Image)
+Use `mcv:unified` on GPU nodes (auto-detects NVIDIA or AMD), and `mcv:no-gpu` everywhere else:
 
 ```yaml
-# Single Job works everywhere
+# GPU node Job (NVIDIA or AMD) - auto-detected at runtime
 image: quay.io/gkm/mcv:unified
-# No nodeSelector needed!
+# No vendor-specific nodeSelector needed
+
+---
+# CI/CD or arm64/mac - no GPU required
+image: quay.io/gkm/mcv:no-gpu
+args: ["--create", "--image", "...", "--no-gpu"]
 ```
 
 ## Technical Details
@@ -422,9 +419,8 @@ The unified MCV container simplifies deployment by providing a single image that
 ✅ **Simplified CI/CD** - one image for all environments
 ✅ **Mixed cluster support** - no node selectors required
 
-**Default Build:**
+**Build:**
 ```bash
-make image-unified
-# Tags: quay.io/gkm/mcv:unified
-#       quay.io/gkm/mcv:latest
+make build-image-mcv        # GPU unified: quay.io/gkm/mcv:latest
+make build-image-mcv-no-gpu # No-GPU:      quay.io/gkm/mcv:latest-no-gpu
 ```

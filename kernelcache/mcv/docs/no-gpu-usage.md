@@ -23,50 +23,43 @@ The cache already contains all necessary GPU information:
 
 ## Container Images
 
-### Minimal Image (DEFAULT - Recommended for --no-gpu)
+### No-GPU Image (Recommended for --no-gpu)
 **Size:** ~176MB
 **Includes:** MCV binary, buildah, basic container tools
 **Excludes:** ROCm/CUDA libraries
-**Tags:** `quay.io/gkm/mcv:minimal`, `quay.io/gkm/mcv:latest`
+**Tags:** `quay.io/gkm/mcv:no-gpu`
 
 ```bash
 # Build
-podman build --target mcv-minimal -t quay.io/gkm/mcv:minimal -f mcv/images/amd64.dockerfile .
+make build-image-mcv-no-gpu
+# or directly:
+podman build --target mcv-minimal -t quay.io/gkm/mcv:no-gpu -f mcv/images/amd64.dockerfile .
 
 # Use
-podman run --rm -v /path/to/cache:/cache quay.io/gkm/mcv:minimal \
+podman run --rm -v /path/to/cache:/cache quay.io/gkm/mcv:no-gpu \
   --create --image quay.io/myorg/cache:v1 --dir /cache --no-gpu
 ```
 
-### AMD Image (For AMD GPU validation)
-**Size:** ~923MB
-**Includes:** MCV binary, buildah, ROCm libraries, amd-smi, rocm-smi
-**Use case:** Preflight checks with AMD GPU hardware
-**Tags:** `quay.io/gkm/mcv:amd`
+### Unified Image (For GPU validation - NVIDIA + AMD)
+**Size:** ~533MB
+**Includes:** MCV binary, buildah, CUDA runtime (NVML), ROCm libraries, amd-smi, rocm-smi
+**Use case:** Preflight checks with NVIDIA or AMD GPU hardware; auto-detects GPU vendor at runtime
+**Tags:** `quay.io/gkm/mcv:unified`, `quay.io/gkm/mcv:latest`
 
 ```bash
 # Build
-podman build --target mcv-full -t quay.io/gkm/mcv:amd -f mcv/images/amd64.dockerfile .
-
-# Use with AMD GPU device
-podman run --rm --device /dev/kfd --device /dev/dri \
-  -v /path/to/cache:/cache quay.io/gkm/mcv:amd \
-  --extract --image quay.io/myorg/cache:v1
-```
-
-### NVIDIA Image (For NVIDIA GPU validation)
-**Size:** ~356MB
-**Includes:** MCV binary, buildah, CUDA runtime, NVML
-**Use case:** Preflight checks with NVIDIA GPU hardware
-**Tags:** `quay.io/gkm/mcv:nvidia`
-
-```bash
-# Build
-podman build --target mcv-nvidia -t quay.io/gkm/mcv:nvidia -f mcv/images/amd64.dockerfile .
+make build-image-mcv
+# or directly:
+podman build --target mcv-unified -t quay.io/gkm/mcv:unified -f mcv/images/amd64.dockerfile .
 
 # Use with NVIDIA GPU
 podman run --rm --device nvidia.com/gpu=all \
-  -v /path/to/cache:/cache quay.io/gkm/mcv:nvidia \
+  -v /path/to/cache:/cache quay.io/gkm/mcv:unified \
+  --extract --image quay.io/myorg/cache:v1 --dir /cache
+
+# Use with AMD GPU
+podman run --rm --device /dev/kfd --device /dev/dri \
+  -v /path/to/cache:/cache quay.io/gkm/mcv:unified \
   --extract --image quay.io/myorg/cache:v1 --dir /cache
 ```
 
@@ -83,7 +76,7 @@ mcv --create --image quay.io/myorg/vllm-cache:v1 \
 # In container (minimal image)
 podman run --rm --privileged \
   -v ~/.cache/vllm:/cache:ro \
-  quay.io/gkm/mcv:minimal \
+  quay.io/gkm/mcv:no-gpu \
   --create --image quay.io/myorg/vllm-cache:v1 --dir /cache --no-gpu
 ```
 
@@ -98,7 +91,7 @@ mcv --extract --image quay.io/myorg/vllm-cache:v1 \
 # In container (minimal image)
 podman run --rm \
   -v ~/.cache/vllm:/cache \
-  quay.io/gkm/mcv:minimal \
+  quay.io/gkm/mcv:no-gpu \
   --extract --image quay.io/myorg/vllm-cache:v1 --dir /cache --no-gpu
 ```
 
@@ -114,7 +107,7 @@ mcv --extract --image quay.io/myorg/vllm-cache:v1 \
 podman run --rm \
   --device /dev/kfd --device /dev/dri \
   -v ~/.cache/vllm:/cache \
-  quay.io/gkm/mcv:amd \
+  quay.io/gkm/mcv:unified \
   --extract --image quay.io/myorg/vllm-cache:v1 --dir /cache
 ```
 
@@ -127,7 +120,7 @@ mcv --check-compat --image quay.io/myorg/vllm-cache:v1
 # In container
 podman run --rm \
   --device /dev/kfd --device /dev/dri \
-  quay.io/gkm/mcv:amd \
+  quay.io/gkm/mcv:unified \
   --check-compat --image quay.io/myorg/vllm-cache:v1
 ```
 
@@ -150,7 +143,7 @@ build-cache-image:
       run: |
         podman run --rm --privileged \
           -v $(pwd)/.cache/vllm:/cache:ro \
-          quay.io/gkm/mcv:minimal \
+          quay.io/gkm/mcv:no-gpu \
           --create --image quay.io/myorg/vllm-cache:${{ github.sha }} \
           --dir /cache --no-gpu
 
@@ -180,20 +173,20 @@ build-cache-image:
 # No GPU access needed - works on any system
 podman run --rm \
   -v /path/to/cache:/cache:ro \
-  quay.io/gkm/mcv:minimal \
+  quay.io/gkm/mcv:no-gpu \
   --create --image quay.io/myorg/cache:v1 --dir /cache --no-gpu
 
 # NVIDIA GPU access required for validation
 podman run --rm --device nvidia.com/gpu=all \
   -v /path/to/cache:/cache \
-  quay.io/gkm/mcv:nvidia \
+  quay.io/gkm/mcv:unified \
   --extract --image quay.io/myorg/cache:v1 --dir /cache
 
 # AMD GPU access required for validation
 podman run --rm \
   --device /dev/kfd --device /dev/dri \
   -v /path/to/cache:/cache \
-  quay.io/gkm/mcv:amd \
+  quay.io/gkm/mcv:unified \
   --extract --image quay.io/myorg/cache:v1 --dir /cache
 ```
 
@@ -201,15 +194,15 @@ podman run --rm \
 
 | Use Case | Image | Flag | GPU Required | Docker GPU Flags |
 |----------|-------|------|--------------|------------------|
-| Create cache image | minimal | `--no-gpu` | ❌ No | None |
-| Extract cache (no validation) | minimal | `--no-gpu` | ❌ No | None |
-| Extract cache (AMD GPU validation) | amd | (none) | ✅ Yes (AMD) | `--device /dev/kfd --device /dev/dri` |
-| Extract cache (NVIDIA GPU validation) | nvidia | (none) | ✅ Yes (NVIDIA) | `--gpus all` |
-| Check compatibility (AMD) | amd | (none) | ✅ Yes (AMD) | `--device /dev/kfd --device /dev/dri` |
-| Check compatibility (NVIDIA) | nvidia | (none) | ✅ Yes (NVIDIA) | `--gpus all` |
-| CI/CD builds | minimal | `--no-gpu` | ❌ No | None |
-| Production deployment (AMD) | amd | (none) | ✅ Yes (AMD) | `--device /dev/kfd --device /dev/dri` |
-| Production deployment (NVIDIA) | nvidia | (none) | ✅ Yes (NVIDIA) | `--gpus all` |
+| Create cache image | `no-gpu` | `--no-gpu` | ❌ No | None |
+| Extract cache (no validation) | `no-gpu` | `--no-gpu` | ❌ No | None |
+| Extract cache (AMD GPU validation) | `unified` | (none) | ✅ Yes (AMD) | `--device /dev/kfd --device /dev/dri` |
+| Extract cache (NVIDIA GPU validation) | `unified` | (none) | ✅ Yes (NVIDIA) | `--gpus all` |
+| Check compatibility (AMD) | `unified` | (none) | ✅ Yes (AMD) | `--device /dev/kfd --device /dev/dri` |
+| Check compatibility (NVIDIA) | `unified` | (none) | ✅ Yes (NVIDIA) | `--gpus all` |
+| CI/CD builds | `no-gpu` | `--no-gpu` | ❌ No | None |
+| Production deployment (AMD) | `unified` | (none) | ✅ Yes (AMD) | `--device /dev/kfd --device /dev/dri` |
+| Production deployment (NVIDIA) | `unified` | (none) | ✅ Yes (NVIDIA) | `--gpus all` |
 
 ## Limitations
 
@@ -228,7 +221,7 @@ This is expected with `--no-gpu`. MCV will fall back to cache metadata.
 ### Error: "accelerator is nil"
 You're trying to run preflight checks without `--no-gpu` and without GPU libraries. Either:
 1. Add `--no-gpu` flag, OR
-2. Use the full image with GPU device access
+2. Use the unified image with GPU device access
 
 ### Error: "no targets found in binary cache metadata"
 The cache doesn't contain GPU metadata. This happens if:

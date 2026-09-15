@@ -96,23 +96,20 @@ mcv --extract --image quay.io/myorg/cache:v1 --dir /path/to/cache --no-gpu
 
 **Container Images:**
 
-Three image variants are available:
+Two image variants are available:
 
-1. **Minimal** (~176MB) - For `--no-gpu` workflows, no CUDA/ROCm libraries **(DEFAULT)**
+1. **Unified** (~533MB) - NVIDIA + AMD GPU support, auto-detects GPU vendor at runtime
    ```bash
-   podman build --target mcv-minimal -t quay.io/gkm/mcv:minimal -f mcv/images/amd64.dockerfile .
-   # OR (minimal is default):
-   podman build -t quay.io/gkm/mcv -f mcv/images/amd64.dockerfile .
+   make build-image-mcv
+   # or directly:
+   podman build --target mcv-unified -t quay.io/gkm/mcv:unified -f mcv/images/amd64.dockerfile .
    ```
 
-2. **AMD** (~923MB) - Includes ROCm libraries for AMD GPU validation
+2. **No-GPU** (~176MB) - For `--no-gpu` workflows, arm64/mac; no CUDA/ROCm libraries
    ```bash
-   podman build --target mcv-amd -t quay.io/gkm/mcv:amd -f mcv/images/amd64.dockerfile .
-   ```
-
-3. **NVIDIA** (~356MB) - Includes CUDA runtime and NVML for NVIDIA GPU validation
-   ```bash
-   podman build --target mcv-nvidia -t quay.io/gkm/mcv:nvidia -f mcv/images/amd64.dockerfile .
+   make build-image-mcv-no-gpu
+   # or directly:
+   podman build --target mcv-minimal -t quay.io/gkm/mcv:no-gpu -f mcv/images/amd64.dockerfile .
    ```
 
 **How it works:** With `--no-gpu`, MCV extracts GPU information (backend, architecture, warp size) from cache metadata rather than detecting actual hardware. The cache files created by vLLM/Triton already contain all necessary GPU information in environment variables.
@@ -571,9 +568,9 @@ driver for rootless buildah operation.
 // TODO - Update with the KServe ones once available.
 
 MCV provides container images at `quay.io/gkm/mcv`. The default (`quay.io/gkm/mcv:latest`)
-is the minimal variant (~200MB), which can be used to wrap a vLLM/Triton cache in an OCI
+is the no-gpu variant (~176MB), which can be used to wrap a vLLM/Triton cache in an OCI
 container image that can then be pushed to a container registry (without having to install
-mcv locally). For GPU validation, use `quay.io/gkm/mcv:amd` or `quay.io/gkm/mcv:nvidia`.
++mcv locally). For GPU validation, use `quay.io/gkm/mcv:unified` (auto-detects NVIDIA or AMD).
 
 These images can also be used as part of a
 [github workflow](../../.github/workflows/mcv-build-test.yml).
