@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -163,13 +164,17 @@ var _ = Describe("InferencePool Migration", func() {
 			Expect(envTest.Client.Update(ctx, updatedRoute)).To(Succeed())
 
 			// Trigger reconciliation by updating the LLMInferenceService
-			llmSvcUpdated := &v1alpha2.LLMInferenceService{}
-			Expect(envTest.Client.Get(ctx, client.ObjectKeyFromObject(llmSvc), llmSvcUpdated)).To(Succeed())
-			if llmSvcUpdated.Annotations == nil {
-				llmSvcUpdated.Annotations = make(map[string]string)
-			}
-			llmSvcUpdated.Annotations["trigger-reconcile"] = "true"
-			Expect(envTest.Client.Update(ctx, llmSvcUpdated)).To(Succeed())
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				llmSvcUpdated := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Client.Get(ctx, client.ObjectKeyFromObject(llmSvc), llmSvcUpdated); err != nil {
+					return err
+				}
+				if llmSvcUpdated.Annotations == nil {
+					llmSvcUpdated.Annotations = make(map[string]string)
+				}
+				llmSvcUpdated.Annotations["trigger-reconcile"] = "true"
+				return envTest.Client.Update(ctx, llmSvcUpdated)
+			})).To(Succeed())
 
 			// then - HTTPRoute should point to v1 pool (respecting annotation)
 			Eventually(func(g Gomega, ctx context.Context) error {
