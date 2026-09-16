@@ -10,7 +10,7 @@ The unified MCV container (`quay.io/gkm/mcv:unified`) includes **both NVIDIA (CU
 
 ```bash
 make build-image-mcv
-# Tags as: quay.io/gkm/mcv:latest
+# Tags as: quay.io/gkm/mcv:unified
 ```
 
 ### Basic Usage
@@ -32,12 +32,12 @@ The unified container includes runtime libraries for both GPU vendors:
 - Gracefully fails if library not found (e.g., on AMD nodes)
 
 **AMD Support:**
-- ROCm 6.2.4 provides `rocm-smi` and `amd-smi` CLI tools
+- ROCm 7.0.1 provides `rocm-smi` and `amd-smi` CLI tools
 - MCV checks for binary existence via `utils.HasApp()`
 - Gracefully fails if tools not found (e.g., on NVIDIA nodes)
 
 **Runtime Detection:**
-```
+```text
 On NVIDIA node: nvmlCheck() → ✓ uses NVML
 On AMD node:    rocmCheck()  → ✓ uses rocm-smi
 On CPU node:    both fail    → ✓ uses --no-gpu mode
@@ -286,7 +286,7 @@ jobs:
 ```bash
 # From the repo root
 make build-image-mcv
-# Tags as: quay.io/gkm/mcv:latest
+# Tags as: quay.io/gkm/mcv:unified
 
 # Or with docker directly
 docker build --platform linux/amd64 \
@@ -301,7 +301,7 @@ docker build --platform linux/amd64 \
 ```bash
 # From the repo root
 make build-image-mcv-no-gpu
-# Tags as: quay.io/gkm/mcv:latest-no-gpu
+# Tags as: quay.io/gkm/mcv:no-gpu (also :latest)
 
 # Or with docker directly
 docker build --platform linux/amd64 \
@@ -379,7 +379,7 @@ args: ["--create", "--image", "...", "--no-gpu"]
 - Provides `libnvidia-ml.so.1` for NVML
 
 ### Added Components
-- ROCm 6.2.4 (`amd-smi-lib`, `rocm-smi-lib`)
+- ROCm 7.0.1 (`amd-smi-lib`, `rocm-smi-lib`)
 - Buildah and container tools
 - MCV binary (compiled with MCV client library)
 
@@ -421,6 +421,6 @@ The unified MCV container simplifies deployment by providing a single image that
 
 **Build:**
 ```bash
-make build-image-mcv        # GPU unified: quay.io/gkm/mcv:latest
-make build-image-mcv-no-gpu # No-GPU:      quay.io/gkm/mcv:latest-no-gpu
+make build-image-mcv        # GPU unified: quay.io/gkm/mcv:unified
+make build-image-mcv-no-gpu # No-GPU:      quay.io/gkm/mcv:no-gpu (also :latest)
 ```
