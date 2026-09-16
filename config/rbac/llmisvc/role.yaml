@@ -290,3 +290,13 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - localmodelcaches
+  - localmodelnamespacecaches
+  - localmodelnodegroups
+  verbs:
+  - get
+  - list
+  - watch
