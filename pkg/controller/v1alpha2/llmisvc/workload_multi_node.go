@@ -50,13 +50,19 @@ func (r *LLMISVCReconciler) reconcileMultiNodeWorkload(ctx context.Context, llmS
 		return fmt.Errorf("failed to reconcile multi-node service account: %w", err)
 	}
 	if err := r.reconcileMultiNodePrefillServiceAccount(ctx, llmSvc); err != nil {
-		return fmt.Errorf("failed to reconcile multi-node service account: %w", err)
+		return fmt.Errorf("failed to reconcile multi-node prefill service account: %w", err)
+	}
+	if err := r.reconcileMultiNodeEncodeServiceAccount(ctx, llmSvc); err != nil {
+		return fmt.Errorf("failed to reconcile multi-node encode service account: %w", err)
 	}
 	if err := r.reconcileMultiNodeMainWorkload(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile multi-node main workload: %w", err)
 	}
 	if err := r.reconcileMultiNodePrefillWorkload(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile multi-node prefill workload: %w", err)
+	}
+	if err := r.reconcileMultiNodeEncodeWorkload(ctx, llmSvc, config); err != nil {
+		return fmt.Errorf("failed to reconcile multi-node encode workload: %w", err)
 	}
 	return nil
 }
@@ -153,7 +159,7 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		}
 	}
 	role := constants.LLMDRoleDecode
-	if llmSvc.Spec.Prefill == nil {
+	if llmSvc.Spec.Prefill == nil && llmSvc.Spec.Encode == nil {
 		role = constants.LLMDRoleBoth
 	}
 	leaderLabels := map[string]string{
@@ -689,6 +695,223 @@ func mainLWSName(llmSvc *v1alpha2.LLMInferenceService) string {
 
 func prefillLWSName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return kmeta.ChildName(llmSvc.GetName(), "-kserve-mn-prefill")
+}
+
+func encodeLWSName(llmSvc *v1alpha2.LLMInferenceService) string {
+	return kmeta.ChildName(llmSvc.GetName(), "-kserve-mn-encode")
+}
+
+func (r *LLMISVCReconciler) reconcileMultiNodeEncodeWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Encode == nil || llmSvc.Spec.Encode.Worker == nil {
+		if isStopped {
+			llmSvc.MarkEncodeWorkerWorkloadNotReady("Stopped", "Service is stopped")
+		} else {
+			llmSvc.MarkEncodeWorkerWorkloadUnset()
+		}
+		return Delete(ctx, r, llmSvc, &lwsapi.LeaderWorkerSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      encodeLWSName(llmSvc),
+				Namespace: llmSvc.GetNamespace(),
+			},
+		})
+	}
+
+	expected, err := r.expectedEncodeMultiNodeLWS(ctx, llmSvc, config)
+	if err != nil {
+		return fmt.Errorf("failed to build the expected encode LWS: %w", err)
+	}
+	if err := Reconcile(ctx, r, llmSvc, &lwsapi.LeaderWorkerSet{}, expected, semanticLWSIsEqual, PreserveLWSReplicas()); err != nil {
+		return err
+	}
+	return r.propagateLeaderWorkerSetStatus(ctx, expected, llmSvc.MarkEncodeWorkerWorkloadReady, llmSvc.MarkEncodeWorkerWorkloadNotReady)
+}
+
+func (r *LLMISVCReconciler) reconcileMultiNodeEncodeServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+	serviceAccount, useExistingServiceAccount, err := r.expectedMultiNodeEncodeServiceAccount(ctx, llmSvc)
+	if err != nil {
+		return fmt.Errorf("failed to create expected multi node encode service account: %w", err)
+	}
+	if !useExistingServiceAccount {
+		if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Encode == nil || llmSvc.Spec.Encode.Worker == nil {
+			return Delete(ctx, r, llmSvc, serviceAccount)
+		}
+
+		if err := Reconcile(ctx, r, llmSvc, &corev1.ServiceAccount{}, serviceAccount, semanticServiceAccountIsEqual); err != nil {
+			return fmt.Errorf("failed to reconcile multi node encode service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
+		}
+	}
+
+	return nil
+}
+
+func (r *LLMISVCReconciler) expectedMultiNodeEncodeServiceAccount(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*corev1.ServiceAccount, bool, error) {
+	useExistingServiceAccount := false
+	expectedServiceAccountName := encodeLWSName(llmSvc)
+
+	// An existing service account attached to the encode leader template takes precedence over any attached to the encode worker template.
+	var existingServiceAccountName string
+	if llmSvc.Spec.Encode != nil && llmSvc.Spec.Encode.Template != nil && llmSvc.Spec.Encode.Template.ServiceAccountName != "" {
+		existingServiceAccountName = llmSvc.Spec.Encode.Template.ServiceAccountName
+	} else if llmSvc.Spec.Encode != nil && llmSvc.Spec.Encode.Worker != nil && llmSvc.Spec.Encode.Worker.ServiceAccountName != "" {
+		existingServiceAccountName = llmSvc.Spec.Encode.Worker.ServiceAccountName
+	}
+
+	if existingServiceAccountName != "" && existingServiceAccountName != expectedServiceAccountName {
+		useExistingServiceAccount = true
+		log.FromContext(ctx).V(2).Info("Using existing service account for multi node encode workload", "serviceAccountName", existingServiceAccountName)
+		existingServiceAccount := &corev1.ServiceAccount{}
+		err := r.Get(ctx, types.NamespacedName{Name: existingServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+		if err != nil {
+			return nil, useExistingServiceAccount, fmt.Errorf("failed to fetch existing multi node encode service account %s/%s: %w", llmSvc.Namespace, existingServiceAccountName, err)
+		}
+		return existingServiceAccount, useExistingServiceAccount, nil
+	}
+
+	expectedServiceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      expectedServiceAccountName,
+			Namespace: llmSvc.GetNamespace(),
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
+		},
+	}
+
+	r.injectSecretsFromDefaultServiceAccount(ctx, expectedServiceAccount)
+
+	// Add required labels to the created service account
+	if expectedServiceAccount.Labels == nil {
+		expectedServiceAccount.Labels = make(map[string]string)
+	}
+	expectedServiceAccount.Labels[constants.KubernetesAppNameLabelKey] = llmSvc.GetName()
+	expectedServiceAccount.Labels[constants.KubernetesPartOfLabelKey] = constants.LLMInferenceServicePartOfValue
+
+	return expectedServiceAccount, useExistingServiceAccount, nil
+}
+
+func (r *LLMISVCReconciler) expectedEncodeMultiNodeLWS(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*lwsapi.LeaderWorkerSet, error) {
+	workerLabels := map[string]string{
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadWorkerEncode,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+	}
+	if llmSvc.Spec.Encode != nil && llmSvc.Spec.Encode.Template == nil {
+		// When there is no leader template, workers become part of the InferencePool selector.
+		workerLabels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
+		workerLabels[constants.LLMDRoleLabelKey] = constants.LLMDRoleEncode
+	}
+	leaderLabels := map[string]string{
+		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadLeaderEncode,
+		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
+		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+		constants.KServeComponentLabelKey:     constants.KServeComponentWorkload,
+		constants.LLMDRoleLabelKey:            constants.LLMDRoleEncode,
+	}
+
+	expected := &lwsapi.LeaderWorkerSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      encodeLWSName(llmSvc),
+			Namespace: llmSvc.GetNamespace(),
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
+			Labels: workerLabels,
+		},
+		Spec: lwsapi.LeaderWorkerSetSpec{
+			LeaderWorkerTemplate: lwsapi.LeaderWorkerTemplate{
+				WorkerTemplate: corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: workerLabels,
+					},
+				},
+				RestartPolicy: lwsapi.RecreateGroupOnPodRestart,
+			},
+			RolloutStrategy: lwsapi.RolloutStrategy{
+				Type:                       lwsapi.RollingUpdateStrategyType,
+				RollingUpdateConfiguration: rollingUpdateConfigFromWorkloadSpec(llmSvc.Spec.Encode),
+			},
+			StartupPolicy: lwsapi.LeaderCreatedStartupPolicy,
+		},
+	}
+
+	if llmSvc.Spec.Encode != nil && !utils.GetForceStopRuntime(llmSvc) {
+		expected.Spec.Replicas = llmSvc.Spec.Encode.Replicas
+		expected.Spec.LeaderWorkerTemplate.Size = llmSvc.Spec.Encode.Parallelism.GetSize()
+
+		serviceAccount, _, err := r.expectedMultiNodeEncodeServiceAccount(ctx, llmSvc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create expected multi node encode service account: %w", err)
+		}
+
+		currLWS := &lwsapi.LeaderWorkerSet{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(expected), currLWS); err != nil && !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
+			return nil, fmt.Errorf("failed to get current encode leader worker set %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
+		}
+
+		if llmSvc.Spec.Encode.Template != nil {
+			expected.Spec.LeaderWorkerTemplate.LeaderTemplate = &corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: leaderLabels,
+				},
+				Spec: *llmSvc.Spec.Encode.Template.DeepCopy(),
+			}
+
+			expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
+
+			var currLeaderSpec corev1.PodSpec
+			if currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+				currLeaderSpec = currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec
+			}
+
+			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLeaderSpec, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
+				return nil, fmt.Errorf("failed to attach model artifacts to encode leader template: %w", err)
+			}
+			if llmSvc.Spec.Encode.KVCacheOffloading != nil {
+				attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, llmSvc.Spec.Encode.KVCacheOffloading.Secondary, "main")
+			}
+		}
+		if llmSvc.Spec.Encode.Worker != nil {
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Encode.Worker.DeepCopy()
+
+			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
+
+			if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, currLWS.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
+				return nil, fmt.Errorf("failed to attach model artifacts to encode worker template: %w", err)
+			}
+			if llmSvc.Spec.Encode.KVCacheOffloading != nil {
+				attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, llmSvc.Spec.Encode.KVCacheOffloading.Secondary, "main")
+			}
+		}
+
+		if llmSvc.Spec.Encode.Parallelism.IsDataParallel() && expected.Spec.LeaderWorkerTemplate.Size != nil {
+			expected.Spec.LeaderWorkerTemplate.SubGroupPolicy = &lwsapi.SubGroupPolicy{
+				SubGroupSize: expected.Spec.LeaderWorkerTemplate.Size,
+			}
+		}
+	}
+
+	r.propagateTopLevelLeaderWorkerSetMetadata(llmSvc, expected)
+
+	// Inject tracing instrumentation when spec.tracing is set
+	if llmSvc.Spec.Tracing != nil {
+		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-encode", &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec)
+		}
+		injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-encode", &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec)
+	}
+
+	if llmSvc.Spec.Encode != nil {
+		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			utils.PropagateMap(llmSvc.Spec.Encode.Labels, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels)
+			utils.PropagateMap(llmSvc.Spec.Encode.Annotations, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations, AnnotationModelBasedRoutingEnabled)
+		}
+		utils.PropagateMap(llmSvc.Spec.Encode.Labels, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels)
+		utils.PropagateMap(llmSvc.Spec.Encode.Annotations, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations, AnnotationModelBasedRoutingEnabled)
+	}
+
+	log.FromContext(ctx).V(2).Info("Expected encode LWS", "leaderworkerset", expected)
+
+	return expected, nil
 }
 
 func rollingUpdateConfigFromWorkloadSpec(workload *v1alpha2.WorkloadSpec) *lwsapi.RollingUpdateConfiguration {
