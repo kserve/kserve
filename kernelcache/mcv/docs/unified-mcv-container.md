@@ -108,6 +108,12 @@ podman run --rm --privileged \
 
 ## Kubernetes Deployment
 
+> **Note:** GKM operator deployments use the `gkm-extract` Job image
+> (configured via `gkm.extract.image`) for in-cluster cache extraction — not
+> MCV directly. The MCV image is for standalone cache packaging workflows
+> (building OCI cache images outside the cluster). The examples below show MCV
+> used standalone, independent of a GKM operator deployment.
+
 ### Using in Kubernetes Jobs
 
 The unified image works on any node type without requiring node selectors:
@@ -407,7 +413,6 @@ func registerDevices(r *Registry) {
 
 - [MCV README](../README.md) - Full MCV documentation
 - [No-GPU Usage Guide](./no-gpu-usage.md) - Using MCV without GPU hardware
-- [Kubernetes Deployment](./kubernetes-deployment.md) - K8s deployment patterns
 
 ## Summary
 
