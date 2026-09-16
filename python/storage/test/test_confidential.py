@@ -230,6 +230,175 @@ class TestJWEDecryptorRoundTrip:
         assert output.read_bytes() == plaintext
         assert not encrypted_file.exists()
 
+    def test_decrypt_file_direct_algorithm(self, tmp_path):
+        """dir + A256GCM uses the resolved key as the CEK."""
+        plaintext = b"direct alg model bytes"
+        key_bytes = os.urandom(32)
+        symmetric_key = jwk.JWK(kty="oct", k=jwk.base64url_encode(key_bytes))
+        token = jwe.JWE(
+            plaintext,
+            protected={"alg": "dir", "enc": "A256GCM"},
+        )
+        token.add_recipient(symmetric_key)
+
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(token.serialize(compact=True))
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        output = decryptor.decrypt_file(encrypted_file)
+
+        assert output.read_bytes() == plaintext
+        assert not encrypted_file.exists()
+
+    def test_decrypt_file_json_serialization_rejected(self, tmp_path):
+        plaintext = b"json serialized jwe"
+        key_bytes = os.urandom(32)
+        symmetric_key = jwk.JWK(kty="oct", k=jwk.base64url_encode(key_bytes))
+        token = jwe.JWE(
+            plaintext,
+            protected={"alg": "A256KW", "enc": "A256GCM"},
+        )
+        token.add_recipient(symmetric_key)
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(token.serialize(compact=False))
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        with pytest.raises(jwe.InvalidJWEData, match="JSON serialization"):
+            decryptor.decrypt_file(encrypted_file)
+
+    def test_decrypt_file_empty_plaintext(self, tmp_path):
+        key_bytes = os.urandom(32)
+        encrypted_file = tmp_path / "empty.bin.jwe"
+        encrypted_file.write_text(_encrypt_jwe(b"", key_bytes))
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        output = decryptor.decrypt_file(encrypted_file)
+        assert output.read_bytes() == b""
+
+    def test_decrypt_file_trailing_newline(self, tmp_path):
+        plaintext = b"model with trailing newline in compact jwe"
+        key_bytes = os.urandom(32)
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_bytes(_encrypt_jwe(plaintext, key_bytes).encode() + b"\n")
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        output = decryptor.decrypt_file(encrypted_file)
+        assert output.read_bytes() == plaintext
+
+    def test_decrypt_file_large_payload_does_not_slurp(self, tmp_path, monkeypatch):
+        """Ciphertext must be streamed; jwcrypto deserialize loads the whole token."""
+        from pathlib import Path as PathlibPath
+
+        from kserve_storage.confidential import jwe_decryptor as decryptor_mod
+
+        plaintext = os.urandom(64 * 1024)
+        key_bytes = os.urandom(32)
+        encrypted_file = tmp_path / "weights.bin.jwe"
+        encrypted_file.write_text(_encrypt_jwe(plaintext, key_bytes))
+
+        def _forbid_deserialize(*_args, **_kwargs):
+            raise AssertionError(
+                "in-memory JWE.deserialize must not be used for compact files"
+            )
+
+        orig_read_text = PathlibPath.read_text
+        orig_read_bytes = PathlibPath.read_bytes
+        encrypted_resolved = encrypted_file.resolve()
+
+        def _guarded_read_text(self, *args, **kwargs):
+            if self.resolve() == encrypted_resolved:
+                raise AssertionError(f"should not slurp {self} via read_text")
+            return orig_read_text(self, *args, **kwargs)
+
+        def _guarded_read_bytes(self, *args, **kwargs):
+            if self.resolve() == encrypted_resolved:
+                raise AssertionError(f"should not slurp {self} via read_bytes")
+            return orig_read_bytes(self, *args, **kwargs)
+
+        monkeypatch.setattr(jwe.JWE, "deserialize", _forbid_deserialize)
+        monkeypatch.setattr(decryptor_mod, "_STREAM_CHUNK_SIZE", 1024)
+        monkeypatch.setattr(PathlibPath, "read_text", _guarded_read_text)
+        monkeypatch.setattr(PathlibPath, "read_bytes", _guarded_read_bytes)
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        output = decryptor.decrypt_file(encrypted_file)
+        assert output.read_bytes() == plaintext
+        assert not encrypted_file.exists()
+
+    def test_decrypt_file_tampered_ciphertext_leaves_original(self, tmp_path):
+        plaintext = b"authenticated model bytes"
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(plaintext, key_bytes)
+        # Flip a byte in the ciphertext segment (4th compact part).
+        parts = token.split(".")
+        ct = bytearray(parts[3].encode("ascii"))
+        ct[0] = ct[0] ^ 0x01
+        parts[3] = ct.decode("ascii")
+        tampered = ".".join(parts)
+
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(tampered)
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        with pytest.raises(jwe.InvalidJWEData):
+            decryptor.decrypt_file(encrypted_file)
+
+        assert encrypted_file.exists()
+        assert encrypted_file.read_text() == tampered
+        assert not (tmp_path / "model.bin").exists()
+        assert list(tmp_path.glob(".jwe-decrypt.*")) == []
+
+    def test_decrypt_file_wrong_key_leaves_original(self, tmp_path):
+        plaintext = b"model weights"
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(plaintext, key_bytes)
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(token)
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(os.urandom(32)), resource_id="kbs:///repo/type/tag"
+        )
+        with pytest.raises(jwe.InvalidJWEData, match="unwrap"):
+            decryptor.decrypt_file(encrypted_file)
+
+        assert encrypted_file.read_text() == token
+        assert list(tmp_path.glob(".jwe-decrypt.*")) == []
+
+    def test_decrypt_file_in_place_tamper_leaves_original(self, tmp_path):
+        plaintext = b"in-place model"
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(plaintext, key_bytes)
+        parts = token.split(".")
+        # Flip a high-order ciphertext character so unused base64 padding bits
+        # cannot leave the decoded ciphertext unchanged.
+        ct = bytearray(parts[3].encode("ascii"))
+        ct[0] = ct[0] ^ 0x01
+        parts[3] = ct.decode("ascii")
+        tampered = ".".join(parts)
+
+        encrypted_file = tmp_path / "model.bin"
+        encrypted_file.write_text(tampered)
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        with pytest.raises(jwe.InvalidJWEData):
+            decryptor.decrypt_file(encrypted_file)
+
+        assert encrypted_file.read_text() == tampered
+
 
 class TestJWEDecryptorDirectory:
     def test_decrypt_directory(self, tmp_path):
