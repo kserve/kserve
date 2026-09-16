@@ -29,6 +29,7 @@ type LocalModelCacheStatus struct {
 	LLMInferenceServices []NamespacedName `json:"llmInferenceServices,omitempty"`
 }
 
+// +k8s:openapi-gen=true
 type NamespacedName struct {
 	Namespace string `json:"namespace,omitempty"`
 	Name      string `json:"name,omitempty"`

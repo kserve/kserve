@@ -419,6 +419,786 @@
         }
       }
     },
+    "v1alpha1.KernelCache": {
+      "description": "KernelCache represents one reusable OCI kernel cache artifact.",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheStatus"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheArtifact": {
+      "description": "KernelCacheArtifact is the portable description of a completed OCI cache artifact. It is shared by KernelCacheCapture status and KernelCache spec.",
+      "type": "object",
+      "required": [
+        "imageReference",
+        "cachePaths",
+        "identity"
+      ],
+      "properties": {
+        "cachePaths": {
+          "description": "CachePaths describes the cache directories represented in the artifact.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.KernelCachePath"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
+        "identity": {
+          "description": "Identity contains the workload and compatibility identities of the artifact.",
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheIdentity"
+        },
+        "imageReference": {
+          "description": "ImageReference is a full immutable OCI reference containing registry, repository, and digest.",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "v1alpha1.KernelCacheCapture": {
+      "description": "KernelCacheCapture captures runtime-generated cache data as an OCI artifact.",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheCaptureSpec"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheCaptureStatus"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheCaptureList": {
+      "description": "KernelCacheCaptureList contains a list of KernelCacheCapture objects.",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.KernelCacheCapture"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheCaptureSession": {
+      "description": "KernelCacheCaptureSession identifies one capture attempt.",
+      "type": "object",
+      "required": [
+        "id",
+        "podName"
+      ],
+      "properties": {
+        "id": {
+          "description": "ID uniquely identifies the capture session for a producer Pod. The sidecar includes this value in its status reports so the controller can reject stale reports from another capture session.",
+          "type": "string",
+          "default": ""
+        },
+        "nodeName": {
+          "description": "NodeName is the node assigned to the producer Pod.",
+          "type": "string"
+        },
+        "podName": {
+          "type": "string",
+          "default": ""
+        },
+        "requestedNodeGroup": {
+          "description": "RequestedNodeGroup is the node group requested by the producer Pod.",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheCaptureSpec": {
+      "description": "KernelCacheCaptureSpec defines the desired capture configuration.",
+      "type": "object",
+      "required": [
+        "sourceRef"
+      ],
+      "properties": {
+        "cachePaths": {
+          "description": "CachePaths overrides the cache paths passed to the capture sidecar.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.KernelCachePath"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
+        "signing": {
+          "description": "Signing selects the signing profile when artifact signing is enabled.",
+          "$ref": "#/definitions/v1alpha1.KernelCacheSigningSpec"
+        },
+        "sourceRef": {
+          "description": "SourceRef identifies the source InferenceService.",
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheSourceRef"
+        },
+        "targetImage": {
+          "description": "TargetImage is the capture destination. If empty, the capture integration generates one.",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheCaptureStatus": {
+      "description": "KernelCacheCaptureStatus defines the observed capture result.",
+      "type": "object",
+      "properties": {
+        "activeSession": {
+          "description": "ActiveSession identifies the session allowed to report capture results.",
+          "$ref": "#/definitions/v1alpha1.KernelCacheCaptureSession"
+        },
+        "artifact": {
+          "description": "Artifact is the normalized captured artifact.",
+          "$ref": "#/definitions/v1alpha1.KernelCacheArtifact"
+        },
+        "capturedAt": {
+          "description": "CapturedAt is the time reported for the completed capture.",
+          "$ref": "#/definitions/v1.Time"
+        },
+        "capturedCacheSizeBytes": {
+          "description": "CapturedCacheSizeBytes is the captured cache size.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "conditions": {
+          "description": "Conditions report whether the capture is ready and why it is not ready.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.Condition"
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map",
+          "x-kubernetes-patch-merge-key": "type",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "kernelCacheRef": {
+          "description": "KernelCacheRef references the latest KernelCache generated from this capture.",
+          "$ref": "#/definitions/v1alpha1.NamespacedName"
+        },
+        "phase": {
+          "description": "Phase indicates the current capture phase.",
+          "type": "string"
+        },
+        "runtimeResult": {
+          "description": "RuntimeResult contains the raw key-value result reported by the capture sidecar.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "signing": {
+          "description": "Signing contains the operator signing result for the captured artifact.",
+          "$ref": "#/definitions/v1alpha1.KernelCacheSigningStatus"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheCounts": {
+      "description": "KernelCacheCounts contains aggregate node preparation counts.",
+      "type": "object",
+      "required": [
+        "nodeCount",
+        "nodesReady",
+        "nodesPreparing",
+        "nodesError"
+      ],
+      "properties": {
+        "nodeCount": {
+          "description": "NodeCount is the number of nodes tracked for this cache.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "nodesError": {
+          "description": "NodesError is the number of nodes with preparation errors.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "nodesPreparing": {
+          "description": "NodesPreparing is the number of nodes preparing the cache.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "nodesReady": {
+          "description": "NodesReady is the number of nodes where the cache is ready.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        }
+      }
+    },
+    "v1alpha1.KernelCacheFootprints": {
+      "description": "KernelCacheFootprints contains the stable identities used to identify a cache artifact.",
+      "type": "object",
+      "properties": {
+        "compatibilityFootprint": {
+          "description": "CompatibilityFootprint is the SHA-256 identity of the compatibility factors. It is omitted for latest or implicitly-latest runtime images.",
+          "type": "string"
+        },
+        "workloadFootprint": {
+          "description": "WorkloadFootprint is the SHA-256 identity of the cache-relevant workload. It is omitted when the declared runtime image is not digest-pinned.",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheIdentity": {
+      "description": "KernelCacheIdentity contains values used to identify and select a cache artifact.",
+      "type": "object",
+      "required": [
+        "footprints"
+      ],
+      "properties": {
+        "factors": {
+          "description": "Factors contains the normalized values used to calculate the footprints.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "footprints": {
+          "description": "Footprints contains the stable workload and compatibility identities.",
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheFootprints"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheList": {
+      "description": "KernelCacheList contains a list of KernelCache objects.",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.KernelCache"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheNode": {
+      "description": "KernelCacheNode represents node-local preparation and usage projections. It is operator-created and cluster-scoped.",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "status": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheNodeStatus"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheNodeCacheInfo": {
+      "description": "KernelCacheNodeCacheInfo contains one cache's state on a node.",
+      "type": "object",
+      "required": [
+        "kernelCacheRef",
+        "footprints"
+      ],
+      "properties": {
+        "footprints": {
+          "description": "Footprints identifies the cache artifact available on this node.",
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheFootprints"
+        },
+        "imageReference": {
+          "description": "ImageReference identifies the artifact being prepared on this node.",
+          "type": "string"
+        },
+        "kernelCacheRef": {
+          "description": "KernelCacheRef identifies the namespaced KernelCache object.",
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.NamespacedName"
+        },
+        "lastUpdate": {
+          "description": "LastUpdate is the time when this cache status was last changed on this node.",
+          "$ref": "#/definitions/v1.Time"
+        },
+        "message": {
+          "description": "Message provides details about the current preparation state.",
+          "type": "string"
+        },
+        "state": {
+          "description": "State represents the preparation state of this cache on this node.",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheNodeCounts": {
+      "description": "KernelCacheNodeCounts contains aggregate node-local counts.",
+      "type": "object",
+      "required": [
+        "cachesReady",
+        "cachesPreparing",
+        "cachesError",
+        "totalPodsUsing"
+      ],
+      "properties": {
+        "cachesError": {
+          "description": "CachesError is the number of caches with preparation errors.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "cachesPreparing": {
+          "description": "CachesPreparing is the number of caches being prepared.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "cachesReady": {
+          "description": "CachesReady is the number of ready caches on this node.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        },
+        "totalPodsUsing": {
+          "description": "TotalPodsUsing is the total number of Pods using caches on this node.",
+          "type": "integer",
+          "format": "int32",
+          "default": 0
+        }
+      }
+    },
+    "v1alpha1.KernelCacheNodeGroup": {
+      "description": "KernelCacheNodeGroup selects the Kubernetes nodes that host prepared KernelCache artifacts. Node selection is mandatory.",
+      "type": "object",
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ObjectMeta"
+        },
+        "spec": {
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheNodeGroupSpec"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheNodeGroupList": {
+      "description": "KernelCacheNodeGroupList contains a list of KernelCacheNodeGroup objects.",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.KernelCacheNodeGroup"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheNodeGroupSpec": {
+      "description": "KernelCacheNodeGroupSpec defines node membership and workload tolerations for a KernelCacheNodeGroup.",
+      "type": "object",
+      "required": [
+        "nodeSelector"
+      ],
+      "properties": {
+        "nodeSelector": {
+          "description": "NodeSelector selects the nodes that belong to this group. A node is a member of the group only when it carries every listed label. At least one label is required.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "tolerations": {
+          "description": "Tolerations are applied to controller-managed workloads that run on the selected nodes (for example, node-local preparation jobs).",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.Toleration"
+          },
+          "x-kubernetes-list-type": "atomic"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheNodeList": {
+      "description": "KernelCacheNodeList contains a list of KernelCacheNode objects.",
+      "type": "object",
+      "required": [
+        "items"
+      ],
+      "properties": {
+        "apiVersion": {
+          "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.KernelCacheNode"
+          }
+        },
+        "kind": {
+          "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+          "type": "string"
+        },
+        "metadata": {
+          "default": {},
+          "$ref": "#/definitions/v1.ListMeta"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheNodeStatus": {
+      "description": "KernelCacheNodeStatus defines node-local cache preparation and usage status.",
+      "type": "object",
+      "properties": {
+        "cacheStatus": {
+          "description": "CacheStatus maps \"namespace/name\" to node-local cache status.",
+          "type": "object",
+          "additionalProperties": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.KernelCacheNodeCacheInfo"
+          }
+        },
+        "counts": {
+          "description": "Counts contains aggregate counts for this node.",
+          "$ref": "#/definitions/v1alpha1.KernelCacheNodeCounts"
+        }
+      }
+    },
+    "v1alpha1.KernelCachePath": {
+      "description": "KernelCachePath describes one cache directory in the source container and OCI artifact.",
+      "type": "object",
+      "properties": {
+        "containerName": {
+          "description": "ContainerName is the container that owns the cache directory. If omitted, KServe resolves the standard runtime container; set it for non-standard containers.",
+          "type": "string"
+        },
+        "containerPath": {
+          "description": "ContainerPath is the absolute path of the cache directory in the container. If omitted, KServe resolves VLLM_CACHE_ROOT and falls back to /root/.cache/vllm.",
+          "type": "string"
+        },
+        "ociPath": {
+          "description": "OCIPath is the relative path of the cache directory in the OCI artifact.",
+          "type": "string"
+        }
+      }
+    },
+    "v1alpha1.KernelCachePodUsage": {
+      "description": "KernelCachePodUsage identifies one Pod consuming a cache.",
+      "type": "object",
+      "required": [
+        "podUID",
+        "podRef",
+        "nodeName"
+      ],
+      "properties": {
+        "nodeName": {
+          "description": "NodeName is the node hosting the Pod.",
+          "type": "string",
+          "default": ""
+        },
+        "observedAt": {
+          "description": "ObservedAt is the last time this usage was observed.",
+          "$ref": "#/definitions/v1.Time"
+        },
+        "podRef": {
+          "description": "PodRef contains the current Pod namespace and name.",
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.NamespacedName"
+        },
+        "podUID": {
+          "description": "PodUID is the stable identity used as the list key.",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "v1alpha1.KernelCacheSigningSpec": {
+      "description": "KernelCacheSigningSpec selects the operator signing profile for a capture. Private keys and credentials are not stored in the API object.",
+      "type": "object",
+      "properties": {
+        "profileRef": {
+          "description": "ProfileRef references an operator-managed signing profile.",
+          "$ref": "#/definitions/v1.LocalObjectReference"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheSigningStatus": {
+      "description": "KernelCacheSigningStatus contains artifact signing results.",
+      "type": "object",
+      "required": [
+        "mode",
+        "state",
+        "signed"
+      ],
+      "properties": {
+        "message": {
+          "description": "Message provides additional signing details.",
+          "type": "string"
+        },
+        "mode": {
+          "description": "Mode is the configured signing mode.",
+          "type": "string",
+          "default": ""
+        },
+        "reason": {
+          "description": "Reason describes the signing result.",
+          "type": "string"
+        },
+        "signed": {
+          "description": "Signed indicates whether a signature was created.",
+          "type": "boolean",
+          "default": false
+        },
+        "signedAt": {
+          "description": "SignedAt is the time of successful signing.",
+          "$ref": "#/definitions/v1.Time"
+        },
+        "state": {
+          "description": "State is the latest signing outcome.",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "v1alpha1.KernelCacheSourceRef": {
+      "description": "KernelCacheSourceRef identifies the source InferenceService for a capture.",
+      "type": "object",
+      "required": [
+        "kind",
+        "name"
+      ],
+      "properties": {
+        "kind": {
+          "description": "Kind is the kind of the source workload.",
+          "type": "string",
+          "default": ""
+        },
+        "name": {
+          "description": "Name is the name of the source workload.",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "v1alpha1.KernelCacheSpec": {
+      "description": "KernelCacheSpec defines the desired artifact and node preparation target.",
+      "type": "object",
+      "required": [
+        "artifact"
+      ],
+      "properties": {
+        "artifact": {
+          "description": "Artifact is the portable OCI artifact contract.",
+          "default": {},
+          "$ref": "#/definitions/v1alpha1.KernelCacheArtifact"
+        },
+        "mountType": {
+          "description": "MountType selects the cache delivery mode. OCI is the only supported mode.",
+          "type": "string"
+        },
+        "nodeGroupRef": {
+          "description": "NodeGroupRef references the cluster-scoped KernelCacheNodeGroup where this cache is prepared. If omitted, the controller reports an error until a node group is selected.",
+          "$ref": "#/definitions/v1.LocalObjectReference"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheStatus": {
+      "description": "KernelCacheStatus defines the observed state of a KernelCache.",
+      "type": "object",
+      "properties": {
+        "conditions": {
+          "description": "Conditions represent the latest availability observations.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.Condition"
+          },
+          "x-kubernetes-list-map-keys": [
+            "type"
+          ],
+          "x-kubernetes-list-type": "map",
+          "x-kubernetes-patch-merge-key": "type",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "counts": {
+          "description": "Counts contains aggregate node preparation counts.",
+          "$ref": "#/definitions/v1alpha1.KernelCacheCounts"
+        },
+        "mountType": {
+          "description": "MountType is the observed cache delivery mode.",
+          "type": "string"
+        },
+        "state": {
+          "description": "State is the aggregate node preparation state.",
+          "type": "string"
+        },
+        "usage": {
+          "description": "Usage contains active Pod consumers.",
+          "$ref": "#/definitions/v1alpha1.KernelCacheUsage"
+        },
+        "verification": {
+          "description": "Verification contains the artifact verification result.",
+          "$ref": "#/definitions/v1alpha1.KernelCacheVerificationStatus"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheUsage": {
+      "description": "KernelCacheUsage contains the Pods currently using a KernelCache.",
+      "type": "object",
+      "properties": {
+        "pods": {
+          "description": "Pods lists active consumers. Entries are keyed by PodUID.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1alpha1.KernelCachePodUsage"
+          },
+          "x-kubernetes-list-map-keys": [
+            "podUID"
+          ],
+          "x-kubernetes-list-type": "map"
+        },
+        "totalPodsUsing": {
+          "description": "TotalPodsUsing is derived from Pods.",
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "v1alpha1.KernelCacheVerificationStatus": {
+      "description": "KernelCacheVerificationStatus contains artifact verification results.",
+      "type": "object",
+      "required": [
+        "mode",
+        "state",
+        "verified"
+      ],
+      "properties": {
+        "message": {
+          "description": "Message provides additional verification details.",
+          "type": "string"
+        },
+        "mode": {
+          "description": "Mode is the configured verification mode.",
+          "type": "string",
+          "default": ""
+        },
+        "reason": {
+          "description": "Reason describes the verification result.",
+          "type": "string"
+        },
+        "state": {
+          "description": "State is the latest verification outcome.",
+          "type": "string",
+          "default": ""
+        },
+        "verified": {
+          "description": "Verified indicates whether the immutable artifact passed verification.",
+          "type": "boolean",
+          "default": false
+        },
+        "verifiedAt": {
+          "description": "VerifiedAt is the time of the latest verification.",
+          "$ref": "#/definitions/v1.Time"
+        }
+      }
+    },
     "v1alpha1.LLMInferenceService": {
       "description": "LLMInferenceService is the Schema for the llminferenceservices API, representing a single LLM deployment. It orchestrates the creation of underlying Kubernetes resources like Deployments and Services, and configures networking for exposing the model.",
       "type": "object",
@@ -890,6 +1670,17 @@
           "description": "Storage URI for the model repository",
           "type": "string",
           "default": ""
+        }
+      }
+    },
+    "v1alpha1.NamespacedName": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "namespace": {
+          "type": "string"
         }
       }
     },
