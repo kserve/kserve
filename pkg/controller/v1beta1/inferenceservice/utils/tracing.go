@@ -141,8 +141,7 @@ func InjectComponentTracing(t *v1beta1.TracingSpec, namespace, isvcName, variant
 
 	injectTracingEnvVars(t, namespace, isvcName, component, variant, container)
 
-	switch component {
-	case string(v1beta1.PredictorComponent):
+	if component == string(v1beta1.PredictorComponent) {
 		injectPredictorTracing(t, isvcName, serverType, container)
 	}
 
