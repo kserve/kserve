@@ -50,6 +50,7 @@ class V1alpha1LocalModelNamespaceCacheSpec(object):
         'image_pull_secrets': 'list[V1LocalObjectReference]',
         'model_size': 'ResourceQuantity',
         'node_groups': 'list[str]',
+        'pvc_ref': 'str',
         'service_account_name': 'str',
         'source_model_uri': 'str',
         'storage': 'V1alpha1LocalModelStorageSpec'
@@ -59,12 +60,13 @@ class V1alpha1LocalModelNamespaceCacheSpec(object):
         'image_pull_secrets': 'imagePullSecrets',
         'model_size': 'modelSize',
         'node_groups': 'nodeGroups',
+        'pvc_ref': 'pvcRef',
         'service_account_name': 'serviceAccountName',
         'source_model_uri': 'sourceModelUri',
         'storage': 'storage'
     }
 
-    def __init__(self, image_pull_secrets=None, model_size=None, node_groups=None, service_account_name=None, source_model_uri='', storage=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, image_pull_secrets=None, model_size=None, node_groups=None, pvc_ref=None, service_account_name=None, source_model_uri='', storage=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1LocalModelNamespaceCacheSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -73,6 +75,7 @@ class V1alpha1LocalModelNamespaceCacheSpec(object):
         self._image_pull_secrets = None
         self._model_size = None
         self._node_groups = None
+        self._pvc_ref = None
         self._service_account_name = None
         self._source_model_uri = None
         self._storage = None
@@ -81,7 +84,10 @@ class V1alpha1LocalModelNamespaceCacheSpec(object):
         if image_pull_secrets is not None:
             self.image_pull_secrets = image_pull_secrets
         self.model_size = model_size
-        self.node_groups = node_groups
+        if node_groups is not None:
+            self.node_groups = node_groups
+        if pvc_ref is not None:
+            self.pvc_ref = pvc_ref
         if service_account_name is not None:
             self.service_account_name = service_account_name
         self.source_model_uri = source_model_uri
@@ -138,7 +144,7 @@ class V1alpha1LocalModelNamespaceCacheSpec(object):
     def node_groups(self):
         """Gets the node_groups of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
 
-        group of nodes to cache the model on.  # noqa: E501
+        group of nodes to cache the model on. Selects the legacy node-local caching mode. Mutually exclusive with pvcRef.  # noqa: E501
 
         :return: The node_groups of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
         :rtype: list[str]
@@ -149,15 +155,36 @@ class V1alpha1LocalModelNamespaceCacheSpec(object):
     def node_groups(self, node_groups):
         """Sets the node_groups of this V1alpha1LocalModelNamespaceCacheSpec.
 
-        group of nodes to cache the model on.  # noqa: E501
+        group of nodes to cache the model on. Selects the legacy node-local caching mode. Mutually exclusive with pvcRef.  # noqa: E501
 
         :param node_groups: The node_groups of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
         :type: list[str]
         """
-        if self.local_vars_configuration.client_side_validation and node_groups is None:  # noqa: E501
-            raise ValueError("Invalid value for `node_groups`, must not be `None`")  # noqa: E501
 
         self._node_groups = node_groups
+
+    @property
+    def pvc_ref(self):
+        """Gets the pvc_ref of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
+
+        PVCRef is the name of a pre-created PersistentVolumeClaim in the cache CR's namespace. Selects shared-PVC import mode: the model is imported once onto the referenced claim and shared read-only by serving replicas. The claim must be ReadWriteMany with filesystem volume mode. It is immutable; changing the destination requires a new cache CR. Mutually exclusive with nodeGroups.  # noqa: E501
+
+        :return: The pvc_ref of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._pvc_ref
+
+    @pvc_ref.setter
+    def pvc_ref(self, pvc_ref):
+        """Sets the pvc_ref of this V1alpha1LocalModelNamespaceCacheSpec.
+
+        PVCRef is the name of a pre-created PersistentVolumeClaim in the cache CR's namespace. Selects shared-PVC import mode: the model is imported once onto the referenced claim and shared read-only by serving replicas. The claim must be ReadWriteMany with filesystem volume mode. It is immutable; changing the destination requires a new cache CR. Mutually exclusive with nodeGroups.  # noqa: E501
+
+        :param pvc_ref: The pvc_ref of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._pvc_ref = pvc_ref
 
     @property
     def service_account_name(self):

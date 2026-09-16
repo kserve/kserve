@@ -19,6 +19,7 @@ package reconcilers
 import (
 	"context"
 	"maps"
+	"reflect"
 	"slices"
 
 	"github.com/go-logr/logr"
@@ -454,11 +455,99 @@ func CreatePVC(
 	return nil
 }
 
-// ReconcileForIsvcs reconciles PVs and PVCs for InferenceServices using this cached model
-// Only one of localModelCache or localModelNamespaceCache should be non-nil
-// For LocalModelCache: lists all ISVCs matching the model globally
-// For LocalModelNamespaceCache: lists ISVCs only in the same namespace
-// Also cleans up unused serving PVs/PVCs when ISVCs are removed
+type cacheConsumers struct {
+	isvcs   []v1beta1.InferenceService
+	llmSvcs []v1alpha2.LLMInferenceService
+}
+
+// collectCacheConsumers returns the current InferenceService and LLMInferenceService
+// consumers for a cache. MatchingFields deliberately uses the same indexes as the watches,
+// including LoRA-only LLMInferenceService references.
+func collectCacheConsumers(
+	ctx context.Context,
+	c client.Client,
+	log logr.Logger,
+	localModelCache *v1alpha1.LocalModelCache,
+	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
+	llmInferenceServiceEnabled bool,
+) (cacheConsumers, error) {
+	params := ExtractLocalModelParams(localModelCache, localModelNamespaceCache)
+	consumers := cacheConsumers{}
+
+	if params.IsNamespaceScoped {
+		isvcs := &v1beta1.InferenceServiceList{}
+		if err := c.List(ctx, isvcs,
+			client.InNamespace(params.Namespace),
+			client.MatchingFields{LocalModelNamespaceKey: params.Name}); err != nil {
+			log.Error(err, "List isvc error")
+			return cacheConsumers{}, err
+		}
+		consumers.isvcs = isvcs.Items
+	} else {
+		isvcs := &v1beta1.InferenceServiceList{}
+		if err := c.List(ctx, isvcs, client.MatchingFields{LocalModelKey: params.Name}); err != nil {
+			log.Error(err, "List isvc error")
+			return cacheConsumers{}, err
+		}
+		consumers.isvcs = isvcs.Items
+	}
+
+	if !llmInferenceServiceEnabled {
+		log.V(1).Info("LLMInferenceService CRD not installed; skipping LLMInferenceService consumer discovery", "name", params.Name, "namespace", params.Namespace)
+		return consumers, nil
+	}
+
+	llmSvcs := &v1alpha2.LLMInferenceServiceList{}
+	if params.IsNamespaceScoped {
+		if err := c.List(ctx, llmSvcs,
+			client.InNamespace(params.Namespace),
+			client.MatchingFields{LocalModelNamespaceKey: params.Name}); err != nil {
+			log.Error(err, "List llm inference service error")
+			return cacheConsumers{}, err
+		}
+	} else if err := c.List(ctx, llmSvcs, client.MatchingFields{LocalModelKey: params.Name}); err != nil {
+		log.Error(err, "List llm inference service error")
+		return cacheConsumers{}, err
+	}
+	consumers.llmSvcs = llmSvcs.Items
+	return consumers, nil
+}
+
+func setConsumerReferences(status *v1alpha1.LocalModelCacheStatus, consumers cacheConsumers) {
+	status.InferenceServices = nil
+	for i := range consumers.isvcs {
+		isvc := &consumers.isvcs[i]
+		status.InferenceServices = append(status.InferenceServices, v1alpha1.NamespacedName{
+			Name:      isvc.Name,
+			Namespace: isvc.Namespace,
+		})
+	}
+
+	status.LLMInferenceServices = nil
+	for i := range consumers.llmSvcs {
+		llmSvc := &consumers.llmSvcs[i]
+		status.LLMInferenceServices = append(status.LLMInferenceServices, v1alpha1.NamespacedName{
+			Name:      llmSvc.Name,
+			Namespace: llmSvc.Namespace,
+		})
+	}
+}
+
+func consumerNamespaces(status v1alpha1.LocalModelCacheStatus) map[string]bool {
+	namespaces := make(map[string]bool)
+	for _, isvc := range status.InferenceServices {
+		namespaces[isvc.Namespace] = true
+	}
+	for _, llmSvc := range status.LLMInferenceServices {
+		namespaces[llmSvc.Namespace] = true
+	}
+	return namespaces
+}
+
+// ReconcileForIsvcs reconciles PVs and PVCs for InferenceServices using this cached model.
+// Consumer discovery and status updates happen before this node-local-only fan-out.
+// Only one of localModelCache or localModelNamespaceCache should be non-nil.
+// Also cleans up unused serving PVs/PVCs when consumers are removed.
 func ReconcileForIsvcs(
 	ctx context.Context,
 	c client.Client,
@@ -469,30 +558,13 @@ func ReconcileForIsvcs(
 	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
 	localModelNodeGroups map[string]*v1alpha1.LocalModelNodeGroup,
 	defaultNodeGroup *v1alpha1.LocalModelNodeGroup,
-	llmInferenceServiceEnabled bool,
+	consumers cacheConsumers,
+	previousNamespaces map[string]bool,
 ) error {
 	params := ExtractLocalModelParams(localModelCache, localModelNamespaceCache)
 
-	isvcs := &v1beta1.InferenceServiceList{}
-
-	if params.IsNamespaceScoped {
-		if err := c.List(ctx, isvcs,
-			client.InNamespace(params.Namespace),
-			client.MatchingFields{LocalModelNamespaceKey: params.Name}); err != nil {
-			log.Error(err, "List isvc error")
-			return err
-		}
-	} else {
-		if err := c.List(ctx, isvcs, client.MatchingFields{LocalModelKey: params.Name}); err != nil {
-			log.Error(err, "List isvc error")
-			return err
-		}
-	}
-
-	isvcNames := []v1alpha1.NamespacedName{}
 	namespaceToNodeGroups := make(map[string]map[string]*v1alpha1.LocalModelNodeGroup)
-	for _, isvc := range isvcs.Items {
-		isvcNames = append(isvcNames, v1alpha1.NamespacedName{Name: isvc.Name, Namespace: isvc.Namespace})
+	for _, isvc := range consumers.isvcs {
 		if isvcNodeGroup, ok := isvc.Annotations[constants.NodeGroupAnnotationKey]; ok {
 			if nodeGroup, ok := localModelNodeGroups[isvcNodeGroup]; ok {
 				if _, ok := namespaceToNodeGroups[isvc.Namespace]; !ok {
@@ -511,77 +583,21 @@ func ReconcileForIsvcs(
 		}
 	}
 
-	llmSvcNames := []v1alpha1.NamespacedName{}
-	if llmInferenceServiceEnabled {
-		// List LLMInferenceServices using this cached model
-		llmSvcs := &v1alpha2.LLMInferenceServiceList{}
-		if params.IsNamespaceScoped {
-			if err := c.List(ctx, llmSvcs,
-				client.InNamespace(params.Namespace),
-				client.MatchingFields{LocalModelNamespaceKey: params.Name}); err != nil {
-				log.Error(err, "List llm inference service error")
-				return err
-			}
-		} else {
-			if err := c.List(ctx, llmSvcs, client.MatchingFields{LocalModelKey: params.Name}); err != nil {
-				log.Error(err, "List llm inference service error")
-				return err
-			}
-		}
-
-		for _, llmSvc := range llmSvcs.Items {
-			llmSvcNames = append(llmSvcNames, v1alpha1.NamespacedName{Name: llmSvc.Name, Namespace: llmSvc.Namespace})
-			if llmSvcNodeGroup, ok := llmSvc.Annotations[constants.NodeGroupAnnotationKey]; ok {
-				if nodeGroup, ok := localModelNodeGroups[llmSvcNodeGroup]; ok {
-					if _, ok := namespaceToNodeGroups[llmSvc.Namespace]; !ok {
-						namespaceToNodeGroups[llmSvc.Namespace] = map[string]*v1alpha1.LocalModelNodeGroup{}
-					}
-					namespaceToNodeGroups[llmSvc.Namespace][nodeGroup.Name] = nodeGroup
-				} else {
-					log.Info("Didn't find llmisvc node group in model cache node groups", "llmisvc name", llmSvc.Name, "llmisvc node group", llmSvcNodeGroup, "model cache node groups", slices.Collect(maps.Keys(localModelNodeGroups)))
+	for _, llmSvc := range consumers.llmSvcs {
+		if llmSvcNodeGroup, ok := llmSvc.Annotations[constants.NodeGroupAnnotationKey]; ok {
+			if nodeGroup, ok := localModelNodeGroups[llmSvcNodeGroup]; ok {
+				if _, ok := namespaceToNodeGroups[llmSvc.Namespace]; !ok {
+					namespaceToNodeGroups[llmSvc.Namespace] = map[string]*v1alpha1.LocalModelNodeGroup{}
 				}
-			} else if _, ok := namespaceToNodeGroups[llmSvc.Namespace]; !ok {
-				log.Info("LLMIsvc does not have node group annotation", "llmisvc name", llmSvc.Name, "nodegroup annotation", constants.NodeGroupAnnotationKey)
-				namespaceToNodeGroups[llmSvc.Namespace] = map[string]*v1alpha1.LocalModelNodeGroup{defaultNodeGroup.Name: defaultNodeGroup}
+				namespaceToNodeGroups[llmSvc.Namespace][nodeGroup.Name] = nodeGroup
 			} else {
-				namespaceToNodeGroups[llmSvc.Namespace][defaultNodeGroup.Name] = defaultNodeGroup
+				log.Info("Didn't find llmisvc node group in model cache node groups", "llmisvc name", llmSvc.Name, "llmisvc node group", llmSvcNodeGroup, "model cache node groups", slices.Collect(maps.Keys(localModelNodeGroups)))
 			}
-		}
-	} else {
-		log.V(1).Info("LLMInferenceService CRD not installed; skipping LLMInferenceService reconcile path", "name", params.Name, "namespace", params.Namespace)
-	}
-
-	// Get the previous list of namespaces from status to detect removed ISVCs/LLMIsvcs
-	var previousNamespaces map[string]bool
-	if localModelCache != nil {
-		previousNamespaces = make(map[string]bool)
-		for _, isvc := range localModelCache.Status.InferenceServices {
-			previousNamespaces[isvc.Namespace] = true
-		}
-		for _, llmSvc := range localModelCache.Status.LLMInferenceServices {
-			previousNamespaces[llmSvc.Namespace] = true
-		}
-	} else if localModelNamespaceCache != nil {
-		previousNamespaces = make(map[string]bool)
-		for _, isvc := range localModelNamespaceCache.Status.InferenceServices {
-			previousNamespaces[isvc.Namespace] = true
-		}
-		for _, llmSvc := range localModelNamespaceCache.Status.LLMInferenceServices {
-			previousNamespaces[llmSvc.Namespace] = true
-		}
-	}
-
-	if localModelCache != nil {
-		localModelCache.Status.InferenceServices = isvcNames
-		localModelCache.Status.LLMInferenceServices = llmSvcNames
-		if err := c.Status().Update(ctx, localModelCache); err != nil {
-			log.Error(err, "cannot update status", "name", params.Name)
-		}
-	} else if localModelNamespaceCache != nil {
-		localModelNamespaceCache.Status.InferenceServices = isvcNames
-		localModelNamespaceCache.Status.LLMInferenceServices = llmSvcNames
-		if err := c.Status().Update(ctx, localModelNamespaceCache); err != nil {
-			log.Error(err, "cannot update status", "name", params.Name)
+		} else if _, ok := namespaceToNodeGroups[llmSvc.Namespace]; !ok {
+			log.Info("LLMIsvc does not have node group annotation", "llmisvc name", llmSvc.Name, "nodegroup annotation", constants.NodeGroupAnnotationKey)
+			namespaceToNodeGroups[llmSvc.Namespace] = map[string]*v1alpha1.LocalModelNodeGroup{defaultNodeGroup.Name: defaultNodeGroup}
+		} else {
+			namespaceToNodeGroups[llmSvc.Namespace][defaultNodeGroup.Name] = defaultNodeGroup
 		}
 	}
 
@@ -694,6 +710,7 @@ func ReconcileLocalModelNode(
 	localModelCache *v1alpha1.LocalModelCache,
 	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
 	nodeGroups map[string]*v1alpha1.LocalModelNodeGroup,
+	consumers cacheConsumers,
 ) error {
 	params := ExtractLocalModelParams(localModelCache, localModelNamespaceCache)
 
@@ -709,7 +726,49 @@ func ReconcileLocalModelNode(
 		}
 		nodeStatus = localModelNamespaceCache.Status.NodeStatus
 	}
+	var status *v1alpha1.LocalModelCacheStatus
+	if localModelCache != nil {
+		status = &localModelCache.Status
+	} else if localModelNamespaceCache != nil {
+		status = &localModelNamespaceCache.Status
+	}
 
+	statusBefore := status.DeepCopy()
+	// Record consumers before the node fan-out so that a transient node-group error or an
+	// empty node-group set never leaves the consumer list stale. ValidateDelete relies on
+	// Status.InferenceServices/LLMInferenceServices to block deletion of an in-use cache.
+	setConsumerReferences(status, consumers)
+
+	reconcileErr := reconcileNodeGroupStatus(ctx, c, log, localModelCache, localModelNamespaceCache, nodeGroups, nodeStatus, status)
+
+	if !reflect.DeepEqual(statusBefore, status) {
+		if localModelCache != nil {
+			if err := c.Status().Update(ctx, localModelCache); err != nil {
+				log.Error(err, "cannot update model status from node", "name", params.Name)
+			}
+		} else if localModelNamespaceCache != nil {
+			if err := c.Status().Update(ctx, localModelNamespaceCache); err != nil {
+				log.Error(err, "cannot update model status from node", "name", params.Name, "namespace", params.Namespace)
+			}
+		}
+	}
+	return reconcileErr
+}
+
+// reconcileNodeGroupStatus fans the model out to the LocalModelNode of every ready node in the
+// node groups and folds the per-node download state into nodeStatus and status.ModelCopies.
+// It mutates status in place and never writes it; the caller persists the result once, even
+// when this returns an error, so partial progress and consumer references are not lost.
+func reconcileNodeGroupStatus(
+	ctx context.Context,
+	c client.Client,
+	log logr.Logger,
+	localModelCache *v1alpha1.LocalModelCache,
+	localModelNamespaceCache *v1alpha1.LocalModelNamespaceCache,
+	nodeGroups map[string]*v1alpha1.LocalModelNodeGroup,
+	nodeStatus map[string]v1alpha1.NodeStatus,
+	status *v1alpha1.LocalModelCacheStatus,
+) error {
 	for nodeGroupName, nodeGroup := range nodeGroups {
 		modelInfo := CreateLocalModelInfo(localModelCache, localModelNamespaceCache, nodeGroupName)
 		statusKey := modelInfo.GetStatusKey()
@@ -769,18 +828,7 @@ func ReconcileLocalModelNode(
 			}
 		}
 
-		modelCopies := &v1alpha1.ModelCopies{Total: len(nodeStatus), Available: successfulNodes, Failed: failedNodes}
-		if localModelCache != nil {
-			localModelCache.Status.ModelCopies = modelCopies
-			if err := c.Status().Update(ctx, localModelCache); err != nil {
-				log.Error(err, "cannot update model status from node", "name", params.Name)
-			}
-		} else if localModelNamespaceCache != nil {
-			localModelNamespaceCache.Status.ModelCopies = modelCopies
-			if err := c.Status().Update(ctx, localModelNamespaceCache); err != nil {
-				log.Error(err, "cannot update model status from node", "name", params.Name, "namespace", params.Namespace)
-			}
-		}
+		status.ModelCopies = &v1alpha1.ModelCopies{Total: len(nodeStatus), Available: successfulNodes, Failed: failedNodes}
 	}
 	return nil
 }

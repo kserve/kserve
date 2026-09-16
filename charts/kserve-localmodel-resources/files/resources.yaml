@@ -38,6 +38,8 @@ rules:
   - ""
   resources:
   - nodes
+  - secrets
+  - serviceaccounts
   verbs:
   - get
   - list
@@ -63,8 +65,27 @@ rules:
   - update
   - watch
 - apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs/status
+  verbs:
+  - get
+- apiGroups:
   - serving.kserve.io
   resources:
+  - clusterstoragecontainers
   - inferenceservices
   - llminferenceservices
   - localmodelnodegroups

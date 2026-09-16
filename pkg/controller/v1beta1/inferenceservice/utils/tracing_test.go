@@ -88,11 +88,45 @@ func TestInjectPredictorTracing(t *testing.T) {
 			},
 		},
 		{
-			name:       "non-vLLM predictor gets env vars only",
+			name:       "Triton predictor injects --trace-config CLI args",
 			spec:       fullTracingSpec(),
 			namespace:  "ns",
 			isvcName:   "triton-isvc",
-			serverType: "triton",
+			serverType: constants.ServerTypeTritonServer,
+			container:  &corev1.Container{Name: "main"},
+			wantMut:    true,
+			check: func(g *GomegaWithT, c *corev1.Container) {
+				g.Expect(c.Args).To(ContainElements("--trace-config", "mode=opentelemetry"))
+				g.Expect(c.Args).To(ContainElement("opentelemetry,url=http://collector:4317"))
+				g.Expect(c.Args).To(ContainElement("opentelemetry,resource=service.name=triton-isvc-predictor"))
+				g.Expect(c.Args).To(ContainElement("level=TIMESTAMPS"))
+				envMap := envToMap(c.Env)
+				g.Expect(envMap).To(HaveKey(tracing.EnvOtelServiceName))
+			},
+		},
+		{
+			name:       "Triton predictor with existing --trace-config is not modified",
+			spec:       fullTracingSpec(),
+			namespace:  "ns",
+			isvcName:   "triton-isvc",
+			serverType: constants.ServerTypeTritonServer,
+			container: &corev1.Container{
+				Name: "main",
+				Args: []string{"--trace-config", "mode=opentelemetry", "--trace-config", "opentelemetry,url=http://custom:4317"},
+			},
+			wantMut: true,
+			check: func(g *GomegaWithT, c *corev1.Container) {
+				g.Expect(c.Args).To(HaveLen(4))
+				g.Expect(c.Args).To(ContainElement("opentelemetry,url=http://custom:4317"))
+				g.Expect(c.Args).NotTo(ContainElement("opentelemetry,url=http://collector:4317"))
+			},
+		},
+		{
+			name:       "unknown server type gets env vars only",
+			spec:       fullTracingSpec(),
+			namespace:  "ns",
+			isvcName:   "custom-isvc",
+			serverType: "custom-runtime",
 			container:  &corev1.Container{Name: "main"},
 			wantMut:    true,
 			check: func(g *GomegaWithT, c *corev1.Container) {

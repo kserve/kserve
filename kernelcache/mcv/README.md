@@ -22,7 +22,7 @@ A Model/GPU kernel cache container packaging utility inspired by
 
 - Cache artifact signing with Cosign
 - Container image signing support with Cosign
-- **Single-layer images**: MCV uses a multi-stage `FROM scratch` build to squash cache content into a single rootfs layer, compatible with cosign signing and verification. Works with Docker (BuildKit) and Buildah without experimental features
+- **Single-layer images**: MCV produces one squashed compat layer with Docker Schema 2 media types (Docker builder) or OCI layer types (Buildah), compatible with cosign signing, `docker save`, and kind image load
 
 ## Build Instructions
 
@@ -79,6 +79,45 @@ Flags:
       --version              Display the version of the application
   -h, --help                 help for mcv
 ```
+
+### No-GPU Mode
+
+MCV supports creating and extracting cache images **without GPU hardware** using the `--no-gpu` flag. This is useful for CI/CD pipelines, development environments, and containerized workflows where GPU access isn't available.
+
+**Quick Start:**
+
+```bash
+# Create cache image without GPU
+mcv --create --image quay.io/myorg/cache:v1 --dir /path/to/cache --no-gpu
+
+# Extract cache without GPU validation
+mcv --extract --image quay.io/myorg/cache:v1 --dir /path/to/cache --no-gpu
+```
+
+**Container Images:**
+
+Two image variants are available:
+
+1. **Unified** (~533MB) - NVIDIA + AMD GPU support, auto-detects GPU vendor at runtime
+   ```bash
+   make build-image-mcv
+   # or directly:
+   podman build --target mcv-unified -t quay.io/gkm/mcv:unified -f mcv/images/amd64.dockerfile .
+   ```
+
+2. **No-GPU** (~176MB) - For `--no-gpu` workflows, arm64/mac; no CUDA/ROCm libraries
+   ```bash
+   make build-image-mcv-no-gpu
+   # or directly:
+   podman build --target mcv-minimal -t quay.io/gkm/mcv:no-gpu -f mcv/images/amd64.dockerfile .
+   ```
+
+**How it works:** With `--no-gpu`, MCV extracts GPU information (backend, architecture, warp size) from cache metadata rather than detecting actual hardware. The cache files created by vLLM/Triton already contain all necessary GPU information in environment variables.
+
+**GPU access flags** (e.g., `--gpus all` for NVIDIA, `--device /dev/kfd --device /dev/dri` for AMD) are **ONLY** required for GPU validation/preflight checks. They are **NOT** needed when using `--no-gpu` for cache creation or extraction.
+
+For detailed usage examples, container configuration, GPU access requirements, and CI/CD integration, see [docs/no-gpu-usage.md](./docs/no-gpu-usage.md).
+
 
 ## Dependencies
 
@@ -353,7 +392,7 @@ go install github.com/sigstore/cosign/v2/cmd/cosign@latest
 2. Sign an image
 
 ```bash
-cosign sign -y quay.io/tkm/vector-add-cache@sha256:<digest>
+cosign sign -y quay.io/gkm/vector-add-cache@sha256:<digest>
 ⏎
 Generating ephemeral keys...
 Retrieving signed certificate...
@@ -526,11 +565,14 @@ driver for rootless buildah operation.
 
 ## Using MCV image to build cache images
 
-MCV provides container images that can be used to wrap a vLLM/Triton cache
-in an OCI container image that can then be pushed to a container registry
-(without having to install mcv locally). Use the **minimal** variant for
-cache creation (`--create`, `--no-gpu`) and a GPU-specific variant for
-extraction with preflight checks. These images can also be used as part of a
+// TODO - Update with the KServe ones once available.
+
+MCV provides container images at `quay.io/gkm/mcv`. The default (`quay.io/gkm/mcv:latest`)
+is the no-gpu variant (~176MB), which can be used to wrap a vLLM/Triton cache in an OCI
+container image that can then be pushed to a container registry (without having to install
++mcv locally). For GPU validation, use `quay.io/gkm/mcv:unified` (auto-detects NVIDIA or AMD).
+
+These images can also be used as part of a
 [github workflow](../../.github/workflows/mcv-build-test.yml).
 
 ### MCV container image with docker

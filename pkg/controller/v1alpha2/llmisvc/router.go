@@ -45,6 +45,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -57,9 +58,17 @@ const AnnotationInferencePoolMigrated = "serving.kserve.io/inference-pool-migrat
 
 const AnnotationModelBasedRoutingEnabled = "serving.kserve.io/model-based-routing-enabled"
 
-// ErrPreconditionNotMet is a sentinel error returned by ensureGatewayPreconditions
-// when a non-transient precondition is not met (e.g. a required CRD is missing).
-// The caller should mark status but not propagate the error to avoid infinite requeue.
+// AnnotationLoRAModelRoutingStrategy pins the LoRA routing strategy for one
+// service, overriding the cluster-wide loraModelRoutingStrategy. Read from
+// spec.annotations like AnnotationModelBasedRoutingEnabled, so a preset can
+// carry it; absent or empty means the ConfigMap value applies.
+const AnnotationLoRAModelRoutingStrategy = constants.LoRAModelRoutingStrategyAnnotationKey
+
+// ErrPreconditionNotMet indicates a non-transient routing precondition failure
+// (e.g. a required CRD is missing or the routing strategy cannot be applied).
+// The caller should mark status and then return either nil or a
+// reconcile.TerminalError - never a plain error, which would requeue with
+// backoff against inputs that only a spec or ConfigMap change can fix.
 var ErrPreconditionNotMet = errors.New("precondition not met")
 
 // reconcileRouter handles the networking and routing components for the LLM service
@@ -101,6 +110,14 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	// as refs are attached to reconciled routes
 	resolvedGWs, err := r.reconcileHTTPRoutes(ctx, llmSvc, cfg)
 	if err != nil {
+		if errors.Is(err, ErrPreconditionNotMet) {
+			// The strategy the ConfigMap names cannot be applied to this spec.
+			// Retrying re-renders the same inputs, so stop until one of them changes:
+			// the spec and ConfigMap watches re-enqueue the service, and the terminal
+			// error still surfaces through the reconcile log and event.
+			llmSvc.MarkHTTPRoutesNotReady("RoutingPreconditionNotMet", "%s", err.Error())
+			return reconcile.TerminalError(fmt.Errorf("failed to reconcile HTTP routes: %w", err))
+		}
 		llmSvc.MarkHTTPRoutesNotReady("HTTPRouteReconcileError", "Failed to reconcile HTTPRoute: %v", err.Error())
 		return fmt.Errorf("failed to reconcile HTTP routes: %w", err)
 	}
@@ -131,7 +148,7 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 	logger := log.FromContext(ctx)
 	logger.Info("Reconciling HTTPRoute")
 
-	expectedHTTPRoute := r.expectedHTTPRoute(ctx, llmSvc, cfg)
+	expectedHTTPRoute, renderErr := r.expectedHTTPRoute(ctx, llmSvc, cfg)
 
 	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
 		llmSvc.MarkGroupReadyUnset()
@@ -143,6 +160,13 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 		}
 		r.EvaluateHTTPRouteConditions(ctx, llmSvc, nil)
 		return nil, nil
+	}
+
+	// Checked only after the stop path above, which needs just the route's
+	// identity: a strategy failure must not block teardown, and nothing below
+	// may run against an incomplete spec.
+	if renderErr != nil {
+		return nil, fmt.Errorf("failed to render HTTPRoute: %w", renderErr)
 	}
 
 	// Inject group members' backendRefs for traffic splitting.
@@ -241,8 +265,12 @@ func (r *LLMISVCReconciler) collectReferencedRoutes(ctx context.Context, llmSvc 
 }
 
 // expectedHTTPRoute creates the HTTPRoute specification for this service
-// This route is created when the service specifies inline routing configuration
-func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, cfg *Config) *gwapiv1.HTTPRoute {
+// This route is created when the service specifies inline routing configuration.
+// The returned route is always non-nil so callers that only need its identity
+// (e.g. deletion) can use it even when the model-routing transform fails; on a
+// non-nil error the returned route's spec is incomplete and must not be
+// written to the cluster.
+func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, cfg *Config) (*gwapiv1.HTTPRoute, error) {
 	httpRoute := &gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-route"),
@@ -258,13 +286,8 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 		httpRoute.Spec = *llmSvc.Spec.Router.Route.HTTP.Spec.DeepCopy()
 
 		if r.isModelBasedRoutingEnabled(ctx, llmSvc, cfg) {
-			if llmSvc.Spec.Model.LoRA != nil {
-				expandLoRAAdapterMatches(
-					httpRoute.Spec.Rules,
-					llmSvc.Namespace,
-					llmSvc.Spec.Model.LoRA.Adapters,
-					cfg.ModelBasedRoutingHeaderName,
-				)
+			if err := applyLoRAModelRouting(httpRoute.Spec.Rules, llmSvc, cfg); err != nil {
+				return httpRoute, err
 			}
 		} else {
 			httpRoute.Spec.Rules = stripModelBasedRoutingRules(
@@ -278,7 +301,7 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 	// Only applies to managed routes with a scheduler (not using external pool refs)
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil ||
 		llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
-		return httpRoute
+		return httpRoute, nil
 	}
 
 	logger := log.FromContext(ctx).WithValues("migration", "InferencePool")
@@ -344,7 +367,7 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 		)
 	}
 
-	return httpRoute
+	return httpRoute, nil
 }
 
 func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, routes ...*gwapiv1.HTTPRoute) ([]ResolvedGateway, error) {

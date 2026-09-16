@@ -85,7 +85,7 @@ mcv -c -i quay.io/example/triton-kernel -d /path/to/.triton/cache
 
 - Copies kernel cache into build context
 - Writes manifest.json with entry metadata
-- Builds Docker or OCI image using Docker or Buildah
+- Builds a single-layer compat image using the Docker or Buildah builder
 - Labels image with summary + entry count
 
 ### Extracting and Validating
