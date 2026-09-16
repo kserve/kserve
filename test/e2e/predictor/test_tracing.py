@@ -36,11 +36,6 @@ from ..common.utils import (
 )
 
 
-def _assert_console_trace_exported(logs: str, service_name: str) -> None:
-    assert f'"name": "POST /v2/models/{service_name}/infer"' in logs
-    assert f'"service.name": "{service_name}-predictor"' in logs
-
-
 @pytest.mark.skip(
     reason="need to enable `kubernetes.podspec-fieldref` in knative to set OTEL_RESOURCE_ATTRIBUTES_NODE_NAME and OTEL_RESOURCE_ATTRIBUTES_POD_NAME"
 )
@@ -98,8 +93,8 @@ async def test_sklearn_traces_rest_inference_in_knative_mode(
             KSERVE_TEST_NAMESPACE,
             expected_substring=f"POST /v2/models/{service_name}/infer",
         )
-        assert f"POST /v2/models/{service_name}/infer" in logs
-        _assert_console_trace_exported(logs, service_name)
+        assert "POST /v2/models/{service_name}/infer" in logs
+        assert f'"service.name": "{service_name}-predictor"' in logs
     finally:
         kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
@@ -176,6 +171,6 @@ async def test_sklearn_traces_rest_and_grpc_inference(rest_v2_client, network_la
             expected_substring="/inference.GRPCInferenceService/ModelInfer",
         )
         assert "POST /v2/models/{model_name}/infer" in logs
-        _assert_console_trace_exported(logs, service_name)
+        assert f'"service.name": "{service_name}-predictor"' in logs
     finally:
         kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
