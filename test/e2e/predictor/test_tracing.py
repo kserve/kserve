@@ -41,6 +41,9 @@ def _assert_console_trace_exported(logs: str, service_name: str) -> None:
     assert f'"service.name": "{service_name}-predictor"' in logs
 
 
+@pytest.mark.skip(
+    reason="need to enable `kubernetes.podspec-fieldref` in knative to set OTEL_RESOURCE_ATTRIBUTES_NODE_NAME and OTEL_RESOURCE_ATTRIBUTES_POD_NAME"
+)
 @pytest.mark.predictor
 @pytest.mark.tracing
 @pytest.mark.asyncio(scope="session")

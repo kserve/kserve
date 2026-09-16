@@ -28,11 +28,10 @@
 import asyncio
 import json
 import os
+from urllib.parse import quote
 
+import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
 import pytest
-from kubernetes import client
-from kubernetes.client import V1ContainerPort, V1ResourceRequirements
-
 from kserve import (
     KServeClient,
     V1beta1InferenceService,
@@ -43,14 +42,14 @@ from kserve import (
     V1beta1SKLearnSpec,
     constants,
 )
-
-import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
+from kubernetes import client
+from kubernetes.client import V1ContainerPort, V1ResourceRequirements
 
 from ..common.utils import (
     KSERVE_TEST_NAMESPACE,
-    predict_isvc,
-    predict_grpc,
     get_container_worker_count,
+    predict_grpc,
+    predict_isvc,
     wait_for_pod_logs,
 )
 
@@ -103,7 +102,7 @@ async def test_sklearn_kserve(rest_v1_client, network_layer):
         KSERVE_TEST_NAMESPACE,
         expected_substring=f"POST /v1/models/{service_name}:predict",
     )
-    assert f"POST /v1/models/{service_name}:predict" in logs
+    assert quote(f"POST /v1/models/{service_name}:predict") in logs
     assert '"telemetry.sdk.name": "opentelemetry"' not in logs
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
