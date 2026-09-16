@@ -50,15 +50,9 @@ HELM_REPOS = {
 
 
 def run(cmd):
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-    if result.returncode != 0:
-        err = (result.stderr or result.stdout or "").strip()
-        if err:
-            print(err, file=sys.stderr)
-        raise subprocess.CalledProcessError(
-            result.returncode, cmd, output=result.stdout, stderr=result.stderr
-        )
-    return result.stdout
+    return subprocess.run(
+        cmd, shell=True, capture_output=True, text=True, check=True
+    ).stdout
 
 
 def extract_all_versions_from_gomod(go_mod_path, packages):
