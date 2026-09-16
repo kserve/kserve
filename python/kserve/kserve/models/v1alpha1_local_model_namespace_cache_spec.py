@@ -98,7 +98,7 @@ class V1alpha1LocalModelNamespaceCacheSpec(object):
     def image_pull_secrets(self):
         """Gets the image_pull_secrets of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
 
-        ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job namespace used to authenticate OCI (oci://) imports. Only the first secret is projected into the download container; merge multiple registries into one secret.  # noqa: E501
+        ImagePullSecrets are kubernetes.io/dockerconfigjson secrets used to authenticate OCI (oci://) imports. For nodeGroups caches they must exist in the download job namespace (localModel.jobNamespace); for pvcRef caches they must exist in this cache's namespace, where the import Job runs. Only the first secret is projected into the download container; merge multiple registries into one secret.  # noqa: E501
 
         :return: The image_pull_secrets of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
         :rtype: list[V1LocalObjectReference]
@@ -109,7 +109,7 @@ class V1alpha1LocalModelNamespaceCacheSpec(object):
     def image_pull_secrets(self, image_pull_secrets):
         """Sets the image_pull_secrets of this V1alpha1LocalModelNamespaceCacheSpec.
 
-        ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job namespace used to authenticate OCI (oci://) imports. Only the first secret is projected into the download container; merge multiple registries into one secret.  # noqa: E501
+        ImagePullSecrets are kubernetes.io/dockerconfigjson secrets used to authenticate OCI (oci://) imports. For nodeGroups caches they must exist in the download job namespace (localModel.jobNamespace); for pvcRef caches they must exist in this cache's namespace, where the import Job runs. Only the first secret is projected into the download container; merge multiple registries into one secret.  # noqa: E501
 
         :param image_pull_secrets: The image_pull_secrets of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
         :type: list[V1LocalObjectReference]
@@ -190,7 +190,7 @@ class V1alpha1LocalModelNamespaceCacheSpec(object):
     def service_account_name(self):
         """Gets the service_account_name of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
 
-        ServiceAccountName specifies the service account to use for credential lookup. The service account must exist in the download job namespace (localModel.jobNamespace).  # noqa: E501
+        ServiceAccountName specifies the service account to use for credential lookup. For nodeGroups caches it must exist in the download job namespace (localModel.jobNamespace); for pvcRef caches it must exist in this cache's namespace, where the import Job runs.  # noqa: E501
 
         :return: The service_account_name of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
         :rtype: str
@@ -201,7 +201,7 @@ class V1alpha1LocalModelNamespaceCacheSpec(object):
     def service_account_name(self, service_account_name):
         """Sets the service_account_name of this V1alpha1LocalModelNamespaceCacheSpec.
 
-        ServiceAccountName specifies the service account to use for credential lookup. The service account must exist in the download job namespace (localModel.jobNamespace).  # noqa: E501
+        ServiceAccountName specifies the service account to use for credential lookup. For nodeGroups caches it must exist in the download job namespace (localModel.jobNamespace); for pvcRef caches it must exist in this cache's namespace, where the import Job runs.  # noqa: E501
 
         :param service_account_name: The service_account_name of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
         :type: str

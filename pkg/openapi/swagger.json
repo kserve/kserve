@@ -691,7 +691,7 @@
       ],
       "properties": {
         "imagePullSecrets": {
-          "description": "ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job namespace used to authenticate OCI (oci://) imports. Only the first secret is projected into the download container; merge multiple registries into one secret.",
+          "description": "ImagePullSecrets are kubernetes.io/dockerconfigjson secrets used to authenticate OCI (oci://) imports. For nodeGroups caches they must exist in the download job namespace (localModel.jobNamespace); for pvcRef caches they must exist in this cache's namespace, where the import Job runs. Only the first secret is projected into the download container; merge multiple registries into one secret.",
           "type": "array",
           "items": {
             "default": {},
@@ -719,7 +719,7 @@
           "type": "string"
         },
         "serviceAccountName": {
-          "description": "ServiceAccountName specifies the service account to use for credential lookup. The service account must exist in the download job namespace (localModel.jobNamespace).",
+          "description": "ServiceAccountName specifies the service account to use for credential lookup. For nodeGroups caches it must exist in the download job namespace (localModel.jobNamespace); for pvcRef caches it must exist in this cache's namespace, where the import Job runs.",
           "type": "string"
         },
         "sourceModelUri": {

@@ -1177,15 +1177,15 @@ func (in *LocalModelNamespaceCacheSpec) DeepCopyInto(out *LocalModelNamespaceCac
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.ImagePullSecrets != nil {
-		in, out := &in.ImagePullSecrets, &out.ImagePullSecrets
-		*out = make([]v1.LocalObjectReference, len(*in))
-		copy(*out, *in)
-	}
 	if in.PVCRef != nil {
 		in, out := &in.PVCRef, &out.PVCRef
 		*out = new(string)
 		**out = **in
+	}
+	if in.ImagePullSecrets != nil {
+		in, out := &in.ImagePullSecrets, &out.ImagePullSecrets
+		*out = make([]v1.LocalObjectReference, len(*in))
+		copy(*out, *in)
 	}
 	if in.Storage != nil {
 		in, out := &in.Storage, &out.Storage

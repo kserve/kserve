@@ -21,7 +21,13 @@ Now you can specify credentials directly in the `LocalModelCache` CRD using the 
 - `storage.parameters`: Inline parameters for storage configuration
 - `imagePullSecrets`: `kubernetes.io/dockerconfigjson` secrets for `oci://` imports (projected as `config.json` + `KSERVE_OCI_DOCKER_CONFIG`; first secret only)
 
-Secrets and service accounts must exist in the download job namespace (`localModel.jobNamespace`, default `kserve-localmodel-jobs`). They are **not** copied from the user namespace.
+Secrets and service accounts must exist in the same namespace as the download Job. They are **not** copied from the user namespace.
+
+| Cache type | Import Job namespace | Where `serviceAccountName` / `storage` / `imagePullSecrets` must exist |
+|---|---|---|
+| `LocalModelCache` (cluster-scoped) | `localModel.jobNamespace` | job namespace |
+| `LocalModelNamespaceCache` with `nodeGroups` | `localModel.jobNamespace` | job namespace |
+| `LocalModelNamespaceCache` with `pvcRef` | the cache's namespace | cache namespace |
 
 ## Credential Specification Methods
 
@@ -100,7 +106,7 @@ stringData:
 
 ### Method 3: ImagePullSecrets (OCI / private registry)
 
-Use a dockerconfigjson secret in the job namespace. Do **not** put registry credentials on `serviceAccountName` — that path has no OCI/oras branch.
+Use a dockerconfigjson secret in the Job namespace (see the table above). Do **not** put registry credentials on `serviceAccountName` — that path has no OCI/oras branch.
 
 ```yaml
 apiVersion: v1
@@ -121,6 +127,31 @@ spec:
   modelSize: 5Gi
   nodeGroups:
     - workers
+  imagePullSecrets:
+    - name: reg-cred
+```
+
+For a `pvcRef` cache, the Secret and the `LocalModelNamespaceCache` both live in the user namespace:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: reg-cred
+  namespace: my-team          # same namespace as the cache and the PVC
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: <base64>
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: LocalModelNamespaceCache
+metadata:
+  name: llm
+  namespace: my-team
+spec:
+  sourceModelUri: oci://registry.example.com/models/llm:v1
+  modelSize: 10Gi
+  pvcRef: models-rwx
   imagePullSecrets:
     - name: reg-cred
 ```
@@ -178,6 +209,7 @@ storageInitializer: |-
 | `nodeGroups` | []string | Required. Node groups to cache the model on |
 | `serviceAccountName` | string | Optional. Service account for credential lookup |
 | `storage` | LocalModelStorageSpec | Optional. Storage configuration for credentials |
+| `imagePullSecrets` | []LocalObjectReference | Optional. dockerconfigjson secrets for `oci://` imports (first secret only; same namespace as the download Job) |
 
 ### LocalModelStorageSpec
 

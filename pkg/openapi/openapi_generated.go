@@ -1387,7 +1387,7 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelNamespaceCacheSpec(ref common.Re
 					},
 					"serviceAccountName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ServiceAccountName specifies the service account to use for credential lookup. The service account must exist in the download job namespace (localModel.jobNamespace).",
+							Description: "ServiceAccountName specifies the service account to use for credential lookup. For nodeGroups caches it must exist in the download job namespace (localModel.jobNamespace); for pvcRef caches it must exist in this cache's namespace, where the import Job runs.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -1402,7 +1402,7 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelNamespaceCacheSpec(ref common.Re
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job namespace used to authenticate OCI (oci://) imports. Only the first secret is projected into the download container; merge multiple registries into one secret.",
+							Description: "ImagePullSecrets are kubernetes.io/dockerconfigjson secrets used to authenticate OCI (oci://) imports. For nodeGroups caches they must exist in the download job namespace (localModel.jobNamespace); for pvcRef caches they must exist in this cache's namespace, where the import Job runs. Only the first secret is projected into the download container; merge multiple registries into one secret.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

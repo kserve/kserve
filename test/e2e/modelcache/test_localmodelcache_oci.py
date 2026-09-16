@@ -83,20 +83,14 @@ def _node_exec(node: str, command: str) -> subprocess.CompletedProcess:
     )
     if kind.returncode == 0:
         return kind
-    if "No such container" not in (kind.stderr or ""):
-        # Kind node exists but command failed (e.g. missing crictl) — still return it.
-        if "No such container" not in (kind.stderr or "") and os.path.exists(
-            "/var/run/docker.sock"
-        ):
-            # Prefer docker exec output when the node container exists.
-            inspect = subprocess.run(
-                ["docker", "inspect", node],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if inspect.returncode == 0:
-                return kind
+    inspect = subprocess.run(
+        ["docker", "inspect", node],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if inspect.returncode == 0:
+        return kind
     return subprocess.run(
         ["minikube", "ssh", "-n", node, "--", command],
         capture_output=True,

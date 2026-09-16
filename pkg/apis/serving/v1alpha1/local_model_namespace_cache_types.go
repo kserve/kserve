@@ -53,12 +53,16 @@ type LocalModelNamespaceCacheSpec struct {
 	// +optional
 	PVCRef *string `json:"pvcRef,omitempty"`
 	// ServiceAccountName specifies the service account to use for credential lookup.
-	// The service account must exist in the download job namespace (localModel.jobNamespace).
+	// For nodeGroups caches it must exist in the download job namespace
+	// (localModel.jobNamespace); for pvcRef caches it must exist in this cache's namespace,
+	// where the import Job runs.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
-	// ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job
-	// namespace used to authenticate OCI (oci://) imports. Only the first secret is
-	// projected into the download container; merge multiple registries into one secret.
+	// ImagePullSecrets are kubernetes.io/dockerconfigjson secrets used to authenticate OCI
+	// (oci://) imports. For nodeGroups caches they must exist in the download job namespace
+	// (localModel.jobNamespace); for pvcRef caches they must exist in this cache's namespace,
+	// where the import Job runs. Only the first secret is projected into the download
+	// container; merge multiple registries into one secret.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
