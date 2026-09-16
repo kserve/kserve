@@ -12534,12 +12534,15 @@ spec:
                                       - currentReplicas
                                       - currentReplicasIfHigher
                                       - currentReplicasIfLower
+                                      - scalingModifiers
                                       type: string
                                     failureThreshold:
                                       format: int32
+                                      minimum: 0
                                       type: integer
                                     replicas:
                                       format: int32
+                                      minimum: 0
                                       type: integer
                                   required:
                                   - failureThreshold
@@ -30105,12 +30108,15 @@ spec:
                                 - currentReplicas
                                 - currentReplicasIfHigher
                                 - currentReplicasIfLower
+                                - scalingModifiers
                                 type: string
                               failureThreshold:
                                 format: int32
+                                minimum: 0
                                 type: integer
                               replicas:
                                 format: int32
+                                minimum: 0
                                 type: integer
                             required:
                             - failureThreshold
@@ -33721,12 +33727,15 @@ spec:
                                 - currentReplicas
                                 - currentReplicasIfHigher
                                 - currentReplicasIfLower
+                                - scalingModifiers
                                 type: string
                               failureThreshold:
                                 format: int32
+                                minimum: 0
                                 type: integer
                               replicas:
                                 format: int32
+                                minimum: 0
                                 type: integer
                             required:
                             - failureThreshold
@@ -49666,12 +49675,15 @@ spec:
                                 - currentReplicas
                                 - currentReplicasIfHigher
                                 - currentReplicasIfLower
+                                - scalingModifiers
                                 type: string
                               failureThreshold:
                                 format: int32
+                                minimum: 0
                                 type: integer
                               replicas:
                                 format: int32
+                                minimum: 0
                                 type: integer
                             required:
                             - failureThreshold
