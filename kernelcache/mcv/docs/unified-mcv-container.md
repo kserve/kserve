@@ -38,9 +38,9 @@ The unified container includes runtime libraries for both GPU vendors:
 
 **Runtime Detection:**
 ```text
-On NVIDIA node: nvmlCheck() → ✓ uses NVML
+On NVIDIA node: nvmlCheck()  → ✓ uses NVML
 On AMD node:    rocmCheck()  → ✓ uses rocm-smi
-On CPU node:    both fail    → ✓ uses --no-gpu mode
+On CPU node:    both fail    → requires explicit --no-gpu flag
 ```
 
 ## Container Variants Comparison

@@ -19,7 +19,7 @@ package main
 import (
 	"testing"
 
-	"github.com/redhat-et/GKM/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
 )
 
 const (
@@ -97,6 +97,9 @@ func TestConfigureBoolFlagsNoGPU(t *testing.T) {
 	if _, err := config.Initialize(t.TempDir()); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
+
+	origGPU := config.IsGPUEnabled()
+	t.Cleanup(func() { config.SetEnabledGPU(origGPU) })
 
 	configureBoolFlags(false, true, false)
 	if config.IsGPUEnabled() {
