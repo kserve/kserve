@@ -93,6 +93,15 @@ func InjectPredictorTracing(t *v1beta1.TracingSpec, namespace, isvcName, variant
 		if !tracing.HasArg(container.Args, "--collect-detailed-traces") {
 			container.Args = append(container.Args, "--collect-detailed-traces", "all")
 		}
+	case constants.ServerTypeTritonServer:
+		if !tracing.HasArg(container.Args, "--trace-config") {
+			container.Args = append(container.Args,
+				"--trace-config", "mode=opentelemetry",
+				"--trace-config", "opentelemetry,url="+endpoint,
+				"--trace-config", "opentelemetry,resource=service.name="+isvcName+"-predictor",
+				"--trace-config", "level=TIMESTAMPS",
+			)
+		}
 	case constants.ServerTypeMLServer:
 		tracingEnvVars = append(tracingEnvVars,
 			corev1.EnvVar{Name: tracing.EnvMLServerTracingServer, Value: endpoint},
