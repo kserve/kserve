@@ -29,6 +29,7 @@ import (
 
 	"github.com/onsi/gomega"
 	pkglogging "knative.dev/pkg/logging"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
@@ -273,6 +274,95 @@ func TestBadResponse(t *testing.T) {
 	oh.ServeHTTP(w, r)
 	g.Expect(w.Code).To(gomega.Equal(400))
 	g.Expect(w.Body.String()).To(gomega.Equal(predictorResponse))
+}
+
+// TestLoggingResponseWriterWriteWithNilBuffer covers the actual
+// behavior-changing half of the fix: loggingResponseWriter.Write must
+// tolerate a nil responseBuffer (set by ServeHTTP when logMode ==
+// LogRequest, since the response will never be logged) instead of
+// unconditionally calling Write on it. Without the fix this panics with a
+// nil pointer dereference.
+func TestLoggingResponseWriterWriteWithNilBuffer(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	rr := httptest.NewRecorder()
+	lrw := &loggingResponseWriter{ResponseWriter: rr, responseBuffer: nil, log: logf.Log.WithName("test")}
+
+	n, err := lrw.Write([]byte("hello"))
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	g.Expect(n).To(gomega.Equal(5))
+	g.Expect(rr.Body.String()).To(gomega.Equal("hello"))
+}
+
+// TestLoggerRequestOnlyDoesNotCaptureResponseBody covers the fix in
+// ServeHTTP that skips buffering the response body entirely when
+// logMode == LogRequest, since in that mode the response is never logged.
+// It asserts both that: (1) no response LogRequest ever reaches the log
+// service, and (2) the actual client still receives the full, unmodified
+// response body -- i.e. skipping the capture doesn't affect the proxied
+// response.
+func TestLoggerRequestOnlyDoesNotCaptureResponseBody(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
+	predictorResponse := []byte(`{"instances":[[4,5,6]]}`)
+
+	// Every CloudEvent type the log sink receives is pushed here, so the
+	// test can assert precisely which -- and how many -- events arrived,
+	// rather than relying on a timing-based "nothing else showed up" guess.
+	receivedTypes := make(chan string, 2)
+	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		b, err := io.ReadAll(req.Body)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(b).To(gomega.Equal(predictorRequest))
+		receivedTypes <- req.Header.Get("Ce-Type")
+		_, err = rw.Write([]byte(`ok`))
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	}))
+	defer logSvc.Close()
+
+	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		b, err := io.ReadAll(req.Body)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		g.Expect(b).To(gomega.Equal(predictorRequest))
+		_, err = rw.Write(predictorResponse)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	}))
+	defer predictor.Close()
+
+	reader := bytes.NewReader(predictorRequest)
+	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
+	w := httptest.NewRecorder()
+	logger, _ := pkglogging.NewLogger("", "INFO")
+	pkgtest.SetupTestLogger()
+	logSvcUrl, err := url.Parse(logSvc.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	sourceUri, err := url.Parse("http://localhost:9081/")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	targetUri, err := url.Parse(predictor.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	StartDispatcher(5, &MockStore{}, &ImmediateBatch{}, logger)
+	httpProxy := httputil.NewSingleHostReverseProxy(targetUri)
+	oh := New(logSvcUrl, sourceUri, v1beta1.LogRequest, "mymodel", "default", "default",
+		"default", httpProxy, nil, "", nil, true)
+
+	oh.ServeHTTP(w, r)
+
+	resp := w.Result()
+	defer resp.Body.Close()
+	b2, err := io.ReadAll(resp.Body)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	// The client must still receive the full response even though the
+	// response body was never buffered for logging.
+	g.Expect(b2).To(gomega.Equal(predictorResponse))
+
+	// The request event must have reached the log service, and it must be
+	// the only one -- no response event should ever arrive in this mode.
+	var gotType string
+	g.Eventually(receivedTypes).Should(gomega.Receive(&gotType))
+	g.Expect(gotType).To(gomega.Equal(CEInferenceRequest))
+	g.Consistently(receivedTypes, 200*time.Millisecond).ShouldNot(gomega.Receive())
 }
 
 func TestLoggerWithS3Store(t *testing.T) {
