@@ -175,7 +175,7 @@ async def test_sklearn_traces_rest_and_grpc_inference(rest_v2_client, network_la
             KSERVE_TEST_NAMESPACE,
             expected_substring="/inference.GRPCInferenceService/ModelInfer",
         )
-        assert f"POST /v2/models/{service_name}/infer" in logs
+        assert "POST /v2/models/{model_name}/infer" in logs
         _assert_console_trace_exported(logs, service_name)
     finally:
         kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
