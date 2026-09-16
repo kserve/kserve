@@ -36,9 +36,11 @@ const workloadRevisionLength = 8
 // role. Replicas and rollout strategy are intentionally absent: scaling a role
 // must not create a new compatibility boundary.
 type workloadRevisionRole struct {
-	Name                 string                       `json:"name"`
-	DeploymentTemplate   *corev1.PodTemplateSpec      `json:"deploymentTemplate,omitempty"`
-	LeaderWorkerTemplate *lwsapi.LeaderWorkerTemplate `json:"leaderWorkerTemplate,omitempty"`
+	Name               string                  `json:"name"`
+	DeploymentTemplate *corev1.PodTemplateSpec `json:"deploymentTemplate,omitempty"`
+	LeaderTemplate     *corev1.PodTemplateSpec `json:"leaderTemplate,omitempty"`
+	WorkerTemplate     *corev1.PodTemplateSpec `json:"workerTemplate,omitempty"`
+	Size               *int32                  `json:"size,omitempty"`
 }
 
 // reconcileWorkloadRevision computes one revision from the fully rendered
@@ -49,7 +51,7 @@ func (r *LLMISVCReconciler) reconcileWorkloadRevision(
 	llmSvc *v1alpha2.LLMInferenceService,
 	config *Config,
 ) error {
-	if llmSvc.Spec.Prefill == nil {
+	if llmSvc.Spec.Prefill == nil || !workloadRevisionEnabled(llmSvc) {
 		config.WorkloadRevision = ""
 		return nil
 	}
@@ -75,10 +77,10 @@ func (r *LLMISVCReconciler) reconcileWorkloadRevision(
 		if err != nil {
 			return fmt.Errorf("failed to build decode template for workload revision: %w", err)
 		}
-		roles = append(roles, workloadRevisionRole{
-			Name:                 constants.LLMDRoleDecode,
-			LeaderWorkerTemplate: decode.Spec.LeaderWorkerTemplate.DeepCopy(),
-		})
+		roles = append(roles, leaderWorkerRevisionRole(
+			constants.LLMDRoleDecode,
+			&decode.Spec.LeaderWorkerTemplate,
+		))
 	}
 
 	if llmSvc.Spec.Prefill.Worker == nil {
@@ -95,10 +97,10 @@ func (r *LLMISVCReconciler) reconcileWorkloadRevision(
 		if err != nil {
 			return fmt.Errorf("failed to build prefill template for workload revision: %w", err)
 		}
-		roles = append(roles, workloadRevisionRole{
-			Name:                 constants.LLMDRolePrefill,
-			LeaderWorkerTemplate: prefill.Spec.LeaderWorkerTemplate.DeepCopy(),
-		})
+		roles = append(roles, leaderWorkerRevisionRole(
+			constants.LLMDRolePrefill,
+			&prefill.Spec.LeaderWorkerTemplate,
+		))
 	}
 
 	revision, err := computeWorkloadRevision(roles)
@@ -109,14 +111,40 @@ func (r *LLMISVCReconciler) reconcileWorkloadRevision(
 	return nil
 }
 
+// workloadRevisionEnabled checks for the placeholders supplied by revision-aware
+// P/D configs. Older, pinned configs do not contain them, preventing a controller
+// upgrade from changing existing Pod templates and restarting their workloads.
+func workloadRevisionEnabled(llmSvc *v1alpha2.LLMInferenceService) bool {
+	if llmSvc == nil || llmSvc.Spec.Prefill == nil {
+		return false
+	}
+	_, decodeEnabled := llmSvc.Spec.Labels[constants.LLMInferenceServiceRevisionLabelKey]
+	_, prefillEnabled := llmSvc.Spec.Prefill.Labels[constants.LLMInferenceServiceRevisionLabelKey]
+	return decodeEnabled && prefillEnabled
+}
+
+func leaderWorkerRevisionRole(name string, template *lwsapi.LeaderWorkerTemplate) workloadRevisionRole {
+	role := workloadRevisionRole{Name: name}
+	if template == nil {
+		return role
+	}
+	if template.LeaderTemplate != nil {
+		role.LeaderTemplate = template.LeaderTemplate.DeepCopy()
+	}
+	role.WorkerTemplate = template.WorkerTemplate.DeepCopy()
+	if template.Size != nil {
+		size := *template.Size
+		role.Size = &size
+	}
+	return role
+}
+
 func computeWorkloadRevision(roles []workloadRevisionRole) (string, error) {
 	roles = deepCopyRevisionRoles(roles)
 	for i := range roles {
 		clearRevisionLabel(roles[i].DeploymentTemplate)
-		if roles[i].LeaderWorkerTemplate != nil {
-			clearRevisionLabel(&roles[i].LeaderWorkerTemplate.WorkerTemplate)
-			clearRevisionLabel(roles[i].LeaderWorkerTemplate.LeaderTemplate)
-		}
+		clearRevisionLabel(roles[i].LeaderTemplate)
+		clearRevisionLabel(roles[i].WorkerTemplate)
 	}
 
 	data, err := json.Marshal(roles)
@@ -134,8 +162,15 @@ func deepCopyRevisionRoles(in []workloadRevisionRole) []workloadRevisionRole {
 		if in[i].DeploymentTemplate != nil {
 			out[i].DeploymentTemplate = in[i].DeploymentTemplate.DeepCopy()
 		}
-		if in[i].LeaderWorkerTemplate != nil {
-			out[i].LeaderWorkerTemplate = in[i].LeaderWorkerTemplate.DeepCopy()
+		if in[i].LeaderTemplate != nil {
+			out[i].LeaderTemplate = in[i].LeaderTemplate.DeepCopy()
+		}
+		if in[i].WorkerTemplate != nil {
+			out[i].WorkerTemplate = in[i].WorkerTemplate.DeepCopy()
+		}
+		if in[i].Size != nil {
+			size := *in[i].Size
+			out[i].Size = &size
 		}
 	}
 	return out

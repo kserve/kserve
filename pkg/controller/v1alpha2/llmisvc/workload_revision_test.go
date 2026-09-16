@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
+	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -56,13 +57,13 @@ func TestComputeWorkloadRevision(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, revision, sameRevision)
 
-	changed := deepCopyWorkloadRevisionRoles(roles)
+	changed := deepCopyRevisionRoles(roles)
 	changed[1].DeploymentTemplate.Spec.Containers[0].Image = "vllm:v2"
 	changedRevision, err := computeWorkloadRevision(changed)
 	require.NoError(t, err)
 	assert.NotEqual(t, revision, changedRevision)
 
-	withRevisionLabel := deepCopyWorkloadRevisionRoles(roles)
+	withRevisionLabel := deepCopyRevisionRoles(roles)
 	withRevisionLabel[0].DeploymentTemplate.Labels[constants.LLMInferenceServiceRevisionLabelKey] = "previous"
 	withRevisionLabel[1].DeploymentTemplate.Labels = map[string]string{
 		constants.LLMInferenceServiceRevisionLabelKey: "previous",
@@ -70,6 +71,58 @@ func TestComputeWorkloadRevision(t *testing.T) {
 	ignoredLabelRevision, err := computeWorkloadRevision(withRevisionLabel)
 	require.NoError(t, err)
 	assert.Equal(t, revision, ignoredLabelRevision, "the generated label must not feed back into its own hash")
+}
+
+func TestWorkloadRevisionEnabled(t *testing.T) {
+	revisionLabel := map[string]string{
+		constants.LLMInferenceServiceRevisionLabelKey: "",
+	}
+	tests := []struct {
+		name string
+		svc  *v1alpha2.LLMInferenceService
+		want bool
+	}{
+		{name: "nil service"},
+		{
+			name: "non-disaggregated service",
+			svc: &v1alpha2.LLMInferenceService{Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{Labels: revisionLabel},
+			}},
+		},
+		{
+			name: "neither role opts in",
+			svc: &v1alpha2.LLMInferenceService{Spec: v1alpha2.LLMInferenceServiceSpec{
+				Prefill: &v1alpha2.WorkloadSpec{},
+			}},
+		},
+		{
+			name: "decode only",
+			svc: &v1alpha2.LLMInferenceService{Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{Labels: revisionLabel},
+				Prefill:      &v1alpha2.WorkloadSpec{},
+			}},
+		},
+		{
+			name: "prefill only",
+			svc: &v1alpha2.LLMInferenceService{Spec: v1alpha2.LLMInferenceServiceSpec{
+				Prefill: &v1alpha2.WorkloadSpec{Labels: revisionLabel},
+			}},
+		},
+		{
+			name: "both roles opt in",
+			svc: &v1alpha2.LLMInferenceService{Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{Labels: revisionLabel},
+				Prefill:      &v1alpha2.WorkloadSpec{Labels: revisionLabel},
+			}},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, workloadRevisionEnabled(tt.svc))
+		})
+	}
 }
 
 func TestApplyWorkloadRevisionDoesNotMutateSharedLabels(t *testing.T) {
@@ -91,6 +144,17 @@ func TestSingleNodeWorkloadsUseSharedRevision(t *testing.T) {
 		Client:    selectorTestClient(t),
 		Clientset: k8sfake.NewSimpleClientset(),
 	}
+	svcWithoutOptIn := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "revision-test", Namespace: "default"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Prefill: &v1alpha2.WorkloadSpec{},
+		},
+	}
+	disabledCfg := &Config{}
+	require.NoError(t, r.reconcileWorkloadRevision(context.Background(), svcWithoutOptIn, disabledCfg))
+	assert.Empty(t, disabledCfg.WorkloadRevision,
+		"services using configs without the revision placeholder must not roll out on controller upgrade")
+
 	svc := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "revision-test", Namespace: "default"},
 		Spec: v1alpha2.LLMInferenceServiceSpec{
@@ -132,6 +196,8 @@ func TestMultiNodeWorkloadsUseSharedRevision(t *testing.T) {
 	prefill.Template = svc.Spec.Template.DeepCopy()
 	prefill.Worker = svc.Spec.Worker.DeepCopy()
 	svc.Spec.Prefill = &prefill
+	svc.Spec.Labels = map[string]string{constants.LLMInferenceServiceRevisionLabelKey: ""}
+	svc.Spec.Prefill.Labels = map[string]string{constants.LLMInferenceServiceRevisionLabelKey: ""}
 	cfg := &Config{CredentialConfig: &credentials.CredentialConfig{}}
 
 	require.NoError(t, r.reconcileWorkloadRevision(context.Background(), svc, cfg))
@@ -151,18 +217,28 @@ func TestMultiNodeWorkloadsUseSharedRevision(t *testing.T) {
 		require.NotNil(t, template)
 		assert.Equal(t, cfg.WorkloadRevision, template.Labels[constants.LLMInferenceServiceRevisionLabelKey])
 	}
-}
 
-func deepCopyWorkloadRevisionRoles(in []workloadRevisionRole) []workloadRevisionRole {
-	out := make([]workloadRevisionRole, len(in))
-	for i := range in {
-		out[i].Name = in[i].Name
-		if in[i].DeploymentTemplate != nil {
-			out[i].DeploymentTemplate = in[i].DeploymentTemplate.DeepCopy()
-		}
-		if in[i].LeaderWorkerTemplate != nil {
-			out[i].LeaderWorkerTemplate = in[i].LeaderWorkerTemplate.DeepCopy()
-		}
+	roles := []workloadRevisionRole{
+		leaderWorkerRevisionRole(constants.LLMDRoleDecode, &decode.Spec.LeaderWorkerTemplate),
+		leaderWorkerRevisionRole(constants.LLMDRolePrefill, &prefillLWS.Spec.LeaderWorkerTemplate),
 	}
-	return out
+	revision, err := computeWorkloadRevision(roles)
+	require.NoError(t, err)
+
+	policyOnlyChange := decode.Spec.LeaderWorkerTemplate.DeepCopy()
+	policyOnlyChange.RestartPolicy = ""
+	subGroupSize := int32(1)
+	policyOnlyChange.SubGroupPolicy = &lwsapi.SubGroupPolicy{SubGroupSize: &subGroupSize}
+	policyRoles := deepCopyRevisionRoles(roles)
+	policyRoles[0] = leaderWorkerRevisionRole(constants.LLMDRoleDecode, policyOnlyChange)
+	policyOnlyRevision, err := computeWorkloadRevision(policyRoles)
+	require.NoError(t, err)
+	assert.Equal(t, revision, policyOnlyRevision)
+
+	sizeChange := deepCopyRevisionRoles(roles)
+	newSize := *sizeChange[0].Size + 1
+	sizeChange[0].Size = &newSize
+	sizeRevision, err := computeWorkloadRevision(sizeChange)
+	require.NoError(t, err)
+	assert.NotEqual(t, revision, sizeRevision, "worker-group size changes must create a new revision")
 }

@@ -4,6 +4,8 @@ metadata:
   name: kserve-config-llm-prefill-worker-data-parallel
 spec:
   prefill:
+    labels:
+      serving.kserve.io/llmisvc-revision: placeholder
     annotations:
       serving.kserve.io/model-based-routing-enabled: "true"
     template:
