@@ -397,19 +397,22 @@ var _ = Describe("LoRA model routing strategy", func() {
 		DeferCleanup(func(ctx SpecContext) { Expect(client.IgnoreNotFound(envTest.Delete(ctx, a))).To(Succeed()) })
 		ensureRouterManagedResourcesAreReady(ctx, envTest.Client, a)
 		ensureRouterManagedResourcesAreReady(ctx, envTest.Client, b)
-		var stableRV string
+		// Both peers write the shared route, so the weighted shape takes a few
+		// reconciles to settle: pinning the first version that carries it races
+		// the last of those writes. Require a version that holds instead - peers
+		// taking turns rewriting each other's weights never reach one.
+		routeKey := client.ObjectKey{Namespace: ns.Name, Name: a.Name + "-kserve-route"}
 		eventuallyManagedRoute(ctx, a, func(g Gomega, route *gwapiv1.HTTPRoute) {
 			g.Expect(route).To(HaveHeaderMatch(headerName, loraRegexPattern(ns.Name, "adapter")))
 			refs := groupRoutingBackendRefs(route, a)
 			g.Expect(refs).To(HaveLen(2))
 			g.Expect([]int32{ptr.Deref(refs[0].Weight, 1), ptr.Deref(refs[1].Weight, 1)}).To(ConsistOf(int32(80), int32(20)))
-			stableRV = route.ResourceVersion
+			g.Consistently(func(held Gomega) {
+				current := &gwapiv1.HTTPRoute{}
+				held.Expect(envTest.Get(ctx, routeKey, current)).To(Succeed())
+				held.Expect(current.ResourceVersion).To(Equal(route.ResourceVersion))
+			}).WithContext(ctx).WithTimeout(time.Second).Should(Succeed())
 		})
-		Consistently(func(g Gomega) {
-			route := &gwapiv1.HTTPRoute{}
-			g.Expect(envTest.Get(ctx, client.ObjectKey{Namespace: ns.Name, Name: a.Name + "-kserve-route"}, route)).To(Succeed())
-			g.Expect(route.ResourceVersion).To(Equal(stableRV))
-		}).WithContext(ctx).WithTimeout(time.Second).Should(Succeed())
 
 		update(ctx, a, func(current *v1alpha2.LLMInferenceService) {
 			current.Spec.Router.Route.HTTP = unrecognizedModelMatchRoute(ns.Name)
