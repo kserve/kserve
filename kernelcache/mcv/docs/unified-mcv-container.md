@@ -116,7 +116,8 @@ podman run --rm --privileged \
 
 ### Using in Kubernetes Jobs
 
-The unified image works on any node type without requiring node selectors:
+GPU extraction requires a GPU node and appropriate device access. For CPU-only
+nodes, add `--no-gpu` to the args (or use `quay.io/gkm/mcv:no-gpu`).
 
 ```yaml
 apiVersion: batch/v1
@@ -126,7 +127,8 @@ metadata:
 spec:
   template:
     spec:
-      # No nodeSelector needed - works on any node!
+      nodeSelector:
+        hardware-type: gpu  # Required for GPU extraction without --no-gpu
       containers:
       - name: mcv
         image: quay.io/gkm/mcv:unified
@@ -148,9 +150,9 @@ spec:
 ```
 
 **Benefits:**
-- ✅ Single Job definition works on any node type
+- ✅ Single Job definition works on NVIDIA or AMD GPU nodes
 - ✅ Simplifies deployment in mixed GPU clusters
-- ✅ No need to maintain multiple Job definitions
+- ✅ CPU-only workflows supported with explicit `--no-gpu`
 
 ### DaemonSet Deployment
 
@@ -341,7 +343,8 @@ make push-images-no-gpu # push no-GPU variants
 - Check container has GPU access: `--gpus all` or `--device nvidia.com/gpu=all`
 
 **On AMD/CPU nodes:**
-- This is expected and harmless - container falls back to ROCm or no-GPU mode
+- Expected on CPU nodes — add `--no-gpu` for extraction without GPU hardware
+- On AMD nodes, ensure ROCm device access is configured
 
 ### Issue: "couldn't find rocm-smi"
 
@@ -351,7 +354,7 @@ make push-images-no-gpu # push no-GPU variants
 - Ensure container has device access: `--device=/dev/kfd --device=/dev/dri`
 
 **On NVIDIA/CPU nodes:**
-- This is expected and harmless - container falls back to NVML or no-GPU mode
+- Expected on non-AMD nodes — use `--no-gpu` on CPU nodes, or NVML on NVIDIA nodes
 
 ### Issue: Container works but no GPU detected
 
@@ -418,7 +421,7 @@ func registerDevices(r *Registry) {
 
 The unified MCV container simplifies deployment by providing a single image that works across all GPU types:
 
-✅ **Single image** for NVIDIA, AMD, and CPU-only nodes
+✅ **Single image** for NVIDIA and AMD GPU nodes; CPU-only requires explicit `--no-gpu`
 ✅ **Auto-detection** of GPU vendor at runtime
 ✅ **Drop-in replacement** for existing MCV deployments
 ✅ **Simplified CI/CD** - one image for all environments

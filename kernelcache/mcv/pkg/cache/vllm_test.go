@@ -338,8 +338,9 @@ func TestDetectActualGPUInfo_NoGPUMode(t *testing.T) {
 		t.Fatalf("Initialize: %v", err)
 	}
 
+	origGPU := config.IsGPUEnabled()
 	config.SetEnabledGPU(false)
-	t.Cleanup(func() { config.SetEnabledGPU(true) })
+	t.Cleanup(func() { config.SetEnabledGPU(origGPU) })
 
 	backend, arch, warpSize, ptxVersion := detectActualGPUInfo()
 	if backend != UnknownBackend {
