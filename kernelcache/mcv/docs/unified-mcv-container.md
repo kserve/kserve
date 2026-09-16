@@ -421,11 +421,11 @@ func registerDevices(r *Registry) {
 
 The unified MCV container simplifies deployment by providing a single image that works across all GPU types:
 
-✅ **Single image** for NVIDIA and AMD GPU nodes; CPU-only requires explicit `--no-gpu`
-✅ **Auto-detection** of GPU vendor at runtime
-✅ **Drop-in replacement** for existing MCV deployments
-✅ **Simplified CI/CD** - one image for all environments
-✅ **Mixed cluster support** - no node selectors required
+- ✅ **Single image** for NVIDIA and AMD GPU nodes; CPU-only requires explicit `--no-gpu`
+- ✅ **Auto-detection** of GPU vendor at runtime
+- ✅ **Drop-in replacement** for existing MCV deployments
+- ✅ **Simplified CI/CD** - one image for all environments
+- ✅ **Mixed cluster support** - no node selectors required
 
 **Build:**
 ```bash
