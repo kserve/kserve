@@ -44,13 +44,17 @@ func envToMapFromContainer(envVars []corev1.EnvVar) map[string]string {
 	return m
 }
 
-func findContainer(podSpec corev1.PodSpec) *corev1.Container {
+func findContainerByName(podSpec corev1.PodSpec, name string) *corev1.Container {
 	for i := range podSpec.Containers {
-		if podSpec.Containers[i].Name == constants.InferenceServiceContainerName {
+		if podSpec.Containers[i].Name == name {
 			return &podSpec.Containers[i]
 		}
 	}
 	return nil
+}
+
+func findContainer(podSpec corev1.PodSpec) *corev1.Container {
+	return findContainerByName(podSpec, constants.InferenceServiceContainerName)
 }
 
 var _ = Describe("Tracing injection into predictor deployments", func() {
@@ -123,6 +127,162 @@ var _ = Describe("Tracing injection into predictor deployments", func() {
 			Expect(envMap[tracing.EnvOtelResourceAttributes]).To(ContainSubstring("isvc.name=" + serviceName))
 			Expect(envMap[tracing.EnvOtelResourceAttributes]).To(ContainSubstring("isvc.component=predictor"))
 			Expect(envMap[tracing.EnvOtelResourceAttributes]).NotTo(ContainSubstring("isvc.predictor.variant"))
+		})
+
+		It("Should inject component-specific OTEL env vars for a collocated transformer", func() {
+			configMap := createInferenceServiceConfigMap(configs)
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			serviceName := "tracing-collocated-test"
+			ctx := context.Background()
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        serviceName,
+					Namespace:   "default",
+					Annotations: getDefaultAnnotations(constants.AutoscalerClassNone),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Tracing: &v1beta1.TracingSpec{
+						ExporterEndpoint: ptr.To("http://otel-collector:4317"),
+						Sampler:          ptr.To("parentbased_traceidratio"),
+						SamplerArg:       ptr.To("0.05"),
+						Exporter:         ptr.To("otlp"),
+					},
+					Predictor: v1beta1.PredictorSpec{
+						PodSpec: v1beta1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
+									Image: "kserve/predictor:latest",
+								},
+								{
+									Name:  constants.TransformerContainerName,
+									Image: "kserve/transformer:latest",
+								},
+								{
+									Name:  "sidecar",
+									Image: "kserve/sidecar:latest",
+								},
+							},
+						},
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: ptr.To(int32(1)),
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			predictorKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceName),
+				Namespace: "default",
+			}
+			deploy := &appsv1.Deployment{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, predictorKey, deploy)
+			}, timeout, interval).Should(Succeed())
+
+			predictorContainer := findContainerByName(deploy.Spec.Template.Spec, constants.InferenceServiceContainerName)
+			Expect(predictorContainer).NotTo(BeNil())
+			predictorEnv := envToMapFromContainer(predictorContainer.Env)
+			Expect(predictorEnv).To(HaveKeyWithValue(tracing.EnvOtelServiceName, serviceName+"-predictor"))
+			Expect(predictorEnv[tracing.EnvOtelResourceAttributes]).To(ContainSubstring("isvc.component=predictor"))
+
+			transformerContainer := findContainerByName(deploy.Spec.Template.Spec, constants.TransformerContainerName)
+			Expect(transformerContainer).NotTo(BeNil())
+			transformerEnv := envToMapFromContainer(transformerContainer.Env)
+			Expect(transformerEnv).To(HaveKeyWithValue(tracing.EnvOtelServiceName, serviceName+"-transformer"))
+			Expect(transformerEnv[tracing.EnvOtelResourceAttributes]).To(ContainSubstring("isvc.component=transformer"))
+			Expect(transformerEnv).NotTo(HaveKey(tracing.EnvMLServerTracingServer))
+
+			sidecarContainer := findContainerByName(deploy.Spec.Template.Spec, "sidecar")
+			Expect(sidecarContainer).NotTo(BeNil())
+			Expect(envToMapFromContainer(sidecarContainer.Env)).NotTo(HaveKey(tracing.EnvOtelServiceName))
+		})
+
+		It("Should inject OTEL env vars into the standalone transformer Deployment", func() {
+			configMap := createInferenceServiceConfigMap(configs)
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			servingRuntime := getServingRuntime("tf-transformer-tracing", "default")
+			Expect(k8sClient.Create(context.TODO(), &servingRuntime)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), &servingRuntime)
+
+			serviceName := "tracing-transformer-test"
+			ctx := context.Background()
+			endpoint := "http://otel-collector:4317"
+
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        serviceName,
+					Namespace:   "default",
+					Annotations: getDefaultAnnotations(constants.AutoscalerClassNone),
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Tracing: &v1beta1.TracingSpec{
+						ExporterEndpoint: ptr.To(endpoint),
+						Sampler:          ptr.To("parentbased_traceidratio"),
+						SamplerArg:       ptr.To("0.05"),
+						Exporter:         ptr.To("otlp"),
+					},
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: ptr.To(int32(1)),
+						},
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{Name: "tensorflow"},
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI:     proto.String("s3://test/model"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+					Transformer: &v1beta1.TransformerSpec{
+						PodSpec: v1beta1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name:  constants.InferenceServiceContainerName,
+									Image: "kserve/transformer:latest",
+								},
+							},
+						},
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: ptr.To(int32(1)),
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			transformerKey := types.NamespacedName{
+				Name:      constants.TransformerServiceName(serviceName),
+				Namespace: "default",
+			}
+			deploy := &appsv1.Deployment{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, transformerKey, deploy)
+			}, timeout, interval).Should(Succeed())
+
+			container := findContainer(deploy.Spec.Template.Spec)
+			Expect(container).NotTo(BeNil())
+
+			envMap := envToMapFromContainer(container.Env)
+			Expect(envMap).To(HaveKeyWithValue(tracing.EnvOtelServiceName, serviceName+"-transformer"))
+			Expect(envMap).To(HaveKeyWithValue(tracing.EnvOtelExporterEndpoint, endpoint))
+			Expect(envMap).To(HaveKeyWithValue(tracing.EnvOtelTracesExporter, "otlp"))
+			Expect(envMap).To(HaveKeyWithValue(tracing.EnvOtelTracesSampler, "parentbased_traceidratio"))
+			Expect(envMap).To(HaveKeyWithValue(tracing.EnvOtelTracesSamplerArg, "0.05"))
+			Expect(envMap[tracing.EnvOtelResourceAttributes]).To(ContainSubstring("isvc.name=" + serviceName))
+			Expect(envMap[tracing.EnvOtelResourceAttributes]).To(ContainSubstring("isvc.component=transformer"))
+			Expect(envMap[tracing.EnvOtelResourceAttributes]).NotTo(ContainSubstring("isvc.predictor.variant"))
+			Expect(envMap).NotTo(HaveKey(tracing.EnvMLServerTracingServer))
+			Expect(container.Args).NotTo(ContainElement("--otlp-traces-endpoint"))
 		})
 
 		It("Should NOT inject OTEL env vars when tracing is nil", func() {
