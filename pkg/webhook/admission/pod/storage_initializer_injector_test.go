@@ -17,6 +17,7 @@ limitations under the License.
 package pod
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"testing"
@@ -26,10 +27,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/pkg/kmp"
 	"knative.dev/pkg/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
@@ -2752,7 +2759,7 @@ func TestGetStorageContainerSpec(t *testing.T) {
 		var container *corev1.Container
 		var err error
 
-		if container, err = GetContainerSpecForStorageUri(t.Context(), scenario.storageUri, c); err != nil {
+		if container, err = GetContainerSpecForStorageUri(t.Context(), "", scenario.storageUri, nil, c); err != nil {
 			t.Errorf("Test %q unexpected result: %s", name, err)
 		}
 		g.Expect(container).To(gomega.Equal(scenario.expectedSpec))
@@ -2872,7 +2879,7 @@ func TestExplicitStorageContainerName(t *testing.T) {
 	}()
 
 	t.Run("auto-match returns first alphabetical CSC when name not specified", func(t *testing.T) {
-		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", nil, c)
+		spec, err := GetStorageContainerSpec(t.Context(), "", "hf://my-model", nil, c)
 		require.NoError(t, err)
 		require.NotNil(t, spec)
 		// "default" sorts before "hf-custom", so auto-match returns default
@@ -2881,7 +2888,7 @@ func TestExplicitStorageContainerName(t *testing.T) {
 
 	t.Run("explicit name returns the correct CSC", func(t *testing.T) {
 		name := "hf-custom"
-		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		spec, err := GetStorageContainerSpec(t.Context(), "", "hf://my-model", &name, c)
 		require.NoError(t, err)
 		require.NotNil(t, spec)
 		assert.Equal(t, "kserve/hf-custom:latest", spec.Container.Image)
@@ -2890,7 +2897,7 @@ func TestExplicitStorageContainerName(t *testing.T) {
 
 	t.Run("explicit name for non-existent CSC returns error", func(t *testing.T) {
 		name := "does-not-exist"
-		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		spec, err := GetStorageContainerSpec(t.Context(), "", "hf://my-model", &name, c)
 		assert.Error(t, err)
 		assert.Nil(t, spec)
 		assert.Contains(t, err.Error(), "not found")
@@ -2898,7 +2905,7 @@ func TestExplicitStorageContainerName(t *testing.T) {
 
 	t.Run("explicit name for disabled CSC returns error", func(t *testing.T) {
 		name := "disabled-csc"
-		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		spec, err := GetStorageContainerSpec(t.Context(), "", "hf://my-model", &name, c)
 		assert.Error(t, err)
 		assert.Nil(t, spec)
 		assert.Contains(t, err.Error(), "disabled")
@@ -2906,7 +2913,7 @@ func TestExplicitStorageContainerName(t *testing.T) {
 
 	t.Run("explicit name for CSC that does not support the URI returns error", func(t *testing.T) {
 		name := "s3-only"
-		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		spec, err := GetStorageContainerSpec(t.Context(), "", "hf://my-model", &name, c)
 		assert.Error(t, err)
 		assert.Nil(t, spec)
 		assert.Contains(t, err.Error(), "does not support")
@@ -2914,7 +2921,7 @@ func TestExplicitStorageContainerName(t *testing.T) {
 
 	t.Run("explicit name for CSC with wrong workloadType returns error", func(t *testing.T) {
 		name := "download-job"
-		spec, err := GetStorageContainerSpec(t.Context(), "hf://my-model", &name, c)
+		spec, err := GetStorageContainerSpec(t.Context(), "", "hf://my-model", &name, c)
 		assert.Error(t, err)
 		assert.Nil(t, spec)
 		assert.Contains(t, err.Error(), "workloadType")
@@ -5821,4 +5828,217 @@ func TestCommonStorageInitializationSkipsOciNativeURI(t *testing.T) {
 		}
 	}
 	require.NotNil(t, imgVol, "oci+native:// must produce an ImageVolume on the pod spec")
+}
+
+// errCSCNoMatch simulates the error returned when the ClusterStorageContainer CRD is not installed.
+var errCSCNoMatch = &apimeta.NoKindMatchError{
+	GroupKind: schema.GroupKind{
+		Group: "serving.kserve.io",
+		Kind:  "ClusterStorageContainer",
+	},
+}
+
+// newFakeClientWithCSCNoMatch creates a fake client that returns a NoKindMatchError
+// for all ClusterStorageContainer Get and List operations, simulating a cluster
+// where the ClusterStorageContainer CRD is not installed.
+func newFakeClientWithCSCNoMatch(t *testing.T) client.Client {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add v1alpha1 to scheme: %v", err)
+	}
+	return fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Get: func(ctx context.Context, fakeClient client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+				if _, ok := obj.(*v1alpha1.ClusterStorageContainer); ok {
+					return errCSCNoMatch
+				}
+				return fakeClient.Get(ctx, key, obj, opts...)
+			},
+			List: func(ctx context.Context, fakeClient client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+				if _, ok := list.(*v1alpha1.ClusterStorageContainerList); ok {
+					return errCSCNoMatch
+				}
+				return fakeClient.List(ctx, list, opts...)
+			},
+		}).
+		Build()
+}
+
+// TestGetStorageContainerSpecByNameCRDNotInstalled verifies that when the
+// ClusterStorageContainer CRD is not installed (IsNoMatchError), the function
+// returns a "not found" error rather than propagating the raw no-match error.
+func TestGetStorageContainerSpecByNameCRDNotInstalled(t *testing.T) {
+	ctx := context.Background()
+	fakeClient := newFakeClientWithCSCNoMatch(t)
+
+	// namespace="" → skips namespace-scoped lookup, falls through to ClusterStorageContainer
+	spec, err := GetStorageContainerSpecByName(ctx, "", "my-sc", "s3://bucket/path", fakeClient)
+	assert.Nil(t, spec)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+// TestGetStorageContainerSpecCRDNotInstalled verifies that when the
+// ClusterStorageContainer CRD is not installed (IsNoMatchError), the auto-match
+// path in GetStorageContainerSpec returns nil, nil (graceful fallback).
+func TestGetStorageContainerSpecCRDNotInstalled(t *testing.T) {
+	ctx := context.Background()
+	fakeClient := newFakeClientWithCSCNoMatch(t)
+
+	// namespace="" → no namespaced SCs to list, then ClusterStorageContainer List returns NoMatchError
+	spec, err := GetStorageContainerSpec(ctx, "", "s3://bucket/path", nil, fakeClient)
+	assert.Nil(t, spec)
+	assert.NoError(t, err)
+}
+
+// TestGetStorageContainerSpecNamespaceScoped verifies the two-tier lookup:
+// namespace-scoped StorageContainer is found first; falls back to ClusterStorageContainer
+// when no namespace-scoped match; returns nil when neither tier matches.
+func TestGetStorageContainerSpecNamespaceScoped(t *testing.T) {
+	ctx := context.Background()
+
+	namespacedSC := &v1alpha1.StorageContainer{
+		ObjectMeta: metav1.ObjectMeta{Name: "ns-sc", Namespace: "team-a"},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container:           corev1.Container{Name: "custom", Image: "custom:latest"},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+			WorkloadType:        v1alpha1.InitContainer,
+		},
+	}
+	clusterSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster-sc"},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container:           corev1.Container{Name: "s3", Image: "s3:latest"},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}, {Prefix: "s3://"}},
+			WorkloadType:        v1alpha1.InitContainer,
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(namespacedSC, clusterSC).Build()
+
+	// Both scopes support custom://; the namespace-scoped container wins.
+	spec, err := GetStorageContainerSpec(ctx, "team-a", "custom://bucket/model", nil, c)
+	require.NoError(t, err)
+	require.NotNil(t, spec)
+	assert.Equal(t, "custom", spec.Container.Name)
+
+	// "s3://" not in team-a namespace → falls back to ClusterStorageContainer
+	spec, err = GetStorageContainerSpec(ctx, "team-a", "s3://bucket/model", nil, c)
+	require.NoError(t, err)
+	require.NotNil(t, spec)
+	assert.Equal(t, "s3", spec.Container.Name)
+
+	// Other namespaces and an empty namespace must not use team-a's container.
+	for _, namespace := range []string{"team-b", ""} {
+		spec, err = GetStorageContainerSpec(ctx, namespace, "custom://bucket/model", nil, c)
+		require.NoError(t, err)
+		require.NotNil(t, spec)
+		assert.Equal(t, "s3", spec.Container.Name)
+	}
+
+	// Neither scope supports this URI.
+	spec, err = GetStorageContainerSpec(ctx, "team-a", "unknown://bucket/model", nil, c)
+	require.NoError(t, err)
+	assert.Nil(t, spec)
+}
+
+// TestGetStorageContainerSpecByNameNamespaceScoped pins named shadowing and
+// verifies that an ineligible namespaced container does not silently fall back.
+func TestGetStorageContainerSpecByNameNamespaceScoped(t *testing.T) {
+	ctx := t.Context()
+	name := "my-sc"
+	clusterSC := &v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container:           corev1.Container{Name: "storage-initializer", Image: "cluster:latest"},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+			WorkloadType:        v1alpha1.InitContainer,
+		},
+	}
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1alpha1.AddToScheme(scheme))
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(clusterSC).Build()
+
+	// A named cluster container resolves until a same-named namespace resource exists.
+	spec, err := GetStorageContainerSpec(ctx, "team-a", "custom://bucket", &name, c)
+	require.NoError(t, err)
+	require.NotNil(t, spec)
+	assert.Equal(t, "cluster:latest", spec.Container.Image)
+	namespacedSC := &v1alpha1.StorageContainer{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "team-a"},
+		Spec:       *clusterSC.Spec.DeepCopy(),
+	}
+	namespacedSC.Spec.Container.Image = "namespaced:latest"
+	require.NoError(t, c.Create(ctx, namespacedSC))
+	spec, err = GetStorageContainerSpec(ctx, "team-a", "custom://bucket", &name, c)
+	require.NoError(t, err)
+	require.NotNil(t, spec)
+	assert.Equal(t, "namespaced:latest", spec.Container.Image)
+	for _, namespace := range []string{"team-b", ""} {
+		spec, err = GetStorageContainerSpec(ctx, namespace, "custom://bucket", &name, c)
+		require.NoError(t, err)
+		require.NotNil(t, spec)
+		assert.Equal(t, "cluster:latest", spec.Container.Image)
+	}
+
+	for _, tc := range []struct {
+		name      string
+		mutate    func(*v1alpha1.StorageContainer)
+		wantError string
+	}{
+		{"disabled", func(sc *v1alpha1.StorageContainer) { sc.Disabled = ptr.Bool(true) }, "is disabled"},
+		{"wrong workload", func(sc *v1alpha1.StorageContainer) { sc.Spec.WorkloadType = v1alpha1.LocalModelDownloadJob }, "workloadType"},
+		{"unsupported URI", func(sc *v1alpha1.StorageContainer) {
+			sc.Spec.SupportedUriFormats = []v1alpha1.SupportedUriFormat{{Prefix: "other://"}}
+		}, "does not support"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sc := namespacedSC.DeepCopy()
+			tc.mutate(sc)
+			c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc, clusterSC).Build()
+			spec, err := GetStorageContainerSpec(ctx, "team-a", "custom://bucket", &name, c)
+			require.ErrorContains(t, err, tc.wantError)
+			assert.Nil(t, spec)
+			// Automatic selection skips the same ineligible container.
+			spec, err = GetStorageContainerSpec(ctx, "team-a", "custom://bucket", nil, c)
+			require.NoError(t, err)
+			require.NotNil(t, spec)
+			assert.Equal(t, "cluster:latest", spec.Container.Image)
+		})
+	}
+	require.NoError(t, c.Delete(ctx, namespacedSC))
+	spec, err = GetStorageContainerSpec(ctx, "team-a", "custom://bucket", &name, c)
+	require.NoError(t, err)
+	require.NotNil(t, spec)
+	assert.Equal(t, "cluster:latest", spec.Container.Image)
+}
+
+// TestGetStorageContainerSpecDisabledNamespacedSC verifies that a disabled
+// namespace-scoped StorageContainer is skipped and does not produce a match.
+func TestGetStorageContainerSpecDisabledNamespacedSC(t *testing.T) {
+	ctx := context.Background()
+	disabled := true
+
+	disabledSC := &v1alpha1.StorageContainer{
+		ObjectMeta: metav1.ObjectMeta{Name: "disabled-sc", Namespace: "team-a"},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container:           corev1.Container{Name: "custom", Image: "custom:latest"},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "custom://"}},
+			WorkloadType:        v1alpha1.InitContainer,
+		},
+		Disabled: &disabled,
+	}
+
+	scheme := runtime.NewScheme()
+	_ = v1alpha1.AddToScheme(scheme)
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(disabledSC).Build()
+
+	// Disabled namespace-scoped SC → should not match, returns nil (no cluster fallback either)
+	spec, err := GetStorageContainerSpec(ctx, "team-a", "custom://bucket", nil, c)
+	require.NoError(t, err)
+	assert.Nil(t, spec, "disabled SC should not match")
 }

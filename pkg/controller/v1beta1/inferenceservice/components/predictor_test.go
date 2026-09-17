@@ -99,7 +99,7 @@ func TestAddStorageInitializerAnnotationsOciNative(t *testing.T) {
 	}
 	annotations := map[string]string{}
 
-	err := p.addStorageInitializerAnnotations(context.Background(), model, annotations, nil)
+	err := p.addStorageInitializerAnnotations(context.Background(), "", model, annotations, nil)
 	assert.NoError(t, err, "oci+native:// must pass ValidateStorageURI without error")
 	annotationVal, hasAnnotation := annotations[constants.StorageInitializerSourceUriInternalAnnotationKey]
 	assert.True(t, hasAnnotation, "oci+native:// must set StorageInitializerSourceUriInternalAnnotationKey so InjectModelcar can inject the ImageVolume")
