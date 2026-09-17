@@ -54,6 +54,8 @@ import (
 const (
 	// Single node deployment template
 	configTemplateNameSuffix = "config-llm-template"
+	// Single node SGLang deployment template
+	configSGLangTemplateNameSuffix = "config-sglang-template"
 	// Disaggregated prefill/decode templates
 	configDecodeTemplateNameSuffix  = "config-llm-decode-template"
 	configPrefillTemplateNameSuffix = "config-llm-prefill-template"
@@ -70,7 +72,6 @@ const (
 	configRouterSchedulerDefaultEPPConfigNameSuffix   = "config-llm-scheduler-eppconfig-default"    // default EPPConfig
 	configRouterSchedulerDefaultPDEPPConfigNameSuffix = "config-llm-scheduler-eppconfig-default-pd" // default EPPConfig for P/D
 	configRouterRouteNameSuffix                       = "config-llm-router-route"
-	configSchedulerLatencyPredictorNameSuffix         = "config-llm-scheduler-latency-predictor"
 	configTokenizerNameSuffix                         = "config-llm-tokenizer" // #nosec G101
 	// Tracing configurations
 	configTracingNameSuffix = "config-llm-tracing"
@@ -79,6 +80,7 @@ const (
 var (
 	configPrefix                                = constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_CONFIG_PREFIX", "kserve-")
 	configTemplateName                          = configPrefix + configTemplateNameSuffix
+	configSGLangTemplateName                    = configPrefix + configSGLangTemplateNameSuffix
 	configDecodeTemplateName                    = configPrefix + configDecodeTemplateNameSuffix
 	configDecodeWorkerPipelineParallelName      = configPrefix + configDecodeWorkerPipelineParallelNameSuffix
 	configWorkerPipelineParallelName            = configPrefix + configWorkerPipelineParallelNameSuffix
@@ -91,7 +93,6 @@ var (
 	configRouterSchedulerDefaultEPPConfigName   = configPrefix + configRouterSchedulerDefaultEPPConfigNameSuffix
 	configRouterSchedulerDefaultPDEPPConfigName = configPrefix + configRouterSchedulerDefaultPDEPPConfigNameSuffix
 	configRouterRouteName                       = configPrefix + configRouterRouteNameSuffix
-	configSchedulerLatencyPredictorName         = configPrefix + configSchedulerLatencyPredictorNameSuffix
 	configTokenizerName                         = configPrefix + configTokenizerNameSuffix
 	configTracingName                           = configPrefix + configTracingNameSuffix
 )
@@ -107,6 +108,7 @@ var _ = sets.New[string](
 // that are automatically applied based on the LLM service deployment pattern
 var WellKnownDefaultConfigs = sets.New[string](
 	configTemplateName,
+	configSGLangTemplateName,
 	configDecodeTemplateName,
 	configWorkerDataParallelName,
 	configDecodeWorkerDataParallelName,
@@ -116,7 +118,6 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configRouterSchedulerDefaultEPPConfigName,
 	configRouterSchedulerDefaultPDEPPConfigName,
 	configRouterRouteName,
-	configSchedulerLatencyPredictorName,
 	configTokenizerName,
 	configTracingName,
 )
@@ -131,6 +132,35 @@ const (
 var routerPresetMinVersion = semver.New("0.11.0")
 
 var useVersionedConfig, _ = strconv.ParseBool(constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_VERSIONED_CONFIG", "true"))
+
+// SGLangServingRuntimeName is the well-known ClusterServingRuntime name shipped
+// with KServe that supplies the SGLang container image. When spec.runtime is
+// set to this name, the controller selects the SGLang infrastructure template
+// (kserve-config-sglang-template).
+//
+// TODO: Longer term we want to make kserve-config-llm-template engine-agnostic
+// (no image, aligned probes / volumes / security context across engines) so
+// that the ServingRuntime alone drives engine selection. At that point this
+// name-based mapping and kserve-config-sglang-template can be removed.
+const SGLangServingRuntimeName = "kserve-llm-sglang"
+
+// selectSingleNodeTemplateName returns the well-known config template name for
+// a single-node Non-P/D deployment based on the requested runtime. When runtime
+// points at the well-known SGLang ServingRuntime, the SGLang-specific
+// infrastructure template is used; otherwise the default vLLM template.
+func selectSingleNodeTemplateName(runtime *string) string {
+	if runtime != nil && *runtime == SGLangServingRuntimeName {
+		return configSGLangTemplateName
+	}
+	return configTemplateName
+}
+
+// CombineOption is a functional option for combineBaseRefsConfig
+type CombineOption func(*combineOptions)
+
+type combineOptions struct {
+	skipClearSchedulerConfigRef bool
+}
 
 // CombinedConfig holds the output of combineBaseRefsConfig.
 type CombinedConfig struct {
@@ -455,9 +485,6 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && isTokenizerEnabled(resolvedSpec) {
 		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTokenizerName)})
 	}
-	if hasLatencyProducerInSpec(resolvedSpec) {
-		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configSchedulerLatencyPredictorName)})
-	}
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Route != nil && !resolvedSpec.Router.Route.HTTP.HasRefs() {
 		// For the HTTP route configuration we don't use versioned defaults since this configuration depends on the
 		// GW API provider version.
@@ -496,8 +523,8 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	} else { // Non P/D
 		switch {
 		case resolvedSpec.Worker == nil:
-			// single-node
-			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTemplateName)})
+			// single-node -- select template based on runtime
+			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, selectSingleNodeTemplateName(resolvedSpec.Runtime))})
 		case resolvedSpec.Worker != nil && resolvedSpec.Parallelism.IsDataParallel():
 			// multi-node Data Parallel
 			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configWorkerDataParallelName)})
@@ -511,8 +538,26 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	wellKnownCount := len(refs)
 	refs = append(refs, llmSvc.Spec.BaseRefs...)
 
-	specs := make([]v1alpha2.LLMInferenceServiceSpec, 0, len(refs))
-	appliedRefs := make([]v1alpha2.AppliedConfigRef, 0, len(refs))
+	specs := make([]v1alpha2.LLMInferenceServiceSpec, 0, len(refs)+1)
+	appliedRefs := make([]v1alpha2.AppliedConfigRef, 0, len(refs)+1)
+
+	// Prepend the ServingRuntime/ClusterServingRuntime container spec (if spec.runtime
+	// resolves) as the lowest-priority merge layer. This gives operators one place —
+	// the runtime resource — to pin the engine image while leaving every downstream
+	// layer (well-known configs, user baseRefs, service spec.template) free to
+	// override it.
+	runtimeSpec, err := r.resolveRuntimeSpec(ctx, llmSvc)
+	if err != nil {
+		return nil, err
+	}
+	if runtimeSpec != nil {
+		specs = append(specs, *runtimeSpec)
+		appliedRefs = append(appliedRefs, v1alpha2.AppliedConfigRef{
+			Name:   gwapiv1.ObjectName(*llmSvc.Spec.Runtime),
+			Source: v1alpha2.AppliedConfigSourceServingRuntime,
+		})
+	}
+
 	for i, ref := range refs {
 		cfg, err := r.getConfig(ctx, llmSvc, ref.Name)
 		if err != nil {
@@ -665,12 +710,10 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		// mutually exclusive in a valid LLMInferenceService.
 		llmSvcCfg.Spec.Router.Scheduler.Config.Ref = nil
 
-		// Warn if the resolved ConfigMap contains predicted-latency-producer but the
-		// well-known config was not injected (because detection runs before Ref resolution).
-		if hasLatencyProducerInSpec(llmSvcCfg.Spec) {
+		// If predicted-latency-producer plugin is still in use, emit Event on Warning
+		if hasPluginInSpec(llmSvcCfg.Spec, "predicted-latency-producer") {
 			r.Eventf(llmSvc, corev1.EventTypeWarning, "LatencyPredictorConfigRef",
-				"predicted-latency-producer plugin detected in Config.Ref ConfigMap %q; "+
-					"latency predictor sidecar injection requires Config.Inline instead of Config.Ref", cmName)
+				"predicted-latency-producer plugin is deprecated, should be removed to avoid disruptions in the future")
 		}
 	}
 
@@ -773,8 +816,8 @@ func stripModelBasedRoutingRules(rules []gwapiv1.HTTPRouteRule, headerName strin
 // model. Matches within a Gateway API rule are OR'd, so a rule ends up matching
 // "base model OR adapter-1 OR adapter-2 …" — all targeting the same InferencePool.
 //
-// Only matches whose header name equals headerName are duplicated; path-only rules
-// and rules with unrelated headers are left untouched.
+// Only matches naming headerName are duplicated; path-only rules and rules with
+// unrelated headers are left untouched.
 func expandLoRAAdapterMatches(rules []gwapiv1.HTTPRouteRule, namespace string, adapters []v1alpha2.LLMModelSpec, headerName string) {
 	if headerName == "" || len(adapters) == 0 {
 		return
@@ -798,7 +841,7 @@ func expandLoRAAdapterMatches(rules []gwapiv1.HTTPRouteRule, namespace string, a
 				}
 				am := *match.DeepCopy()
 				for h := range am.Headers {
-					if string(am.Headers[h].Name) == headerName {
+					if isModelRoutingHeader(am.Headers[h].Name, headerName) {
 						am.Headers[h].Value = fullyQualifiedModelName(namespace, *adapter.Name)
 					}
 				}

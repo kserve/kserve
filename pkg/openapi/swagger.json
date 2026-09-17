@@ -671,12 +671,11 @@
       }
     },
     "v1alpha1.LocalModelNamespaceCacheSpec": {
-      "description": "LocalModelNamespaceCacheSpec defines the spec for namespace-scoped local model cache",
+      "description": "LocalModelNamespaceCacheSpec defines the spec for namespace-scoped local model cache.\n\nExactly one storage mode must be selected: either node-local caching via nodeGroups, or shared-PVC import via pvcRef. The two are mutually exclusive.",
       "type": "object",
       "required": [
         "sourceModelUri",
-        "modelSize",
-        "nodeGroups"
+        "modelSize"
       ],
       "properties": {
         "modelSize": {
@@ -684,12 +683,16 @@
           "$ref": "#/definitions/resource.Quantity"
         },
         "nodeGroups": {
-          "description": "group of nodes to cache the model on.",
+          "description": "group of nodes to cache the model on. Selects the legacy node-local caching mode. Mutually exclusive with pvcRef.",
           "type": "array",
           "items": {
             "type": "string",
             "default": ""
           }
+        },
+        "pvcRef": {
+          "description": "PVCRef is the name of a pre-created PersistentVolumeClaim in the cache CR's namespace. Selects shared-PVC import mode: the model is imported once onto the referenced claim and shared read-only by serving replicas. The claim must be ReadWriteMany with filesystem volume mode. It is immutable; changing the destination requires a new cache CR. Mutually exclusive with nodeGroups.",
+          "type": "string"
         },
         "serviceAccountName": {
           "description": "ServiceAccountName specifies the service account to use for credential lookup.",
@@ -1550,7 +1553,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container.",
+          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
             "default": {},
@@ -1994,7 +1997,7 @@
           "type": "boolean"
         },
         "hostUsers": {
-          "description": "Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host. This field is alpha-level and is only honored by servers that enable the UserNamespacesSupport feature.",
+          "description": "Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host.",
           "type": "boolean"
         },
         "hostname": {
@@ -2080,7 +2083,7 @@
           "x-kubernetes-list-type": "atomic"
         },
         "resourceClaims": {
-          "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
+          "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is a stable field but requires that the DynamicResourceAllocation feature gate is enabled.\n\nThis field is immutable.",
           "type": "array",
           "items": {
             "default": {},
@@ -2122,6 +2125,10 @@
           "x-kubernetes-list-type": "map",
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
+        },
+        "schedulingGroup": {
+          "description": "SchedulingGroup provides a reference to the immediate scheduling runtime grouping object that this Pod belongs to. This field is used by the scheduler to identify the group and apply the correct group scheduling policies. The association with a group also impacts other lifecycle aspects of a Pod that are relevant in a wider context of scheduling like preemption, resource attachment, etc. If not specified, the Pod is treated as a single unit in all of these aspects. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
+          "$ref": "#/definitions/v1.PodSchedulingGroup"
         },
         "securityContext": {
           "description": "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
@@ -2279,7 +2286,7 @@
           "type": "boolean"
         },
         "hostUsers": {
-          "description": "Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host. This field is alpha-level and is only honored by servers that enable the UserNamespacesSupport feature.",
+          "description": "Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host.",
           "type": "boolean"
         },
         "hostname": {
@@ -2365,7 +2372,7 @@
           "x-kubernetes-list-type": "atomic"
         },
         "resourceClaims": {
-          "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
+          "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is a stable field but requires that the DynamicResourceAllocation feature gate is enabled.\n\nThis field is immutable.",
           "type": "array",
           "items": {
             "default": {},
@@ -2407,6 +2414,10 @@
           "x-kubernetes-list-type": "map",
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
+        },
+        "schedulingGroup": {
+          "description": "SchedulingGroup provides a reference to the immediate scheduling runtime grouping object that this Pod belongs to. This field is used by the scheduler to identify the group and apply the correct group scheduling policies. The association with a group also impacts other lifecycle aspects of a Pod that are relevant in a wider context of scheduling like preemption, resource attachment, etc. If not specified, the Pod is treated as a single unit in all of these aspects. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
+          "$ref": "#/definitions/v1.PodSchedulingGroup"
         },
         "securityContext": {
           "description": "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
@@ -2564,7 +2575,7 @@
           "type": "boolean"
         },
         "hostUsers": {
-          "description": "Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host. This field is alpha-level and is only honored by servers that enable the UserNamespacesSupport feature.",
+          "description": "Use the host's user namespace. Optional: Default to true. If set to true or not present, the pod will be run in the host user namespace, useful for when the pod needs a feature only available to the host user namespace, such as loading a kernel module with CAP_SYS_MODULE. When set to false, a new userns is created for the pod. Setting false is useful for mitigating container breakout vulnerabilities even allowing users to run their containers as root without actually having root privileges on the host.",
           "type": "boolean"
         },
         "hostname": {
@@ -2650,7 +2661,7 @@
           "x-kubernetes-list-type": "atomic"
         },
         "resourceClaims": {
-          "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
+          "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is a stable field but requires that the DynamicResourceAllocation feature gate is enabled.\n\nThis field is immutable.",
           "type": "array",
           "items": {
             "default": {},
@@ -2692,6 +2703,10 @@
           "x-kubernetes-list-type": "map",
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
+        },
+        "schedulingGroup": {
+          "description": "SchedulingGroup provides a reference to the immediate scheduling runtime grouping object that this Pod belongs to. This field is used by the scheduler to identify the group and apply the correct group scheduling policies. The association with a group also impacts other lifecycle aspects of a Pod that are relevant in a wider context of scheduling like preemption, resource attachment, etc. If not specified, the Pod is treated as a single unit in all of these aspects. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies. Doing this during pod scheduling may result in the placement not conforming to the expected policies.",
+          "$ref": "#/definitions/v1.PodSchedulingGroup"
         },
         "securityContext": {
           "description": "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
@@ -2896,7 +2911,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container.",
+          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
             "default": {},
@@ -3257,6 +3272,10 @@
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "schedulingGroup": {
+          "description": "SchedulingGroup declares the group scheduling membership of the Pod. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies.",
+          "$ref": "#/definitions/v1.PodSchedulingGroup"
+        },
         "securityContext": {
           "description": "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
           "$ref": "#/definitions/v1.PodSecurityContext"
@@ -3530,7 +3549,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container.",
+          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
             "default": {},
@@ -3714,6 +3733,10 @@
           "default": {},
           "$ref": "#/definitions/v1beta1.PredictorSpec"
         },
+        "tracing": {
+          "description": "Tracing configures distributed tracing across InferenceService components. When present, even as an empty object, tracing is enabled with defaults. When omitted, tracing is disabled.",
+          "$ref": "#/definitions/v1beta1.TracingSpec"
+        },
         "transformer": {
           "description": "Transformer defines the pre/post processing before and after the predictor call, transformer service calls to predictor service.",
           "$ref": "#/definitions/v1beta1.TransformerSpec"
@@ -3878,6 +3901,10 @@
         "localGatewayService": {
           "type": "string"
         },
+        "loraModelRoutingStrategy": {
+          "description": "LoRAModelRoutingStrategy selects how LLMInferenceService LoRA adapter expansion represents model identities in generated HTTPRoutes: \"exact\" (the default) or \"regex\", compared case-insensitively. Any other value fails config loading like the other ingress keys.",
+          "type": "string"
+        },
         "modelBasedRoutingHeaderName": {
           "type": "string"
         },
@@ -3986,7 +4013,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container.",
+          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
             "default": {},
@@ -4392,7 +4419,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container.",
+          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
             "default": {},
@@ -4653,7 +4680,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container.",
+          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
             "default": {},
@@ -4865,7 +4892,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container.",
+          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
             "default": {},
@@ -5058,7 +5085,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container.",
+          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
             "default": {},
@@ -5400,6 +5427,10 @@
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "schedulingGroup": {
+          "description": "SchedulingGroup declares the group scheduling membership of the Pod. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies.",
+          "$ref": "#/definitions/v1.PodSchedulingGroup"
+        },
         "securityContext": {
           "description": "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
           "$ref": "#/definitions/v1.PodSecurityContext"
@@ -5558,7 +5589,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container.",
+          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
             "default": {},
@@ -5947,6 +5978,10 @@
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "schedulingGroup": {
+          "description": "SchedulingGroup declares the group scheduling membership of the Pod. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies.",
+          "$ref": "#/definitions/v1.PodSchedulingGroup"
+        },
         "securityContext": {
           "description": "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
           "$ref": "#/definitions/v1.PodSecurityContext"
@@ -6199,7 +6234,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container.",
+          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
             "default": {},
@@ -6453,7 +6488,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container.",
+          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
             "default": {},
@@ -6647,7 +6682,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container.",
+          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
             "default": {},
@@ -6743,6 +6778,28 @@
         },
         "workingDir": {
           "description": "Container's working directory. If not specified, the container runtime's default will be used, which might be configured in the container image. Cannot be updated.",
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.TracingSpec": {
+      "description": "TracingSpec defines the distributed tracing configuration. When present (even as an empty object `{}`), tracing is enabled with defaults. When omitted, tracing is disabled.",
+      "type": "object",
+      "properties": {
+        "exporter": {
+          "description": "Exporter specifies which exporter is used for traces. Maps to the OTEL_TRACES_EXPORTER environment variable. Default: \"otlp\"",
+          "type": "string"
+        },
+        "exporterEndpoint": {
+          "description": "ExporterEndpoint is the OTLP exporter endpoint. Maps to the OTEL_EXPORTER_OTLP_ENDPOINT environment variable. Default: \"http://otel-collector:4317\"",
+          "type": "string"
+        },
+        "sampler": {
+          "description": "Sampler specifies the sampler to use for traces. Maps to the OTEL_TRACES_SAMPLER environment variable. Default: \"parentbased_traceidratio\"",
+          "type": "string"
+        },
+        "samplerArg": {
+          "description": "SamplerArg is an argument passed to the traces sampler, such as a sampling ratio. Maps to the OTEL_TRACES_SAMPLER_ARG environment variable. Default: \"0.05\"",
           "type": "string"
         }
       }
@@ -7004,6 +7061,10 @@
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "schedulingGroup": {
+          "description": "SchedulingGroup declares the group scheduling membership of the Pod. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies.",
+          "$ref": "#/definitions/v1.PodSchedulingGroup"
+        },
         "securityContext": {
           "description": "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
           "$ref": "#/definitions/v1.PodSecurityContext"
@@ -7176,7 +7237,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container.",
+          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
             "default": {},
@@ -7472,6 +7533,10 @@
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
         },
+        "schedulingGroup": {
+          "description": "SchedulingGroup declares the group scheduling membership of the Pod. The group object referenced by this field may not exist at the time the Pod is created. This field is immutable, but a group object with the same name may be recreated with different policies.",
+          "$ref": "#/definitions/v1.PodSchedulingGroup"
+        },
         "securityContext": {
           "description": "SecurityContext holds pod-level security attributes and common container settings. Optional: Defaults to empty.  See type description for default values of each field.",
           "$ref": "#/definitions/v1.PodSecurityContext"
@@ -7635,7 +7700,7 @@
           "$ref": "#/definitions/v1.Probe"
         },
         "resizePolicy": {
-          "description": "Resources resize policy for the container.",
+          "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
             "default": {},

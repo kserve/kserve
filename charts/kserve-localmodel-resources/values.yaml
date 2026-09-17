@@ -1,5 +1,5 @@
 kserve:
-  version: v0.20.0
+  version: v0.21.0-rc0
   createSharedResources: true
   inferenceServiceConfig:
     enabled: ''
@@ -38,6 +38,14 @@ kserve:
     uidModelcar: 1010
     cpuModelcar: 10m
     memoryModelcar: 15Mi
+    # enableOciModelSupport turns on any OCI-backed model storage path (modelcar,
+    # native ImageVolume, or fetch). Only rendered into the storageInitializer
+    # config when true, so the default leaves the shipped config untouched.
+    enableOciModelSupport: false
+    # ociModelMode picks the materialization strategy for oci:// storageUris that
+    # carry no explicit suffix. One of: modelcar | native | fetch.
+    # Only rendered into the storageInitializer config when non-empty.
+    ociModelMode: ''
     caBundleConfigMapName: ''
     caBundleVolumeMountPath: /etc/ssl/custom-certs
     storageSpecSecretName: storage-config

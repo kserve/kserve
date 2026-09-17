@@ -16,6 +16,10 @@ limitations under the License.
 
 package v1alpha1
 
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
 type LocalModelCacheStatus struct {
 	// Status of the model on a node, like NodeDownloaded or NodeNotReady
 	NodeStatus map[string]NodeStatus `json:"nodeStatus,omitempty"`
@@ -27,6 +31,16 @@ type LocalModelCacheStatus struct {
 	InferenceServices []NamespacedName `json:"inferenceServices,omitempty"`
 	// LLM inference services using this local model
 	LLMInferenceServices []NamespacedName `json:"llmInferenceServices,omitempty"`
+
+	// Conditions describes the observed state of the cache. For shared-PVC mode
+	// (LocalModelNamespaceCache with pvcRef) a positive-polarity Ready condition is the
+	// stable readiness contract for serving admission and downstream consumers.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=type
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
 type NamespacedName struct {

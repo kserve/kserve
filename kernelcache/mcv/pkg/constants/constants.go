@@ -32,6 +32,7 @@ const (
 	ManifestDir      = "manifest"
 	ManifestFileName = "manifest.json"
 	VLLMHOME         = "/home/vllm"
+	KServeHome       = "/home/kserve"
 	VLLMCache        = ".cache/vllm"
 
 	MCVTritonCacheDir    = "io.triton.cache/"
@@ -42,6 +43,14 @@ const (
 	EnvTritonCacheDir    = "TRITON_CACHE_DIR"
 	DefaultCacheFilePath = "/tmp/device_cache.json"
 	StubbedCacheFile     = "/tmp/device_cache_stub.json"
+
+	// KServe Kernel Manager integration
+	KMPrefix        = "io.kserve.km"
+	VLLMCacheRoot   = "VLLM_CACHE_ROOT"
+	TorchCompileDir = "torch_compile_cache"
+
+	// Cache type identifiers
+	CacheTypeVLLMTorchCompile = "torch-compile"
 )
 
 // Configurable runtime paths

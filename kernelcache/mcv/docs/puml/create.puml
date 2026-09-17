@@ -2,46 +2,56 @@
 actor User
 participant "MCV CLI" as CLI
 participant "ImageBuilder" as Builder
-participant "PreflightCheck" as Check
+participant "Cache" as Cache
 participant "Filesystem" as FS
-participant "Docker/Buildah" as Backend
-participant "Registry" as Registry
+participant "Buildah" as Buildah
+participant "Docker" as Docker
 
-User -> CLI : mcv -c -i <image> -d <cacheDir>
-CLI -> Builder : CreateImage(image, cacheDir)
+User -> CLI : mcv -c -i <image> -d <cacheDir> [--builder buildah|docker]
+CLI -> Builder : NewWithBuilder(builder)\n(auto: buildah, else docker)
 
-Builder -> FS : Copy cacheDir to temp build context
-FS --> Builder : Success
-
-Builder -> Check : FindAllTritonCacheJSON(tempDir)
-Check --> Builder : [paths]
-
-loop for each cache JSON
-    Builder -> Check : GetTritonCacheJSONData(path)
-    Check --> Builder : TritonCacheData
-
-    Builder -> Check : ComputeDummyTritonKey(data)
-    Check --> Builder : dummyKey
-
-    Builder -> Builder : Append metadata entry
+alt buildah available (default) or --builder buildah
+    Builder --> CLI : buildahBuilder
+else docker available or --builder docker
+    Builder --> CLI : dockerBuilder
+else neither available
+    Builder --> CLI : error
 end
 
-Builder -> Check : BuildTritonSummary(metadata)
-Check --> Builder : Summary struct
+CLI -> Builder : CreateImage(image, cacheDir)
 
-Builder -> FS : write manifest.json
-FS --> Builder : Success
+Builder -> Cache : DetectCaches(cacheDir)
+note right of Cache
+  Prefer vLLM (~/.cache/vllm)
+  else Triton (~/.triton/cache)
+end note
 
-Builder -> FS : Generate Dockerfile (COPY + LABELS)
-FS --> Builder : Dockerfile path
+alt vLLM cache detected
+    Cache --> Builder : VLLMCache\n(io.vllm.cache / io.vllm.manifest)
+else Triton cache detected
+    Cache --> Builder : TritonCache\n(io.triton.cache / io.triton.manifest)
+else no cache detected
+    Cache --> Builder : error
+end
 
-Builder -> Backend : Build image (Docker/Buildah)
-Backend --> Builder : OCI image with labels
+Builder -> FS : Copy cacheDir to temp build context
+FS --> Builder : cache + manifest staging dirs
 
-Builder -> Registry : Tag and store image
-Registry --> Builder : Image tagged
+Builder -> Cache : BuildManifest + BuildLabels
+Cache --> Builder : manifest.json + OCI labels\n(summary, entry-count, cache-size-bytes, format)
 
-Builder -> FS : Cleanup temp dirs
+alt Buildah builder
+    Builder -> Buildah : NewBuilder(from scratch)
+    Builder -> Buildah : Add(manifest dir + cache dir)
+    Builder -> Buildah : SetLabel(cache labels)
+    Buildah --> Builder : Commit (Docker Schema 2 manifest)
+else Docker builder
+    Builder -> Builder : schema2ImageFromBuildContext()\ncompat tar layer (Docker gzip)
+    Builder -> Docker : ImageLoad(tarball)
+    Docker --> Builder : image in local daemon
+end
+
+Builder -> FS : Cleanup temp dirs (/tmp/.mcv/)
 FS --> Builder : Success
 
 Builder --> CLI : Image build complete

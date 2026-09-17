@@ -1766,3 +1766,144 @@ func TestDefaultInferenceServiceWithLocalModelNamespaceCache(t *testing.T) {
 	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "test-ns-cache"))
 	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelNamespaceLabel, "default"))
 }
+
+func makeSharedPVCNSCache(ready bool) *v1alpha1.LocalModelNamespaceCacheList {
+	ref := "shared-pvc"
+	cache := v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-ns-cache", Namespace: "default", Generation: 1},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "gs://testbucket/testmodel",
+			ModelSize:      resource.MustParse("1Gi"),
+			PVCRef:         &ref,
+		},
+	}
+	if ready {
+		cache.Status.MarkReady(1)
+	}
+	return &v1alpha1.LocalModelNamespaceCacheList{Items: []v1alpha1.LocalModelNamespaceCache{cache}}
+}
+
+func makeSharedPVCTestISVC() InferenceService {
+	return InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-isvc", Namespace: "default"},
+		Spec: InferenceServiceSpec{
+			Predictor: PredictorSpec{
+				Model: &ModelSpec{
+					PredictorExtensionSpec: PredictorExtensionSpec{
+						StorageURI: proto.String("gs://testbucket/testmodel"),
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestSetLocalModelLabel_SharedPVCReady(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeSharedPVCTestISVC()
+	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache(true))
+
+	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "shared-ns-cache"))
+	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelNamespaceLabel, "default"))
+	g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "shared-pvc"))
+}
+
+func TestSetLocalModelLabel_SharedPVCNotReadySkipped(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeSharedPVCTestISVC()
+	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache(false))
+
+	g.Expect(isvc.Labels).ToNot(gomega.HaveKey(constants.LocalModelLabel))
+}
+
+func TestSetLocalModelLabel_SharedPVCNotReadyKeepsBoundISVC(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeSharedPVCTestISVC()
+	isvc.Labels = map[string]string{constants.LocalModelLabel: "shared-ns-cache"}
+	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache(false))
+
+	g.Expect(isvc.Labels).To(gomega.HaveKeyWithValue(constants.LocalModelLabel, "shared-ns-cache"))
+	g.Expect(isvc.Annotations).To(gomega.HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, "shared-pvc"))
+}
+
+func TestSetLocalModelLabel_SharedPVCNotReadySkipsISVCBoundElsewhere(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeSharedPVCTestISVC()
+	isvc.Labels = map[string]string{constants.LocalModelLabel: "some-other-cache"}
+	isvc.setLocalModelLabel(nil, makeSharedPVCNSCache(false))
+
+	// Bound to a different cache: the not-ready shared cache is skipped, and the stale
+	// binding is cleared by the existing no-match fallback.
+	g.Expect(isvc.Labels).ToNot(gomega.HaveKey(constants.LocalModelLabel))
+	g.Expect(isvc.Annotations).ToNot(gomega.HaveKey(constants.LocalModelPVCNameAnnotationKey))
+}
+
+func TestDefaultInferenceServiceTracing(t *testing.T) {
+	customEndpoint := "https://collector.example.com:4317"
+	customSampler := "always_on"
+	customSamplerArg := "1.0"
+	customExporter := "custom"
+
+	tests := map[string]struct {
+		tracing  *TracingSpec
+		expected *TracingSpec
+	}{
+		"omitted tracing remains disabled": {
+			tracing:  nil,
+			expected: nil,
+		},
+		"empty tracing receives defaults": {
+			tracing: &TracingSpec{},
+			expected: &TracingSpec{
+				ExporterEndpoint: proto.String(DefaultTracingExporterEndpoint),
+				Sampler:          proto.String(DefaultTracingSampler),
+				SamplerArg:       proto.String(DefaultTracingSamplerArg),
+				Exporter:         proto.String(DefaultTracingExporter),
+			},
+		},
+		"partial tracing preserves explicit values": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: &customEndpoint,
+				Sampler:          &customSampler,
+			},
+			expected: &TracingSpec{
+				ExporterEndpoint: &customEndpoint,
+				Sampler:          &customSampler,
+				SamplerArg:       proto.String(DefaultTracingSamplerArg),
+				Exporter:         proto.String(DefaultTracingExporter),
+			},
+		},
+		"fully configured tracing remains unchanged": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: &customEndpoint,
+				Sampler:          &customSampler,
+				SamplerArg:       &customSamplerArg,
+				Exporter:         &customExporter,
+			},
+			expected: &TracingSpec{
+				ExporterEndpoint: &customEndpoint,
+				Sampler:          &customSampler,
+				SamplerArg:       &customSamplerArg,
+				Exporter:         &customExporter,
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			isvc := InferenceService{
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						Model: &ModelSpec{ModelFormat: ModelFormat{Name: "sklearn"}},
+					},
+					Tracing: tt.tracing,
+				},
+			}
+
+			isvc.DefaultInferenceService(nil, nil, nil, nil, nil)
+
+			g.Expect(isvc.Spec.Tracing).To(gomega.Equal(tt.expected))
+		})
+	}
+}

@@ -334,6 +334,222 @@ func TestAutoscalerClassHPA(t *testing.T) {
 			},
 			errMatcher: gomega.BeNil(),
 		},
+		"HPA CPU metrics with target=0 (invalid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricCPU),
+							ScaleTarget: ptr.To(int32(0)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("the target utilization percentage should be a [1-100] integer"),
+		},
+		"HPA CPU metrics with target=1 (valid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricCPU),
+							ScaleTarget: ptr.To(int32(1)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"HPA CPU metrics with target=100 (valid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricCPU),
+							ScaleTarget: ptr.To(int32(100)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"HPA CPU metrics with target=101 (invalid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricCPU),
+							ScaleTarget: ptr.To(int32(101)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("the target utilization percentage should be a [1-100] integer"),
+		},
+		"HPA Memory metrics with target=0 (invalid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricMemory),
+							ScaleTarget: ptr.To(int32(0)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("the target utilization percentage should be a [1-100] integer"),
+		},
+		"HPA Memory metrics with target=1 (valid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricMemory),
+							ScaleTarget: ptr.To(int32(1)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"HPA Memory metrics with target=100 (valid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricMemory),
+							ScaleTarget: ptr.To(int32(100)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"HPA Memory metrics with target=101 (invalid)": {
+			isvc: &InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "default",
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode":  "Standard",
+						"serving.kserve.io/autoscalerClass": "hpa",
+					},
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ScaleMetric: ptr.To(MetricMemory),
+							ScaleTarget: ptr.To(int32(101)),
+						},
+						Tensorflow: &TFServingSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:     proto.String("gs://testbucket/testmodel"),
+								RuntimeVersion: proto.String("0.14.0"),
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError("the target utilization percentage should be a [1-100] integer"),
+		},
 		"Invalid autoscaler class": {
 			isvc: &InferenceService{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1665,14 +1881,6 @@ func TestValidateDelete(t *testing.T) {
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(warnings).Should(gomega.BeEmpty())
 	})
-
-	t.Run("Invalid object type", func(t *testing.T) {
-		// Use a valid runtime.Object type but not an InferenceService
-		notIsvc := &corev1.Pod{}
-		warnings, err := validator.ValidateDelete(t.Context(), notIsvc)
-		g.Expect(err).Should(gomega.HaveOccurred())
-		g.Expect(warnings).Should(gomega.BeEmpty())
-	})
 }
 
 func TestValidateScalingKedaCompExtension(t *testing.T) {
@@ -2805,4 +3013,94 @@ func TestValidatePredictorNameChange(t *testing.T) {
 		_, err := validator.ValidateUpdate(t.Context(), oldISVC, newISVC)
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	})
+}
+
+func TestValidateInferenceServiceTracing(t *testing.T) {
+	tests := map[string]struct {
+		tracing    *TracingSpec
+		errorField string
+	}{
+		"omitted tracing is valid": {
+			tracing: nil,
+		},
+		"empty tracing is valid": {
+			tracing: &TracingSpec{},
+		},
+		"default tracing values are valid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String(DefaultTracingExporterEndpoint),
+				Sampler:          proto.String(DefaultTracingSampler),
+			},
+		},
+		"unsupported sampler is invalid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String(DefaultTracingExporterEndpoint),
+				Sampler:          proto.String("sometimes"),
+			},
+			errorField: "spec.tracing.sampler",
+		},
+		"endpoint without scheme is invalid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String("otel-collector:4317"),
+				Sampler:          proto.String(DefaultTracingSampler),
+			},
+			errorField: "spec.tracing.exporterEndpoint",
+		},
+		"endpoint with unsupported scheme is invalid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String("grpc://otel-collector:4317"),
+				Sampler:          proto.String(DefaultTracingSampler),
+			},
+			errorField: "spec.tracing.exporterEndpoint",
+		},
+		"endpoint without host is invalid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String("http:///v1/traces"),
+				Sampler:          proto.String(DefaultTracingSampler),
+			},
+			errorField: "spec.tracing.exporterEndpoint",
+		},
+		"malformed endpoint is invalid": {
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String("://collector"),
+				Sampler:          proto.String(DefaultTracingSampler),
+			},
+			errorField: "spec.tracing.exporterEndpoint",
+		},
+	}
+	for _, sampler := range []string{
+		"always_on",
+		"always_off",
+		"traceidratio",
+		"parentbased_always_on",
+		"parentbased_always_off",
+		"parentbased_traceidratio",
+	} {
+		tests["supported sampler "+sampler] = struct {
+			tracing    *TracingSpec
+			errorField string
+		}{
+			tracing: &TracingSpec{
+				ExporterEndpoint: proto.String("https://collector.example.com:4317/v1/traces"),
+				Sampler:          proto.String(sampler),
+			},
+		}
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			isvc := makeTestInferenceService()
+			isvc.Spec.Tracing = tt.tracing
+
+			_, err := (&InferenceServiceValidator{}).ValidateCreate(t.Context(), &isvc)
+			if tt.errorField == "" {
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				return
+			}
+
+			g.Expect(err).To(gomega.HaveOccurred())
+			g.Expect(err.Error()).To(gomega.ContainSubstring(tt.errorField))
+		})
+	}
 }

@@ -11,7 +11,7 @@ dependencies = [
     "h5py>=3.12,<4.0.0",
 ]
 name = "artserver"
-version = "0.20.0"
+version = "0.21.0rc0"
 description = "Model Server implementation for AI Robustness Toolbox. Not intended for use outside KServe Frameworks Images."
 readme = "README.md"
 

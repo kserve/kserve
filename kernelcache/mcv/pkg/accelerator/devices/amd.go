@@ -17,6 +17,7 @@ limitations under the License.
 package devices
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -136,10 +137,11 @@ type AMDASIC struct {
 }
 
 type AMDBus struct {
-	BDF                  string `json:"bdf"`
-	MaxPCIeWidth         int    `json:"max_pcie_width"`
-	PCIeInterfaceVersion string `json:"pcie_interface_version"`
-	SlotType             string `json:"slot_type"`
+	BDF                  string      `json:"bdf"`
+	MaxPCIeWidth         interface{} `json:"max_pcie_width"` // Can be int (e.g. 16) or string (e.g. "N/A")
+	MaxPCIeSpeed         interface{} `json:"max_pcie_speed"` // Can be int or string (e.g. "N/A")
+	PCIeInterfaceVersion string      `json:"pcie_interface_version"`
+	SlotType             string      `json:"slot_type"`
 }
 
 type AMDVBIOS struct {
@@ -163,12 +165,12 @@ type AMDBoard struct {
 }
 
 type AMDRAS struct {
-	EEPROMVersion   string            `json:"eeprom_version"`
-	ParitySchema    string            `json:"parity_schema"`
-	SingleBitSchema string            `json:"single_bit_schema"`
-	DoubleBitSchema string            `json:"double_bit_schema"`
-	PoisonSchema    string            `json:"poison_schema"`
-	ECCBlockState   map[string]string `json:"ecc_block_state"`
+	EEPROMVersion   string      `json:"eeprom_version"`
+	ParitySchema    string      `json:"parity_schema"`
+	SingleBitSchema string      `json:"single_bit_schema"`
+	DoubleBitSchema string      `json:"double_bit_schema"`
+	PoisonSchema    string      `json:"poison_schema"`
+	ECCBlockState   interface{} `json:"ecc_block_state"` // Can be map[string]string or string (e.g. "N/A")
 }
 
 type AMDPartition struct {
@@ -400,14 +402,22 @@ func getAMDGPUInfo(ctx context.Context) (map[int]*AMDCardInfo, error) {
 		return nil, fmt.Errorf("failed to execute amd-smi: %w", err)
 	}
 
+	// amd-smi may output error messages after the JSON, so we need to extract just the JSON part
+	// Look for the last ']' which marks the end of the JSON array
+	jsonOutput := output
+	if lastBracket := bytes.LastIndexByte(output, ']'); lastBracket != -1 {
+		jsonOutput = output[:lastBracket+1]
+	}
+
 	// Define a wrapper struct to match the new JSON structure
 	var wrapper struct {
 		GPUData []*AMDCardInfo `json:"gpu_data"`
 	}
 
-	if err := json.Unmarshal(output, &wrapper); err != nil {
-		logging.Debugf("failed to parse amd-smi output going to try compat mode")
-		if err := json.Unmarshal(output, &wrapper.GPUData); err != nil {
+	if err := json.Unmarshal(jsonOutput, &wrapper); err != nil {
+		logging.Debugf("failed to parse amd-smi output going to try compat mode: %v", err)
+		if err := json.Unmarshal(jsonOutput, &wrapper.GPUData); err != nil {
+			logging.Debugf("compat mode also failed: %v, output: %s", err, string(jsonOutput))
 			return nil, fmt.Errorf("failed to parse amd-smi output: %w", err)
 		}
 	}

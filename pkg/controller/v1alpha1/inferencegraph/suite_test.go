@@ -25,7 +25,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -56,12 +58,18 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 		deployConfig := &v1beta1.DeployConfig{DefaultDeploymentMode: "Knative"}
 
+		// Mirror the production wiring in cmd/manager/main.go: a broadcaster is only
+		// useful once it is recording to a sink, otherwise events are silently dropped.
+		eventBroadcaster := record.NewBroadcaster()
+		eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: clientset.CoreV1().Events("")})
+
 		return (&InferenceGraphReconciler{
 			Client:    mgr.GetClient(),
 			Clientset: clientset,
 			Scheme:    mgr.GetScheme(),
 			Log:       ctrl.Log.WithName("V1alpha1InferenceGraphController"),
-			Recorder:  mgr.GetEventRecorderFor("V1alpha1InferenceGraphController"),
+			Recorder: eventBroadcaster.NewRecorder(
+				mgr.GetScheme(), corev1.EventSource{Component: "V1alpha1InferenceGraphController"}),
 		}).SetupWithManager(mgr, deployConfig)
 	}
 
