@@ -36,4 +36,6 @@ type LocalModelNodeGroupExpansion interface{}
 
 type ServingRuntimeExpansion interface{}
 
+type StorageContainerExpansion interface{}
+
 type TrainedModelExpansion interface{}

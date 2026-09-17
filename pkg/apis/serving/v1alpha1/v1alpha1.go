@@ -66,6 +66,7 @@ func addKnownTypes(s *runtime.Scheme) error {
 		&ServingRuntime{}, &ServingRuntimeList{},
 		&ClusterServingRuntime{}, &ClusterServingRuntimeList{},
 		&ClusterStorageContainer{}, &ClusterStorageContainerList{},
+		&StorageContainer{}, &StorageContainerList{},
 		&LocalModelCache{}, &LocalModelCacheList{},
 		&LocalModelNode{}, &LocalModelNodeList{},
 		&LocalModelNodeGroup{}, &LocalModelNodeGroupList{},

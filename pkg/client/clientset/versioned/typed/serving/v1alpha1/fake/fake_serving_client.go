@@ -64,6 +64,10 @@ func (c *FakeServingV1alpha1) ServingRuntimes(namespace string) v1alpha1.Serving
 	return newFakeServingRuntimes(c, namespace)
 }
 
+func (c *FakeServingV1alpha1) StorageContainers(namespace string) v1alpha1.StorageContainerInterface {
+	return newFakeStorageContainers(c, namespace)
+}
+
 func (c *FakeServingV1alpha1) TrainedModels(namespace string) v1alpha1.TrainedModelInterface {
 	return newFakeTrainedModels(c, namespace)
 }
