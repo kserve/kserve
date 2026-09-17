@@ -75,8 +75,9 @@ type LocalModelNodeReconciler struct {
 }
 
 const (
-	CaBundleVolumeName    = "cabundle-cert"
+	CaBundleVolumeName = "cabundle-cert"
 )
+
 var (
 	FSGroup                    *int64
 	jobNamespace               string
@@ -226,9 +227,6 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	return createdJob, err
 }
 
-// mountCaBundleVolume checks if the container has AWS_CA_BUNDLE_CONFIGMAP env var set and,
-// if so, mounts the referenced ConfigMap as a volume so the storage initializer can read the
-// CA certificates. This mirrors the behavior of the storage-initializer webhook injector.
 // mountCaBundleVolume checks if the container has AWS_CA_BUNDLE_CONFIGMAP env var set and,
 // if so, mounts the referenced ConfigMap as a volume so the storage initializer can read the
 // CA certificates. This mirrors the behavior of the storage-initializer webhook injector.
