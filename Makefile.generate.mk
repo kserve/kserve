@@ -35,7 +35,8 @@ manifests: controller-gen kustomize yq
 	@echo "---" >> config/llmisvc/gateway-inference-extension.yaml
 	curl -sL https://github.com/llm-d/llm-d-router/releases/download/$(LLMD_ROUTER_VERSION)/manifests.yaml >> config/llmisvc/gateway-inference-extension.yaml
 	# Workaround to update main-dev version from llm-d-router release as annotation
-	sed -i 's|llm-d.ai/bundle-version: main-dev|llm-d.ai/bundle-version: $(LLMD_ROUTER_VERSION)|' config/llmisvc/gateway-inference-extension.yaml
+	sed -i.bak 's|llm-d.ai/bundle-version: main-dev|llm-d.ai/bundle-version: $(LLMD_ROUTER_VERSION)|' config/llmisvc/gateway-inference-extension.yaml
+	rm -f config/llmisvc/gateway-inference-extension.yaml.bak
 	cp config/llmisvc/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
 	cat test/crds/gateway-inference-extension-v1alpha2pool.yaml >> config/llmisvc/gateway-inference-extension.yaml
 	cat test/crds/gateway-inference-extension-v1alpha2pool.yaml >> test/crds/gateway-inference-extension.yaml
@@ -174,7 +175,9 @@ generate: controller-gen helm-docs
 	hack/python-sdk/client-gen.sh
 	@while read -r line; do \
 		f=$$(echo "$$line" | cut -f1); year=$$(echo "$$line" | cut -f2); \
-		if [ -f "$$f" ]; then sed -i "s/Copyright [0-9]\{4\} The KServe Authors/Copyright $$year The KServe Authors/" "$$f"; fi; \
+		if [ -f "$$f" ]; then \
+			sed -i.bak "s/Copyright [0-9]\{4\} The KServe Authors/Copyright $$year The KServe Authors/" "$$f" && rm -f "$$f.bak"; \
+		fi; \
 	done < /tmp/copyright_years_cache
 	@rm -f /tmp/copyright_years_cache
 	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
