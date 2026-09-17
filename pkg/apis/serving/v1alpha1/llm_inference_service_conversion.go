@@ -144,6 +144,7 @@ func convertSpecToV1Alpha2(src *LLMInferenceServiceSpec) v1alpha2.LLMInferenceSe
 		Model:           convertModelSpecToV1Alpha2(&src.Model),
 		Runtime:         src.Runtime,
 		TrustRemoteCode: src.TrustRemoteCode,
+		Suspend:         src.Suspend,
 		BaseRefs:        src.BaseRefs,
 	}
 
@@ -186,6 +187,7 @@ func convertSpecFromV1Alpha2(src *v1alpha2.LLMInferenceServiceSpec) LLMInference
 		Model:           convertModelSpecFromV1Alpha2(&src.Model),
 		Runtime:         src.Runtime,
 		TrustRemoteCode: src.TrustRemoteCode,
+		Suspend:         src.Suspend,
 		BaseRefs:        src.BaseRefs,
 	}
 

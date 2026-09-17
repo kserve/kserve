@@ -110,3 +110,44 @@ func TestValidateLoRAAdaptersFromConfig(t *testing.T) {
 		assert.Contains(t, err.Error(), "spec.model.lora.adapters[0].name")
 	})
 }
+
+// Suspend on a config would merge into every LLMInferenceService inheriting it via baseRefs
+// and silently suspend them all, so the config validator rejects it outright.
+func TestValidateSuspendFromConfig(t *testing.T) {
+	t.Parallel()
+
+	validator := &LLMInferenceServiceConfigValidator{}
+
+	makeConfig := func(suspend *bool) *LLMInferenceServiceConfig {
+		return &LLMInferenceServiceConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: "preset", Namespace: "default"},
+			Spec: LLMInferenceServiceSpec{
+				Suspend: suspend,
+				Model: LLMModelSpec{
+					URI: apis.URL{Scheme: "hf", Host: "base-model"},
+				},
+			},
+		}
+	}
+
+	t.Run("suspend unset", func(t *testing.T) {
+		t.Parallel()
+		require.NoError(t, validator.validate(t.Context(), makeConfig(nil)))
+	})
+
+	t.Run("suspend true", func(t *testing.T) {
+		t.Parallel()
+		err := validator.validate(t.Context(), makeConfig(ptr.To(true)))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "spec.suspend")
+	})
+
+	t.Run("suspend false is still rejected", func(t *testing.T) {
+		t.Parallel()
+		// Even an explicit false is meaningless on a template and would participate in the
+		// baseRefs merge patch, so reject any non-nil value rather than only true.
+		err := validator.validate(t.Context(), makeConfig(ptr.To(false)))
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "spec.suspend")
+	})
+}
