@@ -44,6 +44,7 @@ import (
 	trainedmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/trainedmodel/reconcilers/modelconfig"
 	v1beta1controller "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice"
+	"github.com/kserve/kserve/pkg/oteljson"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
 	kservetls "github.com/kserve/kserve/pkg/tls"
 	kserveutils "github.com/kserve/kserve/pkg/utils"
@@ -66,6 +67,7 @@ type Options struct {
 	tlsMinVersion        string
 	tlsCipherSuites      string
 	zapOpts              zap.Options
+	logFormat            oteljson.Format
 }
 
 // DefaultOptions returns the default values for the program options.
@@ -76,6 +78,7 @@ func DefaultOptions() Options {
 		enableLeaderElection: false,
 		probeAddr:            ":8081",
 		zapOpts:              zap.Options{},
+		logFormat:            oteljson.FormatZap,
 	}
 }
 
@@ -91,6 +94,7 @@ func GetOptions() Options {
 	flag.StringVar(&opts.tlsMinVersion, "tls-min-version", opts.tlsMinVersion, "Minimum TLS version (VersionTLS12, VersionTLS13). Defaults to VersionTLS12.")
 	flag.StringVar(&opts.tlsCipherSuites, "tls-cipher-suites", opts.tlsCipherSuites, "Comma-separated list of TLS cipher suites (Go names). If empty, Go defaults are used.")
 	opts.zapOpts.BindFlags(flag.CommandLine)
+	oteljson.BindFlags(flag.CommandLine, &opts.logFormat)
 	flag.Parse()
 	return opts
 }
@@ -103,6 +107,9 @@ func init() {
 
 func main() {
 	options := GetOptions()
+	if options.logFormat == oteljson.FormatOTelJSON {
+		oteljson.Apply(&options.zapOpts, "kserve-controller-manager", os.Stdout)
+	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&options.zapOpts)))
 
 	// Get a config to talk to the apiserver
