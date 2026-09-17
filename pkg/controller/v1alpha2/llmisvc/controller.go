@@ -306,6 +306,8 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to observe workload status: %w", err)
 	}
 
+	recordLLMInferenceServiceInfo(llmSvc)
+
 	return nil
 }
 
@@ -324,6 +326,8 @@ func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMIn
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
 		return false, fmt.Errorf("failed to finalize scheduler service account: %w", err)
 	}
+
+	deleteLLMInferenceServiceInfo(llmSvc)
 
 	return true, nil
 }
