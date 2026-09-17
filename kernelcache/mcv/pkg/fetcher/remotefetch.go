@@ -17,13 +17,15 @@ limitations under the License.
 package fetcher
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	logging "github.com/sirupsen/logrus"
+
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/registryauth"
 )
 
 type remoteFetcher struct{}
@@ -36,7 +38,11 @@ func (r *remoteFetcher) FetchImg(imgName string) (v1.Image, error) {
 	}
 
 	logging.Debugf("Retrieve remote Img %s!!!!!!!!", imgName)
-	img, err := remote.Image(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
+	options, err := registryauth.RemoteOptions(context.Background(), ref.Context().RegistryStr())
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure registry access: %w", err)
+	}
+	img, err := remote.Image(ref, options...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch image: %w", err)
 	}
