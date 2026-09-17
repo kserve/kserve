@@ -260,10 +260,10 @@ var _ = Describe("LoRA model routing strategy", func() {
 				g.Expect(modelRoutingHeaderMatches(route)).NotTo(BeEmpty())
 				retained = route.DeepCopy()
 			})
-			// A precondition failure is terminal; a route the API server
-			// rejects (the pattern past the 4096-character header limit) is a
-			// plain error and keeps retrying.
-			reason := "HTTPRouteReconcileError"
+			// Both failures are terminal, under distinct reasons: a precondition
+			// failure, and a route the API server rejects (the pattern past the
+			// 4096-character header limit).
+			reason := "InvalidHTTPRoute"
 			update(ctx, svc, func(current *v1alpha2.LLMInferenceService) {
 				current.Spec.Replicas = ptr.To[int32](2)
 				switch failure {
