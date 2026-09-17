@@ -102,7 +102,7 @@ async def test_sklearn_kserve(rest_v1_client, network_layer):
         KSERVE_TEST_NAMESPACE,
         expected_substring=f"POST /v1/models/{service_name}:predict",
     )
-    assert quote(f"POST /v1/models/{service_name}:predict") in logs
+    assert f"POST {quote(f'/v1/models/{service_name}:predict')}" in logs
     assert '"telemetry.sdk.name": "opentelemetry"' not in logs
 
     kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
