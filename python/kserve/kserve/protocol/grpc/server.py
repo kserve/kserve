@@ -17,13 +17,15 @@ import multiprocessing
 from concurrent import futures
 
 from grpc import aio
+from opentelemetry.instrumentation.grpc import aio_server_interceptor, filters
 
 from kserve.logging import logger
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.model_repository_extension import ModelRepositoryExtension
+from kserve.protocol.tracing import get_tracer_provider
 
 from . import grpc_predict_v2_pb2_grpc
-from .interceptors import LoggingInterceptor, ExceptionToStatusInterceptor
+from .interceptors import ExceptionToStatusInterceptor, LoggingInterceptor
 from .servicer import InferenceServicer
 
 
@@ -47,9 +49,29 @@ class GRPCServer:
         inference_servicer = InferenceServicer(
             self._data_plane, self._model_repository_extension
         )
+        interceptors = [LoggingInterceptor(), ExceptionToStatusInterceptor()]
+        if tracer_provider := get_tracer_provider():
+            excluded_urls = filters.negate(
+                filters.any_of(
+                    filters.full_method_name(
+                        "/inference.GRPCInferenceService/ServerLive"
+                    ),
+                    filters.full_method_name(
+                        "/inference.GRPCInferenceService/ServerReady"
+                    ),
+                    filters.full_method_name(
+                        "/inference.GRPCInferenceService/ModelReady"
+                    ),
+                )
+            )
+            interceptors.append(
+                aio_server_interceptor(
+                    tracer_provider=tracer_provider, filter_=excluded_urls
+                )
+            )
         self._server = aio.server(
             futures.ThreadPoolExecutor(max_workers=max_workers),
-            interceptors=(LoggingInterceptor(), ExceptionToStatusInterceptor()),
+            interceptors=interceptors,
             options=[
                 (
                     "grpc.max_send_message_length",
