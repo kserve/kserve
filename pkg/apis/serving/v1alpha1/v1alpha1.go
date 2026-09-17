@@ -70,6 +70,7 @@ func addKnownTypes(s *runtime.Scheme) error {
 		&KernelCacheCapture{}, &KernelCacheCaptureList{},
 		&KernelCacheNode{}, &KernelCacheNodeList{},
 		&KernelCacheNodeGroup{}, &KernelCacheNodeGroupList{},
+		&StorageContainer{}, &StorageContainerList{},
 		&LocalModelCache{}, &LocalModelCacheList{},
 		&LocalModelNode{}, &LocalModelNodeList{},
 		&LocalModelNodeGroup{}, &LocalModelNodeGroupList{},
