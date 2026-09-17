@@ -229,6 +229,9 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 // mountCaBundleVolume checks if the container has AWS_CA_BUNDLE_CONFIGMAP env var set and,
 // if so, mounts the referenced ConfigMap as a volume so the storage initializer can read the
 // CA certificates. This mirrors the behavior of the storage-initializer webhook injector.
+// mountCaBundleVolume checks if the container has AWS_CA_BUNDLE_CONFIGMAP env var set and,
+// if so, mounts the referenced ConfigMap as a volume so the storage initializer can read the
+// CA certificates. This mirrors the behavior of the storage-initializer webhook injector.
 func (c *LocalModelNodeReconciler) mountCaBundleVolume(container *corev1.Container, volumes *[]corev1.Volume) {
 	var caBundleConfigMapName string
 	for _, envVar := range container.Env {
