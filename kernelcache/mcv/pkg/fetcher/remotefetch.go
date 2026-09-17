@@ -37,7 +37,7 @@ func (r *remoteFetcher) FetchImg(imgName string) (v1.Image, error) {
 		return nil, fmt.Errorf("failed to parse image name: %w", err)
 	}
 
-	logging.Debugf("Retrieve remote Img %s!!!!!!!!", imgName)
+	logging.Debugf("Retrieve remote Img %s", imgName)
 	options, err := registryauth.RemoteOptions(context.Background(), ref.Context().RegistryStr())
 	if err != nil {
 		return nil, fmt.Errorf("failed to configure registry access: %w", err)
@@ -48,6 +48,6 @@ func (r *remoteFetcher) FetchImg(imgName string) (v1.Image, error) {
 	}
 
 	// Print the image details
-	logging.Debug("Img fetched successfully!!!!!!!!")
+	logging.Debug("Img fetched successfully")
 	return img, nil
 }

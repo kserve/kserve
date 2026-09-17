@@ -37,7 +37,7 @@ import (
 )
 
 // Accepts canonical and alias registries and rejects invalid scopes.
-func TestValidateTokenScope(t *testing.T) {
+func TestValidateRegistryScope(t *testing.T) {
 	for _, test := range []struct {
 		name       string
 		target     string
@@ -53,8 +53,8 @@ func TestValidateTokenScope(t *testing.T) {
 		{name: "invalid target registry", target: "https://registry.example.com", configured: "registry.example.com", wantErr: "invalid target"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			t.Setenv(tokenRegistryEnv, test.configured)
-			err := ValidateTokenScope(test.target)
+			t.Setenv(allowedEndpointEnv, test.configured)
+			err := ValidateRegistryScope(test.target)
 			if test.wantErr == "" {
 				require.NoError(t, err)
 				return
@@ -76,18 +76,9 @@ func TestRemoteOptions(t *testing.T) {
 			name: "uses keychain when no credentials are configured",
 		},
 		{
-			name: "accepts legacy access JSON",
-			configure: func(t *testing.T) {
-				t.Setenv(tokenRegistryEnv, target)
-				t.Setenv(legacyAccessFileEnv, writeAccessFile(t, publishingCredential{
-					Registry: target, Username: "user", Token: "token", ExpiresAt: time.Now().Add(time.Hour),
-				}))
-			},
-		},
-		{
 			name: "rejects malformed access JSON",
 			configure: func(t *testing.T) {
-				t.Setenv(tokenRegistryEnv, target)
+				t.Setenv(allowedEndpointEnv, target)
 				t.Setenv(accessFileEnv, writeFile(t, "access.json", []byte("{")))
 			},
 			wantErr: "invalid registry access JSON",
@@ -95,7 +86,7 @@ func TestRemoteOptions(t *testing.T) {
 		{
 			name: "rejects expired access JSON",
 			configure: func(t *testing.T) {
-				t.Setenv(tokenRegistryEnv, target)
+				t.Setenv(allowedEndpointEnv, target)
 				t.Setenv(accessFileEnv, writeAccessFile(t, publishingCredential{
 					Registry: target, Username: "user", Token: "token", ExpiresAt: time.Now().Add(-time.Hour),
 				}))
@@ -105,7 +96,7 @@ func TestRemoteOptions(t *testing.T) {
 		{
 			name: "rejects incomplete access JSON",
 			configure: func(t *testing.T) {
-				t.Setenv(tokenRegistryEnv, target)
+				t.Setenv(allowedEndpointEnv, target)
 				t.Setenv(accessFileEnv, writeAccessFile(t, publishingCredential{Registry: target}))
 			},
 			wantErr: "missing or expired",
@@ -113,7 +104,7 @@ func TestRemoteOptions(t *testing.T) {
 		{
 			name: "rejects access registry mismatch",
 			configure: func(t *testing.T) {
-				t.Setenv(tokenRegistryEnv, target)
+				t.Setenv(allowedEndpointEnv, target)
 				t.Setenv(accessFileEnv, writeAccessFile(t, publishingCredential{
 					Registry: "other.example.com", Username: "user", Token: "token", ExpiresAt: time.Now().Add(time.Hour),
 				}))
@@ -123,7 +114,7 @@ func TestRemoteOptions(t *testing.T) {
 		{
 			name: "rejects access scope mismatch",
 			configure: func(t *testing.T) {
-				t.Setenv(tokenRegistryEnv, "other.example.com")
+				t.Setenv(allowedEndpointEnv, "other.example.com")
 				t.Setenv(accessFileEnv, writeAccessFile(t, publishingCredential{
 					Registry: target, Username: "user", Token: "token", ExpiresAt: time.Now().Add(time.Hour),
 				}))
@@ -133,48 +124,10 @@ func TestRemoteOptions(t *testing.T) {
 		{
 			name: "rejects missing access file",
 			configure: func(t *testing.T) {
-				t.Setenv(tokenRegistryEnv, target)
+				t.Setenv(allowedEndpointEnv, target)
 				t.Setenv(accessFileEnv, filepath.Join(t.TempDir(), "missing.json"))
 			},
 			wantErr: "read registry access",
-		},
-		{
-			name: "requires access file when auth is mandatory",
-			configure: func(t *testing.T) {
-				t.Setenv("MCV_REGISTRY_AUTH_REQUIRED", "true")
-			},
-			wantErr: "access file is required",
-		},
-		{
-			name: "rejects empty token file",
-			configure: func(t *testing.T) {
-				t.Setenv(tokenRegistryEnv, target)
-				t.Setenv(tokenFileEnv, writeFile(t, "token", []byte(" \n")))
-			},
-			wantErr: "token file is empty",
-		},
-		{
-			name: "rejects missing token file",
-			configure: func(t *testing.T) {
-				t.Setenv(tokenRegistryEnv, target)
-				t.Setenv(tokenFileEnv, filepath.Join(t.TempDir(), "missing-token"))
-			},
-			wantErr: "read registry token",
-		},
-		{
-			name: "rejects token without scope",
-			configure: func(t *testing.T) {
-				t.Setenv(tokenFileEnv, writeFile(t, "token", []byte("token")))
-			},
-			wantErr: "required",
-		},
-		{
-			name: "rejects token scope mismatch",
-			configure: func(t *testing.T) {
-				t.Setenv(tokenRegistryEnv, "other.example.com")
-				t.Setenv(tokenFileEnv, writeFile(t, "token", []byte("token")))
-			},
-			wantErr: "scoped",
 		},
 	}
 
@@ -195,7 +148,31 @@ func TestRemoteOptions(t *testing.T) {
 	}
 }
 
-// Sends access-file and service-account credentials through remote options.
+// Accepts Docker registry aliases in access-file credentials.
+func TestRemoteOptionsAccessRegistryAliases(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		access string
+		target string
+	}{
+		{name: "access index target docker", access: "index.docker.io", target: "docker.io"},
+		{name: "access docker target index", access: "docker.io", target: "index.docker.io"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			clearRegistryEnvironment(t)
+			t.Setenv(allowedEndpointEnv, test.target)
+			t.Setenv(accessFileEnv, writeAccessFile(t, publishingCredential{
+				Registry: test.access, Username: "user", Token: "token", ExpiresAt: time.Now().Add(time.Hour),
+			}))
+
+			options, err := RemoteOptions(context.Background(), test.target)
+			require.NoError(t, err)
+			require.NotEmpty(t, options)
+		})
+	}
+}
+
+// Sends access-file credentials through remote options.
 func TestRemoteOptionsAuth(t *testing.T) {
 	for _, test := range []struct {
 		name      string
@@ -208,19 +185,10 @@ func TestRemoteOptionsAuth(t *testing.T) {
 			username: "user",
 			password: "access-token",
 			configure: func(t *testing.T, target string) {
-				t.Setenv(tokenRegistryEnv, target)
+				t.Setenv(allowedEndpointEnv, target)
 				t.Setenv(accessFileEnv, writeAccessFile(t, publishingCredential{
 					Registry: target, Username: "user", Token: "access-token", ExpiresAt: time.Now().Add(time.Hour),
 				}))
-			},
-		},
-		{
-			name:     "token file",
-			username: "serviceaccount",
-			password: "service-token",
-			configure: func(t *testing.T, target string) {
-				t.Setenv(tokenRegistryEnv, target)
-				t.Setenv(tokenFileEnv, writeFile(t, "token", []byte("service-token")))
 			},
 		},
 	} {
@@ -278,7 +246,7 @@ func TestRegistryTransport(t *testing.T) {
 func clearRegistryEnvironment(t *testing.T) {
 	t.Helper()
 	for _, key := range []string{
-		caFileEnv, tokenFileEnv, tokenRegistryEnv, accessFileEnv, legacyAccessFileEnv, "MCV_REGISTRY_AUTH_REQUIRED",
+		caFileEnv, allowedEndpointEnv, accessFileEnv,
 	} {
 		t.Setenv(key, "")
 	}

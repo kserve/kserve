@@ -35,11 +35,9 @@ import (
 )
 
 const (
-	caFileEnv           = "MCV_REGISTRY_CA_FILE"        // #nosec G101 -- this is an environment variable name, not a credential
-	tokenFileEnv        = "MCV_REGISTRY_TOKEN_FILE"     // #nosec G101 -- this is an environment variable name, not a credential
-	tokenRegistryEnv    = "MCV_REGISTRY_TOKEN_REGISTRY" // #nosec G101 -- this is an environment variable name, not a credential
-	accessFileEnv       = "MCV_REGISTRY_ACCESS_FILE"
-	legacyAccessFileEnv = "MCV_REGISTRY_CREDENTIAL_FILE" // #nosec G101 -- compatibility with older injected Pods
+	caFileEnv          = "MCV_REGISTRY_CA_FILE"          // #nosec G101 -- this is an environment variable name, not a credential
+	allowedEndpointEnv = "MCV_REGISTRY_ALLOWED_ENDPOINT" // #nosec G101 -- this is an environment variable name, not a credential
+	accessFileEnv      = "MCV_REGISTRY_ACCESS_FILE"
 )
 
 type publishingCredential struct {
@@ -62,11 +60,8 @@ func RemoteOptions(ctx context.Context, targetRegistry string) ([]remote.Option,
 	}
 
 	accessFile := strings.TrimSpace(os.Getenv(accessFileEnv))
-	if accessFile == "" {
-		accessFile = strings.TrimSpace(os.Getenv(legacyAccessFileEnv))
-	}
 	if accessFile != "" {
-		if err := ValidateTokenScope(targetRegistry); err != nil {
+		if err := ValidateRegistryScope(targetRegistry); err != nil {
 			return nil, err
 		}
 		data, err := os.ReadFile(filepath.Clean(accessFile))
@@ -80,28 +75,18 @@ func RemoteOptions(ctx context.Context, targetRegistry string) ([]remote.Option,
 		if access.Token == "" || access.Username == "" || !access.ExpiresAt.After(time.Now()) {
 			return nil, errors.New("registry access is missing or expired")
 		}
-		if !strings.EqualFold(access.Registry, targetRegistry) {
+		accessRegistry, err := normalizeRegistry(access.Registry)
+		if err != nil {
+			return nil, fmt.Errorf("invalid registry access registry: %w", err)
+		}
+		normalizedTarget, err := normalizeRegistry(targetRegistry)
+		if err != nil {
+			return nil, fmt.Errorf("invalid target registry: %w", err)
+		}
+		if !strings.EqualFold(accessRegistry, normalizedTarget) {
 			return nil, errors.New("registry access target mismatch")
 		}
 		options = append(options, remote.WithAuth(authn.FromConfig(authn.AuthConfig{Username: access.Username, Password: access.Token})))
-	} else if os.Getenv("MCV_REGISTRY_AUTH_REQUIRED") == "true" {
-		return nil, errors.New("registry access file is required")
-	} else if tokenFile := strings.TrimSpace(os.Getenv(tokenFileEnv)); tokenFile != "" {
-		if err := ValidateTokenScope(targetRegistry); err != nil {
-			return nil, err
-		}
-		token, err := os.ReadFile(filepath.Clean(tokenFile))
-		if err != nil {
-			return nil, fmt.Errorf("read registry token: %w", err)
-		}
-		if tokenValue := strings.TrimSpace(string(token)); tokenValue != "" {
-			options = append(options, remote.WithAuth(authn.FromConfig(authn.AuthConfig{
-				Username: "serviceaccount",
-				Password: tokenValue,
-			})))
-		} else {
-			return nil, fmt.Errorf("registry token file is empty: %s", tokenFile)
-		}
 	} else {
 		options = append(options, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	}
@@ -109,25 +94,33 @@ func RemoteOptions(ctx context.Context, targetRegistry string) ([]remote.Option,
 	return options, nil
 }
 
-// ValidateTokenScope prevents a token from being sent to an unintended registry.
-func ValidateTokenScope(targetRegistry string) error {
-	configuredRegistry := strings.TrimSpace(os.Getenv(tokenRegistryEnv))
+// ValidateRegistryScope prevents registry credentials from being sent to an unintended registry.
+func ValidateRegistryScope(targetRegistry string) error {
+	configuredRegistry := strings.TrimSpace(os.Getenv(allowedEndpointEnv))
 	if configuredRegistry == "" {
-		return errors.New("MCV_REGISTRY_TOKEN_REGISTRY is required when registry credentials are configured")
+		return errors.New("MCV_REGISTRY_ALLOWED_ENDPOINT is required when registry credentials are configured")
 	}
 
-	allowed, err := name.NewRegistry(configuredRegistry, name.StrictValidation)
+	allowed, err := normalizeRegistry(configuredRegistry)
 	if err != nil {
-		return fmt.Errorf("invalid MCV_REGISTRY_TOKEN_REGISTRY: %w", err)
+		return fmt.Errorf("invalid MCV_REGISTRY_ALLOWED_ENDPOINT: %w", err)
 	}
-	target, err := name.NewRegistry(targetRegistry, name.StrictValidation)
+	target, err := normalizeRegistry(targetRegistry)
 	if err != nil {
 		return fmt.Errorf("invalid target registry: %w", err)
 	}
-	if !strings.EqualFold(allowed.RegistryStr(), target.RegistryStr()) {
-		return fmt.Errorf("registry token is scoped to %q, not target registry %q", allowed.RegistryStr(), target.RegistryStr())
+	if !strings.EqualFold(allowed, target) {
+		return fmt.Errorf("registry token is scoped to %q, not target registry %q", allowed, target)
 	}
 	return nil
+}
+
+func normalizeRegistry(value string) (string, error) {
+	registry, err := name.NewRegistry(strings.TrimSpace(value), name.StrictValidation)
+	if err != nil {
+		return "", err
+	}
+	return registry.RegistryStr(), nil
 }
 
 func registryTransport(caFile string) (http.RoundTripper, error) {
