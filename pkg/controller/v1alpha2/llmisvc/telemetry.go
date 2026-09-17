@@ -17,11 +17,15 @@ limitations under the License.
 package llmisvc
 
 import (
+	"context"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
@@ -31,49 +35,84 @@ const (
 	acceleratorGPU = "gpu"
 )
 
-var llmInferenceServiceInfo = prometheus.NewGaugeVec(
-	prometheus.GaugeOpts{
-		Name: "kserve_llminferenceservice_info",
-		Help: "Info metric (value=1) for each active LLMInferenceService, labeled by accelerator type and model.",
-	},
+var infoDesc = prometheus.NewDesc(
+	"kserve_llminferenceservice_info",
+	"Info metric (value=1) for each active LLMInferenceService, labeled by accelerator type and model.",
 	[]string{"namespace", "name", "accelerator", "model_name", "model_uri"},
+	nil,
 )
 
-func init() {
-	metrics.Registry.MustRegister(llmInferenceServiceInfo)
+// InfoMetricsCollector implements prometheus.Collector to expose
+// deployment-inventory metrics for LLMInferenceServices.
+// Metrics are pulled on-demand during Prometheus scrape rather than pushed during reconciliation.
+type InfoMetricsCollector struct {
+	client client.Client
+	mu     sync.Mutex
+	last   []prometheus.Metric
 }
 
-// recordLLMInferenceServiceInfo sets the info metric for an active LLMInferenceService.
-// It deletes any previous series for this service first to avoid stale metrics
-// when labels change (e.g., model URI update).
-func recordLLMInferenceServiceInfo(llmSvc *v1alpha2.LLMInferenceService) {
-	accelerator := resolveAccelerator(llmSvc.Spec.Template)
-	modelName := resolveModelName(llmSvc)
-	modelURI := llmSvc.Spec.Model.URI.String()
-
-	llmInferenceServiceInfo.DeletePartialMatch(prometheus.Labels{
-		"namespace": llmSvc.Namespace,
-		"name":      llmSvc.Name,
-	})
-	llmInferenceServiceInfo.With(prometheus.Labels{
-		"namespace":   llmSvc.Namespace,
-		"name":        llmSvc.Name,
-		"accelerator": accelerator,
-		"model_name":  modelName,
-		"model_uri":   modelURI,
-	}).Set(1)
+// NewInfoMetricsCollector creates a new collector for LLMInferenceService info metrics.
+func NewInfoMetricsCollector(c client.Client) *InfoMetricsCollector {
+	return &InfoMetricsCollector{client: c}
 }
 
-// deleteLLMInferenceServiceInfo removes the info metric for a deleted LLMInferenceService.
-func deleteLLMInferenceServiceInfo(llmSvc *v1alpha2.LLMInferenceService) {
-	llmInferenceServiceInfo.DeletePartialMatch(prometheus.Labels{
-		"namespace": llmSvc.Namespace,
-		"name":      llmSvc.Name,
-	})
+// Describe implements prometheus.Collector.
+func (c *InfoMetricsCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- infoDesc
 }
 
-// resolveAccelerator inspects the pod template for GPU resource requests/limits.
-// Returns "gpu" if any container requests a known GPU resource, "cpu" otherwise.
+// Collect implements prometheus.Collector.
+// Lists LLMInferenceServices from the controller-runtime cache and emits const metrics.
+// A failed list re-emits the last successful scrape so series do not disappear.
+func (c *InfoMetricsCollector) Collect(ch chan<- prometheus.Metric) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	logger := log.FromContext(ctx).WithName("metrics")
+
+	llmisvcs := &v1alpha2.LLMInferenceServiceList{}
+	if err := c.client.List(ctx, llmisvcs); err != nil {
+		logger.Error(err, "failed to list LLMInferenceServices for info metrics collection")
+		c.emitLast(ch)
+		return
+	}
+
+	next := collectInfoMetrics(llmisvcs.Items)
+	c.mu.Lock()
+	c.last = next
+	c.mu.Unlock()
+
+	for _, m := range next {
+		ch <- m
+	}
+}
+
+func (c *InfoMetricsCollector) emitLast(ch chan<- prometheus.Metric) {
+	c.mu.Lock()
+	last := c.last
+	c.mu.Unlock()
+	for _, m := range last {
+		ch <- m
+	}
+}
+
+func collectInfoMetrics(items []v1alpha2.LLMInferenceService) []prometheus.Metric {
+	out := make([]prometheus.Metric, 0, len(items))
+	for i := range items {
+		isvc := &items[i]
+		out = append(out, prometheus.MustNewConstMetric(
+			infoDesc,
+			prometheus.GaugeValue,
+			1,
+			isvc.Namespace,
+			isvc.Name,
+			resolveAccelerator(isvc.Spec.Template),
+			resolveModelName(isvc),
+			isvc.Spec.Model.URI.String(),
+		))
+	}
+	return out
+}
+
 func resolveAccelerator(podSpec *corev1.PodSpec) string {
 	if podSpec == nil {
 		return acceleratorCPU

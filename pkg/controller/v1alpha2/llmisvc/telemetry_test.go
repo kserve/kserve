@@ -19,7 +19,7 @@ package llmisvc
 import (
 	"testing"
 
-	"github.com/prometheus/client_golang/prometheus/testutil"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -224,50 +224,63 @@ func TestResolveAccelerator(t *testing.T) {
 	}
 }
 
-func TestRecordAndDeleteLLMInferenceServiceInfo(t *testing.T) {
-	llmInferenceServiceInfo.Reset()
-
+func TestCollectInfoMetrics(t *testing.T) {
 	cpuSvc := cpuLLMInferenceService("opt-125m-cpu", "test-ns", "facebook", "opt-125m")
 	gpuSvc := gpuLLMInferenceService("opt-125m-gpu", "test-ns", "facebook", "opt-125m")
 
-	recordLLMInferenceServiceInfo(cpuSvc)
-	recordLLMInferenceServiceInfo(gpuSvc)
+	t.Run("emits one metric per service", func(t *testing.T) {
+		metrics := collectInfoMetrics([]v1alpha2.LLMInferenceService{*cpuSvc, *gpuSvc})
+		assert.Len(t, metrics, 2)
+	})
 
-	assert.Equal(t, 2, testutil.CollectAndCount(llmInferenceServiceInfo))
-
-	deleteLLMInferenceServiceInfo(cpuSvc)
-	assert.Equal(t, 1, testutil.CollectAndCount(llmInferenceServiceInfo))
-
-	deleteLLMInferenceServiceInfo(gpuSvc)
-	assert.Equal(t, 0, testutil.CollectAndCount(llmInferenceServiceInfo))
+	t.Run("empty list produces no metrics", func(t *testing.T) {
+		metrics := collectInfoMetrics([]v1alpha2.LLMInferenceService{})
+		assert.Empty(t, metrics)
+	})
 }
 
-func TestRecordLLMInferenceServiceInfoLabels(t *testing.T) {
-	llmInferenceServiceInfo.Reset()
-
+func TestCollectInfoMetricsLabels(t *testing.T) {
 	cpuSvc := cpuLLMInferenceService("opt-125m-cpu", "test-ns", "facebook", "opt-125m")
-	recordLLMInferenceServiceInfo(cpuSvc)
+	metrics := collectInfoMetrics([]v1alpha2.LLMInferenceService{*cpuSvc})
+
+	assert.Len(t, metrics, 1)
 
 	uri := testModelURI("facebook", "opt-125m")
 	expectedURI := uri.String()
-	gauge := llmInferenceServiceInfo.WithLabelValues("test-ns", "opt-125m-cpu", "cpu", "opt-125m-cpu", expectedURI)
-	assert.Equal(t, float64(1), testutil.ToFloat64(gauge))
+	expected := prometheus.MustNewConstMetric(
+		infoDesc, prometheus.GaugeValue, 1,
+		"test-ns", "opt-125m-cpu", "cpu", "opt-125m-cpu", expectedURI,
+	)
 
-	llmInferenceServiceInfo.Reset()
+	// Compare metric descriptors and values via string representation
+	assert.Equal(t, expected.Desc(), metrics[0].Desc())
 }
 
-func TestRecordReplacesStaleLabels(t *testing.T) {
-	llmInferenceServiceInfo.Reset()
+func TestCollectInfoMetricsGPULabel(t *testing.T) {
+	gpuSvc := gpuLLMInferenceService("opt-125m-gpu", "test-ns", "facebook", "opt-125m")
+	metrics := collectInfoMetrics([]v1alpha2.LLMInferenceService{*gpuSvc})
 
+	assert.Len(t, metrics, 1)
+
+	uri := testModelURI("facebook", "opt-125m")
+	expectedURI := uri.String()
+	expected := prometheus.MustNewConstMetric(
+		infoDesc, prometheus.GaugeValue, 1,
+		"test-ns", "opt-125m-gpu", "gpu", "opt-125m-gpu", expectedURI,
+	)
+
+	assert.Equal(t, expected.Desc(), metrics[0].Desc())
+}
+
+func TestCollectInfoMetricsNoStaleLabels(t *testing.T) {
 	svc := cpuLLMInferenceService("my-svc", "ns", "meta-llama", "Llama-3.2-1B")
-	recordLLMInferenceServiceInfo(svc)
-	assert.Equal(t, 1, testutil.CollectAndCount(llmInferenceServiceInfo))
+
+	metrics1 := collectInfoMetrics([]v1alpha2.LLMInferenceService{*svc})
+	assert.Len(t, metrics1, 1)
 
 	svc.Spec.Model.URI = testModelURI("facebook", "opt-125m")
-	recordLLMInferenceServiceInfo(svc)
-	assert.Equal(t, 1, testutil.CollectAndCount(llmInferenceServiceInfo))
-
-	llmInferenceServiceInfo.Reset()
+	metrics2 := collectInfoMetrics([]v1alpha2.LLMInferenceService{*svc})
+	assert.Len(t, metrics2, 1)
 }
 
 func TestResolveModelName(t *testing.T) {
