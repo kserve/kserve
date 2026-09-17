@@ -313,6 +313,7 @@ func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Con
 
 	return nil, nil
 }
+
 func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelInfo v1alpha1.LocalModelInfo, nodeName string) (*batchv1.Job, int, error) {
 	jobList := &batchv1.JobList{}
 	labelSelector := map[string]string{
