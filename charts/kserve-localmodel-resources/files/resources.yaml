@@ -38,6 +38,8 @@ rules:
   - ""
   resources:
   - nodes
+  - secrets
+  - serviceaccounts
   verbs:
   - get
   - list
@@ -63,8 +65,27 @@ rules:
   - update
   - watch
 - apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs/status
+  verbs:
+  - get
+- apiGroups:
   - serving.kserve.io
   resources:
+  - clusterstoragecontainers
   - inferenceservices
   - llminferenceservices
   - localmodelnodegroups
@@ -181,6 +202,23 @@ rules:
   - get
   - patch
   - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-localmodel-leader-election-rolebinding
+  namespace: kserve
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kserve-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: kserve-localmodel-controller-manager
+  namespace: kserve
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -372,8 +410,6 @@ spec:
         - mountPath: /mnt/models
           name: models
           readOnly: false
-      nodeSelector:
-        kserve/localmodel: worker
       securityContext:
         runAsNonRoot: true
         seccompProfile:

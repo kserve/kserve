@@ -80,7 +80,7 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to get expected main deployment: %w", err)
 	}
-	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, expected, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, expected, semanticDeploymentIsEqual, PreserveDeploymentReplicas(), PreserveDeploymentSelector()); err != nil {
 		return err
 	}
 	return r.propagateWorkloadDeploymentStatus(ctx, expected, llmSvc.MarkMainWorkloadReady, llmSvc.MarkMainWorkloadNotReady)
@@ -110,6 +110,11 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		}
 	}
 
+	err := r.propagateInferencePoolRefLabelSelector(ctx, llmSvc, labels)
+	if err != nil {
+		return nil, fmt.Errorf("failed to propagate InferencePool reference labels: %w", err)
+	}
+
 	d := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      mainDeploymentName(llmSvc),
@@ -122,11 +127,11 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 		Spec: appsv1.DeploymentSpec{
 			Replicas: llmSvc.Spec.Replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: deploymentSelectorLabels(labels, llmSvc.Spec.Labels),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels:      labels,
+					Labels:      maps.Clone(labels),
 					Annotations: deploymentAnnotations,
 				},
 			},
@@ -215,7 +220,7 @@ func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmS
 	if err != nil {
 		return fmt.Errorf("failed to get expected prefill deployment: %w", err)
 	}
-	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, prefill, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, prefill, semanticDeploymentIsEqual, PreserveDeploymentReplicas(), PreserveDeploymentSelector()); err != nil {
 		return fmt.Errorf("failed to reconcile prefill deployment %s/%s: %w", prefill.GetNamespace(), prefill.GetName(), err)
 	}
 	return r.propagateWorkloadDeploymentStatus(ctx, prefill, llmSvc.MarkPrefillWorkloadReady, llmSvc.MarkPrefillWorkloadNotReady)
@@ -242,14 +247,19 @@ func (r *LLMISVCReconciler) expectedPrefillMainDeployment(ctx context.Context, l
 	}
 
 	if llmSvc.Spec.Prefill != nil {
+		err := r.propagateInferencePoolRefLabelSelector(ctx, llmSvc, labels)
+		if err != nil {
+			return nil, fmt.Errorf("failed to propagate InferencePool reference labels: %w", err)
+		}
+
 		d.Spec = appsv1.DeploymentSpec{
 			Replicas: llmSvc.Spec.Prefill.Replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: deploymentSelectorLabels(labels, llmSvc.Spec.Prefill.Labels),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
+					Labels: maps.Clone(labels),
 				},
 			},
 		}

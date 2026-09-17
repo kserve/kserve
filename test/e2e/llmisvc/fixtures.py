@@ -20,6 +20,7 @@ import re
 import time
 
 import pytest
+from ..common.utils import project_root
 from ..common.gw_api import (
     create_or_update_gateway,
     create_or_update_route,
@@ -42,6 +43,68 @@ OPT_125M_OCI_MODEL_URI = os.environ.get(
 )
 VLLM_CPU_IMAGE = os.environ.get("VLLM_CPU_IMAGE", "vllm/vllm-openai-cpu:v0.19.0")
 
+# Prometheus server address used by direct-KEDA (no WVA) `prometheus` triggers.
+# Matches the URL setup-kserve.sh patches into autoscaling-wva-controller-config
+# for the WVA-mediated KEDA path, so both paths talk to the same instance.
+PROMETHEUS_SERVER_ADDRESS = os.environ.get(
+    "PROMETHEUS_SERVER_ADDRESS",
+    "https://prometheus-kube-prometheus-prometheus.monitoring:9090",
+)
+
+# Whole-service request-rate signal from the EPP scheduler's /metrics (port
+# 9090), namespace-filtered. Sums successes and errors because requests to a
+# scaled-to-zero deployment (no ready endpoints) only increment the error
+# counter, and `or vector(0)` keeps each side from going empty when idle.
+EPP_REQUEST_RATE_QUERY = (
+    "(sum(rate(inference_objective_request_total"
+    '{namespace="{{ .ObjectMeta.Namespace }}"}[1m])) or vector(0))'
+    " + "
+    "(sum(rate(inference_objective_request_error_total"
+    '{namespace="{{ .ObjectMeta.Namespace }}"}[1m])) or vector(0))'
+)
+
+
+def _epp_prometheus_trigger(threshold):
+    """Build a KEDA `prometheus` trigger against the EPP request-rate counter."""
+    return {
+        "type": "prometheus",
+        "name": "epp-request-rate",
+        "metadata": {
+            "serverAddress": PROMETHEUS_SERVER_ADDRESS,
+            "query": EPP_REQUEST_RATE_QUERY,
+            "threshold": threshold,
+            "unsafeSsl": "true",
+        },
+    }
+
+
+def _vllm_running_requests_trigger(pod_prefix_template, threshold):
+    """Build a KEDA `prometheus` trigger against per-pod vllm:num_requests_running.
+
+    pod_prefix_template is a Go text/template expression resolving to the
+    prefill or main/decode Deployment name, e.g.
+    "{{ ChildName .ObjectMeta.Name `-kserve-prefill` }}". The regex anchors on
+    exactly two dash-separated suffix segments (replicaset hash + pod suffix)
+    so main/decode pods don't match prefill's extra "-prefill-" segment.
+    """
+    query = (
+        "avg(vllm:num_requests_running{"
+        'namespace="{{ .ObjectMeta.Namespace }}",'
+        'pod=~"^' + pod_prefix_template + '-[a-z0-9]+-[a-z0-9]+$"'
+        "})"
+    )
+    return {
+        "type": "prometheus",
+        "name": "vllm-running-requests",
+        "metadata": {
+            "serverAddress": PROMETHEUS_SERVER_ADDRESS,
+            "query": query,
+            "threshold": threshold,
+            "unsafeSsl": "true",
+        },
+    }
+
+
 # PVC storage test constants
 PVC_STORAGE_NAME = "e2e-pvc-model-storage"
 STORAGE_INITIALIZER_IMAGE = os.environ.get(
@@ -50,6 +113,17 @@ STORAGE_INITIALIZER_IMAGE = os.environ.get(
 )
 MODEL_DOWNLOAD_JOB_NAME = "e2e-pvc-model-download"
 S3_CREDENTIALS_SECRET = os.environ.get("S3_CREDENTIALS_SECRET", "seaweedfs-s3-creds")
+
+# LoRA adapters in a PVC. Separate claim from PVC_STORAGE_NAME, whose root is the model
+# directory; here the base model and the adapter sit at sub-paths of one claim, which is
+# what exercises per-claim volume naming.
+LORA_ADAPTER_MODEL_URI = os.environ.get(
+    "LORA_ADAPTER_MODEL_URI", "hf://edbeeching/opt-125m-lora"
+)
+LORA_PVC_STORAGE_NAME = "e2e-pvc-lora-storage"
+LORA_PVC_DOWNLOAD_JOB_NAME = "e2e-pvc-lora-download"
+LORA_PVC_BASE_SUBPATH = "base"
+LORA_PVC_ADAPTER_SUBPATH = "adapter"
 
 # Vanilla Kubernetes rejects runAsNonRoot-only containers when the image does not declare a USER.
 # Keep the templates OpenShift-safe and use an explicit non-root UID only in upstream CI test overrides.
@@ -253,6 +327,42 @@ def _router_with_gateway_ref(namespace):
     }
 
 
+# Adapter names come from the realistic-v1 fixture the controller's golden test
+# pins, so the two stay name-for-name identical.
+LORA_REALISTIC_FIXTURE_SIZE = 100
+# The exact strategy routes at most 7 adapters: rule 4 of the shipped router
+# route carries 8 model-routing header matches (4 endpoints, each with and
+# without a trailing slash), expandLoRAAdapterMatches duplicates every one of
+# them per adapter, and Gateway API caps HTTPRouteRule.matches at 64 -
+# 8 * (1 + 7) == 64, and an eighth adapter is rejected at admission.
+LORA_EXACT_STRATEGY_MAX_ADAPTERS = 7
+_LORA_REALISTIC_FIXTURE = (
+    project_root()
+    / "pkg/controller/v1alpha2/llmisvc/testdata/lora-adapter-names-realistic-v1.txt"
+)
+_LORA_REALISTIC_FIXTURE_NAMES = _LORA_REALISTIC_FIXTURE.read_text().split()
+assert len(_LORA_REALISTIC_FIXTURE_NAMES) == LORA_REALISTIC_FIXTURE_SIZE, (
+    f"{_LORA_REALISTIC_FIXTURE} no longer holds {LORA_REALISTIC_FIXTURE_SIZE} names"
+)
+
+# How many of those names the regex-strategy tests deploy, as a prefix of the
+# fixture. This sizes one adapter set and nothing else: the exact strategy keeps
+# its own two-adapter set whatever this is, so no value here can cost a run its
+# exact coverage. The default is past LORA_EXACT_STRATEGY_MAX_ADAPTERS with room
+# for the route preset to grow a fifth endpoint pair, so a stock run still shows
+# regex carrying a set Exact cannot, and small enough to warm up on a two-core
+# CI runner. Values at or below the ceiling are allowed on purpose - probing
+# where the budget actually binds is the point of the knob. Empty reads as
+# unset, so `export E2E_LORA_ADAPTER_COUNT=` gets the default, not a traceback.
+LORA_ADAPTER_COUNT = int(os.environ.get("E2E_LORA_ADAPTER_COUNT") or "12")
+if not 1 <= LORA_ADAPTER_COUNT <= LORA_REALISTIC_FIXTURE_SIZE:
+    raise ValueError(
+        f"E2E_LORA_ADAPTER_COUNT={LORA_ADAPTER_COUNT} outside "
+        f"[1, {LORA_REALISTIC_FIXTURE_SIZE}]: {_LORA_REALISTIC_FIXTURE.name} "
+        f"holds {LORA_REALISTIC_FIXTURE_SIZE} pinned names"
+    )
+LORA_REALISTIC_ADAPTER_NAMES = _LORA_REALISTIC_FIXTURE_NAMES[:LORA_ADAPTER_COUNT]
+
 LLMINFERENCESERVICE_CONFIGS = {
     "workload-single-cpu": {
         "template": {
@@ -398,9 +508,103 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "uri": "hf://edbeeching/opt-125m-lora",
                     },
                 ],
-                "maxRank": 64,
+                "maxRank": 16,
                 "maxAdapters": 2,
                 "maxCpuAdapters": 4,
+            },
+        },
+    },
+    # One adapter alone on its claim, base model downloaded as usual. This claim backs a
+    # single adapter, so it keeps the per-adapter volume name running pods already use -
+    # the case that must not move.
+    "model-fb-opt-125m-with-single-lora-pvc": {
+        "model": {
+            "uri": OPT_125M_MODEL_URI,
+            "name": "facebook/opt-125m",
+            "lora": {
+                "adapters": [
+                    {
+                        "name": "lora-adapter-1",
+                        "uri": f"pvc://{LORA_PVC_STORAGE_NAME}/{LORA_PVC_ADAPTER_SUBPATH}",
+                    },
+                ],
+                "maxRank": 16,
+            },
+        },
+    },
+    # Base model and both adapters on one claim: the shape that used to render one pod
+    # Volume per adapter, which kubelet on Kubernetes 1.34 never reports as mounted.
+    "model-fb-opt-125m-with-lora-pvc": {
+        "model": {
+            "uri": f"pvc://{LORA_PVC_STORAGE_NAME}/{LORA_PVC_BASE_SUBPATH}",
+            "name": "facebook/opt-125m",
+            "lora": {
+                "adapters": [
+                    {
+                        "name": "lora-adapter-1",
+                        "uri": f"pvc://{LORA_PVC_STORAGE_NAME}/{LORA_PVC_ADAPTER_SUBPATH}",
+                    },
+                    {
+                        "name": "lora-adapter-2",
+                        "uri": f"pvc://{LORA_PVC_STORAGE_NAME}/{LORA_PVC_ADAPTER_SUBPATH}",
+                    },
+                ],
+                "maxRank": 16,
+                "maxAdapters": 2,
+            },
+        },
+    },
+    # Adapters with OpenAI-model-identifier-style served names (org prefix,
+    # dots). These exercise regex escaping in the generated HTTPRoute match and
+    # the served-name sanitization in workload naming. maxAdapters covers both
+    # registered forms per adapter (short name + publishers/<ns>/models/ alias).
+    "model-fb-opt-125m-with-lora-adversarial-names": {
+        "model": {
+            "uri": OPT_125M_MODEL_URI,
+            "name": "facebook/opt-125m",
+            "lora": {
+                "adapters": [
+                    {
+                        "name": "acme/billing-summarize-en-v1.r16",
+                        "uri": "hf://edbeeching/opt-125m-lora",
+                    },
+                    {
+                        "name": "support-triage-de-v2",
+                        "uri": "hf://edbeeching/opt-125m-lora",
+                    },
+                ],
+                "maxRank": 16,
+                "maxAdapters": 4,
+                "maxCpuAdapters": 8,
+            },
+        },
+    },
+    # Past the exact strategy's per-rule match budget, so only the regex strategy
+    # can route this set - see LORA_EXACT_STRATEGY_MAX_ADAPTERS for the ceiling
+    # and LORA_ADAPTER_COUNT for how many are used. maxAdapters is 2N because the
+    # controller registers each adapter under its short name and its publisher
+    # identity.
+    #
+    # Every adapter is a sub-path of one claim, seeded by
+    # ensure_pvc_with_base_model_and_lora, and the base model is not on that claim -
+    # so the set resolves to one shared lora-claim- volume with a mount per adapter.
+    # Before per-claim volume naming the controller declared a Volume per adapter
+    # here, and on Kubernetes 1.34 the workload never left Init.
+    "model-fb-opt-125m-with-lora-realistic": {
+        "model": {
+            "uri": OPT_125M_MODEL_URI,
+            "name": "facebook/opt-125m",
+            "lora": {
+                "adapters": [
+                    {
+                        "name": name,
+                        "uri": f"pvc://{LORA_PVC_STORAGE_NAME}/{LORA_PVC_ADAPTER_SUBPATH}",
+                    }
+                    for name in LORA_REALISTIC_ADAPTER_NAMES
+                ],
+                "maxRank": 16,
+                "maxAdapters": 2 * len(LORA_REALISTIC_ADAPTER_NAMES),
+                "maxCpuAdapters": 2 * len(LORA_REALISTIC_ADAPTER_NAMES),
             },
         },
     },
@@ -1260,6 +1464,13 @@ LLMINFERENCESERVICE_CONFIGS = {
                         "--mode",
                         "random",
                         "--force-dummy-tokenizer",
+                        # Keeps requests in flight long enough for
+                        # vllm:num_requests_running (an instantaneous gauge)
+                        # to be observable within Prometheus's scrape interval.
+                        "--time-to-first-token",
+                        "200ms",
+                        "--inter-token-latency",
+                        "100ms",
                         "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile{{- end }}",
                         "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.crt{{- end }}",
                         "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile{{- end }}",
@@ -1288,6 +1499,11 @@ LLMINFERENCESERVICE_CONFIGS = {
                             "--mode",
                             "random",
                             "--force-dummy-tokenizer",
+                            # Prefill has no token stream to apply
+                            # inter-token-latency to, so it needs a larger
+                            # time-to-first-token to stay observable instead.
+                            "--time-to-first-token",
+                            "5s",
                             "{{ if .GlobalConfig.EnableTLS }}--ssl-certfile{{- end }}",
                             "{{ if .GlobalConfig.EnableTLS }}/var/run/kserve/tls/tls.crt{{- end }}",
                             "{{ if .GlobalConfig.EnableTLS }}--ssl-keyfile{{- end }}",
@@ -1308,6 +1524,47 @@ LLMINFERENCESERVICE_CONFIGS = {
             "prometheus.io/scrape": "true",
             "prometheus.io/port": "8000",
             "prometheus.io/path": "/metrics",
+        },
+    },
+    # Like "prometheus-scrape" but for the P/D simulator, which listens on
+    # different ports per role: main/decode on 8001, prefill on 8000. The
+    # prefill pod template is a separate WorkloadSpec, so it needs its own
+    # "annotations" under the "prefill" key.
+    "prometheus-scrape-pd": {
+        "annotations": {
+            "prometheus.io/scrape": "true",
+            "prometheus.io/port": "8001",
+            "prometheus.io/path": "/metrics",
+        },
+        "prefill": {
+            "annotations": {
+                "prometheus.io/scrape": "true",
+                "prometheus.io/port": "8000",
+                "prometheus.io/path": "/metrics",
+            },
+        },
+    },
+    # Annotates the EPP/scheduler pod so Prometheus scrapes its request-rate
+    # counters (port 9090). Disables EPP's default bearer-token auth since
+    # the annotation-based scrape job doesn't send one and would otherwise
+    # get 401s.
+    "scheduler-prometheus-scrape": {
+        "router": {
+            "scheduler": {
+                "annotations": {
+                    "prometheus.io/scrape": "true",
+                    "prometheus.io/port": "9090",
+                    "prometheus.io/path": "/metrics",
+                },
+                "template": {
+                    "containers": [
+                        {
+                            "name": "main",
+                            "args": ["--metrics-endpoint-auth=false"],
+                        }
+                    ],
+                },
+            },
         },
     },
     "scaling-hpa": {
@@ -1363,12 +1620,79 @@ LLMINFERENCESERVICE_CONFIGS = {
                 "pollingInterval": 5,
                 "cooldownPeriod": 10,
                 "initialCooldownPeriod": 0,
+                "triggers": [_epp_prometheus_trigger(threshold="2")],
+            },
+        }
+    },
+    # Direct KEDA with idleReplicaCount=0: scales to zero when the EPP
+    # request-rate trigger reports no traffic, and back up once load resumes.
+    "scaling-direct-keda-idle": {
+        "scaling": {
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "keda": {
+                "pollingInterval": 5,
+                "cooldownPeriod": 15,
+                "initialCooldownPeriod": 0,
+                "idleReplicaCount": 0,
+                "triggers": [_epp_prometheus_trigger(threshold="2")],
+            },
+        }
+    },
+    # Direct KEDA (standalone, no WVA) with a fallback replica count: when the
+    # Prometheus scaler repeatedly fails to reach the server (outage), KEDA
+    # holds the deployment at `fallback.replicas` instead of scaling to zero.
+    "scaling-direct-keda-fallback": {
+        "scaling": {
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "keda": {
+                "pollingInterval": 5,
+                "cooldownPeriod": 10,
+                "initialCooldownPeriod": 0,
+                "fallback": {
+                    "failureThreshold": 3,
+                    "replicas": 1,
+                },
+                "triggers": [_epp_prometheus_trigger(threshold="2")],
+            },
+        }
+    },
+    # Direct KEDA triggers scoped to prefill vs. decode/main pods individually
+    # via vllm:num_requests_running, so each role scales based on its own
+    # per-pod metric rather than a shared signal.
+    "scaling-prefill-direct-keda": {
+        "prefill": {
+            "scaling": {
+                "minReplicas": 1,
+                "maxReplicas": 3,
+                "keda": {
+                    "pollingInterval": 5,
+                    "cooldownPeriod": 10,
+                    "initialCooldownPeriod": 0,
+                    "triggers": [
+                        _vllm_running_requests_trigger(
+                            "{{ ChildName .ObjectMeta.Name `-kserve-prefill` }}",
+                            threshold="1",
+                        )
+                    ],
+                },
+            }
+        }
+    },
+    "scaling-decode-direct-keda": {
+        "scaling": {
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "keda": {
+                "pollingInterval": 5,
+                "cooldownPeriod": 10,
+                "initialCooldownPeriod": 0,
                 "triggers": [
-                    {
-                        "type": "cpu",
-                        "metricType": "Utilization",
-                        "metadata": {"value": "50"},
-                    }
+                    _vllm_running_requests_trigger(
+                        "{{ ChildName .ObjectMeta.Name `-kserve` }}",
+                        threshold="1",
+                    )
                 ],
             },
         }
@@ -2083,21 +2407,29 @@ def create_model_download_job(
     *,
     namespace,
     model_uri=None,
+    downloads=None,
 ):
     """Create a Kubernetes Job to download model files into a PVC.
 
     Uses the KServe storage-initializer image with the same args format
     used internally by LocalModelNode. No explicit security context is set
     so the Job works under OpenShift restricted SCCs, KinD, and Minikube.
+
+    downloads takes (uri, sub-path) pairs to place several artifacts in one claim; it
+    replaces model_uri, which downloads a single artifact to the claim root.
     """
-    if model_uri is None:
-        model_uri = OPT_125M_MODEL_URI
+    if downloads is None:
+        downloads = [(model_uri or OPT_125M_MODEL_URI, "")]
+
+    args = []
+    for uri, sub_path in downloads:
+        args.extend([uri, f"/mnt/models/{sub_path}" if sub_path else "/mnt/models"])
 
     inject_k8s_proxy()
     batch_v1 = client.BatchV1Api()
 
     env_from, env = [], []
-    if model_uri.startswith("s3://"):
+    if any(uri.startswith("s3://") for uri, _ in downloads):
         env_from, env = _s3_env_from_secret(namespace)
 
     job = client.V1Job(
@@ -2117,7 +2449,7 @@ def create_model_download_job(
                         client.V1Container(
                             name="storage-initializer",
                             image=STORAGE_INITIALIZER_IMAGE,
-                            args=[model_uri, "/mnt/models"],
+                            args=args,
                             env=env or None,
                             env_from=env_from or None,
                             volume_mounts=[
@@ -2205,6 +2537,43 @@ def delete_model_download_job(
     except client.rest.ApiException as e:
         if e.status != 404:
             raise
+
+
+def ensure_pvc_with_base_model_and_lora(namespace):
+    """Idempotent setup: one PVC holding the base model and a LoRA adapter at sub-paths.
+
+    Both the base model and the adapters reference this single claim, which is the shape
+    that used to render one pod Volume per adapter. kubelet keys a non-attachable PVC
+    volume by PV name, so the duplicates never appeared as mounted and the pod never left
+    Init on Kubernetes 1.34 - no FailedMount event, no timeout, no recovery.
+    """
+    inject_k8s_proxy()
+    batch_v1 = client.BatchV1Api()
+
+    create_pvc(LORA_PVC_STORAGE_NAME, namespace=namespace)
+
+    try:
+        job = batch_v1.read_namespaced_job(
+            name=LORA_PVC_DOWNLOAD_JOB_NAME,
+            namespace=namespace,
+        )
+        if job.status.succeeded and job.status.succeeded >= 1:
+            logger.info("LoRA PVC download Job already completed, skipping")
+            return
+    except client.rest.ApiException as e:
+        if e.status != 404:
+            raise
+
+    create_model_download_job(
+        LORA_PVC_DOWNLOAD_JOB_NAME,
+        LORA_PVC_STORAGE_NAME,
+        namespace=namespace,
+        downloads=[
+            (OPT_125M_MODEL_URI, LORA_PVC_BASE_SUBPATH),
+            (LORA_ADAPTER_MODEL_URI, LORA_PVC_ADAPTER_SUBPATH),
+        ],
+    )
+    wait_for_job_completion(LORA_PVC_DOWNLOAD_JOB_NAME, namespace=namespace)
 
 
 def ensure_pvc_with_model(namespace):

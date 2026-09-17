@@ -19,6 +19,7 @@ package llmisvc
 import (
 	"context"
 	"fmt"
+	"maps"
 	"path"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -170,7 +171,7 @@ func (r *LLMISVCReconciler) reconcileTokenizerDeployment(ctx context.Context, ll
 		return Delete(ctx, r, llmSvc, expected)
 	}
 
-	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, expected, semanticDeploymentIsEqual, PreserveDeploymentReplicas()); err != nil {
+	if err := Reconcile(ctx, r, llmSvc, &appsv1.Deployment{}, expected, semanticDeploymentIsEqual, PreserveDeploymentReplicas(), PreserveDeploymentSelector()); err != nil {
 		return fmt.Errorf("failed to reconcile tokenizer deployment %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
 	}
 
@@ -201,12 +202,14 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &replicas,
+			// The tokenizer takes no user-supplied labels, so its selector is the
+			// identity labels alone.
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: deploymentSelectorLabels(labels, nil),
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
+					Labels: maps.Clone(labels),
 				},
 			},
 		},

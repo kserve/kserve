@@ -10007,6 +10007,157 @@ var _ = Describe("v1beta1 inference service controller", func() {
 		})
 	})
 
+	Context("When creating inference service with custom http_port that overrides the runtime default", func() {
+		It("Should deduplicate the --http_port arg and set the readiness probe to the ISVC port", func() {
+			ctx := context.Background()
+
+			configs := map[string]string{
+				"ingress": `{
+					"ingressGateway": "knative-serving/knative-ingress-gateway",
+					"localGateway": "knative-serving/knative-local-gateway",
+					"localGatewayService": "knative-local-gateway.istio-system.svc.cluster.local"
+				}`,
+				"storageInitializer": `{
+					"image": "kserve/storage-initializer:latest",
+					"memoryRequest": "100Mi",
+					"memoryLimit": "1Gi",
+					"cpuRequest": "100m",
+					"cpuLimit": "1",
+					"caBundleConfigMapName": "",
+					"caBundleVolumeMountPath": "/etc/ssl/custom-certs",
+					"cpuModelcar": "10m",
+					"memoryModelcar": "15Mi"
+				}`,
+			}
+			configMap := createInferenceServiceConfigMap(configs)
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			servingRuntime := &v1alpha1.ServingRuntime{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "sklearn-runtime-custom-port",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.ServingRuntimeSpec{
+					SupportedModelFormats: []v1alpha1.SupportedModelFormat{
+						{
+							Name:       "sklearn",
+							Version:    ptr.To("1"),
+							AutoSelect: ptr.To(true),
+						},
+					},
+					ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  constants.InferenceServiceContainerName,
+								Image: "kserve/sklearnserver:latest",
+								Args: []string{
+									"--model_name={{.Name}}",
+									"--model_dir=/mnt/models",
+									"--http_port=8080",
+								},
+								Resources: defaultResource,
+							},
+						},
+					},
+					Disabled: ptr.To(false),
+				},
+			}
+			Expect(k8sClient.Create(ctx, servingRuntime)).Should(Succeed())
+			defer k8sClient.Delete(ctx, servingRuntime)
+
+			serviceName := "raw-custom-http-port"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: serviceName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						constants.DeploymentMode: string(constants.Standard),
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							MinReplicas: ptr.To(int32(1)),
+							MaxReplicas: 3,
+							Batcher: &v1beta1.Batcher{
+								MaxBatchSize: ptr.To(32),
+								MaxLatency:   ptr.To(5000),
+							},
+						},
+						Model: &v1beta1.ModelSpec{
+							ModelFormat: v1beta1.ModelFormat{
+								Name: "sklearn",
+							},
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{
+								StorageURI: ptr.To("s3://test/sklearn/model"),
+								Container: corev1.Container{
+									Name: constants.InferenceServiceContainerName,
+									Args: []string{"--http_port=5000"},
+									Ports: []corev1.ContainerPort{
+										{
+											ContainerPort: 5000,
+											Protocol:      corev1.ProtocolTCP,
+										},
+									},
+									Resources: defaultResource,
+								},
+							},
+						},
+					},
+				},
+			}
+			isvc.DefaultInferenceService(nil, nil, &v1beta1.SecurityConfig{AutoMountServiceAccountToken: false}, nil, nil)
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+
+			actualDeployment := &appsv1.Deployment{}
+			predictorDeploymentKey := types.NamespacedName{
+				Name:      constants.PredictorServiceName(serviceKey.Name),
+				Namespace: serviceKey.Namespace,
+			}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, predictorDeploymentKey, actualDeployment)
+			}, timeout, interval).Should(Succeed())
+
+			var kserveContainer *corev1.Container
+			for i := range actualDeployment.Spec.Template.Spec.Containers {
+				if actualDeployment.Spec.Template.Spec.Containers[i].Name == constants.InferenceServiceContainerName {
+					kserveContainer = &actualDeployment.Spec.Template.Spec.Containers[i]
+					break
+				}
+			}
+			Expect(kserveContainer).NotTo(BeNil(), "kserve-container should exist in the deployment")
+
+			// Verify --http_port appears exactly once with the ISVC value (5000), not the runtime default (8080)
+			httpPortCount := 0
+			for _, arg := range kserveContainer.Args {
+				if len(arg) >= len("--http_port") && arg[:len("--http_port")] == "--http_port" {
+					httpPortCount++
+				}
+			}
+			Expect(httpPortCount).To(Equal(1), "--http_port should appear exactly once in container args: %v", kserveContainer.Args)
+
+			foundPort := false
+			for _, arg := range kserveContainer.Args {
+				if arg == "--http_port=5000" {
+					foundPort = true
+					break
+				}
+			}
+			Expect(foundPort).To(BeTrue(), "--http_port=5000 should be in container args: %v", kserveContainer.Args)
+
+			// Verify the readiness probe targets port 5000
+			Expect(kserveContainer.ReadinessProbe).NotTo(BeNil(), "readiness probe should be set")
+			Expect(kserveContainer.ReadinessProbe.TCPSocket).NotTo(BeNil(), "readiness probe should use TCPSocket")
+			Expect(kserveContainer.ReadinessProbe.TCPSocket.Port.IntValue()).To(Equal(5000),
+				"readiness probe should target port 5000, not the runtime default 8080")
+		})
+	})
+
 	Context("When creating an inference service with modelcar and raw deployment", func() {
 		configs := map[string]string{
 			"ingress": `{

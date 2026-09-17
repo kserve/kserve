@@ -351,4 +351,12 @@ type PodSpec struct {
 	// +featureGate=HostnameOverride
 	// +optional
 	HostnameOverride *string `json:"hostnameOverride,omitempty" protobuf:"bytes,41,opt,name=hostnameOverride"`
+	// SchedulingGroup declares the group scheduling membership of the Pod.
+	// The group object referenced by this field may not exist at the time the
+	// Pod is created. This field is immutable, but a group object with the same
+	// name may be recreated with different policies.
+	//
+	// +featureGate=GenericWorkload
+	// +optional
+	SchedulingGroup *corev1.PodSchedulingGroup `json:"schedulingGroup,omitempty" protobuf:"bytes,43,opt,name=schedulingGroup"`
 }

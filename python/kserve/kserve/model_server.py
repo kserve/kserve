@@ -15,6 +15,7 @@
 import argparse
 import asyncio
 import concurrent.futures
+import os
 import signal
 import sys
 from importlib import metadata
@@ -23,27 +24,29 @@ from typing import Any, Callable, Dict, List, Optional
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
 
-from . import logging
 from . import context as kserve_context
+from . import logging
 from .constants.constants import (
-    DEFAULT_HTTP_PORT,
     DEFAULT_GRPC_PORT,
-    MAX_GRPC_MESSAGE_LENGTH,
+    DEFAULT_HTTP_PORT,
+    DEFAULT_HTTPS_PORT,
     FASTAPI_APP_IMPORT_STRING,
+    KSERVE_TLS_CERT_FILE_ENV,
+    KSERVE_TLS_KEY_FILE_ENV,
+    MAX_GRPC_MESSAGE_LENGTH,
 )
 from .errors import NoModelReady
 from .logging import logger
 from .model import BaseKServeModel
-from .predictor_config import PredictorConfig
 from .model_repository import ModelRepository
+from .predictor_config import PredictorConfig
 from .protocol.dataplane import DataPlane
 from .protocol.grpc.server import GRPCServer
 from .protocol.model_repository_extension import ModelRepositoryExtension
-from .protocol.rest.server import RESTServer
 from .protocol.rest.multiprocess.server import RESTServerMultiProcess
+from .protocol.rest.server import RESTServer
 from .utils import utils
 from .utils.inference_client_factory import InferenceClientFactory
-
 
 parser = argparse.ArgumentParser(
     add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -205,6 +208,20 @@ parser.add_argument(
     help="The Transformer will perform readiness check for the predictor in addition to "
     "its health check. By default it is disabled.",
 )
+parser.add_argument(
+    "--ssl_certfile",
+    default=os.environ.get(KSERVE_TLS_CERT_FILE_ENV),
+    type=str,
+    help="The path to the SSL certificate file for serving HTTPS. "
+    f"Falls back to {KSERVE_TLS_CERT_FILE_ENV} env var if not set.",
+)
+parser.add_argument(
+    "--ssl_keyfile",
+    default=os.environ.get(KSERVE_TLS_KEY_FILE_ENV),
+    type=str,
+    help="The path to the SSL private key file for serving HTTPS. "
+    f"Falls back to {KSERVE_TLS_KEY_FILE_ENV} env var if not set.",
+)
 args, _ = parser.parse_known_args()
 
 app = FastAPI(
@@ -233,6 +250,8 @@ class ModelServer:
         timeout_keep_alive: int = args.timeout_keep_alive,
         grace_period: int = 30,
         predictor_config: Optional[PredictorConfig] = None,
+        ssl_certfile: Optional[str] = args.ssl_certfile,
+        ssl_keyfile: Optional[str] = args.ssl_keyfile,
     ):
         """KServe ModelServer Constructor
 
@@ -256,10 +275,20 @@ class ModelServer:
             timeout_keep_alive: Timeout for keep-alive connections in seconds. Default: ``65``.
             grace_period: The grace period in seconds to wait for the server to stop. Default: ``30``.
             predictor_config: Optional configuration for the predictor. Default: ``None``.
+            ssl_certfile: Path to the SSL certificate file for serving HTTPS. Default: ``None``.
+                          Falls back to KSERVE_TLS_CERT_FILE env var.
+            ssl_keyfile: Path to the SSL private key file for serving HTTPS. Default: ``None``.
+                         Falls back to KSERVE_TLS_KEY_FILE env var.
         """
         self.registered_models = (
             ModelRepository() if registered_models is None else registered_models
         )
+        self.ssl_certfile = ssl_certfile
+        self.ssl_keyfile = ssl_keyfile
+        # When SSL is enabled and the port was not explicitly overridden, switch to the HTTPS port.
+        if self.ssl_certfile and self.ssl_keyfile and http_port == DEFAULT_HTTP_PORT:
+            http_port = DEFAULT_HTTPS_PORT
+            logger.info("SSL enabled, switching listen port to %d", http_port)
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.workers = workers
@@ -348,6 +377,8 @@ class ModelServer:
                 log_config_file=args.log_config_file,
                 event_loop=self.event_loop,
                 timeout_keep_alive=self.timeout_keep_alive,
+                ssl_certfile=self.ssl_certfile,
+                ssl_keyfile=self.ssl_keyfile,
             )
             self.servers.append(self._rest_multiprocess_server.start())
         else:
@@ -361,6 +392,8 @@ class ModelServer:
                 grace_period=self.grace_period,
                 event_loop=self.event_loop,
                 timeout_keep_alive=self.timeout_keep_alive,
+                ssl_certfile=self.ssl_certfile,
+                ssl_keyfile=self.ssl_keyfile,
             )
             self.servers.append(self._rest_server.start())
         if self.enable_grpc:

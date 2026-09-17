@@ -18,18 +18,14 @@ package llmisvc_test
 
 import (
 	"context"
-	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 	. "github.com/kserve/kserve/pkg/testing"
@@ -51,21 +47,7 @@ func countModelRoutingRules(rules []gwapiv1.HTTPRouteRule) int {
 }
 
 func patchIngressModelBasedRoutingMode(ctx context.Context, mode string) {
-	isvcConfigMap := &corev1.ConfigMap{}
-	Expect(envTest.Client.Get(ctx, types.NamespacedName{
-		Name:      constants.InferenceServiceConfigMapName,
-		Namespace: constants.KServeNamespace,
-	}, isvcConfigMap)).To(Succeed())
-
-	var ingressConfig map[string]interface{}
-	Expect(json.Unmarshal([]byte(isvcConfigMap.Data["ingress"]), &ingressConfig)).To(Succeed())
-	ingressConfig["modelBasedRoutingMode"] = mode
-	updatedIngress, err := json.Marshal(ingressConfig)
-	Expect(err).NotTo(HaveOccurred())
-
-	patch := client.MergeFrom(isvcConfigMap.DeepCopy())
-	isvcConfigMap.Data["ingress"] = string(updatedIngress)
-	Expect(envTest.Client.Patch(ctx, isvcConfigMap, patch)).To(Succeed())
+	PatchIngressConfigKey(ctx, envTest.Client, "modelBasedRoutingMode", mode)
 }
 
 func restoreIngressModelBasedRoutingMode(ctx context.Context) {
@@ -346,5 +328,96 @@ var _ = Describe("Model Based Routing", func() {
 
 			Eventually(LLMInferenceServiceIsReady(llmSvc)).WithContext(ctx).Should(Succeed())
 		})
+	})
+})
+
+var _ = Describe("Model Based Routing with a case-variant header", func() {
+	// Gateway API header names are case-insensitive and the API server keeps
+	// whatever spelling the author wrote, so a hand-authored route spelling the
+	// model-routing header in lower case is a live model-routing rule that the
+	// controller must treat exactly like the canonical spelling.
+	const lowercaseHeader = "x-gateway-model-name"
+
+	customModelRoutingSpec := func(ctx context.Context, testNs *TestNamespace, gatewayName string) *gwapiv1.HTTPRouteSpec {
+		gateway := Gateway(gatewayName,
+			InNamespace[*gwapiv1.Gateway](testNs.Name),
+			WithListener(gwapiv1.HTTPProtocolType),
+			WithAddresses("203.0.113.42"),
+		)
+		Expect(envTest.Client.Create(ctx, gateway)).To(Succeed())
+		ensureGatewayReady(ctx, envTest.Client, gateway)
+
+		return &HTTPRoute("custom-model-routing",
+			InNamespace[*gwapiv1.HTTPRoute](testNs.Name),
+			WithParentRef(GatewayParentRef(gatewayName, testNs.Name)),
+			WithHTTPRule(
+				Matches(ExactPathWithHeaderMatch("/v1/completions", lowercaseHeader,
+					publisherModel(testNs.Name, "base-model"))),
+				WithBackendRefs(ServiceRef("custom-backend", 8000, 1)),
+			),
+		).Spec
+	}
+
+	It("should expand LoRA adapter matches under the author's spelling", func(ctx SpecContext) {
+		// given
+		testNs := NewTestNamespace(ctx, envTest)
+
+		llmSvc := LLMInferenceService("test-mbr-case-expand",
+			InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+			WithModelURI("hf://facebook/opt-125m"),
+			WithModelName("base-model"),
+			WithLoRAAdapters("lora-adapter-a", "lora-adapter-b"),
+			WithHTTPRouteSpec(customModelRoutingSpec(ctx, testNs, "mbr-case-expand-gw")),
+			WithSpecAnnotations(map[string]string{
+				llmisvc.AnnotationModelBasedRoutingEnabled: "true",
+			}),
+		)
+
+		// when
+		Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+		defer func() {
+			testNs.DeleteAndWait(ctx, llmSvc)
+		}()
+
+		// then - the adapter matches keep the lower-case spelling they were authored with
+		Eventually(func(g Gomega, ctx context.Context) {
+			routes, err := managedRoutes(ctx, llmSvc)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(routes).To(HaveLen(1))
+
+			g.Expect(&routes[0]).To(HaveHeaderMatch(lowercaseHeader, publisherModel(testNs.Name, "base-model")))
+			g.Expect(&routes[0]).To(HaveHeaderMatch(lowercaseHeader, publisherModel(testNs.Name, "lora-adapter-a")))
+			g.Expect(&routes[0]).To(HaveHeaderMatch(lowercaseHeader, publisherModel(testNs.Name, "lora-adapter-b")))
+		}).WithContext(ctx).Should(Succeed())
+	})
+
+	It("should strip the match when model-based routing is disabled", func(ctx SpecContext) {
+		// given
+		testNs := NewTestNamespace(ctx, envTest)
+
+		llmSvc := LLMInferenceService("test-mbr-case-strip",
+			InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+			WithModelURI("hf://facebook/opt-125m"),
+			WithModelName("base-model"),
+			WithHTTPRouteSpec(customModelRoutingSpec(ctx, testNs, "mbr-case-strip-gw")),
+			WithSpecAnnotations(map[string]string{
+				llmisvc.AnnotationModelBasedRoutingEnabled: "false",
+			}),
+		)
+
+		// when
+		Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+		defer func() {
+			testNs.DeleteAndWait(ctx, llmSvc)
+		}()
+
+		// then
+		Eventually(func(g Gomega, ctx context.Context) {
+			routes, err := managedRoutes(ctx, llmSvc)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(routes).To(HaveLen(1))
+
+			g.Expect(&routes[0]).NotTo(HaveHeaderMatch(lowercaseHeader, publisherModel(testNs.Name, "base-model")))
+		}).WithContext(ctx).Should(Succeed())
 	})
 })

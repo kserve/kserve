@@ -97,6 +97,14 @@ type Config struct {
 	ModelBasedRoutingHeaderName string                `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       ModelBasedRoutingMode `json:"modelBasedRoutingMode,omitempty"`
 
+	// LoRAModelRoutingStrategy is the cluster-wide strategy for LoRA adapter
+	// expansion in generated HTTPRoutes. NewIngressConfig defaults and validates
+	// the ConfigMap value, so a loaded Config always carries a supported,
+	// lowercase value; a service overrides it with
+	// AnnotationLoRAModelRoutingStrategy. The zero value behaves as Exact so
+	// directly constructed Configs keep the byte-compatible default.
+	LoRAModelRoutingStrategy LoRAModelRoutingStrategy `json:"loraModelRoutingStrategy,omitempty"`
+
 	// WVAAutoscalingConfig holds Prometheus and monitoring settings for WVA autoscaling.
 	// nil when the "autoscaling-wva-controller-config" key is not present in inferenceservice-config.
 	WVAAutoscalingConfig *WVAAutoscalingConfig `json:"-"`
@@ -122,13 +130,19 @@ type PrometheusConfig struct {
 	// TLSInsecureSkipVerify disables TLS certificate verification for the Prometheus connection.
 	TLSInsecureSkipVerify bool `json:"tlsInsecureSkipVerify"`
 	// AuthModes is the KEDA authModes value for the Prometheus trigger
-	// (e.g. "bearer", "basic", "tls"). Empty means no authentication.
+	// (e.g. "bearer", "basic", "tls"). Empty means no secret-backed authentication.
+	// Requires TriggerAuthName to be set, since the referenced CR supplies the actual
+	// credential values. Must be left empty when TriggerAuthName references a
+	// pod-identity-based CR (e.g. AWS/Azure/GCP managed Prometheus) - KEDA's Prometheus
+	// scaler rejects pod identity combined with any other auth mode.
 	// See: https://keda.sh/docs/latest/scalers/prometheus/#authentication-parameters
 	// +optional
 	AuthModes string `json:"authModes,omitempty"`
 	// TriggerAuthName is the name of a pre-existing TriggerAuthentication or
 	// ClusterTriggerAuthentication CR that KEDA should use when querying Prometheus.
 	// The CR must be created by the cluster admin before enabling KEDA autoscaling.
+	// May be set without AuthModes, e.g. when the CR configures pod-identity-based auth
+	// for a managed Prometheus service instead of secret-backed credentials.
 	// +optional
 	TriggerAuthName string `json:"triggerAuthName,omitempty"`
 	// TriggerAuthKind specifies the kind of the authentication CR referenced by
@@ -172,6 +186,7 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		EnableTLS:                   ingressConfig.EnableLLMInferenceServiceTLS,
 		ModelBasedRoutingHeaderName: ingressConfig.ModelBasedRoutingHeaderName,
 		ModelBasedRoutingMode:       parseModelBasedRoutingMode(ingressConfig.ModelBasedRoutingMode),
+		LoRAModelRoutingStrategy:    LoRAModelRoutingStrategy(ingressConfig.LoRAModelRoutingStrategy),
 		StorageConfig:               storageConfig,
 		CredentialConfig:            credentialConfig,
 		SchedulerConfig:             schedulerConfig,

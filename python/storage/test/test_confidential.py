@@ -17,14 +17,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from jwcrypto import jwe, jwk
-
 from kserve_storage.confidential import (
     CDHSecretResolver,
     JWEDecryptor,
     SecretResolutionError,
     SecretResolver,
 )
-
 
 # --- Helpers ---
 
@@ -146,7 +144,8 @@ class TestJWEDecryptorRoundTrip:
         encrypted_file = tmp_path / "model.bin.jwe"
         encrypted_file.write_text(token)
 
-        resolver = StubSecretResolver(key_bytes)
+        kbs_key = jwk.base64url_encode(key_bytes).encode("utf-8")
+        resolver = StubSecretResolver(kbs_key)
         decryptor = JWEDecryptor(resolver, resource_id="kbs:///repo/type/tag")
         output = decryptor.decrypt_file(encrypted_file)
 
@@ -179,6 +178,57 @@ class TestJWEDecryptorRoundTrip:
         decryptor = JWEDecryptor(resolver)
         with pytest.raises(ValueError, match="No resource_id"):
             decryptor.decrypt_file(encrypted_file)
+
+    def test_decrypt_file_with_full_jwk_json(self, tmp_path):
+        """Test decryption when resolver returns a full JWK JSON object."""
+        plaintext = b"model weights data here"
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(plaintext, key_bytes)
+
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(token)
+
+        # Create a full JWK JSON object
+        full_jwk = jwk.JWK(kty="oct", k=jwk.base64url_encode(key_bytes))
+        jwk_json = full_jwk.export().encode("utf-8")
+
+        # Resolver returns the full JWK JSON as bytes
+        resolver = StubSecretResolver(jwk_json)
+        decryptor = JWEDecryptor(resolver, resource_id="kbs:///repo/type/tag")
+        output = decryptor.decrypt_file(encrypted_file)
+
+        assert output == tmp_path / "model.bin"
+        assert output.read_bytes() == plaintext
+        assert not encrypted_file.exists()
+
+    def test_decrypt_file_with_full_jwk_json_with_metadata(self, tmp_path):
+        """Test decryption when resolver returns a JWK with algorithm and key_ops."""
+        plaintext = b"model weights data here"
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(plaintext, key_bytes)
+
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(token)
+
+        # Create a JWK with additional metadata (as KBS might store it)
+        import json
+
+        jwk_dict = {
+            "alg": "A256GCM",
+            "k": jwk.base64url_encode(key_bytes),
+            "key_ops": ["encrypt", "decrypt"],
+            "kty": "oct",
+        }
+        jwk_json = json.dumps(jwk_dict).encode("utf-8")
+
+        # Resolver returns the full JWK JSON as bytes
+        resolver = StubSecretResolver(jwk_json)
+        decryptor = JWEDecryptor(resolver, resource_id="kbs:///repo/type/tag")
+        output = decryptor.decrypt_file(encrypted_file)
+
+        assert output == tmp_path / "model.bin"
+        assert output.read_bytes() == plaintext
+        assert not encrypted_file.exists()
 
 
 class TestJWEDecryptorDirectory:
