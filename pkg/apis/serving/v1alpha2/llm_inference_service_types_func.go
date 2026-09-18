@@ -20,6 +20,7 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
 
+	"github.com/kserve/kserve/pkg/constants"
 	kservevalidation "github.com/kserve/kserve/pkg/validation"
 )
 
@@ -142,7 +143,10 @@ func (s *LLMInferenceService) IsUsingLLMInferenceServiceConfigInNamespace(name, 
 	}
 
 	// Fallback: appliedConfigs is empty (not yet reconciled, or cleared on stop).
-	for _, value := range s.Status.Annotations {
+	for key, value := range s.Status.Annotations {
+		if key == constants.LLMAcceleratorAnnotationKey {
+			continue
+		}
 		if value == name {
 			return true
 		}

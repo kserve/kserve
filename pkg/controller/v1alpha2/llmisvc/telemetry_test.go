@@ -29,18 +29,19 @@ import (
 	"knative.dev/pkg/apis"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func testModelURI(org, model string) apis.URL {
 	return apis.URL{Scheme: "hf", Host: org, Path: "/" + model}
 }
 
-func cpuLLMInferenceService(name, namespace, org, model string) *v1alpha2.LLMInferenceService {
+func cpuLLMInferenceService(name, namespace string) *v1alpha2.LLMInferenceService {
 	return &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 		Spec: v1alpha2.LLMInferenceServiceSpec{
 			Model: v1alpha2.LLMModelSpec{
-				URI: testModelURI(org, model),
+				URI: testModelURI("facebook", "opt-125m"),
 			},
 			WorkloadSpec: v1alpha2.WorkloadSpec{
 				Template: &corev1.PodSpec{
@@ -59,12 +60,12 @@ func cpuLLMInferenceService(name, namespace, org, model string) *v1alpha2.LLMInf
 	}
 }
 
-func gpuLLMInferenceService(name, namespace, org, model string) *v1alpha2.LLMInferenceService {
+func gpuLLMInferenceService(name, namespace string) *v1alpha2.LLMInferenceService {
 	return &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
 		Spec: v1alpha2.LLMInferenceServiceSpec{
 			Model: v1alpha2.LLMModelSpec{
-				URI: testModelURI(org, model),
+				URI: testModelURI("facebook", "opt-125m"),
 			},
 			WorkloadSpec: v1alpha2.WorkloadSpec{
 				Template: &corev1.PodSpec{
@@ -84,7 +85,7 @@ func gpuLLMInferenceService(name, namespace, org, model string) *v1alpha2.LLMInf
 	}
 }
 
-func metricLabels(t *testing.T, m dto.Metric) map[string]string {
+func metricLabels(t *testing.T, m *dto.Metric) map[string]string {
 	t.Helper()
 	labels := make(map[string]string, len(m.GetLabel()))
 	for _, lp := range m.GetLabel() {
@@ -93,13 +94,13 @@ func metricLabels(t *testing.T, m dto.Metric) map[string]string {
 	return labels
 }
 
-func collectAndParse(t *testing.T, items []v1alpha2.LLMInferenceService) []dto.Metric {
+func collectAndParse(t *testing.T, items []v1alpha2.LLMInferenceService) []*dto.Metric {
 	t.Helper()
 	metrics := collectInfoMetrics(items)
-	result := make([]dto.Metric, 0, len(metrics))
+	result := make([]*dto.Metric, 0, len(metrics))
 	for _, m := range metrics {
-		var dm dto.Metric
-		require.NoError(t, m.Write(&dm))
+		dm := &dto.Metric{}
+		require.NoError(t, m.Write(dm))
 		result = append(result, dm)
 	}
 	return result
@@ -129,7 +130,7 @@ func TestResolveAccelerator(t *testing.T) {
 		},
 		{
 			name:     "cpu only",
-			isvc:     cpuLLMInferenceService("test", "ns", "facebook", "opt-125m"),
+			isvc:     cpuLLMInferenceService("test", "ns"),
 			expected: acceleratorCPU,
 		},
 		{
@@ -375,6 +376,71 @@ func TestResolveAccelerator(t *testing.T) {
 			},
 			expected: acceleratorGPU,
 		},
+		{
+			name: "nvidia mig resource",
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceName("nvidia.com/mig-1g.5gb"): resource.MustParse("1"),
+									},
+								},
+							}},
+						},
+					},
+				},
+			},
+			expected: acceleratorGPU,
+		},
+		{
+			name: "managed DRA returns unknown",
+			isvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"serving.kserve.io/exp-dra-device-class": "gpu.nvidia.com",
+					},
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU: resource.MustParse("1"),
+									},
+								},
+							}},
+						},
+					},
+				},
+			},
+			expected: acceleratorUnknown,
+		},
+		{
+			name: "native DRA resource claims returns unknown",
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU: resource.MustParse("1"),
+									},
+								},
+							}},
+							ResourceClaims: []corev1.PodResourceClaim{
+								{Name: "gpu-claim"},
+							},
+						},
+					},
+				},
+			},
+			expected: acceleratorUnknown,
+		},
 	}
 
 	for _, tt := range tests {
@@ -387,19 +453,19 @@ func TestResolveAccelerator(t *testing.T) {
 
 func TestRecordAcceleratorAnnotation(t *testing.T) {
 	t.Run("sets cpu for cpu-only service", func(t *testing.T) {
-		svc := cpuLLMInferenceService("test", "ns", "facebook", "opt-125m")
+		svc := cpuLLMInferenceService("test", "ns")
 		RecordAcceleratorAnnotation(svc)
-		assert.Equal(t, "cpu", svc.Status.Annotations[AcceleratorAnnotationKey])
+		assert.Equal(t, "cpu", svc.Status.Annotations[constants.LLMAcceleratorAnnotationKey])
 	})
 
 	t.Run("sets gpu for gpu service", func(t *testing.T) {
-		svc := gpuLLMInferenceService("test", "ns", "facebook", "opt-125m")
+		svc := gpuLLMInferenceService("test", "ns")
 		RecordAcceleratorAnnotation(svc)
-		assert.Equal(t, "gpu", svc.Status.Annotations[AcceleratorAnnotationKey])
+		assert.Equal(t, "gpu", svc.Status.Annotations[constants.LLMAcceleratorAnnotationKey])
 	})
 
 	t.Run("initializes nil annotations map", func(t *testing.T) {
-		svc := cpuLLMInferenceService("test", "ns", "facebook", "opt-125m")
+		svc := cpuLLMInferenceService("test", "ns")
 		assert.Nil(t, svc.Status.Annotations)
 		RecordAcceleratorAnnotation(svc)
 		assert.NotNil(t, svc.Status.Annotations)
@@ -407,8 +473,8 @@ func TestRecordAcceleratorAnnotation(t *testing.T) {
 }
 
 func TestCollectInfoMetrics(t *testing.T) {
-	cpuSvc := withAcceleratorAnnotation(cpuLLMInferenceService("opt-125m-cpu", "test-ns", "facebook", "opt-125m"))
-	gpuSvc := withAcceleratorAnnotation(gpuLLMInferenceService("opt-125m-gpu", "test-ns", "facebook", "opt-125m"))
+	cpuSvc := withAcceleratorAnnotation(cpuLLMInferenceService("opt-125m-cpu", "test-ns"))
+	gpuSvc := withAcceleratorAnnotation(gpuLLMInferenceService("opt-125m-gpu", "test-ns"))
 
 	t.Run("emits one metric per service", func(t *testing.T) {
 		metrics := collectInfoMetrics([]v1alpha2.LLMInferenceService{*cpuSvc, *gpuSvc})
@@ -422,7 +488,7 @@ func TestCollectInfoMetrics(t *testing.T) {
 }
 
 func TestCollectInfoMetricsCPULabels(t *testing.T) {
-	cpuSvc := withAcceleratorAnnotation(cpuLLMInferenceService("opt-125m-cpu", "test-ns", "facebook", "opt-125m"))
+	cpuSvc := withAcceleratorAnnotation(cpuLLMInferenceService("opt-125m-cpu", "test-ns"))
 	parsed := collectAndParse(t, []v1alpha2.LLMInferenceService{*cpuSvc})
 
 	require.Len(t, parsed, 1)
@@ -438,7 +504,7 @@ func TestCollectInfoMetricsCPULabels(t *testing.T) {
 }
 
 func TestCollectInfoMetricsGPULabels(t *testing.T) {
-	gpuSvc := withAcceleratorAnnotation(gpuLLMInferenceService("opt-125m-gpu", "test-ns", "facebook", "opt-125m"))
+	gpuSvc := withAcceleratorAnnotation(gpuLLMInferenceService("opt-125m-gpu", "test-ns"))
 	parsed := collectAndParse(t, []v1alpha2.LLMInferenceService{*gpuSvc})
 
 	require.Len(t, parsed, 1)
@@ -449,7 +515,7 @@ func TestCollectInfoMetricsGPULabels(t *testing.T) {
 }
 
 func TestCollectInfoMetricsCustomModelName(t *testing.T) {
-	svc := cpuLLMInferenceService("svc-name", "ns", "facebook", "opt-125m")
+	svc := cpuLLMInferenceService("svc-name", "ns")
 	modelName := "my-custom-model"
 	svc.Spec.Model.Name = &modelName
 	withAcceleratorAnnotation(svc)
@@ -463,7 +529,7 @@ func TestCollectInfoMetricsCustomModelName(t *testing.T) {
 
 func TestCollectInfoMetricsFallbackWithoutAnnotation(t *testing.T) {
 	t.Run("cpu service without annotation defaults to cpu", func(t *testing.T) {
-		svc := cpuLLMInferenceService("no-annotation", "ns", "facebook", "opt-125m")
+		svc := cpuLLMInferenceService("no-annotation", "ns")
 		parsed := collectAndParse(t, []v1alpha2.LLMInferenceService{*svc})
 		require.Len(t, parsed, 1)
 		labels := metricLabels(t, parsed[0])
@@ -471,7 +537,7 @@ func TestCollectInfoMetricsFallbackWithoutAnnotation(t *testing.T) {
 	})
 
 	t.Run("gpu service without annotation resolves from spec", func(t *testing.T) {
-		svc := gpuLLMInferenceService("no-annotation-gpu", "ns", "facebook", "opt-125m")
+		svc := gpuLLMInferenceService("no-annotation-gpu", "ns")
 		parsed := collectAndParse(t, []v1alpha2.LLMInferenceService{*svc})
 		require.Len(t, parsed, 1)
 		labels := metricLabels(t, parsed[0])
@@ -490,13 +556,13 @@ func TestDescribe(t *testing.T) {
 func TestResolveModelName(t *testing.T) {
 	t.Run("uses spec.model.name when set", func(t *testing.T) {
 		modelName := "my-custom-model"
-		svc := cpuLLMInferenceService("svc-name", "ns", "facebook", "opt-125m")
+		svc := cpuLLMInferenceService("svc-name", "ns")
 		svc.Spec.Model.Name = &modelName
 		assert.Equal(t, "my-custom-model", resolveModelName(svc))
 	})
 
 	t.Run("falls back to metadata.name", func(t *testing.T) {
-		svc := cpuLLMInferenceService("svc-name", "ns", "facebook", "opt-125m")
+		svc := cpuLLMInferenceService("svc-name", "ns")
 		assert.Equal(t, "svc-name", resolveModelName(svc))
 	})
 }

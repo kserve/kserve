@@ -28,16 +28,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 const (
-	acceleratorCPU = "cpu"
-	acceleratorGPU = "gpu"
-
-	// AcceleratorAnnotationKey is the status annotation key where the resolved
-	// accelerator type is persisted during reconciliation. The Collector reads
-	// it at scrape time so it reflects the effective (merged) spec.
-	AcceleratorAnnotationKey = "serving.kserve.io/accelerator-type"
+	acceleratorCPU     = "cpu"
+	acceleratorGPU     = "gpu"
+	acceleratorUnknown = "unknown"
 )
 
 var infoDesc = prometheus.NewDesc(
@@ -104,7 +101,7 @@ func collectInfoMetrics(items []v1alpha2.LLMInferenceService) []prometheus.Metri
 	out := make([]prometheus.Metric, 0, len(items))
 	for i := range items {
 		isvc := &items[i]
-		accelerator := isvc.Status.Annotations[AcceleratorAnnotationKey]
+		accelerator := isvc.Status.Annotations[constants.LLMAcceleratorAnnotationKey]
 		if accelerator == "" {
 			accelerator = resolveAccelerator(isvc)
 		}
@@ -130,7 +127,7 @@ func RecordAcceleratorAnnotation(llmSvc *v1alpha2.LLMInferenceService) {
 	if llmSvc.Status.Annotations == nil {
 		llmSvc.Status.Annotations = map[string]string{}
 	}
-	llmSvc.Status.Annotations[AcceleratorAnnotationKey] = accel
+	llmSvc.Status.Annotations[constants.LLMAcceleratorAnnotationKey] = accel
 }
 
 func resolveAccelerator(isvc *v1alpha2.LLMInferenceService) string {
@@ -152,11 +149,32 @@ func resolveAccelerator(isvc *v1alpha2.LLMInferenceService) string {
 			}
 		}
 	}
+
+	if hasDRAResources(isvc, podSpecs) {
+		return acceleratorUnknown
+	}
+
 	return acceleratorCPU
+}
+
+// hasDRAResources returns true if any pod spec references DRA resource claims
+// or the service uses managed DRA. Without device-class mapping we cannot
+// determine whether DRA provisions a GPU or other accelerator.
+func hasDRAResources(isvc *v1alpha2.LLMInferenceService, podSpecs []*corev1.PodSpec) bool {
+	if isvc.HasManagedDRA() {
+		return true
+	}
+	for _, ps := range podSpecs {
+		if ps != nil && len(ps.ResourceClaims) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 var gpuResourcePrefixes = []string{
 	"nvidia.com/gpu",
+	"nvidia.com/mig-",
 	"amd.com/gpu",
 	"intel.com/gpu",
 	"gpu.intel.com/i915",
