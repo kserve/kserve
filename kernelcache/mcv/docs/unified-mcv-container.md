@@ -18,6 +18,7 @@ make build-image-mcv
 ```bash
 # Auto-detects GPU vendor (NVIDIA or AMD)
 podman run --rm --privileged \
+  -v /path/to/cache:/cache \
   quay.io/gkm/mcv:unified \
   --extract --image quay.io/myorg/vllm-cache:v1 --dir /cache
 ```
@@ -55,12 +56,15 @@ On CPU node:    both fail    → requires explicit --no-gpu flag
 ### 1. Create Cache (No GPU Required)
 
 ```bash
-# Works on any node - no GPU needed
+# Works on any node - no GPU needed.
+# --create stores the OCI image in buildah's container-internal store;
+# chain buildah push so the image reaches the registry before --rm removes the container.
 podman run --rm --privileged \
   -v ~/.cache/vllm:/cache:ro \
+  --entrypoint sh \
   quay.io/gkm/mcv:unified \
-  --create --image quay.io/myorg/llama3-cache:v1 \
-  --dir /cache --no-gpu
+  -c "/mcv --create --image quay.io/myorg/llama3-cache:v1 --dir /cache --no-gpu \
+      && buildah push quay.io/myorg/llama3-cache:v1"
 ```
 
 **Why use unified here?** You can use the same image everywhere, simplifying CI/CD.
@@ -190,7 +194,7 @@ spec:
         command: ["sh", "-c"]
         args:
           - |
-            mcv --extract \
+            /mcv --extract \
               --image quay.io/myorg/vllm-cache:v1 \
               --dir /kernel-caches/vllm
         securityContext:
@@ -253,12 +257,14 @@ jobs:
     steps:
       - name: Build vLLM cache OCI image
         run: |
-          # Single image for all operations
+          # --builder docker loads the image into the Docker daemon so the
+          # subsequent docker push step can find it on the host.
           docker run --rm --privileged \
             -v $(pwd)/.cache:/cache:ro \
+            -v /var/run/docker.sock:/var/run/docker.sock \
             quay.io/gkm/mcv:unified \
             --create --image quay.io/myorg/cache:${{ github.sha }} \
-            --dir /cache --no-gpu
+            --dir /cache --no-gpu --builder docker
 
       - name: Push to registry
         run: docker push quay.io/myorg/cache:${{ github.sha }}
