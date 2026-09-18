@@ -768,11 +768,22 @@ func (l *LLMInferenceServiceValidator) validateKVCacheOffloading(llmSvc *LLMInfe
 	return allErrs
 }
 
+// validateKVCacheOffloadingSpec validates one kvCacheOffloading block.
 func validateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Path) field.ErrorList {
-	if kv == nil || len(kv.Secondary) == 0 {
+	if kv == nil {
 		return nil
 	}
 	var allErrs field.ErrorList
+	// A negative size is always a mistake. Not ratcheted: the rendered spec is
+	// re-validated as a create on every reconcile, so a stored negative already
+	// fails there, and correcting the field is accepted either way.
+	if kv.CPU.Sign() < 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("cpu"), kv.CPU.String(),
+			"cpu must not be negative"))
+	}
+	if len(kv.Secondary) == 0 {
+		return allErrs
+	}
 	if kv.CPU.IsZero() {
 		allErrs = append(allErrs, field.Required(fldPath.Child("cpu"),
 			"cpu must be set when secondary tiers are configured"))

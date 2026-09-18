@@ -1925,6 +1925,45 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 	})
 }
 
+func TestValidateKVCacheOffloadingNegativeCPU(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	makeSvc := func(kv *KVCacheOffloadingSpec) *LLMInferenceService {
+		return &LLMInferenceService{
+			Spec: LLMInferenceServiceSpec{
+				WorkloadSpec: WorkloadSpec{KVCacheOffloading: kv},
+			},
+		}
+	}
+	negative := &KVCacheOffloadingSpec{CPU: resource.MustParse("-1Gi")}
+
+	t.Run("rejected", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(negative))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "cpu")
+	})
+
+	// Correcting the field is accepted, so a stored negative is not stranded even
+	// though the rule is not ratcheted against the previous object.
+	t.Run("correcting it is accepted", func(t *testing.T) {
+		assert.Empty(t, validator.validateKVCacheOffloading(
+			makeSvc(&KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi")})))
+	})
+
+	t.Run("zero is left alone", func(t *testing.T) {
+		assert.Empty(t, validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{})))
+	})
+
+	t.Run("prefill is checked too", func(t *testing.T) {
+		svc := makeSvc(&KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi")})
+		svc.Spec.Prefill = &WorkloadSpec{KVCacheOffloading: negative}
+		errs := validator.validateKVCacheOffloading(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "prefill")
+	})
+}
+
 func TestValidateRolloutStrategy(t *testing.T) {
 	validator := &LLMInferenceServiceValidator{}
 

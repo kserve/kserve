@@ -39,3 +39,11 @@ var SelectSingleNodeTemplateName = selectSingleNodeTemplateName
 func (r *LLMISVCReconciler) ResolveRuntimeSpec(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*v1alpha2.LLMInferenceServiceSpec, error) {
 	return r.resolveRuntimeSpec(ctx, llmSvc)
 }
+
+// KVTransferArgsEnvVarForTest exposes the transfer-argument slot name.
+const KVTransferArgsEnvVarForTest = kvTransferArgsEnvVar
+
+// ApplyKVCacheCarriersForTest exposes applyKVCacheCarriers.
+func ApplyKVCacheCarriersForTest(cfg *v1alpha2.LLMInferenceServiceConfig) error {
+	return applyKVCacheCarriers(cfg)
+}
