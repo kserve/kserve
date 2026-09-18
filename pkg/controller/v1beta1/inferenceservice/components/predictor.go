@@ -115,6 +115,10 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 	// Only add annotations for single storage URI case. Multiple storage URIs are handled directly by reconcilers.
 	if sourceURI := predictor.GetStorageUri(); sourceURI != nil {
 		if err := p.addStorageInitializerAnnotations(ctx, predictor, annotations, isvc.Spec.Predictor.StorageContainerName); err != nil {
+			isvc.Status.UpdateModelTransitionStatus(v1beta1.InvalidSpec, &v1beta1.FailureInfo{
+				Reason:  v1beta1.InvalidPredictorSpec,
+				Message: fmt.Sprintf("Invalid storage URI: %v", err),
+			})
 			return nil, err
 		}
 	}
@@ -976,6 +980,12 @@ func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta
 		canaryISVC.Spec.Predictor = canaryPredictor
 		res, err := p.buildPredictorResources(ctx, canaryISVC, false)
 		if err != nil {
+			// buildPredictorResources records spec failures on the InferenceService it is handed,
+			// which is a deep copy here. Copy the status back so an invalid canary spec surfaces on
+			// the real InferenceService instead of being discarded with the copy.
+			if canaryISVC.Status.ModelStatus.TransitionStatus == v1beta1.InvalidSpec {
+				isvc.Status.ModelStatus = canaryISVC.Status.ModelStatus
+			}
 			return nil, errors.Wrapf(err, "fails to build resources for canary %s", canary.Predictor.Name)
 		}
 
