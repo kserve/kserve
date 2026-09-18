@@ -37,11 +37,17 @@ java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -g python -
 # New fields are keyword-only so generated clients cannot silently rebind existing
 # positional arguments when this model grows.
 INGRESS_CONFIG_MODEL="${SDK_OUTPUT_PATH}/kserve/models/v1beta1_ingress_config.py"
-sed -i'.bak' \
-    -e 's/, llm_inference_service_tls_cipher_suites=None, llm_inference_service_tls_min_version=None, local_gateway=/, local_gateway=/' \
-    -e 's/, local_vars_configuration=None):/, local_vars_configuration=None, *, llm_inference_service_tls_cipher_suites=None, llm_inference_service_tls_min_version=None):/' \
-    "${INGRESS_CONFIG_MODEL}"
+INGRESS_TLS_KWONLY=", *, llm_inference_service_tls_cipher_suites=None, llm_inference_service_tls_min_version=None):"
+sed -i'.bak' -e '/def __init__(.*, local_vars_configuration=None):/{
+s/, llm_inference_service_tls_cipher_suites=None,/,/
+s/, llm_inference_service_tls_min_version=None,/,/
+s/, local_vars_configuration=None):/, local_vars_configuration=None'"${INGRESS_TLS_KWONLY}"'/
+}' "${INGRESS_CONFIG_MODEL}"
 rm -f "${INGRESS_CONFIG_MODEL}.bak"
+grep -qF "local_vars_configuration=None${INGRESS_TLS_KWONLY}" "${INGRESS_CONFIG_MODEL}" || {
+    echo "client-gen: keyword-only patch did not apply to ${INGRESS_CONFIG_MODEL}" >&2
+    exit 1
+}
 
 # Fix openapi-generator 4.3.1 bug: model references with dots in swagger definition
 # names (e.g. "v1alpha2.LLMInferenceService") are emitted as broken Python expressions

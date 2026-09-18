@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -72,7 +73,6 @@ const (
 	configRouterSchedulerDefaultEPPConfigNameSuffix   = "config-llm-scheduler-eppconfig-default"    // default EPPConfig
 	configRouterSchedulerDefaultPDEPPConfigNameSuffix = "config-llm-scheduler-eppconfig-default-pd" // default EPPConfig for P/D
 	configRouterRouteNameSuffix                       = "config-llm-router-route"
-	configSchedulerLatencyPredictorNameSuffix         = "config-llm-scheduler-latency-predictor"
 	configTokenizerNameSuffix                         = "config-llm-tokenizer" // #nosec G101
 	// Tracing configurations
 	configTracingNameSuffix = "config-llm-tracing"
@@ -94,7 +94,6 @@ var (
 	configRouterSchedulerDefaultEPPConfigName   = configPrefix + configRouterSchedulerDefaultEPPConfigNameSuffix
 	configRouterSchedulerDefaultPDEPPConfigName = configPrefix + configRouterSchedulerDefaultPDEPPConfigNameSuffix
 	configRouterRouteName                       = configPrefix + configRouterRouteNameSuffix
-	configSchedulerLatencyPredictorName         = configPrefix + configSchedulerLatencyPredictorNameSuffix
 	configTokenizerName                         = configPrefix + configTokenizerNameSuffix
 	configTracingName                           = configPrefix + configTracingNameSuffix
 )
@@ -120,7 +119,6 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configRouterSchedulerDefaultEPPConfigName,
 	configRouterSchedulerDefaultPDEPPConfigName,
 	configRouterRouteName,
-	configSchedulerLatencyPredictorName,
 	configTokenizerName,
 	configTracingName,
 )
@@ -488,9 +486,6 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && isTokenizerEnabled(resolvedSpec) {
 		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTokenizerName)})
 	}
-	if hasLatencyProducerInSpec(resolvedSpec) {
-		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configSchedulerLatencyPredictorName)})
-	}
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Route != nil && !resolvedSpec.Router.Route.HTTP.HasRefs() {
 		// For the HTTP route configuration we don't use versioned defaults since this configuration depends on the
 		// GW API provider version.
@@ -716,12 +711,10 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		// mutually exclusive in a valid LLMInferenceService.
 		llmSvcCfg.Spec.Router.Scheduler.Config.Ref = nil
 
-		// Warn if the resolved ConfigMap contains predicted-latency-producer but the
-		// well-known config was not injected (because detection runs before Ref resolution).
-		if hasLatencyProducerInSpec(llmSvcCfg.Spec) {
+		// If predicted-latency-producer plugin is still in use, emit Event on Warning
+		if hasPluginInSpec(llmSvcCfg.Spec, "predicted-latency-producer") {
 			r.Eventf(llmSvc, corev1.EventTypeWarning, "LatencyPredictorConfigRef",
-				"predicted-latency-producer plugin detected in Config.Ref ConfigMap %q; "+
-					"latency predictor sidecar injection requires Config.Inline instead of Config.Ref", cmName)
+				"predicted-latency-producer plugin is deprecated, should be removed to avoid disruptions in the future")
 		}
 	}
 
@@ -1025,7 +1018,49 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	if err := json.Unmarshal(buf.Bytes(), out); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config from template: %w", err)
 	}
+	compactOptionalTemplateValues(reflect.ValueOf(out))
 	return out, nil
+}
+
+// compactEmptyContainerArgs removes optional template arguments that rendered
+// empty, avoiding workload rollouts caused solely by placeholder argv entries.
+func compactOptionalTemplateValues(value reflect.Value) {
+	if !value.IsValid() {
+		return
+	}
+	if value.Kind() == reflect.Pointer {
+		if !value.IsNil() {
+			compactOptionalTemplateValues(value.Elem())
+		}
+		return
+	}
+	if value.Kind() == reflect.Struct {
+		for i := range value.NumField() {
+			field := value.Field(i)
+			if value.Type().Field(i).Name == "Args" && field.CanSet() && field.Type() == reflect.TypeOf([]string{}) {
+				args := field.Interface().([]string)
+				field.Set(reflect.ValueOf(slices.DeleteFunc(args, func(arg string) bool { return arg == "" })))
+				continue
+			}
+			if value.Type().Field(i).Name == "Command" && field.CanSet() && field.Type() == reflect.TypeOf([]string{}) {
+				commands := field.Interface().([]string)
+				for j := range commands {
+					lines := strings.Split(commands[j], "\n")
+					lines = slices.DeleteFunc(lines, func(line string) bool { return strings.TrimSpace(line) == `\` })
+					commands[j] = strings.Join(lines, "\n")
+				}
+				field.Set(reflect.ValueOf(commands))
+				continue
+			}
+			compactOptionalTemplateValues(field)
+		}
+		return
+	}
+	if value.Kind() == reflect.Slice {
+		for i := range value.Len() {
+			compactOptionalTemplateValues(value.Index(i))
+		}
+	}
 }
 
 // configNotFoundError is returned by getConfig when an LLMInferenceServiceConfig

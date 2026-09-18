@@ -29,6 +29,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
+	kservetls "github.com/kserve/kserve/pkg/tls"
 	"github.com/kserve/kserve/pkg/types"
 )
 
@@ -99,6 +100,14 @@ type Config struct {
 
 	ModelBasedRoutingHeaderName string                `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       ModelBasedRoutingMode `json:"modelBasedRoutingMode,omitempty"`
+
+	// LoRAModelRoutingStrategy is the cluster-wide strategy for LoRA adapter
+	// expansion in generated HTTPRoutes. NewIngressConfig defaults and validates
+	// the ConfigMap value, so a loaded Config always carries a supported,
+	// lowercase value; a service overrides it with
+	// AnnotationLoRAModelRoutingStrategy. The zero value behaves as Exact so
+	// directly constructed Configs keep the byte-compatible default.
+	LoRAModelRoutingStrategy LoRAModelRoutingStrategy `json:"loraModelRoutingStrategy,omitempty"`
 
 	// WVAAutoscalingConfig holds Prometheus and monitoring settings for WVA autoscaling.
 	// nil when the "autoscaling-wva-controller-config" key is not present in inferenceservice-config.
@@ -184,6 +193,7 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		TLSCipherSuitesOpenSSL:      openSSLCipherSuites(ingressConfig.LLMInferenceServiceTLSCipherSuites),
 		ModelBasedRoutingHeaderName: ingressConfig.ModelBasedRoutingHeaderName,
 		ModelBasedRoutingMode:       parseModelBasedRoutingMode(ingressConfig.ModelBasedRoutingMode),
+		LoRAModelRoutingStrategy:    LoRAModelRoutingStrategy(ingressConfig.LoRAModelRoutingStrategy),
 		StorageConfig:               storageConfig,
 		CredentialConfig:            credentialConfig,
 		SchedulerConfig:             schedulerConfig,
@@ -246,6 +256,11 @@ func toConfig(isvcConfigMap *corev1.ConfigMap) (*Config, error) {
 	ingressConfig, errConvert := v1beta1.NewIngressConfig(isvcConfigMap)
 	if errConvert != nil {
 		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to IngressConfig: %w", errConvert)
+	}
+	ingressConfig.LLMInferenceServiceTLSMinVersion = strings.TrimSpace(ingressConfig.LLMInferenceServiceTLSMinVersion)
+	ingressConfig.LLMInferenceServiceTLSCipherSuites = strings.TrimSpace(ingressConfig.LLMInferenceServiceTLSCipherSuites)
+	if err := kservetls.Validate(ingressConfig.LLMInferenceServiceTLSMinVersion, ingressConfig.LLMInferenceServiceTLSCipherSuites); err != nil {
+		return nil, fmt.Errorf("invalid LLMInferenceService TLS configuration: %w", err)
 	}
 
 	storageInitializerConfig, errConvert := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)

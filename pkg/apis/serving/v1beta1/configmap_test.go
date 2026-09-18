@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -724,56 +725,6 @@ func TestNewIngressConfig_Validation(t *testing.T) {
 		g.Expect(cfg.IngressDomain).To(gomega.Equal("mydomain.com"))
 		g.Expect(cfg.UrlScheme).To(gomega.Equal("https"))
 	})
-
-	for _, tt := range []struct {
-		name           string
-		minVersion     string
-		cipherSuites   string
-		wantErrContain string
-	}{
-		{
-			name:           "rejects unsupported TLS minimum version",
-			minVersion:     "VersionTLS11",
-			wantErrContain: "unrecognized TLS version",
-		},
-		{
-			name:           "rejects unknown TLS cipher suite and shell syntax",
-			minVersion:     "VersionTLS12",
-			cipherSuites:   "$(touch /tmp/injected)",
-			wantErrContain: "unknown TLS cipher suite",
-		},
-		{
-			name:           "rejects cipher suites with TLS 1.3",
-			minVersion:     "VersionTLS13",
-			cipherSuites:   "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
-			wantErrContain: "cipher suites cannot be configured with TLS 1.3",
-		},
-		{
-			name:         "accepts a validated TLS 1.2 profile",
-			minVersion:   "VersionTLS12",
-			cipherSuites: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			cm := &corev1.ConfigMap{Data: map[string]string{
-				IngressConfigKeyName: fmt.Sprintf(`{
-					"ingressGateway": "knative-serving/knative-ingress-gateway",
-					"llmInferenceServiceTLSMinVersion": %q,
-					"llmInferenceServiceTLSCipherSuites": %q
-				}`, tt.minVersion, tt.cipherSuites),
-			}}
-
-			cfg, err := NewIngressConfig(cm)
-			if tt.wantErrContain == "" {
-				g.Expect(err).ShouldNot(gomega.HaveOccurred())
-				g.Expect(cfg).ShouldNot(gomega.BeNil())
-				return
-			}
-			g.Expect(err).Should(gomega.HaveOccurred())
-			g.Expect(cfg).To(gomega.BeNil())
-			g.Expect(err.Error()).To(gomega.ContainSubstring(tt.wantErrContain))
-		})
-	}
 }
 
 func TestGetStorageInitializerConfigs(t *testing.T) {
@@ -842,4 +793,36 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(cfg.OciModelMode).To(gomega.Equal("fetch"))
 	})
+}
+
+func TestNewIngressConfigLoRAModelRoutingStrategy(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		value   string // omitted from the ingress JSON when empty
+		want    string
+		wantErr string
+	}{
+		{name: "defaults to exact when omitted", want: constants.LoRAModelRoutingStrategyExact},
+		{name: "normalizes case and whitespace", value: " ReGeX ", want: constants.LoRAModelRoutingStrategyRegex},
+		{name: "rejects unsupported values", value: "regexp", wantErr: `loraModelRoutingStrategy must be "exact" or "regex", got "regexp"`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			ingress := `{"ingressGateway": "knative-serving/knative-ingress-gateway"`
+			if tt.value != "" {
+				ingress += `, "loraModelRoutingStrategy": ` + strconv.Quote(tt.value)
+			}
+			ingress += `}`
+
+			cfg, err := NewIngressConfig(&corev1.ConfigMap{Data: map[string]string{IngressConfigKeyName: ingress}})
+
+			if tt.wantErr != "" {
+				g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(tt.wantErr)))
+				g.Expect(cfg).To(gomega.BeNil())
+				return
+			}
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(cfg.LoRAModelRoutingStrategy).To(gomega.Equal(tt.want))
+		})
+	}
 }

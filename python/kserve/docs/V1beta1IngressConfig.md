@@ -15,15 +15,15 @@ Name | Type | Description | Notes
 **ingress_gateway** | **str** |  | [optional] 
 **knative_local_gateway_service** | **str** |  | [optional] 
 **kserve_ingress_gateway** | **str** |  | [optional] 
-**llm_inference_service_tls_cipher_suites** | **str** |  | [optional] 
-**llm_inference_service_tls_min_version** | **str** |  | [optional] 
+**llm_inference_service_tls_cipher_suites** | **str** | LLMInferenceServiceTLSCipherSuites configures TLS 1.2 cipher suites using Go/IANA names; values are translated to OpenSSL names for vLLM. | [optional]
+**llm_inference_service_tls_min_version** | **str** | LLMInferenceServiceTLSMinVersion configures the minimum TLS version for Go-based LLMISVC components. vLLM does not expose a minimum-version option. | [optional]
 **local_gateway** | **str** |  | [optional] 
 **local_gateway_service** | **str** |  | [optional] 
+**lora_model_routing_strategy** | **str** | LoRAModelRoutingStrategy selects how LLMInferenceService LoRA adapter expansion represents model identities in generated HTTPRoutes: \&quot;exact\&quot; (the default) or \&quot;regex\&quot;, compared case-insensitively. Any other value fails config loading like the other ingress keys. | [optional] 
 **model_based_routing_header_name** | **str** |  | [optional] 
 **model_based_routing_mode** | **str** |  | [optional] 
 **path_template** | **str** |  | [optional] 
 **url_scheme** | **str** |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
-
 

@@ -44,6 +44,17 @@ const (
 	cacheVLLMImageSummary    = cacheVLLMImagePrefix + "/summary"
 	cacheVLLMImageFormat     = cacheVLLMImagePrefix + "/format"
 
+	// Generic mounting labels (KServe Kernel Manager integration)
+	kmFramework         = constants.KMPrefix + "/framework"
+	kmCacheType         = constants.KMPrefix + "/cache-type"
+	kmCacheHash         = constants.KMPrefix + "/cache-hash"
+	kmCacheMountSubpath = constants.KMPrefix + "/cache-mount-subpath"
+	kmCacheRootEnv      = constants.KMPrefix + "/cache-root-env"
+
+	// vLLM-specific mounting defaults
+	vllmCacheRootPath       = constants.KServeHome + "/" + constants.VLLMCache
+	vllmCacheRootEnvDefault = constants.VLLMCacheRoot + "=" + vllmCacheRootPath
+
 	// Cache format constants
 	BinaryCacheFormat     = "binary"
 	AOTCompileCacheFormat = "aot_compile"
@@ -209,7 +220,7 @@ func DetectVLLMCache(cacheDir string) *VLLMCache {
 
 	var count int
 	if found {
-		torchCompileCachePath = filepath.Join(cacheDir, "torch_compile_cache")
+		torchCompileCachePath = filepath.Join(cacheDir, constants.TorchCompileDir)
 		if _, err := os.Stat(torchCompileCachePath); os.IsNotExist(err) {
 			logging.Warnf("Torch compile cache path does not exist: %s", torchCompileCachePath)
 			return nil
@@ -525,7 +536,11 @@ func (v *VLLMCache) EntryCount() int {
 }
 
 func (v *VLLMCache) CacheSizeBytes() int64 {
-	size, _ := getTotalDirSize(v.rootPath)
+	dir := v.rootPath
+	if v.tmpPath != "" {
+		dir = v.tmpPath
+	}
+	size, _ := getTotalDirSize(dir)
 	return size
 }
 
@@ -588,6 +603,13 @@ func detectActualGPUInfo() (backend, arch string, warpSize, ptxVersion int) {
 			logging.WithError(err).Debug("Failed to initialize config for GPU detection")
 			return UnknownBackend, UnknownBackend, 0, 0
 		}
+	}
+
+	// Skip GPU detection if disabled via --no-gpu flag
+	// This allows cache creation without GPU hardware by using cache metadata
+	if !config.IsGPUEnabled() {
+		logging.Info("GPU detection disabled (--no-gpu), will use cache metadata for hardware info")
+		return UnknownBackend, UnknownBackend, 0, 0
 	}
 
 	// Get device registry
@@ -803,12 +825,101 @@ func (v *VLLMCache) Labels() map[string]string {
 		cacheFormat = strings.Join(formats, ",")
 	}
 
-	return map[string]string{
+	labels := map[string]string{
 		cacheVLLMImageEntryCount: strconv.Itoa(v.EntryCount()),
 		cacheVLLMImageCacheSize:  strconv.FormatInt(v.CacheSizeBytes(), 10),
 		cacheVLLMImageSummary:    v.Summary(),
 		cacheVLLMImageFormat:     cacheFormat,
 	}
+
+	// Add generic mounting labels for KServe Kernel Manager integration
+	if len(v.allMetadata) > 0 {
+		// 1. Framework and cache type - identifies what kind of cache this is
+		labels[kmFramework] = constants.VLLM
+		labels[kmCacheType] = constants.CacheTypeVLLMTorchCompile
+
+		// 2. Cache hash(es) - deduplicate while preserving first-seen order
+		var hashes []string
+		seen := make(map[string]bool)
+		for _, meta := range v.allMetadata {
+			if meta.VllmHash != "" && !seen[meta.VllmHash] {
+				hashes = append(hashes, meta.VllmHash)
+				seen[meta.VllmHash] = true
+			}
+		}
+		if len(hashes) > 0 {
+			labels[kmCacheHash] = strings.Join(hashes, ",")
+
+			// 3. Cache mount subpath - determines what gets mounted from the OCI image
+			//
+			// For MULTI-HASH images: Mount at parent directory to expose all hashes.
+			// This allows vLLM to discover and use any hash at runtime while still
+			// being able to write new caches to sibling directories (container FS is RW).
+			//
+			// For SINGLE-HASH images: Mount at parent directory for consistency.
+			// Previously mounted specific hash, but parent mounting is more flexible
+			// and doesn't change behavior (vLLM still sees the same cache, can still
+			// write new caches to siblings).
+			//
+			// Example multi-hash structure:
+			//   PVC: kernel-cache/<storageKey>/torch_compile_cache/torch_aot_compile/
+			//     hashA/rank_0_0/model
+			//     hashB/rank_0_0/model
+			//     hashC/rank_0_0/model
+			//
+			//   Mount: /home/kserve/.cache/vllm/torch_compile_cache/torch_aot_compile (RO from PVC)
+			//   Sibling writes: /home/kserve/.cache/vllm/torch_compile_cache/newHash/ (RW container FS)
+			//
+			// This design supports cache-miss rebuilds: vLLM reads precompiled caches
+			// from the RO mount and writes new caches to siblings in the container FS.
+
+			firstHash := hashes[0]
+
+			// Find the metadata entry that corresponds to firstHash
+			// (v.allMetadata[0] may have empty hash or different hash)
+			var firstMeta VLLMCacheMetadata
+			for _, meta := range v.allMetadata {
+				if meta.VllmHash == firstHash {
+					firstMeta = meta
+					break
+				}
+			}
+
+			// Check if this cache uses the torch_aot_compile directory structure
+			// Both AOTCompileCacheFormat and mega-AOT BinaryCacheFormat use:
+			// torch_compile_cache/torch_aot_compile/<hash>/...
+			usesTorchAOTCompile := false
+
+			if firstMeta.CacheFormat == AOTCompileCacheFormat {
+				// AOT compile caches always use torch_aot_compile directory
+				usesTorchAOTCompile = true
+			} else if firstMeta.CacheFormat == BinaryCacheFormat && len(firstMeta.BinaryCacheEntries) > 0 {
+				// Mega-AOT binary caches also use torch_aot_compile directory
+				for i := range firstMeta.BinaryCacheEntries {
+					if firstMeta.BinaryCacheEntries[i].CacheSaveFormat == megaAOTSaveFormat {
+						usesTorchAOTCompile = true
+						break
+					}
+				}
+			}
+
+			if usesTorchAOTCompile {
+				// AOT compile or Mega-AOT: Mount parent to expose all hashes
+				// torch_compile_cache/torch_aot_compile (no hash suffix)
+				labels[kmCacheMountSubpath] = filepath.Join(constants.TorchCompileDir, torchAOTCompileDirName)
+			} else {
+				// Regular torch compile: Mount at torch_compile_cache parent
+				// This exposes all hash directories for both single and multi-hash images
+				labels[kmCacheMountSubpath] = constants.TorchCompileDir
+			}
+
+			// 4. Cache root environment variable
+			// Format: "VLLM_CACHE_ROOT=/home/kserve/.cache/vllm"
+			labels[kmCacheRootEnv] = vllmCacheRootEnvDefault
+		}
+	}
+
+	return labels
 }
 
 func (v *VLLMCache) Metadata() []CacheEntry {
@@ -835,7 +946,7 @@ func (v *VLLMCache) SetTmpPath(path string) {
 
 // Extracts the vllm cache and manifest in a given reader for tar.gz.
 // This is only used for *compat* variant.
-func ExtractVLLMCacheDirectory(r io.Reader) ([]string, error) {
+func ExtractVLLMCacheDirectory(r io.Reader) (extractedDirs []string, extractedBytes int64, err error) {
 	return extractCacheAndManifestDirectory(
 		r,
 		constants.MCVVLLMCacheDir,

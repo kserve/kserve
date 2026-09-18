@@ -653,7 +653,7 @@ KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
 JAEGER_VERSION=4.7.0
-KSERVE_VERSION=v0.21.0-rc0
+KSERVE_VERSION=v0.21.0-rc1
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.20.2
 OPENTELEMETRY_OPERATOR_VERSION=0.114.1
@@ -2817,7 +2817,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-          {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+          {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -3185,7 +3185,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-          {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+          {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -3549,7 +3549,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-          {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+          {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -3807,7 +3807,7 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-            {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+            {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
             ${VLLM_ADDITIONAL_ARGS} \
             $@"
         - --
@@ -4112,7 +4112,7 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-            {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+            {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
             ${VLLM_ADDITIONAL_ARGS} \
             $@"
         - --
@@ -4411,7 +4411,7 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-            {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+            {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
             ${VLLM_ADDITIONAL_ARGS} \
             $@"
         - --
@@ -4979,192 +4979,6 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
-  name: kserve-config-llm-scheduler-latency-predictor
-  namespace: kserve
-spec:
-  router:
-    scheduler:
-      template:
-        containers:
-        - env:
-          - name: PREDICTION_SERVER_URL
-            value: http://localhost:8001
-          - name: TRAINING_SERVER_URL
-            value: http://localhost:8000
-          - name: LATENCY_MAX_SAMPLE_SIZE
-            value: "10000"
-          - name: LATENCY_MAX_CONCURRENT_DISPATCHES
-            value: "36"
-          - name: LATENCY_COALESCE_WINDOW_MS
-            value: "1"
-          name: main
-        - env:
-          - name: LATENCY_RETRAINING_INTERVAL_SEC
-            value: "10"
-          - name: LATENCY_MIN_SAMPLES_FOR_RETRAIN
-            value: "100"
-          - name: LATENCY_TTFT_MODEL_PATH
-            value: /models/ttft.joblib
-          - name: LATENCY_TPOT_MODEL_PATH
-            value: /models/tpot.joblib
-          - name: LATENCY_TTFT_SCALER_PATH
-            value: /models/ttft_scaler.joblib
-          - name: LATENCY_TPOT_SCALER_PATH
-            value: /models/tpot_scaler.joblib
-          - name: LATENCY_TTFT_GATED_MODEL_PATH
-            value: /models/ttft_gated.joblib
-          - name: LATENCY_TPOT_GATED_MODEL_PATH
-            value: /models/tpot_gated.joblib
-          - name: LATENCY_MODEL_TYPE
-            value: xgboost
-          - name: LATENCY_MAX_TRAINING_DATA_SIZE_PER_BUCKET
-            value: "500"
-          - name: LATENCY_OBJECTIVE_TYPE
-            value: mean
-          image: ghcr.io/llm-d/llm-d-latency-predictor-training-server:0.9.0
-          imagePullPolicy: IfNotPresent
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: 8000
-            initialDelaySeconds: 30
-            periodSeconds: 20
-          name: training-server
-          ports:
-          - containerPort: 8000
-            name: training-port
-          readinessProbe:
-            httpGet:
-              path: /readyz
-              port: 8000
-            initialDelaySeconds: 45
-            periodSeconds: 10
-          resources:
-            limits:
-              cpu: 4000m
-              memory: 8Gi
-            requests:
-              cpu: 2000m
-              memory: 4Gi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            seccompProfile:
-              type: RuntimeDefault
-          startupProbe:
-            failureThreshold: 30
-            httpGet:
-              path: /healthz
-              port: 8000
-            periodSeconds: 10
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: FallbackToLogsOnError
-          volumeMounts:
-          - mountPath: /models
-            name: training-server-storage
-          - mountPath: /tmp
-            name: training-server-tmp
-        - env:
-          - name: TRAINING_SERVER_URL
-            value: http://localhost:8000
-          - name: LATENCY_MODEL_TYPE
-            value: xgboost
-          - name: PREDICT_HOST
-            value: 0.0.0.0
-          - name: PREDICT_PORT
-            value: "8001"
-          - name: LOCAL_TTFT_MODEL_PATH
-            value: /server_models/ttft.joblib
-          - name: LOCAL_TPOT_MODEL_PATH
-            value: /server_models/tpot.joblib
-          - name: LOCAL_TTFT_SCALER_PATH
-            value: /server_models/ttft_scaler.joblib
-          - name: LOCAL_TPOT_SCALER_PATH
-            value: /server_models/tpot_scaler.joblib
-          - name: LOCAL_TTFT_GATED_MODEL_PATH
-            value: /server_models/ttft_gated.joblib
-          - name: LOCAL_TPOT_GATED_MODEL_PATH
-            value: /server_models/tpot_gated.joblib
-          - name: UVICORN_WORKERS
-            value: "28"
-          - name: OMP_NUM_THREADS
-            value: "1"
-          - name: MODEL_SYNC_INTERVAL_SEC
-            value: "30"
-          - name: LATENCY_OBJECTIVE_TYPE
-            value: mean
-          image: ghcr.io/llm-d/llm-d-latency-predictor-prediction-server:0.9.0
-          imagePullPolicy: IfNotPresent
-          livenessProbe:
-            failureThreshold: 5
-            httpGet:
-              path: /healthz
-              port: 8001
-            initialDelaySeconds: 15
-            periodSeconds: 15
-            timeoutSeconds: 5
-          name: prediction-server
-          ports:
-          - containerPort: 8001
-            name: predict-port
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /readyz
-              port: 8001
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            timeoutSeconds: 5
-          resources:
-            limits:
-              cpu: 28000m
-              memory: 8Gi
-            requests:
-              cpu: 8000m
-              memory: 4Gi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            seccompProfile:
-              type: RuntimeDefault
-          startupProbe:
-            failureThreshold: 60
-            httpGet:
-              path: /readyz
-              port: 8001
-            periodSeconds: 10
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: FallbackToLogsOnError
-          volumeMounts:
-          - mountPath: /server_models
-            name: prediction-server-storage
-          - mountPath: /tmp
-            name: prediction-server-tmp
-        restartPolicy: Always
-        terminationGracePeriodSeconds: 60
-        volumes:
-        - emptyDir:
-            sizeLimit: 20Gi
-          name: training-server-storage
-        - emptyDir:
-            sizeLimit: 10Gi
-          name: prediction-server-storage
-        - emptyDir: {}
-          name: training-server-tmp
-        - emptyDir: {}
-          name: prediction-server-tmp
----
-apiVersion: serving.kserve.io/v1alpha2
-kind: LLMInferenceServiceConfig
-metadata:
   name: kserve-config-llm-template
   namespace: kserve
 spec:
@@ -5333,7 +5147,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-          {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+          {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -5440,7 +5254,7 @@ spec:
                 {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh \
                 --ssl-certfile /var/run/kserve/tls/tls.crt \
                 --ssl-keyfile /var/run/kserve/tls/tls.key{{ end }} \
-                {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{ end }}
+                {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{ end }}
             env:
             - name: HF_HOME
               value: /tmp/hf
@@ -5710,7 +5524,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-          {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+          {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -5991,7 +5805,7 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
-          {{ if .GlobalConfig.TLSCipherSuites }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuites }}{{- end }} \
+          {{ if .GlobalConfig.TLSCipherSuitesOpenSSL }}--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
@@ -20229,6 +20043,11 @@ spec:
                           x-kubernetes-list-map-keys:
                           - name
                           x-kubernetes-list-type: map
+                        schedulingGroup:
+                          properties:
+                            podGroupName:
+                              type: string
+                          type: object
                         securityContext:
                           properties:
                             appArmorProfile:
@@ -26248,6 +26067,11 @@ spec:
                               x-kubernetes-list-map-keys:
                               - name
                               x-kubernetes-list-type: map
+                            schedulingGroup:
+                              properties:
+                                podGroupName:
+                                  type: string
+                              type: object
                             securityContext:
                               properties:
                                 appArmorProfile:
@@ -27220,30 +27044,6 @@ spec:
                                 - name
                                 type: object
                               type: array
-                            workloadRef:
-                              properties:
-                                name:
-                                  type: string
-                                podGroup:
-                                  type: string
-                                podGroupReplicaKey:
-                                  type: string
-                              required:
-                              - name
-                              - podGroup
-                              type: object
-                          type: object
-                        workloadRef:
-                          properties:
-                            name:
-                              type: string
-                            podGroup:
-                              type: string
-                            podGroupReplicaKey:
-                              type: string
-                          required:
-                          - name
-                          - podGroup
                           type: object
                         xgboost:
                           properties:
@@ -31113,6 +30913,11 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  schedulingGroup:
+                    properties:
+                      podGroupName:
+                        type: string
+                    type: object
                   securityContext:
                     properties:
                       appArmorProfile:
@@ -32103,15 +31908,6 @@ spec:
                       - name
                       type: object
                     type: array
-                  workloadRef:
-                    properties:
-                      name:
-                        type: string
-                      podGroup:
-                        type: string
-                      podGroupReplicaKey:
-                        type: string
-                    type: object
                 type: object
               predictor:
                 properties:
@@ -39668,6 +39464,11 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  schedulingGroup:
+                    properties:
+                      podGroupName:
+                        type: string
+                    type: object
                   securityContext:
                     properties:
                       appArmorProfile:
@@ -45657,6 +45458,11 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
+                      schedulingGroup:
+                        properties:
+                          podGroupName:
+                            type: string
+                        type: object
                       securityContext:
                         properties:
                           appArmorProfile:
@@ -46629,27 +46435,6 @@ spec:
                           - name
                           type: object
                         type: array
-                      workloadRef:
-                        properties:
-                          name:
-                            type: string
-                          podGroup:
-                            type: string
-                          podGroupReplicaKey:
-                            type: string
-                        required:
-                        - name
-                        - podGroup
-                        type: object
-                    type: object
-                  workloadRef:
-                    properties:
-                      name:
-                        type: string
-                      podGroup:
-                        type: string
-                      podGroupReplicaKey:
-                        type: string
                     type: object
                   xgboost:
                     properties:
@@ -49776,6 +49561,11 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  schedulingGroup:
+                    properties:
+                      podGroupName:
+                        type: string
+                    type: object
                   securityContext:
                     properties:
                       appArmorProfile:
@@ -50766,15 +50556,6 @@ spec:
                       - name
                       type: object
                     type: array
-                  workloadRef:
-                    properties:
-                      name:
-                        type: string
-                      podGroup:
-                        type: string
-                      podGroupReplicaKey:
-                        type: string
-                    type: object
                 type: object
             required:
             - predictor
@@ -56139,6 +55920,25 @@ data:
            # disableHTTPRouteTimeout controls whether to omit the timeout field from HTTPRoute rules.
            # Set to true for Gateway controllers (e.g. GKE Gateway) that do not support the optional timeouts field.
            "disableHTTPRouteTimeout": false,
+
+           # loraModelRoutingStrategy selects how LLMInferenceService LoRA adapter expansion represents
+           # model identities in generated HTTPRoutes. It only applies where model-based routing is in
+           # effect, and a change reaches every LoRA service on its next reconcile unless the service pins
+           # its own value with the spec annotation serving.kserve.io/lora-model-routing-strategy,
+           # which a preset may carry. "exact" (the default when omitted) renders one Exact header match
+           # per identity; "regex" collapses the base model and all adapters into a single anchored
+           # RegularExpression match. Any other value fails config loading, like the other ingress keys.
+           # A route the strategy cannot be applied to (a user-supplied model-routing match the regex
+           # transform does not recognize) reports HTTPRoutesReady=False with reason
+           # RoutingPreconditionNotMet while workload and scheduler reconciliation continue; the existing
+           # HTTPRoute keeps serving as-is (deleted group peers are still pruned from it) but is not
+           # recreated if removed. The practical "regex" ceiling depends on the gateway: Envoy Gateway
+           # disables Envoy's RE2 program-size check, so the 4096-character header value limit binds
+           # (Envoy logs a size warning past roughly 70 adapters); Istio allows a program size of 32768;
+           # a provider left at Envoy's default of 100 fits only a couple of adapters. A proxy that
+           # rejects the pattern reports an xDS NACK in the gateway controller's logs, not on the
+           # HTTPRoute.
+           "loraModelRoutingStrategy": "exact",
 
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.

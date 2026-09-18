@@ -1,5 +1,5 @@
 /*
-Copyright 2026 The KServe Authors.
+Copyright 2023 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 	return c.tracker
 }
 
-// IsWatchListSemanticsSupported informs the reflector that this client
+// IsWatchListSemanticsUnSupported informs the reflector that this client
 // doesn't support WatchList semantics.
 //
 // This is a synthetic method whose sole purpose is to satisfy the optional

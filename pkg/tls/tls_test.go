@@ -74,8 +74,8 @@ func TestParseCipherSuites(t *testing.T) {
 		{"unknown cipher is error", "BOGUS_CIPHER", 0, true},
 		{"mixed valid and invalid is error", "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,BOGUS", 0, true},
 		{"only commas is error", ",,", 0, true},
-		{"trailing empty entry is error", "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,", 0, true},
-		{"TLS 1.3 cipher is not configurable", "TLS_AES_128_GCM_SHA256", 0, true},
+		{"trailing empty entry is ignored for flag compatibility", "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,", 1, false},
+		{"TLS 1.3 cipher remains accepted by the shared parser", "TLS_AES_128_GCM_SHA256", 1, false},
 	}
 
 	for _, tt := range tests {
@@ -95,6 +95,17 @@ func TestParseCipherSuites(t *testing.T) {
 				t.Errorf("parseCipherSuites(%q) returned %d ciphers, want %d", tt.input, len(got), tt.wantCount)
 			}
 		})
+	}
+}
+
+func TestValidateRejectsNonWorkloadCipherLists(t *testing.T) {
+	for _, input := range []string{
+		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,",
+		"TLS_AES_128_GCM_SHA256",
+	} {
+		if err := Validate("VersionTLS12", input); err == nil {
+			t.Fatalf("Validate(%q) expected error", input)
+		}
 	}
 }
 

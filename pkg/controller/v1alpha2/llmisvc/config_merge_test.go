@@ -3309,8 +3309,6 @@ func TestReplaceVariables_TLSProfileScheduler(t *testing.T) {
 			wantArgs: []string{
 				"--secure-serving=true",
 				"--cert-path=/var/run/kserve/tls",
-				"",
-				"",
 			},
 		},
 		{
@@ -3319,8 +3317,6 @@ func TestReplaceVariables_TLSProfileScheduler(t *testing.T) {
 			tlsMinVersion:   "VersionTLS13",
 			tlsCipherSuites: "TLS_AES_128_GCM_SHA256",
 			wantArgs: []string{
-				"",
-				"",
 				"--tls-min-version=VersionTLS13",
 				"--tls-cipher-suites=TLS_AES_128_GCM_SHA256",
 			},

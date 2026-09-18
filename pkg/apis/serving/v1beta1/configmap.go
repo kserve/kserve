@@ -31,7 +31,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kserve/kserve/pkg/constants"
-	kservetls "github.com/kserve/kserve/pkg/tls"
 	"github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -59,6 +58,7 @@ const (
 
 	DefaultModelBasedRoutingHeaderName = "X-Gateway-Model-Name"
 	DefaultModelBasedRoutingMode       = "enabled"
+	DefaultLoRAModelRoutingStrategy    = constants.LoRAModelRoutingStrategyExact
 )
 
 // Error messages
@@ -115,27 +115,35 @@ type MultiNodeConfig struct {
 
 // +kubebuilder:object:generate=false
 type IngressConfig struct {
-	EnableGatewayAPI                   bool      `json:"enableGatewayApi,omitempty"`
-	KserveIngressGateway               string    `json:"kserveIngressGateway,omitempty"`
-	IngressGateway                     string    `json:"ingressGateway,omitempty"`
-	KnativeLocalGatewayService         string    `json:"knativeLocalGatewayService,omitempty"`
-	LocalGateway                       string    `json:"localGateway,omitempty"`
-	LocalGatewayServiceName            string    `json:"localGatewayService,omitempty"`
-	IngressDomain                      string    `json:"ingressDomain,omitempty"`
-	IngressClassName                   *string   `json:"ingressClassName,omitempty"`
-	AdditionalIngressDomains           *[]string `json:"additionalIngressDomains,omitempty"`
-	DomainTemplate                     string    `json:"domainTemplate,omitempty"`
-	UrlScheme                          string    `json:"urlScheme,omitempty"`
-	EnableLLMInferenceServiceTLS       bool      `json:"enableLLMInferenceServiceTLS,omitempty"`
-	LLMInferenceServiceTLSMinVersion   string    `json:"llmInferenceServiceTLSMinVersion,omitempty"`
-	LLMInferenceServiceTLSCipherSuites string    `json:"llmInferenceServiceTLSCipherSuites,omitempty"`
-	DisableIstioVirtualHost            bool      `json:"disableIstioVirtualHost,omitempty"`
-	PathTemplate                       string    `json:"pathTemplate,omitempty"`
-	DisableIngressCreation             bool      `json:"disableIngressCreation,omitempty"`
-	DisableHTTPRouteTimeout            bool      `json:"disableHTTPRouteTimeout,omitempty"`
+	EnableGatewayAPI             bool      `json:"enableGatewayApi,omitempty"`
+	KserveIngressGateway         string    `json:"kserveIngressGateway,omitempty"`
+	IngressGateway               string    `json:"ingressGateway,omitempty"`
+	KnativeLocalGatewayService   string    `json:"knativeLocalGatewayService,omitempty"`
+	LocalGateway                 string    `json:"localGateway,omitempty"`
+	LocalGatewayServiceName      string    `json:"localGatewayService,omitempty"`
+	IngressDomain                string    `json:"ingressDomain,omitempty"`
+	IngressClassName             *string   `json:"ingressClassName,omitempty"`
+	AdditionalIngressDomains     *[]string `json:"additionalIngressDomains,omitempty"`
+	DomainTemplate               string    `json:"domainTemplate,omitempty"`
+	UrlScheme                    string    `json:"urlScheme,omitempty"`
+	EnableLLMInferenceServiceTLS bool      `json:"enableLLMInferenceServiceTLS,omitempty"`
+	// LLMInferenceServiceTLSMinVersion configures the minimum TLS version for Go-based LLMISVC components. vLLM does not expose a minimum-version option.
+	LLMInferenceServiceTLSMinVersion string `json:"llmInferenceServiceTLSMinVersion,omitempty"`
+	// LLMInferenceServiceTLSCipherSuites configures TLS 1.2 cipher suites using Go/IANA names; values are translated to OpenSSL names for vLLM.
+	LLMInferenceServiceTLSCipherSuites string `json:"llmInferenceServiceTLSCipherSuites,omitempty"`
+	DisableIstioVirtualHost            bool   `json:"disableIstioVirtualHost,omitempty"`
+	PathTemplate                       string `json:"pathTemplate,omitempty"`
+	DisableIngressCreation             bool   `json:"disableIngressCreation,omitempty"`
+	DisableHTTPRouteTimeout            bool   `json:"disableHTTPRouteTimeout,omitempty"`
 
 	ModelBasedRoutingHeaderName string `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       string `json:"modelBasedRoutingMode,omitempty"`
+
+	// LoRAModelRoutingStrategy selects how LLMInferenceService LoRA adapter
+	// expansion represents model identities in generated HTTPRoutes: "exact"
+	// (the default) or "regex", compared case-insensitively. Any other value
+	// fails config loading like the other ingress keys.
+	LoRAModelRoutingStrategy string `json:"loraModelRoutingStrategy,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -327,13 +335,6 @@ func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 			}
 		}
 
-		if err := kservetls.Validate(
-			ingressConfig.LLMInferenceServiceTLSMinVersion,
-			ingressConfig.LLMInferenceServiceTLSCipherSuites,
-		); err != nil {
-			return nil, fmt.Errorf("invalid LLMInferenceService TLS configuration: %w", err)
-		}
-
 		if len(ingressConfig.KnativeLocalGatewayService) == 0 {
 			ingressConfig.KnativeLocalGatewayService = ingressConfig.LocalGatewayServiceName
 		}
@@ -357,6 +358,16 @@ func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 
 	if ingressConfig.ModelBasedRoutingMode == "" {
 		ingressConfig.ModelBasedRoutingMode = DefaultModelBasedRoutingMode
+	}
+
+	switch strategy := strings.ToLower(strings.TrimSpace(ingressConfig.LoRAModelRoutingStrategy)); strategy {
+	case "":
+		ingressConfig.LoRAModelRoutingStrategy = DefaultLoRAModelRoutingStrategy
+	case constants.LoRAModelRoutingStrategyExact, constants.LoRAModelRoutingStrategyRegex:
+		ingressConfig.LoRAModelRoutingStrategy = strategy
+	default:
+		return nil, fmt.Errorf("invalid ingress config - loraModelRoutingStrategy must be %q or %q, got %q",
+			constants.LoRAModelRoutingStrategyExact, constants.LoRAModelRoutingStrategyRegex, ingressConfig.LoRAModelRoutingStrategy)
 	}
 
 	return ingressConfig, nil
