@@ -1,3 +1,19 @@
+/*
+Copyright 2026 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 // Package cacheplan is the single source of truth for how a kernel cache is
 // interpreted on both sides of the Kernel Manager (KM) flow:
 //
@@ -126,7 +142,7 @@ func IsUnsupportedCacheType(err error) bool {
 // with no serving plan (e.g. bare Triton, or types added by a newer MCV).
 func Derive(labels map[string]string) (CachePlan, error) {
 	if len(labels) == 0 {
-		return CachePlan{}, fmt.Errorf("cacheplan: no labels provided")
+		return CachePlan{}, errors.New("cacheplan: no labels provided")
 	}
 
 	switch detectCacheType(labels) {
@@ -153,7 +169,7 @@ func Derive(labels map[string]string) (CachePlan, error) {
 // Pass DefaultHabanaRecipeCacheSizeMB when no explicit size is configured.
 func ProducerEnv(cacheType, path string, sizeMB int) ([]EnvVar, error) {
 	if path == "" {
-		return nil, fmt.Errorf("cacheplan: empty cache path")
+		return nil, errors.New("cacheplan: empty cache path")
 	}
 
 	switch normalizeCacheType(cacheType) {
@@ -222,7 +238,7 @@ func deriveVLLM(labels map[string]string) (CachePlan, error) {
 			env.Name, constants.VLLMCacheRoot)
 	}
 	if mountDir == "" {
-		return CachePlan{}, fmt.Errorf("cacheplan: empty mount directory in vLLM cache-root-env")
+		return CachePlan{}, errors.New("cacheplan: empty mount directory in vLLM cache-root-env")
 	}
 	return CachePlan{
 		CacheType:        constants.CacheTypeVLLMTorchCompile,
@@ -244,7 +260,7 @@ func deriveHabana(labels map[string]string) (CachePlan, error) {
 			env.Name, constants.HabanaRecipeCacheEnv)
 	}
 	if mountDir == "" {
-		return CachePlan{}, fmt.Errorf("cacheplan: empty mount directory in Habana cache-root-env")
+		return CachePlan{}, errors.New("cacheplan: empty mount directory in Habana cache-root-env")
 	}
 	subPath := labels[LabelCacheMountSubpath]
 	if subPath == "" {

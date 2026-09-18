@@ -1,3 +1,19 @@
+/*
+Copyright 2026 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package cache
 
 import (
@@ -93,12 +109,14 @@ func TestDetectHabanaCache(t *testing.T) {
 			{"222_aaa_syn" + testSynapseShort + ".metadata", 256},
 		}
 		for _, f := range files {
-			if err := os.WriteFile(filepath.Join(dir, f.name), make([]byte, f.size), 0644); err != nil {
+			if err := os.WriteFile(filepath.Join(dir, f.name), make([]byte, f.size), 0o600); err != nil {
 				t.Fatal(err)
 			}
 		}
 		// Also create a debug dir (should be ignored)
-		os.Mkdir(filepath.Join(dir, "111_aaa_syn"+testSynapseShort+".recipe_debug_files"), 0755)
+		if err := os.Mkdir(filepath.Join(dir, "111_aaa_syn"+testSynapseShort+".recipe_debug_files"), 0o750); err != nil {
+			t.Fatal(err)
+		}
 
 		cache := DetectHabanaCache(dir)
 		if cache == nil {
@@ -131,7 +149,9 @@ func TestDetectHabanaCache(t *testing.T) {
 
 	t.Run("returns nil for non-habana files", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "somefile.txt"), []byte("hello"), 0644)
+		if err := os.WriteFile(filepath.Join(dir, "somefile.txt"), []byte("hello"), 0o600); err != nil {
+			t.Fatal(err)
+		}
 		cache := DetectHabanaCache(dir)
 		if cache != nil {
 			t.Error("expected nil for non-habana files")

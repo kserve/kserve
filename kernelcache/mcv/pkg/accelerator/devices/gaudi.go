@@ -1,8 +1,25 @@
+/*
+Copyright 2026 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package devices
 
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -157,6 +174,11 @@ func (g *gpuGaudi) Init() error {
 			arch = a
 		}
 
+		memoryTotalMB := uint64(0)
+		if dev.MemoryTotal > 0 {
+			memoryTotalMB = uint64(dev.MemoryTotal)
+		}
+
 		tritonInfo := TritonGPUInfo{
 			ID:            dev.Index,
 			Name:          dev.Name,
@@ -164,7 +186,7 @@ func (g *gpuGaudi) Init() error {
 			Backend:       constants.BackendHPU,
 			Arch:          arch,
 			WarpSize:      0,
-			MemoryTotalMB: uint64(dev.MemoryTotal),
+			MemoryTotalMB: memoryTotalMB,
 		}
 
 		summary := DeviceSummary{
@@ -211,7 +233,7 @@ func parseHLSMICSV(output string) ([]hlsmiDevice, error) {
 	scanner := bufio.NewScanner(strings.NewReader(output))
 
 	if !scanner.Scan() {
-		return nil, fmt.Errorf("empty hl-smi output")
+		return nil, errors.New("empty hl-smi output")
 	}
 
 	for scanner.Scan() {
@@ -248,7 +270,7 @@ func parseHLSMICSV(output string) ([]hlsmiDevice, error) {
 	}
 
 	if len(devices) == 0 {
-		return nil, fmt.Errorf("no devices found in hl-smi output")
+		return nil, errors.New("no devices found in hl-smi output")
 	}
 
 	return devices, nil
