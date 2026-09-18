@@ -27,8 +27,8 @@ import (
 	"github.com/jaypipes/pcidb"
 	logging "github.com/sirupsen/logrus"
 
-	"github.com/redhat-et/GKM/mcv/pkg/config"
-	"github.com/redhat-et/GKM/mcv/pkg/constants"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 )
 
 // EnvStubProfile selects which GPU type the stub simulates.

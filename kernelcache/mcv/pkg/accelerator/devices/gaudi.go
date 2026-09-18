@@ -26,10 +26,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/redhat-et/GKM/mcv/pkg/config"
-	"github.com/redhat-et/GKM/mcv/pkg/constants"
-	"github.com/redhat-et/GKM/mcv/pkg/utils"
 	logging "github.com/sirupsen/logrus"
+
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/utils"
 )
 
 const gaudiHwType = config.GPU

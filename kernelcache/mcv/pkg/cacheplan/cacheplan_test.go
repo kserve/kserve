@@ -19,7 +19,7 @@ package cacheplan
 import (
 	"testing"
 
-	"github.com/redhat-et/GKM/mcv/pkg/constants"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 )
 
 const (

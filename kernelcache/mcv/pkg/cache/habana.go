@@ -26,9 +26,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/redhat-et/GKM/mcv/pkg/cacheplan"
-	"github.com/redhat-et/GKM/mcv/pkg/constants"
 	logging "github.com/sirupsen/logrus"
+
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/cacheplan"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 )
 
 // habanaRecipeCacheSizeMB returns the cache size limit to stamp into OCI labels.

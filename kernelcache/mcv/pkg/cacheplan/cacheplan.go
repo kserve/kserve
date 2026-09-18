@@ -40,7 +40,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/redhat-et/GKM/mcv/pkg/constants"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 )
 
 // Generic KServe Kernel Manager labels stamped by each cache class's Labels()
