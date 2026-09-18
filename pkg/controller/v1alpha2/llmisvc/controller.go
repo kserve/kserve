@@ -294,6 +294,8 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	// We are only writing to status, so we can safely use the original object.
 	llmSvc.Spec = baseCfg.Spec
 
+	RecordAcceleratorAnnotation(llmSvc)
+
 	if err := r.reconcileWorkload(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile workload: %w", err)
 	}

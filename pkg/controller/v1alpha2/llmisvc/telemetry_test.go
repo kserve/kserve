@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,13 +20,16 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/pkg/apis"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func testModelURI(org, model string) apis.URL {
@@ -82,124 +85,189 @@ func gpuLLMInferenceService(name, namespace, org, model string) *v1alpha2.LLMInf
 	}
 }
 
+func metricLabels(t *testing.T, m dto.Metric) map[string]string {
+	t.Helper()
+	labels := make(map[string]string, len(m.GetLabel()))
+	for _, lp := range m.GetLabel() {
+		labels[lp.GetName()] = lp.GetValue()
+	}
+	return labels
+}
+
+func collectAndParse(t *testing.T, items []v1alpha2.LLMInferenceService) []dto.Metric {
+	t.Helper()
+	metrics := collectInfoMetrics(items)
+	result := make([]dto.Metric, 0, len(metrics))
+	for _, m := range metrics {
+		var dm dto.Metric
+		require.NoError(t, m.Write(&dm))
+		result = append(result, dm)
+	}
+	return result
+}
+
+// withAcceleratorAnnotation simulates what RecordAcceleratorAnnotation does
+// during reconciliation, setting the status annotation for the Collector.
+func withAcceleratorAnnotation(svc *v1alpha2.LLMInferenceService) *v1alpha2.LLMInferenceService {
+	RecordAcceleratorAnnotation(svc)
+	return svc
+}
+
 func TestResolveAccelerator(t *testing.T) {
 	tests := []struct {
 		name     string
-		podSpec  *corev1.PodSpec
+		isvc     *v1alpha2.LLMInferenceService
 		expected string
 	}{
 		{
-			name:     "nil pod spec",
-			podSpec:  nil,
-			expected: acceleratorCPU,
-		},
-		{
-			name: "cpu only",
-			podSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceCPU:    resource.MustParse("4"),
-							corev1.ResourceMemory: resource.MustParse("16Gi"),
-						},
-					},
-				}},
+			name: "nil pod spec",
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{Template: nil},
+				},
 			},
 			expected: acceleratorCPU,
 		},
 		{
+			name:     "cpu only",
+			isvc:     cpuLLMInferenceService("test", "ns", "facebook", "opt-125m"),
+			expected: acceleratorCPU,
+		},
+		{
 			name: "nvidia gpu in requests",
-			podSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+									},
+								},
+							}},
 						},
 					},
-				}},
+				},
 			},
 			expected: acceleratorGPU,
 		},
 		{
 			name: "nvidia gpu in limits only",
-			podSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Resources: corev1.ResourceRequirements{
-						Limits: corev1.ResourceList{
-							corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Limits: corev1.ResourceList{
+										corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+									},
+								},
+							}},
 						},
 					},
-				}},
+				},
 			},
 			expected: acceleratorGPU,
 		},
 		{
 			name: "amd gpu",
-			podSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceName("amd.com/gpu"): resource.MustParse("1"),
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceName("amd.com/gpu"): resource.MustParse("1"),
+									},
+								},
+							}},
 						},
 					},
-				}},
+				},
 			},
 			expected: acceleratorGPU,
 		},
 		{
 			name: "intel gpu.intel.com/i915",
-			podSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceName("gpu.intel.com/i915"): resource.MustParse("1"),
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceName("gpu.intel.com/i915"): resource.MustParse("1"),
+									},
+								},
+							}},
 						},
 					},
-				}},
+				},
 			},
 			expected: acceleratorGPU,
 		},
 		{
 			name: "intel gpu.intel.com/xe",
-			podSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceName("gpu.intel.com/xe"): resource.MustParse("1"),
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceName("gpu.intel.com/xe"): resource.MustParse("1"),
+									},
+								},
+							}},
 						},
 					},
-				}},
+				},
 			},
 			expected: acceleratorGPU,
 		},
 		{
 			name: "habana gaudi",
-			podSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{{
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceName("habana.ai/gaudi"): resource.MustParse("1"),
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceName("habana.ai/gaudi"): resource.MustParse("1"),
+									},
+								},
+							}},
 						},
 					},
-				}},
+				},
 			},
 			expected: acceleratorGPU,
 		},
 		{
 			name: "gpu in second container",
-			podSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceCPU: resource.MustParse("1"),
-							},
-						},
-					},
-					{
-						Resources: corev1.ResourceRequirements{
-							Requests: corev1.ResourceList{
-								corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU: resource.MustParse("1"),
+										},
+									},
+								},
+								{
+									Resources: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+										},
+									},
+								},
 							},
 						},
 					},
@@ -209,24 +277,163 @@ func TestResolveAccelerator(t *testing.T) {
 		},
 		{
 			name: "empty containers",
-			podSpec: &corev1.PodSpec{
-				Containers: []corev1.Container{},
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{},
+						},
+					},
+				},
 			},
 			expected: acceleratorCPU,
+		},
+		{
+			name: "gpu in worker spec",
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU: resource.MustParse("1"),
+									},
+								},
+							}},
+						},
+						Worker: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+									},
+								},
+							}},
+						},
+					},
+				},
+			},
+			expected: acceleratorGPU,
+		},
+		{
+			name: "gpu in prefill template",
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU: resource.MustParse("1"),
+									},
+								},
+							}},
+						},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("4"),
+									},
+								},
+							}},
+						},
+					},
+				},
+			},
+			expected: acceleratorGPU,
+		},
+		{
+			name: "gpu in prefill worker",
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU: resource.MustParse("1"),
+									},
+								},
+							}},
+						},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{
+						Worker: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("2"),
+									},
+								},
+							}},
+						},
+					},
+				},
+			},
+			expected: acceleratorGPU,
+		},
+		{
+			name: "DRA device class annotation",
+			isvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
+					},
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceCPU: resource.MustParse("1"),
+									},
+								},
+							}},
+						},
+					},
+				},
+			},
+			expected: acceleratorGPU,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := resolveAccelerator(tt.podSpec)
+			got := resolveAccelerator(tt.isvc)
 			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
 
+func TestRecordAcceleratorAnnotation(t *testing.T) {
+	t.Run("sets cpu for cpu-only service", func(t *testing.T) {
+		svc := cpuLLMInferenceService("test", "ns", "facebook", "opt-125m")
+		RecordAcceleratorAnnotation(svc)
+		assert.Equal(t, "cpu", svc.Status.Annotations[AcceleratorAnnotationKey])
+	})
+
+	t.Run("sets gpu for gpu service", func(t *testing.T) {
+		svc := gpuLLMInferenceService("test", "ns", "facebook", "opt-125m")
+		RecordAcceleratorAnnotation(svc)
+		assert.Equal(t, "gpu", svc.Status.Annotations[AcceleratorAnnotationKey])
+	})
+
+	t.Run("initializes nil annotations map", func(t *testing.T) {
+		svc := cpuLLMInferenceService("test", "ns", "facebook", "opt-125m")
+		assert.Nil(t, svc.Status.Annotations)
+		RecordAcceleratorAnnotation(svc)
+		assert.NotNil(t, svc.Status.Annotations)
+	})
+}
+
 func TestCollectInfoMetrics(t *testing.T) {
-	cpuSvc := cpuLLMInferenceService("opt-125m-cpu", "test-ns", "facebook", "opt-125m")
-	gpuSvc := gpuLLMInferenceService("opt-125m-gpu", "test-ns", "facebook", "opt-125m")
+	cpuSvc := withAcceleratorAnnotation(cpuLLMInferenceService("opt-125m-cpu", "test-ns", "facebook", "opt-125m"))
+	gpuSvc := withAcceleratorAnnotation(gpuLLMInferenceService("opt-125m-gpu", "test-ns", "facebook", "opt-125m"))
 
 	t.Run("emits one metric per service", func(t *testing.T) {
 		metrics := collectInfoMetrics([]v1alpha2.LLMInferenceService{*cpuSvc, *gpuSvc})
@@ -239,48 +446,76 @@ func TestCollectInfoMetrics(t *testing.T) {
 	})
 }
 
-func TestCollectInfoMetricsLabels(t *testing.T) {
-	cpuSvc := cpuLLMInferenceService("opt-125m-cpu", "test-ns", "facebook", "opt-125m")
-	metrics := collectInfoMetrics([]v1alpha2.LLMInferenceService{*cpuSvc})
+func TestCollectInfoMetricsCPULabels(t *testing.T) {
+	cpuSvc := withAcceleratorAnnotation(cpuLLMInferenceService("opt-125m-cpu", "test-ns", "facebook", "opt-125m"))
+	parsed := collectAndParse(t, []v1alpha2.LLMInferenceService{*cpuSvc})
 
-	assert.Len(t, metrics, 1)
-
-	uri := testModelURI("facebook", "opt-125m")
-	expectedURI := uri.String()
-	expected := prometheus.MustNewConstMetric(
-		infoDesc, prometheus.GaugeValue, 1,
-		"test-ns", "opt-125m-cpu", "cpu", "opt-125m-cpu", expectedURI,
-	)
-
-	// Compare metric descriptors and values via string representation
-	assert.Equal(t, expected.Desc(), metrics[0].Desc())
-}
-
-func TestCollectInfoMetricsGPULabel(t *testing.T) {
-	gpuSvc := gpuLLMInferenceService("opt-125m-gpu", "test-ns", "facebook", "opt-125m")
-	metrics := collectInfoMetrics([]v1alpha2.LLMInferenceService{*gpuSvc})
-
-	assert.Len(t, metrics, 1)
+	require.Len(t, parsed, 1)
+	labels := metricLabels(t, parsed[0])
 
 	uri := testModelURI("facebook", "opt-125m")
-	expectedURI := uri.String()
-	expected := prometheus.MustNewConstMetric(
-		infoDesc, prometheus.GaugeValue, 1,
-		"test-ns", "opt-125m-gpu", "gpu", "opt-125m-gpu", expectedURI,
-	)
-
-	assert.Equal(t, expected.Desc(), metrics[0].Desc())
+	assert.Equal(t, "test-ns", labels["namespace"])
+	assert.Equal(t, "opt-125m-cpu", labels["name"])
+	assert.Equal(t, "cpu", labels["accelerator"])
+	assert.Equal(t, "opt-125m-cpu", labels["model_name"])
+	assert.Equal(t, uri.String(), labels["model_uri"])
+	assert.Equal(t, float64(1), parsed[0].GetGauge().GetValue())
 }
 
-func TestCollectInfoMetricsNoStaleLabels(t *testing.T) {
-	svc := cpuLLMInferenceService("my-svc", "ns", "meta-llama", "Llama-3.2-1B")
+func TestCollectInfoMetricsGPULabels(t *testing.T) {
+	gpuSvc := withAcceleratorAnnotation(gpuLLMInferenceService("opt-125m-gpu", "test-ns", "facebook", "opt-125m"))
+	parsed := collectAndParse(t, []v1alpha2.LLMInferenceService{*gpuSvc})
 
-	metrics1 := collectInfoMetrics([]v1alpha2.LLMInferenceService{*svc})
-	assert.Len(t, metrics1, 1)
+	require.Len(t, parsed, 1)
+	labels := metricLabels(t, parsed[0])
 
-	svc.Spec.Model.URI = testModelURI("facebook", "opt-125m")
-	metrics2 := collectInfoMetrics([]v1alpha2.LLMInferenceService{*svc})
-	assert.Len(t, metrics2, 1)
+	assert.Equal(t, "gpu", labels["accelerator"])
+	assert.Equal(t, "opt-125m-gpu", labels["name"])
+}
+
+func TestCollectInfoMetricsCustomModelName(t *testing.T) {
+	svc := cpuLLMInferenceService("svc-name", "ns", "facebook", "opt-125m")
+	modelName := "my-custom-model"
+	svc.Spec.Model.Name = &modelName
+	withAcceleratorAnnotation(svc)
+
+	parsed := collectAndParse(t, []v1alpha2.LLMInferenceService{*svc})
+	require.Len(t, parsed, 1)
+	labels := metricLabels(t, parsed[0])
+
+	assert.Equal(t, "my-custom-model", labels["model_name"])
+}
+
+func TestCollectInfoMetricsDRA(t *testing.T) {
+	svc := cpuLLMInferenceService("dra-svc", "ns", "meta-llama", "Llama-3.2-1B")
+	svc.Annotations = map[string]string{
+		constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
+	}
+	withAcceleratorAnnotation(svc)
+
+	parsed := collectAndParse(t, []v1alpha2.LLMInferenceService{*svc})
+	require.Len(t, parsed, 1)
+	labels := metricLabels(t, parsed[0])
+
+	assert.Equal(t, "gpu", labels["accelerator"])
+}
+
+func TestCollectInfoMetricsFallbackWithoutAnnotation(t *testing.T) {
+	svc := cpuLLMInferenceService("no-annotation", "ns", "facebook", "opt-125m")
+	// No RecordAcceleratorAnnotation call — simulates a service that hasn't been reconciled yet
+	parsed := collectAndParse(t, []v1alpha2.LLMInferenceService{*svc})
+	require.Len(t, parsed, 1)
+	labels := metricLabels(t, parsed[0])
+
+	assert.Equal(t, "cpu", labels["accelerator"])
+}
+
+func TestDescribe(t *testing.T) {
+	collector := &InfoMetricsCollector{}
+	ch := make(chan *prometheus.Desc, 1)
+	collector.Describe(ch)
+	desc := <-ch
+	assert.Equal(t, infoDesc, desc)
 }
 
 func TestResolveModelName(t *testing.T) {

@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -33,6 +33,11 @@ import (
 const (
 	acceleratorCPU = "cpu"
 	acceleratorGPU = "gpu"
+
+	// AcceleratorAnnotationKey is the status annotation key where the resolved
+	// accelerator type is persisted during reconciliation. The Collector reads
+	// it at scrape time so it reflects the effective (merged) spec.
+	AcceleratorAnnotationKey = "serving.kserve.io/accelerator-type"
 )
 
 var infoDesc = prometheus.NewDesc(
@@ -99,13 +104,17 @@ func collectInfoMetrics(items []v1alpha2.LLMInferenceService) []prometheus.Metri
 	out := make([]prometheus.Metric, 0, len(items))
 	for i := range items {
 		isvc := &items[i]
+		accelerator := isvc.Status.Annotations[AcceleratorAnnotationKey]
+		if accelerator == "" {
+			accelerator = acceleratorCPU
+		}
 		out = append(out, prometheus.MustNewConstMetric(
 			infoDesc,
 			prometheus.GaugeValue,
 			1,
 			isvc.Namespace,
 			isvc.Name,
-			resolveAccelerator(isvc.Spec.Template),
+			accelerator,
 			resolveModelName(isvc),
 			isvc.Spec.Model.URI.String(),
 		))
@@ -113,13 +122,38 @@ func collectInfoMetrics(items []v1alpha2.LLMInferenceService) []prometheus.Metri
 	return out
 }
 
-func resolveAccelerator(podSpec *corev1.PodSpec) string {
-	if podSpec == nil {
-		return acceleratorCPU
+// RecordAcceleratorAnnotation resolves the accelerator type from the effective
+// (merged) spec and writes it to Status.Annotations so the pull-based Collector
+// can read it at scrape time.
+func RecordAcceleratorAnnotation(llmSvc *v1alpha2.LLMInferenceService) {
+	accel := resolveAccelerator(llmSvc)
+	if llmSvc.Status.Annotations == nil {
+		llmSvc.Status.Annotations = map[string]string{}
 	}
-	for i := range podSpec.Containers {
-		if hasGPUResources(&podSpec.Containers[i]) {
-			return acceleratorGPU
+	llmSvc.Status.Annotations[AcceleratorAnnotationKey] = accel
+}
+
+func resolveAccelerator(isvc *v1alpha2.LLMInferenceService) string {
+	if _, ok := isvc.ManagedDRADeviceClass(); ok {
+		return acceleratorGPU
+	}
+
+	podSpecs := []*corev1.PodSpec{
+		isvc.Spec.Template,
+		isvc.Spec.Worker,
+	}
+	if isvc.Spec.Prefill != nil {
+		podSpecs = append(podSpecs, isvc.Spec.Prefill.Template, isvc.Spec.Prefill.Worker)
+	}
+
+	for _, ps := range podSpecs {
+		if ps == nil {
+			continue
+		}
+		for i := range ps.Containers {
+			if hasGPUResources(&ps.Containers[i]) {
+				return acceleratorGPU
+			}
 		}
 	}
 	return acceleratorCPU
