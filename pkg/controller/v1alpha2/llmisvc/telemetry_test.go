@@ -29,7 +29,6 @@ import (
 	"knative.dev/pkg/apis"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/constants"
 )
 
 func testModelURI(org, model string) apis.URL {
@@ -376,30 +375,6 @@ func TestResolveAccelerator(t *testing.T) {
 			},
 			expected: acceleratorGPU,
 		},
-		{
-			name: "DRA device class annotation",
-			isvc: &v1alpha2.LLMInferenceService{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
-					},
-				},
-				Spec: v1alpha2.LLMInferenceServiceSpec{
-					WorkloadSpec: v1alpha2.WorkloadSpec{
-						Template: &corev1.PodSpec{
-							Containers: []corev1.Container{{
-								Resources: corev1.ResourceRequirements{
-									Requests: corev1.ResourceList{
-										corev1.ResourceCPU: resource.MustParse("1"),
-									},
-								},
-							}},
-						},
-					},
-				},
-			},
-			expected: acceleratorGPU,
-		},
 	}
 
 	for _, tt := range tests {
@@ -486,28 +461,22 @@ func TestCollectInfoMetricsCustomModelName(t *testing.T) {
 	assert.Equal(t, "my-custom-model", labels["model_name"])
 }
 
-func TestCollectInfoMetricsDRA(t *testing.T) {
-	svc := cpuLLMInferenceService("dra-svc", "ns", "meta-llama", "Llama-3.2-1B")
-	svc.Annotations = map[string]string{
-		constants.ManagedDRADeviceClassAnnotationKey: "gpu.nvidia.com",
-	}
-	withAcceleratorAnnotation(svc)
-
-	parsed := collectAndParse(t, []v1alpha2.LLMInferenceService{*svc})
-	require.Len(t, parsed, 1)
-	labels := metricLabels(t, parsed[0])
-
-	assert.Equal(t, "gpu", labels["accelerator"])
-}
-
 func TestCollectInfoMetricsFallbackWithoutAnnotation(t *testing.T) {
-	svc := cpuLLMInferenceService("no-annotation", "ns", "facebook", "opt-125m")
-	// No RecordAcceleratorAnnotation call — simulates a service that hasn't been reconciled yet
-	parsed := collectAndParse(t, []v1alpha2.LLMInferenceService{*svc})
-	require.Len(t, parsed, 1)
-	labels := metricLabels(t, parsed[0])
+	t.Run("cpu service without annotation defaults to cpu", func(t *testing.T) {
+		svc := cpuLLMInferenceService("no-annotation", "ns", "facebook", "opt-125m")
+		parsed := collectAndParse(t, []v1alpha2.LLMInferenceService{*svc})
+		require.Len(t, parsed, 1)
+		labels := metricLabels(t, parsed[0])
+		assert.Equal(t, "cpu", labels["accelerator"])
+	})
 
-	assert.Equal(t, "cpu", labels["accelerator"])
+	t.Run("gpu service without annotation resolves from spec", func(t *testing.T) {
+		svc := gpuLLMInferenceService("no-annotation-gpu", "ns", "facebook", "opt-125m")
+		parsed := collectAndParse(t, []v1alpha2.LLMInferenceService{*svc})
+		require.Len(t, parsed, 1)
+		labels := metricLabels(t, parsed[0])
+		assert.Equal(t, "gpu", labels["accelerator"])
+	})
 }
 
 func TestDescribe(t *testing.T) {

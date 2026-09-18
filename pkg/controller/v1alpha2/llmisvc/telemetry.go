@@ -106,7 +106,7 @@ func collectInfoMetrics(items []v1alpha2.LLMInferenceService) []prometheus.Metri
 		isvc := &items[i]
 		accelerator := isvc.Status.Annotations[AcceleratorAnnotationKey]
 		if accelerator == "" {
-			accelerator = acceleratorCPU
+			accelerator = resolveAccelerator(isvc)
 		}
 		out = append(out, prometheus.MustNewConstMetric(
 			infoDesc,
@@ -134,10 +134,6 @@ func RecordAcceleratorAnnotation(llmSvc *v1alpha2.LLMInferenceService) {
 }
 
 func resolveAccelerator(isvc *v1alpha2.LLMInferenceService) string {
-	if _, ok := isvc.ManagedDRADeviceClass(); ok {
-		return acceleratorGPU
-	}
-
 	podSpecs := []*corev1.PodSpec{
 		isvc.Spec.Template,
 		isvc.Spec.Worker,
