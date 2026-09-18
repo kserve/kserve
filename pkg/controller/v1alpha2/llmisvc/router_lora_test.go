@@ -341,7 +341,7 @@ func TestApplyLoRAModelRouting(t *testing.T) {
 		{name: "empty annotation defers to the cluster strategy", strategy: LoRAModelRoutingStrategyRegex, header: headerName, lora: adapters, rules: modelRule(), annotations: map[string]string{AnnotationLoRAModelRoutingStrategy: ""}, wantMatches: 1, wantType: gwapiv1.HeaderMatchRegularExpression},
 		{name: "unsupported annotation is a precondition failure naming the annotation", strategy: LoRAModelRoutingStrategyExact, header: headerName, lora: adapters, rules: modelRule(), annotations: map[string]string{AnnotationLoRAModelRoutingStrategy: "bogus"}, wantErr: true, wantErrFrom: "annotation " + AnnotationLoRAModelRoutingStrategy},
 		{name: "unsupported cluster strategy names the ConfigMap", strategy: "bogus", header: headerName, lora: adapters, rules: modelRule(), wantErr: true, wantErrFrom: "ConfigMap"},
-		{name: "regex rejects an unrecognized model match", strategy: LoRAModelRoutingStrategyRegex, header: headerName, lora: adapters, rules: []gwapiv1.HTTPRouteRule{ruleWithMatches(headerOnlyMatch("publishers/ns/models/other"))}, wantErr: true},
+		{name: "regex rejects an unrecognized model match", strategy: LoRAModelRoutingStrategyRegex, header: headerName, lora: adapters, rules: []gwapiv1.HTTPRouteRule{ruleWithMatches(headerOnlyMatch("publishers/ns/models/other"))}, wantErr: true, wantErrFrom: `set spec.annotations[` + AnnotationLoRAModelRoutingStrategy + `] to "exact"`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &v1alpha2.LLMInferenceService{
