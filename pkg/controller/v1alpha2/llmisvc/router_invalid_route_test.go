@@ -106,8 +106,9 @@ func invalidRouteService() *v1alpha2.LLMInferenceService {
 	}
 }
 
-// managedRoute is the route reconcileHTTPRoutes owns, seeded so the reconciler takes the
-// update path and its dry-run reaches the API server.
+// managedRoute is the route reconcileHTTPRoutes owns. Seeded, it sends the reconciler
+// down the update path so the dry-run reaches the API server; left out, its key still
+// names the route the create path writes.
 func managedRoute(llmSvc *v1alpha2.LLMInferenceService) *gwapiv1.HTTPRoute {
 	return &gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
@@ -137,10 +138,18 @@ func rejectedHeaderValue(routeName string) *apierrors.StatusError {
 	)
 }
 
-// routeUpdateInterceptor fails the managed route's dry-run with failWith and counts the
-// writes that got past it, so a test can assert the live route was never touched.
-func routeUpdateInterceptor(failWith error, writes *int) interceptor.Funcs {
+// routeWriteInterceptor fails the managed route's write with failWith: the dry-run on
+// the update path, and the write itself on the create path, which has no dry-run. It
+// counts the updates that got past it, so a test can assert the live route was never
+// touched.
+func routeWriteInterceptor(failWith error, writes *int) interceptor.Funcs {
 	return interceptor.Funcs{
+		Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+			if _, isRoute := obj.(*gwapiv1.HTTPRoute); isRoute {
+				return failWith
+			}
+			return c.Create(ctx, obj, opts...)
+		},
 		Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
 			if _, isRoute := obj.(*gwapiv1.HTTPRoute); isRoute {
 				options := &client.UpdateOptions{}
@@ -158,11 +167,17 @@ func routeUpdateInterceptor(failWith error, writes *int) interceptor.Funcs {
 }
 
 // newRejectingRouteReconciler wires a reconciler whose managed route the API server
-// refuses with failWith on the dry-run.
+// refuses with failWith. A seeded route takes the update path and fails on its dry-run;
+// a nil route leaves nothing to find, so the create path fails on the write itself.
 func newRejectingRouteReconciler(t *testing.T, llmSvc *v1alpha2.LLMInferenceService, route *gwapiv1.HTTPRoute, failWith error, writes *int) *LLMISVCReconciler {
 	t.Helper()
 
 	seedInferencePoolV1Alpha2Discovery(t)
+
+	objects := []client.Object{llmSvc}
+	if route != nil {
+		objects = append(objects, route)
+	}
 
 	// Update resolves the route's scope through the RESTMapper, and the fake client's
 	// default mapper knows nothing. The managed HTTPRoute is the only object on this
@@ -175,10 +190,42 @@ func newRejectingRouteReconciler(t *testing.T, llmSvc *v1alpha2.LLMInferenceServ
 		Client: fake.NewClientBuilder().
 			WithScheme(invalidRouteScheme(t)).
 			WithRESTMapper(restMapper).
-			WithObjects(llmSvc, route).
-			WithInterceptorFuncs(routeUpdateInterceptor(failWith, writes)).
+			WithObjects(objects...).
+			WithInterceptorFuncs(routeWriteInterceptor(failWith, writes)).
 			Build(),
 		EventRecorder: record.NewFakeRecorder(10),
+	}
+}
+
+// assertRejectedRouteStatus checks the status a rejected managed route must leave behind,
+// whichever write the API server refused: the reason and the field errors on
+// HTTPRoutesReady, and the reason carried up to the roll-ups.
+func assertRejectedRouteStatus(t *testing.T, llmSvc *v1alpha2.LLMInferenceService, route *gwapiv1.HTTPRoute) {
+	t.Helper()
+
+	condition := llmSvc.Status.GetCondition(v1alpha2.HTTPRoutesReady)
+	require.NotNil(t, condition)
+	assert.True(t, condition.IsFalse())
+	assert.Equal(t, "InvalidHTTPRoute", condition.Reason)
+	assert.Contains(t, condition.Message, "spec.rules[0].matches[0].headers[0].value",
+		"the offending field path should be surfaced")
+	assert.Contains(t, condition.Message, route.Namespace+"/"+route.Name,
+		"the message should name the route the API server refused")
+	assert.NotContains(t, condition.Message, "failed to get defaults",
+		"the API server's field errors should not arrive behind Update's wrapper")
+	assert.NotContains(t, condition.Message, "failed to create",
+		"the API server's field errors should not arrive behind Create's wrapper")
+	assert.Equal(t, 1, strings.Count(strings.ToLower(condition.Message), "failed to reconcile httproute"),
+		"the caller should not prepend a prefix the raising site already wrote")
+	assert.NotContains(t, condition.Message, "%!",
+		"apiserver text must be passed as an argument, not as a format string")
+
+	for _, rollup := range []apis.ConditionType{v1alpha2.RouterReady, apis.ConditionReady} {
+		c := llmSvc.Status.GetCondition(rollup)
+		require.NotNil(t, c, "%s should be set", rollup)
+		assert.True(t, c.IsFalse())
+		assert.Equal(t, "InvalidHTTPRoute", c.Reason,
+			"the actionable reason should reach %s, where the condition type is gone", rollup)
 	}
 }
 
@@ -194,28 +241,26 @@ func TestReconcileRouter_APIServerRejectionIsTerminal(t *testing.T) {
 		"a route the API server rejects is a verdict on the spec - retrying re-sends the same bytes")
 	assert.Zero(t, writes, "the live route must survive a rejected dry-run untouched")
 
-	condition := llmSvc.Status.GetCondition(v1alpha2.HTTPRoutesReady)
-	require.NotNil(t, condition)
-	assert.True(t, condition.IsFalse())
-	assert.Equal(t, "InvalidHTTPRoute", condition.Reason)
-	assert.Contains(t, condition.Message, "spec.rules[0].matches[0].headers[0].value",
-		"the offending field path should be surfaced")
-	assert.Contains(t, condition.Message, route.Namespace+"/"+route.Name,
-		"the message should name the route the API server refused")
-	assert.NotContains(t, condition.Message, "failed to get defaults",
-		"the API server's field errors should not arrive behind Update's wrapper")
-	assert.Equal(t, 1, strings.Count(strings.ToLower(condition.Message), "failed to reconcile httproute"),
-		"the caller should not prepend a prefix the raising site already wrote")
-	assert.NotContains(t, condition.Message, "%!",
-		"apiserver text must be passed as an argument, not as a format string")
+	assertRejectedRouteStatus(t, llmSvc, route)
+}
 
-	for _, rollup := range []apis.ConditionType{v1alpha2.RouterReady, apis.ConditionReady} {
-		c := llmSvc.Status.GetCondition(rollup)
-		require.NotNil(t, c, "%s should be set", rollup)
-		assert.True(t, c.IsFalse())
-		assert.Equal(t, "InvalidHTTPRoute", c.Reason,
-			"the actionable reason should reach %s, where the condition type is gone", rollup)
-	}
+func TestReconcileRouter_APIServerRejectionOnCreateIsTerminal(t *testing.T) {
+	llmSvc := invalidRouteService()
+	// Not seeded: a brand-new service has no route yet, so Reconcile takes the create
+	// path, where there is no dry-run and the verdict comes back from the write itself.
+	route := managedRoute(llmSvc)
+
+	writes := 0
+	reconciler := newRejectingRouteReconciler(t, llmSvc, nil, rejectedHeaderValue(route.Name), &writes)
+
+	err := reconciler.reconcileRouter(t.Context(), llmSvc, &Config{})
+	require.ErrorIs(t, err, reconcile.TerminalError(nil),
+		"a rejected first write is the same verdict on the spec as a rejected dry-run")
+
+	getErr := reconciler.Get(t.Context(), client.ObjectKeyFromObject(route), &gwapiv1.HTTPRoute{})
+	assert.True(t, apierrors.IsNotFound(getErr), "no route should exist after a rejected create, got: %v", getErr)
+
+	assertRejectedRouteStatus(t, llmSvc, route)
 }
 
 func TestReconcileRouter_APIServerRejectionClearsStaleGatewaysReady(t *testing.T) {
@@ -262,4 +307,27 @@ func TestReconcileRouter_TransientRouteFailureRequeues(t *testing.T) {
 	require.NotNil(t, condition)
 	assert.Equal(t, "HTTPRouteReconcileError", condition.Reason,
 		"a failed write and a rejected route must not arrive under the same reason")
+}
+
+func TestReconcileRouter_TransientCreateFailureRequeues(t *testing.T) {
+	llmSvc := invalidRouteService()
+
+	// Same unreached verdict as the update case, on the write a new service's first
+	// pass makes.
+	transientErr := apierrors.NewInternalError(errors.New(
+		`failed calling webhook "gateway.networking.k8s.io": connection refused`))
+
+	writes := 0
+	reconciler := newRejectingRouteReconciler(t, llmSvc, nil, transientErr, &writes)
+
+	err := reconciler.reconcileRouter(t.Context(), llmSvc, &Config{})
+	require.Error(t, err, "only the server's verdict is terminal; an unreached verdict must requeue")
+	assert.ErrorIs(t, err, transientErr)
+	assert.NotErrorIs(t, err, reconcile.TerminalError(nil),
+		"an unreached verdict must requeue, not stop the controller")
+
+	condition := llmSvc.Status.GetCondition(v1alpha2.HTTPRoutesReady)
+	require.NotNil(t, condition)
+	assert.Equal(t, "HTTPRouteReconcileError", condition.Reason,
+		"a failed first write and a rejected route must not arrive under the same reason")
 }
