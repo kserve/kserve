@@ -20,13 +20,16 @@ make build-image-mcv
 
 # NVIDIA
 podman run --rm --device nvidia.com/gpu=all \
-  -v /path/to/cache:/cache \
+  -v /path/to/cache:/cache:Z,U \
   quay.io/gkm/mcv:unified \
   --extract --image quay.io/myorg/vllm-cache:v1 --dir /cache
 
-# AMD
+# AMD — device nodes are group-owned, so the non-root user (UID 1000) must join
+# the host render/video group. Podman: --group-add keep-groups (crun). Docker:
+# pass numeric --group-add GIDs. See "Running GPU Preflight as Non-Root".
 podman run --rm --device /dev/kfd --device /dev/dri \
-  -v /path/to/cache:/cache \
+  --group-add keep-groups \
+  -v /path/to/cache:/cache:Z,U \
   quay.io/gkm/mcv:unified \
   --extract --image quay.io/myorg/vllm-cache:v1 --dir /cache
 ```
@@ -67,8 +70,8 @@ On CPU node:    both fail    → requires explicit --no-gpu flag
 # Works on any node - no GPU needed.
 # --create stores the OCI image in buildah's container-internal store;
 # chain buildah push so the image reaches the registry before --rm removes the container.
-podman run --rm --privileged \
-  -v ~/.cache/vllm:/cache:ro \
+podman run --rm \
+  -v ~/.cache/vllm:/cache:Z,U \
   --entrypoint sh \
   quay.io/gkm/mcv:unified \
   -c "/mcv --create --image quay.io/myorg/llama3-cache:v1 --dir /cache --no-gpu \
@@ -81,9 +84,9 @@ podman run --rm --privileged \
 
 ```bash
 # On NVIDIA node - automatically uses NVML
-podman run --rm --privileged \
+podman run --rm \
   --device nvidia.com/gpu=all \
-  -v ~/.cache/vllm:/cache \
+  -v ~/.cache/vllm:/cache:Z,U \
   quay.io/gkm/mcv:unified \
   --extract --image quay.io/myorg/cuda-cache:v1 --dir /cache
 
@@ -96,9 +99,12 @@ podman run --rm --privileged \
 
 ```bash
 # On AMD node - automatically uses rocm-smi
-podman run --rm --privileged \
+# --group-add keep-groups joins the host render/video group so the non-root user
+# can open /dev/kfd and /dev/dri (Docker needs numeric --group-add GIDs instead).
+podman run --rm \
   --device /dev/kfd --device /dev/dri \
-  -v ~/.cache/vllm:/cache \
+  --group-add keep-groups \
+  -v ~/.cache/vllm:/cache:Z,U \
   quay.io/gkm/mcv:unified \
   --extract --image quay.io/myorg/rocm-cache:v1 --dir /cache
 
@@ -112,11 +118,87 @@ podman run --rm --privileged \
 
 ```bash
 # Automatically detects GPU and validates cache compatibility
-podman run --rm --privileged \
+podman run --rm \
   --device nvidia.com/gpu=all \
   quay.io/gkm/mcv:unified \
   --check-compat --image quay.io/myorg/cache:v1
 ```
+
+## Running GPU Preflight as Non-Root
+
+The MCV image runs as a non-root user (`appuser`, UID 1000) and no longer needs
+`--privileged`. During extraction and `--check-compat`, MCV shells out to the
+vendor tool (`amd-smi`/`rocm-smi`, `hl-smi`, or NVML) to read GPU info. Two
+things must be true for that to work as a non-root user:
+
+1. **The device nodes must be inside the container** — provide them with
+   `--device` (or a CDI/device-plugin), the same as before.
+2. **The user must be permitted to open them** — this depends on the device
+   node's mode and group *on the host*.
+
+Device-node permissions vary by vendor, which is why AMD needs an extra flag and
+NVIDIA/Gaudi do not:
+
+| Vendor | Typical device nodes | Typical mode/owner | Non-root needs a group? |
+|--------|----------------------|--------------------|--------------------------|
+| NVIDIA | `/dev/nvidia*` | `0666` (via nvidia-container-toolkit) | No |
+| Intel Gaudi | `/dev/accel/accel*`, `/dev/accel/accel_controlD*` | `0666 root:render` | No |
+| AMD | `/dev/kfd`, `/dev/dri/renderD*`, `/dev/dri/card*` | `0660 root:render` (+ `video`) | **Yes** |
+
+> Device permissions are host-specific — confirm with `ls -l /dev/...` on your
+> node. The GIDs are assigned by the host, so they cannot be baked into the
+> image; supply them (or preserve host groups) at run time.
+
+**NVIDIA** (nodes are world-accessible — device access only):
+
+```bash
+# Podman (CDI)
+podman run --rm --device nvidia.com/gpu=all quay.io/gkm/mcv:unified \
+  --check-compat --image quay.io/myorg/cache:v1
+# Docker
+docker run --rm --gpus all quay.io/gkm/mcv:unified \
+  --check-compat --image quay.io/myorg/cache:v1
+```
+
+**Intel Gaudi** (nodes are `0666` — device access only, no group needed):
+
+```bash
+podman run --rm --device /dev/accel quay.io/gkm/mcv:gaudi \
+  --check-compat --image quay.io/myorg/cache:v1
+```
+
+**AMD** (render/DRI nodes are group-owned — add the group):
+
+```bash
+# Podman rootless (crun) — keep the host user's supplementary groups.
+# Run this as a user that is a member of the render/video groups.
+podman run --rm \
+  --device /dev/kfd --device /dev/dri \
+  --group-add keep-groups \
+  quay.io/gkm/mcv:unified \
+  --check-compat --image quay.io/myorg/cache:v1
+
+# Docker — keep-groups is Podman/crun-only, so grant each GPU device node's
+# owning GID explicitly. Device paths and GIDs are host-specific: renderD128
+# and the "video" group may be absent, and /dev/kfd and the /dev/dri/* nodes
+# can each be owned by a different GID. Derive a GID for every node that exists
+# and pass only those (never a bare/empty --group-add).
+gpu_gids=$(for d in /dev/kfd /dev/dri/renderD* /dev/dri/card*; do
+  [ -e "$d" ] && stat -c '%g' "$d"
+done | sort -u)
+[ -n "$gpu_gids" ] || { echo "no GPU device nodes found" >&2; exit 1; }
+
+docker run --rm \
+  --device=/dev/kfd --device=/dev/dri \
+  $(printf -- '--group-add %s ' $gpu_gids) \
+  quay.io/gkm/mcv:unified \
+  --check-compat --image quay.io/myorg/cache:v1
+```
+
+> `--group-add keep-groups` requires the `crun` runtime (the Podman default);
+> it is a no-op under `runc`. For Docker, pass each device's GID with
+> `--group-add` — derive them per-node as above, or require operators to supply
+> the GIDs explicitly when the device layout is known ahead of time.
 
 ## Kubernetes Deployment
 
@@ -139,8 +221,16 @@ metadata:
 spec:
   template:
     spec:
-      nodeSelector:
-        hardware-type: gpu  # Required for GPU extraction without --no-gpu
+      # Pod-level securityContext. fsGroup chowns the PVC volume to GID 1000 so
+      # the non-root user (UID 1000) can write the extracted cache and manifest
+      # files. fsGroup and supplementalGroups are pod-level fields — they have no
+      # effect if placed under a container's securityContext.
+      securityContext:
+        fsGroup: 1000
+        # AMD only: /dev/kfd and /dev/dri/renderD* are group-owned
+        # (root:render, mode 0660), so the non-root user must join that group.
+        # NVIDIA and Gaudi device nodes are world-accessible (0666) and need none.
+        # supplementalGroups: [<render-gid-on-node>]
       containers:
       - name: mcv
         image: quay.io/gkm/mcv:unified
@@ -150,8 +240,18 @@ spec:
           - "quay.io/myorg/vllm-cache:v1"
           - "--dir"
           - "/cache"
+        # Request the GPU through its device plugin instead of privileged: true.
+        # The device plugin injects the device nodes and configures the device
+        # cgroup, so no elevated privileges are needed and the pod is scheduled
+        # onto a matching GPU node automatically.
+        resources:
+          limits:
+            nvidia.com/gpu: 1   # AMD: amd.com/gpu: 1  |  Gaudi: habana.ai/gaudi: 1
         securityContext:
-          privileged: true  # Access GPU device files
+          runAsNonRoot: true
+          runAsUser: 1000       # appuser (baked into the image)
+          runAsGroup: 1000      # without this K8s defaults to GID 0
+          allowPrivilegeEscalation: false
         volumeMounts:
         - name: cache
           mountPath: /cache
@@ -165,13 +265,13 @@ spec:
 ```
 
 **Benefits:**
-- ✅ Single Job definition works on NVIDIA or AMD GPU nodes
-- ✅ Simplifies deployment in mixed GPU clusters
-- ✅ CPU-only workflows supported with explicit `--no-gpu`
+- ✅ Runs unprivileged — GPU access comes from the device plugin, not `privileged: true`
+- ✅ The same image works on any vendor; swap the `resources.limits` GPU key per node type
+- ✅ CPU-only workflows supported with explicit `--no-gpu` (drop the GPU `resources.limits`)
 
 ### DaemonSet Deployment
 
-For cache pre-extraction on all GPU nodes:
+For cache pre-extraction on all NVIDIA GPU nodes:
 
 ```yaml
 apiVersion: apps/v1
@@ -187,7 +287,7 @@ spec:
       labels:
         app: mcv-cache-preparer
     spec:
-      # Runs on all GPU nodes (both NVIDIA and AMD)
+      # Runs on all nodes exposing the requested GPU resource.
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -195,9 +295,15 @@ spec:
             - matchExpressions:
               - key: nvidia.com/gpu.present
                 operator: Exists
-            - matchExpressions:
-              - key: amd.com/gpu
-                operator: Exists
+            # - matchExpressions:
+            #  - key: amd.com/gpu
+            #    operator: Exists
+      # Pod-level securityContext. supplementalGroups is a pod-level field —
+      # it is silently ignored under a container securityContext.
+      securityContext:
+        # AMD only — join the render group that owns /dev/kfd and /dev/dri/*
+        # (NVIDIA/Gaudi device nodes are 0666 and need no supplemental group):
+        # supplementalGroups: [<render-gid-on-node>]
       containers:
       - name: mcv
         image: quay.io/gkm/mcv:unified
@@ -208,17 +314,40 @@ spec:
             /mcv --extract \
               --image quay.io/myorg/vllm-cache:v1 \
               --dir /kernel-caches/vllm
+        # GPU access via the device plugin — no privileged: true required.
+        resources:
+          limits:
+            nvidia.com/gpu: 1   # AMD: amd.com/gpu: 1  |  Gaudi: habana.ai/gaudi: 1
         securityContext:
-          privileged: true
+          runAsNonRoot: true
+          runAsUser: 1000       # appuser in the image; Containerfile asserts id -u appuser = 1000
+          runAsGroup: 1000      # without this K8s defaults to GID 0
+          allowPrivilegeEscalation: false
+        # The hostPath below must be writable by uid 1000 on each node.
         volumeMounts:
         - name: kernel-caches
           mountPath: /kernel-caches
       volumes:
       - name: kernel-caches
+        # DirectoryOrCreate makes this root:root (0755); pre-create it owned by
+        # UID/GID 1000 on each node, or use a PVC (see the note above) — fsGroup
+        # cannot fix hostPath ownership.
         hostPath:
           path: /kernel-caches
           type: DirectoryOrCreate
 ```
+
+> **Mixed-vendor clusters need one DaemonSet per vendor.** A DaemonSet applies one
+> identical pod spec to every node it runs on, and a pod can request only one
+> vendor's GPU resource. So even in a cluster that mixes NVIDIA, AMD, and Gaudi
+> nodes, a single DaemonSet requesting (say) `nvidia.com/gpu` runs only on the
+> NVIDIA nodes — the pods it tries to place on the AMD and Gaudi nodes stay
+> unschedulable, since those nodes don't advertise that resource. To cover every
+> vendor, deploy a separate DaemonSet for each, changing the `resources.limits`
+> key (`amd.com/gpu` / `habana.ai/gaudi`), the `nodeAffinity` match key, and — for
+> AMD only — adding `securityContext.supplementalGroups`. A single DaemonSet could
+> only span all vendors by running `privileged: true` and mounting the host `/dev`
+> directly, which is exactly what this unprivileged setup avoids.
 
 ## Testing
 
@@ -237,8 +366,13 @@ docker run --rm --gpus all \
 **AMD GPU Test:**
 ```bash
 # On a node with AMD GPU
+# AMD device nodes are group-owned; grant their GIDs (keep-groups is Podman-only).
+gpu_gids=$(for d in /dev/kfd /dev/dri/renderD* /dev/dri/card*; do
+  [ -e "$d" ] && stat -c '%g' "$d"
+done | sort -u)
 docker run --rm \
   --device=/dev/kfd --device=/dev/dri \
+  $(printf -- '--group-add %s ' $gpu_gids) \
   quay.io/gkm/mcv:unified \
   --extract --image quay.io/myorg/rocm-cache:v1 --dir /tmp/cache
 
@@ -268,10 +402,20 @@ jobs:
     steps:
       - name: Build vLLM cache OCI image
         run: |
+          # Buildah storage lives at /home/appuser/.local/share/containers inside
+          # the image (owned by UID 1000). Mount a writable host directory there
+          # so that --user 1000:1000 can write to it regardless of the runner UID.
+          sudo install -d -o 1000 -g 1000 -m 700 /tmp/mcv-storage
+
           # --builder docker loads the image into the Docker daemon so the
           # subsequent docker push step can find it on the host.
-          docker run --rm --privileged \
-            -v $(pwd)/.cache:/cache:ro \
+          docker run --rm \
+            --user 1000:1000 \
+            --group-add "$(stat -c '%g' /var/run/docker.sock)" \
+            --security-opt seccomp=unconfined \
+            --security-opt apparmor=unconfined \
+            -v $(pwd)/.cache:/cache:ro,Z \
+            -v /tmp/mcv-storage:/home/appuser/.local/share/containers:Z \
             -v /var/run/docker.sock:/var/run/docker.sock \
             quay.io/gkm/mcv:unified \
             --create --image quay.io/myorg/cache:${{ github.sha }} \
@@ -280,6 +424,43 @@ jobs:
       - name: Push to registry
         run: docker push quay.io/myorg/cache:${{ github.sha }}
 ```
+
+> **Why `--user 1000:1000` instead of `--user $(id -u):$(id -g)`?** Buildah's
+> storage is pinned to `/home/appuser/.local/share/containers` inside the image,
+> pre-created and owned by UID 1000 (`appuser`). Running as the host user's UID
+> (typically 1001 on GitHub-hosted runners) would make those paths unwritable.
+> Using a fixed `--user 1000:1000` keeps the UID consistent regardless of the
+> runner's own UID. The `-v /tmp/mcv-storage:/home/appuser/.local/share/containers`
+> mount gives UID 1000 a writable scratch area that does not outlive the job.
+>
+> **Why `--group-add`?** With `--builder docker`, MCV loads the built image into
+> the Docker daemon over the mounted `/var/run/docker.sock`. A rootful socket is
+> typically group-owned (`docker`) with mode `0660`. Because `--user 1000:1000`
+> drops the container's supplementary groups, the process would lack access to the
+> socket and the load would fail with `permission denied`. Adding
+> `--group-add "$(stat -c '%g' /var/run/docker.sock)"` grants exactly that group,
+> and is harmless for a rootless socket (which the user already owns).
+>
+> **Security note — rootful `/var/run/docker.sock`.** When the mounted socket
+> connects to a rootful Docker daemon, `--group-add` gives MCV Docker API access.
+> That access can start privileged containers and mount host paths; `--user` does
+> not reduce these daemon permissions. Use a rootless or isolated daemon, or
+> require trusted images and an isolated runner. Prefer a **rootless Podman**
+> socket (`$XDG_RUNTIME_DIR/podman/podman.sock`) or a rootless Docker socket —
+> neither requires `--group-add` and neither allows privilege escalation through
+> the daemon.
+>
+> **Security note — `seccomp=unconfined` / `apparmor=unconfined`.** MCV runs
+> buildah *inside* the container to assemble the OCI image, which needs
+> `mount`/`unshare`/`pivot_root` and user-namespace operations that Docker's
+> default seccomp and AppArmor profiles block for non-privileged containers.
+> Disabling both is a deliberate, security-reviewed fallback — it is far narrower
+> than `--privileged` (no added capabilities, host devices, or host namespaces),
+> and the blast radius is bounded: the container runs as a non-root user
+> (`--user`), performs a single packaging task, and is removed on exit (`--rm`).
+> To harden the CI job further, replace these flags with scoped seccomp and
+> AppArmor profiles that allow only buildah's required syscalls/operations, or run
+> the same command under **rootless Podman**, which needs neither flag.
 
 ## Performance Comparison
 
