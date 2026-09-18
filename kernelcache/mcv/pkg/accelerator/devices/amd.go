@@ -435,7 +435,7 @@ func getAMDListInfo(ctx context.Context) (map[int]*AMDListInfo, error) {
 	}
 
 	var listInfo []*AMDListInfo
-	if err = json.Unmarshal(output, &listInfo); err != nil {
+	if err = json.NewDecoder(bytes.NewReader(output)).Decode(&listInfo); err != nil {
 		return nil, fmt.Errorf("failed to parse amd-smi output: %w", err)
 	}
 
