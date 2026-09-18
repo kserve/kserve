@@ -59,7 +59,14 @@ class AIFModel(kserve.Model):
 
     def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         inputs = payload["instances"]
-        predictions = np.array(payload["outputs"])
+        # An explain request may omit "outputs": in that case the model is
+        # responsible for producing the predictions itself, rather than
+        # crashing with a KeyError. Fall back to running prediction on the
+        # provided instances.
+        if "outputs" in payload:
+            predictions = np.array(payload["outputs"])
+        else:
+            predictions = self._predict(inputs)
 
         dataframe_predicted = pd.DataFrame(inputs, columns=self.feature_names)
         dataframe_predicted[self.label_names[0]] = predictions
