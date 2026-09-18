@@ -35,7 +35,7 @@ const (
 	cacheHabanaImageCacheSize  = cacheHabanaImagePrefix + "/cache-size-bytes"
 	cacheHabanaImageSummary    = cacheHabanaImagePrefix + "/summary"
 
-	habanaBackend = "hpu"
+	habanaBackend = constants.BackendHPU
 
 	// habanaCacheRootPath is the directory a KServe serving container mounts the
 	// Habana recipe cache at. It is baked into the cache-root-env label so the

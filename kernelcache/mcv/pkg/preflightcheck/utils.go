@@ -35,7 +35,7 @@ import (
 // normalizeArchForComparison normalizes architecture strings for comparison
 // Strips sm_ prefix from CUDA architectures to handle both "75" and "sm_75" formats
 func normalizeArchForComparison(backend, arch string) string {
-	if backend == "cuda" {
+	if backend == constants.BackendCUDA {
 		return strings.TrimPrefix(arch, "sm_")
 	}
 	return arch
@@ -84,7 +84,7 @@ func CompareCacheSummaryLabelToGPU(img v1.Image, labels map[string]string, devIn
 
 			// HPU (Habana) caches are backend-matched only — recipe files
 			// don't encode arch or warp size.
-			if backendMatches && target.Backend == "hpu" {
+			if backendMatches && target.Backend == constants.BackendHPU {
 				logging.Debugf("Habana backend match: target=%s, gpu=%s", target.Backend, gpu.Backend)
 				isMatch = true
 				break

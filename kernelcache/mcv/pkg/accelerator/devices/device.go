@@ -40,11 +40,6 @@ const (
 	NVML
 	ROCM
 	GAUDI
-
-	// GPU architecture and backend constants
-	gfxArchMI210   = "gfx90a"
-	hipBackend     = "hip"
-	stubbedAMDName = "STUBBED AMD"
 )
 
 var (

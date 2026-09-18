@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/redhat-et/GKM/mcv/pkg/config"
+	"github.com/redhat-et/GKM/mcv/pkg/constants"
 	"github.com/redhat-et/GKM/mcv/pkg/utils"
 	logging "github.com/sirupsen/logrus"
 )
@@ -160,7 +161,7 @@ func (g *gpuGaudi) Init() error {
 			ID:            dev.Index,
 			Name:          dev.Name,
 			UUID:          dev.UUID,
-			Backend:       "hpu",
+			Backend:       constants.BackendHPU,
 			Arch:          arch,
 			WarpSize:      0,
 			MemoryTotalMB: uint64(dev.MemoryTotal),

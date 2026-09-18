@@ -61,6 +61,13 @@ const (
 
 	// Habana recipe cache env var
 	HabanaRecipeCacheEnv = "PT_HPU_RECIPE_CACHE_CONFIG"
+
+	// Accelerator backend identifiers — canonical strings used in TritonGPUInfo.Backend,
+	// OCI image labels, and cache-type detection.
+	BackendCUDA = "cuda"
+	BackendHIP  = "hip"
+	BackendROCm = "rocm"
+	BackendHPU  = "hpu"
 )
 
 // Configurable runtime paths
