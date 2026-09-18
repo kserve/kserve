@@ -397,6 +397,21 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	// Make sure securityContext is initialized and valid
 	securityContext := pod.Spec.Containers[0].SecurityContext.DeepCopy()
 
+	agentPorts := []corev1.ContainerPort{
+		{
+			Name:          "agent-port",
+			ContainerPort: constants.InferenceServiceDefaultAgentPort,
+			Protocol:      "TCP",
+		},
+	}
+	if injectLogger {
+		agentPorts = append(agentPorts, corev1.ContainerPort{
+			Name:          "agent-metrics",
+			ContainerPort: constants.LoggerMetricsPort,
+			Protocol:      "TCP",
+		})
+	}
+
 	agentContainer := &corev1.Container{
 		Name:  constants.AgentContainerName,
 		Image: ag.agentConfig.Image,
@@ -411,13 +426,7 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 				corev1.ResourceMemory: resource.MustParse(ag.agentConfig.MemoryRequest),
 			},
 		},
-		Ports: []corev1.ContainerPort{
-			{
-				Name:          "agent-port",
-				ContainerPort: constants.InferenceServiceDefaultAgentPort,
-				Protocol:      "TCP",
-			},
-		},
+		Ports:           agentPorts,
 		SecurityContext: securityContext,
 		Env:             agentEnvs,
 		ReadinessProbe: &corev1.Probe{
