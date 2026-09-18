@@ -163,9 +163,37 @@ docker run --rm --gpus all quay.io/gkm/mcv:unified \
 **Intel Gaudi** (nodes are `0666` — device access only, no group needed):
 
 ```bash
+# Podman — --device accepts the whole /dev/accel directory.
 podman run --rm --device /dev/accel quay.io/gkm/mcv:gaudi \
   --check-compat --image quay.io/myorg/cache:v1
 ```
+
+To verify Gaudi device access from the container without a cache image, run
+`--gpu-info` (queries `hl-smi` only — no cache dir or image build):
+
+```bash
+# Docker — --device does NOT accept a directory, so enumerate the nodes.
+# seccomp/apparmor are unconfined because mcv calls buildah.InitReexec() at
+# startup (for every subcommand), which sets up an unprivileged user namespace
+# that Ubuntu 24.04's default container profile blocks.
+docker run --rm \
+  --user "$(id -u):$(id -g)" \
+  --security-opt seccomp=unconfined \
+  --security-opt apparmor=unconfined \
+  $(printf -- '--device=%s ' /dev/accel/accel*) \
+  quay.io/gkm/mcv:gaudi \
+  --gpu-info
+```
+
+Expected output lists the detected fleet, e.g. `GPU Type: HL-325L` (gaudi3) with
+one ID per device. The `newuidmap/newgidmap … Falling back to single mapping`
+warnings from `InitReexec` are benign for `--gpu-info`.
+
+> **Gaudi preflight is backend-only.** Habana Synapse recipe caches don't encode
+> the target architecture or warp size in their recipe filenames, so MCV matches
+> Gaudi caches on backend (`hpu`) alone — not on a specific Gaudi generation. A
+> `gaudi2` cache will pass `--check-compat` on a `gaudi3` host and vice versa;
+> validate generation compatibility out of band if it matters for your models.
 
 **AMD** (render/DRI nodes are group-owned — add the group):
 

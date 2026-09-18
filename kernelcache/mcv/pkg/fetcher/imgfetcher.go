@@ -208,6 +208,8 @@ func (e *cacheExtractor) ExtractCache(img v1.Image) error {
 			constants.ExtractCacheDir = constants.TritonCacheDir
 		case constants.VLLM:
 			constants.ExtractCacheDir = constants.VLLMCacheDir
+		case constants.Habana:
+			constants.ExtractCacheDir = constants.HabanaCacheDir
 		default:
 			return fmt.Errorf("unsupported cache type: %s", cacheType)
 		}
@@ -407,6 +409,8 @@ func validateExtractedCacheSize(labels map[string]string, cacheType string, extr
 		labelKey = "cache.triton.image/cache-size-bytes"
 	case constants.VLLM:
 		labelKey = "cache.vllm.image/cache-size-bytes"
+	case constants.Habana:
+		labelKey = "cache.habana.image/cache-size-bytes"
 	default:
 		return fmt.Errorf("unsupported cache type: %s", cacheType)
 	}
