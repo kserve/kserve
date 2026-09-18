@@ -5559,6 +5559,18 @@ spec:
             type: object
           spec:
             properties:
+              imagePullSecrets:
+                items:
+                  properties:
+                    name:
+                      default: ""
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               modelSize:
                 anyOf:
                 - type: integer
@@ -5704,6 +5716,18 @@ spec:
             type: object
           spec:
             properties:
+              imagePullSecrets:
+                items:
+                  properties:
+                    name:
+                      default: ""
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
               modelSize:
                 anyOf:
                 - type: integer
@@ -6558,6 +6582,18 @@ spec:
               localModels:
                 items:
                   properties:
+                    imagePullSecrets:
+                      items:
+                        properties:
+                          name:
+                            default: ""
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     modelName:
                       type: string
                     namespace:
