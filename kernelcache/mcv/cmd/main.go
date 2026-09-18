@@ -82,7 +82,7 @@ func logFatal(message string, err error, exitCode int) {
 func buildRootCommand() *cobra.Command {
 	var imageName, cacheDirName, logLevel, builder, resultPath, snapshotPath string
 	var excludedDirectories []string
-	var createFlag, extractFlag, snapshotFlag, deltaFromSnapshotFlag, baremetalFlag, noGPUFlag, skipPrecheckFlag, checkCompatFlag, gpuInfoFlag, stubFlag, versionFlag bool
+	var createFlag, extractFlag, snapshotFlag, deltaFromSnapshotFlag, baremetalFlag, noGPUFlag, checkCompatFlag, gpuInfoFlag, stubFlag, versionFlag bool
 	var timeout int
 
 	cmd := &cobra.Command{
@@ -101,16 +101,16 @@ and performing hardware compatibility checks.`,
 				fmt.Printf("mcv version %s\n", version)
 				os.Exit(exitNormal)
 			}
-			handleRunCommand(imageName, cacheDirName, logLevel, builder, resultPath, snapshotPath, excludedDirectories, createFlag, extractFlag, snapshotFlag, deltaFromSnapshotFlag, baremetalFlag, noGPUFlag, skipPrecheckFlag, checkCompatFlag, gpuInfoFlag, stubFlag, timeout)
+			handleRunCommand(imageName, cacheDirName, logLevel, builder, resultPath, snapshotPath, excludedDirectories, createFlag, extractFlag, snapshotFlag, deltaFromSnapshotFlag, baremetalFlag, noGPUFlag, checkCompatFlag, gpuInfoFlag, stubFlag, timeout)
 		},
 	}
 
-	addFlags(cmd, &imageName, &cacheDirName, &logLevel, &builder, &resultPath, &snapshotPath, &excludedDirectories, &createFlag, &extractFlag, &snapshotFlag, &deltaFromSnapshotFlag, &baremetalFlag, &noGPUFlag, &skipPrecheckFlag, &checkCompatFlag, &gpuInfoFlag, &stubFlag, &timeout)
+	addFlags(cmd, &imageName, &cacheDirName, &logLevel, &builder, &resultPath, &snapshotPath, &excludedDirectories, &createFlag, &extractFlag, &snapshotFlag, &deltaFromSnapshotFlag, &baremetalFlag, &noGPUFlag, &checkCompatFlag, &gpuInfoFlag, &stubFlag, &timeout)
 	cmd.Flags().BoolVar(&versionFlag, "version", false, "Display the version of the application")
 	return cmd
 }
 
-func addFlags(cmd *cobra.Command, imageName, cacheDirName, logLevel, builder, resultPath, snapshotPath *string, excludedDirectories *[]string, createFlag, extractFlag, snapshotFlag, deltaFromSnapshotFlag, baremetalFlag, noGPUFlag, skipPrecheckFlag, checkCompatFlag, gpuInfoFlag, stubFlag *bool, timeout *int) {
+func addFlags(cmd *cobra.Command, imageName, cacheDirName, logLevel, builder, resultPath, snapshotPath *string, excludedDirectories *[]string, createFlag, extractFlag, snapshotFlag, deltaFromSnapshotFlag, baremetalFlag, noGPUFlag, checkCompatFlag, gpuInfoFlag, stubFlag *bool, timeout *int) {
 	// Image operations
 	cmd.Flags().StringVarP(imageName, "image", "i", "", "OCI image name (required for create, extract, check-compat)")
 	cmd.Flags().StringVarP(cacheDirName, "dir", "d", "", "Triton/vLLM cache directory path")
@@ -129,7 +129,6 @@ func addFlags(cmd *cobra.Command, imageName, cacheDirName, logLevel, builder, re
 	cmd.Flags().StringVarP(logLevel, "log-level", "l", "info", "Set logging verbosity (debug, info, warning, error)")
 	cmd.Flags().BoolVarP(baremetalFlag, "baremetal", "b", false, "Enable detailed baremetal preflight checks")
 	cmd.Flags().BoolVar(noGPUFlag, "no-gpu", false, "Disable GPU detection and preflight checks (for testing)")
-	cmd.Flags().BoolVar(skipPrecheckFlag, "skip-precheck", false, "Skip GPU compatibility checks during extraction")
 	cmd.Flags().BoolVar(stubFlag, "stub", false, "Use mock/stub data for hardware info (for testing)")
 	cmd.Flags().StringVar(builder, "builder", "", "Builder: buildah, docker, or oci (creates and pushes directly to the registry)")
 	cmd.Flags().StringVar(resultPath, "result", "", "Write OCI create result as JSON to this file")
@@ -141,16 +140,11 @@ func addFlags(cmd *cobra.Command, imageName, cacheDirName, logLevel, builder, re
 	cmd.MarkFlagsMutuallyExclusive("create", "extract", "snapshot")
 	cmd.MarkFlagsMutuallyExclusive("no-gpu", "gpu-info")
 	cmd.MarkFlagsMutuallyExclusive("no-gpu", "check-compat")
-	cmd.MarkFlagsMutuallyExclusive("skip-precheck", "check-compat")
 }
 
-func handleRunCommand(imageName, cacheDirName, logLevel, builder, resultPath, snapshotPath string, excludedDirectories []string, createFlag, extractFlag, snapshotFlag, deltaFromSnapshotFlag, baremetalFlag, noGPUFlag, skipPrecheckFlag, checkCompatFlag, gpuInfoFlag, stubFlag bool, timeout int) {
+func handleRunCommand(imageName, cacheDirName, logLevel, builder, resultPath, snapshotPath string, excludedDirectories []string, createFlag, extractFlag, snapshotFlag, deltaFromSnapshotFlag, baremetalFlag, noGPUFlag, checkCompatFlag, gpuInfoFlag, stubFlag bool, timeout int) {
 	// Validate flag combinations
 	if err := validateFlagCombinations(createFlag, extractFlag, snapshotFlag, gpuInfoFlag, checkCompatFlag, imageName, cacheDirName, stubFlag); err != nil {
-		logging.Error(err)
-		os.Exit(exitLogError)
-	}
-	if err := validateSkipPrecheckFlag(skipPrecheckFlag, extractFlag); err != nil {
 		logging.Error(err)
 		os.Exit(exitLogError)
 	}
@@ -158,21 +152,9 @@ func handleRunCommand(imageName, cacheDirName, logLevel, builder, resultPath, sn
 		logging.Error(err)
 		os.Exit(exitDeltaError)
 	}
-	if err := validateResultFlag(resultPath, createFlag, builder); err != nil {
-		logging.Error(err)
-		os.Exit(exitLogError)
-	}
 	if err := validateExcludedDirectories(excludedDirectories, snapshotFlag); err != nil {
 		logging.Error(err)
 		os.Exit(exitSnapshotError)
-	}
-	if createFlag || snapshotFlag {
-		absoluteCacheDir, err := resolveCacheDirectory(cacheDirName)
-		if err != nil {
-			logging.Errorf("failed to resolve cache directory: %v", err)
-			os.Exit(exitLogError)
-		}
-		cacheDirName = absoluteCacheDir
 	}
 
 	// Configure flags before any operations so --no-gpu works with --create
@@ -198,7 +180,7 @@ func handleRunCommand(imageName, cacheDirName, logLevel, builder, resultPath, sn
 	}
 
 	if extractFlag {
-		runExtract(imageName, cacheDirName, logLevel, baremetalFlag, skipPrecheckFlag)
+		runExtract(imageName, cacheDirName, logLevel, baremetalFlag)
 		return
 	}
 
@@ -214,13 +196,6 @@ func validateExcludedDirectories(excludedDirectories []string, snapshotFlag bool
 	return nil
 }
 
-func validateSkipPrecheckFlag(skipPrecheckFlag, extractFlag bool) error {
-	if skipPrecheckFlag && !extractFlag {
-		return errors.New("--skip-precheck can only be used with --extract")
-	}
-	return nil
-}
-
 func validateDeltaFlag(deltaFromSnapshotFlag, createFlag bool, builder string) error {
 	if !deltaFromSnapshotFlag {
 		return nil
@@ -232,26 +207,6 @@ func validateDeltaFlag(deltaFromSnapshotFlag, createFlag bool, builder string) e
 		return errors.New("--delta-from-snapshot requires --builder oci")
 	}
 	return nil
-}
-
-func validateResultFlag(resultPath string, createFlag bool, builder string) error {
-	if resultPath == "" {
-		return nil
-	}
-	if !createFlag {
-		return errors.New("--result can only be used with --create")
-	}
-	if builder != imgbuild.OCI {
-		return errors.New("--result requires --builder oci")
-	}
-	return nil
-}
-
-func resolveCacheDirectory(cacheDir string) (string, error) {
-	if cacheDir == "" {
-		return "", nil
-	}
-	return filepath.Abs(cacheDir)
 }
 
 func validateFlagCombinations(createFlag, extractFlag, snapshotFlag, gpuInfoFlag, checkCompatFlag bool, imageName, cacheDirName string, stubFlag bool) error {
@@ -349,11 +304,6 @@ func handleGPUInfo(timeout int) {
 }
 
 func handleCheckCompat(imageName string) {
-	if imageName == "" {
-		logging.Error("--image is required with --check-compat")
-		os.Exit(exitLogError)
-	}
-
 	matched, unmatched, err := client.PreflightCheck(imageName)
 	if err != nil {
 		logging.Errorf("Preflight check failed: %v", err)
@@ -499,7 +449,7 @@ func writeCreateResult(path string, result *imgbuild.CreateResult) error {
 	return os.Rename(temporaryPath, path)
 }
 
-func runExtract(imageName, cacheDir, logLevel string, baremetalFlag, skipPrecheckFlag bool) {
+func runExtract(imageName, cacheDir, logLevel string, baremetalFlag bool) {
 	gpuEnabled := config.IsGPUEnabled()
 	opts := client.Options{
 		ImageName:       imageName,
@@ -507,7 +457,6 @@ func runExtract(imageName, cacheDir, logLevel string, baremetalFlag, skipPrechec
 		EnableGPU:       &gpuEnabled,
 		LogLevel:        logLevel,
 		EnableBaremetal: &baremetalFlag,
-		SkipPrecheck:    &skipPrecheckFlag,
 	}
 	if _, _, err := client.ExtractCache(opts); err != nil {
 		logging.Errorf("Error extracting image: %v", err)

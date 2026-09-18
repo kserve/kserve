@@ -17,11 +17,11 @@ limitations under the License.
 package main
 
 import (
-	"path/filepath"
 	"testing"
 
-	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
 
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/imgbuild"
 )
@@ -83,9 +83,12 @@ func TestValidateFlagCombinations(t *testing.T) {
 			expectError:  true,
 		},
 		{
-			name:        "Stub flag without gpu-info",
-			stubFlag:    true,
-			expectError: true,
+			name:         "Stub flag without gpu-info",
+			createFlag:   true,
+			imageName:    testImageName,
+			cacheDirName: testCacheDirName,
+			stubFlag:     true,
+			expectError:  true,
 		},
 		{
 			name:            "Valid check-compat flag with image",
@@ -151,38 +154,8 @@ func TestValidateDeltaFlag(t *testing.T) {
 	}
 }
 
-func TestValidateResultFlag(t *testing.T) {
-	tests := []struct {
-		name        string
-		resultPath  string
-		create      bool
-		builder     string
-		expectError bool
-	}{
-		{name: "Result disabled"},
-		{name: "Result requires create", resultPath: "/tmp/result.json", builder: imgbuild.OCI, expectError: true},
-		{name: "Result requires OCI builder", resultPath: "/tmp/result.json", create: true, builder: imgbuild.Buildah, expectError: true},
-		{name: "Valid OCI result", resultPath: "/tmp/result.json", create: true, builder: imgbuild.OCI},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validateResultFlag(tt.resultPath, tt.create, tt.builder)
-			if (err != nil) != tt.expectError {
-				t.Errorf("Expected error: %v, got: %v", tt.expectError, err)
-			}
-		})
-	}
-}
-
-func TestResolveCacheDirectory(t *testing.T) {
-	got, err := resolveCacheDirectory(filepath.Join(".", "cache"))
-	require.NoError(t, err)
-	require.True(t, filepath.IsAbs(got))
-	require.Equal(t, filepath.Clean(got), got)
-}
-
 func TestSnapshotRootOptionsIncludeDefaultExclusions(t *testing.T) {
-	roots := snapshotRootOptions("/tmp/cache", []string{"dummy_cache", "temporary"})
+	roots := snapshotRootOptions("/tmp/cache", []string{"temporary"})
 	require.Len(t, roots, 1)
 	require.Equal(t, "/tmp/cache", roots[0].Source)
 	require.Equal(t, []string{"dummy_cache", "temporary"}, roots[0].ExcludedDirectories)
