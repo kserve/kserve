@@ -43,6 +43,7 @@ type LocalModelCacheStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
 }
 
+// +k8s:openapi-gen=true
 type NamespacedName struct {
 	Namespace string `json:"namespace,omitempty"`
 	Name      string `json:"name,omitempty"`

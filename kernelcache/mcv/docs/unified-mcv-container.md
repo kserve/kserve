@@ -10,7 +10,7 @@ The unified MCV container (`quay.io/gkm/mcv:unified`) includes **both NVIDIA (CU
 
 ```bash
 make build-image-mcv
-# Tags as: quay.io/gkm/mcv:latest
+# Tags as: quay.io/gkm/mcv:unified
 ```
 
 ### Basic Usage
@@ -32,15 +32,15 @@ The unified container includes runtime libraries for both GPU vendors:
 - Gracefully fails if library not found (e.g., on AMD nodes)
 
 **AMD Support:**
-- ROCm 6.2.4 provides `rocm-smi` and `amd-smi` CLI tools
+- ROCm 7.0.1 provides `rocm-smi` and `amd-smi` CLI tools
 - MCV checks for binary existence via `utils.HasApp()`
 - Gracefully fails if tools not found (e.g., on NVIDIA nodes)
 
 **Runtime Detection:**
-```
-On NVIDIA node: nvmlCheck() → ✓ uses NVML
+```text
+On NVIDIA node: nvmlCheck()  → ✓ uses NVML
 On AMD node:    rocmCheck()  → ✓ uses rocm-smi
-On CPU node:    both fail    → ✓ uses --no-gpu mode
+On CPU node:    both fail    → requires explicit --no-gpu flag
 ```
 
 ## Container Variants Comparison
@@ -108,9 +108,16 @@ podman run --rm --privileged \
 
 ## Kubernetes Deployment
 
+> **Note:** GKM operator deployments use the `gkm-extract` Job image
+> (configured via `gkm.extract.image`) for in-cluster cache extraction — not
+> MCV directly. The MCV image is for standalone cache packaging workflows
+> (building OCI cache images outside the cluster). The examples below show MCV
+> used standalone, independent of a GKM operator deployment.
+
 ### Using in Kubernetes Jobs
 
-The unified image works on any node type without requiring node selectors:
+GPU extraction requires a GPU node and appropriate device access. For CPU-only
+nodes, add `--no-gpu` to the args (or use `quay.io/gkm/mcv:no-gpu`).
 
 ```yaml
 apiVersion: batch/v1
@@ -120,7 +127,8 @@ metadata:
 spec:
   template:
     spec:
-      # No nodeSelector needed - works on any node!
+      nodeSelector:
+        hardware-type: gpu  # Required for GPU extraction without --no-gpu
       containers:
       - name: mcv
         image: quay.io/gkm/mcv:unified
@@ -142,9 +150,9 @@ spec:
 ```
 
 **Benefits:**
-- ✅ Single Job definition works on any node type
+- ✅ Single Job definition works on NVIDIA or AMD GPU nodes
 - ✅ Simplifies deployment in mixed GPU clusters
-- ✅ No need to maintain multiple Job definitions
+- ✅ CPU-only workflows supported with explicit `--no-gpu`
 
 ### DaemonSet Deployment
 
@@ -286,7 +294,7 @@ jobs:
 ```bash
 # From the repo root
 make build-image-mcv
-# Tags as: quay.io/gkm/mcv:latest
+# Tags as: quay.io/gkm/mcv:unified
 
 # Or with docker directly
 docker build --platform linux/amd64 \
@@ -301,7 +309,7 @@ docker build --platform linux/amd64 \
 ```bash
 # From the repo root
 make build-image-mcv-no-gpu
-# Tags as: quay.io/gkm/mcv:latest-no-gpu
+# Tags as: quay.io/gkm/mcv:no-gpu (also :latest)
 
 # Or with docker directly
 docker build --platform linux/amd64 \
@@ -335,7 +343,8 @@ make push-images-no-gpu # push no-GPU variants
 - Check container has GPU access: `--gpus all` or `--device nvidia.com/gpu=all`
 
 **On AMD/CPU nodes:**
-- This is expected and harmless - container falls back to ROCm or no-GPU mode
+- Expected on CPU nodes — add `--no-gpu` for extraction without GPU hardware
+- On AMD nodes, ensure ROCm device access is configured
 
 ### Issue: "couldn't find rocm-smi"
 
@@ -345,7 +354,7 @@ make push-images-no-gpu # push no-GPU variants
 - Ensure container has device access: `--device=/dev/kfd --device=/dev/dri`
 
 **On NVIDIA/CPU nodes:**
-- This is expected and harmless - container falls back to NVML or no-GPU mode
+- Expected on non-AMD nodes — use `--no-gpu` on CPU nodes, or NVML on NVIDIA nodes
 
 ### Issue: Container works but no GPU detected
 
@@ -379,7 +388,7 @@ args: ["--create", "--image", "...", "--no-gpu"]
 - Provides `libnvidia-ml.so.1` for NVML
 
 ### Added Components
-- ROCm 6.2.4 (`amd-smi-lib`, `rocm-smi-lib`)
+- ROCm 7.0.1 (`amd-smi-lib`, `rocm-smi-lib`)
 - Buildah and container tools
 - MCV binary (compiled with MCV client library)
 
@@ -407,20 +416,19 @@ func registerDevices(r *Registry) {
 
 - [MCV README](../README.md) - Full MCV documentation
 - [No-GPU Usage Guide](./no-gpu-usage.md) - Using MCV without GPU hardware
-- [Kubernetes Deployment](./kubernetes-deployment.md) - K8s deployment patterns
 
 ## Summary
 
 The unified MCV container simplifies deployment by providing a single image that works across all GPU types:
 
-✅ **Single image** for NVIDIA, AMD, and CPU-only nodes
-✅ **Auto-detection** of GPU vendor at runtime
-✅ **Drop-in replacement** for existing MCV deployments
-✅ **Simplified CI/CD** - one image for all environments
-✅ **Mixed cluster support** - no node selectors required
+- ✅ **Single image** for NVIDIA and AMD GPU nodes; CPU-only requires explicit `--no-gpu`
+- ✅ **Auto-detection** of GPU vendor at runtime
+- ✅ **Drop-in replacement** for existing MCV deployments
+- ✅ **Simplified CI/CD** - one image for all environments
+- ✅ **Mixed cluster support** - no node selectors required
 
 **Build:**
 ```bash
-make build-image-mcv        # GPU unified: quay.io/gkm/mcv:latest
-make build-image-mcv-no-gpu # No-GPU:      quay.io/gkm/mcv:latest-no-gpu
+make build-image-mcv        # GPU unified: quay.io/gkm/mcv:unified
+make build-image-mcv-no-gpu # No-GPU:      quay.io/gkm/mcv:no-gpu (also :latest)
 ```

@@ -24,10 +24,15 @@ The cache already contains all necessary GPU information:
 ## Container Images
 
 ### No-GPU Image (Recommended for --no-gpu)
-**Size:** ~176MB
-**Includes:** MCV binary, buildah, basic container tools
-**Excludes:** ROCm/CUDA libraries
-**Tags:** `quay.io/gkm/mcv:no-gpu`
+- **Size:** ~176MB
+- **Includes:** MCV binary, buildah, basic container tools
+- **Excludes:** ROCm/CUDA libraries
+- **Tags:** `quay.io/gkm/mcv:no-gpu`, `quay.io/gkm/mcv:latest` // TODO update later with kserve images
+
+> **Note:** For MCV, `:latest` resolves to the no-gpu variant (lighter, safer default for cache
+> creation without GPU hardware). This differs from the agent and gkm-extract images where
+> `:latest` resolves to the unified (GPU-capable) variant. Use `quay.io/gkm/mcv:unified`
+> explicitly for GPU environments.
 
 ```bash
 # Build
@@ -41,10 +46,10 @@ podman run --rm -v /path/to/cache:/cache quay.io/gkm/mcv:no-gpu \
 ```
 
 ### Unified Image (For GPU validation - NVIDIA + AMD)
-**Size:** ~533MB
-**Includes:** MCV binary, buildah, CUDA runtime (NVML), ROCm libraries, amd-smi, rocm-smi
-**Use case:** Preflight checks with NVIDIA or AMD GPU hardware; auto-detects GPU vendor at runtime
-**Tags:** `quay.io/gkm/mcv:unified`, `quay.io/gkm/mcv:latest`
+- **Size:** ~533MB
+- **Includes:** MCV binary, buildah, CUDA runtime (NVML), ROCm libraries, amd-smi, rocm-smi
+- **Use case:** Preflight checks with NVIDIA or AMD GPU hardware; auto-detects GPU vendor at runtime
+- **Tags:** `quay.io/gkm/mcv:unified`
 
 ```bash
 # Build
