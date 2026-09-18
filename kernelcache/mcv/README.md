@@ -13,7 +13,7 @@ A Model/GPU kernel cache container packaging utility inspired by
 
 - Build container images containing GPU Kernel/Model caches.
 - Extract a cache from an OCI image
-- Compatible with docker or buildah
+- Compatible with Docker, Buildah, and direct OCI packaging
 - **Single-layer image output** (squashed) for cosign compatibility
 - Client API for retrieving and extracting images
 - Artifact and image signing via cosign (indirectly)
@@ -66,13 +66,19 @@ Usage:
 Flags:
   -c, --create               Create OCI image from cache directory
   -e, --extract              Extract Triton/vLLM cache from OCI image
+      --snapshot             Write a recursive cache directory snapshot
+      --delta-from-snapshot  Create an OCI image from changes after a snapshot
   -i, --image string         OCI image name (required for create, extract, check-compat)
   -d, --dir string           Triton/vLLM cache directory path
       --gpu-info             Display GPU-specific information
       --check-compat         Check GPU compatibility with specified image
   -b, --baremetal            Enable detailed baremetal preflight checks
   -l, --log-level string     Set logging verbosity (debug, info, warning, error) (default "info")
-      --builder string       Specify the builder to use (buildah or docker)
+      --builder string       Builder: buildah, docker, or oci
+      --result string        Write OCI create result as JSON to this file
+      --snapshot-file string Cache snapshot file path
+      --exclude-dir stringArray
+                              Directory below --dir to exclude from snapshot
       --no-gpu               Disable GPU detection and preflight checks (for testing)
       --stub                 Use mock/stub data for hardware info (for testing)
   -t, --timeout int          Timeout in minutes for hardware detection operations (0 = disable) (default 10)
@@ -117,6 +123,22 @@ Two image variants are available:
 **GPU access flags** (e.g., `--gpus all` for NVIDIA, `--device /dev/kfd --device /dev/dri` for AMD) are **ONLY** required for GPU validation/preflight checks. They are **NOT** needed when using `--no-gpu` for cache creation or extraction.
 
 For detailed usage examples, container configuration, GPU access requirements, and CI/CD integration, see [docs/no-gpu-usage.md](./docs/no-gpu-usage.md).
+
+### OCI delta capture
+
+The OCI builder packages and pushes a cache image directly to a registry. It
+also supports creating an image from cache changes recorded after a baseline
+snapshot. See [docs/oci-delta-capture.md](./docs/oci-delta-capture.md).
+
+The KServe capture sidecar uses the same OCI and snapshot flow with grouped
+configuration and readiness reporting. See
+[docs/capture-sidecar.md](./docs/capture-sidecar.md).
+
+CLI constraints:
+
+- `--delta-from-snapshot` requires `--create --builder oci`.
+- `--exclude-dir` can only be used with `--snapshot`.
+- `--result` currently requires `--builder oci`.
 
 
 ## Dependencies
