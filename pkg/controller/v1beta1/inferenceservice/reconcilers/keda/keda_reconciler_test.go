@@ -585,6 +585,49 @@ func TestGetKedaMetrics_ExternalMetricSourceType_WithNamespaceAndAuth(t *testing
 	assert.Equal(t, "bearer", trigger.Metadata["authModes"])
 	assert.NotNil(t, trigger.AuthenticationRef)
 	assert.Equal(t, "auth-secret", trigger.AuthenticationRef.Name)
+	assert.Empty(t, trigger.AuthenticationRef.Kind)
+}
+
+func TestGetKedaMetrics_ExternalMetricSourceType_WithClusterTriggerAuthentication(t *testing.T) {
+	componentMeta := metav1.ObjectMeta{
+		Name:      "test-component",
+		Namespace: "test-namespace",
+	}
+	componentExt := &v1beta1.ComponentExtensionSpec{
+		AutoScaling: &v1beta1.AutoScalingSpec{
+			Metrics: []v1beta1.MetricsSpec{
+				{
+					Type: v1beta1.ExternalMetricSourceType,
+					External: &v1beta1.ExternalMetricSource{
+						Metric: v1beta1.ExternalMetrics{
+							Backend:       v1beta1.PrometheusBackend,
+							ServerAddress: "http://prometheus-server",
+							Query:         "http_requests_total",
+						},
+						Target: v1beta1.MetricTarget{
+							Value: v1beta1.NewMetricQuantity("123"),
+						},
+						Authentication: &v1beta1.ExtMetricAuthentication{
+							AuthModes: "bearer",
+							AuthenticationRef: v1beta1.AuthenticationRef{
+								Name: "cluster-auth",
+								Kind: v1beta1.TriggerAuthenticationKindCluster,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	configMap := &corev1.ConfigMap{}
+	triggers, err := getKedaMetrics(componentMeta, componentExt, configMap)
+	require.NoError(t, err)
+	assert.Len(t, triggers, 1)
+	trigger := triggers[0]
+	assert.Equal(t, "bearer", trigger.Metadata["authModes"])
+	assert.NotNil(t, trigger.AuthenticationRef)
+	assert.Equal(t, "cluster-auth", trigger.AuthenticationRef.Name)
+	assert.Equal(t, "ClusterTriggerAuthentication", trigger.AuthenticationRef.Kind)
 }
 
 func TestGetKedaMetrics_ExternalMetricSourceType_WithoutNamespaceOrAuth(t *testing.T) {

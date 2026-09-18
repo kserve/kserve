@@ -47,30 +47,58 @@ class V1beta1AuthenticationRef(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'kind': 'str',
         'name': 'str'
     }
 
     attribute_map = {
+        'kind': 'kind',
         'name': 'name'
     }
 
-    def __init__(self, name='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, kind=None, name='', local_vars_configuration=None):  # noqa: E501
         """V1beta1AuthenticationRef - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._kind = None
         self._name = None
         self.discriminator = None
 
+        if kind is not None:
+            self.kind = kind
         if name is not None:
             self.name = name
+
+    @property
+    def kind(self):
+        """Gets the kind of this V1beta1AuthenticationRef.  # noqa: E501
+
+        kind is the kind of the referenced authentication resource. Possible values are TriggerAuthentication and ClusterTriggerAuthentication. Defaults to TriggerAuthentication when empty.  # noqa: E501
+
+        :return: The kind of this V1beta1AuthenticationRef.  # noqa: E501
+        :rtype: str
+        """
+        return self._kind
+
+    @kind.setter
+    def kind(self, kind):
+        """Sets the kind of this V1beta1AuthenticationRef.
+
+        kind is the kind of the referenced authentication resource. Possible values are TriggerAuthentication and ClusterTriggerAuthentication. Defaults to TriggerAuthentication when empty.  # noqa: E501
+
+        :param kind: The kind of this V1beta1AuthenticationRef.  # noqa: E501
+        :type: str
+        """
+
+        self._kind = kind
 
     @property
     def name(self):
         """Gets the name of this V1beta1AuthenticationRef.  # noqa: E501
 
-        name is the name of the authentication secret  # noqa: E501
+        name is the name of the TriggerAuthentication or ClusterTriggerAuthentication  # noqa: E501
 
         :return: The name of this V1beta1AuthenticationRef.  # noqa: E501
         :rtype: str
@@ -81,7 +109,7 @@ class V1beta1AuthenticationRef(object):
     def name(self, name):
         """Sets the name of this V1beta1AuthenticationRef.
 
-        name is the name of the authentication secret  # noqa: E501
+        name is the name of the TriggerAuthentication or ClusterTriggerAuthentication  # noqa: E501
 
         :param name: The name of this V1beta1AuthenticationRef.  # noqa: E501
         :type: str
