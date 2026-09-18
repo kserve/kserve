@@ -25,6 +25,8 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestEPPServiceName(t *testing.T) {
@@ -409,6 +411,20 @@ func TestIsUsingLLMInferenceServiceConfig(t *testing.T) {
 				},
 			},
 			configName: "kserve-llm-sglang",
+			want:       false,
+		},
+		{
+			name: "accelerator annotation value is not a config reference",
+			llmSvc: &LLMInferenceService{
+				Status: LLMInferenceServiceStatus{
+					Status: duckv1.Status{
+						Annotations: map[string]string{
+							constants.LLMAcceleratorAnnotationKey: "gpu",
+						},
+					},
+				},
+			},
+			configName: "gpu",
 			want:       false,
 		},
 	}
