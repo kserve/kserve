@@ -90,9 +90,7 @@ func TestValidateFlagCombinations(t *testing.T) {
 }
 
 // TestConfigureBoolFlagsNoGPU verifies that configureBoolFlags disables GPU
-// detection when noGPUFlag is true. This guards the flag-ordering regression
-// where --no-gpu was silently ignored on --create because configureBoolFlags
-// was called after the create branch returned.
+// detection when noGPUFlag is true, and re-enables it when noGPUFlag is false.
 func TestConfigureBoolFlagsNoGPU(t *testing.T) {
 	if _, err := config.Initialize(t.TempDir()); err != nil {
 		t.Fatalf("Initialize: %v", err)

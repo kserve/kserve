@@ -102,14 +102,14 @@ Two image variants are available:
    ```bash
    make build-image-mcv
    # or directly:
-   podman build --target mcv-unified -t quay.io/gkm/mcv:unified -f mcv/images/amd64.dockerfile .
+   podman build --target mcv-unified -t quay.io/gkm/mcv:unified -f mcv/images/Containerfile .
    ```
 
 2. **No-GPU** (~176MB) - For `--no-gpu` workflows, arm64/mac; no CUDA/ROCm libraries
    ```bash
    make build-image-mcv-no-gpu
    # or directly:
-   podman build --target mcv-minimal -t quay.io/gkm/mcv:no-gpu -f mcv/images/amd64.dockerfile .
+   podman build --target mcv-minimal -t quay.io/gkm/mcv:no-gpu -f mcv/images/Containerfile .
    ```
 
 **How it works:** With `--no-gpu`, MCV extracts GPU information (backend, architecture, warp size) from cache metadata rather than detecting actual hardware. The cache files created by vLLM/Triton already contain all necessary GPU information in environment variables.

@@ -16,8 +16,16 @@ make build-image-mcv
 ### Basic Usage
 
 ```bash
-# Auto-detects GPU vendor (NVIDIA or AMD)
-podman run --rm --privileged \
+# Auto-detects GPU vendor; pass vendor-specific device flags:
+
+# NVIDIA
+podman run --rm --device nvidia.com/gpu=all \
+  -v /path/to/cache:/cache \
+  quay.io/gkm/mcv:unified \
+  --extract --image quay.io/myorg/vllm-cache:v1 --dir /cache
+
+# AMD
+podman run --rm --device /dev/kfd --device /dev/dri \
   -v /path/to/cache:/cache \
   quay.io/gkm/mcv:unified \
   --extract --image quay.io/myorg/vllm-cache:v1 --dir /cache
@@ -149,7 +157,10 @@ spec:
           mountPath: /cache
       volumes:
       - name: cache
-        emptyDir: {}
+        # emptyDir is lost when the pod completes; use a PVC so the extracted
+        # cache persists for consuming workloads to read after the Job finishes.
+        persistentVolumeClaim:
+          claimName: gpu-cache-pvc  # must be created in advance
       restartPolicy: Never
 ```
 
@@ -306,7 +317,7 @@ make build-image-mcv
 docker build --platform linux/amd64 \
   --target mcv-unified \
   -t quay.io/gkm/mcv:unified \
-  -f mcv/images/amd64.dockerfile \
+  -f mcv/images/Containerfile \
   .
 ```
 
@@ -318,10 +329,10 @@ make build-image-mcv-no-gpu
 # Tags as: quay.io/gkm/mcv:no-gpu (also :latest)
 
 # Or with docker directly
-docker build --platform linux/amd64 \
+docker build --platform linux/arm64 \
   --target mcv-minimal \
   -t quay.io/gkm/mcv:no-gpu \
-  -f mcv/images/amd64.dockerfile \
+  -f mcv/images/Containerfile \
   .
 ```
 

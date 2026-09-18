@@ -38,10 +38,14 @@ The cache already contains all necessary GPU information:
 # Build
 make build-image-mcv-no-gpu
 # or directly:
-podman build --target mcv-minimal -t quay.io/gkm/mcv:no-gpu -f mcv/images/amd64.dockerfile .
+podman build --target mcv-minimal -t quay.io/gkm/mcv:no-gpu -f mcv/images/Containerfile .
 
-# Use
-podman run --rm -v /path/to/cache:/cache quay.io/gkm/mcv:no-gpu \
+# Use (MCV pushes directly to the registry; mount auth and fuse device for buildah)
+podman run --rm \
+  --device /dev/fuse \
+  -v /path/to/cache:/cache \
+  -v ${HOME}/.config/containers/auth.json:/run/containers/0/auth.json:ro \
+  quay.io/gkm/mcv:no-gpu \
   --create --image quay.io/myorg/cache:v1 --dir /cache --no-gpu
 ```
 
@@ -55,7 +59,7 @@ podman run --rm -v /path/to/cache:/cache quay.io/gkm/mcv:no-gpu \
 # Build
 make build-image-mcv
 # or directly:
-podman build --target mcv-unified -t quay.io/gkm/mcv:unified -f mcv/images/amd64.dockerfile .
+podman build --target mcv-unified -t quay.io/gkm/mcv:unified -f mcv/images/Containerfile .
 
 # Use with NVIDIA GPU
 podman run --rm --device nvidia.com/gpu=all \
@@ -78,9 +82,11 @@ mcv --create --image quay.io/myorg/vllm-cache:v1 \
     --dir ~/.cache/vllm/torch_compile_cache \
     --no-gpu
 
-# In container (minimal image)
-podman run --rm --privileged \
+# In container (minimal image; MCV pushes to the registry directly)
+podman run --rm \
+  --device /dev/fuse \
   -v ~/.cache/vllm:/cache:ro \
+  -v ${HOME}/.config/containers/auth.json:/run/containers/0/auth.json:ro \
   quay.io/gkm/mcv:no-gpu \
   --create --image quay.io/myorg/vllm-cache:v1 --dir /cache --no-gpu
 ```
