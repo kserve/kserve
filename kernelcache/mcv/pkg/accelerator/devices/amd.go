@@ -402,22 +402,20 @@ func getAMDGPUInfo(ctx context.Context) (map[int]*AMDCardInfo, error) {
 		return nil, fmt.Errorf("failed to execute amd-smi: %w", err)
 	}
 
-	// amd-smi may output error messages after the JSON, so we need to extract just the JSON part
-	// Look for the last ']' which marks the end of the JSON array
-	jsonOutput := output
-	if lastBracket := bytes.LastIndexByte(output, ']'); lastBracket != -1 {
-		jsonOutput = output[:lastBracket+1]
-	}
-
-	// Define a wrapper struct to match the new JSON structure
+	// amd-smi may append error messages after the JSON, so use json.Decoder which
+	// reads exactly the first complete JSON value and ignores trailing content.
+	// Previously a LastIndexByte(']') truncation was used, but that drops the
+	// closing '}' of the {"gpu_data":[...]} wrapper format, producing invalid JSON.
 	var wrapper struct {
 		GPUData []*AMDCardInfo `json:"gpu_data"`
 	}
 
-	if err := json.Unmarshal(jsonOutput, &wrapper); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(output))
+	if err := dec.Decode(&wrapper); err != nil {
 		logging.Debugf("failed to parse amd-smi output going to try compat mode: %v", err)
-		if err := json.Unmarshal(jsonOutput, &wrapper.GPUData); err != nil {
-			logging.Debugf("compat mode also failed: %v, output: %s", err, string(jsonOutput))
+		dec = json.NewDecoder(bytes.NewReader(output))
+		if err := dec.Decode(&wrapper.GPUData); err != nil {
+			logging.Debugf("compat mode also failed: %v, output: %s", err, string(output))
 			return nil, fmt.Errorf("failed to parse amd-smi output: %w", err)
 		}
 	}
