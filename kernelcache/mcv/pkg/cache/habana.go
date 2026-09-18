@@ -10,9 +10,24 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/redhat-et/GKM/mcv/pkg/cacheplan"
 	"github.com/redhat-et/GKM/mcv/pkg/constants"
 	logging "github.com/sirupsen/logrus"
 )
+
+// habanaRecipeCacheSizeMB returns the cache size limit to stamp into OCI labels.
+// It reads EnvHabanaRecipeCacheSizeMB (injected by the KServe sidecar injector)
+// so the OCI label matches exactly what the predictor's PT_HPU_RECIPE_CACHE_CONFIG
+// was set to at capture time.
+func habanaRecipeCacheSizeMB() int {
+	if val := os.Getenv(cacheplan.EnvHabanaRecipeCacheSizeMB); val != "" {
+		if n, err := strconv.Atoi(val); err == nil && n > 0 {
+			return n
+		}
+		logging.Warnf("Invalid %s=%q, using default %d MB", cacheplan.EnvHabanaRecipeCacheSizeMB, val, cacheplan.DefaultHabanaRecipeCacheSizeMB)
+	}
+	return cacheplan.DefaultHabanaRecipeCacheSizeMB
+}
 
 const (
 	cacheHabanaImagePrefix     = "cache.habana.image"
@@ -21,6 +36,11 @@ const (
 	cacheHabanaImageSummary    = cacheHabanaImagePrefix + "/summary"
 
 	habanaBackend = "hpu"
+
+	// habanaCacheRootPath is the directory a KServe serving container mounts the
+	// Habana recipe cache at. It is baked into the cache-root-env label so the
+	// consumer knows both the env var and the mount location.
+	habanaCacheRootPath = constants.KServeHome + "/" + constants.HabanaCache
 )
 
 // recipeFileRegex matches Habana recipe cache filenames:
@@ -136,15 +156,29 @@ func (h *HabanaCache) Metadata() []CacheEntry {
 }
 
 func (h *HabanaCache) Labels() map[string]string {
+	// Build the cache-root-env label from the shared cacheplan helper so the
+	// label MCV stamps here is byte-identical to the env cacheplan derives on the
+	// consume side (PT_HPU_RECIPE_CACHE_CONFIG=<dir>,false,<size>).
+	// The size is read from EnvHabanaRecipeCacheSizeMB, injected by the KServe
+	// sidecar injector so it matches whatever was set in the predictor container.
+	sizeMB := habanaRecipeCacheSizeMB()
+	rootEnv, err := cacheplan.RootEnvLabel(constants.Habana, habanaCacheRootPath, sizeMB)
+	if err != nil {
+		// This cannot happen for a known cache type, but fall back to the bare
+		// env name rather than emitting an empty label.
+		logging.WithError(err).Error("failed to build Habana cache-root-env label")
+		rootEnv = constants.HabanaRecipeCacheEnv + "=" + habanaCacheRootPath
+	}
+
 	labels := map[string]string{
 		cacheHabanaImageEntryCount: strconv.Itoa(h.EntryCount()),
 		cacheHabanaImageCacheSize:  strconv.FormatInt(h.CacheSizeBytes(), 10),
 		cacheHabanaImageSummary:    h.Summary(),
 
-		constants.KMPrefix + "/framework":           constants.VLLM,
-		constants.KMPrefix + "/cache-type":          constants.CacheTypeHabanaRecipe,
-		constants.KMPrefix + "/cache-root-env":      constants.HabanaRecipeCacheEnv,
-		constants.KMPrefix + "/cache-mount-subpath": ".",
+		cacheplan.LabelFramework:         constants.VLLM,
+		cacheplan.LabelCacheType:         constants.CacheTypeHabanaRecipe,
+		cacheplan.LabelCacheRootEnv:      rootEnv,
+		cacheplan.LabelCacheMountSubpath: ".",
 	}
 	return labels
 }

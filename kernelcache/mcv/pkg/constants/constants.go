@@ -35,6 +35,9 @@ const (
 	VLLMHOME         = "/home/vllm"
 	KServeHome       = "/home/kserve"
 	VLLMCache        = ".cache/vllm"
+	// HabanaCache is the Habana recipe cache directory relative to KServeHome,
+	// i.e. where the recipe cache is mounted inside a KServe serving container.
+	HabanaCache = ".cache/habana"
 
 	MCVTritonCacheDir    = "io.triton.cache/"
 	MCVTritonManifestDir = "io.triton.manifest"
