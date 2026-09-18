@@ -485,6 +485,21 @@ func TestCollectInfoMetrics(t *testing.T) {
 		metrics := collectInfoMetrics([]v1alpha2.LLMInferenceService{})
 		assert.Empty(t, metrics)
 	})
+
+	t.Run("skips stopped services", func(t *testing.T) {
+		svc := withAcceleratorAnnotation(cpuLLMInferenceService("stopped-svc", "ns"))
+		svc.Annotations = map[string]string{constants.StopAnnotationKey: "true"}
+		metrics := collectInfoMetrics([]v1alpha2.LLMInferenceService{*svc})
+		assert.Empty(t, metrics)
+	})
+
+	t.Run("skips deleting services", func(t *testing.T) {
+		svc := withAcceleratorAnnotation(cpuLLMInferenceService("deleting-svc", "ns"))
+		now := metav1.Now()
+		svc.DeletionTimestamp = &now
+		metrics := collectInfoMetrics([]v1alpha2.LLMInferenceService{*svc})
+		assert.Empty(t, metrics)
+	})
 }
 
 func TestCollectInfoMetricsCPULabels(t *testing.T) {

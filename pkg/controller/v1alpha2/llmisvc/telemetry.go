@@ -29,6 +29,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 const (
@@ -101,6 +102,9 @@ func collectInfoMetrics(items []v1alpha2.LLMInferenceService) []prometheus.Metri
 	out := make([]prometheus.Metric, 0, len(items))
 	for i := range items {
 		isvc := &items[i]
+		if isvc.DeletionTimestamp != nil || utils.GetForceStopRuntime(isvc) {
+			continue
+		}
 		accelerator := isvc.Status.Annotations[constants.LLMAcceleratorAnnotationKey]
 		if accelerator == "" {
 			accelerator = resolveAccelerator(isvc)
@@ -172,16 +176,6 @@ func hasDRAResources(isvc *v1alpha2.LLMInferenceService, podSpecs []*corev1.PodS
 	return false
 }
 
-var gpuResourcePrefixes = []string{
-	"nvidia.com/gpu",
-	"nvidia.com/mig-",
-	"amd.com/gpu",
-	"intel.com/gpu",
-	"gpu.intel.com/i915",
-	"gpu.intel.com/xe",
-	"habana.ai/gaudi",
-}
-
 func hasGPUResources(container *corev1.Container) bool {
 	for name := range container.Resources.Requests {
 		if isGPUResource(string(name)) {
@@ -197,10 +191,16 @@ func hasGPUResources(container *corev1.Container) bool {
 }
 
 func isGPUResource(name string) bool {
-	for _, prefix := range gpuResourcePrefixes {
-		if strings.HasPrefix(name, prefix) {
+	for _, t := range constants.DefaultGPUResourceTypeList {
+		if name == t {
 			return true
 		}
+	}
+	if strings.HasPrefix(name, constants.NvidiaMigGPUResourceTypePrefix) {
+		return true
+	}
+	if strings.HasPrefix(name, "gpu.intel.com/") {
+		return true
 	}
 	return false
 }
