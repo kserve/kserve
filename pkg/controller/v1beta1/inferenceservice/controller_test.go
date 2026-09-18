@@ -2111,24 +2111,27 @@ var _ = Describe("v1beta1 inference service controller", func() {
 						URL:                   transformerUrl,
 					},
 				},
-				ModelStatus: v1beta1.ModelStatus{
-					TransitionStatus:    "InProgress",
-					ModelRevisionStates: &v1beta1.ModelRevisionStates{TargetModelState: "Pending"},
-					ModelCopies:         &v1beta1.ModelCopies{},
+			ModelStatus: v1beta1.ModelStatus{
+				TransitionStatus: "UpToDate",
+				ModelRevisionStates: &v1beta1.ModelRevisionStates{
+					TargetModelState: "Loaded",
+					ActiveModelState: "Loaded",
 				},
-				ServingRuntimeName: "tf-serving",
+				ModelCopies: &v1beta1.ModelCopies{},
+			},
+			ServingRuntimeName: "tf-serving",
+		}
+		Eventually(func() string {
+			isvc := &v1beta1.InferenceService{}
+			if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
+				return err.Error()
 			}
-			Eventually(func() string {
-				isvc := &v1beta1.InferenceService{}
-				if err := k8sClient.Get(context.TODO(), serviceKey, isvc); err != nil {
-					return err.Error()
-				}
-				return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.Condition{}, "LastTransitionTime", "Severity"))
-			}, timeout, interval).Should(BeEmpty())
-		})
+			return cmp.Diff(&expectedIsvcStatus, &isvc.Status, cmpopts.IgnoreTypes(apis.Condition{}, "LastTransitionTime", "Severity"))
+		}, timeout, interval).Should(BeEmpty())
 	})
+})
 
-	Context("Inference Service with transforemer and predictor collocation", func() {
+Context("Inference Service with transforemer and predictor collocation", func() {
 		Context("When predictor and transformer are collocated", func() {
 			It("Should create knative service and ingress successfully", func() {
 				ctx, cancel := context.WithCancel(context.Background())
