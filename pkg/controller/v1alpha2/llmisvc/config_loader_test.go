@@ -25,10 +25,39 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 )
+
+func TestNewConfigConvertsCipherSuitesForOpenSSL(t *testing.T) {
+	ingressConfig := &v1beta1.IngressConfig{
+		LLMInferenceServiceTLSCipherSuites: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+	}
+
+	got := llmisvc.NewConfig(ingressConfig, nil, nil, nil)
+	if want := "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384"; got.TLSCipherSuitesOpenSSL != want {
+		t.Fatalf("TLSCipherSuitesOpenSSL = %q, want %q", got.TLSCipherSuitesOpenSSL, want)
+	}
+}
+
+func TestLoadConfigValidatesAndNormalizesTLSProfile(t *testing.T) {
+	cm := fixture.InferenceServiceCfgMap(constants.KServeNamespace)
+	fixture.SetIngressConfigKey(cm, "llmInferenceServiceTLSMinVersion", " VersionTLS12 ")
+	fixture.SetIngressConfigKey(cm, "llmInferenceServiceTLSCipherSuites", " TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 ")
+	c := fake.NewClientBuilder().WithScheme(clientgoscheme.Scheme).WithObjects(cm).Build()
+
+	got, err := llmisvc.LoadConfig(t.Context(), c)
+	require.NoError(t, err)
+	require.Equal(t, "VersionTLS12", got.TLSMinVersion)
+	require.Equal(t, "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", got.TLSCipherSuites)
+
+	fixture.SetIngressConfigKey(cm, "llmInferenceServiceTLSMinVersion", "VersionTLS11")
+	c = fake.NewClientBuilder().WithScheme(clientgoscheme.Scheme).WithObjects(cm).Build()
+	_, err = llmisvc.LoadConfig(t.Context(), c)
+	require.ErrorContains(t, err, "unrecognized TLS version")
+}
 
 func TestLoadConfigLoRAModelRoutingStrategy(t *testing.T) {
 	for _, tt := range []struct {

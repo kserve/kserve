@@ -29,6 +29,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
+	kservetls "github.com/kserve/kserve/pkg/tls"
 	"github.com/kserve/kserve/pkg/types"
 )
 
@@ -93,6 +94,9 @@ type Config struct {
 	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
 	UrlScheme               string `json:"urlScheme,omitempty"`
 	EnableTLS               bool   `json:"enableTLS,omitempty"`
+	TLSMinVersion           string `json:"tlsMinVersion,omitempty"`
+	TLSCipherSuites         string `json:"tlsCipherSuites,omitempty"`
+	TLSCipherSuitesOpenSSL  string `json:"tlsCipherSuitesOpenSSL,omitempty"`
 
 	ModelBasedRoutingHeaderName string                `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       ModelBasedRoutingMode `json:"modelBasedRoutingMode,omitempty"`
@@ -184,6 +188,9 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		IngressGatewayName:          igwName,
 		UrlScheme:                   ingressConfig.UrlScheme,
 		EnableTLS:                   ingressConfig.EnableLLMInferenceServiceTLS,
+		TLSMinVersion:               ingressConfig.LLMInferenceServiceTLSMinVersion,
+		TLSCipherSuites:             ingressConfig.LLMInferenceServiceTLSCipherSuites,
+		TLSCipherSuitesOpenSSL:      openSSLCipherSuites(ingressConfig.LLMInferenceServiceTLSCipherSuites),
 		ModelBasedRoutingHeaderName: ingressConfig.ModelBasedRoutingHeaderName,
 		ModelBasedRoutingMode:       parseModelBasedRoutingMode(ingressConfig.ModelBasedRoutingMode),
 		LoRAModelRoutingStrategy:    LoRAModelRoutingStrategy(ingressConfig.LoRAModelRoutingStrategy),
@@ -191,6 +198,31 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		CredentialConfig:            credentialConfig,
 		SchedulerConfig:             schedulerConfig,
 	}
+}
+
+var openSSLCipherSuiteNames = map[string]string{
+	"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA":          "ECDHE-ECDSA-AES128-SHA",
+	"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA":          "ECDHE-ECDSA-AES256-SHA",
+	"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA":            "ECDHE-RSA-AES128-SHA",
+	"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA":            "ECDHE-RSA-AES256-SHA",
+	"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256":       "ECDHE-ECDSA-AES128-GCM-SHA256",
+	"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384":       "ECDHE-ECDSA-AES256-GCM-SHA384",
+	"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":         "ECDHE-RSA-AES128-GCM-SHA256",
+	"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384":         "ECDHE-RSA-AES256-GCM-SHA384",
+	"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256":   "ECDHE-RSA-CHACHA20-POLY1305",
+	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256": "ECDHE-ECDSA-CHACHA20-POLY1305",
+}
+
+func openSSLCipherSuites(cipherSuites string) string {
+	if strings.TrimSpace(cipherSuites) == "" {
+		return ""
+	}
+
+	converted := make([]string, 0)
+	for _, cipherSuite := range strings.Split(cipherSuites, ",") {
+		converted = append(converted, openSSLCipherSuiteNames[strings.TrimSpace(cipherSuite)])
+	}
+	return strings.Join(converted, ":")
 }
 
 // LoadConfig loads configuration from the supplied Kubernetes object reader.
@@ -224,6 +256,11 @@ func toConfig(isvcConfigMap *corev1.ConfigMap) (*Config, error) {
 	ingressConfig, errConvert := v1beta1.NewIngressConfig(isvcConfigMap)
 	if errConvert != nil {
 		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to IngressConfig: %w", errConvert)
+	}
+	ingressConfig.LLMInferenceServiceTLSMinVersion = strings.TrimSpace(ingressConfig.LLMInferenceServiceTLSMinVersion)
+	ingressConfig.LLMInferenceServiceTLSCipherSuites = strings.TrimSpace(ingressConfig.LLMInferenceServiceTLSCipherSuites)
+	if err := kservetls.Validate(ingressConfig.LLMInferenceServiceTLSMinVersion, ingressConfig.LLMInferenceServiceTLSCipherSuites); err != nil {
+		return nil, fmt.Errorf("invalid LLMInferenceService TLS configuration: %w", err)
 	}
 
 	storageInitializerConfig, errConvert := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
