@@ -466,6 +466,12 @@ const (
 	// resolved accelerator type (cpu/gpu/unknown) is persisted during
 	// reconciliation for telemetry scraping.
 	LLMAcceleratorAnnotationKey = "serving.kserve.io/accelerator-type"
+
+	// WellKnownConfigPinAnnotationPrefix is the key prefix shared by all
+	// config-pin annotations written to Status.Annotations by the
+	// WellKnownConfigResolver. Used as an allowlist when reading config
+	// references from annotations.
+	WellKnownConfigPinAnnotationPrefix = "serving.kserve.io/config-"
 )
 
 // LLMInferenceService constants

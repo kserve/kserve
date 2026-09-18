@@ -396,6 +396,63 @@ func TestResolveAccelerator(t *testing.T) {
 			expected: acceleratorGPU,
 		},
 		{
+			name: "google TPU returns unknown",
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceName("google.com/tpu"): resource.MustParse("1"),
+									},
+								},
+							}},
+						},
+					},
+				},
+			},
+			expected: acceleratorUnknown,
+		},
+		{
+			name: "aws neuron returns unknown",
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceName("aws.amazon.com/neuron"): resource.MustParse("1"),
+									},
+								},
+							}},
+						},
+					},
+				},
+			},
+			expected: acceleratorUnknown,
+		},
+		{
+			name: "custom vendor device returns unknown",
+			isvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{{
+								Resources: corev1.ResourceRequirements{
+									Limits: corev1.ResourceList{
+										corev1.ResourceName("vendor.example.com/accelerator"): resource.MustParse("2"),
+									},
+								},
+							}},
+						},
+					},
+				},
+			},
+			expected: acceleratorUnknown,
+		},
+		{
 			name: "managed DRA returns unknown",
 			isvc: &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{

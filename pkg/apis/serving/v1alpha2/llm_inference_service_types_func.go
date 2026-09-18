@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"strings"
+
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
 
@@ -143,10 +145,7 @@ func (s *LLMInferenceService) IsUsingLLMInferenceServiceConfigInNamespace(name, 
 	}
 
 	// Fallback: appliedConfigs is empty (not yet reconciled, or cleared on stop).
-	for key, value := range s.Status.Annotations {
-		if key == constants.LLMAcceleratorAnnotationKey {
-			continue
-		}
+	for _, value := range s.PinnedConfigNames() {
 		if value == name {
 			return true
 		}
@@ -159,6 +158,18 @@ func (s *LLMInferenceService) IsUsingLLMInferenceServiceConfigInNamespace(name, 
 	}
 
 	return false
+}
+
+// PinnedConfigNames returns the config names pinned in Status.Annotations
+// by the WellKnownConfigResolver, identified by key prefix (allowlist).
+func (s *LLMInferenceService) PinnedConfigNames() []string {
+	var names []string
+	for key, value := range s.Status.Annotations {
+		if strings.HasPrefix(key, constants.WellKnownConfigPinAnnotationPrefix) {
+			names = append(names, value)
+		}
+	}
+	return names
 }
 
 // HasManagedDRA reports whether managed DRA is enabled via annotations.

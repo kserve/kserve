@@ -281,10 +281,7 @@ func (r *LLMISVCConfigReconciler) enqueueOnLLMInferenceServiceChange(logger logr
 			enqueue(ref.Name)
 		}
 
-		for key, name := range llmSvc.Status.Annotations {
-			if key == constants.LLMAcceleratorAnnotationKey {
-				continue
-			}
+		for _, name := range llmSvc.PinnedConfigNames() {
 			enqueue(name)
 		}
 

@@ -154,6 +154,17 @@ func resolveAccelerator(isvc *v1alpha2.LLMInferenceService) string {
 		}
 	}
 
+	for _, ps := range podSpecs {
+		if ps == nil {
+			continue
+		}
+		for i := range ps.Containers {
+			if hasExtendedResources(&ps.Containers[i]) {
+				return acceleratorUnknown
+			}
+		}
+	}
+
 	if hasDRAResources(isvc, podSpecs) {
 		return acceleratorUnknown
 	}
@@ -170,6 +181,20 @@ func hasDRAResources(isvc *v1alpha2.LLMInferenceService, podSpecs []*corev1.PodS
 	}
 	for _, ps := range podSpecs {
 		if ps != nil && len(ps.ResourceClaims) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func hasExtendedResources(container *corev1.Container) bool {
+	for name := range container.Resources.Requests {
+		if strings.Contains(string(name), "/") {
+			return true
+		}
+	}
+	for name := range container.Resources.Limits {
+		if strings.Contains(string(name), "/") {
 			return true
 		}
 	}
