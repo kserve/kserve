@@ -3,6 +3,8 @@ kind: LLMInferenceServiceConfig
 metadata:
   name: kserve-config-llm-decode-worker-data-parallel
 spec:
+  labels:
+    serving.kserve.io/llmisvc-revision: placeholder
   annotations:
     serving.kserve.io/model-based-routing-enabled: "true"
   template:

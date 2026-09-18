@@ -120,6 +120,10 @@ type Config struct {
 	// so that resolution is tied to the config-merge step and all downstream workload functions
 	// share a single consistent result.
 	ResolvedLoRAAdapters []resolvedLoRAAdapter `json:"-"`
+
+	// WorkloadRevision is the generated compatibility boundary shared by all
+	// prefill and decode Pod templates. It is populated per reconciliation.
+	WorkloadRevision string `json:"-"`
 }
 
 // PrometheusConfig holds Prometheus connection and authentication settings used by KEDA
