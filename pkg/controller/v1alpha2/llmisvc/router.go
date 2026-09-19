@@ -118,8 +118,10 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 			// The strategy the ConfigMap names cannot be applied to this spec.
 			// Retrying re-renders the same inputs, so stop until one of them changes:
 			// the spec and ConfigMap watches re-enqueue the service, and the terminal
-			// error still surfaces through the reconcile log and event.
-			llmSvc.MarkHTTPRoutesNotReady("RoutingPreconditionNotMet", "%s", err.Error())
+			// error still surfaces through the reconcile log and event. The render
+			// failed before any write, so a route from an earlier reconcile still
+			// routes as before; a new service has none.
+			llmSvc.MarkHTTPRoutesNotReady("RoutingPreconditionNotMet", "%s; any existing HTTPRoute keeps its previous matches", err.Error())
 			return reconcile.TerminalError(fmt.Errorf("failed to reconcile HTTP routes: %w", err))
 		}
 		if apierrors.IsInvalid(err) {
