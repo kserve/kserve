@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -137,6 +138,53 @@ type AutoScalingSpec struct {
 	// Behavior contains the scaling behavior configuration for the Horizontal Pod Autoscaler.
 	// +optional
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
+	// KEDA contains KEDA-specific autoscaling configuration.
+	// When specified, KEDA ScaledObject will be used for autoscaling.
+	// +optional
+	KEDA *KEDAScalingConfig `json:"keda,omitempty"`
+}
+
+// KEDAScalingConfig configures KEDA ScaledObject-specific options.
+// These fields map directly to KEDA ScaledObject spec fields.
+type KEDAScalingConfig struct {
+	// PollingInterval is the interval in seconds to check each trigger on.
+	// Must be at least 1 second. Default is 30 seconds.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	PollingInterval *int32 `json:"pollingInterval,omitempty"`
+
+	// CooldownPeriod is the period in seconds to wait after the last trigger reported active
+	// before scaling the resource back to its minimum replica count.
+	// A value of 0 means scale down immediately with no cooldown.
+	// Default is 300 seconds (5 minutes).
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	CooldownPeriod *int32 `json:"cooldownPeriod,omitempty"`
+
+	// InitialCooldownPeriod is the period in seconds to wait after the ScaledObject is created
+	// before KEDA starts evaluating triggers. Useful for model deployments where the model
+	// takes time to load before it can serve traffic, preventing premature scale-up decisions.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	InitialCooldownPeriod *int32 `json:"initialCooldownPeriod,omitempty"`
+
+	// IdleReplicaCount is the number of replicas KEDA will scale the resource down to
+	// when there are no triggers active. This must be less than minReplicas.
+	// If not set, KEDA will not scale below minReplicas.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	IdleReplicaCount *int32 `json:"idleReplicaCount,omitempty"`
+
+	// Fallback defines the replica count to maintain when the scaler is in a fallback state
+	// (e.g., when metrics are unavailable). This allows the deployment to hold a safe
+	// replica count during metric outages rather than scaling to zero.
+	// +optional
+	Fallback *kedav1alpha1.Fallback `json:"fallback,omitempty"`
+
+	// Advanced specifies advanced KEDA configuration options.
+	// This includes HPA behavior configuration and restore-to-original replica count settings.
+	// +optional
+	Advanced *kedav1alpha1.AdvancedConfig `json:"advanced,omitempty"`
 }
 
 // MetricsSpec specifies how to scale based on a single metric
@@ -167,6 +215,16 @@ type MetricsSpec struct {
 	// averaged together before being compared to the target value.
 	// +optional
 	PodMetric *PodMetricSource `json:"podmetric,omitempty"`
+
+	// Name is the name of the trigger. Must be unique within the ScaledObject.
+	// Used by KEDA to identify triggers.
+	// +optional
+	Name string `json:"name,omitempty"`
+
+	// UseCachedMetrics determines whether KEDA should use cached metrics.
+	// Not supported for cpu, memory, or cron scalers.
+	// +optional
+	UseCachedMetrics bool `json:"useCachedMetrics,omitempty"`
 }
 
 // MetricSourceType indicates the type of metric.
@@ -335,7 +393,29 @@ const (
 )
 
 // Default the ComponentExtensionSpec
-func (s *ComponentExtensionSpec) Default(config *InferenceServicesConfig) {}
+func (s *ComponentExtensionSpec) Default(config *InferenceServicesConfig) {
+	// Apply defaults for KEDA configuration
+	if s.AutoScaling != nil && s.AutoScaling.KEDA != nil {
+		keda := s.AutoScaling.KEDA
+
+		// Set default polling interval to 30 seconds if not specified
+		if keda.PollingInterval == nil {
+			defaultPollingInterval := int32(30)
+			keda.PollingInterval = &defaultPollingInterval
+		}
+
+		// Set default cooldown period to 300 seconds (5 minutes) if not specified
+		if keda.CooldownPeriod == nil {
+			defaultCooldownPeriod := int32(300)
+			keda.CooldownPeriod = &defaultCooldownPeriod
+		}
+
+		// Set default fallback behavior to "static" if fallback is specified but behavior is not
+		if keda.Fallback != nil && keda.Fallback.Behavior == "" {
+			keda.Fallback.Behavior = "static"
+		}
+	}
+}
 
 // Validate the ComponentExtensionSpec
 func (s *ComponentExtensionSpec) Validate() error {
