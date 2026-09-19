@@ -610,6 +610,28 @@ def wait_for_group_weight(api, observer, member, expected, ns, timeout=30):
     raise TimeoutError(f"{member} weight={w}, expected {expected} (from {observer})")
 
 
+def wait_for_group_route_weights(api, owner, ns, expected, timeout=60):
+    """Wait for the owner HTTPRoute's model-routing rule to reflect group weights."""
+    deadline = time.monotonic() + timeout
+    expected = sorted(expected)
+    actual = []
+    while time.monotonic() < deadline:
+        route = api.get_namespaced_custom_object(
+            "gateway.networking.k8s.io",
+            "v1",
+            ns,
+            "httproutes",
+            f"{owner}-kserve-route",
+        )
+        for rule in route.get("spec", {}).get("rules", []):
+            if rule.get("name") == "v1-model-routing":
+                actual = sorted(ref.get("weight", 1) for ref in rule["backendRefs"])
+                if actual == expected:
+                    return
+        time.sleep(1)
+    raise TimeoutError(f"{owner} route weights={actual}, expected {expected}")
+
+
 def _has_istio():
     try:
         k8s_client.ApiextensionsV1Api().read_custom_resource_definition(
@@ -753,6 +775,33 @@ class TestCanaryLifecycle:
         scenario, api, ns = canary_env
         with member_lifecycle(api, [scenario.v1.name, scenario.v2.name], ns):
             self._run_canary_lifecycle(canary_env, traffic_driver)
+
+    def test_wait_for_group_route_weights_waits_for_model_route_update(self):
+        class API:
+            def __init__(self):
+                self.calls = 0
+
+            def get_namespaced_custom_object(self, *args):
+                self.calls += 1
+                weights = [9, 1] if self.calls == 1 else [7, 3]
+                return {
+                    "spec": {
+                        "rules": [
+                            {
+                                "name": "v1-model-routing",
+                                "backendRefs": [
+                                    {"name": f"backend-{weight}", "weight": weight}
+                                    for weight in weights
+                                ],
+                            }
+                        ]
+                    }
+                }
+
+        api = API()
+        wait_for_group_route_weights(api, "canary-v1", "test-ns", [7, 3])
+
+        assert api.calls == 2
 
     def test_model_name_divergence(self, test_namespace):
         """Members with different model.name form independent sub-groups.
@@ -920,6 +969,7 @@ class TestCanaryLifecycle:
         patch_weight(api, v2, 3, ns)
         patch_weight(api, v1, 7, ns)
         wait_for_group_weight(api, v1, v2, 3, ns)
+        wait_for_group_route_weights(api, v1, ns, [7, 3])
         wait_for_healthy_route(
             f"{gateway}/v1/completions",
             {
@@ -936,6 +986,7 @@ class TestCanaryLifecycle:
         patch_weight(api, v1, 0, ns)
         patch_weight(api, v2, 9, ns)
         wait_for_group_weight(api, v2, v1, 0, ns)
+        wait_for_group_route_weights(api, v1, ns, [0, 9])
         wait_for_healthy_route(
             f"{gateway}/v1/completions",
             {
