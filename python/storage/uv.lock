@@ -1,10 +1,16 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10, <3.14"
 resolution-markers = [
-    "python_full_version >= '3.13'",
-    "python_full_version >= '3.11' and python_full_version < '3.13'",
-    "python_full_version < '3.11'",
+    "python_full_version >= '3.13' and platform_machine == 'ppc64le'",
+    "python_full_version >= '3.11' and python_full_version < '3.13' and platform_machine == 'ppc64le'",
+    "python_full_version < '3.11' and platform_machine == 'ppc64le'",
+    "python_full_version >= '3.13' and platform_machine != 'ppc64le'",
+    "python_full_version >= '3.11' and python_full_version < '3.13' and platform_machine != 'ppc64le'",
+    "python_full_version < '3.11' and platform_machine != 'ppc64le'",
+]
+required-markers = [
+    "platform_machine == 'ppc64le' and sys_platform == 'linux'",
 ]
 
 [[package]]
@@ -614,7 +620,8 @@ dependencies = [
     { name = "google-api-core" },
     { name = "google-auth" },
     { name = "google-cloud-core" },
-    { name = "google-crc32c" },
+    { name = "google-crc32c", version = "1.7.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'ppc64le'" },
+    { name = "google-crc32c", version = "1.8.0+ppc64le1", source = { registry = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/" }, marker = "platform_machine == 'ppc64le'" },
     { name = "google-resumable-media" },
     { name = "requests" },
 ]
@@ -627,6 +634,11 @@ wheels = [
 name = "google-crc32c"
 version = "1.7.1"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.13' and platform_machine != 'ppc64le'",
+    "python_full_version >= '3.11' and python_full_version < '3.13' and platform_machine != 'ppc64le'",
+    "python_full_version < '3.11' and platform_machine != 'ppc64le'",
+]
 sdist = { url = "https://files.pythonhosted.org/packages/19/ae/87802e6d9f9d69adfaedfcfd599266bf386a54d0be058b532d04c794f76d/google_crc32c-1.7.1.tar.gz", hash = "sha256:2bff2305f98846f3e825dbeec9ee406f89da7962accdb29356e4eadc251bd472", size = 14495, upload-time = "2025-03-26T14:29:13.32Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/eb/69/b1b05cf415df0d86691d6a8b4b7e60ab3a6fb6efb783ee5cd3ed1382bfd3/google_crc32c-1.7.1-cp310-cp310-macosx_12_0_arm64.whl", hash = "sha256:b07d48faf8292b4db7c3d64ab86f950c2e94e93a11fd47271c28ba458e4a0d76", size = 30467, upload-time = "2025-03-26T14:31:11.92Z" },
@@ -659,11 +671,28 @@ wheels = [
 ]
 
 [[package]]
+name = "google-crc32c"
+version = "1.8.0+ppc64le1"
+source = { registry = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/" }
+resolution-markers = [
+    "python_full_version >= '3.13' and platform_machine == 'ppc64le'",
+    "python_full_version >= '3.11' and python_full_version < '3.13' and platform_machine == 'ppc64le'",
+    "python_full_version < '3.11' and platform_machine == 'ppc64le'",
+]
+wheels = [
+    { url = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+f/dd7/dfc40c7d715b6/google_crc32c-1.8.0+ppc64le1-cp310-cp310-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:dd7dfc40c7d715b6f6e083a4d2b87a1b19631f85f3537289f92a7bf074ca347b" },
+    { url = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+f/5e8/327f7101ee0e7/google_crc32c-1.8.0+ppc64le1-cp311-cp311-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:5e8327f7101ee0e75751c4dd79a4a2575c62cc479bce1d0e0c755ed09f622c4f" },
+    { url = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+f/10e/be865117f3eb5/google_crc32c-1.8.0+ppc64le1-cp312-cp312-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:10ebe865117f3eb5a4efe71ed70cbdd7b0e8f0bd1c758ebb3d70ab35f004b506" },
+    { url = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+f/233/6f7cd46c583ff/google_crc32c-1.8.0+ppc64le1-cp313-cp313-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:2336f7cd46c583ff78f12a60f23ac3152509e3b46b46739531bd74b6eafa2ee0" },
+]
+
+[[package]]
 name = "google-resumable-media"
 version = "2.7.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "google-crc32c" },
+    { name = "google-crc32c", version = "1.7.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'ppc64le'" },
+    { name = "google-crc32c", version = "1.8.0+ppc64le1", source = { registry = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/" }, marker = "platform_machine == 'ppc64le'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/58/5a/0efdc02665dca14e0837b62c8a1a93132c264bd02054a15abb2218afe0ae/google_resumable_media-2.7.2.tar.gz", hash = "sha256:5280aed4629f2b60b847b0d42f9857fd4935c11af266744df33d8074cae92fe0", size = 2163099, upload-time = "2024-08-07T22:20:38.555Z" }
 wheels = [
@@ -718,6 +747,11 @@ wheels = [
 name = "hf-xet"
 version = "1.5.1"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.13' and platform_machine != 'ppc64le'",
+    "python_full_version >= '3.11' and python_full_version < '3.13' and platform_machine != 'ppc64le'",
+    "python_full_version < '3.11' and platform_machine != 'ppc64le'",
+]
 sdist = { url = "https://files.pythonhosted.org/packages/4b/2d/57fd21d84d93efb4bd0b962383790e19dd1bc053501b4264c97903b4e83e/hf_xet-1.5.1.tar.gz", hash = "sha256:51ef4500dab3764b41135ee1381a4b62ce56fc54d4c92b719b59e597d6df5bf6", size = 876636, upload-time = "2026-06-08T23:02:53.897Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/64/ee/dd9ba7beae1005e54131b7d45263cc74c8a066d47d354e6d58ae9445a388/hf_xet-1.5.1-cp313-cp313t-macosx_10_12_x86_64.whl", hash = "sha256:dbf48c0d02cf0b2e568944330c60d9120c272dabe013bd892d48e25bc6797577", size = 4069485, upload-time = "2026-06-08T23:02:13.193Z" },
@@ -739,15 +773,29 @@ wheels = [
 ]
 
 [[package]]
+name = "hf-xet"
+version = "1.5.1+ppc64le1"
+source = { registry = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/" }
+resolution-markers = [
+    "python_full_version >= '3.13' and platform_machine == 'ppc64le'",
+    "python_full_version >= '3.11' and python_full_version < '3.13' and platform_machine == 'ppc64le'",
+    "python_full_version < '3.11' and platform_machine == 'ppc64le'",
+]
+wheels = [
+    { url = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+f/314/de5d5c7338a05/hf_xet-1.5.1+ppc64le1-cp37-abi3-manylinux_2_34_ppc64le.whl", hash = "sha256:314de5d5c7338a051d1da64987a0e2a2f3f8fb74239715d7d88391dfbc02383e" },
+]
+
+[[package]]
 name = "huggingface-hub"
 version = "0.32.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
     { name = "fsspec" },
-    { name = "hf-xet", marker = "platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'" },
+    { name = "hf-xet", version = "1.5.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'" },
     { name = "packaging" },
-    { name = "pyyaml" },
+    { name = "pyyaml", version = "6.0.2", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'ppc64le'" },
+    { name = "pyyaml", version = "6.0.3+ppc64le2", source = { registry = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/" }, marker = "platform_machine == 'ppc64le'" },
     { name = "requests" },
     { name = "tqdm" },
     { name = "typing-extensions" },
@@ -845,12 +893,15 @@ dependencies = [
     { name = "cryptography" },
     { name = "dulwich" },
     { name = "google-cloud-storage" },
-    { name = "hf-xet" },
+    { name = "google-crc32c", version = "1.8.0+ppc64le1", source = { registry = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/" }, marker = "platform_machine == 'ppc64le'" },
+    { name = "hf-xet", version = "1.5.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'ppc64le'" },
+    { name = "hf-xet", version = "1.5.1+ppc64le1", source = { registry = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/" }, marker = "platform_machine == 'ppc64le'" },
     { name = "huggingface-hub", extra = ["hf-transfer"] },
     { name = "modelscope-hub" },
     { name = "oras" },
     { name = "pyasn1" },
     { name = "pyjwt" },
+    { name = "pyyaml", version = "6.0.3+ppc64le2", source = { registry = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/" }, marker = "platform_machine == 'ppc64le'" },
     { name = "requests" },
     { name = "urllib3" },
 ]
@@ -872,13 +923,16 @@ requires-dist = [
     { name = "cryptography", specifier = ">=48.0.1" },
     { name = "dulwich", specifier = ">=1.2.5" },
     { name = "google-cloud-storage", specifier = ">=2.14.0,<3.0.0" },
-    { name = "hf-xet", specifier = ">=1.5.0" },
+    { name = "google-crc32c", marker = "platform_machine == 'ppc64le'", index = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/" },
+    { name = "hf-xet", marker = "platform_machine != 'ppc64le'", specifier = ">=1.5.0" },
+    { name = "hf-xet", marker = "platform_machine == 'ppc64le'", specifier = ">=1.5.0", index = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/" },
     { name = "huggingface-hub", extras = ["hf-transfer"], specifier = ">=0.32.0" },
     { name = "jwcrypto", marker = "extra == 'confidential'", specifier = ">=1.5.0" },
     { name = "modelscope-hub", specifier = ">=0.1.4" },
     { name = "oras", specifier = ">=0.2.42,<1.0.0" },
     { name = "pyasn1", specifier = ">=0.6.4" },
     { name = "pyjwt", specifier = ">=2.12.0" },
+    { name = "pyyaml", marker = "platform_machine == 'ppc64le'", index = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/" },
     { name = "requests", specifier = ">=2.32.2,<3.0.0" },
     { name = "urllib3", specifier = ">=2.6.3" },
 ]
@@ -1227,6 +1281,11 @@ wheels = [
 name = "pyyaml"
 version = "6.0.2"
 source = { registry = "https://pypi.org/simple" }
+resolution-markers = [
+    "python_full_version >= '3.13' and platform_machine != 'ppc64le'",
+    "python_full_version >= '3.11' and python_full_version < '3.13' and platform_machine != 'ppc64le'",
+    "python_full_version < '3.11' and platform_machine != 'ppc64le'",
+]
 sdist = { url = "https://files.pythonhosted.org/packages/54/ed/79a089b6be93607fa5cdaedf301d7dfb23af5f25c398d5ead2525b063e17/pyyaml-6.0.2.tar.gz", hash = "sha256:d584d9ec91ad65861cc08d42e834324ef890a082e591037abe114850ff7bbc3e", size = 130631, upload-time = "2024-08-06T20:33:50.674Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9b/95/a3fac87cb7158e231b5a6012e438c647e1a87f09f8e0d123acec8ab8bf71/PyYAML-6.0.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:0a9a2848a5b7feac301353437eb7d5957887edbf81d56e903999a75a3d743086", size = 184199, upload-time = "2024-08-06T20:31:40.178Z" },
@@ -1268,6 +1327,22 @@ wheels = [
 ]
 
 [[package]]
+name = "pyyaml"
+version = "6.0.3+ppc64le2"
+source = { registry = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/" }
+resolution-markers = [
+    "python_full_version >= '3.13' and platform_machine == 'ppc64le'",
+    "python_full_version >= '3.11' and python_full_version < '3.13' and platform_machine == 'ppc64le'",
+    "python_full_version < '3.11' and platform_machine == 'ppc64le'",
+]
+wheels = [
+    { url = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+f/d99/6a9dac697d94f/pyyaml-6.0.3+ppc64le2-cp310-cp310-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:d996a9dac697d94f73ec8b12782003a1bbd97389c2a5e377e4f2b6c6d494244d" },
+    { url = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+f/3e8/c2f66465fab6a/pyyaml-6.0.3+ppc64le2-cp311-cp311-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:3e8c2f66465fab6a1c5235234799bb707e48ae25d7f84e6e281ba5ab87633484" },
+    { url = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+f/045/56049da4cac66/pyyaml-6.0.3+ppc64le2-cp312-cp312-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:04556049da4cac6672bb3135b6bf99f776e7ebbda26883f6718f2ae7471ef14a" },
+    { url = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+f/57d/e2a8f29ecd8df/pyyaml-6.0.3+ppc64le2-cp313-cp313-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:57de2a8f29ecd8df4bd6782902d5415ec31d64f7063a9379cad3b8a1742b507f" },
+]
+
+[[package]]
 name = "referencing"
 version = "0.37.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1302,7 +1377,8 @@ name = "rpds-py"
 version = "0.30.0"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version < '3.11'",
+    "python_full_version < '3.11' and platform_machine == 'ppc64le'",
+    "python_full_version < '3.11' and platform_machine != 'ppc64le'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/20/af/3f2f423103f1113b36230496629986e0ef7e199d2aa8392452b484b38ced/rpds_py-0.30.0.tar.gz", hash = "sha256:dd8ff7cf90014af0c0f787eea34794ebf6415242ee1d6fa91eaba725cc441e84", size = 69469, upload-time = "2025-11-30T20:24:38.837Z" }
 wheels = [
@@ -1398,8 +1474,10 @@ name = "rpds-py"
 version = "2026.6.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.13'",
-    "python_full_version >= '3.11' and python_full_version < '3.13'",
+    "python_full_version >= '3.13' and platform_machine == 'ppc64le'",
+    "python_full_version >= '3.11' and python_full_version < '3.13' and platform_machine == 'ppc64le'",
+    "python_full_version >= '3.13' and platform_machine != 'ppc64le'",
+    "python_full_version >= '3.11' and python_full_version < '3.13' and platform_machine != 'ppc64le'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/aa/2a/9618a122aeb2a169a28b03889a2995fe297588964333d4a7d67bdf46e147/rpds_py-2026.6.3.tar.gz", hash = "sha256:1cebd1337c242e4ec2293e541f712b2da849b29f48f0c293684b71c0632625d4", size = 64051, upload-time = "2026-06-30T07:17:53.009Z" }
 wheels = [

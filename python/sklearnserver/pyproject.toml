@@ -10,6 +10,12 @@ dependencies = [
     "scikit-learn~=1.5.1",
     "joblib<2.0.0,>=1.4.0",
     "pandas<3.0.0,>=2.2.0",
+
+    # IBM Power (ppc64le)
+    # add transitive dependencies as top-level dependency for uv to resolve it on ppc64le with explicit index
+    "google-crc32c ; platform_machine == 'ppc64le'",
+    "hf-xet ; platform_machine == 'ppc64le'",
+    "scipy ; platform_machine == 'ppc64le'",
 ]
 name = "sklearnserver"
 version = "0.21.0rc1"
@@ -26,3 +32,21 @@ test = [
 dev = [
     "black[colorama]>=26.3.1,<27",
 ]
+
+[tool.uv]
+index-strategy = "unsafe-best-match"
+required-environments = ["sys_platform == 'linux' and platform_machine == 'ppc64le'"]
+
+[[tool.uv.index]]
+name = "ibm-ppc64le"
+url = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/"
+explicit = true
+
+[tool.uv.sources]
+# IBM Power (ppc64le)
+# Explicitly use the IBM index when resolving the following packages on ppc64le
+pandas = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+google-crc32c = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+hf-xet = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+scikit-learn = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+scipy = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}

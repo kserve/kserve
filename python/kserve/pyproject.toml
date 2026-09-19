@@ -50,6 +50,10 @@ dependencies = [
     "opentelemetry-sdk>=1.15.0,<2.0.0",
     "opentelemetry-exporter-otlp>=1.15.0,<2.0.0",
 
+    # IBM Power (ppc64le)
+    # add transitive dependencies as top-level dependency for uv to resolve it on ppc64le with explicit index
+    "uvloop ; platform_machine == 'ppc64le'",
+    "httptools ; platform_machine == 'ppc64le'",
 ]
 name = "kserve"
 version = "0.21.0rc1"
@@ -88,6 +92,12 @@ ray = [
 ]
 llm = [
     "vllm==0.24.0",
+
+    # IBM Power (ppc64le)
+    # add transitive dependencies as top-level dependency for uv to resolve it on ppc64le with explicit index
+    "torch ; platform_machine == 'ppc64le'",
+    "torchaudio ; platform_machine == 'ppc64le'",
+    "torchvision ; platform_machine == 'ppc64le'",
 ]
 
 [dependency-groups]
@@ -129,6 +139,12 @@ override-dependencies = [
     "pyasn1>=0.6.4", # CVE-2026-30922, CVE-2026-59885
     "pillow>=12.3.0", # CVE-2026-40192
 ]
+required-environments = ["sys_platform == 'linux' and platform_machine == 'ppc64le'"]
+
+[[tool.uv.index]]
+name = "ibm-ppc64le"
+url = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/"
+explicit = true
 
 [build-system]
 requires = ["setuptools>=78.1.1"] # CVE-2025-47273
@@ -137,3 +153,21 @@ build-backend = "setuptools.build_meta"
 # UV workspace source for local dependency resolution
 [tool.uv.sources]
 kserve-storage = { path = "../storage", editable = true }
+
+# IBM Power (ppc64le)
+# Explicitly use the IBM index when resolving the following packages on ppc64le
+pyyaml = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+psutil = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+httptools = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+uvloop = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+orjson = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+pandas = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+numpy = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+pillow = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+vllm = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+ray = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+torch = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+torchvision = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+torchaudio = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+grpcio-tools = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+grpcio = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
