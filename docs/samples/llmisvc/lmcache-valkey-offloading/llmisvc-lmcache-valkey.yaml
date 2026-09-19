@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lmcache-config
+data:
+  lmcache_config.yaml: |
+    local_cpu: true  # Enable local CPU RAM cache for fast access (Recommended)
+    chunk_size: 256  # Size of cache chunks (tune for your model)
+    max_local_cpu_size: 2.0  # Max size (GB) for local CPU cache
+    remote_url: "valkey://valkey:6379"  # Valkey as remote backend
+    remote_serde: "naive"  # Serialization method for remote cache. Supported values: "naive", "cachegen"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: valkey
+  labels:
+    app: valkey
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: valkey
+  template:
+    metadata:
+      labels:
+        app: valkey
+    spec:
+      containers:
+        - name: valkey
+          image: valkey/valkey:9.1.0
+          ports:
+            - containerPort: 6379
+          resources:
+            limits:
+              memory: 4Gi
+            requests:
+              memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: valkey
+spec:
+  selector:
+    app: valkey
+  ports:
+    - protocol: TCP
+      port: 6379
+      targetPort: 6379
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: llama3-lmcache-valkey
+spec:
+  model:
+    uri: hf://meta-llama/Llama-3.2-1B-Instruct
+    name: meta-llama/Llama-3.2-1B-Instruct
+  replicas: 2
+  router:
+    scheduler: {}
+    route: {}
+    gateway: {}
+  template:
+    containers:
+      - name: main
+        env:
+          - name: HF_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: hf-secret
+                key: HF_TOKEN
+                optional: false
+          # The default LLM template's entrypoint expands VLLM_ADDITIONAL_ARGS inside its own
+          # quoting context, so kv-transfer-config's JSON survives intact. Passing the same flag
+          # via `args:` does not work here: args become positional params ($@) that the
+          # template's `eval "exec vllm serve ... $@"` re-splits on whitespace, corrupting the
+          # embedded JSON (see the other llmisvc samples in this repo, which use the same
+          # VLLM_ADDITIONAL_ARGS pattern for flags with embedded JSON).
+          - name: VLLM_ADDITIONAL_ARGS
+            value: "--max-model-len=10000 --kv-transfer-config '{\"kv_connector\":\"LMCacheConnectorV1\", \"kv_role\":\"kv_both\"}' --enable-chunked-prefill"
+          - name: LMCACHE_USE_EXPERIMENTAL
+            value: "True"
+          - name: LMCACHE_CONFIG_FILE
+            value: /lmcache/lmcache_config.yaml
+          - name: LMCACHE_LOG_LEVEL
+            value: "INFO"
+        resources:
+          limits:
+            cpu: 6
+            memory: 24Gi
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: 6
+            memory: 24Gi
+            nvidia.com/gpu: "1"
+        volumeMounts:
+          - name: lmcache-config-volume
+            mountPath: /lmcache
+            readOnly: true
+    volumes:
+      - name: lmcache-config-volume
+        configMap:
+          name: lmcache-config
+          items:
+            - key: lmcache_config.yaml
+              path: lmcache_config.yaml
