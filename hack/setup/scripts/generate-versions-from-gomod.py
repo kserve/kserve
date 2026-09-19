@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import json
 import urllib.request
 from urllib.request import Request
@@ -214,7 +215,14 @@ def ensure_helm_repo(name, url):
     repos = json.loads(result)
     if any(r.get("name") == name for r in repos):
         return
-    run(f"helm repo add {name} {url}")
+    for attempt in range(3):
+        try:
+            run(f"helm repo add {name} {url}")
+            return
+        except subprocess.CalledProcessError:
+            if attempt == 2:
+                raise
+            time.sleep(2)
 
 
 def parse_existing_versions(env_file):
