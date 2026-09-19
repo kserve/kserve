@@ -89,7 +89,7 @@ func CompareTritonEntriesToGPU(entries []cache.TritonCacheMetadata, devInfo []de
 			warpMatches := entry.WarpSize == gpuInfo.WarpSize
 
 			ptxMatches := true
-			if entry.Backend == "cuda" {
+			if entry.Backend == cache.CUDABackend {
 				ptxMatches = entry.PtxVersion == gpuInfo.PTXVersion
 			}
 

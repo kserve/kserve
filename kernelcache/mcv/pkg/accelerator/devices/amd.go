@@ -28,12 +28,16 @@ import (
 	"time"
 
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/utils"
 
 	logging "github.com/sirupsen/logrus"
 )
 
-const amdHwType = config.GPU
+const (
+	amdHwType    = config.GPU
+	gfxArchMI210 = "gfx90a" // Aldebaran/MI200 [Instinct MI210] GFX architecture
+)
 
 var (
 	amdAccImpl = gpuAMD{}
@@ -347,7 +351,7 @@ func (r *gpuAMD) Init() error {
 				Arch:              TranslateGPUToArch(info.Board.ProductName),
 				WarpSize:          64,
 				MemoryTotalMB:     memTotal,
-				Backend:           hipBackend,
+				Backend:           constants.BackendHIP,
 				ID:                gpuID,
 			},
 			Summary: DeviceSummary{
@@ -402,22 +406,20 @@ func getAMDGPUInfo(ctx context.Context) (map[int]*AMDCardInfo, error) {
 		return nil, fmt.Errorf("failed to execute amd-smi: %w", err)
 	}
 
-	// amd-smi may output error messages after the JSON, so we need to extract just the JSON part
-	// Look for the last ']' which marks the end of the JSON array
-	jsonOutput := output
-	if lastBracket := bytes.LastIndexByte(output, ']'); lastBracket != -1 {
-		jsonOutput = output[:lastBracket+1]
-	}
-
-	// Define a wrapper struct to match the new JSON structure
+	// amd-smi may append error messages after the JSON, so use json.Decoder which
+	// reads exactly the first complete JSON value and ignores trailing content.
+	// Previously a LastIndexByte(']') truncation was used, but that drops the
+	// closing '}' of the {"gpu_data":[...]} wrapper format, producing invalid JSON.
 	var wrapper struct {
 		GPUData []*AMDCardInfo `json:"gpu_data"`
 	}
 
-	if err := json.Unmarshal(jsonOutput, &wrapper); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(output))
+	if err := dec.Decode(&wrapper); err != nil {
 		logging.Debugf("failed to parse amd-smi output going to try compat mode: %v", err)
-		if err := json.Unmarshal(jsonOutput, &wrapper.GPUData); err != nil {
-			logging.Debugf("compat mode also failed: %v, output: %s", err, string(jsonOutput))
+		dec = json.NewDecoder(bytes.NewReader(output))
+		if err := dec.Decode(&wrapper.GPUData); err != nil {
+			logging.Debugf("compat mode also failed: %v, output: %s", err, string(output))
 			return nil, fmt.Errorf("failed to parse amd-smi output: %w", err)
 		}
 	}
@@ -437,7 +439,7 @@ func getAMDListInfo(ctx context.Context) (map[int]*AMDListInfo, error) {
 	}
 
 	var listInfo []*AMDListInfo
-	if err = json.Unmarshal(output, &listInfo); err != nil {
+	if err = json.NewDecoder(bytes.NewReader(output)).Decode(&listInfo); err != nil {
 		return nil, fmt.Errorf("failed to parse amd-smi output: %w", err)
 	}
 
