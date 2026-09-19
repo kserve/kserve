@@ -32,6 +32,16 @@ export ENABLE_LLMISVC="${ENABLE_LLMISVC:-false}"
 export ENABLE_KSERVE_WITH_LLMISVC="${ENABLE_KSERVE_WITH_LLMISVC:-false}"
 export INSTALL_METHOD="${INSTALL_METHOD:-kustomize}"
 
+# facebook/opt-125m is only consumed by the llmisvc e2e suite. Skip its (slow)
+# HuggingFace download / cache copy / S3 upload for pure-kserve runs; the s3-init
+# job still creates buckets and uploads the sklearn model, which all suites need.
+if [[ $ENABLE_LLMISVC == "true" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; then
+  export DOWNLOAD_OPT_125M=true
+else
+  export DOWNLOAD_OPT_125M=false
+fi
+echo "DOWNLOAD_OPT_125M=${DOWNLOAD_OPT_125M}"
+
 # Extract gateway class name from NETWORK_LAYER (e.g., "envoy-gatewayapi" -> "envoy")
 # If NETWORK_LAYER contains "-", extract the first part; otherwise, use "false"
 if [[ $NETWORK_LAYER == *"-gatewayapi"* ]]; then
@@ -104,10 +114,12 @@ if [[ $ENABLE_LLMISVC == "false" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; th
   echo "Add testing models to s3 storage ..."
   if [[ -n "${OPT_125M_CACHE_IMAGE:-}" ]]; then
     OPT_125M_CACHE_IMAGE="${OPT_125M_CACHE_IMAGE}" envsubst '${OPT_125M_CACHE_IMAGE}' \
-      < config/overlays/test/s3-local-backend/seaweedfs-init-job-from-cache.yaml | kubectl apply -n kserve -f -
+      < config/overlays/test/s3-local-backend/seaweedfs-init-job-from-cache.yaml \
+      | sed "s/__DOWNLOAD_OPT_125M__/${DOWNLOAD_OPT_125M}/" | kubectl apply -n kserve -f -
   else
     sed "s|kserve/storage-initializer:latest|${KO_DOCKER_REPO:-kserve}/${STORAGE_INIT_IMG:-storage-initializer}:${TAG:-latest}|g" \
-      config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml | kubectl apply -n kserve -f -
+      config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml \
+      | sed "s/__DOWNLOAD_OPT_125M__/${DOWNLOAD_OPT_125M}/" | kubectl apply -n kserve -f -
   fi
   if ! kubectl wait --for=condition=complete --timeout=900s job/s3-init -n kserve; then
     echo "S3 init job failed. Pod status and logs:"
@@ -163,10 +175,12 @@ else
   echo "Pre-caching opt-125m model in SeaweedFS ..."
   if [[ -n "${OPT_125M_CACHE_IMAGE:-}" ]]; then
     OPT_125M_CACHE_IMAGE="${OPT_125M_CACHE_IMAGE}" envsubst '${OPT_125M_CACHE_IMAGE}' \
-      < "${REPO_ROOT}/config/overlays/test/s3-local-backend/seaweedfs-init-job-from-cache.yaml" | kubectl apply -n kserve -f -
+      < "${REPO_ROOT}/config/overlays/test/s3-local-backend/seaweedfs-init-job-from-cache.yaml" \
+      | sed "s/__DOWNLOAD_OPT_125M__/${DOWNLOAD_OPT_125M}/" | kubectl apply -n kserve -f -
   else
     sed "s|kserve/storage-initializer:latest|${KO_DOCKER_REPO:-kserve}/${STORAGE_INIT_IMG:-storage-initializer}:${TAG:-latest}|g" \
-      "${REPO_ROOT}/config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml" | kubectl apply -n kserve -f -
+      "${REPO_ROOT}/config/overlays/test/s3-local-backend/seaweedfs-init-job.yaml" \
+      | sed "s/__DOWNLOAD_OPT_125M__/${DOWNLOAD_OPT_125M}/" | kubectl apply -n kserve -f -
   fi
   if ! kubectl wait --for=condition=complete --timeout=900s job/s3-init -n kserve; then
     echo "S3 init job failed. Pod status and logs:"
