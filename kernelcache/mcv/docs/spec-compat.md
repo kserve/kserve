@@ -115,7 +115,7 @@ This is just a hint and applications can extract anywhere they choose.
 4. Validate cache-size-bytes against bytes written by whichever extraction path succeeded (step 2 or step 3)
 ```
 
-MCV **create** (Docker and Buildah) only produces compat images. The artifact
+MCV **create** (Docker, Buildah, and OCI) only produces compat images. The artifact
 layer path exists for older or external images only.
 
 ## Examples
@@ -164,7 +164,10 @@ Extract treats this identically to the Docker layer type above.
 mcv -c -i quay.io/example/my-cache:latest -d /path/to/cache
 
 # Buildah / Podman
-mcv -c -i quay.io/example/my-cache:latest -d /path/to/cache --buildah
+mcv -c -i quay.io/example/my-cache:latest -d /path/to/cache --builder buildah
+
+# Direct OCI packaging and registry push
+mcv -c -i quay.io/example/my-cache:latest -d /path/to/cache --builder oci
 ```
 
 MCV stages cache + manifest, squashes to a single layer, and sets labels from
