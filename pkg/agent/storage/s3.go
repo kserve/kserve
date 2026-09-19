@@ -77,6 +77,13 @@ func (m *S3Provider) DownloadModel(modelDir string, modelName string, storageUri
 			if strings.HasSuffix(*object.Key, "/") {
 				continue
 			}
+			// S3's ListObjectsV2 Prefix is a plain string match, not a path-segment
+			// match, so a prefix like "model-a" also matches keys under the sibling
+			// "model-a-2/" directory. Require the key to equal the prefix exactly
+			// (single-object case) or to continue at a "/" boundary.
+			if prefix != "" && *object.Key != prefix && !strings.HasPrefix(*object.Key, prefix+"/") {
+				continue
+			}
 			subObjectKey := strings.TrimPrefix(*object.Key, prefix)
 			fileName := filepath.Join(modelDir, modelName, subObjectKey)
 
