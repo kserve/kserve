@@ -215,7 +215,7 @@ func (e *cacheExtractor) ExtractCache(img v1.Image) error {
 
 	logging.Infof("Extracting cache to directory: %s", constants.ExtractCacheDir)
 
-	if config.IsGPUEnabled() && !config.IsSkipPrecheckEnabled() {
+	if config.IsGPUEnabled() {
 		devInfo, err := preflightcheck.GetAllGPUInfo(e.acc)
 		if err != nil {
 			return fmt.Errorf("failed to get GPU info: %w", err)
@@ -258,7 +258,7 @@ func (e *cacheExtractor) ExtractCache(img v1.Image) error {
 
 	// Full manifest compatibility check (after extraction)
 	manifestPath := filepath.Join(constants.ExtractManifestDir, constants.ManifestFileName)
-	if config.IsGPUEnabled() && config.IsBaremetalEnabled() && !config.IsSkipPrecheckEnabled() {
+	if config.IsGPUEnabled() && config.IsBaremetalEnabled() {
 		devInfo, err := preflightcheck.GetAllGPUInfo(e.acc)
 		if err != nil || devInfo == nil {
 			return fmt.Errorf("failed to get GPU info: %w", err)
