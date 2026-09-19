@@ -23,6 +23,7 @@ SWAGGER_CODEGEN_JAR="hack/python-sdk/openapi-generator-cli-${OPENAPI_GENERATOR_V
 SWAGGER_CODEGEN_CONF="hack/python-sdk/swagger_config.json"
 SWAGGER_CODEGEN_FILE="pkg/openapi/swagger.json"
 SDK_OUTPUT_PATH="python/kserve"
+SDK_TEMPLATE_PATH="hack/python-sdk/templates"
 
 echo "Downloading the swagger-codegen JAR package ..."
 if [ ! -f ${SWAGGER_CODEGEN_JAR} ]
@@ -31,7 +32,7 @@ then
 fi
 
 echo "Generating Python SDK for KServe ..."
-java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -g python -o ${SDK_OUTPUT_PATH} -c ${SWAGGER_CODEGEN_CONF}
+java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -g python -o ${SDK_OUTPUT_PATH} -c ${SWAGGER_CODEGEN_CONF} -t ${SDK_TEMPLATE_PATH}
 
 # Fix openapi-generator 4.3.1 bug: model references with dots in swagger definition
 # names (e.g. "v1alpha2.LLMInferenceService") are emitted as broken Python expressions
