@@ -91,7 +91,7 @@ func createAutoscaler(client client.Client,
 	ac := getAutoscalerClass(componentMeta)
 	switch ac {
 	case constants.AutoscalerClassHPA, constants.AutoscalerClassExternal, constants.AutoscalerClassNone:
-		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt)
+		return hpa.NewHPAReconciler(client, scheme, componentMeta, componentExt, configMap)
 	case constants.AutoscalerClassKeda:
 		return keda.NewKedaReconciler(client, scheme, componentMeta, componentExt, configMap)
 	default:

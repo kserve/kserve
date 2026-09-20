@@ -15,6 +15,7 @@ package hpa
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
@@ -24,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -47,14 +49,73 @@ func NewHPAReconciler(client client.Client,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
+	configMap *corev1.ConfigMap,
 ) (*HPAReconciler, error) {
-	hpa := createHPA(componentMeta, componentExt)
+	hpa, err := createHPA(componentMeta, componentExt, configMap)
+	if err != nil {
+		return nil, err
+	}
 	return &HPAReconciler{
 		client:       client,
 		scheme:       scheme,
 		HPA:          hpa,
 		componentExt: componentExt,
 	}, nil
+}
+
+// resolveHPABehavior builds the HorizontalPodAutoscaler behavior from the
+// component's autoScaling.behavior spec, falling back to the autoscaler
+// section of the inferenceservice-config ConfigMap for the stabilization
+// windows when they are not set on the component itself.
+func resolveHPABehavior(componentExt *v1beta1.ComponentExtensionSpec, configMap *corev1.ConfigMap) (*autoscalingv2.HorizontalPodAutoscalerBehavior, error) {
+	var behavior *autoscalingv2.HorizontalPodAutoscalerBehavior
+	if componentExt != nil && componentExt.AutoScaling != nil && componentExt.AutoScaling.Behavior != nil {
+		behavior = componentExt.AutoScaling.Behavior.DeepCopy()
+	}
+	if behavior == nil {
+		behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{}
+	}
+
+	var scaleUpStabilizationWindowSeconds, scaleDownStabilizationWindowSeconds *int32
+	if behavior.ScaleUp != nil {
+		scaleUpStabilizationWindowSeconds = behavior.ScaleUp.StabilizationWindowSeconds
+	}
+	if behavior.ScaleDown != nil {
+		scaleDownStabilizationWindowSeconds = behavior.ScaleDown.StabilizationWindowSeconds
+	}
+
+	// Fallback to configmap if not set on the component.
+	if (scaleUpStabilizationWindowSeconds == nil || scaleDownStabilizationWindowSeconds == nil) && configMap != nil {
+		autoscalerConfig, err := v1beta1.NewAutoscalerConfig(configMap)
+		if err != nil {
+			return nil, err
+		}
+		if scaleUpStabilizationWindowSeconds == nil && autoscalerConfig.ScaleUpStabilizationWindowSeconds != "" {
+			if val, err := strconv.ParseInt(autoscalerConfig.ScaleUpStabilizationWindowSeconds, 10, 32); err == nil {
+				scaleUpStabilizationWindowSeconds = ptr.To(int32(val))
+			}
+		}
+		if scaleDownStabilizationWindowSeconds == nil && autoscalerConfig.ScaleDownStabilizationWindowSeconds != "" {
+			if val, err := strconv.ParseInt(autoscalerConfig.ScaleDownStabilizationWindowSeconds, 10, 32); err == nil {
+				scaleDownStabilizationWindowSeconds = ptr.To(int32(val))
+			}
+		}
+	}
+
+	if scaleUpStabilizationWindowSeconds != nil {
+		if behavior.ScaleUp == nil {
+			behavior.ScaleUp = &autoscalingv2.HPAScalingRules{}
+		}
+		behavior.ScaleUp.StabilizationWindowSeconds = scaleUpStabilizationWindowSeconds
+	}
+	if scaleDownStabilizationWindowSeconds != nil {
+		if behavior.ScaleDown == nil {
+			behavior.ScaleDown = &autoscalingv2.HPAScalingRules{}
+		}
+		behavior.ScaleDown.StabilizationWindowSeconds = scaleDownStabilizationWindowSeconds
+	}
+
+	return behavior, nil
 }
 
 func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2.MetricSpec {
@@ -149,7 +210,8 @@ func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2
 
 func createHPA(componentMeta metav1.ObjectMeta,
 	componentExt *v1beta1.ComponentExtensionSpec,
-) *autoscalingv2.HorizontalPodAutoscaler {
+	configMap *corev1.ConfigMap,
+) (*autoscalingv2.HorizontalPodAutoscaler, error) {
 	var minReplicas int32
 	if componentExt == nil || componentExt.MinReplicas == nil || (*componentExt.MinReplicas) < constants.DefaultMinReplicas {
 		minReplicas = constants.DefaultMinReplicas
@@ -165,6 +227,10 @@ func createHPA(componentMeta metav1.ObjectMeta,
 		maxReplicas = minReplicas
 	}
 	metrics := getHPAMetrics(componentExt)
+	behavior, err := resolveHPABehavior(componentExt, configMap)
+	if err != nil {
+		return nil, err
+	}
 	hpa := &autoscalingv2.HorizontalPodAutoscaler{
 		ObjectMeta: componentMeta,
 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
@@ -176,10 +242,10 @@ func createHPA(componentMeta metav1.ObjectMeta,
 			MinReplicas: &minReplicas,
 			MaxReplicas: maxReplicas,
 			Metrics:     metrics,
-			Behavior:    &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+			Behavior:    behavior,
 		},
 	}
-	return hpa
+	return hpa, nil
 }
 
 // checkHPAExist checks if the hpa exists?

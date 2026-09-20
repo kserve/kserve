@@ -413,9 +413,104 @@ func TestCreateHPA(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := createHPA(tt.args.objectMeta, tt.args.componentExt)
+			got, err := createHPA(tt.args.objectMeta, tt.args.componentExt, nil)
+			if tt.err != nil {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
 			if diff := cmp.Diff(tt.expected, got); diff != "" {
 				t.Errorf("Test %q unexpected hpa (-want +got): %v", tt.name, diff)
+			}
+		})
+	}
+}
+
+func TestCreateHPAWithBehavior(t *testing.T) {
+	scaleUpWindow := int32(60)
+	scaleDownWindow := int32(300)
+
+	tests := []struct {
+		name         string
+		componentExt *v1beta1.ComponentExtensionSpec
+		configMap    *corev1.ConfigMap
+		expected     *autoscalingv2.HorizontalPodAutoscalerBehavior
+	}{
+		{
+			name: "behavior from component spec",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &autoscalingv2.HPAScalingRules{
+							StabilizationWindowSeconds: &scaleUpWindow,
+						},
+						ScaleDown: &autoscalingv2.HPAScalingRules{
+							StabilizationWindowSeconds: &scaleDownWindow,
+						},
+					},
+				},
+			},
+			expected: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+				ScaleUp: &autoscalingv2.HPAScalingRules{
+					StabilizationWindowSeconds: &scaleUpWindow,
+				},
+				ScaleDown: &autoscalingv2.HPAScalingRules{
+					StabilizationWindowSeconds: &scaleDownWindow,
+				},
+			},
+		},
+		{
+			name: "fallback to configmap",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{},
+			},
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"autoscaler": `{"scaleUpStabilizationWindowSeconds":"15","scaleDownStabilizationWindowSeconds":"45"}`,
+				},
+			},
+			expected: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+				ScaleUp: &autoscalingv2.HPAScalingRules{
+					StabilizationWindowSeconds: ptr.To(int32(15)),
+				},
+				ScaleDown: &autoscalingv2.HPAScalingRules{
+					StabilizationWindowSeconds: ptr.To(int32(45)),
+				},
+			},
+		},
+		{
+			name: "component spec takes precedence over configmap",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &autoscalingv2.HPAScalingRules{
+							StabilizationWindowSeconds: &scaleUpWindow,
+						},
+					},
+				},
+			},
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"autoscaler": `{"scaleUpStabilizationWindowSeconds":"15","scaleDownStabilizationWindowSeconds":"45"}`,
+				},
+			},
+			expected: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+				ScaleUp: &autoscalingv2.HPAScalingRules{
+					StabilizationWindowSeconds: &scaleUpWindow,
+				},
+				ScaleDown: &autoscalingv2.HPAScalingRules{
+					StabilizationWindowSeconds: ptr.To(int32(45)),
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hpa, err := createHPA(metav1.ObjectMeta{Name: "test"}, tt.componentExt, tt.configMap)
+			require.NoError(t, err)
+			if diff := cmp.Diff(tt.expected, hpa.Spec.Behavior); diff != "" {
+				t.Errorf("Test %q unexpected hpa behavior (-want +got): %v", tt.name, diff)
 			}
 		})
 	}
