@@ -99,7 +99,7 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		return fmt.Errorf("failed to reconcile workload service: %w", err)
 	}
 
-	// Reconcile autoscaling resources (HPA or KEDA ScaledObject, annotated for WVA discovery) when scaling is configured.
+	// Reconcile the KEDA ScaledObject when scaling is configured.
 	// A missing CRD is a hard error: the LLMISVC is misconfigured and deployment is blocked.
 	if err := r.reconcileScaling(ctx, llmSvc, config); err != nil {
 		if meta.IsNoMatchError(err) {

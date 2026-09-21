@@ -162,10 +162,6 @@ type Config struct {
 	// directly constructed Configs keep the byte-compatible default.
 	LoRAModelRoutingStrategy LoRAModelRoutingStrategy `json:"loraModelRoutingStrategy,omitempty"`
 
-	// WVAAutoscalingConfig holds Prometheus and monitoring settings for WVA autoscaling.
-	// nil when the "autoscaling-wva-controller-config" key is not present in inferenceservice-config.
-	WVAAutoscalingConfig *WVAAutoscalingConfig `json:"-"`
-
 	// FeatureGates holds the opt-in behaviour switches from the "llmisvc" key of
 	// inferenceservice-config. The zero value leaves every gate off, so a directly
 	// constructed Config behaves as it did before any gate existed.
@@ -183,49 +179,6 @@ type Config struct {
 	// share a single consistent result.
 	ResolvedLoRAAdapters []resolvedLoRAAdapter `json:"-"`
 }
-
-// PrometheusConfig holds Prometheus connection and authentication settings used by KEDA
-// to query the wva_desired_replicas metric.
-type PrometheusConfig struct {
-	// URL is the URL of the Prometheus server (used by KEDA to query wva_desired_replicas).
-	URL string `json:"url"`
-	// TLSInsecureSkipVerify disables TLS certificate verification for the Prometheus connection.
-	TLSInsecureSkipVerify bool `json:"tlsInsecureSkipVerify"`
-	// AuthModes is the KEDA authModes value for the Prometheus trigger
-	// (e.g. "bearer", "basic", "tls"). Empty means no secret-backed authentication.
-	// Requires TriggerAuthName to be set, since the referenced CR supplies the actual
-	// credential values. Must be left empty when TriggerAuthName references a
-	// pod-identity-based CR (e.g. AWS/Azure/GCP managed Prometheus) - KEDA's Prometheus
-	// scaler rejects pod identity combined with any other auth mode.
-	// See: https://keda.sh/docs/latest/scalers/prometheus/#authentication-parameters
-	// +optional
-	AuthModes string `json:"authModes,omitempty"`
-	// TriggerAuthName is the name of a pre-existing TriggerAuthentication or
-	// ClusterTriggerAuthentication CR that KEDA should use when querying Prometheus.
-	// The CR must be created by the cluster admin before enabling KEDA autoscaling.
-	// May be set without AuthModes, e.g. when the CR configures pod-identity-based auth
-	// for a managed Prometheus service instead of secret-backed credentials.
-	// +optional
-	TriggerAuthName string `json:"triggerAuthName,omitempty"`
-	// TriggerAuthKind specifies the kind of the authentication CR referenced by
-	// TriggerAuthName. Accepted values are "TriggerAuthentication" (namespaced)
-	// and "ClusterTriggerAuthentication" (cluster-scoped). Defaults to "TriggerAuthentication"
-	// when empty. ClusterTriggerAuthentication is recommended for multi-namespace deployments.
-	// +optional
-	TriggerAuthKind string `json:"triggerAuthKind,omitempty"`
-}
-
-// WVAAutoscalingConfig holds cluster-wide WVA autoscaling settings loaded from the
-// "autoscaling-wva-controller-config" key in the inferenceservice-config ConfigMap.
-// These are shared across all LLMISVC instances.
-type WVAAutoscalingConfig struct {
-	// Prometheus holds Prometheus connection and authentication settings.
-	Prometheus PrometheusConfig `json:"prometheus"`
-}
-
-// autoscalingConfigName is the key in the inferenceservice-config ConfigMap
-// that holds WVA-specific autoscaling controller configuration.
-const autoscalingConfigName = "autoscaling-wva-controller-config"
 
 // NewConfig creates an instance of llm-specific config based on predefined values
 // in IngressConfig struct
@@ -304,14 +257,6 @@ func toConfig(isvcConfigMap *corev1.ConfigMap) (*Config, error) {
 	}
 
 	config := NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig)
-
-	if autoscalingData, ok := isvcConfigMap.Data[autoscalingConfigName]; ok {
-		asCfg := &WVAAutoscalingConfig{}
-		if err := json.Unmarshal([]byte(autoscalingData), asCfg); err != nil {
-			return nil, fmt.Errorf("failed to parse %s config json: %w", autoscalingConfigName, err)
-		}
-		config.WVAAutoscalingConfig = asCfg
-	}
 
 	llmISVCConfig, errConvert := NewLLMISVCConfig(isvcConfigMap)
 	if errConvert != nil {
