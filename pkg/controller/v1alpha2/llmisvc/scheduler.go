@@ -1438,6 +1438,10 @@ func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
 //  8. WithRemovePlugin – strip disagg-headers-handler, prefill-header-handler,
 //     and pd-profile-handler (v0.11.0+, disagg-headers-handler removed from
 //     llm-d-router; the other two are legacy names from prior renames)
+//  9. withMigrateSaturationDetector, withMigrateParser, withMigratePeerDiscovery –
+//     relocate saturationDetector and parser (removed from EndpointPickerConfig
+//     in v0.11.0) and dataLayer.peerDiscovery (only deprecated in v0.11.0, not
+//     removed) to the fields that replaced them
 func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService, enableTLS bool) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
@@ -1534,11 +1538,25 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 	// - prefill-header-handler  (pre-v0.7.0 name, renamed to disagg-headers-handler) to support upgrade from pre-v0.7 to 0.11
 	// - pd-profile-handler      (pre-v0.7.0 name, renamed to disagg-headers-handler) to support upgrade from pre-v0.7 to 0.11
 	// - disagg-headers-handler  (v0.7.0 name, no longer recognised by router after 0.11.0)
+	//
+	// It also drops two EndpointPickerConfig fields that were deprecated in
+	// v0.9.0 and removed in v0.11.0. The EPP decodes its config with a strict
+	// serializer, so a config carrying any of them stops the binary from
+	// starting; each is relocated to the field that replaced it.
+	//
+	// dataLayer.peerDiscovery is different: v0.11.0 only starts its deprecation
+	// in favour of dataLayer.discovery.peers, it is not a hard cut. The router
+	// still accepts the old field and migrates it itself. Since the replacement
+	// is already accepted from v0.11.0, relocate it here too so configs are on
+	// the new field before the old one is eventually removed.
 	if v.Compare(*semver.New("0.11.0")) >= 0 {
 		opts = append(opts,
 			WithRemovePlugin("prefill-header-handler"),
 			WithRemovePlugin("disagg-headers-handler"),
 			WithRemovePlugin("pd-profile-handler"),
+			withMigrateSaturationDetector,
+			withMigrateParser,
+			withMigratePeerDiscovery,
 		)
 	}
 
@@ -1552,6 +1570,64 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 // disagg-headers-handler (v0.7.0 rename).
 func withMigrateDisaggHeadersHandler(ctx context.Context, u *unstructured.Unstructured) error {
 	return WithRenamePlugin("prefill-header-handler", "disagg-headers-handler")(ctx, u)
+}
+
+// moveLegacyConfigField relocates a deprecated EndpointPickerConfig field to
+// the path that replaced it. The legacy field is always removed, because the
+// EPP decodes its configuration with a strict serializer and would refuse to
+// start while it is present. The value is only written to the new path when
+// that path is still empty, matching the router's own "if both are set, the
+// new field is used" rule for the deprecation window. wrap, when non-nil,
+// adapts the legacy value to the shape of the replacement field.
+func moveLegacyConfigField(u *unstructured.Unstructured, from, to []string, wrap func(interface{}) interface{}) error {
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, from...)
+	if err != nil || !found {
+		return err
+	}
+	unstructured.RemoveNestedField(u.Object, from...)
+
+	if _, exists, err := unstructured.NestedFieldNoCopy(u.Object, to...); err != nil {
+		return err
+	} else if exists {
+		return nil
+	}
+
+	if wrap != nil {
+		val = wrap(val)
+	}
+	return unstructured.SetNestedField(u.Object, val, to...)
+}
+
+// withMigrateSaturationDetector moves the top-level saturationDetector into
+// flowControl.saturationDetector. llm-d-router deprecated the old field in
+// v0.9.0 and removed it in v0.11.0.
+func withMigrateSaturationDetector(_ context.Context, u *unstructured.Unstructured) error {
+	return moveLegacyConfigField(u,
+		[]string{"saturationDetector"},
+		[]string{"flowControl", "saturationDetector"},
+		nil)
+}
+
+// withMigrateParser moves the top-level parser into requestHandler.parsers.
+// llm-d-router deprecated the old field in v0.9.0 and removed it in v0.11.0.
+// The replacement is a list, so the single legacy entry becomes its only
+// element.
+func withMigrateParser(_ context.Context, u *unstructured.Unstructured) error {
+	return moveLegacyConfigField(u,
+		[]string{"parser"},
+		[]string{"requestHandler", "parsers"},
+		func(val interface{}) interface{} { return []interface{}{val} })
+}
+
+// withMigratePeerDiscovery moves dataLayer.peerDiscovery under
+// dataLayer.discovery.peers. llm-d-router v0.11.0 introduced the new field and
+// started deprecating the old one; the old field is still accepted there, so
+// this migration is ahead of its removal rather than required by v0.11.0.
+func withMigratePeerDiscovery(_ context.Context, u *unstructured.Unstructured) error {
+	return moveLegacyConfigField(u,
+		[]string{"dataLayer", "peerDiscovery"},
+		[]string{"dataLayer", "discovery", "peers"},
+		nil)
 }
 
 // withMigrateLLMDAPIVersion rewrites the deprecated EndpointPickerConfig
