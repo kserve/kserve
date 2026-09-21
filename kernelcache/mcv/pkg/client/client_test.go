@@ -52,19 +52,6 @@ func TestExtractCacheWithGPUEnabled(t *testing.T) {
 // 	assert.Nil(t, unmatchedIDs, "Unmatched IDs should not be nil")
 // }
 
-func TestExtractCacheWithSkipPrecheck(t *testing.T) {
-	skipPrecheck := true
-	opts := Options{
-		ImageName:    testImg,
-		SkipPrecheck: &skipPrecheck,
-	}
-
-	matchedIDs, unmatchedIDs, err := ExtractCache(opts)
-	assert.NoError(t, err, "ExtractCache should not return an error")
-	assert.Nil(t, matchedIDs, "Matched IDs should be nil")
-	assert.Nil(t, unmatchedIDs, "Unmatched IDs should not be nil")
-}
-
 func TestGetSystemGPUInfoWithTimeoutDisabled(t *testing.T) {
 	stub := true
 	opts := HwOptions{

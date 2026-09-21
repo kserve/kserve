@@ -4718,6 +4718,56 @@
         }
       }
     },
+    "v1beta1.KernelCacheConfig": {
+      "description": "KernelCacheConfig contains the shared KernelCache configuration loaded from the kernelcache entry in the inferenceservice-config ConfigMap.",
+      "type": "object",
+      "required": [
+        "enabled",
+        "defaultSidecarInjection",
+        "jobNamespace"
+      ],
+      "properties": {
+        "abandonedCapturePolicy": {
+          "type": "string"
+        },
+        "defaultMountType": {
+          "type": "string"
+        },
+        "defaultNodeGroup": {
+          "type": "string"
+        },
+        "defaultSidecarInjection": {
+          "type": "boolean",
+          "default": false
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "jobNamespace": {
+          "type": "string",
+          "default": ""
+        },
+        "jobTTLSecondsAfterFinished": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "mcvCaptureReadinessTimeoutSeconds": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "mcvImage": {
+          "type": "string"
+        },
+        "prefetchImage": {
+          "type": "string"
+        },
+        "reconcileIntervalSeconds": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
     "v1beta1.LightGBMSpec": {
       "description": "LightGBMSpec defines arguments for configuring LightGBMSpec model serving.",
       "type": "object",

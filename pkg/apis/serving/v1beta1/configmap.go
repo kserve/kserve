@@ -49,6 +49,7 @@ const (
 	OtelCollectorConfigName            = "opentelemetryCollector"
 	StorageInitializerConfigMapKeyName = "storageInitializer"
 	AutoscalerConfigName               = "autoscaler"
+	KernelCacheConfigName              = "kernelcache"
 )
 
 const (
@@ -178,6 +179,30 @@ type LocalModelConfig struct {
 	JobTTLSecondsAfterFinished   *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
 	ReconcilationFrequencyInSecs *int64 `json:"reconcilationFrequencyInSecs,omitempty"`
 	DisableVolumeManagement      bool   `json:"disableVolumeManagement,omitempty"`
+}
+
+const (
+	DefaultKernelCacheMCVImage                                = "kserve/kserve-mcv:latest-minimal"
+	DefaultKernelCachePrefetchImage                           = "registry.access.redhat.com/ubi9/ubi-minimal:latest"
+	DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds int64 = 600
+	DefaultKernelCacheAbandonedCapturePolicy                  = "retain"
+)
+
+// +kubebuilder:object:generate=false
+// KernelCacheConfig contains the shared KernelCache configuration loaded from
+// the kernelcache entry in the inferenceservice-config ConfigMap.
+type KernelCacheConfig struct {
+	Enabled                           bool   `json:"enabled"`
+	DefaultSidecarInjection           bool   `json:"defaultSidecarInjection"`
+	DefaultMountType                  string `json:"defaultMountType,omitempty"`
+	DefaultNodeGroup                  string `json:"defaultNodeGroup,omitempty"`
+	JobNamespace                      string `json:"jobNamespace"`
+	MCVImage                          string `json:"mcvImage,omitempty"`
+	MCVCaptureReadinessTimeoutSeconds int64  `json:"mcvCaptureReadinessTimeoutSeconds,omitempty"`
+	PrefetchImage                     string `json:"prefetchImage,omitempty"`
+	JobTTLSecondsAfterFinished        *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
+	ReconcileIntervalSeconds          *int64 `json:"reconcileIntervalSeconds,omitempty"`
+	AbandonedCapturePolicy            string `json:"abandonedCapturePolicy,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -423,6 +448,42 @@ func NewLocalModelConfig(isvcConfigMap *corev1.ConfigMap) (*LocalModelConfig, er
 		}
 	}
 	return localModelConfig, nil
+}
+
+// NewKernelCacheConfig parses the KernelCache configuration from the
+// inferenceservice-config ConfigMap and applies the controller defaults.
+func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, error) {
+	kernelCacheConfig := &KernelCacheConfig{
+		DefaultSidecarInjection:           true,
+		MCVImage:                          DefaultKernelCacheMCVImage,
+		MCVCaptureReadinessTimeoutSeconds: DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds,
+		PrefetchImage:                     DefaultKernelCachePrefetchImage,
+		AbandonedCapturePolicy:            DefaultKernelCacheAbandonedCapturePolicy,
+	}
+	if kernelCache, ok := isvcConfigMap.Data[KernelCacheConfigName]; ok {
+		if err := json.Unmarshal([]byte(kernelCache), kernelCacheConfig); err != nil {
+			return nil, fmt.Errorf("unable to unmarshal kernelcache: %w", err)
+		}
+	}
+	if kernelCacheConfig.MCVImage == "" {
+		kernelCacheConfig.MCVImage = DefaultKernelCacheMCVImage
+	}
+	if kernelCacheConfig.PrefetchImage == "" {
+		kernelCacheConfig.PrefetchImage = DefaultKernelCachePrefetchImage
+	}
+	if kernelCacheConfig.AbandonedCapturePolicy == "" {
+		kernelCacheConfig.AbandonedCapturePolicy = DefaultKernelCacheAbandonedCapturePolicy
+	}
+	if kernelCacheConfig.AbandonedCapturePolicy != "retain" && kernelCacheConfig.AbandonedCapturePolicy != "delete" {
+		return nil, errors.New("kernelcache.abandonedCapturePolicy must be retain or delete")
+	}
+	if kernelCacheConfig.DefaultMountType != "" && kernelCacheConfig.DefaultMountType != "oci" {
+		return nil, fmt.Errorf("kernelcache.defaultMountType must be oci, got %q", kernelCacheConfig.DefaultMountType)
+	}
+	if kernelCacheConfig.MCVCaptureReadinessTimeoutSeconds <= 0 {
+		return nil, errors.New("kernelcache.mcvCaptureReadinessTimeoutSeconds must be greater than zero")
+	}
+	return kernelCacheConfig, nil
 }
 
 func NewSecurityConfig(isvcConfigMap *corev1.ConfigMap) (*SecurityConfig, error) {
