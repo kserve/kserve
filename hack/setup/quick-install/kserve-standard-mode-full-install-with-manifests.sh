@@ -55812,6 +55812,37 @@ data:
          # This is to disable localmodel pv and pvc management for namespaces without isvcs
          "disableVolumeManagement": false
        }
+
+     # ====================================== KERNELCACHE CONFIGURATION ======================================
+     # Example
+     kernelcache: |-
+       {
+         # enabled controls KernelCache, KernelCacheCapture, and related webhook behavior.
+         "enabled": false,
+         # defaultSidecarInjection controls MCV injection when a workload does not override it.
+         "defaultSidecarInjection": true,
+         # defaultMountType is used when KernelCache does not specify a mount type.
+         "defaultMountType": "oci",
+         # defaultNodeGroup selects the KernelCacheNodeGroup for automatically created KernelCaches.
+         # Set it to an empty value when every workload must select a node group explicitly.
+         "defaultNodeGroup": "",
+         # jobNamespace is the pre-created namespace where kernel cache preparation Jobs are created.
+         "jobNamespace": "kserve-kernelcache-jobs",
+         # mcvImage is the MCV container image used by cache capture and preparation flows.
+         "mcvImage": "kserve/kserve-mcv:latest-minimal",
+         # prefetchImage is the lightweight image used by OCI prefetch Jobs.
+         "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+         # abandonedCapturePolicy controls generated captures whose producer Pod disappears
+         # before completion. Supported values are retain and delete.
+         "abandonedCapturePolicy": "retain",
+         # jobTTLSecondsAfterFinished controls how long completed preparation Jobs are retained.
+         "jobTTLSecondsAfterFinished": 600,
+         # mcvCaptureReadinessTimeoutSeconds limits how long the MCV capture sidecar waits for workload readiness.
+         "mcvCaptureReadinessTimeoutSeconds": 600,
+         # reconcileIntervalSeconds controls KCN status reconciliation.
+         # Periodic Node image validation uses the node agent's internal interval.
+         "reconcileIntervalSeconds": 300
+       }
   agent: |-
     {
         "image" : "kserve/agent:latest",
@@ -55890,6 +55921,20 @@ data:
         "disableIstioVirtualHost": false,
         "disableIngressCreation": false,
         "disableHTTPRouteTimeout": false
+    }
+  kernelcache: |-
+    {
+      "enabled": false,
+      "defaultSidecarInjection": true,
+      "defaultMountType": "oci",
+      "defaultNodeGroup": "",
+      "jobNamespace": "kserve-kernelcache-jobs",
+      "mcvImage": "kserve/kserve-mcv:latest-minimal",
+      "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+      "abandonedCapturePolicy": "retain",
+      "jobTTLSecondsAfterFinished": 600,
+      "mcvCaptureReadinessTimeoutSeconds": 600,
+      "reconcileIntervalSeconds": 300
     }
   localModel: |-
     {
