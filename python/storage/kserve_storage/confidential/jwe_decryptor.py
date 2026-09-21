@@ -96,7 +96,9 @@ def _b64url_decode(data: bytes) -> bytes:
             validate=True,
         )
     except (binascii.Error, ValueError) as exc:
-        raise jwe.InvalidJWEData("Invalid base64url in JWE compact serialization") from exc
+        raise jwe.InvalidJWEData(
+            "Invalid base64url in JWE compact serialization"
+        ) from exc
 
 
 def _parse_compact_jwe(path: Path) -> _CompactJWE:
