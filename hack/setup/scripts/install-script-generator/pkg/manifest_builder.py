@@ -22,6 +22,12 @@ from typing import Any
 
 
 YAML_SEPARATOR = "---\n"
+_KUSTOMIZE_BUILD_CACHE: dict[Path, str] = {}
+
+
+def clear_kustomize_build_cache() -> None:
+    """Clear the per-generator-process Kustomize output cache."""
+    _KUSTOMIZE_BUILD_CACHE.clear()
 
 
 def to_bool_string(value: Any) -> str:
@@ -65,6 +71,10 @@ def run_kustomize_build(kustomize_dir: Path) -> str:
         subprocess.CalledProcessError: If kustomize build fails
         FileNotFoundError: If kustomize command not found
     """
+    cache_key = kustomize_dir.resolve()
+    if cache_key in _KUSTOMIZE_BUILD_CACHE:
+        return _KUSTOMIZE_BUILD_CACHE[cache_key]
+
     kustomize_bin = _find_kustomize_binary(kustomize_dir)
     try:
         result = subprocess.run(
@@ -74,6 +84,7 @@ def run_kustomize_build(kustomize_dir: Path) -> str:
             check=True,
             cwd=kustomize_dir.parent,
         )
+        _KUSTOMIZE_BUILD_CACHE[cache_key] = result.stdout
         return result.stdout
     except subprocess.CalledProcessError as e:
         raise RuntimeError(
