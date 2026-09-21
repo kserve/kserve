@@ -36,22 +36,33 @@ func TestNewConfigConvertsCipherSuitesForOpenSSL(t *testing.T) {
 		LLMInferenceServiceTLSCipherSuites: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
 	}
 
-	got := llmisvc.NewConfig(ingressConfig, nil, nil, nil)
+	got, err := llmisvc.NewConfig(ingressConfig, nil, nil, nil)
+	require.NoError(t, err)
 	if want := "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384"; got.TLSCipherSuitesOpenSSL != want {
 		t.Fatalf("TLSCipherSuitesOpenSSL = %q, want %q", got.TLSCipherSuitesOpenSSL, want)
 	}
 }
 
+func TestNewConfigRejectsCipherWithoutOpenSSLMapping(t *testing.T) {
+	ingressConfig := &v1beta1.IngressConfig{
+		LLMInferenceServiceTLSCipherSuites: "TLS_FUTURE_CIPHER_SUITE",
+	}
+
+	_, err := llmisvc.NewConfig(ingressConfig, nil, nil, nil)
+	require.ErrorContains(t, err, `no OpenSSL name is defined for TLS cipher suite "TLS_FUTURE_CIPHER_SUITE"`)
+}
+
 func TestLoadConfigValidatesAndNormalizesTLSProfile(t *testing.T) {
 	cm := fixture.InferenceServiceCfgMap(constants.KServeNamespace)
 	fixture.SetIngressConfigKey(cm, "llmInferenceServiceTLSMinVersion", " VersionTLS12 ")
-	fixture.SetIngressConfigKey(cm, "llmInferenceServiceTLSCipherSuites", " TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 ")
+	fixture.SetIngressConfigKey(cm, "llmInferenceServiceTLSCipherSuites", " TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256 ,\n\t TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384 ")
 	c := fake.NewClientBuilder().WithScheme(clientgoscheme.Scheme).WithObjects(cm).Build()
 
 	got, err := llmisvc.LoadConfig(t.Context(), c)
 	require.NoError(t, err)
 	require.Equal(t, "VersionTLS12", got.TLSMinVersion)
-	require.Equal(t, "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256", got.TLSCipherSuites)
+	require.Equal(t, "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384", got.TLSCipherSuites)
+	require.Equal(t, "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384", got.TLSCipherSuitesOpenSSL)
 
 	fixture.SetIngressConfigKey(cm, "llmInferenceServiceTLSMinVersion", "VersionTLS11")
 	c = fake.NewClientBuilder().WithScheme(clientgoscheme.Scheme).WithObjects(cm).Build()
