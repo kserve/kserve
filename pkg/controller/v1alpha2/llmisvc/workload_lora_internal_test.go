@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -425,15 +426,12 @@ func TestSemanticDeploymentIsEqualForSharedClaimLoRA(t *testing.T) {
 	spec.Model.URI = *base
 	spec.Template = &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
 
-	adapters, err := enumerateLoRAAdapters(spec)
-	require.NoError(t, err)
-
 	svc := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "lora-shared-claim", Namespace: "default"},
 		Spec:       spec,
 	}
 	r := &LLMISVCReconciler{Client: selectorTestClient(t), Clientset: k8sfake.NewSimpleClientset()}
-	config := &Config{ResolvedLoRAAdapters: adapters}
+	config := &Config{}
 
 	first, err := r.expectedSingleNodeMainDeployment(t.Context(), svc, config)
 	require.NoError(t, err)
@@ -447,6 +445,47 @@ func TestSemanticDeploymentIsEqualForSharedClaimLoRA(t *testing.T) {
 	// declares it once.
 	assert.Equal(t, []corev1.Volume{pvcVolume(constants.PvcSourceMountName, "shared")},
 		first.Spec.Template.Spec.Volumes)
+
+	// The adapters share the base model's claim, so they add no volume of their own.
+	// Mounts are the only evidence they were attached at all.
+	require.NotEmpty(t, first.Spec.Template.Spec.Containers)
+	mountPaths := make([]string, 0, len(first.Spec.Template.Spec.Containers[0].VolumeMounts))
+	for _, m := range first.Spec.Template.Spec.Containers[0].VolumeMounts {
+		mountPaths = append(mountPaths, m.MountPath)
+	}
+	for _, adapter := range []string{"billing", "gaming", "support"} {
+		assert.Contains(t, mountPaths, filepath.Join(loraAdaptersMountRoot, adapter),
+			"adapter %q must be mounted", adapter)
+	}
+}
+
+// TestSingleNodeDeploymentWithoutLoRAAdaptersMountsNone pins the other direction: no
+// adapters declared, none mounted.
+func TestSingleNodeDeploymentWithoutLoRAAdaptersMountsNone(t *testing.T) {
+	t.Parallel()
+
+	base, err := apis.ParseURL("pvc://shared/base")
+	require.NoError(t, err)
+
+	svc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "lora-none", Namespace: "default"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Model: v1alpha2.LLMModelSpec{URI: *base},
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}},
+			},
+		},
+	}
+	r := &LLMISVCReconciler{Client: selectorTestClient(t), Clientset: k8sfake.NewSimpleClientset()}
+
+	d, err := r.expectedSingleNodeMainDeployment(t.Context(), svc, &Config{})
+	require.NoError(t, err)
+
+	require.NotEmpty(t, d.Spec.Template.Spec.Containers)
+	for _, m := range d.Spec.Template.Spec.Containers[0].VolumeMounts {
+		assert.NotContains(t, m.MountPath, loraAdaptersMountRoot,
+			"a service declaring no adapters must not mount the adapter root")
+	}
 }
 
 func TestAddLoRAVLLMArgs(t *testing.T) {

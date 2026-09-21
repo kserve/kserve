@@ -42,7 +42,7 @@ import (
 // Returns (nil, nil) when spec.runtime is nil/empty or the referenced runtime does not
 // exist — falling back silently lets services opt out of the ServingRuntime layer without
 // needing a special marker value.
-func (r *LLMISVCReconciler) resolveRuntimeSpec(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*v1alpha2.LLMInferenceServiceSpec, error) {
+func (s *SpecResolver) resolveRuntimeSpec(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*v1alpha2.LLMInferenceServiceSpec, error) {
 	if llmSvc.Spec.Runtime == nil || *llmSvc.Spec.Runtime == "" {
 		return nil, nil
 	}
@@ -51,14 +51,14 @@ func (r *LLMISVCReconciler) resolveRuntimeSpec(ctx context.Context, llmSvc *v1al
 	// Namespace-scoped ServingRuntime takes precedence over ClusterServingRuntime,
 	// mirroring the InferenceService controller (see pkg/controller/v1beta1/inferenceservice/utils.GetServingRuntime).
 	sr := &v1alpha1.ServingRuntime{}
-	if err := r.Get(ctx, client.ObjectKey{Name: name, Namespace: llmSvc.Namespace}, sr); err == nil {
+	if err := s.Client.Get(ctx, client.ObjectKey{Name: name, Namespace: llmSvc.Namespace}, sr); err == nil {
 		return runtimeToSpec(sr.Spec.Containers), nil
 	} else if !apierrors.IsNotFound(err) && !apimeta.IsNoMatchError(err) {
 		return nil, fmt.Errorf("failed to get ServingRuntime %s/%s: %w", llmSvc.Namespace, name, err)
 	}
 
 	csr := &v1alpha1.ClusterServingRuntime{}
-	if err := r.Get(ctx, client.ObjectKey{Name: name}, csr); err == nil {
+	if err := s.Client.Get(ctx, client.ObjectKey{Name: name}, csr); err == nil {
 		return runtimeToSpec(csr.Spec.Containers), nil
 	} else if !apierrors.IsNotFound(err) && !apimeta.IsNoMatchError(err) {
 		return nil, fmt.Errorf("failed to get ClusterServingRuntime %q: %w", name, err)

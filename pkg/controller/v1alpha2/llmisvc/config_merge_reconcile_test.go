@@ -130,7 +130,7 @@ func TestReconcileBaseRefs_DryRunValidatesRenderedSpec(t *testing.T) {
 
 	require.ErrorIs(t, err, reconcile.TerminalError(nil),
 		"a rejected spec is terminal - retrying it changes nothing")
-	assert.Nil(t, combined)
+	assert.Empty(t, combined, "a failed resolution returns the zero spec")
 	require.NotNil(t, validated)
 	assert.Empty(t, validated.Name, "a fixed name would collide with a real <name>-validation service")
 	assert.Equal(t, "test-llm-validation-", validated.GenerateName)
@@ -160,10 +160,10 @@ func TestReconcileBaseRefs_DryRunValidatesRenderedSpec(t *testing.T) {
 	assert.Equal(t, condition.Message, ready.Message, "the exact cause should bubble up to Ready")
 }
 
-// TestCombineBaseRefsConfig_TransferSlot pins the upgrade contract end to end: a
+// TestSpecResolver_TransferSlot pins the upgrade contract end to end: a
 // preset declaring the slot gets the argument filled in from the merged spec, and
 // one without it comes back untouched.
-func TestCombineBaseRefsConfig_TransferSlot(t *testing.T) {
+func TestSpecResolver_TransferSlot(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
 
@@ -216,11 +216,11 @@ func TestCombineBaseRefsConfig_TransferSlot(t *testing.T) {
 			}
 			reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(template, custom).Build()}
 
-			combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+			combined, err := reconciler.specResolver().Resolve(t.Context(), llmSvc, &Config{})
 			require.NoError(t, err)
 			require.NotNil(t, combined)
-			require.NotNil(t, combined.Config.Spec.Template)
-			podSpec := combined.Config.Spec.Template
+			require.NotNil(t, combined.Spec.Template)
+			podSpec := combined.Spec.Template
 			require.Len(t, podSpec.Containers, 1)
 			main := &podSpec.Containers[0]
 
@@ -247,7 +247,7 @@ func TestCombineBaseRefsConfig_TransferSlot(t *testing.T) {
 // A cpu that makes no sense still has to render. Config merging runs on every
 // reconcile of every service, so failing here would take down a workload that was
 // running before the slot existed, on nothing more than a controller upgrade.
-func TestCombineBaseRefsConfig_RendersDegenerateKVCacheCPUFromBaseRef(t *testing.T) {
+func TestSpecResolver_RendersDegenerateKVCacheCPUFromBaseRef(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
 
@@ -276,12 +276,12 @@ func TestCombineBaseRefsConfig_RendersDegenerateKVCacheCPUFromBaseRef(t *testing
 			}
 			reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(template, custom).Build()}
 
-			combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+			combined, err := reconciler.specResolver().Resolve(t.Context(), llmSvc, &Config{})
 			require.NoError(t, err)
 
-			require.NotNil(t, combined.Config.Spec.Template)
-			require.Len(t, combined.Config.Spec.Template.Containers, 1)
-			transfer, filled := utils.GetEnvVarValue(combined.Config.Spec.Template.Containers[0].Env, kvTransferArgsEnvVar)
+			require.NotNil(t, combined.Spec.Template)
+			require.Len(t, combined.Spec.Template.Containers, 1)
+			transfer, filled := utils.GetEnvVarValue(combined.Spec.Template.Containers[0].Env, kvTransferArgsEnvVar)
 			require.True(t, filled)
 			assert.Contains(t, transfer, "cpu_bytes_to_use")
 		})
@@ -366,7 +366,7 @@ func TestReconcileBaseRefs_DryRunTransientFailureRequeues(t *testing.T) {
 
 	require.Error(t, err, "transient dry-run failures must requeue")
 	assert.ErrorIs(t, err, transientErr)
-	assert.Nil(t, combined)
+	assert.Empty(t, combined, "a failed resolution returns the zero spec")
 	condition := llmSvc.Status.GetCondition(v1alpha2.PresetsCombined)
 	require.NotNil(t, condition)
 	assert.True(t, condition.IsUnknown(),
@@ -382,7 +382,7 @@ func TestReconcileBaseRefs_DryRunTransientFailureRequeues(t *testing.T) {
 	assert.Equal(t, "ValidationUnavailable", ready.Reason)
 }
 
-func TestCombineBaseRefsConfig_ResolvesAndClearsSchedulerConfigRef(t *testing.T) {
+func TestSpecResolver_ResolvesAndClearsSchedulerConfigRef(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
@@ -427,14 +427,14 @@ plugins: []
 			Build(),
 	}
 
-	combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+	combined, err := reconciler.specResolver().Resolve(t.Context(), llmSvc, &Config{})
 
 	require.NoError(t, err)
-	require.NotNil(t, combined.ResolvedSchedulerConfigMap)
-	assert.Equal(t, types.NamespacedName{Namespace: namespace, Name: configMapName}, *combined.ResolvedSchedulerConfigMap)
-	require.NotNil(t, combined.Config.Spec.Router.Scheduler.Config.Inline)
-	assert.Contains(t, string(combined.Config.Spec.Router.Scheduler.Config.Inline.Raw), "EndpointPickerConfig")
-	assert.Nil(t, combined.Config.Spec.Router.Scheduler.Config.Ref)
+	require.NotNil(t, combined.SchedulerConfigMap)
+	assert.Equal(t, types.NamespacedName{Namespace: namespace, Name: configMapName}, *combined.SchedulerConfigMap)
+	require.NotNil(t, combined.Spec.Router.Scheduler.Config.Inline)
+	assert.Contains(t, string(combined.Spec.Router.Scheduler.Config.Inline.Raw), "EndpointPickerConfig")
+	assert.Nil(t, combined.Spec.Router.Scheduler.Config.Ref)
 }
 
 func TestReconcileBaseRefs_MissingConfigDoesNotPanicOrPopulateAppliedRefs(t *testing.T) {
@@ -461,7 +461,7 @@ func TestReconcileBaseRefs_MissingConfigDoesNotPanicOrPopulateAppliedRefs(t *tes
 		combined, err := reconciler.reconcileBaseRefs(t.Context(), llmSvc, &Config{})
 		assert.ErrorIs(t, err, reconcile.TerminalError(nil),
 			"a missing config is fixed by creating it, not by requeuing")
-		assert.Nil(t, combined)
+		assert.Empty(t, combined, "a failed resolution returns the zero spec")
 	})
 
 	assert.Empty(t, llmSvc.Status.AppliedConfigRefs)
@@ -494,7 +494,7 @@ func TestReconcileBaseRefs_ClearsAppliedConfigRefsOnError(t *testing.T) {
 
 	combined, err := reconciler.reconcileBaseRefs(t.Context(), llmSvc, &Config{})
 	assert.ErrorIs(t, err, reconcile.TerminalError(nil))
-	assert.Nil(t, combined)
+	assert.Empty(t, combined, "a failed resolution returns the zero spec")
 
 	assert.Nil(t, llmSvc.Status.AppliedConfigRefs, "stale AppliedConfigRefs should be cleared on error")
 }
@@ -531,7 +531,7 @@ func TestReconcileBaseRefs_PreservesAppliedConfigRefsWhenStopped(t *testing.T) {
 
 	combined, err := reconciler.reconcileBaseRefs(t.Context(), llmSvc, &Config{})
 	assert.NoError(t, err)
-	assert.NotNil(t, combined)
+	assert.NotEmpty(t, combined)
 
 	assert.Equal(t, existingRefs, llmSvc.Status.AppliedConfigRefs, "AppliedConfigRefs should be preserved when service is stopped")
 }
@@ -546,7 +546,7 @@ func managedSchedulerService(namespace string) *v1alpha2.LLMInferenceService {
 	}
 }
 
-func TestCombineBaseRefsConfig_ConfigFlagInWellKnownPresetSuppressesInjection(t *testing.T) {
+func TestSpecResolver_ConfigFlagInWellKnownPresetSuppressesInjection(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
 
@@ -594,26 +594,26 @@ plugins:
 			Build(),
 	}
 
-	combined, err := reconciler.combineBaseRefsConfig(t.Context(), managedSchedulerService("test-ns"), &Config{})
+	combined, err := reconciler.specResolver().Resolve(t.Context(), managedSchedulerService("test-ns"), &Config{})
 
 	require.NoError(t, err)
-	for _, ref := range combined.AppliedConfigRefs {
+	for _, ref := range combined.Applied {
 		assert.NotEqual(t, configRouterSchedulerDefaultEPPConfigName, string(ref.Name),
 			"preset must not be applied when the well-known scheduler config already supplies an EPPConfig")
 	}
-	assert.Nil(t, combined.Config.Spec.Router.Scheduler.Config,
+	assert.Nil(t, combined.Spec.Router.Scheduler.Config,
 		"no EPPConfig should be injected on top of the admin-supplied one")
 	assert.Equal(t, []string{"--config-text", adminConfig},
-		combined.Config.Spec.Router.Scheduler.Template.Containers[0].Args,
+		combined.Spec.Router.Scheduler.Template.Containers[0].Args,
 		"the admin-supplied config flag must survive untouched")
 }
 
-// TestCombineBaseRefsConfig_RendersAgainstBaseRefValues covers a topology config
+// TestSpecResolver_RendersAgainstBaseRefValues covers a topology config
 // that carries the whole multi-node setup - worker plus parallelism - and is
 // pulled in through baseRefs, leaving .spec on the LLMInferenceService itself
 // empty. The data-parallel preset is selected from the merged spec, so it has to
 // be rendered against the merged spec too.
-func TestCombineBaseRefsConfig_RendersAgainstBaseRefValues(t *testing.T) {
+func TestSpecResolver_RendersAgainstBaseRefValues(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
@@ -652,20 +652,20 @@ func TestCombineBaseRefsConfig_RendersAgainstBaseRefValues(t *testing.T) {
 	}
 
 	// when
-	combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+	combined, err := reconciler.specResolver().Resolve(t.Context(), llmSvc, &Config{})
 
 	// then
 	require.NoError(t, err)
-	require.NotNil(t, combined.Config.Spec.Template)
-	require.NotEmpty(t, combined.Config.Spec.Template.Containers)
+	require.NotNil(t, combined.Spec.Template)
+	require.NotEmpty(t, combined.Spec.Template.Containers)
 
-	cmd := strings.Join(combined.Config.Spec.Template.Containers[0].Command, " ")
+	cmd := strings.Join(combined.Spec.Template.Containers[0].Command, " ")
 	assert.Contains(t, cmd, "--data-parallel-size 2",
 		"parallelism supplied through a baseRef must reach the rendered command")
 	assert.Contains(t, cmd, "--enable-expert-parallel")
 }
 
-// TestCombineBaseRefsConfig_GracePeriodFromBaseRef covers the quiet half of the bug: a
+// TestSpecResolver_GracePeriodFromBaseRef covers the quiet half of the bug: a
 // value that does not abort rendering, it just never arrives. The grace period reaches
 // the pod either way - it is merged like any other field - but shutdownTimeout derives
 // the engine's own timeout from it, and read the service alone it saw nothing and fell
@@ -674,7 +674,7 @@ func TestCombineBaseRefsConfig_RendersAgainstBaseRefValues(t *testing.T) {
 //
 // This is also the only case that restarts a running workload on upgrade, so the numbers
 // are spelled out rather than left to a contains-check.
-func TestCombineBaseRefsConfig_GracePeriodFromBaseRef(t *testing.T) {
+func TestSpecResolver_GracePeriodFromBaseRef(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
@@ -710,28 +710,28 @@ func TestCombineBaseRefsConfig_GracePeriodFromBaseRef(t *testing.T) {
 	}
 
 	// when
-	combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+	combined, err := reconciler.specResolver().Resolve(t.Context(), llmSvc, &Config{})
 
 	// then: the pod carries the grace period the baseRef asked for
 	require.NoError(t, err)
-	require.NotNil(t, combined.Config.Spec.Template)
-	require.NotNil(t, combined.Config.Spec.Template.TerminationGracePeriodSeconds)
-	assert.Equal(t, gracePeriod, *combined.Config.Spec.Template.TerminationGracePeriodSeconds)
+	require.NotNil(t, combined.Spec.Template)
+	require.NotNil(t, combined.Spec.Template.TerminationGracePeriodSeconds)
+	assert.Equal(t, gracePeriod, *combined.Spec.Template.TerminationGracePeriodSeconds)
 
 	// and: the engine is told to stop within it, not within the default
-	require.NotEmpty(t, combined.Config.Spec.Template.Containers)
-	cmd := strings.Join(combined.Config.Spec.Template.Containers[0].Command, " ")
+	require.NotEmpty(t, combined.Spec.Template.Containers)
+	cmd := strings.Join(combined.Spec.Template.Containers[0].Command, " ")
 	assert.Contains(t, cmd, "--shutdown-timeout 280",
 		"300s grace period, less the 15s preStop and a 5s signal buffer")
 	assert.NotContains(t, cmd, "--shutdown-timeout 40",
 		"40 is what the default 60s grace period yields, and the pod is not using it")
 }
 
-// TestCombineBaseRefsConfig_DisaggregatedBaseRefValues is the prefill/decode counterpart:
+// TestSpecResolver_DisaggregatedBaseRefValues is the prefill/decode counterpart:
 // a disaggregated service composed entirely from baseRefs, which is how the e2e suite
 // builds one. The prefill presets read their own parallelism block, so this exercises a
 // second dereference path that the single-node case leaves untouched.
-func TestCombineBaseRefsConfig_DisaggregatedBaseRefValues(t *testing.T) {
+func TestSpecResolver_DisaggregatedBaseRefValues(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
@@ -773,21 +773,21 @@ func TestCombineBaseRefsConfig_DisaggregatedBaseRefValues(t *testing.T) {
 	}
 
 	// when
-	combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+	combined, err := reconciler.specResolver().Resolve(t.Context(), llmSvc, &Config{})
 
 	// then
 	require.NoError(t, err)
-	require.NotNil(t, combined.Config.Spec.Template)
-	require.NotEmpty(t, combined.Config.Spec.Template.Containers)
-	require.NotNil(t, combined.Config.Spec.Prefill)
-	require.NotNil(t, combined.Config.Spec.Prefill.Template)
-	require.NotEmpty(t, combined.Config.Spec.Prefill.Template.Containers)
+	require.NotNil(t, combined.Spec.Template)
+	require.NotEmpty(t, combined.Spec.Template.Containers)
+	require.NotNil(t, combined.Spec.Prefill)
+	require.NotNil(t, combined.Spec.Prefill.Template)
+	require.NotEmpty(t, combined.Spec.Prefill.Template.Containers)
 
-	decodeCmd := strings.Join(combined.Config.Spec.Template.Containers[0].Command, " ")
+	decodeCmd := strings.Join(combined.Spec.Template.Containers[0].Command, " ")
 	assert.Contains(t, decodeCmd, "--data-parallel-size 4")
 	assert.Contains(t, decodeCmd, "--enable-expert-parallel")
 
-	prefillCmd := strings.Join(combined.Config.Spec.Prefill.Template.Containers[0].Command, " ")
+	prefillCmd := strings.Join(combined.Spec.Prefill.Template.Containers[0].Command, " ")
 	assert.Contains(t, prefillCmd, "--data-parallel-size 2")
 	assert.Contains(t, prefillCmd, "--enable-expert-parallel")
 }
@@ -805,12 +805,12 @@ func loadPresetConfig(t *testing.T, name string) *v1alpha2.LLMInferenceServiceCo
 	return cfg
 }
 
-// TestCombineBaseRefsConfig_ServiceWinsOverBaseRef pins the rendered command to the spec
+// TestSpecResolver_ServiceWinsOverBaseRef pins the rendered command to the spec
 // that actually gets deployed. Both are merged from the same inputs, but only if the
 // service is applied last in each: a baseRef overrides the service while resolving what
 // is enabled, and rendering off that view would put a value into the engine command that
 // the service itself overrode.
-func TestCombineBaseRefsConfig_ServiceWinsOverBaseRef(t *testing.T) {
+func TestSpecResolver_ServiceWinsOverBaseRef(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
@@ -845,27 +845,27 @@ func TestCombineBaseRefsConfig_ServiceWinsOverBaseRef(t *testing.T) {
 	}
 
 	// when
-	combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+	combined, err := reconciler.specResolver().Resolve(t.Context(), llmSvc, &Config{})
 
 	// then
 	require.NoError(t, err)
-	require.NotNil(t, combined.Config.Spec.Parallelism)
-	assert.Equal(t, int32(8), *combined.Config.Spec.Parallelism.Tensor,
+	require.NotNil(t, combined.Spec.Parallelism)
+	assert.Equal(t, int32(8), *combined.Spec.Parallelism.Tensor,
 		"the service overrides its baseRefs")
 
-	require.NotNil(t, combined.Config.Spec.Template)
-	require.NotEmpty(t, combined.Config.Spec.Template.Containers)
-	cmd := strings.Join(combined.Config.Spec.Template.Containers[0].Command, " ")
+	require.NotNil(t, combined.Spec.Template)
+	require.NotEmpty(t, combined.Spec.Template.Containers)
+	cmd := strings.Join(combined.Spec.Template.Containers[0].Command, " ")
 	assert.Contains(t, cmd, "--tensor-parallel-size 8",
 		"the rendered command must match the deployed spec, not the overridden baseRef")
 	assert.NotContains(t, cmd, "--tensor-parallel-size 2")
 }
 
-// TestCombineBaseRefsConfig_RendersAgainstCanonicalPreRenderSpec verifies the
+// TestSpecResolver_RendersAgainstCanonicalPreRenderSpec verifies the
 // interface invariant that templates observe the canonical merged spec immediately
 // before rendering. That includes merge-keyed list ordering and values contributed
 // by the preset being rendered; either can affect the resulting PodTemplate.
-func TestCombineBaseRefsConfig_RendersAgainstCanonicalPreRenderSpec(t *testing.T) {
+func TestSpecResolver_RendersAgainstCanonicalPreRenderSpec(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
@@ -916,12 +916,12 @@ func TestCombineBaseRefsConfig_RendersAgainstCanonicalPreRenderSpec(t *testing.T
 		Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(baseRef, preset).Build(),
 	}
 
-	combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+	combined, err := reconciler.specResolver().Resolve(t.Context(), llmSvc, &Config{})
 	require.NoError(t, err)
-	require.NotNil(t, combined.Config.Spec.Template)
-	require.Len(t, combined.Config.Spec.Template.Containers, 1)
+	require.NotNil(t, combined.Spec.Template)
+	require.Len(t, combined.Spec.Template.Containers, 1)
 
-	container := combined.Config.Spec.Template.Containers[0]
+	container := combined.Spec.Template.Containers[0]
 	wantEnv := make([]string, 0, len(container.Env))
 	for _, env := range container.Env {
 		wantEnv = append(wantEnv, env.Name+"="+env.Value+";")
@@ -936,19 +936,19 @@ func TestCombineBaseRefsConfig_RendersAgainstCanonicalPreRenderSpec(t *testing.T
 	// property of the presets themselves, asserted in TestPresetRenderingInvariants.
 
 	// Catches nondeterminism - map iteration order reaching the desired spec.
-	again, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc.DeepCopy(), &Config{})
+	again, err := reconciler.specResolver().Resolve(t.Context(), llmSvc.DeepCopy(), &Config{})
 	require.NoError(t, err)
-	assert.Equal(t, combined.Config, again.Config, "an unchanged input must produce a stable desired spec")
+	assert.Equal(t, combined, again, "an unchanged input must produce a stable desired spec")
 }
 
-// TestCombineBaseRefsConfig_BareServiceRendersUnchanged pins the upgrade-safety half of
+// TestSpecResolver_BareServiceRendersUnchanged pins the upgrade-safety half of
 // changing what presets render against: a service that references nothing must render
 // exactly what it always did, so upgrading the controller alone cannot restart it.
 //
 // Each shape selects a different preset, and the multi-node ones are what size
 // LeaderWorkerSet groups. TestPresetRenderingInvariants covers why the grace period
 // asserted here is the same for all of them.
-func TestCombineBaseRefsConfig_BareServiceRendersUnchanged(t *testing.T) {
+func TestSpecResolver_BareServiceRendersUnchanged(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
@@ -997,13 +997,13 @@ func TestCombineBaseRefsConfig_BareServiceRendersUnchanged(t *testing.T) {
 			}
 
 			// when
-			combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+			combined, err := reconciler.specResolver().Resolve(t.Context(), llmSvc, &Config{})
 
 			// then
 			require.NoError(t, err)
 
-			pods := map[string]*corev1.PodSpec{"template": combined.Config.Spec.Template, "worker": combined.Config.Spec.Worker}
-			if p := combined.Config.Spec.Prefill; p != nil {
+			pods := map[string]*corev1.PodSpec{"template": combined.Spec.Template, "worker": combined.Spec.Worker}
+			if p := combined.Spec.Prefill; p != nil {
 				pods["prefill.template"] = p.Template
 				pods["prefill.worker"] = p.Worker
 			}
@@ -1032,7 +1032,7 @@ func TestCombineBaseRefsConfig_BareServiceRendersUnchanged(t *testing.T) {
 // The headroom percentage is carried by the preset, not by this package, so that
 // retuning it ships as a new preset rather than re-rendering every service that
 // already has a tier configured.
-func TestCombineBaseRefsConfig_SizesSharedMemoryFromPresetAnnotation(t *testing.T) {
+func TestSpecResolver_SizesSharedMemoryFromPresetAnnotation(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
 
@@ -1060,11 +1060,11 @@ func TestCombineBaseRefsConfig_SizesSharedMemoryFromPresetAnnotation(t *testing.
 		}
 		return cfg
 	}
-	sizeLimit := func(t *testing.T, combined *CombinedConfig) string {
+	sizeLimit := func(t *testing.T, combined *EffectiveSpec) string {
 		t.Helper()
-		require.NotNil(t, combined.Config.Spec.Template)
-		require.Len(t, combined.Config.Spec.Template.Volumes, 1)
-		return combined.Config.Spec.Template.Volumes[0].EmptyDir.SizeLimit.String()
+		require.NotNil(t, combined.Spec.Template)
+		require.Len(t, combined.Spec.Template.Volumes, 1)
+		return combined.Spec.Template.Volumes[0].EmptyDir.SizeLimit.String()
 	}
 	svc := func(baseRefs ...corev1.LocalObjectReference) *v1alpha2.LLMInferenceService {
 		return &v1alpha2.LLMInferenceService{
@@ -1082,7 +1082,7 @@ func TestCombineBaseRefsConfig_SizesSharedMemoryFromPresetAnnotation(t *testing.
 		template := preset(configTemplateName, constants.KServeNamespace, "120")
 		reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(template).Build()}
 
-		combined, err := reconciler.combineBaseRefsConfig(t.Context(), svc(), &Config{})
+		combined, err := reconciler.specResolver().Resolve(t.Context(), svc(), &Config{})
 		require.NoError(t, err)
 		assert.Equal(t, "13Gi", sizeLimit(t, combined))
 	})
@@ -1091,7 +1091,7 @@ func TestCombineBaseRefsConfig_SizesSharedMemoryFromPresetAnnotation(t *testing.
 		template := preset(configTemplateName, constants.KServeNamespace, "")
 		reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(template).Build()}
 
-		combined, err := reconciler.combineBaseRefsConfig(t.Context(), svc(), &Config{})
+		combined, err := reconciler.specResolver().Resolve(t.Context(), svc(), &Config{})
 		require.NoError(t, err)
 		assert.Equal(t, "1Gi", sizeLimit(t, combined))
 	})
@@ -1105,7 +1105,7 @@ func TestCombineBaseRefsConfig_SizesSharedMemoryFromPresetAnnotation(t *testing.
 		custom.Spec.Template = nil
 		reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(template, custom).Build()}
 
-		combined, err := reconciler.combineBaseRefsConfig(t.Context(), svc(corev1.LocalObjectReference{Name: custom.Name}), &Config{})
+		combined, err := reconciler.specResolver().Resolve(t.Context(), svc(corev1.LocalObjectReference{Name: custom.Name}), &Config{})
 		require.NoError(t, err)
 		assert.Equal(t, "13Gi", sizeLimit(t, combined))
 	})
@@ -1126,7 +1126,7 @@ func TestCombineBaseRefsConfig_SizesSharedMemoryFromPresetAnnotation(t *testing.
 			}},
 		}}}
 
-		combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+		combined, err := reconciler.specResolver().Resolve(t.Context(), llmSvc, &Config{})
 		require.NoError(t, err)
 		assert.Equal(t, "32Gi", sizeLimit(t, combined))
 	})
@@ -1155,7 +1155,7 @@ func TestCombineBaseRefsConfig_SizesSharedMemoryFromPresetAnnotation(t *testing.
 				}
 				reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(template, custom).Build()}
 
-				combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+				combined, err := reconciler.specResolver().Resolve(t.Context(), llmSvc, &Config{})
 				require.NoError(t, err)
 				assert.Equal(t, "1Gi", sizeLimit(t, combined))
 			})
@@ -1183,16 +1183,16 @@ func TestCombineBaseRefsConfig_SizesSharedMemoryFromPresetAnnotation(t *testing.
 			llmSvc.Spec.Parallelism = &v1alpha2.ParallelismSpec{Data: ptr.To(int32(2))}
 			llmSvc.Spec.Prefill = llmSvc.Spec.WorkloadSpec.DeepCopy()
 
-			combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+			combined, err := reconciler.specResolver().Resolve(t.Context(), llmSvc, &Config{})
 			require.NoError(t, err)
-			again, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+			again, err := reconciler.specResolver().Resolve(t.Context(), llmSvc, &Config{})
 			require.NoError(t, err)
-			assert.Equal(t, combined.Config.Spec, again.Config.Spec, "sizing must be stable across reconciles")
+			assert.Equal(t, combined.Spec, again.Spec, "sizing must be stable across reconciles")
 
-			assert.Equal(t, tc.wantDecode, sharedMemorySizeLimit(combined.Config.Spec.Template).String())
-			assert.Equal(t, tc.wantDecode, sharedMemorySizeLimit(combined.Config.Spec.Worker).String())
-			assert.Equal(t, tc.wantPrefill, sharedMemorySizeLimit(combined.Config.Spec.Prefill.Template).String())
-			assert.Equal(t, tc.wantPrefill, sharedMemorySizeLimit(combined.Config.Spec.Prefill.Worker).String())
+			assert.Equal(t, tc.wantDecode, sharedMemorySizeLimit(combined.Spec.Template).String())
+			assert.Equal(t, tc.wantDecode, sharedMemorySizeLimit(combined.Spec.Worker).String())
+			assert.Equal(t, tc.wantPrefill, sharedMemorySizeLimit(combined.Spec.Prefill.Template).String())
+			assert.Equal(t, tc.wantPrefill, sharedMemorySizeLimit(combined.Spec.Prefill.Worker).String())
 		})
 	}
 
@@ -1204,12 +1204,12 @@ func TestCombineBaseRefsConfig_SizesSharedMemoryFromPresetAnnotation(t *testing.
 		shadow := preset(configTemplateName, "test-ns", "500")
 		reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(shipped, shadow).Build()}
 
-		combined, err := reconciler.combineBaseRefsConfig(t.Context(), svc(), &Config{})
+		combined, err := reconciler.specResolver().Resolve(t.Context(), svc(), &Config{})
 		require.NoError(t, err)
 		assert.Equal(t, "1Gi", sizeLimit(t, combined))
 
-		require.Len(t, combined.AppliedConfigRefs, 1)
-		assert.Equal(t, v1alpha2.AppliedConfigSourceUserRef, combined.AppliedConfigRefs[0].Source)
+		require.Len(t, combined.Applied, 1)
+		assert.Equal(t, v1alpha2.AppliedConfigSourceUserRef, combined.Applied[0].Source)
 	})
 
 	// A preset is not worth failing a reconcile over: an unreadable value leaves
@@ -1218,7 +1218,7 @@ func TestCombineBaseRefsConfig_SizesSharedMemoryFromPresetAnnotation(t *testing.
 		template := preset(configTemplateName, constants.KServeNamespace, "not-a-number")
 		reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(template).Build()}
 
-		combined, err := reconciler.combineBaseRefsConfig(t.Context(), svc(), &Config{})
+		combined, err := reconciler.specResolver().Resolve(t.Context(), svc(), &Config{})
 		require.NoError(t, err)
 		assert.Equal(t, "1Gi", sizeLimit(t, combined))
 	})
