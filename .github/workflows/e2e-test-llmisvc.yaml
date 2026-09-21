@@ -465,7 +465,7 @@ jobs:
         with:
           name: test-results-llmisvc-istio-${{ matrix.install-method }}
 
-  test-llmisvc-wva-autoscaling-hpa:
+  test-llmisvc-legacy-autoscaling-hpa:
     if: ${{ false }}
     runs-on: cncf-ubuntu-16-64-x86
     timeout-minutes: 25
