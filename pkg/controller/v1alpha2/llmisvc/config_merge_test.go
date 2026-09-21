@@ -3259,8 +3259,8 @@ spec:
             args:
               - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
               - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
-              - '{{ if .GlobalConfig.TLSMinVersion }}--tls-min-version={{ .GlobalConfig.TLSMinVersion }}{{- end }}'
-              - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites }}{{- end }}'
+              - '{{ if .GlobalConfig.TLSMinVersion }}--tls-min-version={{ .GlobalConfig.TLSMinVersion }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
+              - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
 `
 
 const tlsProfileVLLMFixture = `apiVersion: serving.kserve.io/v1alpha1
@@ -3430,6 +3430,8 @@ func TestReplaceVariables_TLSProfileScheduler(t *testing.T) {
 			tlsMinVersion:   "VersionTLS13",
 			tlsCipherSuites: "TLS_AES_128_GCM_SHA256",
 			wantArgs: []string{
+				"",
+				"",
 				"--tls-min-version=VersionTLS13",
 				"--tls-cipher-suites=TLS_AES_128_GCM_SHA256",
 			},
