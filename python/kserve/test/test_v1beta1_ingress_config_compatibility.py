@@ -17,13 +17,13 @@ from kserve.configuration import Configuration
 
 
 def test_previous_positional_constructor_signature_is_preserved():
-    values = [f"value-{index}" for index in range(18)]
+    values = [f"value-{index}" for index in range(19)]
     configuration = Configuration()
 
     config = V1beta1IngressConfig(*values, configuration)
 
     assert config.local_gateway == "value-12"
-    assert config.url_scheme == "value-17"
+    assert config.url_scheme == "value-18"
     assert config.local_vars_configuration is configuration
 
 
