@@ -20,7 +20,6 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -38,17 +37,6 @@ import (
 
 	"github.com/kserve/kserve/pkg/constants"
 	kservevalidation "github.com/kserve/kserve/pkg/validation"
-)
-
-// variantCostPattern is compiled once at package init to avoid recompilation on every webhook call.
-var variantCostPattern = regexp.MustCompile(`^\d+(\.\d+)?$`)
-
-// Scaling mode and actuator backend names used in validation error messages.
-const (
-	scalingModeWVA        = "wva"
-	scalingModeDirectKEDA = "direct keda"
-	actuatorBackendHPA    = "hpa"
-	actuatorBackendKEDA   = "keda"
 )
 
 // +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha2-llminferenceservice,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceservices,verbs=create;update,versions=v1alpha2,name=llminferenceservice.kserve-webhook-server.v1alpha2.validator,admissionReviewVersions=v1
@@ -507,7 +495,7 @@ func (l *LLMInferenceServiceValidator) validateActuatorConsistency(llmSvc *LLMIn
 
 // ValidateActuatorConsistency ensures that when both decode and prefill workloads
 // have autoscaling configured, they use the same scaling mode and actuator backend.
-// Mixing WVA with direct KEDA, or mixing HPA with KEDA under WVA, is not supported.
+// Decode and prefill workloads must use the same scaling mechanism.
 //
 // It is exported so that v1alpha1 can reuse it via conversion.
 func ValidateActuatorConsistency(decode *WorkloadSpec, prefill *WorkloadSpec) field.ErrorList {
@@ -521,56 +509,13 @@ func ValidateActuatorConsistency(decode *WorkloadSpec, prefill *WorkloadSpec) fi
 		return nil
 	}
 
-	decodeUsesDirectKEDA := decodeScaling.KEDA != nil
-	prefillUsesDirectKEDA := prefillScaling.KEDA != nil
-	if decodeUsesDirectKEDA != prefillUsesDirectKEDA {
-		decodeMode := scalingModeWVA
-		prefillMode := scalingModeDirectKEDA
-		if decodeUsesDirectKEDA {
-			decodeMode = scalingModeDirectKEDA
-			prefillMode = scalingModeWVA
-		}
-		return field.ErrorList{
-			field.Invalid(
-				field.NewPath("spec").Child("prefill", "scaling"),
-				prefillScaling,
-				fmt.Sprintf(
-					"decode and prefill must use the same scaling mode; decode uses %s but prefill uses %s",
-					decodeMode, prefillMode,
-				),
-			),
-		}
-	}
-
-	// Both sides must have scaling.wva configured for an actuator mismatch to be possible.
-	if decodeScaling.WVA == nil || prefillScaling.WVA == nil {
+	if (decodeScaling.KEDA != nil) == (prefillScaling.KEDA != nil) {
 		return nil
 	}
-
-	decodeUsesHPA := decodeScaling.WVA.HPA != nil
-	prefillUsesHPA := prefillScaling.WVA.HPA != nil
-
-	if decodeUsesHPA == prefillUsesHPA {
-		return nil
-	}
-
-	decodeBackend := actuatorBackendKEDA
-	prefillBackend := actuatorBackendHPA
-	if decodeUsesHPA {
-		decodeBackend = actuatorBackendHPA
-		prefillBackend = actuatorBackendKEDA
-	}
-
 	return field.ErrorList{
 		field.Invalid(
-			field.NewPath("spec").Child("prefill", "scaling", "wva"),
-			prefillScaling.WVA,
-			fmt.Sprintf(
-				"decode and prefill must use the same actuator backend; "+
-					"decode uses %s but prefill uses %s — "+
-					"mixing backends requires two separate metric pipelines and leads to independent, unsynchronised scaling decisions",
-				decodeBackend, prefillBackend,
-			),
+			field.NewPath("spec").Child("prefill", "scaling"), prefillScaling,
+			"decode and prefill must both use direct keda scaling",
 		),
 	}
 }
@@ -605,66 +550,14 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 		))
 	}
 
-	// Must specify exactly one scaling mechanism.
-	if scaling.WVA != nil && scaling.KEDA != nil {
-		allErrs = append(allErrs, field.Invalid(
+	if scaling.KEDA == nil {
+		allErrs = append(allErrs, field.Required(
 			scalingPath,
-			scaling,
-			"wva and keda are mutually exclusive; choose one scaling mechanism",
+			"keda must be specified when scaling is configured",
 		))
 		return allErrs
 	}
-
-	if scaling.WVA == nil && scaling.KEDA == nil {
-		allErrs = append(allErrs, field.Required(
-			scalingPath,
-			"either wva or keda must be specified when scaling is configured",
-		))
-		return allErrs
-	}
-
-	if scaling.KEDA != nil {
-		return append(allErrs, validateDirectKEDA(scalingPath, scaling)...)
-	}
-
-	// Validate WVA configuration
-	wvaPath := scalingPath.Child("wva")
-
-	// HPA and KEDA are mutually exclusive
-	if scaling.WVA.HPA != nil && scaling.WVA.KEDA != nil {
-		allErrs = append(allErrs, field.Invalid(
-			wvaPath,
-			scaling.WVA,
-			"hpa and keda are mutually exclusive; choose one actuator backend",
-		))
-	}
-
-	// Must specify at least one actuator
-	if scaling.WVA.HPA == nil && scaling.WVA.KEDA == nil {
-		allErrs = append(allErrs, field.Required(
-			wvaPath,
-			"either hpa or keda must be specified as the actuator backend",
-		))
-	}
-
-	// Validate variantCost format (must be a non-negative numeric string, e.g., "10", "10.0", "0.5")
-	if scaling.WVA.VariantCost != "" {
-		if !variantCostPattern.MatchString(scaling.WVA.VariantCost) {
-			allErrs = append(allErrs, field.Invalid(
-				wvaPath.Child("variantCost"),
-				scaling.WVA.VariantCost,
-				"variantCost must be a non-negative numeric string (e.g., \"10\", \"10.0\", \"0.5\")",
-			))
-		}
-	}
-
-	if scaling.WVA.KEDA != nil {
-		// WVA path: forbid scalingModifiers (WVA owns the formula) and HPA name.
-		allErrs = append(allErrs, validateKEDAAdvancedFields(wvaPath.Child("keda"), scaling.WVA.KEDA, true)...)
-		allErrs = append(allErrs, validateKEDAIdleReplicaCount(scalingPath, wvaPath.Child("keda"), scaling, scaling.WVA.KEDA)...)
-	}
-
-	return allErrs
+	return append(allErrs, validateDirectKEDA(scalingPath, scaling)...)
 }
 
 func validateDirectKEDA(scalingPath *field.Path, scaling *ScalingSpec) field.ErrorList {
@@ -679,8 +572,7 @@ func validateDirectKEDA(scalingPath *field.Path, scaling *ScalingSpec) field.Err
 		))
 	}
 
-	// Direct KEDA path: allow scalingModifiers (no WVA formula to protect).
-	// Still forbid HPA name — the controller manages it.
+	// Direct KEDA allows user-defined scaling modifiers while the controller manages the HPA name.
 	allErrs = append(allErrs, validateKEDAAdvancedFields(kedaPath, &keda.KEDAScalingSpec, false)...)
 	allErrs = append(allErrs, validateKEDAIdleReplicaCount(scalingPath, kedaPath, scaling, &keda.KEDAScalingSpec)...)
 
@@ -688,8 +580,7 @@ func validateDirectKEDA(scalingPath *field.Path, scaling *ScalingSpec) field.Err
 }
 
 // validateKEDAAdvancedFields validates Advanced ScaledObject settings.
-// forbidScalingModifiers should be true for the WVA actuator path (WVA owns the metric formula)
-// and false for direct KEDA (users may set their own scalingModifiers).
+// forbidScalingModifiers is retained for validation helper compatibility.
 func validateKEDAAdvancedFields(kedaPath *field.Path, keda *KEDAScalingSpec, forbidScalingModifiers bool) field.ErrorList {
 	var allErrs field.ErrorList
 	if keda == nil || keda.Advanced == nil {
@@ -701,7 +592,7 @@ func validateKEDAAdvancedFields(kedaPath *field.Path, keda *KEDAScalingSpec, for
 		if sm.Formula != "" || sm.Target != "" || sm.ActivationTarget != "" || string(sm.MetricType) != "" {
 			allErrs = append(allErrs, field.Forbidden(
 				kedaPath.Child("advanced", "scalingModifiers"),
-				"scalingModifiers must not be set; WVA controls the scaling metric formula and logic",
+				"scalingModifiers must not be set for this scaling configuration",
 			))
 		}
 	}
