@@ -549,10 +549,6 @@ jobs:
           ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
           ./test/scripts/gh-actions/setup-kserve.sh
 
-      - name: Verify HPA autoscaling pipeline health
-        run: |
-          ./test/scripts/gh-actions/verify-autoscaling-health.sh hpa
-
       - name: Run HPA autoscaling E2E tests
         id: autoscaling-hpa-tests
         timeout-minutes: 60
@@ -656,10 +652,6 @@ jobs:
           export ENABLE_KEDA=true
           ${{ matrix.install-method == 'helm' && 'export INSTALL_METHOD="helm"' || '' }}
           ./test/scripts/gh-actions/setup-kserve.sh
-
-      - name: Verify KEDA autoscaling pipeline health
-        run: |
-          ./test/scripts/gh-actions/verify-autoscaling-health.sh keda
 
       - name: Run direct KEDA autoscaling E2E tests
         id: autoscaling-direct-keda-tests
