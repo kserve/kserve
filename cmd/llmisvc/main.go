@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -55,6 +56,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	kservemetrics "github.com/kserve/kserve/pkg/metrics"
+	"github.com/kserve/kserve/pkg/oteljson"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
 	kservetls "github.com/kserve/kserve/pkg/tls"
 	llmisvcwebhook "github.com/kserve/kserve/pkg/webhook/admission/llminferenceservice"
@@ -91,6 +93,7 @@ type Options struct {
 	tlsMinVersion         string
 	tlsCipherSuites       string
 	zapOpts               zap.Options
+	logFormat             oteljson.Format
 }
 
 func DefaultOptions() Options {
@@ -103,6 +106,7 @@ func DefaultOptions() Options {
 		migrationTimeout:      1 * time.Hour,
 		migrationPollInterval: 30 * time.Second,
 		zapOpts:               zap.Options{},
+		logFormat:             oteljson.FormatZap,
 	}
 }
 
@@ -123,6 +127,7 @@ func GetOptions() Options {
 	flag.DurationVar(&opts.migrationTimeout, "storage-migration-timeout", opts.migrationTimeout, "Total retry budget for storage version migration.")
 	flag.DurationVar(&opts.migrationPollInterval, "storage-migration-poll-interval", opts.migrationPollInterval, "Polling interval for storage version migration retries after initial backoff.")
 	opts.zapOpts.BindFlags(flag.CommandLine)
+	oteljson.BindFlags(flag.CommandLine, &opts.logFormat)
 	flag.Parse()
 	return opts
 }
@@ -130,6 +135,9 @@ func GetOptions() Options {
 func main() {
 	ctx := signals.SetupSignalHandler()
 	options := GetOptions()
+	if options.logFormat == oteljson.FormatOTelJSON {
+		oteljson.Apply(&options.zapOpts, "kserve-llmisvc-controller", os.Stdout)
+	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&options.zapOpts)))
 
 	defaults := DefaultOptions()
@@ -170,7 +178,7 @@ func main() {
 	switch {
 	case options.tlsMinVersion != "" || options.tlsCipherSuites != "":
 		var err error
-		tlsOpts, err = kservetls.Resolve(ctx, cfg, options.tlsMinVersion, options.tlsCipherSuites)
+		tlsOpts, err = resolveTLS(ctx, options.tlsMinVersion, options.tlsCipherSuites)
 		if err != nil {
 			setupLog.Error(err, "unable to resolve TLS configuration")
 			os.Exit(1)
@@ -183,7 +191,7 @@ func main() {
 		}
 	default:
 		var err error
-		tlsOpts, err = kservetls.Resolve(ctx, cfg, "", "")
+		tlsOpts, err = resolveTLS(ctx, "", "")
 		if err != nil {
 			setupLog.Error(err, "unable to resolve TLS configuration")
 			os.Exit(1)
@@ -249,6 +257,8 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
+
+	ctrlmetrics.Registry.MustRegister(llmisvc.NewInfoMetricsCollector(mgr.GetClient()))
 
 	// Register webhooks: validation (v1alpha1, v1alpha2) and conversion
 	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
@@ -392,7 +402,11 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctx); err != nil {
+	startCtx, err := setupDistroStartup(ctx, mgr)
+	if err != nil {
+		setupLog.Error(err, "Failed to set up distro startup; profile changes will not trigger a restart")
+	}
+	if err := mgr.Start(startCtx); err != nil {
 		setupLog.Error(err, "unable to run the manager")
 		os.Exit(1)
 	}

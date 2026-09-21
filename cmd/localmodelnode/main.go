@@ -35,8 +35,8 @@ import (
 
 	localmodelnodecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodelnode"
 	kservemetrics "github.com/kserve/kserve/pkg/metrics"
+	"github.com/kserve/kserve/pkg/oteljson"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
-	kservetls "github.com/kserve/kserve/pkg/tls"
 )
 
 var setupLog = ctrl.Log.WithName("setup")
@@ -56,6 +56,7 @@ type Options struct {
 	tlsMinVersion        string
 	tlsCipherSuites      string
 	zapOpts              zap.Options
+	logFormat            oteljson.Format
 }
 
 // DefaultOptions returns the default values for the program options.
@@ -66,6 +67,7 @@ func DefaultOptions() Options {
 		enableLeaderElection: false,
 		probeAddr:            ":8081",
 		zapOpts:              zap.Options{},
+		logFormat:            oteljson.FormatZap,
 	}
 }
 
@@ -81,12 +83,16 @@ func GetOptions() Options {
 	flag.StringVar(&opts.tlsMinVersion, "tls-min-version", opts.tlsMinVersion, "Minimum TLS version (VersionTLS12, VersionTLS13). Defaults to VersionTLS12.")
 	flag.StringVar(&opts.tlsCipherSuites, "tls-cipher-suites", opts.tlsCipherSuites, "Comma-separated list of TLS cipher suites (Go names). If empty, Go defaults are used.")
 	opts.zapOpts.BindFlags(flag.CommandLine)
+	oteljson.BindFlags(flag.CommandLine, &opts.logFormat)
 	flag.Parse()
 	return opts
 }
 
 func main() {
 	options := GetOptions()
+	if options.logFormat == oteljson.FormatOTelJSON {
+		oteljson.Apply(&options.zapOpts, "kserve-localmodelnode-controller", os.Stdout)
+	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&options.zapOpts)))
 
 	// Get a config to talk to the apiserver
@@ -104,7 +110,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	tlsResult, err := kservetls.Resolve(context.Background(), cfg, options.tlsMinVersion, options.tlsCipherSuites)
+	tlsOpts, err := resolveTLS(context.Background(), options.tlsMinVersion, options.tlsCipherSuites)
 	if err != nil {
 		setupLog.Error(err, "unable to resolve TLS configuration")
 		os.Exit(1)
@@ -116,7 +122,7 @@ func main() {
 		BindAddress:   options.metricsAddr,
 		SecureServing: options.metricsSecure,
 		CertDir:       options.metricsCertPath,
-		TLSOpts:       tlsResult,
+		TLSOpts:       tlsOpts,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to configure metrics server")
@@ -127,7 +133,7 @@ func main() {
 		Metrics: metricsServerOptions,
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port:    options.webhookPort,
-			TLSOpts: tlsResult,
+			TLSOpts: tlsOpts,
 		}),
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,
@@ -164,7 +170,11 @@ func main() {
 
 	// Start the Cmd
 	setupLog.Info("Starting the Cmd.")
-	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
+	startCtx, err := setupDistroStartup(signals.SetupSignalHandler(), mgr)
+	if err != nil {
+		setupLog.Error(err, "Failed to set up distro startup; profile changes will not trigger a restart")
+	}
+	if err := mgr.Start(startCtx); err != nil {
 		setupLog.Error(err, "unable to run the manager")
 		os.Exit(1)
 	}

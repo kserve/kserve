@@ -70,13 +70,14 @@ RUN mkdir -p /etc/containers && \
 COPY --from=builder /go/src/github.com/kserve/kernelcache/mcv/mcv /mcv
 COPY --from=license /third_party/library /third_party/library
 COPY kernelcache/mcv/entrypoint.sh /entrypoint.sh
+COPY kernelcache/mcv/capture-entrypoint.py /capture-entrypoint.py
 
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh /capture-entrypoint.py
 
 RUN groupadd -g 1000 appgroup && \
     useradd -u 1000 -g 1000 -m -s /bin/bash appuser
 RUN test "$(id -u appuser)" = "1000"
-RUN chown appuser:1000 /mcv /entrypoint.sh
+RUN chown appuser:1000 /mcv /entrypoint.sh /capture-entrypoint.py
 RUN mkdir -p /home/appuser/.local/share/containers/storage \
              /home/appuser/.local/share/containers/runroot \
              /home/appuser/.config/containers && \
@@ -198,8 +199,9 @@ RUN wget -q -O /tmp/habana-key.asc https://vault.habana.ai/artifactory/api/gpg/k
 COPY --from=builder /go/src/github.com/kserve/kernelcache/mcv/mcv /mcv
 COPY --from=license /third_party/library /third_party/library
 COPY kernelcache/mcv/entrypoint.sh /entrypoint.sh
+COPY kernelcache/mcv/capture-entrypoint.py /capture-entrypoint.py
 
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh /capture-entrypoint.py
 
 # Drop any pre-existing ubuntu user/group that claims UID/GID 1000 (present in
 # ubuntu:24.04 base images). Without this, useradd -u 1000 fails.
@@ -207,7 +209,7 @@ RUN userdel -r ubuntu 2>/dev/null; groupdel ubuntu 2>/dev/null; \
     groupadd -g 1000 appgroup && \
     useradd -u 1000 -g 1000 -m -s /bin/bash appuser
 RUN test "$(id -u appuser)" = "1000"
-RUN chown appuser:1000 /mcv /entrypoint.sh
+RUN chown appuser:1000 /mcv /entrypoint.sh /capture-entrypoint.py
 RUN mkdir -p /home/appuser/.local/share/containers/storage \
              /home/appuser/.local/share/containers/runroot \
              /home/appuser/.config/containers && \
@@ -249,8 +251,9 @@ RUN mkdir -p /etc/containers && \
 COPY --from=builder /go/src/github.com/kserve/kernelcache/mcv/mcv /mcv
 COPY --from=license /third_party/library /third_party/library
 COPY kernelcache/mcv/entrypoint.sh /entrypoint.sh
+COPY kernelcache/mcv/capture-entrypoint.py /capture-entrypoint.py
 
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh /capture-entrypoint.py
 
 # Drop any pre-existing ubuntu user/group that claims UID/GID 1000 (present in
 # ubuntu:24.04 and nvcr.io/nvidia/cuda:*-ubuntu24.04 base images).
@@ -258,7 +261,7 @@ RUN userdel -r ubuntu 2>/dev/null; groupdel ubuntu 2>/dev/null; \
     groupadd -g 1000 appgroup && \
     useradd -u 1000 -g 1000 -m -s /bin/bash appuser
 RUN test "$(id -u appuser)" = "1000"
-RUN chown appuser:1000 /mcv /entrypoint.sh
+RUN chown appuser:1000 /mcv /entrypoint.sh /capture-entrypoint.py
 RUN mkdir -p /home/appuser/.local/share/containers/storage \
              /home/appuser/.local/share/containers/runroot \
              /home/appuser/.config/containers && \
@@ -344,8 +347,9 @@ RUN mkdir -p /etc/containers && \
 COPY --from=builder /go/src/github.com/kserve/kernelcache/mcv/mcv /mcv
 COPY --from=license /third_party/library /third_party/library
 COPY kernelcache/mcv/entrypoint.sh /entrypoint.sh
+COPY kernelcache/mcv/capture-entrypoint.py /capture-entrypoint.py
 
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh /capture-entrypoint.py
 
 # Drop any pre-existing ubuntu user/group that claims UID/GID 1000 (present in
 # ubuntu:24.04 and nvcr.io/nvidia/cuda:*-ubuntu24.04 base images).
@@ -353,7 +357,7 @@ RUN userdel -r ubuntu 2>/dev/null; groupdel ubuntu 2>/dev/null; \
     groupadd -g 1000 appgroup && \
     useradd -u 1000 -g 1000 -m -s /bin/bash appuser
 RUN test "$(id -u appuser)" = "1000"
-RUN chown appuser:1000 /mcv /entrypoint.sh
+RUN chown appuser:1000 /mcv /entrypoint.sh /capture-entrypoint.py
 RUN mkdir -p /home/appuser/.local/share/containers/storage \
              /home/appuser/.local/share/containers/runroot \
              /home/appuser/.config/containers && \

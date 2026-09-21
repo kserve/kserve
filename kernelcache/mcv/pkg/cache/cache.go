@@ -59,6 +59,8 @@ func DetectCaches(root string) []Cache {
 		caches = append(caches, vllm)
 	} else if triton := DetectTritonCache(root); triton != nil {
 		caches = append(caches, triton)
+	} else if habana := DetectHabanaCache(root); habana != nil {
+		caches = append(caches, habana)
 	}
 
 	return caches
@@ -166,7 +168,7 @@ func CacheTypes(caches []Cache) []string {
 // GetTagsFromCaches returns the manifest and cache directory tags for the available cache type
 func GetTagsFromCaches(caches []Cache) (manifestTag, cacheTag string, err error) {
 	for _, c := range caches {
-		if c.Name() == constants.VLLM || c.Name() == constants.Triton {
+		if c.Name() == constants.VLLM || c.Name() == constants.Triton || c.Name() == constants.Habana {
 			return c.ManifestTag(), c.CacheTag(), nil
 		}
 	}
@@ -191,6 +193,8 @@ func ExtractCacheDirectory(r io.Reader, cacheType string) (extractedDirs []strin
 		return ExtractTritonCacheDirectory(r)
 	case constants.VLLM:
 		return ExtractVLLMCacheDirectory(r)
+	case constants.Habana:
+		return ExtractHabanaCacheDirectory(r)
 	default:
 		return nil, 0, fmt.Errorf("unsupported cache type: %s", cacheType)
 	}

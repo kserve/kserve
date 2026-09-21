@@ -26,7 +26,7 @@ type**, not manifest type (OCI vs Docker Schema 2).
 | Layer media type | Typical builder | Extract support |
 |------------------|-----------------|-----------------|
 | `application/vnd.docker.image.rootfs.diff.tar.gzip` | Docker / MCV `-c` | Yes (compat) |
-| `application/vnd.oci.image.layer.v1.tar+gzip` | Buildah / Podman / MCV `-c --buildah` | Yes (compat) |
+| `application/vnd.oci.image.layer.v1.tar+gzip` | Buildah / Podman / MCV `--builder buildah` or `--builder oci` | Yes (compat) |
 | `application/cache.<type>.content.layer.v1+<type>` | External / legacy | Yes (fallback only) |
 
 See [spec-compat.md](./spec-compat.md) for the full compat specification.
@@ -99,6 +99,16 @@ mcv -e -i quay.io/example/triton-kernel
 - Extracts image if compatible
 - Validates manifest
 - Removes incompatible kernels if manifest fails
+
+### OCI delta capture
+
+KServe capture uses the MCV OCI builder to avoid a local Docker or Buildah daemon. The sidecar records a baseline snapshot before workload readiness, waits for the workload to become ready, and creates an image from the cache changes that follow.
+
+```text
+baseline snapshot -> readiness -> current snapshot -> delta comparison -> push
+```
+
+The delta path creates a directory-only image when possible. File deletions, root-level file changes, and legacy snapshots fall back to a full image. See [oci-delta-capture.md](./oci-delta-capture.md) for the CLI contract and [capture-sidecar.md](./capture-sidecar.md) for the KServe sidecar contract.
 
 ## Debugging & Logging
 

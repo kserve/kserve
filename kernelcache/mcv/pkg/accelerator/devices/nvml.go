@@ -26,6 +26,7 @@ import (
 	logging "github.com/sirupsen/logrus"
 
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 )
 
 const (
@@ -257,7 +258,7 @@ func getNVMLTritonGPUInfo(device nvml.Device) (TritonGPUInfo, error) {
 		WarpSize:          warpSize,
 		MemoryTotalMB:     mem.Total / (1024 * 1024),
 		PTXVersion:        ptxVersion,
-		Backend:           "cuda",
+		Backend:           constants.BackendCUDA,
 	}, nil
 }
 

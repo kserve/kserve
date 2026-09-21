@@ -59,10 +59,12 @@ const (
 	BinaryCacheFormat     = "binary"
 	AOTCompileCacheFormat = "aot_compile"
 	TritonCacheFormat     = "triton"
-	CUDABackend           = "cuda"
-	ROCmBackend           = "rocm"
-	HIPBackend            = "hip"
-	UnknownBackend        = "UnknownBackend"
+	// Exported aliases of constants.Backend* — kept for callers that already
+	// reference cache.CUDABackend / cache.HIPBackend / cache.ROCmBackend.
+	CUDABackend    = constants.BackendCUDA
+	ROCmBackend    = constants.BackendROCm
+	HIPBackend     = constants.BackendHIP
+	UnknownBackend = "UnknownBackend"
 
 	// torchAOTCompileDirName is the extra directory vLLM introduces above
 	// the per-model hash dir when VLLM_USE_AOT_COMPILE is enabled.

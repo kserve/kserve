@@ -1,5 +1,3 @@
-//go:build !distro
-
 /*
 Copyright 2026 The KServe Authors.
 
@@ -19,18 +17,14 @@ limitations under the License.
 package tls
 
 import (
-	"context"
 	"crypto/tls"
 	"errors"
-
-	"k8s.io/client-go/rest"
 )
 
 // Resolve builds TLS option functions from the provided min version and cipher
 // suites strings. When both are empty, it returns hardened Intermediate defaults
 // (TLS 1.2, ECDHE AEAD ciphers, ALPN h2/http1.1).
-// In the default (upstream) build, ctx and cfg are unused.
-func Resolve(_ context.Context, _ *rest.Config, tlsMinVersion, tlsCipherSuites string) ([]func(*tls.Config), error) {
+func Resolve(tlsMinVersion, tlsCipherSuites string) ([]func(*tls.Config), error) {
 	minVersion, err := parseMinVersion(tlsMinVersion)
 	if err != nil {
 		return nil, err

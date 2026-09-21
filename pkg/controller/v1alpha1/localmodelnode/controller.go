@@ -58,6 +58,7 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel/jobs"
 	"github.com/kserve/kserve/pkg/controller/v1alpha1/utils"
 	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/kserve/kserve/pkg/credentials/s3"
 	pkgtypes "github.com/kserve/kserve/pkg/types"
 )
 
@@ -74,6 +75,10 @@ type LocalModelNodeReconciler struct {
 	CredentialBuilder *credentials.CredentialBuilder
 	IsvcConfigMap     *corev1.ConfigMap
 }
+
+const (
+	CaBundleVolumeName = "cabundle-cert"
+)
 
 var (
 	FSGroup                    *int64
@@ -171,6 +176,9 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 		}
 	}
 
+	// Mount CA bundle ConfigMap as volume if AWS_CA_BUNDLE_CONFIGMAP env was injected
+	c.mountCaBundleVolume(container, &volumes)
+
 	// Note: statusKey (namespace/modelName) cannot be used as a label value since labels
 	// cannot contain '/'. We store namespace separately and reconstruct statusKey when needed.
 	jobLabels := map[string]string{
@@ -219,6 +227,93 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	c.Log.Info("Created job", "name", createdJob.Name, "namespace", createdJob.Namespace,
 		"model", modelInfo.ModelName, "storageKey", storageKey)
 	return createdJob, err
+}
+
+// mountCaBundleVolume checks if the container has AWS_CA_BUNDLE_CONFIGMAP env var set and,
+// if so, mounts the referenced ConfigMap as a volume so the storage initializer can read the
+// CA certificates. This mirrors the behavior of the storage-initializer webhook injector.
+func (c *LocalModelNodeReconciler) mountCaBundleVolume(container *corev1.Container, volumes *[]corev1.Volume) {
+	var caBundleConfigMapName string
+	for _, envVar := range container.Env {
+		if envVar.Name == s3.AWSCABundleConfigMap {
+			caBundleConfigMapName = envVar.Value
+			break
+		}
+	}
+	if caBundleConfigMapName == "" {
+		return
+	}
+
+	mountPath := constants.DefaultCaBundleVolumeMountPath
+
+	caBundleVolume := corev1.Volume{
+		Name: CaBundleVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: caBundleConfigMapName,
+				},
+			},
+		},
+	}
+	caBundleVolumeMount := corev1.VolumeMount{
+		Name:      CaBundleVolumeName,
+		MountPath: mountPath,
+		ReadOnly:  true,
+	}
+
+	*volumes = append(*volumes, caBundleVolume)
+	container.VolumeMounts = append(container.VolumeMounts, caBundleVolumeMount)
+
+	if !envVarExists(container.Env, constants.CaBundleConfigMapNameEnvVarKey) {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  constants.CaBundleConfigMapNameEnvVarKey,
+			Value: caBundleConfigMapName,
+		})
+	}
+	if !envVarExists(container.Env, constants.CaBundleVolumeMountPathEnvVarKey) {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  constants.CaBundleVolumeMountPathEnvVarKey,
+			Value: mountPath,
+		})
+	}
+	c.Log.Info("Mounted CA bundle ConfigMap volume", "configMap", caBundleConfigMapName, "mountPath", mountPath)
+}
+
+func envVarExists(envs []corev1.EnvVar, name string) bool {
+	for _, e := range envs {
+		if e.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// Fetches container spec for model download container, use the default KServe image if not found
+// This function is kept for backward compatibility with ClusterStorageContainer
+func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Context, storageUri string) (*corev1.Container, error) {
+	storageContainers := &v1alpha1.ClusterStorageContainerList{}
+	if err := c.List(ctx, storageContainers); err != nil {
+		return nil, err
+	}
+
+	for _, sc := range storageContainers.Items {
+		if sc.IsDisabled() {
+			continue
+		}
+		if sc.Spec.WorkloadType != v1alpha1.LocalModelDownloadJob {
+			continue
+		}
+		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
+		if err != nil {
+			return nil, fmt.Errorf("error checking storage container %s: %w", sc.Name, err)
+		}
+		if supported {
+			return &sc.Spec.Container, nil
+		}
+	}
+
+	return nil, nil
 }
 
 func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelInfo v1alpha1.LocalModelInfo, nodeName string) (*batchv1.Job, int, error) {

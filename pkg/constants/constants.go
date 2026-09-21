@@ -461,6 +461,17 @@ const (
 	// LLMServedByAnnotationKey enables the x-served-by response header middleware.
 	// Set to "true" on an LLMInferenceService to inject the middleware.
 	LLMServedByAnnotationKey = "serving.kserve.io/enable-served-by-header"
+
+	// LLMAcceleratorAnnotationKey is the Status.Annotations key where the
+	// resolved accelerator type (cpu/gpu/unknown) is persisted during
+	// reconciliation for telemetry scraping.
+	LLMAcceleratorAnnotationKey = "serving.kserve.io/accelerator-type"
+
+	// WellKnownConfigPinAnnotationPrefix is the key prefix shared by all
+	// config-pin annotations written to Status.Annotations by the
+	// WellKnownConfigResolver. Used as an allowlist when reading config
+	// references from annotations.
+	WellKnownConfigPinAnnotationPrefix = "serving.kserve.io/config-"
 )
 
 // LLMInferenceService constants
