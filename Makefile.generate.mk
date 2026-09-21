@@ -1,5 +1,9 @@
 # Code/manifest generation and artifact sync.
 
+# --fail keeps an HTTP error body out of the downloaded artifact; 5xx and timeouts are
+# retried so a flaky release download does not fail the whole generation run.
+CURL ?= curl --fail --silent --show-error --location --retry 3 --retry-delay 2
+
 .PHONY: sync-deps
 sync-deps:
 	@@python3 hack/setup/scripts/generate-versions-from-gomod.py --no-cache
@@ -29,11 +33,16 @@ manifests: controller-gen kustomize yq
 
 	# DO NOT COPY to helm chart. It needs to be created before the Envoy Gateway or you will need to restart the Envoy Gateway controller.
 	# The llmisvc helm chart needs to be installed after the Envoy Gateway as well, so it needs to be created before the llmisvc helm chart.
-	# Pull upstream GIE v1 CRDs (InferencePool, etc.) from release artifact
-	curl -sL https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/$(GIE_VERSION)/v1-manifests.yaml > config/llmisvc/gateway-inference-extension.yaml
-	# Append llm-d.ai CRDs (InferenceObjective, InferenceModelRewrite) from llm-d-router release
-	@echo "---" >> config/llmisvc/gateway-inference-extension.yaml
-	curl -sL https://github.com/llm-d/llm-d-router/releases/download/$(LLMD_ROUTER_VERSION)/manifests.yaml >> config/llmisvc/gateway-inference-extension.yaml
+	# Pull upstream GIE v1 CRDs (InferencePool, etc.) from release artifact, then append the
+	# llm-d.ai CRDs (InferenceObjective, InferenceModelRewrite) from the llm-d-router release.
+	# Assembled in a temp file and installed only once both downloads succeed: curl writes the
+	# HTTP error body to its output stream, so a transient failure would otherwise leave an
+	# unparseable manifest in the tree and break every kustomize build that reads it.
+	@set -e; tmp=$$(mktemp); trap 'rm -f "$$tmp"' EXIT; \
+		$(CURL) https://github.com/kubernetes-sigs/gateway-api-inference-extension/releases/download/$(GIE_VERSION)/v1-manifests.yaml > "$$tmp"; \
+		echo "---" >> "$$tmp"; \
+		$(CURL) https://github.com/llm-d/llm-d-router/releases/download/$(LLMD_ROUTER_VERSION)/manifests.yaml >> "$$tmp"; \
+		install -m 0644 "$$tmp" config/llmisvc/gateway-inference-extension.yaml
 	# Workaround to update main-dev version from llm-d-router release as annotation
 	sed -i 's|llm-d.ai/bundle-version: main-dev|llm-d.ai/bundle-version: $(LLMD_ROUTER_VERSION)|' config/llmisvc/gateway-inference-extension.yaml
 	cp config/llmisvc/gateway-inference-extension.yaml test/crds/gateway-inference-extension.yaml
