@@ -30,6 +30,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/constants"
 
@@ -224,6 +225,267 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
 				g.Expect(current.Status.Workloads).To(Equal(firstSnapshot))
 				g.Expect(current.ResourceVersion).To(Equal(afterTriggerRV))
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		DescribeTable("should carry merged KV cache configuration into a stable single-node workload",
+			func(ctx SpecContext, testName, expectedSpecName string, secondary []v1alpha2.SecondaryTierSpec) {
+				svcName := "test-kv-carrier-" + testName
+				testNs := NewTestNamespace(ctx, envTest)
+
+				modelConfig := LLMInferenceServiceConfig("model-config",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+					WithConfigModelURI("hf://facebook/opt-125m"),
+				)
+				workloadConfig := LLMInferenceServiceConfig("workload-config",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+					WithConfigWorkloadTemplate(&corev1.PodSpec{Containers: []corev1.Container{{
+						Name:  "main",
+						Image: "quay.io/pierdipi/vllm-cpu:latest",
+						Env:   []corev1.EnvVar{{Name: "KSERVE_KV_TRANSFER_ARGS"}},
+					}}}),
+				)
+				workloadConfig.Spec.KVCacheOffloading = &v1alpha2.KVCacheOffloadingSpec{
+					CPU:       resource.MustParse("10Gi"),
+					Secondary: secondary,
+				}
+
+				Expect(envTest.Create(ctx, modelConfig)).To(Succeed())
+				Expect(envTest.Create(ctx, workloadConfig)).To(Succeed())
+
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithBaseRefs(
+						corev1.LocalObjectReference{Name: modelConfig.Name},
+						corev1.LocalObjectReference{Name: workloadConfig.Name},
+					),
+				)
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer testNs.DeleteAndWait(ctx, llmSvc)
+
+				key := types.NamespacedName{Name: svcName + "-kserve", Namespace: testNs.Name}
+				deployment := &appsv1.Deployment{}
+				Eventually(func(g Gomega, ctx context.Context) {
+					g.Expect(envTest.Get(ctx, key, deployment)).To(Succeed())
+					g.Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+					g.Expect(deployment.Spec.Template.Spec.Containers[0].Env).To(ContainElement(And(
+						HaveField("Name", "KSERVE_KV_TRANSFER_ARGS"),
+						HaveField("Value", ContainSubstring(`"spec_name":"`+expectedSpecName+`"`)),
+					)))
+					// The shipped single-node preset declares dshm at 1Gi for NCCL and
+					// asks for 120% of the tier on top, so this pins the annotation, the
+					// arithmetic and the preset's own baseline together against the real
+					// preset rather than a synthetic one.
+					shm := volumeByName(deployment.Spec.Template.Spec.Volumes, "dshm")
+					g.Expect(shm).ToNot(BeNil())
+					wantShm := resource.MustParse("13Gi")
+					g.Expect(shm.EmptyDir.SizeLimit.Cmp(wantShm)).To(Equal(0),
+						"dshm sizeLimit = %s, want 13Gi (1Gi preset baseline + 120%% of a 10Gi tier)",
+						shm.EmptyDir.SizeLimit)
+				}).WithContext(ctx).Should(Succeed())
+				firstPodTemplate := deployment.Spec.Template.DeepCopy()
+				firstGeneration := deployment.Generation
+
+				// Touch the service to force another reconcile. Filling the slot is
+				// string assembly, so a re-render that is not byte-identical rewrites
+				// the pod template and rolls the workload.
+				beforeTriggerRV := ""
+				Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+					current := &v1alpha2.LLMInferenceService{}
+					if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current); err != nil {
+						return err
+					}
+					if current.Annotations == nil {
+						current.Annotations = map[string]string{}
+					}
+					current.Annotations["test/kv-carrier-idempotency"] = "1"
+					beforeTriggerRV = current.ResourceVersion
+					return envTest.Update(ctx, current)
+				})).To(Succeed())
+
+				// Wait for the trigger to land and for the controller to stop writing
+				// before asserting anything held still. Requiring two consecutive reads
+				// at the same ResourceVersion is what separates "settled" from "the
+				// update landed but the status write has not happened yet" - the latter
+				// moves the version in the middle of the window below.
+				var afterTriggerRV string
+				Eventually(func(g Gomega, ctx context.Context) {
+					current := &v1alpha2.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+					g.Expect(current.Annotations).To(HaveKeyWithValue("test/kv-carrier-idempotency", "1"))
+					g.Expect(current.ResourceVersion).NotTo(Equal(beforeTriggerRV))
+					previous := afterTriggerRV
+					afterTriggerRV = current.ResourceVersion
+					g.Expect(afterTriggerRV).To(Equal(previous), "resource version is still moving")
+				}).WithContext(ctx).Should(Succeed())
+
+				// A settled ResourceVersion is what makes the rest meaningful: a
+				// controller still writing would keep moving it.
+				Consistently(func(g Gomega, ctx context.Context) {
+					current := &v1alpha2.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+					g.Expect(current.ResourceVersion).To(Equal(afterTriggerRV))
+
+					currentDeployment := &appsv1.Deployment{}
+					g.Expect(envTest.Get(ctx, key, currentDeployment)).To(Succeed())
+					g.Expect(&currentDeployment.Spec.Template).To(Equal(firstPodTemplate))
+					g.Expect(currentDeployment.Generation).To(Equal(firstGeneration))
+				}).WithContext(ctx).WithTimeout(2 * time.Second).Should(Succeed())
+			},
+			Entry("for CPU-only offloading", "cpu", "CPUOffloadingSpec", nil),
+			Entry("for tiered offloading", "tiered", "TieringOffloadingSpec", []v1alpha2.SecondaryTierSpec{{
+				FileSystem: &v1alpha2.FileSystemTierSpec{EmptyDir: &v1alpha2.EmptyDirTierSpec{Size: resource.MustParse("10Gi")}},
+			}}),
+		)
+
+		DescribeTable("should keep reconciling a service whose merged config carries a degenerate cpu tier",
+			func(ctx SpecContext, testName, cpu string) {
+				// A cpu that predates the current rules can already be sitting in a stored
+				// config, and config merging runs on every reconcile. Re-rendering it must not
+				// be what takes a running service down.
+				testNs := NewTestNamespace(ctx, envTest)
+
+				modelConfig := LLMInferenceServiceConfig("model-config",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+					WithConfigModelURI("hf://facebook/opt-125m"),
+				)
+				workloadConfig := LLMInferenceServiceConfig("workload-config",
+					InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+					WithConfigWorkloadTemplate(&corev1.PodSpec{Containers: []corev1.Container{{
+						Name:  "main",
+						Image: "quay.io/pierdipi/vllm-cpu:latest",
+					}}}),
+				)
+				workloadConfig.Spec.KVCacheOffloading = &v1alpha2.KVCacheOffloadingSpec{
+					CPU: resource.MustParse(cpu),
+				}
+
+				Expect(envTest.Create(ctx, modelConfig)).To(Succeed())
+				Expect(envTest.Create(ctx, workloadConfig)).To(Succeed())
+
+				svcName := "test-kv-degenerate-" + testName
+				llmSvc := LLMInferenceService(svcName,
+					InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+					WithBaseRefs(
+						corev1.LocalObjectReference{Name: modelConfig.Name},
+						corev1.LocalObjectReference{Name: workloadConfig.Name},
+					),
+				)
+				Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+				defer testNs.DeleteAndWait(ctx, llmSvc)
+
+				Eventually(func(g Gomega, ctx context.Context) {
+					current := &v1alpha2.LLMInferenceService{}
+					g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+					g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "True"))
+				}).WithContext(ctx).Should(Succeed())
+
+				Eventually(func(g Gomega, ctx context.Context) {
+					deployment := &appsv1.Deployment{}
+					g.Expect(envTest.Get(ctx, types.NamespacedName{Name: svcName + "-kserve", Namespace: testNs.Name}, deployment)).To(Succeed())
+				}).WithContext(ctx).Should(Succeed())
+			},
+			Entry("for a zero cpu", "zero", "0"),
+		)
+
+		It("should report a spec that writes to the transfer-argument slot", func(ctx SpecContext) {
+			// env merges by name, so a value the spec declares lands on the slot the
+			// preset left empty for the controller. Filling over it would ignore it
+			// silently; the service is marked instead, with its own reason, and keeps
+			// whatever it was already serving.
+			testNs := NewTestNamespace(ctx, envTest)
+
+			modelConfig := LLMInferenceServiceConfig("model-config",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigModelURI("hf://facebook/opt-125m"),
+			)
+			workloadConfig := LLMInferenceServiceConfig("workload-config",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigWorkloadTemplate(&corev1.PodSpec{Containers: []corev1.Container{{
+					Name:  "main",
+					Image: "quay.io/pierdipi/vllm-cpu:latest",
+					Env: []corev1.EnvVar{{
+						Name:  "KSERVE_KV_TRANSFER_ARGS",
+						Value: `--kv-transfer-config '{"kv_connector":"MyConnector"}'`,
+					}},
+				}}}),
+			)
+			workloadConfig.Spec.KVCacheOffloading = &v1alpha2.KVCacheOffloadingSpec{
+				CPU: resource.MustParse("10Gi"),
+			}
+
+			Expect(envTest.Create(ctx, modelConfig)).To(Succeed())
+			Expect(envTest.Create(ctx, workloadConfig)).To(Succeed())
+
+			llmSvc := LLMInferenceService("test-kv-slot-conflict",
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithBaseRefs(
+					corev1.LocalObjectReference{Name: modelConfig.Name},
+					corev1.LocalObjectReference{Name: workloadConfig.Name},
+				),
+			)
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer testNs.DeleteAndWait(ctx, llmSvc)
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "False"))
+				cond := current.Status.GetCondition(v1alpha2.PresetsCombined)
+				g.Expect(cond).NotTo(BeNil())
+				// Its own reason, not the generic CombineBaseError - the user has to
+				// edit the spec, and the message says what to edit and where to put it.
+				g.Expect(cond.Reason).To(Equal("KVTransferSlotConflict"))
+				g.Expect(cond.Message).To(ContainSubstring("KSERVE_KV_TRANSFER_ARGS"))
+				g.Expect(cond.Message).To(ContainSubstring("VLLM_ADDITIONAL_ARGS"))
+				// The requeue policy is not something a user can act on.
+				g.Expect(cond.Message).ToNot(ContainSubstring("terminal error"))
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should report a negative cpu against the field that carries it", func(ctx SpecContext) {
+			// Admission only sees the user's own spec, so a size arriving from a preset
+			// is caught by the dry-run over the merged config instead. The point is that
+			// it names spec.kvCacheOffloading.cpu either way, rather than surfacing as an
+			// engine crash once the pod is running.
+			testNs := NewTestNamespace(ctx, envTest)
+
+			modelConfig := LLMInferenceServiceConfig("model-config",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigModelURI("hf://facebook/opt-125m"),
+			)
+			workloadConfig := LLMInferenceServiceConfig("workload-config",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigWorkloadTemplate(&corev1.PodSpec{Containers: []corev1.Container{{
+					Name:  "main",
+					Image: "quay.io/pierdipi/vllm-cpu:latest",
+				}}}),
+			)
+			workloadConfig.Spec.KVCacheOffloading = &v1alpha2.KVCacheOffloadingSpec{
+				CPU: resource.MustParse("-1Gi"),
+			}
+
+			Expect(envTest.Create(ctx, modelConfig)).To(Succeed())
+			Expect(envTest.Create(ctx, workloadConfig)).To(Succeed())
+
+			llmSvc := LLMInferenceService("test-kv-negative-cpu",
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithBaseRefs(
+					corev1.LocalObjectReference{Name: modelConfig.Name},
+					corev1.LocalObjectReference{Name: workloadConfig.Name},
+				),
+			)
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer testNs.DeleteAndWait(ctx, llmSvc)
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "False"))
+				cond := current.Status.GetCondition(v1alpha2.PresetsCombined)
+				g.Expect(cond).NotTo(BeNil())
+				g.Expect(cond.Message).To(ContainSubstring("spec.kvCacheOffloading.cpu"))
+				g.Expect(cond.Message).To(ContainSubstring("must not be negative"))
 			}).WithContext(ctx).Should(Succeed())
 		})
 
@@ -1085,8 +1347,6 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				updatedRoute := expectedHTTPRoute.DeepCopy()
 				WithHTTPRouteReadyStatus(DefaultGatewayControllerName)(updatedRoute)
 				Expect(envTest.Client.Status().Update(ctx, updatedRoute)).To(Succeed())
-
-				ensureSchedulerDeploymentReady(ctx, envTest.Client, llmSvc)
 
 				Eventually(LLMInferenceServiceIsReady(llmSvc, func(g Gomega, current *v1alpha2.LLMInferenceService) {
 					g.Expect(current.Status).To(HaveCondition(string(v1alpha2.HTTPRoutesReady), "True"))
@@ -2461,14 +2721,24 @@ func ensureRouterManagedResourcesAreReady(ctx context.Context, c client.Client, 
 			g.Expect(c.Status().Update(ctx, updatedPool)).To(gomega.Succeed())
 		}
 
-		ensureSchedulerDeploymentReady(ctx, c, llmSvc)
-		ensureMainDeploymentAvailable(ctx, c, llmSvc)
+		// A managed InferencePool exists exactly when a scheduler Deployment does:
+		// reconcileSchedulerDeployment and reconcileSchedulerInferencePool are gated
+		// on the same predicate, and the Deployment is reconciled first. Specs
+		// without a scheduler spec, or with an external pool ref, have neither.
+		if len(infPools.Items) > 0 {
+			g.Expect(ensureSchedulerDeploymentReady(ctx, c, llmSvc)).To(gomega.Succeed())
+		}
+		g.Expect(ensureMainDeploymentAvailable(ctx, c, llmSvc)).To(gomega.Succeed())
 	}).WithContext(ctx).Should(gomega.Succeed())
 }
 
-func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) {
+// ensureSchedulerDeploymentReady writes ready status onto the scheduler Deployment,
+// standing in for the Deployment controller that envtest does not run. It errors when
+// there is none, so it cannot report success having written nothing. Only call it for
+// specs that configure a scheduler.
+func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) error {
 	if envTest.UsingExistingCluster() {
-		return
+		return nil
 	}
 
 	schedulerListOpts := &client.ListOptions{
@@ -2476,12 +2746,14 @@ func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc
 		LabelSelector: labels.SelectorFromSet(llmisvc.SchedulerLabels(llmSvc)),
 	}
 	deployments := &appsv1.DeploymentList{}
-	err := c.List(ctx, deployments, schedulerListOpts)
-	if err != nil && !errors.IsNotFound(err) {
-		Expect(err).NotTo(gomega.HaveOccurred())
+	if err := c.List(ctx, deployments, schedulerListOpts); err != nil {
+		return fmt.Errorf("failed to list scheduler deployments for %s: %w", llmSvc.Name, err)
+	}
+	if len(deployments.Items) == 0 {
+		return fmt.Errorf("no scheduler Deployment for %s alongside the managed InferencePool", llmSvc.Name)
 	}
 
-	logf.FromContext(ctx).Info("Marking scheduler ready (if any)", "deployments", deployments)
+	logf.FromContext(ctx).Info("Marking scheduler ready", "deployments", deployments)
 	for _, d := range deployments.Items {
 		dep := d.DeepCopy()
 		dep.Status.Replicas = 1
@@ -2491,13 +2763,21 @@ func ensureSchedulerDeploymentReady(ctx context.Context, c client.Client, llmSvc
 			Type:   appsv1.DeploymentAvailable,
 			Status: corev1.ConditionTrue,
 		})
-		Expect(c.Status().Update(ctx, dep)).To(gomega.Succeed())
+		if err := c.Status().Update(ctx, dep); err != nil {
+			return fmt.Errorf("failed to update scheduler deployment %s status: %w", dep.Name, err)
+		}
 	}
+	return nil
 }
 
-func ensureMainDeploymentAvailable(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) {
+// ensureMainDeploymentAvailable writes available status onto the main workload
+// Deployment, standing in for the Deployment controller that envtest does not run. The
+// workload is a Deployment for single-node specs and a LeaderWorkerSet when spec.worker
+// is set, so it errors unless one of the two exists and cannot report success having
+// written nothing.
+func ensureMainDeploymentAvailable(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) error {
 	if envTest.UsingExistingCluster() {
-		return
+		return nil
 	}
 
 	workloadListOpts := &client.ListOptions{
@@ -2508,9 +2788,28 @@ func ensureMainDeploymentAvailable(ctx context.Context, c client.Client, llmSvc 
 		}),
 	}
 	deployments := &appsv1.DeploymentList{}
-	err := c.List(ctx, deployments, workloadListOpts)
-	if err != nil && !errors.IsNotFound(err) {
-		Expect(err).NotTo(gomega.HaveOccurred())
+	if err := c.List(ctx, deployments, workloadListOpts); err != nil {
+		return fmt.Errorf("failed to list workload deployments for %s: %w", llmSvc.Name, err)
+	}
+
+	if len(deployments.Items) == 0 {
+		// An LWS carries the kserve component label only when its leader template is
+		// nil, so the workload selector above cannot find it. App name and part-of are
+		// set unconditionally. This matches the prefill LWS too, which is fine for an
+		// existence check.
+		lwss := &lwsapi.LeaderWorkerSetList{}
+		if err := c.List(ctx, lwss, &client.ListOptions{
+			Namespace: llmSvc.Namespace,
+			LabelSelector: labels.SelectorFromSet(map[string]string{
+				constants.KubernetesAppNameLabelKey: llmSvc.Name,
+				constants.KubernetesPartOfLabelKey:  constants.LLMInferenceServicePartOfValue,
+			}),
+		}); err != nil {
+			return fmt.Errorf("failed to list leader worker sets for %s: %w", llmSvc.Name, err)
+		}
+		if len(lwss.Items) == 0 {
+			return fmt.Errorf("no main workload for %s as either a Deployment or a LeaderWorkerSet", llmSvc.Name)
+		}
 	}
 
 	for _, d := range deployments.Items {
@@ -2522,8 +2821,11 @@ func ensureMainDeploymentAvailable(ctx context.Context, c client.Client, llmSvc 
 			Type:   appsv1.DeploymentAvailable,
 			Status: corev1.ConditionTrue,
 		})
-		Expect(c.Status().Update(ctx, dep)).To(gomega.Succeed())
+		if err := c.Status().Update(ctx, dep); err != nil {
+			return fmt.Errorf("failed to update workload deployment %s status: %w", dep.Name, err)
+		}
 	}
+	return nil
 }
 
 func customRouteSpec(ctx context.Context, c client.Client, nsName, gatewayRefName, backendRefName string) *gwapiv1.HTTPRouteSpec {
@@ -2642,4 +2944,14 @@ func countReadinessEvents(ctx context.Context, c client.Client, llmSvc *v1alpha2
 		}
 	}
 	return count
+}
+
+// volumeByName returns the named volume, or nil when the pod spec has none.
+func volumeByName(volumes []corev1.Volume, name string) *corev1.Volume {
+	for i := range volumes {
+		if volumes[i].Name == name {
+			return &volumes[i]
+		}
+	}
+	return nil
 }

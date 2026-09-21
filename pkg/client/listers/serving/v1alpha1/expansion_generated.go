@@ -42,6 +42,30 @@ type InferenceGraphListerExpansion interface{}
 // InferenceGraphNamespaceLister.
 type InferenceGraphNamespaceListerExpansion interface{}
 
+// KernelCacheListerExpansion allows custom methods to be added to
+// KernelCacheLister.
+type KernelCacheListerExpansion interface{}
+
+// KernelCacheNamespaceListerExpansion allows custom methods to be added to
+// KernelCacheNamespaceLister.
+type KernelCacheNamespaceListerExpansion interface{}
+
+// KernelCacheCaptureListerExpansion allows custom methods to be added to
+// KernelCacheCaptureLister.
+type KernelCacheCaptureListerExpansion interface{}
+
+// KernelCacheCaptureNamespaceListerExpansion allows custom methods to be added to
+// KernelCacheCaptureNamespaceLister.
+type KernelCacheCaptureNamespaceListerExpansion interface{}
+
+// KernelCacheNodeListerExpansion allows custom methods to be added to
+// KernelCacheNodeLister.
+type KernelCacheNodeListerExpansion interface{}
+
+// KernelCacheNodeGroupListerExpansion allows custom methods to be added to
+// KernelCacheNodeGroupLister.
+type KernelCacheNodeGroupListerExpansion interface{}
+
 // LLMInferenceServiceListerExpansion allows custom methods to be added to
 // LLMInferenceServiceLister.
 type LLMInferenceServiceListerExpansion interface{}

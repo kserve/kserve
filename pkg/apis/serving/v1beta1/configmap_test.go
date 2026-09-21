@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -83,6 +84,142 @@ func TestNewInferenceServiceConfig(t *testing.T) {
 	isvcConfig, err := NewInferenceServicesConfig(isvcConfigMap)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(isvcConfig).ShouldNot(gomega.BeNil())
+}
+
+func TestNewKernelCacheConfigDefaults(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	for _, configMap := range []*corev1.ConfigMap{
+		{},
+		{Data: map[string]string{KernelCacheConfigName: `{}`}},
+	} {
+		config, err := NewKernelCacheConfig(configMap)
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(config.Enabled).To(gomega.BeFalse())
+		g.Expect(config.DefaultSidecarInjection).To(gomega.BeTrue())
+		g.Expect(config.DefaultMountType).To(gomega.BeEmpty())
+		g.Expect(config.DefaultNodeGroup).To(gomega.BeEmpty())
+		g.Expect(config.JobNamespace).To(gomega.BeEmpty())
+		g.Expect(config.MCVImage).To(gomega.Equal(DefaultKernelCacheMCVImage))
+		g.Expect(config.PrefetchImage).To(gomega.Equal(DefaultKernelCachePrefetchImage))
+		g.Expect(config.MCVCaptureReadinessTimeoutSeconds).To(gomega.Equal(DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds))
+		g.Expect(config.AbandonedCapturePolicy).To(gomega.Equal(DefaultKernelCacheAbandonedCapturePolicy))
+		g.Expect(config.JobTTLSecondsAfterFinished).To(gomega.BeNil())
+		g.Expect(config.ReconcileIntervalSeconds).To(gomega.BeNil())
+	}
+}
+
+func TestNewKernelCacheConfigRejectsInvalidJSON(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{
+		Data: map[string]string{KernelCacheConfigName: `not-json`},
+	}
+
+	config, err := NewKernelCacheConfig(configMap)
+	g.Expect(config).To(gomega.BeNil())
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(err.Error()).To(gomega.ContainSubstring("unable to unmarshal kernelcache"))
+}
+
+func TestNewKernelCacheConfigRejectsInvalidMCVCaptureReadinessTimeout(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{"mcvCaptureReadinessTimeoutSeconds":0}`,
+	}}
+
+	_, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).To(gomega.MatchError("kernelcache.mcvCaptureReadinessTimeoutSeconds must be greater than zero"))
+}
+
+func TestNewKernelCacheConfigRejectsPVCDefaultMountType(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{"defaultMountType":"pvc"}`,
+	}}
+
+	_, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).To(gomega.MatchError(`kernelcache.defaultMountType must be oci, got "pvc"`))
+}
+
+func TestNewKernelCacheConfigUsesConfiguredMCVCaptureReadinessTimeout(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{"mcvCaptureReadinessTimeoutSeconds":900}`,
+	}}
+
+	config, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(config.MCVCaptureReadinessTimeoutSeconds).To(gomega.Equal(int64(900)))
+}
+
+func TestNewKernelCacheConfigUsesConfiguredValues(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{
+			"enabled": true,
+			"defaultSidecarInjection": false,
+			"defaultMountType": "oci",
+			"defaultNodeGroup": "gpu-nodes",
+			"jobNamespace": "kernel-cache-jobs",
+			"mcvImage": "example/mcv:test",
+			"mcvCaptureReadinessTimeoutSeconds": 900,
+			"prefetchImage": "example/prefetch:test",
+			"jobTTLSecondsAfterFinished": 600,
+			"reconcileIntervalSeconds": 300,
+			"abandonedCapturePolicy": "delete"
+		}`,
+	}}
+
+	config, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(config.Enabled).To(gomega.BeTrue())
+	g.Expect(config.DefaultSidecarInjection).To(gomega.BeFalse())
+	g.Expect(config.DefaultMountType).To(gomega.Equal("oci"))
+	g.Expect(config.DefaultNodeGroup).To(gomega.Equal("gpu-nodes"))
+	g.Expect(config.JobNamespace).To(gomega.Equal("kernel-cache-jobs"))
+	g.Expect(config.MCVImage).To(gomega.Equal("example/mcv:test"))
+	g.Expect(config.MCVCaptureReadinessTimeoutSeconds).To(gomega.Equal(int64(900)))
+	g.Expect(config.PrefetchImage).To(gomega.Equal("example/prefetch:test"))
+	g.Expect(config.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
+	g.Expect(*config.JobTTLSecondsAfterFinished).To(gomega.Equal(int32(600)))
+	g.Expect(config.ReconcileIntervalSeconds).ToNot(gomega.BeNil())
+	g.Expect(*config.ReconcileIntervalSeconds).To(gomega.Equal(int64(300)))
+	g.Expect(config.AbandonedCapturePolicy).To(gomega.Equal("delete"))
+}
+
+func TestNewKernelCacheConfigRejectsInvalidValues(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      string
+		expectedErr string
+	}{
+		{
+			name:        "invalid mount type",
+			config:      `{"defaultMountType":"pvc"}`,
+			expectedErr: `kernelcache.defaultMountType must be oci, got "pvc"`,
+		},
+		{
+			name:        "invalid readiness timeout",
+			config:      `{"mcvCaptureReadinessTimeoutSeconds":0}`,
+			expectedErr: "kernelcache.mcvCaptureReadinessTimeoutSeconds must be greater than zero",
+		},
+		{
+			name:        "invalid abandoned capture policy",
+			config:      `{"abandonedCapturePolicy":"invalid"}`,
+			expectedErr: "kernelcache.abandonedCapturePolicy must be retain or delete",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			configMap := &corev1.ConfigMap{Data: map[string]string{
+				KernelCacheConfigName: test.config,
+			}}
+
+			_, err := NewKernelCacheConfig(configMap)
+			g.Expect(err).To(gomega.MatchError(test.expectedErr))
+		})
+	}
 }
 
 func TestNewMultiNodeConfigWithNoData(t *testing.T) {
@@ -792,4 +929,36 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(cfg.OciModelMode).To(gomega.Equal("fetch"))
 	})
+}
+
+func TestNewIngressConfigLoRAModelRoutingStrategy(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		value   string // omitted from the ingress JSON when empty
+		want    string
+		wantErr string
+	}{
+		{name: "defaults to exact when omitted", want: constants.LoRAModelRoutingStrategyExact},
+		{name: "normalizes case and whitespace", value: " ReGeX ", want: constants.LoRAModelRoutingStrategyRegex},
+		{name: "rejects unsupported values", value: "regexp", wantErr: `loraModelRoutingStrategy must be "exact" or "regex", got "regexp"`},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			ingress := `{"ingressGateway": "knative-serving/knative-ingress-gateway"`
+			if tt.value != "" {
+				ingress += `, "loraModelRoutingStrategy": ` + strconv.Quote(tt.value)
+			}
+			ingress += `}`
+
+			cfg, err := NewIngressConfig(&corev1.ConfigMap{Data: map[string]string{IngressConfigKeyName: ingress}})
+
+			if tt.wantErr != "" {
+				g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(tt.wantErr)))
+				g.Expect(cfg).To(gomega.BeNil())
+				return
+			}
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(cfg.LoRAModelRoutingStrategy).To(gomega.Equal(tt.want))
+		})
+	}
 }

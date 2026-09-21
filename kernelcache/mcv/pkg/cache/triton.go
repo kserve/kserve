@@ -244,7 +244,7 @@ func CompareTritonCacheToGPU(cacheData *TritonCacheData, acc accelerator.Acceler
 		warpMatch := cacheData.Target.WarpSize == gpu.WarpSize
 		ptxMatch := true
 
-		if gpu.Backend == "cuda" && cacheData.PtxVersion != nil {
+		if gpu.Backend == constants.BackendCUDA && cacheData.PtxVersion != nil {
 			ptxMatch = *cacheData.PtxVersion == gpu.PTXVersion
 			if !ptxMatch {
 				logging.WithFields(logging.Fields{
@@ -377,7 +377,7 @@ func (t *TritonCache) SetTmpPath(path string) {
 	}
 }
 
-func ExtractTritonCacheDirectory(r io.Reader) ([]string, error) {
+func ExtractTritonCacheDirectory(r io.Reader) (extractedDirs []string, extractedBytes int64, err error) {
 	return extractCacheAndManifestDirectory(
 		r,
 		constants.MCVTritonCacheDir,

@@ -653,11 +653,11 @@ KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
 JAEGER_VERSION=4.7.0
-KSERVE_VERSION=v0.21.0-rc0
+KSERVE_VERSION=v0.21.0-rc1
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.20.2
 OPENTELEMETRY_OPERATOR_VERSION=0.114.1
-LWS_VERSION=v0.8.0
+LWS_VERSION=v0.9.0
 GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.5.0
 LLMD_ROUTER_VERSION=v0.10.0
@@ -2101,6 +2101,19 @@ spec:
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
+  name: kserve-llm-sglang
+spec:
+  containers:
+  - image: lmsysorg/sglang:v0.5.14
+    name: main
+  supportedModelFormats:
+  - autoSelect: false
+    name: sglang
+    version: "1"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
   annotations:
     serving.kserve.io/server-type: mlserver
   name: kserve-mlserver
@@ -2622,6 +2635,8 @@ get_kserve_llmisvcconfig_manifests() {
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  annotations:
+    internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
   name: kserve-config-llm-decode-template
   namespace: kserve
 spec:
@@ -2774,9 +2789,13 @@ spec:
         # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
         if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+          # it is empty (no-op) when KV cache offloading is not configured.
+          if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+              KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+            fi
           fi
           # This template is only composed for a disaggregated P/D topology (spec.prefill set).
           # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
@@ -2796,6 +2815,7 @@ spec:
         eval "exec vllm serve /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
+          --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
           ${KV_TRANSFER_ARGS} \
@@ -2807,6 +2827,8 @@ spec:
           $@"
       - --
       env:
+      - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
       - name: HOME
         value: /home
       - name: VLLM_LOGGING_LEVEL
@@ -2954,6 +2976,8 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  annotations:
+    internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
   name: kserve-config-llm-decode-worker-data-parallel
   namespace: kserve
 spec:
@@ -3128,9 +3152,13 @@ spec:
         # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
         if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+          # it is empty (no-op) when KV cache offloading is not configured.
+          if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+              KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+            fi
           fi
           # This template is only composed for a disaggregated P/D topology (spec.prefill set).
           # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
@@ -3151,6 +3179,7 @@ spec:
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
+          --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
@@ -3169,6 +3198,8 @@ spec:
           $@"
       - --
       env:
+      - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
       - name: HOME
         value: /home
       - name: VLLM_LOGGING_LEVEL
@@ -3486,9 +3517,13 @@ spec:
         # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
         if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+          # it is empty (no-op) when KV cache offloading is not configured.
+          if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+              KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+            fi
           fi
           # This template is only composed for a disaggregated P/D topology (spec.prefill set).
           # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
@@ -3509,6 +3544,7 @@ spec:
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
+          --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --data-parallel-size {{ or (and .Spec.Parallelism .Spec.Parallelism.Data) 1 }} \
@@ -3527,6 +3563,8 @@ spec:
           $@"
       - --
       env:
+      - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
       - name: HOME
         value: /home
       - name: VLLM_LOGGING_LEVEL
@@ -3597,6 +3635,8 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  annotations:
+    internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
   name: kserve-config-llm-prefill-template
   namespace: kserve
 spec:
@@ -3750,9 +3790,13 @@ spec:
           # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
           KV_TRANSFER_ARGS=""
           if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
-            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-              KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+            # it is empty (no-op) when KV cache offloading is not configured.
+            if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+              # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+                KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+              fi
             fi
             # This template is only composed for a disaggregated P/D topology (spec.prefill set).
             # Prefill is the KV producer; without a connector here decode has nothing to fetch.
@@ -3772,6 +3816,7 @@ spec:
           eval "exec vllm serve /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" \
             --port 8000 \
+            --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
             ${ACCESS_LOG_ARGS} \
             ${SHUTDOWN_TIMEOUT_ARGS} \
             ${KV_TRANSFER_ARGS} \
@@ -3783,6 +3828,8 @@ spec:
             $@"
         - --
         env:
+        - name: KSERVE_KV_TRANSFER_ARGS
+          value: ""
         - name: HOME
           value: /home
         - name: VLLM_LOGGING_LEVEL
@@ -3870,6 +3917,8 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  annotations:
+    internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
   name: kserve-config-llm-prefill-worker-data-parallel
   namespace: kserve
 spec:
@@ -4045,9 +4094,13 @@ spec:
           # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
           KV_TRANSFER_ARGS=""
           if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
-            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-              KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+            # it is empty (no-op) when KV cache offloading is not configured.
+            if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+              # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+                KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+              fi
             fi
             # This template is only composed for a disaggregated P/D topology (spec.prefill set).
             # Prefill is the KV producer; without a connector here decode has nothing to fetch.
@@ -4068,6 +4121,7 @@ spec:
             /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
+            --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
             --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
             {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
             {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
@@ -4086,6 +4140,8 @@ spec:
             $@"
         - --
         env:
+        - name: KSERVE_KV_TRANSFER_ARGS
+          value: ""
         - name: HOME
           value: /home
         - name: VLLM_LOGGING_LEVEL
@@ -4342,9 +4398,13 @@ spec:
           # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
           KV_TRANSFER_ARGS=""
           if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
-            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-              KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+            # it is empty (no-op) when KV cache offloading is not configured.
+            if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+              # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+                KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+              fi
             fi
             # This template is only composed for a disaggregated P/D topology (spec.prefill set).
             # Prefill is the KV producer; without a connector here decode has nothing to fetch.
@@ -4365,6 +4425,7 @@ spec:
             /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
+            --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
             {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
             {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
             --data-parallel-size {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Data) 1 }} \
@@ -4383,6 +4444,8 @@ spec:
             $@"
         - --
         env:
+        - name: KSERVE_KV_TRANSFER_ARGS
+          value: ""
         - name: HOME
           value: /home
         - name: VLLM_LOGGING_LEVEL
@@ -4942,192 +5005,8 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
-  name: kserve-config-llm-scheduler-latency-predictor
-  namespace: kserve
-spec:
-  router:
-    scheduler:
-      template:
-        containers:
-        - env:
-          - name: PREDICTION_SERVER_URL
-            value: http://localhost:8001
-          - name: TRAINING_SERVER_URL
-            value: http://localhost:8000
-          - name: LATENCY_MAX_SAMPLE_SIZE
-            value: "10000"
-          - name: LATENCY_MAX_CONCURRENT_DISPATCHES
-            value: "36"
-          - name: LATENCY_COALESCE_WINDOW_MS
-            value: "1"
-          name: main
-        - env:
-          - name: LATENCY_RETRAINING_INTERVAL_SEC
-            value: "10"
-          - name: LATENCY_MIN_SAMPLES_FOR_RETRAIN
-            value: "100"
-          - name: LATENCY_TTFT_MODEL_PATH
-            value: /models/ttft.joblib
-          - name: LATENCY_TPOT_MODEL_PATH
-            value: /models/tpot.joblib
-          - name: LATENCY_TTFT_SCALER_PATH
-            value: /models/ttft_scaler.joblib
-          - name: LATENCY_TPOT_SCALER_PATH
-            value: /models/tpot_scaler.joblib
-          - name: LATENCY_TTFT_GATED_MODEL_PATH
-            value: /models/ttft_gated.joblib
-          - name: LATENCY_TPOT_GATED_MODEL_PATH
-            value: /models/tpot_gated.joblib
-          - name: LATENCY_MODEL_TYPE
-            value: xgboost
-          - name: LATENCY_MAX_TRAINING_DATA_SIZE_PER_BUCKET
-            value: "500"
-          - name: LATENCY_OBJECTIVE_TYPE
-            value: mean
-          image: ghcr.io/llm-d/llm-d-latency-predictor-training-server:0.9.0
-          imagePullPolicy: IfNotPresent
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: 8000
-            initialDelaySeconds: 30
-            periodSeconds: 20
-          name: training-server
-          ports:
-          - containerPort: 8000
-            name: training-port
-          readinessProbe:
-            httpGet:
-              path: /readyz
-              port: 8000
-            initialDelaySeconds: 45
-            periodSeconds: 10
-          resources:
-            limits:
-              cpu: 4000m
-              memory: 8Gi
-            requests:
-              cpu: 2000m
-              memory: 4Gi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            seccompProfile:
-              type: RuntimeDefault
-          startupProbe:
-            failureThreshold: 30
-            httpGet:
-              path: /healthz
-              port: 8000
-            periodSeconds: 10
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: FallbackToLogsOnError
-          volumeMounts:
-          - mountPath: /models
-            name: training-server-storage
-          - mountPath: /tmp
-            name: training-server-tmp
-        - env:
-          - name: TRAINING_SERVER_URL
-            value: http://localhost:8000
-          - name: LATENCY_MODEL_TYPE
-            value: xgboost
-          - name: PREDICT_HOST
-            value: 0.0.0.0
-          - name: PREDICT_PORT
-            value: "8001"
-          - name: LOCAL_TTFT_MODEL_PATH
-            value: /server_models/ttft.joblib
-          - name: LOCAL_TPOT_MODEL_PATH
-            value: /server_models/tpot.joblib
-          - name: LOCAL_TTFT_SCALER_PATH
-            value: /server_models/ttft_scaler.joblib
-          - name: LOCAL_TPOT_SCALER_PATH
-            value: /server_models/tpot_scaler.joblib
-          - name: LOCAL_TTFT_GATED_MODEL_PATH
-            value: /server_models/ttft_gated.joblib
-          - name: LOCAL_TPOT_GATED_MODEL_PATH
-            value: /server_models/tpot_gated.joblib
-          - name: UVICORN_WORKERS
-            value: "28"
-          - name: OMP_NUM_THREADS
-            value: "1"
-          - name: MODEL_SYNC_INTERVAL_SEC
-            value: "30"
-          - name: LATENCY_OBJECTIVE_TYPE
-            value: mean
-          image: ghcr.io/llm-d/llm-d-latency-predictor-prediction-server:0.9.0
-          imagePullPolicy: IfNotPresent
-          livenessProbe:
-            failureThreshold: 5
-            httpGet:
-              path: /healthz
-              port: 8001
-            initialDelaySeconds: 15
-            periodSeconds: 15
-            timeoutSeconds: 5
-          name: prediction-server
-          ports:
-          - containerPort: 8001
-            name: predict-port
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /readyz
-              port: 8001
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            timeoutSeconds: 5
-          resources:
-            limits:
-              cpu: 28000m
-              memory: 8Gi
-            requests:
-              cpu: 8000m
-              memory: 4Gi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            seccompProfile:
-              type: RuntimeDefault
-          startupProbe:
-            failureThreshold: 60
-            httpGet:
-              path: /readyz
-              port: 8001
-            periodSeconds: 10
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: FallbackToLogsOnError
-          volumeMounts:
-          - mountPath: /server_models
-            name: prediction-server-storage
-          - mountPath: /tmp
-            name: prediction-server-tmp
-        restartPolicy: Always
-        terminationGracePeriodSeconds: 60
-        volumes:
-        - emptyDir:
-            sizeLimit: 20Gi
-          name: training-server-storage
-        - emptyDir:
-            sizeLimit: 10Gi
-          name: prediction-server-storage
-        - emptyDir: {}
-          name: training-server-tmp
-        - emptyDir: {}
-          name: prediction-server-tmp
----
-apiVersion: serving.kserve.io/v1alpha2
-kind: LLMInferenceServiceConfig
-metadata:
+  annotations:
+    internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
   name: kserve-config-llm-template
   namespace: kserve
 spec:
@@ -5277,17 +5156,23 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+          # it is empty (no-op) when KV cache offloading is not configured.
+          if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+              KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+            fi
           fi
         fi
 
         eval "exec vllm serve /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
+          --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
           ${KV_TRANSFER_ARGS} \
@@ -5299,6 +5184,8 @@ spec:
           $@"
       - --
       env:
+      - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
       - name: HOME
         value: /home
       - name: VLLM_LOGGING_LEVEL
@@ -5472,6 +5359,8 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  annotations:
+    internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
   name: kserve-config-llm-worker-data-parallel
   namespace: kserve
 spec:
@@ -5643,11 +5532,16 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+          # it is empty (no-op) when KV cache offloading is not configured.
+          if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+              KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+            fi
           fi
         fi
 
@@ -5655,6 +5549,7 @@ spec:
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
+          --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
@@ -5673,6 +5568,8 @@ spec:
           $@"
       - --
       env:
+      - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
       - name: HOME
         value: /home
       - name: VLLM_LOGGING_LEVEL
@@ -5922,11 +5819,16 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Worker 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+          # it is empty (no-op) when KV cache offloading is not configured.
+          if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+              KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+            fi
           fi
         fi
 
@@ -5934,6 +5836,7 @@ spec:
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
+          --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --data-parallel-size {{ or (and .Spec.Parallelism .Spec.Parallelism.Data) 1 }} \
@@ -5952,6 +5855,8 @@ spec:
           $@"
       - --
       env:
+      - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
       - name: HOME
         value: /home
       - name: VLLM_LOGGING_LEVEL
@@ -6012,6 +5917,95 @@ spec:
     - name: tls-certs
       secret:
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-sglang-template
+  namespace: kserve
+spec:
+  template:
+    containers:
+    - command:
+      - /bin/bash
+      - -c
+      - |-
+        args=(
+          python3 -m sglang.launch_server
+          --model-path /mnt/models
+          --served-model-name "{{ .Spec.Model.Name }}"
+          --port 8000
+          --host 0.0.0.0
+          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tp {{ .Spec.Parallelism.Tensor }}{{- end }}
+          {{- if .Spec.TrustRemoteCode }} --trust-remote-code{{- end }}
+        )
+        exec "${args[@]}" "$@"
+      - --
+      env:
+      - name: HOME
+        value: /home
+      - name: HF_HUB_CACHE
+        value: /models
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        periodSeconds: 10
+        timeoutSeconds: 10
+      name: main
+      ports:
+      - containerPort: 8000
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        periodSeconds: 10
+        timeoutSeconds: 5
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        seccompProfile:
+          type: RuntimeDefault
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /health
+          port: 8000
+          scheme: HTTP
+        periodSeconds: 10
+        timeoutSeconds: 10
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /home
+        name: home
+      - mountPath: /tmp
+        name: tmp-dir
+      - mountPath: /dev/shm
+        name: dshm
+      - mountPath: /models
+        name: model-cache
+    terminationGracePeriodSeconds: 30
+    volumes:
+    - emptyDir: {}
+      name: home
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 1Gi
+      name: dshm
+    - emptyDir: {}
+      name: model-cache
+    - emptyDir: {}
+      name: tmp-dir
 KSERVE_LLMISVCCONFIG_MANIFEST_EOF
 }
 
@@ -20096,6 +20090,11 @@ spec:
                           x-kubernetes-list-map-keys:
                           - name
                           x-kubernetes-list-type: map
+                        schedulingGroup:
+                          properties:
+                            podGroupName:
+                              type: string
+                          type: object
                         securityContext:
                           properties:
                             appArmorProfile:
@@ -26115,6 +26114,11 @@ spec:
                               x-kubernetes-list-map-keys:
                               - name
                               x-kubernetes-list-type: map
+                            schedulingGroup:
+                              properties:
+                                podGroupName:
+                                  type: string
+                              type: object
                             securityContext:
                               properties:
                                 appArmorProfile:
@@ -27087,30 +27091,6 @@ spec:
                                 - name
                                 type: object
                               type: array
-                            workloadRef:
-                              properties:
-                                name:
-                                  type: string
-                                podGroup:
-                                  type: string
-                                podGroupReplicaKey:
-                                  type: string
-                              required:
-                              - name
-                              - podGroup
-                              type: object
-                          type: object
-                        workloadRef:
-                          properties:
-                            name:
-                              type: string
-                            podGroup:
-                              type: string
-                            podGroupReplicaKey:
-                              type: string
-                          required:
-                          - name
-                          - podGroup
                           type: object
                         xgboost:
                           properties:
@@ -30980,6 +30960,11 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  schedulingGroup:
+                    properties:
+                      podGroupName:
+                        type: string
+                    type: object
                   securityContext:
                     properties:
                       appArmorProfile:
@@ -31970,15 +31955,6 @@ spec:
                       - name
                       type: object
                     type: array
-                  workloadRef:
-                    properties:
-                      name:
-                        type: string
-                      podGroup:
-                        type: string
-                      podGroupReplicaKey:
-                        type: string
-                    type: object
                 type: object
               predictor:
                 properties:
@@ -39535,6 +39511,11 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  schedulingGroup:
+                    properties:
+                      podGroupName:
+                        type: string
+                    type: object
                   securityContext:
                     properties:
                       appArmorProfile:
@@ -45524,6 +45505,11 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
+                      schedulingGroup:
+                        properties:
+                          podGroupName:
+                            type: string
+                        type: object
                       securityContext:
                         properties:
                           appArmorProfile:
@@ -46496,27 +46482,6 @@ spec:
                           - name
                           type: object
                         type: array
-                      workloadRef:
-                        properties:
-                          name:
-                            type: string
-                          podGroup:
-                            type: string
-                          podGroupReplicaKey:
-                            type: string
-                        required:
-                        - name
-                        - podGroup
-                        type: object
-                    type: object
-                  workloadRef:
-                    properties:
-                      name:
-                        type: string
-                      podGroup:
-                        type: string
-                      podGroupReplicaKey:
-                        type: string
                     type: object
                   xgboost:
                     properties:
@@ -49643,6 +49608,11 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  schedulingGroup:
+                    properties:
+                      podGroupName:
+                        type: string
+                    type: object
                   securityContext:
                     properties:
                       appArmorProfile:
@@ -50633,15 +50603,6 @@ spec:
                       - name
                       type: object
                     type: array
-                  workloadRef:
-                    properties:
-                      name:
-                        type: string
-                      podGroup:
-                        type: string
-                      podGroupReplicaKey:
-                        type: string
-                    type: object
                 type: object
             required:
             - predictor
@@ -56007,6 +55968,25 @@ data:
            # Set to true for Gateway controllers (e.g. GKE Gateway) that do not support the optional timeouts field.
            "disableHTTPRouteTimeout": false,
 
+           # loraModelRoutingStrategy selects how LLMInferenceService LoRA adapter expansion represents
+           # model identities in generated HTTPRoutes. It only applies where model-based routing is in
+           # effect, and a change reaches every LoRA service on its next reconcile unless the service pins
+           # its own value with the spec annotation serving.kserve.io/lora-model-routing-strategy,
+           # which a preset may carry. "exact" (the default when omitted) renders one Exact header match
+           # per identity; "regex" collapses the base model and all adapters into a single anchored
+           # RegularExpression match. Any other value fails config loading, like the other ingress keys.
+           # A route the strategy cannot be applied to (a user-supplied model-routing match the regex
+           # transform does not recognize) reports HTTPRoutesReady=False with reason
+           # RoutingPreconditionNotMet while workload and scheduler reconciliation continue; the existing
+           # HTTPRoute keeps serving as-is (deleted group peers are still pruned from it) but is not
+           # recreated if removed. The practical "regex" ceiling depends on the gateway: Envoy Gateway
+           # disables Envoy's RE2 program-size check, so the 4096-character header value limit binds
+           # (Envoy logs a size warning past roughly 70 adapters); Istio allows a program size of 32768;
+           # a provider left at Envoy's default of 100 fits only a couple of adapters. A proxy that
+           # rejects the pattern reports an xDS NACK in the gateway controller's logs, not on the
+           # HTTPRoute.
+           "loraModelRoutingStrategy": "exact",
+
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.
            # Name of the inference service  ( {{ .Name}} )
@@ -56250,6 +56230,37 @@ data:
          # This is to disable localmodel pv and pvc management for namespaces without isvcs
          "disableVolumeManagement": false
        }
+
+     # ====================================== KERNELCACHE CONFIGURATION ======================================
+     # Example
+     kernelcache: |-
+       {
+         # enabled controls KernelCache, KernelCacheCapture, and related webhook behavior.
+         "enabled": false,
+         # defaultSidecarInjection controls MCV injection when a workload does not override it.
+         "defaultSidecarInjection": true,
+         # defaultMountType is used when KernelCache does not specify a mount type.
+         "defaultMountType": "oci",
+         # defaultNodeGroup selects the KernelCacheNodeGroup for automatically created KernelCaches.
+         # Set it to an empty value when every workload must select a node group explicitly.
+         "defaultNodeGroup": "",
+         # jobNamespace is the pre-created namespace where kernel cache preparation Jobs are created.
+         "jobNamespace": "kserve-kernelcache-jobs",
+         # mcvImage is the MCV container image used by cache capture and preparation flows.
+         "mcvImage": "kserve/kserve-mcv:latest-minimal",
+         # prefetchImage is the lightweight image used by OCI prefetch Jobs.
+         "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+         # abandonedCapturePolicy controls generated captures whose producer Pod disappears
+         # before completion. Supported values are retain and delete.
+         "abandonedCapturePolicy": "retain",
+         # jobTTLSecondsAfterFinished controls how long completed preparation Jobs are retained.
+         "jobTTLSecondsAfterFinished": 600,
+         # mcvCaptureReadinessTimeoutSeconds limits how long the MCV capture sidecar waits for workload readiness.
+         "mcvCaptureReadinessTimeoutSeconds": 600,
+         # reconcileIntervalSeconds controls KCN status reconciliation.
+         # Periodic Node image validation uses the node agent's internal interval.
+         "reconcileIntervalSeconds": 300
+       }
   agent: |-
     {
         "image" : "kserve/agent:latest",
@@ -56328,6 +56339,20 @@ data:
         "disableIstioVirtualHost": false,
         "disableIngressCreation": false,
         "disableHTTPRouteTimeout": false
+    }
+  kernelcache: |-
+    {
+      "enabled": false,
+      "defaultSidecarInjection": true,
+      "defaultMountType": "oci",
+      "defaultNodeGroup": "",
+      "jobNamespace": "kserve-kernelcache-jobs",
+      "mcvImage": "kserve/kserve-mcv:latest-minimal",
+      "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+      "abandonedCapturePolicy": "retain",
+      "jobTTLSecondsAfterFinished": 600,
+      "mcvCaptureReadinessTimeoutSeconds": 600,
+      "reconcileIntervalSeconds": 300
     }
   localModel: |-
     {

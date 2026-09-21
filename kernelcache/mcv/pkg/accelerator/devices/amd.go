@@ -17,6 +17,7 @@ limitations under the License.
 package devices
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -27,12 +28,16 @@ import (
 	"time"
 
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/utils"
 
 	logging "github.com/sirupsen/logrus"
 )
 
-const amdHwType = config.GPU
+const (
+	amdHwType    = config.GPU
+	gfxArchMI210 = "gfx90a" // Aldebaran/MI200 [Instinct MI210] GFX architecture
+)
 
 var (
 	amdAccImpl = gpuAMD{}
@@ -136,10 +141,11 @@ type AMDASIC struct {
 }
 
 type AMDBus struct {
-	BDF                  string `json:"bdf"`
-	MaxPCIeWidth         int    `json:"max_pcie_width"`
-	PCIeInterfaceVersion string `json:"pcie_interface_version"`
-	SlotType             string `json:"slot_type"`
+	BDF                  string      `json:"bdf"`
+	MaxPCIeWidth         interface{} `json:"max_pcie_width"` // Can be int (e.g. 16) or string (e.g. "N/A")
+	MaxPCIeSpeed         interface{} `json:"max_pcie_speed"` // Can be int or string (e.g. "N/A")
+	PCIeInterfaceVersion string      `json:"pcie_interface_version"`
+	SlotType             string      `json:"slot_type"`
 }
 
 type AMDVBIOS struct {
@@ -163,12 +169,12 @@ type AMDBoard struct {
 }
 
 type AMDRAS struct {
-	EEPROMVersion   string            `json:"eeprom_version"`
-	ParitySchema    string            `json:"parity_schema"`
-	SingleBitSchema string            `json:"single_bit_schema"`
-	DoubleBitSchema string            `json:"double_bit_schema"`
-	PoisonSchema    string            `json:"poison_schema"`
-	ECCBlockState   map[string]string `json:"ecc_block_state"`
+	EEPROMVersion   string      `json:"eeprom_version"`
+	ParitySchema    string      `json:"parity_schema"`
+	SingleBitSchema string      `json:"single_bit_schema"`
+	DoubleBitSchema string      `json:"double_bit_schema"`
+	PoisonSchema    string      `json:"poison_schema"`
+	ECCBlockState   interface{} `json:"ecc_block_state"` // Can be map[string]string or string (e.g. "N/A")
 }
 
 type AMDPartition struct {
@@ -345,7 +351,7 @@ func (r *gpuAMD) Init() error {
 				Arch:              TranslateGPUToArch(info.Board.ProductName),
 				WarpSize:          64,
 				MemoryTotalMB:     memTotal,
-				Backend:           hipBackend,
+				Backend:           constants.BackendHIP,
 				ID:                gpuID,
 			},
 			Summary: DeviceSummary{
@@ -400,14 +406,20 @@ func getAMDGPUInfo(ctx context.Context) (map[int]*AMDCardInfo, error) {
 		return nil, fmt.Errorf("failed to execute amd-smi: %w", err)
 	}
 
-	// Define a wrapper struct to match the new JSON structure
+	// amd-smi may append error messages after the JSON, so use json.Decoder which
+	// reads exactly the first complete JSON value and ignores trailing content.
+	// Previously a LastIndexByte(']') truncation was used, but that drops the
+	// closing '}' of the {"gpu_data":[...]} wrapper format, producing invalid JSON.
 	var wrapper struct {
 		GPUData []*AMDCardInfo `json:"gpu_data"`
 	}
 
-	if err := json.Unmarshal(output, &wrapper); err != nil {
-		logging.Debugf("failed to parse amd-smi output going to try compat mode")
-		if err := json.Unmarshal(output, &wrapper.GPUData); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(output))
+	if err := dec.Decode(&wrapper); err != nil {
+		logging.Debugf("failed to parse amd-smi output going to try compat mode: %v", err)
+		dec = json.NewDecoder(bytes.NewReader(output))
+		if err := dec.Decode(&wrapper.GPUData); err != nil {
+			logging.Debugf("compat mode also failed: %v, output: %s", err, string(output))
 			return nil, fmt.Errorf("failed to parse amd-smi output: %w", err)
 		}
 	}
@@ -427,7 +439,7 @@ func getAMDListInfo(ctx context.Context) (map[int]*AMDListInfo, error) {
 	}
 
 	var listInfo []*AMDListInfo
-	if err = json.Unmarshal(output, &listInfo); err != nil {
+	if err = json.NewDecoder(bytes.NewReader(output)).Decode(&listInfo); err != nil {
 		return nil, fmt.Errorf("failed to parse amd-smi output: %w", err)
 	}
 

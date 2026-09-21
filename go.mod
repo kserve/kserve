@@ -27,7 +27,7 @@ require (
 	github.com/json-iterator/go v1.1.12
 	github.com/kedacore/keda/v2 v2.20.2
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/onsi/ginkgo/v2 v2.29.0
+	github.com/onsi/ginkgo/v2 v2.30.0
 	github.com/onsi/gomega v1.41.0
 	github.com/open-telemetry/opentelemetry-operator v0.152.0
 	github.com/parquet-go/parquet-go v0.27.0
@@ -39,6 +39,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/gjson v1.19.0
 	go.opentelemetry.io/otel/trace v1.43.0
+	go.opentelemetry.io/proto/otlp v1.10.0
 	go.uber.org/zap v1.28.0
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	google.golang.org/api v0.281.0
@@ -46,22 +47,22 @@ require (
 	gopkg.in/go-playground/validator.v9 v9.31.0
 	istio.io/api v1.27.1
 	istio.io/client-go v1.27.1
-	k8s.io/api v0.36.0
-	k8s.io/apiextensions-apiserver v0.36.0
-	k8s.io/apimachinery v0.36.0
-	k8s.io/client-go v0.36.0
-	k8s.io/code-generator v0.36.0
-	k8s.io/component-helpers v0.35.3
+	k8s.io/api v0.36.2
+	k8s.io/apiextensions-apiserver v0.36.2
+	k8s.io/apimachinery v0.36.2
+	k8s.io/client-go v0.36.2
+	k8s.io/code-generator v0.36.2
+	k8s.io/component-helpers v0.36.2
 	k8s.io/klog/v2 v2.140.0
 	k8s.io/kube-openapi v0.0.0-20260427204847-8949caaa1199
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
 	knative.dev/networking v0.0.0-20260120131110-a7cdca238a0d
 	knative.dev/pkg v0.0.0-20260120122510-4a022ed9999a
 	knative.dev/serving v0.48.1
-	sigs.k8s.io/controller-runtime v0.23.3
+	sigs.k8s.io/controller-runtime v0.24.1
 	sigs.k8s.io/gateway-api v1.5.1
 	sigs.k8s.io/gateway-api-inference-extension v1.5.0
-	sigs.k8s.io/lws v0.8.0
+	sigs.k8s.io/lws v0.9.0
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -155,7 +156,6 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
-	github.com/google/btree v1.1.3 // indirect
 	github.com/google/cel-go v0.27.0 // indirect
 	github.com/google/certificate-transparency-go v1.3.3 // indirect
 	github.com/google/gnostic-models v0.7.1 // indirect
@@ -192,8 +192,8 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
-	github.com/prometheus/client_golang v1.23.2 // indirect
-	github.com/prometheus/client_model v0.6.2 // indirect
+	github.com/prometheus/client_golang v1.23.2
+	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.69.0 // indirect
 	github.com/prometheus/procfs v0.20.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
@@ -229,7 +229,6 @@ require (
 	go.opentelemetry.io/otel/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.43.0 // indirect
 	go.opentelemetry.io/otel/sdk/metric v1.43.0 // indirect
-	go.opentelemetry.io/proto/otlp v1.10.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
@@ -252,9 +251,10 @@ require (
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.36.0 // indirect
-	k8s.io/component-base v0.36.0 // indirect
+	k8s.io/apiserver v0.36.2 // indirect
+	k8s.io/component-base v0.36.2 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
+	k8s.io/streaming v0.36.2 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
@@ -267,21 +267,6 @@ require (
 // Instead of replacing the path directly, exclude the problematic package
 // This avoids "module used for two different module paths" error
 exclude google.golang.org/grpc/stats/opentelemetry v0.0.0-00010101000000-000000000000
-
-// KEDA v2.20 requires k8s.io v0.36, but controller-runtime v0.23.x (the version KEDA
-// v2.20 and opentelemetry-operator v0.152 build against) targets k8s.io v0.35 --
-// client-go v0.36 adds HasSyncedChecker to ResourceEventHandlerRegistration, which
-// controller-runtime v0.23.3 does not implement. Pin k8s.io modules to v0.35.x.
-replace (
-	k8s.io/api => k8s.io/api v0.35.3
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.35.3
-	k8s.io/apimachinery => k8s.io/apimachinery v0.35.3
-	k8s.io/apiserver => k8s.io/apiserver v0.35.3
-	k8s.io/client-go => k8s.io/client-go v0.35.3
-	k8s.io/code-generator => k8s.io/code-generator v0.35.3
-	k8s.io/component-base => k8s.io/component-base v0.35.3
-	k8s.io/component-helpers => k8s.io/component-helpers v0.35.3
-)
 
 // CVE-2026-33186: pin grpc to a patched version
 replace google.golang.org/grpc => google.golang.org/grpc v1.79.3

@@ -18,7 +18,6 @@ package config
 
 const (
 	envEnableGPU       = "ENABLE_GPU"
-	envSkipPrecheck    = "SKIP_PRECHECK"
 	envEnableBaremetal = "ENABLE_BAREMETAL"
 	envEnableSTUB      = "ENABLE_STUB"
 	envKubeConfig      = "KUBE_CONFIG"

@@ -20,6 +20,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kserve/kserve/pkg/constants"
+
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1392,6 +1394,39 @@ func TestValidateLoRAAdapters(t *testing.T) {
 	})
 }
 
+func TestValidateLoRAModelRoutingStrategyAnnotation(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	for _, tt := range []struct {
+		name    string
+		value   *string
+		wantErr bool
+	}{
+		{name: "absent defers to the ConfigMap", value: nil},
+		{name: "empty defers to the ConfigMap", value: ptr.To("")},
+		{name: "exact", value: ptr.To("exact")},
+		{name: "regex", value: ptr.To("regex")},
+		{name: "trimmed and case-insensitive like the consumer", value: ptr.To(" Regex ")},
+		{name: "typo is rejected at admission", value: ptr.To("regexp"), wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceServiceV1Alpha2()
+			if tt.value != nil {
+				svc.Spec.Annotations = map[string]string{constants.LoRAModelRoutingStrategyAnnotationKey: *tt.value}
+			}
+
+			errs := validator.validateLoRAModelRoutingStrategyAnnotation(svc)
+
+			if !tt.wantErr {
+				require.Empty(t, errs)
+				return
+			}
+			require.Len(t, errs, 1)
+			assert.Equal(t, field.ErrorTypeNotSupported, errs[0].Type)
+			assert.Contains(t, errs[0].Field, constants.LoRAModelRoutingStrategyAnnotationKey)
+		})
+	}
+}
+
 func TestValidateManagedDRAAnnotations(t *testing.T) {
 	validator := &LLMInferenceServiceValidator{}
 
@@ -1887,6 +1922,45 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 		require.Len(t, errs, 1)
 		assert.Contains(t, errs[0].Field, "prefill")
 		assert.Contains(t, errs[0].Field, "cpu")
+	})
+}
+
+func TestValidateKVCacheOffloadingNegativeCPU(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	makeSvc := func(kv *KVCacheOffloadingSpec) *LLMInferenceService {
+		return &LLMInferenceService{
+			Spec: LLMInferenceServiceSpec{
+				WorkloadSpec: WorkloadSpec{KVCacheOffloading: kv},
+			},
+		}
+	}
+	negative := &KVCacheOffloadingSpec{CPU: resource.MustParse("-1Gi")}
+
+	t.Run("rejected", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(negative))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "cpu")
+	})
+
+	// Correcting the field is accepted, so a stored negative is not stranded even
+	// though the rule is not ratcheted against the previous object.
+	t.Run("correcting it is accepted", func(t *testing.T) {
+		assert.Empty(t, validator.validateKVCacheOffloading(
+			makeSvc(&KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi")})))
+	})
+
+	t.Run("zero is left alone", func(t *testing.T) {
+		assert.Empty(t, validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{})))
+	})
+
+	t.Run("prefill is checked too", func(t *testing.T) {
+		svc := makeSvc(&KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi")})
+		svc.Spec.Prefill = &WorkloadSpec{KVCacheOffloading: negative}
+		errs := validator.validateKVCacheOffloading(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "prefill")
 	})
 }
 

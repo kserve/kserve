@@ -339,15 +339,19 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 // getArgValue extracts the value for a CLI flag from an args slice.
 // It handles both "--flag value" (two elements) and "--flag=value" (single element) forms.
 func getArgValue(args []string, flag string) (string, bool) {
+	var lastVal string
+	found := false
 	for i, arg := range args {
 		if arg == flag && i+1 < len(args) {
-			return args[i+1], true
+			lastVal = args[i+1]
+			found = true
 		}
 		if strings.HasPrefix(arg, flag+"=") {
-			return strings.TrimPrefix(arg, flag+"="), true
+			lastVal = strings.TrimPrefix(arg, flag+"=")
+			found = true
 		}
 	}
-	return "", false
+	return lastVal, found
 }
 
 // setArgValue replaces the value of an existing "--flag value" pair in an args
