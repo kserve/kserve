@@ -91,6 +91,7 @@ class V1beta1TransformerSpec(object):
         'scale_target': 'int',
         'scheduler_name': 'str',
         'scheduling_gates': 'list[V1PodSchedulingGate]',
+        'scheduling_group': 'V1PodSchedulingGroup',
         'security_context': 'V1PodSecurityContext',
         'service_account': 'str',
         'service_account_name': 'str',
@@ -102,8 +103,7 @@ class V1beta1TransformerSpec(object):
         'timeout': 'int',
         'tolerations': 'list[V1Toleration]',
         'topology_spread_constraints': 'list[V1TopologySpreadConstraint]',
-        'volumes': 'list[V1Volume]',
-        'workload_ref': 'V1WorkloadReference'
+        'volumes': 'list[V1Volume]'
     }
 
     attribute_map = {
@@ -151,6 +151,7 @@ class V1beta1TransformerSpec(object):
         'scale_target': 'scaleTarget',
         'scheduler_name': 'schedulerName',
         'scheduling_gates': 'schedulingGates',
+        'scheduling_group': 'schedulingGroup',
         'security_context': 'securityContext',
         'service_account': 'serviceAccount',
         'service_account_name': 'serviceAccountName',
@@ -162,11 +163,10 @@ class V1beta1TransformerSpec(object):
         'timeout': 'timeout',
         'tolerations': 'tolerations',
         'topology_spread_constraints': 'topologySpreadConstraints',
-        'volumes': 'volumes',
-        'workload_ref': 'workloadRef'
+        'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, storage_uris=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, workload_ref=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, annotations=None, auto_scaling=None, automount_service_account_token=None, batcher=None, canary_traffic_percent=None, container_concurrency=None, containers=None, deployment_strategy=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, image_pull_secrets=None, init_containers=None, labels=None, logger=None, max_replicas=None, min_replicas=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scale_metric=None, scale_metric_type=None, scale_target=None, scheduler_name=None, scheduling_gates=None, scheduling_group=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, storage_uris=None, subdomain=None, termination_grace_period_seconds=None, timeout=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1TransformerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -216,6 +216,7 @@ class V1beta1TransformerSpec(object):
         self._scale_target = None
         self._scheduler_name = None
         self._scheduling_gates = None
+        self._scheduling_group = None
         self._security_context = None
         self._service_account = None
         self._service_account_name = None
@@ -228,7 +229,6 @@ class V1beta1TransformerSpec(object):
         self._tolerations = None
         self._topology_spread_constraints = None
         self._volumes = None
-        self._workload_ref = None
         self.discriminator = None
 
         if active_deadline_seconds is not None:
@@ -319,6 +319,8 @@ class V1beta1TransformerSpec(object):
             self.scheduler_name = scheduler_name
         if scheduling_gates is not None:
             self.scheduling_gates = scheduling_gates
+        if scheduling_group is not None:
+            self.scheduling_group = scheduling_group
         if security_context is not None:
             self.security_context = security_context
         if service_account is not None:
@@ -343,8 +345,6 @@ class V1beta1TransformerSpec(object):
             self.topology_spread_constraints = topology_spread_constraints
         if volumes is not None:
             self.volumes = volumes
-        if workload_ref is not None:
-            self.workload_ref = workload_ref
 
     @property
     def active_deadline_seconds(self):
@@ -1343,6 +1343,27 @@ class V1beta1TransformerSpec(object):
         self._scheduling_gates = scheduling_gates
 
     @property
+    def scheduling_group(self):
+        """Gets the scheduling_group of this V1beta1TransformerSpec.  # noqa: E501
+
+
+        :return: The scheduling_group of this V1beta1TransformerSpec.  # noqa: E501
+        :rtype: V1PodSchedulingGroup
+        """
+        return self._scheduling_group
+
+    @scheduling_group.setter
+    def scheduling_group(self, scheduling_group):
+        """Sets the scheduling_group of this V1beta1TransformerSpec.
+
+
+        :param scheduling_group: The scheduling_group of this V1beta1TransformerSpec.  # noqa: E501
+        :type: V1PodSchedulingGroup
+        """
+
+        self._scheduling_group = scheduling_group
+
+    @property
     def security_context(self):
         """Gets the security_context of this V1beta1TransformerSpec.  # noqa: E501
 
@@ -1615,27 +1636,6 @@ class V1beta1TransformerSpec(object):
         """
 
         self._volumes = volumes
-
-    @property
-    def workload_ref(self):
-        """Gets the workload_ref of this V1beta1TransformerSpec.  # noqa: E501
-
-
-        :return: The workload_ref of this V1beta1TransformerSpec.  # noqa: E501
-        :rtype: V1WorkloadReference
-        """
-        return self._workload_ref
-
-    @workload_ref.setter
-    def workload_ref(self, workload_ref):
-        """Sets the workload_ref of this V1beta1TransformerSpec.
-
-
-        :param workload_ref: The workload_ref of this V1beta1TransformerSpec.  # noqa: E501
-        :type: V1WorkloadReference
-        """
-
-        self._workload_ref = workload_ref
 
     def to_dict(self):
         """Returns the model properties as a dict"""
