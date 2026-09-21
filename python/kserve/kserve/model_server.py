@@ -55,7 +55,7 @@ parser = argparse.ArgumentParser(
 # Model Server Arguments: The arguments are passed to the kserve.ModelServer object
 parser.add_argument(
     "--http_port",
-    default=DEFAULT_HTTP_PORT,
+    default=None,
     type=int,
     help="The HTTP Port listened to by the model server.",
 )
@@ -237,7 +237,7 @@ app = FastAPI(
 class ModelServer:
     def __init__(
         self,
-        http_port: int = args.http_port,
+        http_port: Optional[int] = args.http_port,
         grpc_port: int = args.grpc_port,
         workers: int = args.workers,
         max_threads: int = args.max_threads,
@@ -290,10 +290,18 @@ class ModelServer:
         self.ssl_certfile = ssl_certfile
         self.ssl_keyfile = ssl_keyfile
         self.tls_profile_provider_factory = tls_profile_provider_factory
-        # When SSL is enabled and the port was not explicitly overridden, switch to the HTTPS port.
-        if self.ssl_certfile and self.ssl_keyfile and http_port == DEFAULT_HTTP_PORT:
-            http_port = DEFAULT_HTTPS_PORT
-            logger.info("SSL enabled, switching listen port to %d", http_port)
+        if bool(self.ssl_certfile) != bool(self.ssl_keyfile):
+            raise ValueError("ssl_certfile and ssl_keyfile must be configured together")
+        # None means neither the CLI nor the constructor explicitly selected a port.
+        # This preserves an explicit 8080 while defaulting TLS servers to 8443.
+        if http_port is None:
+            http_port = (
+                DEFAULT_HTTPS_PORT
+                if self.ssl_certfile and self.ssl_keyfile
+                else DEFAULT_HTTP_PORT
+            )
+            if self.ssl_certfile and self.ssl_keyfile:
+                logger.info("SSL enabled, switching listen port to %d", http_port)
         self.http_port = http_port
         self.grpc_port = grpc_port
         self.workers = workers
