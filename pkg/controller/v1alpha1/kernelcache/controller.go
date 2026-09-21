@@ -17,6 +17,8 @@ limitations under the License.
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachenodegroups,verbs=get;list;watch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachenodes,verbs=get;list;watch;create;delete
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apps,resources=daemonsets,resourceNames=kserve-kernelcachenode-agent,verbs=get;patch
+// +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch
 
 package kernelcache
 

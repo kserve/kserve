@@ -117,6 +117,27 @@ func TestGetNodesRequiresAllSelectorLabels(t *testing.T) {
 	}
 }
 
+func TestGetNodesRequiresEmptyValueSelectorLabelToExist(t *testing.T) {
+	nodes := []corev1.Node{
+		makeNode("missing", map[string]string{"role": "gpu"}, true),
+		makeNode("empty", map[string]string{"role": "gpu", "node-role.kubernetes.io/worker": ""}, true),
+	}
+	c := newFakeClient(t, nodes...).Build()
+
+	group := &v1alpha1.KernelCacheNodeGroup{
+		Spec: v1alpha1.KernelCacheNodeGroupSpec{
+			NodeSelector: map[string]string{"node-role.kubernetes.io/worker": ""},
+		},
+	}
+	ready, _, err := GetNodes(context.Background(), group, c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(ready.Items) != 1 || ready.Items[0].Name != "empty" {
+		t.Fatalf("expected only node with the empty-valued label to match: %+v", ready.Items)
+	}
+}
+
 func TestMatchingGroups(t *testing.T) {
 	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"role": "gpu", "zone": "east"}}}
 	groups := []v1alpha1.KernelCacheNodeGroup{

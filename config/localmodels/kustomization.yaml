@@ -11,10 +11,12 @@ labels:
 resources:
 - ../certmanager/localmodel
 - ../rbac/localmodel
-- ../rbac/kernelcache
+#TODO: Uncomment this when kernelcache is ready
+#- ../rbac/kernelcache
 - manager.yaml
 - ../localmodelnodes
-- ../kernelcachenodes
+#TODO: Uncomment this when kernelcache is ready
+#- ../kernelcachenodes
 - ../webhook/localmodel
 
 patches:

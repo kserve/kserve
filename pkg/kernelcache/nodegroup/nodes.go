@@ -91,7 +91,8 @@ func IsNodeReady(node corev1.Node) bool {
 
 func matchesLabels(nodeLabels, selector map[string]string) bool {
 	for key, value := range selector {
-		if nodeLabels[key] != value {
+		nodeValue, exists := nodeLabels[key]
+		if !exists || nodeValue != value {
 			return false
 		}
 	}
