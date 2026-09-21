@@ -25,7 +25,7 @@
 # Installs a minimal Prometheus stack suitable for CI:
 # - Prometheus server + ServiceMonitor CRD
 # - Grafana, AlertManager, and node-exporter disabled
-# - TLS enabled via cert-manager self-signed certificate (required by WVA)
+# - TLS enabled via cert-manager self-signed certificate
 
 # INIT
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
