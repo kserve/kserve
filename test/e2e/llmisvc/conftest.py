@@ -73,7 +73,7 @@ def _auto_assign_group_markers(items):
     the ``llminferenceservice`` marker.  Additionally:
 
     * ``test_llm_autoscaling_<variant>.py`` -> ``llmisvc_autoscaling`` +
-      ``autoscaling_<variant>`` (e.g. ``autoscaling_wva``, ``autoscaling_keda``).
+      ``autoscaling_<variant>`` (e.g. ``autoscaling_keda``).
     * ``test_llm_tracing.py`` -> skipped from ``llmisvc_core`` (has its own
       ``tracing`` marker).
     * ``test_llm_lora_regex_routing.py`` -> skipped from ``llmisvc_core`` (has
