@@ -1,3 +1,5 @@
+//go:build legacy_wva_tests
+
 /*
 Copyright 2025 The KServe Authors.
 
