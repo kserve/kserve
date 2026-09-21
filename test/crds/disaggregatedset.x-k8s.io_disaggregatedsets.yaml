@@ -39,6 +39,29 @@ spec:
           spec:
             description: spec defines the desired state of DisaggregatedSet
             properties:
+              placementPolicy:
+                description: |-
+                  PlacementPolicy controls how a slice's roles are co-located and how the
+                  DisaggregatedSet's slices are spread across topology domains. When set, the
+                  controller injects pod affinity and anti-affinity into the managed
+                  LeaderWorkerSet pod templates. Placement is applied when a LeaderWorkerSet is
+                  created, so changing it takes effect on the next rollout.
+                properties:
+                  topology:
+                    description: |-
+                      Topology is the node-label key that defines a domain, used as the affinity
+                      topologyKey. Required when Type is not None.
+                    type: string
+                  type:
+                    default: None
+                    description: Type selects the placement guarantee. Defaults to
+                      None.
+                    enum:
+                    - None
+                    - ExclusiveSlice
+                    - ExclusiveTopology
+                    type: string
+                type: object
               roles:
                 description: |-
                   Roles defines the list of roles (at least 2 required).
@@ -76,6 +99,22 @@ spec:
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                       type: string
+                    scaling:
+                      description: |-
+                        Scaling configures how replicas are determined. Omit for inline Static
+                        scaling (default). When set to External, the DisaggregatedSet controller
+                        auto-creates a DisaggregatedSetRoleScaler and reads its spec.replicas.
+                      properties:
+                        mode:
+                          default: Static
+                          description: |-
+                            Mode controls the source of the replica count. Static (default) uses
+                            inline spec.replicas; External uses the auto-created scaler CR.
+                          enum:
+                          - Static
+                          - External
+                          type: string
+                      type: object
                     spec:
                       description: spec defines the behavior of an LWS.
                       properties:
@@ -18229,6 +18268,8 @@ spec:
                             On scale down, the leader pod as well as the workers statefulset will be deleted.
                             Default to 1.
                           format: int32
+                          maximum: 1000000
+                          minimum: 0
                           type: integer
                         rolloutStrategy:
                           description: |-
@@ -18319,14 +18360,26 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+              slices:
+                default: 1
+                description: |-
+                  Slices is the number of independent copies of the whole role topology.
+                  Each slice is a complete set of all roles that rolls out independently.
+                  Changing Slices scales copies up or down and does not trigger a rollout.
+                format: int32
+                maximum: 100
+                minimum: 1
+                type: integer
             required:
             - roles
             type: object
             x-kubernetes-validations:
-            - message: replicas must be zero for all roles or non-zero for all roles
-              rule: self.roles.all(r, !has(r.spec.replicas) || r.spec.replicas ==
-                0) || self.roles.all(r, has(r.spec.replicas) && r.spec.replicas >
-                0)
+            - message: replicas must be zero for all non-External roles or non-zero
+                for all non-External roles
+              rule: self.roles.filter(r, !has(r.scaling) || r.scaling.mode != 'External').all(r,
+                !has(r.spec.replicas) || r.spec.replicas == 0) || self.roles.filter(r,
+                !has(r.scaling) || r.scaling.mode != 'External').all(r, has(r.spec.replicas)
+                && r.spec.replicas > 0)
           status:
             description: status defines the observed state of DisaggregatedSet
             properties:
