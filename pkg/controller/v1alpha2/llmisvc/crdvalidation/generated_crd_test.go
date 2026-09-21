@@ -37,7 +37,7 @@ func TestGeneratedCRDsDoNotExposeWVAScaling(t *testing.T) {
 
 	for _, file := range crdFiles {
 		t.Run(file, func(t *testing.T) {
-			data, err := os.ReadFile(filepath.Join(crdRoot, file))
+			data, err := os.ReadFile(filepath.Join(crdRoot, file)) // #nosec G304 -- file is selected from the fixed generated-CRD list above.
 			if err != nil {
 				t.Fatalf("read generated CRD: %v", err)
 			}
