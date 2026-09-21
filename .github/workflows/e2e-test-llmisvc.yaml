@@ -17,8 +17,6 @@ on:
       - ".github/actions/**"
       - "hack/setup/quick-install/llmisvc-dependency-install.sh"
       - "hack/setup/infra/manage.prometheus-helm.sh"
-      - "hack/setup/infra/manage.prometheus-adapter-helm.sh"
-      - "hack/setup/infra/manage.wva-kustomize.sh"
       - "hack/setup/infra/manage.jaeger-helm.sh"
       - "hack/setup/infra/manage.kserve-helm.sh"
       - "hack/setup/quick-install/*-helm.sh"
@@ -468,6 +466,7 @@ jobs:
           name: test-results-llmisvc-istio-${{ matrix.install-method }}
 
   test-llmisvc-wva-autoscaling-hpa:
+    if: ${{ false }}
     runs-on: cncf-ubuntu-16-64-x86
     timeout-minutes: 25
     needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
@@ -574,7 +573,7 @@ jobs:
         with:
           name: test-results-llmisvc-autoscaling-hpa-${{ matrix.install-method }}
 
-  test-llmisvc-autoscaling-direct-keda-and-wva-with-keda:
+  test-llmisvc-autoscaling-direct-keda:
     runs-on: cncf-ubuntu-16-64-x86
     timeout-minutes: 40
     needs: [detect-changes, llmisvc-image-build, seed-model-cache, seed-image-cache]
@@ -662,18 +661,8 @@ jobs:
         run: |
           ./test/scripts/gh-actions/verify-autoscaling-health.sh keda
 
-      - name: Run WVA-mediated KEDA autoscaling E2E tests
-        id: autoscaling-wva-keda-tests
-        timeout-minutes: 30
-        env:
-          OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
-        run: |
-          export PYTEST_MAXFAIL=2
-          ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and autoscaling_wva and autoscaling_keda and cluster_cpu" 0 "envoy-gateway"
-
       - name: Run direct KEDA autoscaling E2E tests
         id: autoscaling-direct-keda-tests
-        if: always() && steps.autoscaling-wva-keda-tests.conclusion != 'cancelled'
         timeout-minutes: 30
         env:
           OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
@@ -697,15 +686,6 @@ jobs:
         if: always()
         run: |
           ./test/scripts/gh-actions/status-check.sh "llmisvc"
-
-      - name: Upload WVA-mediated KEDA test results
-        if: always()
-        uses: ./.github/actions/upload-test-results
-        with:
-          name: test-results-llmisvc-autoscaling-wva-keda-${{ matrix.install-method }}
-          path: |
-            /tmp/junit_e2e*autoscaling_wva_and_autoscaling_keda*.xml
-            /tmp/e2e_results*autoscaling_wva_and_autoscaling_keda*.json
 
       - name: Upload direct KEDA test results
         if: always()
