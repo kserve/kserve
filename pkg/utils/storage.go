@@ -366,12 +366,19 @@ func ShellQuote(s string) string {
 		return "''"
 	}
 	for _, c := range s {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-			c == '/' || c == '.' || c == '_' || c == '-') {
+		if !isShellSafe(c) {
 			return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 		}
 	}
 	return s
+}
+
+// isShellSafe reports whether c can appear unquoted in a sh -c command string.
+// Kept as a named predicate: inlined into ShellQuote it makes staticcheck QF1001
+// emit two conflicting fixes, and golangci-lint --fix then skips the whole file.
+func isShellSafe(c rune) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+		c == '/' || c == '.' || c == '_' || c == '-'
 }
 
 // modelcarCommand returns the shell command for the modelcar container.
