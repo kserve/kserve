@@ -39,7 +39,6 @@ import (
 )
 
 var _ = Describe("LLMInferenceService Controller - Scaling", func() {
-
 	Context("Direct KEDA scaling", func() {
 		It("should create ScaledObject with user triggers and without legacy annotations", func(ctx SpecContext) {
 			svcName := "test-direct-keda-scaling"
@@ -325,11 +324,9 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				g.Expect(err).To(HaveOccurred(), "ScaledObject should be deleted")
 			}).WithContext(ctx).Should(Succeed())
 		})
-
 	})
 
 	Context("Prefill scaling", func() {
-
 		It("should create separate direct KEDA scaling resources for decode and prefill workloads", func(ctx SpecContext) {
 			svcName := "test-prefill-direct-keda"
 			testNs := NewTestNamespace(ctx, envTest)
@@ -422,7 +419,6 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	})
 
 	Context("Scaling with stop annotation", func() {
-
 		It("should delete KEDA scaling resources when stop annotation is set", func(ctx SpecContext) {
 			svcName := "test-keda-stop"
 			testNs := NewTestNamespace(ctx, envTest)
@@ -465,7 +461,6 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	})
 
 	Context("ScalingReady condition propagation", func() {
-
 		It("should not have ScalingReady when no scaling is configured", func(ctx SpecContext) {
 			svcName := "test-no-scaling-cond"
 			testNs := NewTestNamespace(ctx, envTest)
