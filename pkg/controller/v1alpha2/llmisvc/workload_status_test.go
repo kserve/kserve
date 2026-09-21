@@ -306,7 +306,7 @@ func TestObserveWorkloadStatus(t *testing.T) {
 	}
 }
 
-func TestExpectedDirectScaledObjectDoesNotAddWVAConfiguration(t *testing.T) {
+func TestExpectedDirectScaledObjectDoesNotAddLegacyConfiguration(t *testing.T) {
 	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns"}}
 	scaling := &v1alpha2.ScalingSpec{MaxReplicas: 3, KEDA: &v1alpha2.DirectKEDAScalingSpec{Triggers: []kedav1alpha1.ScaleTriggers{{Type: "cpu"}}}}
 	obj := expectedDirectScaledObject(svc, scaling, mainScaleTargetRef(svc), "svc-kserve-keda")
