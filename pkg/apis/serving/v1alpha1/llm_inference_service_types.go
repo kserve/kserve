@@ -441,7 +441,6 @@ type InferencePoolSpec struct {
 // (ServiceMonitor and the selected actuator — HPA or KEDA ScaledObject).
 // Direct KEDA scaling uses user-defined triggers. The deprecated WVA fields are retained only
 // so existing resources can be decoded during upgrades; new WVA configuration is rejected.
-// +kubebuilder:validation:XValidation:rule="has(self.wva) || has(self.keda)",message="either wva or keda must be specified when scaling is configured"
 // +kubebuilder:validation:XValidation:rule="!(has(self.wva) && has(self.keda))",message="wva and keda are mutually exclusive"
 // +kubebuilder:validation:XValidation:rule="!has(self.keda) || size(self.keda.triggers) > 0",message="at least one trigger is required when using direct KEDA scaling"
 // +kubebuilder:validation:XValidation:rule="!has(self.minReplicas) || self.minReplicas <= self.maxReplicas",message="minReplicas cannot exceed maxReplicas"
