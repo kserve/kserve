@@ -55,6 +55,11 @@ const (
 )
 
 // InferenceService Constants
+const (
+	KServeManagedLabelKey   = "serving.kserve.io/managed-by"
+	KServeManagedLabelValue = "kserve-controller-manager"
+)
+
 var (
 	InferenceServiceName                  = "inferenceservice"
 	InferenceServiceAPIName               = "inferenceservices"

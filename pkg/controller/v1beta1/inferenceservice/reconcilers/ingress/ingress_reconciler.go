@@ -308,6 +308,9 @@ func (ir *IngressReconciler) reconcileExternalService(ctx context.Context, isvc 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      isvc.Name,
 			Namespace: isvc.Namespace,
+			Labels: map[string]string{
+				constants.KServeManagedLabelKey: constants.KServeManagedLabelValue,
+			},
 		},
 		Spec: corev1.ServiceSpec{
 			ExternalName:    config.LocalGatewayServiceName,

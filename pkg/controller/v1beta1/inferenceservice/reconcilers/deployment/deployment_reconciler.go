@@ -533,6 +533,13 @@ func (r *DeploymentReconciler) Reconcile(ctx context.Context) ([]*appsv1.Deploym
 			resultList = append(resultList, existingDep)
 
 		case constants.CheckResultExisted:
+			if desiredDep.Labels[constants.KServeManagedLabelKey] != existingDep.Labels[constants.KServeManagedLabelKey] {
+				before := existingDep.DeepCopy()
+				existingDep.Labels = utils.Union(existingDep.Labels, map[string]string{
+					constants.KServeManagedLabelKey: desiredDep.Labels[constants.KServeManagedLabelKey],
+				})
+				opErr = r.client.Patch(ctx, existingDep, kclient.MergeFrom(before))
+			}
 			// Spec is unchanged. existingDep has the live .Status.Conditions from the server
 			// (e.g. ReplicaFailure, Available, Progressing) which PropagateRawStatus needs.
 			resultList = append(resultList, existingDep)
@@ -571,6 +578,11 @@ func (r *DeploymentReconciler) SetControllerReferences(owner metav1.Object, sche
 		if err := controllerutil.SetControllerReference(owner, deployment, scheme); err != nil {
 			return err
 		}
+		// Copy the labels: the pod template can share this map. Labeling the
+		// Deployment must not roll out existing pods during an upgrade.
+		deployment.Labels = utils.Union(deployment.Labels, map[string]string{
+			constants.KServeManagedLabelKey: constants.KServeManagedLabelValue,
+		})
 	}
 	return nil
 }
