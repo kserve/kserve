@@ -559,7 +559,7 @@ data:
              "propagate": [
                 "Authorization",
                 "Test-Header-*",
-                "*Trace-Id*"
+                ".*Trace-Id.*"
              ]
            }
 
@@ -667,7 +667,7 @@ data:
          # defaultSidecarInjection controls MCV injection when a workload does not override it.
          "defaultSidecarInjection": true,
          # defaultMountType is used when KernelCache does not specify a mount type.(Currently, only OCI is supported)
-         "defaultMountType": "oci",         
+         "defaultMountType": "oci",
          #defaultNodeGroup specifies the NodeGroup to use when no NodeGroup matches the workload.
          # If empty and no NodeGroup matches, the KernelCache is not created.
          "defaultNodeGroup": "",
@@ -681,7 +681,7 @@ data:
          # before completion. Supported values are retain and delete.
          "abandonedCapturePolicy": "retain",
          # jobTTLSecondsAfterFinished controls how long completed preparation Jobs(Downloading OCI image to the node) are retained.
-         "jobTTLSecondsAfterFinished": 600,         
+         "jobTTLSecondsAfterFinished": 600,
          # mcvCaptureReadinessTimeoutSeconds limits how long MCV waits for runtime readiness before capture. Larger models may require a longer timeout.
          "mcvCaptureReadinessTimeoutSeconds": 600,
          # reconcileIntervalSeconds controls KCN status reconciliation.
