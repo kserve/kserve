@@ -7139,20 +7139,258 @@ spec:
                         format: int32
                         minimum: 1
                         type: integer
+                      wva:
+                        properties:
+                          hpa:
+                            properties:
+                              behavior:
+                                properties:
+                                  scaleDown:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                  scaleUp:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                type: object
+                            type: object
+                          keda:
+                            properties:
+                              advanced:
+                                properties:
+                                  horizontalPodAutoscalerConfig:
+                                    properties:
+                                      behavior:
+                                        properties:
+                                          scaleDown:
+                                            properties:
+                                              policies:
+                                                items:
+                                                  properties:
+                                                    periodSeconds:
+                                                      format: int32
+                                                      type: integer
+                                                    type:
+                                                      type: string
+                                                    value:
+                                                      format: int32
+                                                      type: integer
+                                                  required:
+                                                  - periodSeconds
+                                                  - type
+                                                  - value
+                                                  type: object
+                                                type: array
+                                                x-kubernetes-list-type: atomic
+                                              selectPolicy:
+                                                type: string
+                                              stabilizationWindowSeconds:
+                                                format: int32
+                                                type: integer
+                                              tolerance:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                            type: object
+                                          scaleUp:
+                                            properties:
+                                              policies:
+                                                items:
+                                                  properties:
+                                                    periodSeconds:
+                                                      format: int32
+                                                      type: integer
+                                                    type:
+                                                      type: string
+                                                    value:
+                                                      format: int32
+                                                      type: integer
+                                                  required:
+                                                  - periodSeconds
+                                                  - type
+                                                  - value
+                                                  type: object
+                                                type: array
+                                                x-kubernetes-list-type: atomic
+                                              selectPolicy:
+                                                type: string
+                                              stabilizationWindowSeconds:
+                                                format: int32
+                                                type: integer
+                                              tolerance:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                            type: object
+                                        type: object
+                                      name:
+                                        type: string
+                                    type: object
+                                  restoreToOriginalReplicaCount:
+                                    type: boolean
+                                  scalingModifiers:
+                                    properties:
+                                      activationTarget:
+                                        type: string
+                                      formula:
+                                        type: string
+                                      metricType:
+                                        enum:
+                                        - AverageValue
+                                        - Value
+                                        type: string
+                                      target:
+                                        type: string
+                                    type: object
+                                type: object
+                              cooldownPeriod:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              fallback:
+                                properties:
+                                  behavior:
+                                    default: static
+                                    enum:
+                                    - static
+                                    - currentReplicas
+                                    - currentReplicasIfHigher
+                                    - currentReplicasIfLower
+                                    - scalingModifiers
+                                    type: string
+                                  failureThreshold:
+                                    format: int32
+                                    minimum: 0
+                                    type: integer
+                                  replicas:
+                                    format: int32
+                                    minimum: 0
+                                    type: integer
+                                required:
+                                - failureThreshold
+                                - replicas
+                                type: object
+                              idleReplicaCount:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              initialCooldownPeriod:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              pollingInterval:
+                                format: int32
+                                minimum: 1
+                                type: integer
+                            type: object
+                            x-kubernetes-validations:
+                            - message: horizontalPodAutoscalerConfig.name must not
+                                be set; the controller manages the HPA name
+                              rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                                || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                                == 0'
+                          variantCost:
+                            default: "10.0"
+                            pattern: ^\d+(\.\d+)?$
+                            type: string
+                        type: object
+                        x-kubernetes-validations:
+                        - message: scalingModifiers must not be set; WVA controls
+                            the scaling metric formula and logic
+                          rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                            == 0 && size(self.keda.advanced.scalingModifiers.target)
+                            == 0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                            == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                            == 0)'
+                        - message: hpa and keda are mutually exclusive; choose one
+                            actuator backend
+                          rule: '!(has(self.hpa) && has(self.keda))'
+                        - message: either hpa or keda must be specified as the actuator
+                            backend
+                          rule: has(self.hpa) || has(self.keda)
                     required:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: keda must be specified when scaling is configured
-                      rule: has(self.keda)
+                    - message: either wva or keda must be specified when scaling is
+                        configured
+                      rule: has(self.wva) || has(self.keda)
+                    - message: wva and keda are mutually exclusive
+                      rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct
                         KEDA scaling
                       rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                     - message: minReplicas cannot exceed maxReplicas
                       rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
                     - message: minReplicas is required when idleReplicaCount is set
-                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
-                        has(self.minReplicas)'
+                      rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                        || has(self.minReplicas)'
+                    - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                        defines the replica floor when no triggers are active
+                      rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                        || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
+                        < self.minReplicas'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                         defines the replica floor when no triggers are active
                       rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
@@ -7673,7 +7911,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -8079,7 +8316,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -8087,7 +8323,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -8425,7 +8660,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -8831,7 +9065,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -8839,7 +9072,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -9193,7 +9425,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -9599,7 +9830,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -9607,7 +9837,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -9867,7 +10096,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       preemptionPolicy:
@@ -9924,7 +10152,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                           requests:
@@ -9932,7 +10159,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
@@ -10299,7 +10525,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -10321,7 +10546,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                               type: object
                             ephemeral:
@@ -10371,7 +10595,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                             requests:
@@ -10379,7 +10602,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                           type: object
@@ -10706,7 +10928,6 @@ spec:
                                                       anyOf:
                                                       - type: integer
                                                       - type: string
-                                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                       x-kubernetes-int-or-string: true
                                                     resource:
                                                       type: string
@@ -10933,8 +11154,6 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
-                    required:
-                    - containers
                     type: object
                   worker:
                     properties:
@@ -11452,7 +11671,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -11858,7 +12076,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -11866,7 +12083,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -12204,7 +12420,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -12610,7 +12825,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -12618,7 +12832,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -12972,7 +13185,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -13378,7 +13590,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -13386,7 +13597,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -13646,7 +13856,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       preemptionPolicy:
@@ -13703,7 +13912,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                           requests:
@@ -13711,7 +13919,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
@@ -14078,7 +14285,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -14100,7 +14306,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                               type: object
                             ephemeral:
@@ -14150,7 +14355,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                             requests:
@@ -14158,7 +14362,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                           type: object
@@ -14485,7 +14688,6 @@ spec:
                                                       anyOf:
                                                       - type: integer
                                                       - type: string
-                                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                       x-kubernetes-int-or-string: true
                                                     resource:
                                                       type: string
@@ -14712,8 +14914,6 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
-                    required:
-                    - containers
                     type: object
                 type: object
                 x-kubernetes-validations:
@@ -14801,8 +15001,6 @@ spec:
                               hostnames:
                                 items:
                                   maxLength: 253
-                                  minLength: 1
-                                  pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                   type: string
                                 maxItems: 16
                                 type: array
@@ -14813,22 +15011,16 @@ spec:
                                     group:
                                       default: gateway.networking.k8s.io
                                       maxLength: 253
-                                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                     kind:
                                       default: Gateway
                                       maxLength: 63
-                                      minLength: 1
-                                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                       type: string
                                     name:
                                       maxLength: 253
-                                      minLength: 1
                                       type: string
                                     namespace:
                                       maxLength: 63
-                                      minLength: 1
-                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                       type: string
                                     port:
                                       format: int32
@@ -14837,8 +15029,6 @@ spec:
                                       type: integer
                                     sectionName:
                                       maxLength: 253
-                                      minLength: 1
-                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                   required:
                                   - name
@@ -14867,18 +15057,10 @@ spec:
                                                     allowHeaders:
                                                       items:
                                                         maxLength: 256
-                                                        minLength: 1
-                                                        pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                         type: string
                                                       maxItems: 64
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowHeaders cannot
-                                                          contain '*' alongside other
-                                                          methods
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     allowMethods:
                                                       items:
                                                         enum:
@@ -14896,32 +15078,16 @@ spec:
                                                       maxItems: 9
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowMethods cannot
-                                                          contain '*' alongside other
-                                                          methods
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     allowOrigins:
                                                       items:
                                                         maxLength: 253
-                                                        minLength: 1
-                                                        pattern: (^\*$)|(^(http(s)?):\/\/(((\*\.)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9-]+|\*)(:([0-9]{1,5}))?)$)
                                                         type: string
                                                       maxItems: 64
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowOrigins cannot
-                                                          contain '*' alongside other
-                                                          origins
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     exposeHeaders:
                                                       items:
                                                         maxLength: 256
-                                                        minLength: 1
-                                                        pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                         type: string
                                                       maxItems: 64
                                                       type: array
@@ -14936,16 +15102,12 @@ spec:
                                                   properties:
                                                     group:
                                                       maxLength: 253
-                                                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                       type: string
                                                     kind:
                                                       maxLength: 63
-                                                      minLength: 1
-                                                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                       type: string
                                                     name:
                                                       maxLength: 253
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - group
@@ -14959,22 +15121,16 @@ spec:
                                                         group:
                                                           default: ""
                                                           maxLength: 253
-                                                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                           type: string
                                                         kind:
                                                           default: Service
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                           type: string
                                                         name:
                                                           maxLength: 253
-                                                          minLength: 1
                                                           type: string
                                                         namespace:
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                           type: string
                                                         port:
                                                           format: int32
@@ -14984,12 +15140,6 @@ spec:
                                                       required:
                                                       - name
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: Must have port for
-                                                          Service reference
-                                                        rule: '(size(self.group) ==
-                                                          0 && self.kind == ''Service'')
-                                                          ? has(self.port) : true'
                                                     forwardBody:
                                                       properties:
                                                         maxSize:
@@ -15020,7 +15170,6 @@ spec:
                                                           x-kubernetes-list-type: set
                                                         path:
                                                           maxLength: 1024
-                                                          pattern: ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$
                                                           type: string
                                                       type: object
                                                     protocol:
@@ -15032,23 +15181,6 @@ spec:
                                                   - backendRef
                                                   - protocol
                                                   type: object
-                                                  x-kubernetes-validations:
-                                                  - message: grpc must be specified
-                                                      when protocol is set to 'GRPC'
-                                                    rule: 'self.protocol == ''GRPC''
-                                                      ? has(self.grpc) : true'
-                                                  - message: protocol must be 'GRPC'
-                                                      when grpc is set
-                                                    rule: 'has(self.grpc) ? self.protocol
-                                                      == ''GRPC'' : true'
-                                                  - message: http must be specified
-                                                      when protocol is set to 'HTTP'
-                                                    rule: 'self.protocol == ''HTTP''
-                                                      ? has(self.http) : true'
-                                                  - message: protocol must be 'HTTP'
-                                                      when http is set
-                                                    rule: 'has(self.http) ? self.protocol
-                                                      == ''HTTP'' : true'
                                                 requestHeaderModifier:
                                                   properties:
                                                     add:
@@ -15056,12 +15188,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -15083,12 +15212,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -15107,22 +15233,16 @@ spec:
                                                         group:
                                                           default: ""
                                                           maxLength: 253
-                                                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                           type: string
                                                         kind:
                                                           default: Service
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                           type: string
                                                         name:
                                                           maxLength: 253
-                                                          minLength: 1
                                                           type: string
                                                         namespace:
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                           type: string
                                                         port:
                                                           format: int32
@@ -15132,12 +15252,6 @@ spec:
                                                       required:
                                                       - name
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: Must have port for
-                                                          Service reference
-                                                        rule: '(size(self.group) ==
-                                                          0 && self.kind == ''Service'')
-                                                          ? has(self.port) : true'
                                                     fraction:
                                                       properties:
                                                         denominator:
@@ -15152,10 +15266,6 @@ spec:
                                                       required:
                                                       - numerator
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: numerator must be
-                                                          less than or equal to denominator
-                                                        rule: self.numerator <= self.denominator
                                                     percent:
                                                       format: int32
                                                       maximum: 100
@@ -15164,18 +15274,10 @@ spec:
                                                   required:
                                                   - backendRef
                                                   type: object
-                                                  x-kubernetes-validations:
-                                                  - message: Only one of percent or
-                                                      fraction may be specified in
-                                                      HTTPRequestMirrorFilter
-                                                    rule: '!(has(self.percent) &&
-                                                      has(self.fraction))'
                                                 requestRedirect:
                                                   properties:
                                                     hostname:
                                                       maxLength: 253
-                                                      minLength: 1
-                                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                       type: string
                                                     path:
                                                       properties:
@@ -15193,31 +15295,6 @@ spec:
                                                       required:
                                                       - type
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: replaceFullPath must
-                                                          be specified when type is
-                                                          set to 'ReplaceFullPath'
-                                                        rule: 'self.type == ''ReplaceFullPath''
-                                                          ? has(self.replaceFullPath)
-                                                          : true'
-                                                      - message: type must be 'ReplaceFullPath'
-                                                          when replaceFullPath is
-                                                          set
-                                                        rule: 'has(self.replaceFullPath)
-                                                          ? self.type == ''ReplaceFullPath''
-                                                          : true'
-                                                      - message: replacePrefixMatch
-                                                          must be specified when type
-                                                          is set to 'ReplacePrefixMatch'
-                                                        rule: 'self.type == ''ReplacePrefixMatch''
-                                                          ? has(self.replacePrefixMatch)
-                                                          : true'
-                                                      - message: type must be 'ReplacePrefixMatch'
-                                                          when replacePrefixMatch
-                                                          is set
-                                                        rule: 'has(self.replacePrefixMatch)
-                                                          ? self.type == ''ReplacePrefixMatch''
-                                                          : true'
                                                     port:
                                                       format: int32
                                                       maximum: 65535
@@ -15245,12 +15322,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -15272,12 +15346,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -15303,8 +15374,6 @@ spec:
                                                   properties:
                                                     hostname:
                                                       maxLength: 253
-                                                      minLength: 1
-                                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                       type: string
                                                     path:
                                                       properties:
@@ -15322,147 +15391,26 @@ spec:
                                                       required:
                                                       - type
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: replaceFullPath must
-                                                          be specified when type is
-                                                          set to 'ReplaceFullPath'
-                                                        rule: 'self.type == ''ReplaceFullPath''
-                                                          ? has(self.replaceFullPath)
-                                                          : true'
-                                                      - message: type must be 'ReplaceFullPath'
-                                                          when replaceFullPath is
-                                                          set
-                                                        rule: 'has(self.replaceFullPath)
-                                                          ? self.type == ''ReplaceFullPath''
-                                                          : true'
-                                                      - message: replacePrefixMatch
-                                                          must be specified when type
-                                                          is set to 'ReplacePrefixMatch'
-                                                        rule: 'self.type == ''ReplacePrefixMatch''
-                                                          ? has(self.replacePrefixMatch)
-                                                          : true'
-                                                      - message: type must be 'ReplacePrefixMatch'
-                                                          when replacePrefixMatch
-                                                          is set
-                                                        rule: 'has(self.replacePrefixMatch)
-                                                          ? self.type == ''ReplacePrefixMatch''
-                                                          : true'
                                                   type: object
                                               required:
                                               - type
                                               type: object
-                                              x-kubernetes-validations:
-                                              - message: filter.cors must be nil if
-                                                  the filter.type is not CORS
-                                                rule: '!(has(self.cors) && self.type
-                                                  != ''CORS'')'
-                                              - message: filter.cors must be specified
-                                                  for CORS filter.type
-                                                rule: '!(!has(self.cors) && self.type
-                                                  == ''CORS'')'
-                                              - message: filter.requestHeaderModifier
-                                                  must be nil if the filter.type is
-                                                  not RequestHeaderModifier
-                                                rule: '!(has(self.requestHeaderModifier)
-                                                  && self.type != ''RequestHeaderModifier'')'
-                                              - message: filter.requestHeaderModifier
-                                                  must be specified for RequestHeaderModifier
-                                                  filter.type
-                                                rule: '!(!has(self.requestHeaderModifier)
-                                                  && self.type == ''RequestHeaderModifier'')'
-                                              - message: filter.responseHeaderModifier
-                                                  must be nil if the filter.type is
-                                                  not ResponseHeaderModifier
-                                                rule: '!(has(self.responseHeaderModifier)
-                                                  && self.type != ''ResponseHeaderModifier'')'
-                                              - message: filter.responseHeaderModifier
-                                                  must be specified for ResponseHeaderModifier
-                                                  filter.type
-                                                rule: '!(!has(self.responseHeaderModifier)
-                                                  && self.type == ''ResponseHeaderModifier'')'
-                                              - message: filter.requestMirror must
-                                                  be nil if the filter.type is not
-                                                  RequestMirror
-                                                rule: '!(has(self.requestMirror) &&
-                                                  self.type != ''RequestMirror'')'
-                                              - message: filter.requestMirror must
-                                                  be specified for RequestMirror filter.type
-                                                rule: '!(!has(self.requestMirror)
-                                                  && self.type == ''RequestMirror'')'
-                                              - message: filter.requestRedirect must
-                                                  be nil if the filter.type is not
-                                                  RequestRedirect
-                                                rule: '!(has(self.requestRedirect)
-                                                  && self.type != ''RequestRedirect'')'
-                                              - message: filter.requestRedirect must
-                                                  be specified for RequestRedirect
-                                                  filter.type
-                                                rule: '!(!has(self.requestRedirect)
-                                                  && self.type == ''RequestRedirect'')'
-                                              - message: filter.urlRewrite must be
-                                                  nil if the filter.type is not URLRewrite
-                                                rule: '!(has(self.urlRewrite) && self.type
-                                                  != ''URLRewrite'')'
-                                              - message: filter.urlRewrite must be
-                                                  specified for URLRewrite filter.type
-                                                rule: '!(!has(self.urlRewrite) &&
-                                                  self.type == ''URLRewrite'')'
-                                              - message: filter.extensionRef must
-                                                  be nil if the filter.type is not
-                                                  ExtensionRef
-                                                rule: '!(has(self.extensionRef) &&
-                                                  self.type != ''ExtensionRef'')'
-                                              - message: filter.extensionRef must
-                                                  be specified for ExtensionRef filter.type
-                                                rule: '!(!has(self.extensionRef) &&
-                                                  self.type == ''ExtensionRef'')'
                                             maxItems: 16
                                             type: array
                                             x-kubernetes-list-type: atomic
-                                            x-kubernetes-validations:
-                                            - message: May specify either httpRouteFilterRequestRedirect
-                                                or httpRouteFilterRequestRewrite,
-                                                but not both
-                                              rule: '!(self.exists(f, f.type == ''RequestRedirect'')
-                                                && self.exists(f, f.type == ''URLRewrite''))'
-                                            - message: CORS filter cannot be repeated
-                                              rule: self.filter(f, f.type == 'CORS').size()
-                                                <= 1
-                                            - message: RequestHeaderModifier filter
-                                                cannot be repeated
-                                              rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
-                                                <= 1
-                                            - message: ResponseHeaderModifier filter
-                                                cannot be repeated
-                                              rule: self.filter(f, f.type == 'ResponseHeaderModifier').size()
-                                                <= 1
-                                            - message: RequestRedirect filter cannot
-                                                be repeated
-                                              rule: self.filter(f, f.type == 'RequestRedirect').size()
-                                                <= 1
-                                            - message: URLRewrite filter cannot be
-                                                repeated
-                                              rule: self.filter(f, f.type == 'URLRewrite').size()
-                                                <= 1
                                           group:
                                             default: ""
                                             maxLength: 253
-                                            pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                             type: string
                                           kind:
                                             default: Service
                                             maxLength: 63
-                                            minLength: 1
-                                            pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                             type: string
                                           name:
                                             maxLength: 253
-                                            minLength: 1
                                             type: string
                                           namespace:
                                             maxLength: 63
-                                            minLength: 1
-                                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                             type: string
                                           port:
                                             format: int32
@@ -15478,10 +15426,6 @@ spec:
                                         required:
                                         - name
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: Must have port for Service reference
-                                          rule: '(size(self.group) == 0 && self.kind
-                                            == ''Service'') ? has(self.port) : true'
                                       maxItems: 16
                                       type: array
                                       x-kubernetes-list-type: atomic
@@ -15495,17 +15439,10 @@ spec:
                                               allowHeaders:
                                                 items:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 maxItems: 64
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowHeaders cannot contain
-                                                    '*' alongside other methods
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               allowMethods:
                                                 items:
                                                   enum:
@@ -15523,30 +15460,16 @@ spec:
                                                 maxItems: 9
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowMethods cannot contain
-                                                    '*' alongside other methods
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               allowOrigins:
                                                 items:
                                                   maxLength: 253
-                                                  minLength: 1
-                                                  pattern: (^\*$)|(^(http(s)?):\/\/(((\*\.)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9-]+|\*)(:([0-9]{1,5}))?)$)
                                                   type: string
                                                 maxItems: 64
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowOrigins cannot contain
-                                                    '*' alongside other origins
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               exposeHeaders:
                                                 items:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 maxItems: 64
                                                 type: array
@@ -15561,16 +15484,12 @@ spec:
                                             properties:
                                               group:
                                                 maxLength: 253
-                                                pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                 type: string
                                               kind:
                                                 maxLength: 63
-                                                minLength: 1
-                                                pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                 type: string
                                               name:
                                                 maxLength: 253
-                                                minLength: 1
                                                 type: string
                                             required:
                                             - group
@@ -15584,22 +15503,16 @@ spec:
                                                   group:
                                                     default: ""
                                                     maxLength: 253
-                                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                     type: string
                                                   kind:
                                                     default: Service
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                     type: string
                                                   name:
                                                     maxLength: 253
-                                                    minLength: 1
                                                     type: string
                                                   namespace:
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                     type: string
                                                   port:
                                                     format: int32
@@ -15609,12 +15522,6 @@ spec:
                                                 required:
                                                 - name
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: Must have port for Service
-                                                    reference
-                                                  rule: '(size(self.group) == 0 &&
-                                                    self.kind == ''Service'') ? has(self.port)
-                                                    : true'
                                               forwardBody:
                                                 properties:
                                                   maxSize:
@@ -15645,7 +15552,6 @@ spec:
                                                     x-kubernetes-list-type: set
                                                   path:
                                                     maxLength: 1024
-                                                    pattern: ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$
                                                     type: string
                                                 type: object
                                               protocol:
@@ -15657,23 +15563,6 @@ spec:
                                             - backendRef
                                             - protocol
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: grpc must be specified when
-                                                protocol is set to 'GRPC'
-                                              rule: 'self.protocol == ''GRPC'' ? has(self.grpc)
-                                                : true'
-                                            - message: protocol must be 'GRPC' when
-                                                grpc is set
-                                              rule: 'has(self.grpc) ? self.protocol
-                                                == ''GRPC'' : true'
-                                            - message: http must be specified when
-                                                protocol is set to 'HTTP'
-                                              rule: 'self.protocol == ''HTTP'' ? has(self.http)
-                                                : true'
-                                            - message: protocol must be 'HTTP' when
-                                                http is set
-                                              rule: 'has(self.http) ? self.protocol
-                                                == ''HTTP'' : true'
                                           requestHeaderModifier:
                                             properties:
                                               add:
@@ -15681,12 +15570,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -15708,12 +15594,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -15732,22 +15615,16 @@ spec:
                                                   group:
                                                     default: ""
                                                     maxLength: 253
-                                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                     type: string
                                                   kind:
                                                     default: Service
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                     type: string
                                                   name:
                                                     maxLength: 253
-                                                    minLength: 1
                                                     type: string
                                                   namespace:
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                     type: string
                                                   port:
                                                     format: int32
@@ -15757,12 +15634,6 @@ spec:
                                                 required:
                                                 - name
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: Must have port for Service
-                                                    reference
-                                                  rule: '(size(self.group) == 0 &&
-                                                    self.kind == ''Service'') ? has(self.port)
-                                                    : true'
                                               fraction:
                                                 properties:
                                                   denominator:
@@ -15777,10 +15648,6 @@ spec:
                                                 required:
                                                 - numerator
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: numerator must be less
-                                                    than or equal to denominator
-                                                  rule: self.numerator <= self.denominator
                                               percent:
                                                 format: int32
                                                 maximum: 100
@@ -15789,16 +15656,10 @@ spec:
                                             required:
                                             - backendRef
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: Only one of percent or fraction
-                                                may be specified in HTTPRequestMirrorFilter
-                                              rule: '!(has(self.percent) && has(self.fraction))'
                                           requestRedirect:
                                             properties:
                                               hostname:
                                                 maxLength: 253
-                                                minLength: 1
-                                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                 type: string
                                               path:
                                                 properties:
@@ -15816,29 +15677,6 @@ spec:
                                                 required:
                                                 - type
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: replaceFullPath must be
-                                                    specified when type is set to
-                                                    'ReplaceFullPath'
-                                                  rule: 'self.type == ''ReplaceFullPath''
-                                                    ? has(self.replaceFullPath) :
-                                                    true'
-                                                - message: type must be 'ReplaceFullPath'
-                                                    when replaceFullPath is set
-                                                  rule: 'has(self.replaceFullPath)
-                                                    ? self.type == ''ReplaceFullPath''
-                                                    : true'
-                                                - message: replacePrefixMatch must
-                                                    be specified when type is set
-                                                    to 'ReplacePrefixMatch'
-                                                  rule: 'self.type == ''ReplacePrefixMatch''
-                                                    ? has(self.replacePrefixMatch)
-                                                    : true'
-                                                - message: type must be 'ReplacePrefixMatch'
-                                                    when replacePrefixMatch is set
-                                                  rule: 'has(self.replacePrefixMatch)
-                                                    ? self.type == ''ReplacePrefixMatch''
-                                                    : true'
                                               port:
                                                 format: int32
                                                 maximum: 65535
@@ -15866,12 +15704,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -15893,12 +15728,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -15924,8 +15756,6 @@ spec:
                                             properties:
                                               hostname:
                                                 maxLength: 253
-                                                minLength: 1
-                                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                 type: string
                                               path:
                                                 properties:
@@ -15943,119 +15773,13 @@ spec:
                                                 required:
                                                 - type
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: replaceFullPath must be
-                                                    specified when type is set to
-                                                    'ReplaceFullPath'
-                                                  rule: 'self.type == ''ReplaceFullPath''
-                                                    ? has(self.replaceFullPath) :
-                                                    true'
-                                                - message: type must be 'ReplaceFullPath'
-                                                    when replaceFullPath is set
-                                                  rule: 'has(self.replaceFullPath)
-                                                    ? self.type == ''ReplaceFullPath''
-                                                    : true'
-                                                - message: replacePrefixMatch must
-                                                    be specified when type is set
-                                                    to 'ReplacePrefixMatch'
-                                                  rule: 'self.type == ''ReplacePrefixMatch''
-                                                    ? has(self.replacePrefixMatch)
-                                                    : true'
-                                                - message: type must be 'ReplacePrefixMatch'
-                                                    when replacePrefixMatch is set
-                                                  rule: 'has(self.replacePrefixMatch)
-                                                    ? self.type == ''ReplacePrefixMatch''
-                                                    : true'
                                             type: object
                                         required:
                                         - type
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: filter.cors must be nil if the
-                                            filter.type is not CORS
-                                          rule: '!(has(self.cors) && self.type !=
-                                            ''CORS'')'
-                                        - message: filter.cors must be specified for
-                                            CORS filter.type
-                                          rule: '!(!has(self.cors) && self.type ==
-                                            ''CORS'')'
-                                        - message: filter.requestHeaderModifier must
-                                            be nil if the filter.type is not RequestHeaderModifier
-                                          rule: '!(has(self.requestHeaderModifier)
-                                            && self.type != ''RequestHeaderModifier'')'
-                                        - message: filter.requestHeaderModifier must
-                                            be specified for RequestHeaderModifier
-                                            filter.type
-                                          rule: '!(!has(self.requestHeaderModifier)
-                                            && self.type == ''RequestHeaderModifier'')'
-                                        - message: filter.responseHeaderModifier must
-                                            be nil if the filter.type is not ResponseHeaderModifier
-                                          rule: '!(has(self.responseHeaderModifier)
-                                            && self.type != ''ResponseHeaderModifier'')'
-                                        - message: filter.responseHeaderModifier must
-                                            be specified for ResponseHeaderModifier
-                                            filter.type
-                                          rule: '!(!has(self.responseHeaderModifier)
-                                            && self.type == ''ResponseHeaderModifier'')'
-                                        - message: filter.requestMirror must be nil
-                                            if the filter.type is not RequestMirror
-                                          rule: '!(has(self.requestMirror) && self.type
-                                            != ''RequestMirror'')'
-                                        - message: filter.requestMirror must be specified
-                                            for RequestMirror filter.type
-                                          rule: '!(!has(self.requestMirror) && self.type
-                                            == ''RequestMirror'')'
-                                        - message: filter.requestRedirect must be
-                                            nil if the filter.type is not RequestRedirect
-                                          rule: '!(has(self.requestRedirect) && self.type
-                                            != ''RequestRedirect'')'
-                                        - message: filter.requestRedirect must be
-                                            specified for RequestRedirect filter.type
-                                          rule: '!(!has(self.requestRedirect) && self.type
-                                            == ''RequestRedirect'')'
-                                        - message: filter.urlRewrite must be nil if
-                                            the filter.type is not URLRewrite
-                                          rule: '!(has(self.urlRewrite) && self.type
-                                            != ''URLRewrite'')'
-                                        - message: filter.urlRewrite must be specified
-                                            for URLRewrite filter.type
-                                          rule: '!(!has(self.urlRewrite) && self.type
-                                            == ''URLRewrite'')'
-                                        - message: filter.extensionRef must be nil
-                                            if the filter.type is not ExtensionRef
-                                          rule: '!(has(self.extensionRef) && self.type
-                                            != ''ExtensionRef'')'
-                                        - message: filter.extensionRef must be specified
-                                            for ExtensionRef filter.type
-                                          rule: '!(!has(self.extensionRef) && self.type
-                                            == ''ExtensionRef'')'
                                       maxItems: 16
                                       type: array
                                       x-kubernetes-list-type: atomic
-                                      x-kubernetes-validations:
-                                      - message: May specify either httpRouteFilterRequestRedirect
-                                          or httpRouteFilterRequestRewrite, but not
-                                          both
-                                        rule: '!(self.exists(f, f.type == ''RequestRedirect'')
-                                          && self.exists(f, f.type == ''URLRewrite''))'
-                                      - message: CORS filter cannot be repeated
-                                        rule: self.filter(f, f.type == 'CORS').size()
-                                          <= 1
-                                      - message: RequestHeaderModifier filter cannot
-                                          be repeated
-                                        rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
-                                          <= 1
-                                      - message: ResponseHeaderModifier filter cannot
-                                          be repeated
-                                        rule: self.filter(f, f.type == 'ResponseHeaderModifier').size()
-                                          <= 1
-                                      - message: RequestRedirect filter cannot be
-                                          repeated
-                                        rule: self.filter(f, f.type == 'RequestRedirect').size()
-                                          <= 1
-                                      - message: URLRewrite filter cannot be repeated
-                                        rule: self.filter(f, f.type == 'URLRewrite').size()
-                                          <= 1
                                     matches:
                                       default:
                                       - path:
@@ -16068,8 +15792,6 @@ spec:
                                               properties:
                                                 name:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 type:
                                                   default: Exact
@@ -16079,7 +15801,6 @@ spec:
                                                   type: string
                                                 value:
                                                   maxLength: 4096
-                                                  minLength: 1
                                                   type: string
                                               required:
                                               - name
@@ -16119,66 +15840,11 @@ spec:
                                                 maxLength: 1024
                                                 type: string
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: value must be an absolute path
-                                                and start with '/' when type one of
-                                                ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? self.value.startsWith(''/'') : true'
-                                            - message: must not contain '//' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''//'') : true'
-                                            - message: must not contain '/./' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''/./'') :
-                                                true'
-                                            - message: must not contain '/../' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''/../'') :
-                                                true'
-                                            - message: must not contain '%2f' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''%2f'') :
-                                                true'
-                                            - message: must not contain '%2F' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''%2F'') :
-                                                true'
-                                            - message: must not contain '#' when type
-                                                one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''#'') : true'
-                                            - message: must not end with '/..' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.endsWith(''/..'') :
-                                                true'
-                                            - message: must not end with '/.' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.endsWith(''/.'') : true'
-                                            - message: type must be one of ['Exact',
-                                                'PathPrefix', 'RegularExpression']
-                                              rule: self.type in ['Exact','PathPrefix']
-                                                || self.type == 'RegularExpression'
-                                            - message: must only contain valid characters
-                                                (matching ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$)
-                                                for types ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? self.value.matches(r"""^(?:[-A-Za-z0-9/._~!$&''()*+,;=:@]|[%][0-9a-fA-F]{2})+$""")
-                                                : true'
                                           queryParams:
                                             items:
                                               properties:
                                                 name:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 type:
                                                   default: Exact
@@ -16188,7 +15854,6 @@ spec:
                                                   type: string
                                                 value:
                                                   maxLength: 1024
-                                                  minLength: 1
                                                   type: string
                                               required:
                                               - name
@@ -16205,15 +15870,12 @@ spec:
                                       x-kubernetes-list-type: atomic
                                     name:
                                       maxLength: 253
-                                      minLength: 1
-                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                     retry:
                                       properties:
                                         attempts:
                                           type: integer
                                         backoff:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         codes:
                                           items:
@@ -16226,7 +15888,6 @@ spec:
                                     sessionPersistence:
                                       properties:
                                         absoluteTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         cookieConfig:
                                           properties:
@@ -16238,7 +15899,6 @@ spec:
                                               type: string
                                           type: object
                                         idleTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         sessionName:
                                           maxLength: 128
@@ -16250,102 +15910,17 @@ spec:
                                           - Header
                                           type: string
                                       type: object
-                                      x-kubernetes-validations:
-                                      - message: AbsoluteTimeout must be specified
-                                          when cookie lifetimeType is Permanent
-                                        rule: '!has(self.cookieConfig) || !has(self.cookieConfig.lifetimeType)
-                                          || self.cookieConfig.lifetimeType != ''Permanent''
-                                          || has(self.absoluteTimeout)'
-                                      - message: cookieConfig can only be set with
-                                          type Cookie
-                                        rule: '!has(self.cookieConfig) || self.type
-                                          == ''Cookie'''
                                     timeouts:
                                       properties:
                                         backendRequest:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         request:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                       type: object
-                                      x-kubernetes-validations:
-                                      - message: backendRequest timeout cannot be
-                                          longer than request timeout
-                                        rule: '!(has(self.request) && has(self.backendRequest)
-                                          && duration(self.request) != duration(''0s'')
-                                          && duration(self.backendRequest) > duration(self.request))'
                                   type: object
-                                  x-kubernetes-validations:
-                                  - message: RequestRedirect filter must not be used
-                                      together with backendRefs
-                                    rule: '(has(self.backendRefs) && size(self.backendRefs)
-                                      > 0) ? (!has(self.filters) || self.filters.all(f,
-                                      !has(f.requestRedirect))): true'
-                                  - message: When using RequestRedirect filter with
-                                      path.replacePrefixMatch, exactly one PathPrefix
-                                      match must be specified
-                                    rule: '(has(self.filters) && self.filters.exists_one(f,
-                                      has(f.requestRedirect) && has(f.requestRedirect.path)
-                                      && f.requestRedirect.path.type == ''ReplacePrefixMatch''
-                                      && has(f.requestRedirect.path.replacePrefixMatch)))
-                                      ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: When using URLRewrite filter with path.replacePrefixMatch,
-                                      exactly one PathPrefix match must be specified
-                                    rule: '(has(self.filters) && self.filters.exists_one(f,
-                                      has(f.urlRewrite) && has(f.urlRewrite.path)
-                                      && f.urlRewrite.path.type == ''ReplacePrefixMatch''
-                                      && has(f.urlRewrite.path.replacePrefixMatch)))
-                                      ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: Within backendRefs, when using RequestRedirect
-                                      filter with path.replacePrefixMatch, exactly
-                                      one PathPrefix match must be specified
-                                    rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b,
-                                      (has(b.filters) && b.filters.exists_one(f, has(f.requestRedirect)
-                                      && has(f.requestRedirect.path) && f.requestRedirect.path.type
-                                      == ''ReplacePrefixMatch'' && has(f.requestRedirect.path.replacePrefixMatch)))
-                                      )) ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: Within backendRefs, When using URLRewrite
-                                      filter with path.replacePrefixMatch, exactly
-                                      one PathPrefix match must be specified
-                                    rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b,
-                                      (has(b.filters) && b.filters.exists_one(f, has(f.urlRewrite)
-                                      && has(f.urlRewrite.path) && f.urlRewrite.path.type
-                                      == ''ReplacePrefixMatch'' && has(f.urlRewrite.path.replacePrefixMatch)))
-                                      )) ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
                                 maxItems: 16
-                                minItems: 1
                                 type: array
                                 x-kubernetes-list-type: atomic
-                                x-kubernetes-validations:
-                                - message: While 16 rules and 64 matches per rule
-                                    are allowed, the total number of matches across
-                                    all rules in a route must be less than 128
-                                  rule: '(self.size() > 0 ? self[0].matches.size()
-                                    : 0) + (self.size() > 1 ? self[1].matches.size()
-                                    : 0) + (self.size() > 2 ? self[2].matches.size()
-                                    : 0) + (self.size() > 3 ? self[3].matches.size()
-                                    : 0) + (self.size() > 4 ? self[4].matches.size()
-                                    : 0) + (self.size() > 5 ? self[5].matches.size()
-                                    : 0) + (self.size() > 6 ? self[6].matches.size()
-                                    : 0) + (self.size() > 7 ? self[7].matches.size()
-                                    : 0) + (self.size() > 8 ? self[8].matches.size()
-                                    : 0) + (self.size() > 9 ? self[9].matches.size()
-                                    : 0) + (self.size() > 10 ? self[10].matches.size()
-                                    : 0) + (self.size() > 11 ? self[11].matches.size()
-                                    : 0) + (self.size() > 12 ? self[12].matches.size()
-                                    : 0) + (self.size() > 13 ? self[13].matches.size()
-                                    : 0) + (self.size() > 14 ? self[14].matches.size()
-                                    : 0) + (self.size() > 15 ? self[15].matches.size()
-                                    : 0) <= 128'
                               useDefaultGateways:
                                 enum:
                                 - All
@@ -16408,16 +15983,12 @@ spec:
                                     type: string
                                   group:
                                     maxLength: 253
-                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                     type: string
                                   kind:
                                     maxLength: 63
-                                    minLength: 1
-                                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                     type: string
                                   name:
                                     maxLength: 253
-                                    minLength: 1
                                     type: string
                                   portNumber:
                                     format: int32
@@ -16431,7 +16002,6 @@ spec:
                               selector:
                                 additionalProperties:
                                   maxLength: 63
-                                  minLength: 0
                                   type: string
                                 type: object
                               targetPortNumber:
@@ -16961,7 +16531,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -17367,7 +16936,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                     requests:
@@ -17375,7 +16943,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                   type: object
@@ -17713,7 +17280,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -18119,7 +17685,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                     requests:
@@ -18127,7 +17692,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                   type: object
@@ -18481,7 +18045,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -18887,7 +18450,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                     requests:
@@ -18895,7 +18457,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                   type: object
@@ -19155,7 +18716,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                           preemptionPolicy:
@@ -19212,7 +18772,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 type: object
                               requests:
@@ -19220,7 +18779,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 type: object
                             type: object
@@ -19587,7 +19145,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -19609,7 +19166,6 @@ spec:
                                       anyOf:
                                       - type: integer
                                       - type: string
-                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                   type: object
                                 ephemeral:
@@ -19659,7 +19215,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   type: object
                                                 requests:
@@ -19667,7 +19222,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   type: object
                                               type: object
@@ -19994,7 +19548,6 @@ spec:
                                                           anyOf:
                                                           - type: integer
                                                           - type: string
-                                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                           x-kubernetes-int-or-string: true
                                                         resource:
                                                           type: string
@@ -20221,8 +19774,6 @@ spec:
                             x-kubernetes-list-map-keys:
                             - name
                             x-kubernetes-list-type: map
-                        required:
-                        - containers
                         type: object
                       tokenizer:
                         properties:
@@ -20742,7 +20293,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -21148,7 +20698,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -21156,7 +20705,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -21494,7 +21042,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -21900,7 +21447,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -21908,7 +21454,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -22262,7 +21807,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -22668,7 +22212,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -22676,7 +22219,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -22936,7 +22478,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 type: object
                               preemptionPolicy:
@@ -22993,7 +22534,6 @@ spec:
                                       anyOf:
                                       - type: integer
                                       - type: string
-                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                     type: object
                                   requests:
@@ -23001,7 +22541,6 @@ spec:
                                       anyOf:
                                       - type: integer
                                       - type: string
-                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                     type: object
                                 type: object
@@ -23368,7 +22907,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -23390,7 +22928,6 @@ spec:
                                           anyOf:
                                           - type: integer
                                           - type: string
-                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                           x-kubernetes-int-or-string: true
                                       type: object
                                     ephemeral:
@@ -23440,7 +22977,6 @@ spec:
                                                         anyOf:
                                                         - type: integer
                                                         - type: string
-                                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                         x-kubernetes-int-or-string: true
                                                       type: object
                                                     requests:
@@ -23448,7 +22984,6 @@ spec:
                                                         anyOf:
                                                         - type: integer
                                                         - type: string
-                                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                         x-kubernetes-int-or-string: true
                                                       type: object
                                                   type: object
@@ -23775,7 +23310,6 @@ spec:
                                                               anyOf:
                                                               - type: integer
                                                               - type: string
-                                                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                               x-kubernetes-int-or-string: true
                                                             resource:
                                                               type: string
@@ -24197,19 +23731,257 @@ spec:
                     format: int32
                     minimum: 1
                     type: integer
+                  wva:
+                    properties:
+                      hpa:
+                        properties:
+                          behavior:
+                            properties:
+                              scaleDown:
+                                properties:
+                                  policies:
+                                    items:
+                                      properties:
+                                        periodSeconds:
+                                          format: int32
+                                          type: integer
+                                        type:
+                                          type: string
+                                        value:
+                                          format: int32
+                                          type: integer
+                                      required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  selectPolicy:
+                                    type: string
+                                  stabilizationWindowSeconds:
+                                    format: int32
+                                    type: integer
+                                  tolerance:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                type: object
+                              scaleUp:
+                                properties:
+                                  policies:
+                                    items:
+                                      properties:
+                                        periodSeconds:
+                                          format: int32
+                                          type: integer
+                                        type:
+                                          type: string
+                                        value:
+                                          format: int32
+                                          type: integer
+                                      required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  selectPolicy:
+                                    type: string
+                                  stabilizationWindowSeconds:
+                                    format: int32
+                                    type: integer
+                                  tolerance:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                type: object
+                            type: object
+                        type: object
+                      keda:
+                        properties:
+                          advanced:
+                            properties:
+                              horizontalPodAutoscalerConfig:
+                                properties:
+                                  behavior:
+                                    properties:
+                                      scaleDown:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                      scaleUp:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                    type: object
+                                  name:
+                                    type: string
+                                type: object
+                              restoreToOriginalReplicaCount:
+                                type: boolean
+                              scalingModifiers:
+                                properties:
+                                  activationTarget:
+                                    type: string
+                                  formula:
+                                    type: string
+                                  metricType:
+                                    enum:
+                                    - AverageValue
+                                    - Value
+                                    type: string
+                                  target:
+                                    type: string
+                                type: object
+                            type: object
+                          cooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          fallback:
+                            properties:
+                              behavior:
+                                default: static
+                                enum:
+                                - static
+                                - currentReplicas
+                                - currentReplicasIfHigher
+                                - currentReplicasIfLower
+                                - scalingModifiers
+                                type: string
+                              failureThreshold:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              replicas:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                            required:
+                            - failureThreshold
+                            - replicas
+                            type: object
+                          idleReplicaCount:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          initialCooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          pollingInterval:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
+                        x-kubernetes-validations:
+                        - message: horizontalPodAutoscalerConfig.name must not be
+                            set; the controller manages the HPA name
+                          rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                            == 0'
+                      variantCost:
+                        default: "10.0"
+                        pattern: ^\d+(\.\d+)?$
+                        type: string
+                    type: object
+                    x-kubernetes-validations:
+                    - message: scalingModifiers must not be set; WVA controls the
+                        scaling metric formula and logic
+                      rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                        == 0 && size(self.keda.advanced.scalingModifiers.target) ==
+                        0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                        == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                        == 0)'
+                    - message: hpa and keda are mutually exclusive; choose one actuator
+                        backend
+                      rule: '!(has(self.hpa) && has(self.keda))'
+                    - message: either hpa or keda must be specified as the actuator
+                        backend
+                      rule: has(self.hpa) || has(self.keda)
                 required:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: keda must be specified when scaling is configured
-                  rule: has(self.keda)
+                - message: either wva or keda must be specified when scaling is configured
+                  rule: has(self.wva) || has(self.keda)
+                - message: wva and keda are mutually exclusive
+                  rule: '!(has(self.wva) && has(self.keda))'
                 - message: at least one trigger is required when using direct KEDA
                     scaling
                   rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                 - message: minReplicas cannot exceed maxReplicas
                   rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
                 - message: minReplicas is required when idleReplicaCount is set
-                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
+                  rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                    || has(self.minReplicas)'
+                - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                    defines the replica floor when no triggers are active
+                  rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                    || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
+                    self.minReplicas'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                     defines the replica floor when no triggers are active
                   rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas)
@@ -24735,7 +24507,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -25141,7 +24912,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -25149,7 +24919,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -25487,7 +25256,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -25893,7 +25661,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -25901,7 +25668,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -26255,7 +26021,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -26661,7 +26426,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -26669,7 +26433,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -26929,7 +26692,6 @@ spec:
                       anyOf:
                       - type: integer
                       - type: string
-                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     type: object
                   preemptionPolicy:
@@ -26986,7 +26748,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       requests:
@@ -26994,7 +26755,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                     type: object
@@ -27361,7 +27121,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -27383,7 +27142,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                           type: object
                         ephemeral:
@@ -27433,7 +27191,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -27441,7 +27198,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -27768,7 +27524,6 @@ spec:
                                                   anyOf:
                                                   - type: integer
                                                   - type: string
-                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                   x-kubernetes-int-or-string: true
                                                 resource:
                                                   type: string
@@ -27995,8 +27750,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                required:
-                - containers
                 type: object
               tracing:
                 properties:
@@ -28527,7 +28280,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -28933,7 +28685,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -28941,7 +28692,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -29279,7 +29029,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -29685,7 +29434,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -29693,7 +29441,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -30047,7 +29794,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -30453,7 +30199,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -30461,7 +30206,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -30721,7 +30465,6 @@ spec:
                       anyOf:
                       - type: integer
                       - type: string
-                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     type: object
                   preemptionPolicy:
@@ -30778,7 +30521,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       requests:
@@ -30786,7 +30528,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                     type: object
@@ -31153,7 +30894,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -31175,7 +30915,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                           type: object
                         ephemeral:
@@ -31225,7 +30964,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -31233,7 +30971,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -31560,7 +31297,6 @@ spec:
                                                   anyOf:
                                                   - type: integer
                                                   - type: string
-                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                   x-kubernetes-int-or-string: true
                                                 resource:
                                                   type: string
@@ -31787,8 +31523,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                required:
-                - containers
                 type: object
             type: object
             x-kubernetes-validations:
@@ -32442,20 +32176,258 @@ spec:
                         format: int32
                         minimum: 1
                         type: integer
+                      wva:
+                        properties:
+                          hpa:
+                            properties:
+                              behavior:
+                                properties:
+                                  scaleDown:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                  scaleUp:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                type: object
+                            type: object
+                          keda:
+                            properties:
+                              advanced:
+                                properties:
+                                  horizontalPodAutoscalerConfig:
+                                    properties:
+                                      behavior:
+                                        properties:
+                                          scaleDown:
+                                            properties:
+                                              policies:
+                                                items:
+                                                  properties:
+                                                    periodSeconds:
+                                                      format: int32
+                                                      type: integer
+                                                    type:
+                                                      type: string
+                                                    value:
+                                                      format: int32
+                                                      type: integer
+                                                  required:
+                                                  - periodSeconds
+                                                  - type
+                                                  - value
+                                                  type: object
+                                                type: array
+                                                x-kubernetes-list-type: atomic
+                                              selectPolicy:
+                                                type: string
+                                              stabilizationWindowSeconds:
+                                                format: int32
+                                                type: integer
+                                              tolerance:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                            type: object
+                                          scaleUp:
+                                            properties:
+                                              policies:
+                                                items:
+                                                  properties:
+                                                    periodSeconds:
+                                                      format: int32
+                                                      type: integer
+                                                    type:
+                                                      type: string
+                                                    value:
+                                                      format: int32
+                                                      type: integer
+                                                  required:
+                                                  - periodSeconds
+                                                  - type
+                                                  - value
+                                                  type: object
+                                                type: array
+                                                x-kubernetes-list-type: atomic
+                                              selectPolicy:
+                                                type: string
+                                              stabilizationWindowSeconds:
+                                                format: int32
+                                                type: integer
+                                              tolerance:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                            type: object
+                                        type: object
+                                      name:
+                                        type: string
+                                    type: object
+                                  restoreToOriginalReplicaCount:
+                                    type: boolean
+                                  scalingModifiers:
+                                    properties:
+                                      activationTarget:
+                                        type: string
+                                      formula:
+                                        type: string
+                                      metricType:
+                                        enum:
+                                        - AverageValue
+                                        - Value
+                                        type: string
+                                      target:
+                                        type: string
+                                    type: object
+                                type: object
+                              cooldownPeriod:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              fallback:
+                                properties:
+                                  behavior:
+                                    default: static
+                                    enum:
+                                    - static
+                                    - currentReplicas
+                                    - currentReplicasIfHigher
+                                    - currentReplicasIfLower
+                                    - scalingModifiers
+                                    type: string
+                                  failureThreshold:
+                                    format: int32
+                                    minimum: 0
+                                    type: integer
+                                  replicas:
+                                    format: int32
+                                    minimum: 0
+                                    type: integer
+                                required:
+                                - failureThreshold
+                                - replicas
+                                type: object
+                              idleReplicaCount:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              initialCooldownPeriod:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              pollingInterval:
+                                format: int32
+                                minimum: 1
+                                type: integer
+                            type: object
+                            x-kubernetes-validations:
+                            - message: horizontalPodAutoscalerConfig.name must not
+                                be set; the controller manages the HPA name
+                              rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                                || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                                == 0'
+                          variantCost:
+                            default: "10.0"
+                            pattern: ^\d+(\.\d+)?$
+                            type: string
+                        type: object
+                        x-kubernetes-validations:
+                        - message: scalingModifiers must not be set; WVA controls
+                            the scaling metric formula and logic
+                          rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                            == 0 && size(self.keda.advanced.scalingModifiers.target)
+                            == 0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                            == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                            == 0)'
+                        - message: hpa and keda are mutually exclusive; choose one
+                            actuator backend
+                          rule: '!(has(self.hpa) && has(self.keda))'
+                        - message: either hpa or keda must be specified as the actuator
+                            backend
+                          rule: has(self.hpa) || has(self.keda)
                     required:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: keda must be specified when scaling is configured
-                      rule: has(self.keda)
+                    - message: either wva or keda must be specified when scaling is
+                        configured
+                      rule: has(self.wva) || has(self.keda)
+                    - message: wva and keda are mutually exclusive
+                      rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct
                         KEDA scaling
                       rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                     - message: minReplicas cannot exceed maxReplicas
                       rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
                     - message: minReplicas is required when idleReplicaCount is set
-                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
-                        has(self.minReplicas)'
+                      rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                        || has(self.minReplicas)'
+                    - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                        defines the replica floor when no triggers are active
+                      rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                        || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
+                        < self.minReplicas'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                         defines the replica floor when no triggers are active
                       rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
@@ -32976,7 +32948,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -33382,7 +33353,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -33390,7 +33360,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -33728,7 +33697,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -34134,7 +34102,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -34142,7 +34109,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -34496,7 +34462,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -34902,7 +34867,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -34910,7 +34874,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -35170,7 +35133,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       preemptionPolicy:
@@ -35227,7 +35189,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                           requests:
@@ -35235,7 +35196,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
@@ -35602,7 +35562,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -35624,7 +35583,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                               type: object
                             ephemeral:
@@ -35674,7 +35632,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                             requests:
@@ -35682,7 +35639,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                           type: object
@@ -36009,7 +35965,6 @@ spec:
                                                       anyOf:
                                                       - type: integer
                                                       - type: string
-                                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                       x-kubernetes-int-or-string: true
                                                     resource:
                                                       type: string
@@ -36236,8 +36191,6 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
-                    required:
-                    - containers
                     type: object
                   worker:
                     properties:
@@ -36755,7 +36708,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -37161,7 +37113,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -37169,7 +37120,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -37507,7 +37457,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -37913,7 +37862,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -37921,7 +37869,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -38275,7 +38222,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -38681,7 +38627,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -38689,7 +38634,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -38949,7 +38893,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       preemptionPolicy:
@@ -39006,7 +38949,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                           requests:
@@ -39014,7 +38956,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
@@ -39381,7 +39322,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -39403,7 +39343,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                               type: object
                             ephemeral:
@@ -39453,7 +39392,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                             requests:
@@ -39461,7 +39399,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                           type: object
@@ -39788,7 +39725,6 @@ spec:
                                                       anyOf:
                                                       - type: integer
                                                       - type: string
-                                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                       x-kubernetes-int-or-string: true
                                                     resource:
                                                       type: string
@@ -40015,8 +39951,6 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
-                    required:
-                    - containers
                     type: object
                 type: object
                 x-kubernetes-validations:
@@ -40104,8 +40038,6 @@ spec:
                               hostnames:
                                 items:
                                   maxLength: 253
-                                  minLength: 1
-                                  pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                   type: string
                                 maxItems: 16
                                 type: array
@@ -40116,22 +40048,16 @@ spec:
                                     group:
                                       default: gateway.networking.k8s.io
                                       maxLength: 253
-                                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                     kind:
                                       default: Gateway
                                       maxLength: 63
-                                      minLength: 1
-                                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                       type: string
                                     name:
                                       maxLength: 253
-                                      minLength: 1
                                       type: string
                                     namespace:
                                       maxLength: 63
-                                      minLength: 1
-                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                       type: string
                                     port:
                                       format: int32
@@ -40140,8 +40066,6 @@ spec:
                                       type: integer
                                     sectionName:
                                       maxLength: 253
-                                      minLength: 1
-                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                   required:
                                   - name
@@ -40170,18 +40094,10 @@ spec:
                                                     allowHeaders:
                                                       items:
                                                         maxLength: 256
-                                                        minLength: 1
-                                                        pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                         type: string
                                                       maxItems: 64
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowHeaders cannot
-                                                          contain '*' alongside other
-                                                          methods
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     allowMethods:
                                                       items:
                                                         enum:
@@ -40199,32 +40115,16 @@ spec:
                                                       maxItems: 9
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowMethods cannot
-                                                          contain '*' alongside other
-                                                          methods
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     allowOrigins:
                                                       items:
                                                         maxLength: 253
-                                                        minLength: 1
-                                                        pattern: (^\*$)|(^(http(s)?):\/\/(((\*\.)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9-]+|\*)(:([0-9]{1,5}))?)$)
                                                         type: string
                                                       maxItems: 64
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowOrigins cannot
-                                                          contain '*' alongside other
-                                                          origins
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     exposeHeaders:
                                                       items:
                                                         maxLength: 256
-                                                        minLength: 1
-                                                        pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                         type: string
                                                       maxItems: 64
                                                       type: array
@@ -40239,16 +40139,12 @@ spec:
                                                   properties:
                                                     group:
                                                       maxLength: 253
-                                                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                       type: string
                                                     kind:
                                                       maxLength: 63
-                                                      minLength: 1
-                                                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                       type: string
                                                     name:
                                                       maxLength: 253
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - group
@@ -40262,22 +40158,16 @@ spec:
                                                         group:
                                                           default: ""
                                                           maxLength: 253
-                                                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                           type: string
                                                         kind:
                                                           default: Service
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                           type: string
                                                         name:
                                                           maxLength: 253
-                                                          minLength: 1
                                                           type: string
                                                         namespace:
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                           type: string
                                                         port:
                                                           format: int32
@@ -40287,12 +40177,6 @@ spec:
                                                       required:
                                                       - name
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: Must have port for
-                                                          Service reference
-                                                        rule: '(size(self.group) ==
-                                                          0 && self.kind == ''Service'')
-                                                          ? has(self.port) : true'
                                                     forwardBody:
                                                       properties:
                                                         maxSize:
@@ -40323,7 +40207,6 @@ spec:
                                                           x-kubernetes-list-type: set
                                                         path:
                                                           maxLength: 1024
-                                                          pattern: ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$
                                                           type: string
                                                       type: object
                                                     protocol:
@@ -40335,23 +40218,6 @@ spec:
                                                   - backendRef
                                                   - protocol
                                                   type: object
-                                                  x-kubernetes-validations:
-                                                  - message: grpc must be specified
-                                                      when protocol is set to 'GRPC'
-                                                    rule: 'self.protocol == ''GRPC''
-                                                      ? has(self.grpc) : true'
-                                                  - message: protocol must be 'GRPC'
-                                                      when grpc is set
-                                                    rule: 'has(self.grpc) ? self.protocol
-                                                      == ''GRPC'' : true'
-                                                  - message: http must be specified
-                                                      when protocol is set to 'HTTP'
-                                                    rule: 'self.protocol == ''HTTP''
-                                                      ? has(self.http) : true'
-                                                  - message: protocol must be 'HTTP'
-                                                      when http is set
-                                                    rule: 'has(self.http) ? self.protocol
-                                                      == ''HTTP'' : true'
                                                 requestHeaderModifier:
                                                   properties:
                                                     add:
@@ -40359,12 +40225,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -40386,12 +40249,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -40410,22 +40270,16 @@ spec:
                                                         group:
                                                           default: ""
                                                           maxLength: 253
-                                                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                           type: string
                                                         kind:
                                                           default: Service
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                           type: string
                                                         name:
                                                           maxLength: 253
-                                                          minLength: 1
                                                           type: string
                                                         namespace:
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                           type: string
                                                         port:
                                                           format: int32
@@ -40435,12 +40289,6 @@ spec:
                                                       required:
                                                       - name
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: Must have port for
-                                                          Service reference
-                                                        rule: '(size(self.group) ==
-                                                          0 && self.kind == ''Service'')
-                                                          ? has(self.port) : true'
                                                     fraction:
                                                       properties:
                                                         denominator:
@@ -40455,10 +40303,6 @@ spec:
                                                       required:
                                                       - numerator
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: numerator must be
-                                                          less than or equal to denominator
-                                                        rule: self.numerator <= self.denominator
                                                     percent:
                                                       format: int32
                                                       maximum: 100
@@ -40467,18 +40311,10 @@ spec:
                                                   required:
                                                   - backendRef
                                                   type: object
-                                                  x-kubernetes-validations:
-                                                  - message: Only one of percent or
-                                                      fraction may be specified in
-                                                      HTTPRequestMirrorFilter
-                                                    rule: '!(has(self.percent) &&
-                                                      has(self.fraction))'
                                                 requestRedirect:
                                                   properties:
                                                     hostname:
                                                       maxLength: 253
-                                                      minLength: 1
-                                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                       type: string
                                                     path:
                                                       properties:
@@ -40496,31 +40332,6 @@ spec:
                                                       required:
                                                       - type
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: replaceFullPath must
-                                                          be specified when type is
-                                                          set to 'ReplaceFullPath'
-                                                        rule: 'self.type == ''ReplaceFullPath''
-                                                          ? has(self.replaceFullPath)
-                                                          : true'
-                                                      - message: type must be 'ReplaceFullPath'
-                                                          when replaceFullPath is
-                                                          set
-                                                        rule: 'has(self.replaceFullPath)
-                                                          ? self.type == ''ReplaceFullPath''
-                                                          : true'
-                                                      - message: replacePrefixMatch
-                                                          must be specified when type
-                                                          is set to 'ReplacePrefixMatch'
-                                                        rule: 'self.type == ''ReplacePrefixMatch''
-                                                          ? has(self.replacePrefixMatch)
-                                                          : true'
-                                                      - message: type must be 'ReplacePrefixMatch'
-                                                          when replacePrefixMatch
-                                                          is set
-                                                        rule: 'has(self.replacePrefixMatch)
-                                                          ? self.type == ''ReplacePrefixMatch''
-                                                          : true'
                                                     port:
                                                       format: int32
                                                       maximum: 65535
@@ -40548,12 +40359,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -40575,12 +40383,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -40606,8 +40411,6 @@ spec:
                                                   properties:
                                                     hostname:
                                                       maxLength: 253
-                                                      minLength: 1
-                                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                       type: string
                                                     path:
                                                       properties:
@@ -40625,147 +40428,26 @@ spec:
                                                       required:
                                                       - type
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: replaceFullPath must
-                                                          be specified when type is
-                                                          set to 'ReplaceFullPath'
-                                                        rule: 'self.type == ''ReplaceFullPath''
-                                                          ? has(self.replaceFullPath)
-                                                          : true'
-                                                      - message: type must be 'ReplaceFullPath'
-                                                          when replaceFullPath is
-                                                          set
-                                                        rule: 'has(self.replaceFullPath)
-                                                          ? self.type == ''ReplaceFullPath''
-                                                          : true'
-                                                      - message: replacePrefixMatch
-                                                          must be specified when type
-                                                          is set to 'ReplacePrefixMatch'
-                                                        rule: 'self.type == ''ReplacePrefixMatch''
-                                                          ? has(self.replacePrefixMatch)
-                                                          : true'
-                                                      - message: type must be 'ReplacePrefixMatch'
-                                                          when replacePrefixMatch
-                                                          is set
-                                                        rule: 'has(self.replacePrefixMatch)
-                                                          ? self.type == ''ReplacePrefixMatch''
-                                                          : true'
                                                   type: object
                                               required:
                                               - type
                                               type: object
-                                              x-kubernetes-validations:
-                                              - message: filter.cors must be nil if
-                                                  the filter.type is not CORS
-                                                rule: '!(has(self.cors) && self.type
-                                                  != ''CORS'')'
-                                              - message: filter.cors must be specified
-                                                  for CORS filter.type
-                                                rule: '!(!has(self.cors) && self.type
-                                                  == ''CORS'')'
-                                              - message: filter.requestHeaderModifier
-                                                  must be nil if the filter.type is
-                                                  not RequestHeaderModifier
-                                                rule: '!(has(self.requestHeaderModifier)
-                                                  && self.type != ''RequestHeaderModifier'')'
-                                              - message: filter.requestHeaderModifier
-                                                  must be specified for RequestHeaderModifier
-                                                  filter.type
-                                                rule: '!(!has(self.requestHeaderModifier)
-                                                  && self.type == ''RequestHeaderModifier'')'
-                                              - message: filter.responseHeaderModifier
-                                                  must be nil if the filter.type is
-                                                  not ResponseHeaderModifier
-                                                rule: '!(has(self.responseHeaderModifier)
-                                                  && self.type != ''ResponseHeaderModifier'')'
-                                              - message: filter.responseHeaderModifier
-                                                  must be specified for ResponseHeaderModifier
-                                                  filter.type
-                                                rule: '!(!has(self.responseHeaderModifier)
-                                                  && self.type == ''ResponseHeaderModifier'')'
-                                              - message: filter.requestMirror must
-                                                  be nil if the filter.type is not
-                                                  RequestMirror
-                                                rule: '!(has(self.requestMirror) &&
-                                                  self.type != ''RequestMirror'')'
-                                              - message: filter.requestMirror must
-                                                  be specified for RequestMirror filter.type
-                                                rule: '!(!has(self.requestMirror)
-                                                  && self.type == ''RequestMirror'')'
-                                              - message: filter.requestRedirect must
-                                                  be nil if the filter.type is not
-                                                  RequestRedirect
-                                                rule: '!(has(self.requestRedirect)
-                                                  && self.type != ''RequestRedirect'')'
-                                              - message: filter.requestRedirect must
-                                                  be specified for RequestRedirect
-                                                  filter.type
-                                                rule: '!(!has(self.requestRedirect)
-                                                  && self.type == ''RequestRedirect'')'
-                                              - message: filter.urlRewrite must be
-                                                  nil if the filter.type is not URLRewrite
-                                                rule: '!(has(self.urlRewrite) && self.type
-                                                  != ''URLRewrite'')'
-                                              - message: filter.urlRewrite must be
-                                                  specified for URLRewrite filter.type
-                                                rule: '!(!has(self.urlRewrite) &&
-                                                  self.type == ''URLRewrite'')'
-                                              - message: filter.extensionRef must
-                                                  be nil if the filter.type is not
-                                                  ExtensionRef
-                                                rule: '!(has(self.extensionRef) &&
-                                                  self.type != ''ExtensionRef'')'
-                                              - message: filter.extensionRef must
-                                                  be specified for ExtensionRef filter.type
-                                                rule: '!(!has(self.extensionRef) &&
-                                                  self.type == ''ExtensionRef'')'
                                             maxItems: 16
                                             type: array
                                             x-kubernetes-list-type: atomic
-                                            x-kubernetes-validations:
-                                            - message: May specify either httpRouteFilterRequestRedirect
-                                                or httpRouteFilterRequestRewrite,
-                                                but not both
-                                              rule: '!(self.exists(f, f.type == ''RequestRedirect'')
-                                                && self.exists(f, f.type == ''URLRewrite''))'
-                                            - message: CORS filter cannot be repeated
-                                              rule: self.filter(f, f.type == 'CORS').size()
-                                                <= 1
-                                            - message: RequestHeaderModifier filter
-                                                cannot be repeated
-                                              rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
-                                                <= 1
-                                            - message: ResponseHeaderModifier filter
-                                                cannot be repeated
-                                              rule: self.filter(f, f.type == 'ResponseHeaderModifier').size()
-                                                <= 1
-                                            - message: RequestRedirect filter cannot
-                                                be repeated
-                                              rule: self.filter(f, f.type == 'RequestRedirect').size()
-                                                <= 1
-                                            - message: URLRewrite filter cannot be
-                                                repeated
-                                              rule: self.filter(f, f.type == 'URLRewrite').size()
-                                                <= 1
                                           group:
                                             default: ""
                                             maxLength: 253
-                                            pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                             type: string
                                           kind:
                                             default: Service
                                             maxLength: 63
-                                            minLength: 1
-                                            pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                             type: string
                                           name:
                                             maxLength: 253
-                                            minLength: 1
                                             type: string
                                           namespace:
                                             maxLength: 63
-                                            minLength: 1
-                                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                             type: string
                                           port:
                                             format: int32
@@ -40781,10 +40463,6 @@ spec:
                                         required:
                                         - name
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: Must have port for Service reference
-                                          rule: '(size(self.group) == 0 && self.kind
-                                            == ''Service'') ? has(self.port) : true'
                                       maxItems: 16
                                       type: array
                                       x-kubernetes-list-type: atomic
@@ -40798,17 +40476,10 @@ spec:
                                               allowHeaders:
                                                 items:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 maxItems: 64
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowHeaders cannot contain
-                                                    '*' alongside other methods
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               allowMethods:
                                                 items:
                                                   enum:
@@ -40826,30 +40497,16 @@ spec:
                                                 maxItems: 9
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowMethods cannot contain
-                                                    '*' alongside other methods
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               allowOrigins:
                                                 items:
                                                   maxLength: 253
-                                                  minLength: 1
-                                                  pattern: (^\*$)|(^(http(s)?):\/\/(((\*\.)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9-]+|\*)(:([0-9]{1,5}))?)$)
                                                   type: string
                                                 maxItems: 64
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowOrigins cannot contain
-                                                    '*' alongside other origins
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               exposeHeaders:
                                                 items:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 maxItems: 64
                                                 type: array
@@ -40864,16 +40521,12 @@ spec:
                                             properties:
                                               group:
                                                 maxLength: 253
-                                                pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                 type: string
                                               kind:
                                                 maxLength: 63
-                                                minLength: 1
-                                                pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                 type: string
                                               name:
                                                 maxLength: 253
-                                                minLength: 1
                                                 type: string
                                             required:
                                             - group
@@ -40887,22 +40540,16 @@ spec:
                                                   group:
                                                     default: ""
                                                     maxLength: 253
-                                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                     type: string
                                                   kind:
                                                     default: Service
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                     type: string
                                                   name:
                                                     maxLength: 253
-                                                    minLength: 1
                                                     type: string
                                                   namespace:
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                     type: string
                                                   port:
                                                     format: int32
@@ -40912,12 +40559,6 @@ spec:
                                                 required:
                                                 - name
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: Must have port for Service
-                                                    reference
-                                                  rule: '(size(self.group) == 0 &&
-                                                    self.kind == ''Service'') ? has(self.port)
-                                                    : true'
                                               forwardBody:
                                                 properties:
                                                   maxSize:
@@ -40948,7 +40589,6 @@ spec:
                                                     x-kubernetes-list-type: set
                                                   path:
                                                     maxLength: 1024
-                                                    pattern: ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$
                                                     type: string
                                                 type: object
                                               protocol:
@@ -40960,23 +40600,6 @@ spec:
                                             - backendRef
                                             - protocol
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: grpc must be specified when
-                                                protocol is set to 'GRPC'
-                                              rule: 'self.protocol == ''GRPC'' ? has(self.grpc)
-                                                : true'
-                                            - message: protocol must be 'GRPC' when
-                                                grpc is set
-                                              rule: 'has(self.grpc) ? self.protocol
-                                                == ''GRPC'' : true'
-                                            - message: http must be specified when
-                                                protocol is set to 'HTTP'
-                                              rule: 'self.protocol == ''HTTP'' ? has(self.http)
-                                                : true'
-                                            - message: protocol must be 'HTTP' when
-                                                http is set
-                                              rule: 'has(self.http) ? self.protocol
-                                                == ''HTTP'' : true'
                                           requestHeaderModifier:
                                             properties:
                                               add:
@@ -40984,12 +40607,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -41011,12 +40631,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -41035,22 +40652,16 @@ spec:
                                                   group:
                                                     default: ""
                                                     maxLength: 253
-                                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                     type: string
                                                   kind:
                                                     default: Service
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                     type: string
                                                   name:
                                                     maxLength: 253
-                                                    minLength: 1
                                                     type: string
                                                   namespace:
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                     type: string
                                                   port:
                                                     format: int32
@@ -41060,12 +40671,6 @@ spec:
                                                 required:
                                                 - name
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: Must have port for Service
-                                                    reference
-                                                  rule: '(size(self.group) == 0 &&
-                                                    self.kind == ''Service'') ? has(self.port)
-                                                    : true'
                                               fraction:
                                                 properties:
                                                   denominator:
@@ -41080,10 +40685,6 @@ spec:
                                                 required:
                                                 - numerator
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: numerator must be less
-                                                    than or equal to denominator
-                                                  rule: self.numerator <= self.denominator
                                               percent:
                                                 format: int32
                                                 maximum: 100
@@ -41092,16 +40693,10 @@ spec:
                                             required:
                                             - backendRef
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: Only one of percent or fraction
-                                                may be specified in HTTPRequestMirrorFilter
-                                              rule: '!(has(self.percent) && has(self.fraction))'
                                           requestRedirect:
                                             properties:
                                               hostname:
                                                 maxLength: 253
-                                                minLength: 1
-                                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                 type: string
                                               path:
                                                 properties:
@@ -41119,29 +40714,6 @@ spec:
                                                 required:
                                                 - type
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: replaceFullPath must be
-                                                    specified when type is set to
-                                                    'ReplaceFullPath'
-                                                  rule: 'self.type == ''ReplaceFullPath''
-                                                    ? has(self.replaceFullPath) :
-                                                    true'
-                                                - message: type must be 'ReplaceFullPath'
-                                                    when replaceFullPath is set
-                                                  rule: 'has(self.replaceFullPath)
-                                                    ? self.type == ''ReplaceFullPath''
-                                                    : true'
-                                                - message: replacePrefixMatch must
-                                                    be specified when type is set
-                                                    to 'ReplacePrefixMatch'
-                                                  rule: 'self.type == ''ReplacePrefixMatch''
-                                                    ? has(self.replacePrefixMatch)
-                                                    : true'
-                                                - message: type must be 'ReplacePrefixMatch'
-                                                    when replacePrefixMatch is set
-                                                  rule: 'has(self.replacePrefixMatch)
-                                                    ? self.type == ''ReplacePrefixMatch''
-                                                    : true'
                                               port:
                                                 format: int32
                                                 maximum: 65535
@@ -41169,12 +40741,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -41196,12 +40765,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -41227,8 +40793,6 @@ spec:
                                             properties:
                                               hostname:
                                                 maxLength: 253
-                                                minLength: 1
-                                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                 type: string
                                               path:
                                                 properties:
@@ -41246,119 +40810,13 @@ spec:
                                                 required:
                                                 - type
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: replaceFullPath must be
-                                                    specified when type is set to
-                                                    'ReplaceFullPath'
-                                                  rule: 'self.type == ''ReplaceFullPath''
-                                                    ? has(self.replaceFullPath) :
-                                                    true'
-                                                - message: type must be 'ReplaceFullPath'
-                                                    when replaceFullPath is set
-                                                  rule: 'has(self.replaceFullPath)
-                                                    ? self.type == ''ReplaceFullPath''
-                                                    : true'
-                                                - message: replacePrefixMatch must
-                                                    be specified when type is set
-                                                    to 'ReplacePrefixMatch'
-                                                  rule: 'self.type == ''ReplacePrefixMatch''
-                                                    ? has(self.replacePrefixMatch)
-                                                    : true'
-                                                - message: type must be 'ReplacePrefixMatch'
-                                                    when replacePrefixMatch is set
-                                                  rule: 'has(self.replacePrefixMatch)
-                                                    ? self.type == ''ReplacePrefixMatch''
-                                                    : true'
                                             type: object
                                         required:
                                         - type
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: filter.cors must be nil if the
-                                            filter.type is not CORS
-                                          rule: '!(has(self.cors) && self.type !=
-                                            ''CORS'')'
-                                        - message: filter.cors must be specified for
-                                            CORS filter.type
-                                          rule: '!(!has(self.cors) && self.type ==
-                                            ''CORS'')'
-                                        - message: filter.requestHeaderModifier must
-                                            be nil if the filter.type is not RequestHeaderModifier
-                                          rule: '!(has(self.requestHeaderModifier)
-                                            && self.type != ''RequestHeaderModifier'')'
-                                        - message: filter.requestHeaderModifier must
-                                            be specified for RequestHeaderModifier
-                                            filter.type
-                                          rule: '!(!has(self.requestHeaderModifier)
-                                            && self.type == ''RequestHeaderModifier'')'
-                                        - message: filter.responseHeaderModifier must
-                                            be nil if the filter.type is not ResponseHeaderModifier
-                                          rule: '!(has(self.responseHeaderModifier)
-                                            && self.type != ''ResponseHeaderModifier'')'
-                                        - message: filter.responseHeaderModifier must
-                                            be specified for ResponseHeaderModifier
-                                            filter.type
-                                          rule: '!(!has(self.responseHeaderModifier)
-                                            && self.type == ''ResponseHeaderModifier'')'
-                                        - message: filter.requestMirror must be nil
-                                            if the filter.type is not RequestMirror
-                                          rule: '!(has(self.requestMirror) && self.type
-                                            != ''RequestMirror'')'
-                                        - message: filter.requestMirror must be specified
-                                            for RequestMirror filter.type
-                                          rule: '!(!has(self.requestMirror) && self.type
-                                            == ''RequestMirror'')'
-                                        - message: filter.requestRedirect must be
-                                            nil if the filter.type is not RequestRedirect
-                                          rule: '!(has(self.requestRedirect) && self.type
-                                            != ''RequestRedirect'')'
-                                        - message: filter.requestRedirect must be
-                                            specified for RequestRedirect filter.type
-                                          rule: '!(!has(self.requestRedirect) && self.type
-                                            == ''RequestRedirect'')'
-                                        - message: filter.urlRewrite must be nil if
-                                            the filter.type is not URLRewrite
-                                          rule: '!(has(self.urlRewrite) && self.type
-                                            != ''URLRewrite'')'
-                                        - message: filter.urlRewrite must be specified
-                                            for URLRewrite filter.type
-                                          rule: '!(!has(self.urlRewrite) && self.type
-                                            == ''URLRewrite'')'
-                                        - message: filter.extensionRef must be nil
-                                            if the filter.type is not ExtensionRef
-                                          rule: '!(has(self.extensionRef) && self.type
-                                            != ''ExtensionRef'')'
-                                        - message: filter.extensionRef must be specified
-                                            for ExtensionRef filter.type
-                                          rule: '!(!has(self.extensionRef) && self.type
-                                            == ''ExtensionRef'')'
                                       maxItems: 16
                                       type: array
                                       x-kubernetes-list-type: atomic
-                                      x-kubernetes-validations:
-                                      - message: May specify either httpRouteFilterRequestRedirect
-                                          or httpRouteFilterRequestRewrite, but not
-                                          both
-                                        rule: '!(self.exists(f, f.type == ''RequestRedirect'')
-                                          && self.exists(f, f.type == ''URLRewrite''))'
-                                      - message: CORS filter cannot be repeated
-                                        rule: self.filter(f, f.type == 'CORS').size()
-                                          <= 1
-                                      - message: RequestHeaderModifier filter cannot
-                                          be repeated
-                                        rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
-                                          <= 1
-                                      - message: ResponseHeaderModifier filter cannot
-                                          be repeated
-                                        rule: self.filter(f, f.type == 'ResponseHeaderModifier').size()
-                                          <= 1
-                                      - message: RequestRedirect filter cannot be
-                                          repeated
-                                        rule: self.filter(f, f.type == 'RequestRedirect').size()
-                                          <= 1
-                                      - message: URLRewrite filter cannot be repeated
-                                        rule: self.filter(f, f.type == 'URLRewrite').size()
-                                          <= 1
                                     matches:
                                       default:
                                       - path:
@@ -41371,8 +40829,6 @@ spec:
                                               properties:
                                                 name:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 type:
                                                   default: Exact
@@ -41382,7 +40838,6 @@ spec:
                                                   type: string
                                                 value:
                                                   maxLength: 4096
-                                                  minLength: 1
                                                   type: string
                                               required:
                                               - name
@@ -41422,66 +40877,11 @@ spec:
                                                 maxLength: 1024
                                                 type: string
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: value must be an absolute path
-                                                and start with '/' when type one of
-                                                ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? self.value.startsWith(''/'') : true'
-                                            - message: must not contain '//' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''//'') : true'
-                                            - message: must not contain '/./' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''/./'') :
-                                                true'
-                                            - message: must not contain '/../' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''/../'') :
-                                                true'
-                                            - message: must not contain '%2f' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''%2f'') :
-                                                true'
-                                            - message: must not contain '%2F' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''%2F'') :
-                                                true'
-                                            - message: must not contain '#' when type
-                                                one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''#'') : true'
-                                            - message: must not end with '/..' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.endsWith(''/..'') :
-                                                true'
-                                            - message: must not end with '/.' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.endsWith(''/.'') : true'
-                                            - message: type must be one of ['Exact',
-                                                'PathPrefix', 'RegularExpression']
-                                              rule: self.type in ['Exact','PathPrefix']
-                                                || self.type == 'RegularExpression'
-                                            - message: must only contain valid characters
-                                                (matching ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$)
-                                                for types ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? self.value.matches(r"""^(?:[-A-Za-z0-9/._~!$&''()*+,;=:@]|[%][0-9a-fA-F]{2})+$""")
-                                                : true'
                                           queryParams:
                                             items:
                                               properties:
                                                 name:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 type:
                                                   default: Exact
@@ -41491,7 +40891,6 @@ spec:
                                                   type: string
                                                 value:
                                                   maxLength: 1024
-                                                  minLength: 1
                                                   type: string
                                               required:
                                               - name
@@ -41508,15 +40907,12 @@ spec:
                                       x-kubernetes-list-type: atomic
                                     name:
                                       maxLength: 253
-                                      minLength: 1
-                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                     retry:
                                       properties:
                                         attempts:
                                           type: integer
                                         backoff:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         codes:
                                           items:
@@ -41529,7 +40925,6 @@ spec:
                                     sessionPersistence:
                                       properties:
                                         absoluteTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         cookieConfig:
                                           properties:
@@ -41541,7 +40936,6 @@ spec:
                                               type: string
                                           type: object
                                         idleTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         sessionName:
                                           maxLength: 128
@@ -41553,102 +40947,17 @@ spec:
                                           - Header
                                           type: string
                                       type: object
-                                      x-kubernetes-validations:
-                                      - message: AbsoluteTimeout must be specified
-                                          when cookie lifetimeType is Permanent
-                                        rule: '!has(self.cookieConfig) || !has(self.cookieConfig.lifetimeType)
-                                          || self.cookieConfig.lifetimeType != ''Permanent''
-                                          || has(self.absoluteTimeout)'
-                                      - message: cookieConfig can only be set with
-                                          type Cookie
-                                        rule: '!has(self.cookieConfig) || self.type
-                                          == ''Cookie'''
                                     timeouts:
                                       properties:
                                         backendRequest:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         request:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                       type: object
-                                      x-kubernetes-validations:
-                                      - message: backendRequest timeout cannot be
-                                          longer than request timeout
-                                        rule: '!(has(self.request) && has(self.backendRequest)
-                                          && duration(self.request) != duration(''0s'')
-                                          && duration(self.backendRequest) > duration(self.request))'
                                   type: object
-                                  x-kubernetes-validations:
-                                  - message: RequestRedirect filter must not be used
-                                      together with backendRefs
-                                    rule: '(has(self.backendRefs) && size(self.backendRefs)
-                                      > 0) ? (!has(self.filters) || self.filters.all(f,
-                                      !has(f.requestRedirect))): true'
-                                  - message: When using RequestRedirect filter with
-                                      path.replacePrefixMatch, exactly one PathPrefix
-                                      match must be specified
-                                    rule: '(has(self.filters) && self.filters.exists_one(f,
-                                      has(f.requestRedirect) && has(f.requestRedirect.path)
-                                      && f.requestRedirect.path.type == ''ReplacePrefixMatch''
-                                      && has(f.requestRedirect.path.replacePrefixMatch)))
-                                      ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: When using URLRewrite filter with path.replacePrefixMatch,
-                                      exactly one PathPrefix match must be specified
-                                    rule: '(has(self.filters) && self.filters.exists_one(f,
-                                      has(f.urlRewrite) && has(f.urlRewrite.path)
-                                      && f.urlRewrite.path.type == ''ReplacePrefixMatch''
-                                      && has(f.urlRewrite.path.replacePrefixMatch)))
-                                      ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: Within backendRefs, when using RequestRedirect
-                                      filter with path.replacePrefixMatch, exactly
-                                      one PathPrefix match must be specified
-                                    rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b,
-                                      (has(b.filters) && b.filters.exists_one(f, has(f.requestRedirect)
-                                      && has(f.requestRedirect.path) && f.requestRedirect.path.type
-                                      == ''ReplacePrefixMatch'' && has(f.requestRedirect.path.replacePrefixMatch)))
-                                      )) ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: Within backendRefs, When using URLRewrite
-                                      filter with path.replacePrefixMatch, exactly
-                                      one PathPrefix match must be specified
-                                    rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b,
-                                      (has(b.filters) && b.filters.exists_one(f, has(f.urlRewrite)
-                                      && has(f.urlRewrite.path) && f.urlRewrite.path.type
-                                      == ''ReplacePrefixMatch'' && has(f.urlRewrite.path.replacePrefixMatch)))
-                                      )) ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
                                 maxItems: 16
-                                minItems: 1
                                 type: array
                                 x-kubernetes-list-type: atomic
-                                x-kubernetes-validations:
-                                - message: While 16 rules and 64 matches per rule
-                                    are allowed, the total number of matches across
-                                    all rules in a route must be less than 128
-                                  rule: '(self.size() > 0 ? self[0].matches.size()
-                                    : 0) + (self.size() > 1 ? self[1].matches.size()
-                                    : 0) + (self.size() > 2 ? self[2].matches.size()
-                                    : 0) + (self.size() > 3 ? self[3].matches.size()
-                                    : 0) + (self.size() > 4 ? self[4].matches.size()
-                                    : 0) + (self.size() > 5 ? self[5].matches.size()
-                                    : 0) + (self.size() > 6 ? self[6].matches.size()
-                                    : 0) + (self.size() > 7 ? self[7].matches.size()
-                                    : 0) + (self.size() > 8 ? self[8].matches.size()
-                                    : 0) + (self.size() > 9 ? self[9].matches.size()
-                                    : 0) + (self.size() > 10 ? self[10].matches.size()
-                                    : 0) + (self.size() > 11 ? self[11].matches.size()
-                                    : 0) + (self.size() > 12 ? self[12].matches.size()
-                                    : 0) + (self.size() > 13 ? self[13].matches.size()
-                                    : 0) + (self.size() > 14 ? self[14].matches.size()
-                                    : 0) + (self.size() > 15 ? self[15].matches.size()
-                                    : 0) <= 128'
                               useDefaultGateways:
                                 enum:
                                 - All
@@ -41719,18 +41028,13 @@ spec:
                                   group:
                                     default: ""
                                     maxLength: 253
-                                    minLength: 0
-                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                     type: string
                                   kind:
                                     default: Service
                                     maxLength: 63
-                                    minLength: 1
-                                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                     type: string
                                   name:
                                     maxLength: 253
-                                    minLength: 1
                                     type: string
                                   port:
                                     properties:
@@ -41745,20 +41049,13 @@ spec:
                                 required:
                                 - name
                                 type: object
-                                x-kubernetes-validations:
-                                - message: port is required when kind is 'Service'
-                                    or unspecified (defaults to 'Service')
-                                  rule: self.kind != 'Service' || has(self.port)
                               selector:
                                 properties:
                                   matchLabels:
                                     additionalProperties:
                                       maxLength: 63
-                                      minLength: 0
-                                      pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                       type: string
                                     maxProperties: 64
-                                    minProperties: 1
                                     type: object
                                 required:
                                 - matchLabels
@@ -41775,12 +41072,8 @@ spec:
                                   - number
                                   type: object
                                 maxItems: 8
-                                minItems: 1
                                 type: array
                                 x-kubernetes-list-type: atomic
-                                x-kubernetes-validations:
-                                - message: port number must be unique
-                                  rule: self.all(p1, self.exists_one(p2, p1.number==p2.number))
                             required:
                             - endpointPickerRef
                             - selector
@@ -42306,7 +41599,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -42712,7 +42004,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                     requests:
@@ -42720,7 +42011,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                   type: object
@@ -43058,7 +42348,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -43464,7 +42753,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                     requests:
@@ -43472,7 +42760,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                   type: object
@@ -43826,7 +43113,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -44232,7 +43518,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                     requests:
@@ -44240,7 +43525,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                   type: object
@@ -44500,7 +43784,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                           preemptionPolicy:
@@ -44557,7 +43840,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 type: object
                               requests:
@@ -44565,7 +43847,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 type: object
                             type: object
@@ -44932,7 +44213,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -44954,7 +44234,6 @@ spec:
                                       anyOf:
                                       - type: integer
                                       - type: string
-                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                   type: object
                                 ephemeral:
@@ -45004,7 +44283,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   type: object
                                                 requests:
@@ -45012,7 +44290,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   type: object
                                               type: object
@@ -45339,7 +44616,6 @@ spec:
                                                           anyOf:
                                                           - type: integer
                                                           - type: string
-                                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                           x-kubernetes-int-or-string: true
                                                         resource:
                                                           type: string
@@ -45566,8 +44842,6 @@ spec:
                             x-kubernetes-list-map-keys:
                             - name
                             x-kubernetes-list-type: map
-                        required:
-                        - containers
                         type: object
                       tokenizer:
                         properties:
@@ -46087,7 +45361,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -46493,7 +45766,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -46501,7 +45773,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -46839,7 +46110,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -47245,7 +46515,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -47253,7 +46522,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -47607,7 +46875,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -48013,7 +47280,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -48021,7 +47287,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -48281,7 +47546,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 type: object
                               preemptionPolicy:
@@ -48338,7 +47602,6 @@ spec:
                                       anyOf:
                                       - type: integer
                                       - type: string
-                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                     type: object
                                   requests:
@@ -48346,7 +47609,6 @@ spec:
                                       anyOf:
                                       - type: integer
                                       - type: string
-                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                     type: object
                                 type: object
@@ -48713,7 +47975,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -48735,7 +47996,6 @@ spec:
                                           anyOf:
                                           - type: integer
                                           - type: string
-                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                           x-kubernetes-int-or-string: true
                                       type: object
                                     ephemeral:
@@ -48785,7 +48045,6 @@ spec:
                                                         anyOf:
                                                         - type: integer
                                                         - type: string
-                                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                         x-kubernetes-int-or-string: true
                                                       type: object
                                                     requests:
@@ -48793,7 +48052,6 @@ spec:
                                                         anyOf:
                                                         - type: integer
                                                         - type: string
-                                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                         x-kubernetes-int-or-string: true
                                                       type: object
                                                   type: object
@@ -49120,7 +48378,6 @@ spec:
                                                               anyOf:
                                                               - type: integer
                                                               - type: string
-                                                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                               x-kubernetes-int-or-string: true
                                                             resource:
                                                               type: string
@@ -49542,19 +48799,257 @@ spec:
                     format: int32
                     minimum: 1
                     type: integer
+                  wva:
+                    properties:
+                      hpa:
+                        properties:
+                          behavior:
+                            properties:
+                              scaleDown:
+                                properties:
+                                  policies:
+                                    items:
+                                      properties:
+                                        periodSeconds:
+                                          format: int32
+                                          type: integer
+                                        type:
+                                          type: string
+                                        value:
+                                          format: int32
+                                          type: integer
+                                      required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  selectPolicy:
+                                    type: string
+                                  stabilizationWindowSeconds:
+                                    format: int32
+                                    type: integer
+                                  tolerance:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                type: object
+                              scaleUp:
+                                properties:
+                                  policies:
+                                    items:
+                                      properties:
+                                        periodSeconds:
+                                          format: int32
+                                          type: integer
+                                        type:
+                                          type: string
+                                        value:
+                                          format: int32
+                                          type: integer
+                                      required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  selectPolicy:
+                                    type: string
+                                  stabilizationWindowSeconds:
+                                    format: int32
+                                    type: integer
+                                  tolerance:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                type: object
+                            type: object
+                        type: object
+                      keda:
+                        properties:
+                          advanced:
+                            properties:
+                              horizontalPodAutoscalerConfig:
+                                properties:
+                                  behavior:
+                                    properties:
+                                      scaleDown:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                      scaleUp:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                    type: object
+                                  name:
+                                    type: string
+                                type: object
+                              restoreToOriginalReplicaCount:
+                                type: boolean
+                              scalingModifiers:
+                                properties:
+                                  activationTarget:
+                                    type: string
+                                  formula:
+                                    type: string
+                                  metricType:
+                                    enum:
+                                    - AverageValue
+                                    - Value
+                                    type: string
+                                  target:
+                                    type: string
+                                type: object
+                            type: object
+                          cooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          fallback:
+                            properties:
+                              behavior:
+                                default: static
+                                enum:
+                                - static
+                                - currentReplicas
+                                - currentReplicasIfHigher
+                                - currentReplicasIfLower
+                                - scalingModifiers
+                                type: string
+                              failureThreshold:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              replicas:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                            required:
+                            - failureThreshold
+                            - replicas
+                            type: object
+                          idleReplicaCount:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          initialCooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          pollingInterval:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
+                        x-kubernetes-validations:
+                        - message: horizontalPodAutoscalerConfig.name must not be
+                            set; the controller manages the HPA name
+                          rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                            == 0'
+                      variantCost:
+                        default: "10.0"
+                        pattern: ^\d+(\.\d+)?$
+                        type: string
+                    type: object
+                    x-kubernetes-validations:
+                    - message: scalingModifiers must not be set; WVA controls the
+                        scaling metric formula and logic
+                      rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                        == 0 && size(self.keda.advanced.scalingModifiers.target) ==
+                        0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                        == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                        == 0)'
+                    - message: hpa and keda are mutually exclusive; choose one actuator
+                        backend
+                      rule: '!(has(self.hpa) && has(self.keda))'
+                    - message: either hpa or keda must be specified as the actuator
+                        backend
+                      rule: has(self.hpa) || has(self.keda)
                 required:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: keda must be specified when scaling is configured
-                  rule: has(self.keda)
+                - message: either wva or keda must be specified when scaling is configured
+                  rule: has(self.wva) || has(self.keda)
+                - message: wva and keda are mutually exclusive
+                  rule: '!(has(self.wva) && has(self.keda))'
                 - message: at least one trigger is required when using direct KEDA
                     scaling
                   rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                 - message: minReplicas cannot exceed maxReplicas
                   rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
                 - message: minReplicas is required when idleReplicaCount is set
-                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
+                  rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                    || has(self.minReplicas)'
+                - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                    defines the replica floor when no triggers are active
+                  rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                    || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
+                    self.minReplicas'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                     defines the replica floor when no triggers are active
                   rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas)
@@ -50080,7 +49575,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -50486,7 +49980,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -50494,7 +49987,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -50832,7 +50324,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -51238,7 +50729,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -51246,7 +50736,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -51600,7 +51089,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -52006,7 +51494,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -52014,7 +51501,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -52274,7 +51760,6 @@ spec:
                       anyOf:
                       - type: integer
                       - type: string
-                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     type: object
                   preemptionPolicy:
@@ -52331,7 +51816,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       requests:
@@ -52339,7 +51823,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                     type: object
@@ -52706,7 +52189,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -52728,7 +52210,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                           type: object
                         ephemeral:
@@ -52778,7 +52259,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -52786,7 +52266,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -53113,7 +52592,6 @@ spec:
                                                   anyOf:
                                                   - type: integer
                                                   - type: string
-                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                   x-kubernetes-int-or-string: true
                                                 resource:
                                                   type: string
@@ -53340,8 +52818,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                required:
-                - containers
                 type: object
               tracing:
                 properties:
@@ -53872,7 +53348,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -54278,7 +53753,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -54286,7 +53760,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -54624,7 +54097,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -55030,7 +54502,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -55038,7 +54509,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -55392,7 +54862,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -55798,7 +55267,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -55806,7 +55274,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -56066,7 +55533,6 @@ spec:
                       anyOf:
                       - type: integer
                       - type: string
-                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     type: object
                   preemptionPolicy:
@@ -56123,7 +55589,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       requests:
@@ -56131,7 +55596,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                     type: object
@@ -56498,7 +55962,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -56520,7 +55983,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                           type: object
                         ephemeral:
@@ -56570,7 +56032,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -56578,7 +56039,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -56905,7 +56365,6 @@ spec:
                                                   anyOf:
                                                   - type: integer
                                                   - type: string
-                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                   x-kubernetes-int-or-string: true
                                                 resource:
                                                   type: string
@@ -57132,8 +56591,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                required:
-                - containers
                 type: object
             type: object
             x-kubernetes-validations:
@@ -57565,20 +57022,258 @@ spec:
                         format: int32
                         minimum: 1
                         type: integer
+                      wva:
+                        properties:
+                          hpa:
+                            properties:
+                              behavior:
+                                properties:
+                                  scaleDown:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                  scaleUp:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                type: object
+                            type: object
+                          keda:
+                            properties:
+                              advanced:
+                                properties:
+                                  horizontalPodAutoscalerConfig:
+                                    properties:
+                                      behavior:
+                                        properties:
+                                          scaleDown:
+                                            properties:
+                                              policies:
+                                                items:
+                                                  properties:
+                                                    periodSeconds:
+                                                      format: int32
+                                                      type: integer
+                                                    type:
+                                                      type: string
+                                                    value:
+                                                      format: int32
+                                                      type: integer
+                                                  required:
+                                                  - periodSeconds
+                                                  - type
+                                                  - value
+                                                  type: object
+                                                type: array
+                                                x-kubernetes-list-type: atomic
+                                              selectPolicy:
+                                                type: string
+                                              stabilizationWindowSeconds:
+                                                format: int32
+                                                type: integer
+                                              tolerance:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                            type: object
+                                          scaleUp:
+                                            properties:
+                                              policies:
+                                                items:
+                                                  properties:
+                                                    periodSeconds:
+                                                      format: int32
+                                                      type: integer
+                                                    type:
+                                                      type: string
+                                                    value:
+                                                      format: int32
+                                                      type: integer
+                                                  required:
+                                                  - periodSeconds
+                                                  - type
+                                                  - value
+                                                  type: object
+                                                type: array
+                                                x-kubernetes-list-type: atomic
+                                              selectPolicy:
+                                                type: string
+                                              stabilizationWindowSeconds:
+                                                format: int32
+                                                type: integer
+                                              tolerance:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                            type: object
+                                        type: object
+                                      name:
+                                        type: string
+                                    type: object
+                                  restoreToOriginalReplicaCount:
+                                    type: boolean
+                                  scalingModifiers:
+                                    properties:
+                                      activationTarget:
+                                        type: string
+                                      formula:
+                                        type: string
+                                      metricType:
+                                        enum:
+                                        - AverageValue
+                                        - Value
+                                        type: string
+                                      target:
+                                        type: string
+                                    type: object
+                                type: object
+                              cooldownPeriod:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              fallback:
+                                properties:
+                                  behavior:
+                                    default: static
+                                    enum:
+                                    - static
+                                    - currentReplicas
+                                    - currentReplicasIfHigher
+                                    - currentReplicasIfLower
+                                    - scalingModifiers
+                                    type: string
+                                  failureThreshold:
+                                    format: int32
+                                    minimum: 0
+                                    type: integer
+                                  replicas:
+                                    format: int32
+                                    minimum: 0
+                                    type: integer
+                                required:
+                                - failureThreshold
+                                - replicas
+                                type: object
+                              idleReplicaCount:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              initialCooldownPeriod:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              pollingInterval:
+                                format: int32
+                                minimum: 1
+                                type: integer
+                            type: object
+                            x-kubernetes-validations:
+                            - message: horizontalPodAutoscalerConfig.name must not
+                                be set; the controller manages the HPA name
+                              rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                                || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                                == 0'
+                          variantCost:
+                            default: "10.0"
+                            pattern: ^\d+(\.\d+)?$
+                            type: string
+                        type: object
+                        x-kubernetes-validations:
+                        - message: scalingModifiers must not be set; WVA controls
+                            the scaling metric formula and logic
+                          rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                            == 0 && size(self.keda.advanced.scalingModifiers.target)
+                            == 0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                            == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                            == 0)'
+                        - message: hpa and keda are mutually exclusive; choose one
+                            actuator backend
+                          rule: '!(has(self.hpa) && has(self.keda))'
+                        - message: either hpa or keda must be specified as the actuator
+                            backend
+                          rule: has(self.hpa) || has(self.keda)
                     required:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: keda must be specified when scaling is configured
-                      rule: has(self.keda)
+                    - message: either wva or keda must be specified when scaling is
+                        configured
+                      rule: has(self.wva) || has(self.keda)
+                    - message: wva and keda are mutually exclusive
+                      rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct
                         KEDA scaling
                       rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                     - message: minReplicas cannot exceed maxReplicas
                       rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
                     - message: minReplicas is required when idleReplicaCount is set
-                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
-                        has(self.minReplicas)'
+                      rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                        || has(self.minReplicas)'
+                    - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                        defines the replica floor when no triggers are active
+                      rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                        || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
+                        < self.minReplicas'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                         defines the replica floor when no triggers are active
                       rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
@@ -58099,7 +57794,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -58505,7 +58199,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -58513,7 +58206,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -58851,7 +58543,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -59257,7 +58948,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -59265,7 +58955,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -59619,7 +59308,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -60025,7 +59713,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -60033,7 +59720,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -60293,7 +59979,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       preemptionPolicy:
@@ -60350,7 +60035,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                           requests:
@@ -60358,7 +60042,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
@@ -60725,7 +60408,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -60747,7 +60429,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                               type: object
                             ephemeral:
@@ -60797,7 +60478,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                             requests:
@@ -60805,7 +60485,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                           type: object
@@ -61132,7 +60811,6 @@ spec:
                                                       anyOf:
                                                       - type: integer
                                                       - type: string
-                                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                       x-kubernetes-int-or-string: true
                                                     resource:
                                                       type: string
@@ -61359,8 +61037,6 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
-                    required:
-                    - containers
                     type: object
                   worker:
                     properties:
@@ -61878,7 +61554,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -62284,7 +61959,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -62292,7 +61966,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -62630,7 +62303,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -63036,7 +62708,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -63044,7 +62715,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -63398,7 +63068,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -63804,7 +63473,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -63812,7 +63480,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -64072,7 +63739,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       preemptionPolicy:
@@ -64129,7 +63795,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                           requests:
@@ -64137,7 +63802,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
@@ -64504,7 +64168,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -64526,7 +64189,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                               type: object
                             ephemeral:
@@ -64576,7 +64238,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                             requests:
@@ -64584,7 +64245,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                           type: object
@@ -64911,7 +64571,6 @@ spec:
                                                       anyOf:
                                                       - type: integer
                                                       - type: string
-                                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                       x-kubernetes-int-or-string: true
                                                     resource:
                                                       type: string
@@ -65138,8 +64797,6 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
-                    required:
-                    - containers
                     type: object
                 type: object
                 x-kubernetes-validations:
@@ -65227,8 +64884,6 @@ spec:
                               hostnames:
                                 items:
                                   maxLength: 253
-                                  minLength: 1
-                                  pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                   type: string
                                 maxItems: 16
                                 type: array
@@ -65239,22 +64894,16 @@ spec:
                                     group:
                                       default: gateway.networking.k8s.io
                                       maxLength: 253
-                                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                     kind:
                                       default: Gateway
                                       maxLength: 63
-                                      minLength: 1
-                                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                       type: string
                                     name:
                                       maxLength: 253
-                                      minLength: 1
                                       type: string
                                     namespace:
                                       maxLength: 63
-                                      minLength: 1
-                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                       type: string
                                     port:
                                       format: int32
@@ -65263,8 +64912,6 @@ spec:
                                       type: integer
                                     sectionName:
                                       maxLength: 253
-                                      minLength: 1
-                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                   required:
                                   - name
@@ -65293,18 +64940,10 @@ spec:
                                                     allowHeaders:
                                                       items:
                                                         maxLength: 256
-                                                        minLength: 1
-                                                        pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                         type: string
                                                       maxItems: 64
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowHeaders cannot
-                                                          contain '*' alongside other
-                                                          methods
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     allowMethods:
                                                       items:
                                                         enum:
@@ -65322,32 +64961,16 @@ spec:
                                                       maxItems: 9
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowMethods cannot
-                                                          contain '*' alongside other
-                                                          methods
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     allowOrigins:
                                                       items:
                                                         maxLength: 253
-                                                        minLength: 1
-                                                        pattern: (^\*$)|(^(http(s)?):\/\/(((\*\.)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9-]+|\*)(:([0-9]{1,5}))?)$)
                                                         type: string
                                                       maxItems: 64
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowOrigins cannot
-                                                          contain '*' alongside other
-                                                          origins
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     exposeHeaders:
                                                       items:
                                                         maxLength: 256
-                                                        minLength: 1
-                                                        pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                         type: string
                                                       maxItems: 64
                                                       type: array
@@ -65362,16 +64985,12 @@ spec:
                                                   properties:
                                                     group:
                                                       maxLength: 253
-                                                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                       type: string
                                                     kind:
                                                       maxLength: 63
-                                                      minLength: 1
-                                                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                       type: string
                                                     name:
                                                       maxLength: 253
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - group
@@ -65385,22 +65004,16 @@ spec:
                                                         group:
                                                           default: ""
                                                           maxLength: 253
-                                                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                           type: string
                                                         kind:
                                                           default: Service
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                           type: string
                                                         name:
                                                           maxLength: 253
-                                                          minLength: 1
                                                           type: string
                                                         namespace:
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                           type: string
                                                         port:
                                                           format: int32
@@ -65410,12 +65023,6 @@ spec:
                                                       required:
                                                       - name
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: Must have port for
-                                                          Service reference
-                                                        rule: '(size(self.group) ==
-                                                          0 && self.kind == ''Service'')
-                                                          ? has(self.port) : true'
                                                     forwardBody:
                                                       properties:
                                                         maxSize:
@@ -65446,7 +65053,6 @@ spec:
                                                           x-kubernetes-list-type: set
                                                         path:
                                                           maxLength: 1024
-                                                          pattern: ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$
                                                           type: string
                                                       type: object
                                                     protocol:
@@ -65458,23 +65064,6 @@ spec:
                                                   - backendRef
                                                   - protocol
                                                   type: object
-                                                  x-kubernetes-validations:
-                                                  - message: grpc must be specified
-                                                      when protocol is set to 'GRPC'
-                                                    rule: 'self.protocol == ''GRPC''
-                                                      ? has(self.grpc) : true'
-                                                  - message: protocol must be 'GRPC'
-                                                      when grpc is set
-                                                    rule: 'has(self.grpc) ? self.protocol
-                                                      == ''GRPC'' : true'
-                                                  - message: http must be specified
-                                                      when protocol is set to 'HTTP'
-                                                    rule: 'self.protocol == ''HTTP''
-                                                      ? has(self.http) : true'
-                                                  - message: protocol must be 'HTTP'
-                                                      when http is set
-                                                    rule: 'has(self.http) ? self.protocol
-                                                      == ''HTTP'' : true'
                                                 requestHeaderModifier:
                                                   properties:
                                                     add:
@@ -65482,12 +65071,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -65509,12 +65095,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -65533,22 +65116,16 @@ spec:
                                                         group:
                                                           default: ""
                                                           maxLength: 253
-                                                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                           type: string
                                                         kind:
                                                           default: Service
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                           type: string
                                                         name:
                                                           maxLength: 253
-                                                          minLength: 1
                                                           type: string
                                                         namespace:
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                           type: string
                                                         port:
                                                           format: int32
@@ -65558,12 +65135,6 @@ spec:
                                                       required:
                                                       - name
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: Must have port for
-                                                          Service reference
-                                                        rule: '(size(self.group) ==
-                                                          0 && self.kind == ''Service'')
-                                                          ? has(self.port) : true'
                                                     fraction:
                                                       properties:
                                                         denominator:
@@ -65578,10 +65149,6 @@ spec:
                                                       required:
                                                       - numerator
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: numerator must be
-                                                          less than or equal to denominator
-                                                        rule: self.numerator <= self.denominator
                                                     percent:
                                                       format: int32
                                                       maximum: 100
@@ -65590,18 +65157,10 @@ spec:
                                                   required:
                                                   - backendRef
                                                   type: object
-                                                  x-kubernetes-validations:
-                                                  - message: Only one of percent or
-                                                      fraction may be specified in
-                                                      HTTPRequestMirrorFilter
-                                                    rule: '!(has(self.percent) &&
-                                                      has(self.fraction))'
                                                 requestRedirect:
                                                   properties:
                                                     hostname:
                                                       maxLength: 253
-                                                      minLength: 1
-                                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                       type: string
                                                     path:
                                                       properties:
@@ -65619,31 +65178,6 @@ spec:
                                                       required:
                                                       - type
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: replaceFullPath must
-                                                          be specified when type is
-                                                          set to 'ReplaceFullPath'
-                                                        rule: 'self.type == ''ReplaceFullPath''
-                                                          ? has(self.replaceFullPath)
-                                                          : true'
-                                                      - message: type must be 'ReplaceFullPath'
-                                                          when replaceFullPath is
-                                                          set
-                                                        rule: 'has(self.replaceFullPath)
-                                                          ? self.type == ''ReplaceFullPath''
-                                                          : true'
-                                                      - message: replacePrefixMatch
-                                                          must be specified when type
-                                                          is set to 'ReplacePrefixMatch'
-                                                        rule: 'self.type == ''ReplacePrefixMatch''
-                                                          ? has(self.replacePrefixMatch)
-                                                          : true'
-                                                      - message: type must be 'ReplacePrefixMatch'
-                                                          when replacePrefixMatch
-                                                          is set
-                                                        rule: 'has(self.replacePrefixMatch)
-                                                          ? self.type == ''ReplacePrefixMatch''
-                                                          : true'
                                                     port:
                                                       format: int32
                                                       maximum: 65535
@@ -65671,12 +65205,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -65698,12 +65229,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -65729,8 +65257,6 @@ spec:
                                                   properties:
                                                     hostname:
                                                       maxLength: 253
-                                                      minLength: 1
-                                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                       type: string
                                                     path:
                                                       properties:
@@ -65748,147 +65274,26 @@ spec:
                                                       required:
                                                       - type
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: replaceFullPath must
-                                                          be specified when type is
-                                                          set to 'ReplaceFullPath'
-                                                        rule: 'self.type == ''ReplaceFullPath''
-                                                          ? has(self.replaceFullPath)
-                                                          : true'
-                                                      - message: type must be 'ReplaceFullPath'
-                                                          when replaceFullPath is
-                                                          set
-                                                        rule: 'has(self.replaceFullPath)
-                                                          ? self.type == ''ReplaceFullPath''
-                                                          : true'
-                                                      - message: replacePrefixMatch
-                                                          must be specified when type
-                                                          is set to 'ReplacePrefixMatch'
-                                                        rule: 'self.type == ''ReplacePrefixMatch''
-                                                          ? has(self.replacePrefixMatch)
-                                                          : true'
-                                                      - message: type must be 'ReplacePrefixMatch'
-                                                          when replacePrefixMatch
-                                                          is set
-                                                        rule: 'has(self.replacePrefixMatch)
-                                                          ? self.type == ''ReplacePrefixMatch''
-                                                          : true'
                                                   type: object
                                               required:
                                               - type
                                               type: object
-                                              x-kubernetes-validations:
-                                              - message: filter.cors must be nil if
-                                                  the filter.type is not CORS
-                                                rule: '!(has(self.cors) && self.type
-                                                  != ''CORS'')'
-                                              - message: filter.cors must be specified
-                                                  for CORS filter.type
-                                                rule: '!(!has(self.cors) && self.type
-                                                  == ''CORS'')'
-                                              - message: filter.requestHeaderModifier
-                                                  must be nil if the filter.type is
-                                                  not RequestHeaderModifier
-                                                rule: '!(has(self.requestHeaderModifier)
-                                                  && self.type != ''RequestHeaderModifier'')'
-                                              - message: filter.requestHeaderModifier
-                                                  must be specified for RequestHeaderModifier
-                                                  filter.type
-                                                rule: '!(!has(self.requestHeaderModifier)
-                                                  && self.type == ''RequestHeaderModifier'')'
-                                              - message: filter.responseHeaderModifier
-                                                  must be nil if the filter.type is
-                                                  not ResponseHeaderModifier
-                                                rule: '!(has(self.responseHeaderModifier)
-                                                  && self.type != ''ResponseHeaderModifier'')'
-                                              - message: filter.responseHeaderModifier
-                                                  must be specified for ResponseHeaderModifier
-                                                  filter.type
-                                                rule: '!(!has(self.responseHeaderModifier)
-                                                  && self.type == ''ResponseHeaderModifier'')'
-                                              - message: filter.requestMirror must
-                                                  be nil if the filter.type is not
-                                                  RequestMirror
-                                                rule: '!(has(self.requestMirror) &&
-                                                  self.type != ''RequestMirror'')'
-                                              - message: filter.requestMirror must
-                                                  be specified for RequestMirror filter.type
-                                                rule: '!(!has(self.requestMirror)
-                                                  && self.type == ''RequestMirror'')'
-                                              - message: filter.requestRedirect must
-                                                  be nil if the filter.type is not
-                                                  RequestRedirect
-                                                rule: '!(has(self.requestRedirect)
-                                                  && self.type != ''RequestRedirect'')'
-                                              - message: filter.requestRedirect must
-                                                  be specified for RequestRedirect
-                                                  filter.type
-                                                rule: '!(!has(self.requestRedirect)
-                                                  && self.type == ''RequestRedirect'')'
-                                              - message: filter.urlRewrite must be
-                                                  nil if the filter.type is not URLRewrite
-                                                rule: '!(has(self.urlRewrite) && self.type
-                                                  != ''URLRewrite'')'
-                                              - message: filter.urlRewrite must be
-                                                  specified for URLRewrite filter.type
-                                                rule: '!(!has(self.urlRewrite) &&
-                                                  self.type == ''URLRewrite'')'
-                                              - message: filter.extensionRef must
-                                                  be nil if the filter.type is not
-                                                  ExtensionRef
-                                                rule: '!(has(self.extensionRef) &&
-                                                  self.type != ''ExtensionRef'')'
-                                              - message: filter.extensionRef must
-                                                  be specified for ExtensionRef filter.type
-                                                rule: '!(!has(self.extensionRef) &&
-                                                  self.type == ''ExtensionRef'')'
                                             maxItems: 16
                                             type: array
                                             x-kubernetes-list-type: atomic
-                                            x-kubernetes-validations:
-                                            - message: May specify either httpRouteFilterRequestRedirect
-                                                or httpRouteFilterRequestRewrite,
-                                                but not both
-                                              rule: '!(self.exists(f, f.type == ''RequestRedirect'')
-                                                && self.exists(f, f.type == ''URLRewrite''))'
-                                            - message: CORS filter cannot be repeated
-                                              rule: self.filter(f, f.type == 'CORS').size()
-                                                <= 1
-                                            - message: RequestHeaderModifier filter
-                                                cannot be repeated
-                                              rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
-                                                <= 1
-                                            - message: ResponseHeaderModifier filter
-                                                cannot be repeated
-                                              rule: self.filter(f, f.type == 'ResponseHeaderModifier').size()
-                                                <= 1
-                                            - message: RequestRedirect filter cannot
-                                                be repeated
-                                              rule: self.filter(f, f.type == 'RequestRedirect').size()
-                                                <= 1
-                                            - message: URLRewrite filter cannot be
-                                                repeated
-                                              rule: self.filter(f, f.type == 'URLRewrite').size()
-                                                <= 1
                                           group:
                                             default: ""
                                             maxLength: 253
-                                            pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                             type: string
                                           kind:
                                             default: Service
                                             maxLength: 63
-                                            minLength: 1
-                                            pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                             type: string
                                           name:
                                             maxLength: 253
-                                            minLength: 1
                                             type: string
                                           namespace:
                                             maxLength: 63
-                                            minLength: 1
-                                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                             type: string
                                           port:
                                             format: int32
@@ -65904,10 +65309,6 @@ spec:
                                         required:
                                         - name
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: Must have port for Service reference
-                                          rule: '(size(self.group) == 0 && self.kind
-                                            == ''Service'') ? has(self.port) : true'
                                       maxItems: 16
                                       type: array
                                       x-kubernetes-list-type: atomic
@@ -65921,17 +65322,10 @@ spec:
                                               allowHeaders:
                                                 items:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 maxItems: 64
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowHeaders cannot contain
-                                                    '*' alongside other methods
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               allowMethods:
                                                 items:
                                                   enum:
@@ -65949,30 +65343,16 @@ spec:
                                                 maxItems: 9
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowMethods cannot contain
-                                                    '*' alongside other methods
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               allowOrigins:
                                                 items:
                                                   maxLength: 253
-                                                  minLength: 1
-                                                  pattern: (^\*$)|(^(http(s)?):\/\/(((\*\.)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9-]+|\*)(:([0-9]{1,5}))?)$)
                                                   type: string
                                                 maxItems: 64
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowOrigins cannot contain
-                                                    '*' alongside other origins
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               exposeHeaders:
                                                 items:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 maxItems: 64
                                                 type: array
@@ -65987,16 +65367,12 @@ spec:
                                             properties:
                                               group:
                                                 maxLength: 253
-                                                pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                 type: string
                                               kind:
                                                 maxLength: 63
-                                                minLength: 1
-                                                pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                 type: string
                                               name:
                                                 maxLength: 253
-                                                minLength: 1
                                                 type: string
                                             required:
                                             - group
@@ -66010,22 +65386,16 @@ spec:
                                                   group:
                                                     default: ""
                                                     maxLength: 253
-                                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                     type: string
                                                   kind:
                                                     default: Service
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                     type: string
                                                   name:
                                                     maxLength: 253
-                                                    minLength: 1
                                                     type: string
                                                   namespace:
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                     type: string
                                                   port:
                                                     format: int32
@@ -66035,12 +65405,6 @@ spec:
                                                 required:
                                                 - name
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: Must have port for Service
-                                                    reference
-                                                  rule: '(size(self.group) == 0 &&
-                                                    self.kind == ''Service'') ? has(self.port)
-                                                    : true'
                                               forwardBody:
                                                 properties:
                                                   maxSize:
@@ -66071,7 +65435,6 @@ spec:
                                                     x-kubernetes-list-type: set
                                                   path:
                                                     maxLength: 1024
-                                                    pattern: ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$
                                                     type: string
                                                 type: object
                                               protocol:
@@ -66083,23 +65446,6 @@ spec:
                                             - backendRef
                                             - protocol
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: grpc must be specified when
-                                                protocol is set to 'GRPC'
-                                              rule: 'self.protocol == ''GRPC'' ? has(self.grpc)
-                                                : true'
-                                            - message: protocol must be 'GRPC' when
-                                                grpc is set
-                                              rule: 'has(self.grpc) ? self.protocol
-                                                == ''GRPC'' : true'
-                                            - message: http must be specified when
-                                                protocol is set to 'HTTP'
-                                              rule: 'self.protocol == ''HTTP'' ? has(self.http)
-                                                : true'
-                                            - message: protocol must be 'HTTP' when
-                                                http is set
-                                              rule: 'has(self.http) ? self.protocol
-                                                == ''HTTP'' : true'
                                           requestHeaderModifier:
                                             properties:
                                               add:
@@ -66107,12 +65453,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -66134,12 +65477,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -66158,22 +65498,16 @@ spec:
                                                   group:
                                                     default: ""
                                                     maxLength: 253
-                                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                     type: string
                                                   kind:
                                                     default: Service
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                     type: string
                                                   name:
                                                     maxLength: 253
-                                                    minLength: 1
                                                     type: string
                                                   namespace:
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                     type: string
                                                   port:
                                                     format: int32
@@ -66183,12 +65517,6 @@ spec:
                                                 required:
                                                 - name
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: Must have port for Service
-                                                    reference
-                                                  rule: '(size(self.group) == 0 &&
-                                                    self.kind == ''Service'') ? has(self.port)
-                                                    : true'
                                               fraction:
                                                 properties:
                                                   denominator:
@@ -66203,10 +65531,6 @@ spec:
                                                 required:
                                                 - numerator
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: numerator must be less
-                                                    than or equal to denominator
-                                                  rule: self.numerator <= self.denominator
                                               percent:
                                                 format: int32
                                                 maximum: 100
@@ -66215,16 +65539,10 @@ spec:
                                             required:
                                             - backendRef
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: Only one of percent or fraction
-                                                may be specified in HTTPRequestMirrorFilter
-                                              rule: '!(has(self.percent) && has(self.fraction))'
                                           requestRedirect:
                                             properties:
                                               hostname:
                                                 maxLength: 253
-                                                minLength: 1
-                                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                 type: string
                                               path:
                                                 properties:
@@ -66242,29 +65560,6 @@ spec:
                                                 required:
                                                 - type
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: replaceFullPath must be
-                                                    specified when type is set to
-                                                    'ReplaceFullPath'
-                                                  rule: 'self.type == ''ReplaceFullPath''
-                                                    ? has(self.replaceFullPath) :
-                                                    true'
-                                                - message: type must be 'ReplaceFullPath'
-                                                    when replaceFullPath is set
-                                                  rule: 'has(self.replaceFullPath)
-                                                    ? self.type == ''ReplaceFullPath''
-                                                    : true'
-                                                - message: replacePrefixMatch must
-                                                    be specified when type is set
-                                                    to 'ReplacePrefixMatch'
-                                                  rule: 'self.type == ''ReplacePrefixMatch''
-                                                    ? has(self.replacePrefixMatch)
-                                                    : true'
-                                                - message: type must be 'ReplacePrefixMatch'
-                                                    when replacePrefixMatch is set
-                                                  rule: 'has(self.replacePrefixMatch)
-                                                    ? self.type == ''ReplacePrefixMatch''
-                                                    : true'
                                               port:
                                                 format: int32
                                                 maximum: 65535
@@ -66292,12 +65587,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -66319,12 +65611,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -66350,8 +65639,6 @@ spec:
                                             properties:
                                               hostname:
                                                 maxLength: 253
-                                                minLength: 1
-                                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                 type: string
                                               path:
                                                 properties:
@@ -66369,119 +65656,13 @@ spec:
                                                 required:
                                                 - type
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: replaceFullPath must be
-                                                    specified when type is set to
-                                                    'ReplaceFullPath'
-                                                  rule: 'self.type == ''ReplaceFullPath''
-                                                    ? has(self.replaceFullPath) :
-                                                    true'
-                                                - message: type must be 'ReplaceFullPath'
-                                                    when replaceFullPath is set
-                                                  rule: 'has(self.replaceFullPath)
-                                                    ? self.type == ''ReplaceFullPath''
-                                                    : true'
-                                                - message: replacePrefixMatch must
-                                                    be specified when type is set
-                                                    to 'ReplacePrefixMatch'
-                                                  rule: 'self.type == ''ReplacePrefixMatch''
-                                                    ? has(self.replacePrefixMatch)
-                                                    : true'
-                                                - message: type must be 'ReplacePrefixMatch'
-                                                    when replacePrefixMatch is set
-                                                  rule: 'has(self.replacePrefixMatch)
-                                                    ? self.type == ''ReplacePrefixMatch''
-                                                    : true'
                                             type: object
                                         required:
                                         - type
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: filter.cors must be nil if the
-                                            filter.type is not CORS
-                                          rule: '!(has(self.cors) && self.type !=
-                                            ''CORS'')'
-                                        - message: filter.cors must be specified for
-                                            CORS filter.type
-                                          rule: '!(!has(self.cors) && self.type ==
-                                            ''CORS'')'
-                                        - message: filter.requestHeaderModifier must
-                                            be nil if the filter.type is not RequestHeaderModifier
-                                          rule: '!(has(self.requestHeaderModifier)
-                                            && self.type != ''RequestHeaderModifier'')'
-                                        - message: filter.requestHeaderModifier must
-                                            be specified for RequestHeaderModifier
-                                            filter.type
-                                          rule: '!(!has(self.requestHeaderModifier)
-                                            && self.type == ''RequestHeaderModifier'')'
-                                        - message: filter.responseHeaderModifier must
-                                            be nil if the filter.type is not ResponseHeaderModifier
-                                          rule: '!(has(self.responseHeaderModifier)
-                                            && self.type != ''ResponseHeaderModifier'')'
-                                        - message: filter.responseHeaderModifier must
-                                            be specified for ResponseHeaderModifier
-                                            filter.type
-                                          rule: '!(!has(self.responseHeaderModifier)
-                                            && self.type == ''ResponseHeaderModifier'')'
-                                        - message: filter.requestMirror must be nil
-                                            if the filter.type is not RequestMirror
-                                          rule: '!(has(self.requestMirror) && self.type
-                                            != ''RequestMirror'')'
-                                        - message: filter.requestMirror must be specified
-                                            for RequestMirror filter.type
-                                          rule: '!(!has(self.requestMirror) && self.type
-                                            == ''RequestMirror'')'
-                                        - message: filter.requestRedirect must be
-                                            nil if the filter.type is not RequestRedirect
-                                          rule: '!(has(self.requestRedirect) && self.type
-                                            != ''RequestRedirect'')'
-                                        - message: filter.requestRedirect must be
-                                            specified for RequestRedirect filter.type
-                                          rule: '!(!has(self.requestRedirect) && self.type
-                                            == ''RequestRedirect'')'
-                                        - message: filter.urlRewrite must be nil if
-                                            the filter.type is not URLRewrite
-                                          rule: '!(has(self.urlRewrite) && self.type
-                                            != ''URLRewrite'')'
-                                        - message: filter.urlRewrite must be specified
-                                            for URLRewrite filter.type
-                                          rule: '!(!has(self.urlRewrite) && self.type
-                                            == ''URLRewrite'')'
-                                        - message: filter.extensionRef must be nil
-                                            if the filter.type is not ExtensionRef
-                                          rule: '!(has(self.extensionRef) && self.type
-                                            != ''ExtensionRef'')'
-                                        - message: filter.extensionRef must be specified
-                                            for ExtensionRef filter.type
-                                          rule: '!(!has(self.extensionRef) && self.type
-                                            == ''ExtensionRef'')'
                                       maxItems: 16
                                       type: array
                                       x-kubernetes-list-type: atomic
-                                      x-kubernetes-validations:
-                                      - message: May specify either httpRouteFilterRequestRedirect
-                                          or httpRouteFilterRequestRewrite, but not
-                                          both
-                                        rule: '!(self.exists(f, f.type == ''RequestRedirect'')
-                                          && self.exists(f, f.type == ''URLRewrite''))'
-                                      - message: CORS filter cannot be repeated
-                                        rule: self.filter(f, f.type == 'CORS').size()
-                                          <= 1
-                                      - message: RequestHeaderModifier filter cannot
-                                          be repeated
-                                        rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
-                                          <= 1
-                                      - message: ResponseHeaderModifier filter cannot
-                                          be repeated
-                                        rule: self.filter(f, f.type == 'ResponseHeaderModifier').size()
-                                          <= 1
-                                      - message: RequestRedirect filter cannot be
-                                          repeated
-                                        rule: self.filter(f, f.type == 'RequestRedirect').size()
-                                          <= 1
-                                      - message: URLRewrite filter cannot be repeated
-                                        rule: self.filter(f, f.type == 'URLRewrite').size()
-                                          <= 1
                                     matches:
                                       default:
                                       - path:
@@ -66494,8 +65675,6 @@ spec:
                                               properties:
                                                 name:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 type:
                                                   default: Exact
@@ -66505,7 +65684,6 @@ spec:
                                                   type: string
                                                 value:
                                                   maxLength: 4096
-                                                  minLength: 1
                                                   type: string
                                               required:
                                               - name
@@ -66545,66 +65723,11 @@ spec:
                                                 maxLength: 1024
                                                 type: string
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: value must be an absolute path
-                                                and start with '/' when type one of
-                                                ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? self.value.startsWith(''/'') : true'
-                                            - message: must not contain '//' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''//'') : true'
-                                            - message: must not contain '/./' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''/./'') :
-                                                true'
-                                            - message: must not contain '/../' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''/../'') :
-                                                true'
-                                            - message: must not contain '%2f' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''%2f'') :
-                                                true'
-                                            - message: must not contain '%2F' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''%2F'') :
-                                                true'
-                                            - message: must not contain '#' when type
-                                                one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''#'') : true'
-                                            - message: must not end with '/..' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.endsWith(''/..'') :
-                                                true'
-                                            - message: must not end with '/.' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.endsWith(''/.'') : true'
-                                            - message: type must be one of ['Exact',
-                                                'PathPrefix', 'RegularExpression']
-                                              rule: self.type in ['Exact','PathPrefix']
-                                                || self.type == 'RegularExpression'
-                                            - message: must only contain valid characters
-                                                (matching ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$)
-                                                for types ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? self.value.matches(r"""^(?:[-A-Za-z0-9/._~!$&''()*+,;=:@]|[%][0-9a-fA-F]{2})+$""")
-                                                : true'
                                           queryParams:
                                             items:
                                               properties:
                                                 name:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 type:
                                                   default: Exact
@@ -66614,7 +65737,6 @@ spec:
                                                   type: string
                                                 value:
                                                   maxLength: 1024
-                                                  minLength: 1
                                                   type: string
                                               required:
                                               - name
@@ -66631,15 +65753,12 @@ spec:
                                       x-kubernetes-list-type: atomic
                                     name:
                                       maxLength: 253
-                                      minLength: 1
-                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                     retry:
                                       properties:
                                         attempts:
                                           type: integer
                                         backoff:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         codes:
                                           items:
@@ -66652,7 +65771,6 @@ spec:
                                     sessionPersistence:
                                       properties:
                                         absoluteTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         cookieConfig:
                                           properties:
@@ -66664,7 +65782,6 @@ spec:
                                               type: string
                                           type: object
                                         idleTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         sessionName:
                                           maxLength: 128
@@ -66676,102 +65793,17 @@ spec:
                                           - Header
                                           type: string
                                       type: object
-                                      x-kubernetes-validations:
-                                      - message: AbsoluteTimeout must be specified
-                                          when cookie lifetimeType is Permanent
-                                        rule: '!has(self.cookieConfig) || !has(self.cookieConfig.lifetimeType)
-                                          || self.cookieConfig.lifetimeType != ''Permanent''
-                                          || has(self.absoluteTimeout)'
-                                      - message: cookieConfig can only be set with
-                                          type Cookie
-                                        rule: '!has(self.cookieConfig) || self.type
-                                          == ''Cookie'''
                                     timeouts:
                                       properties:
                                         backendRequest:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         request:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                       type: object
-                                      x-kubernetes-validations:
-                                      - message: backendRequest timeout cannot be
-                                          longer than request timeout
-                                        rule: '!(has(self.request) && has(self.backendRequest)
-                                          && duration(self.request) != duration(''0s'')
-                                          && duration(self.backendRequest) > duration(self.request))'
                                   type: object
-                                  x-kubernetes-validations:
-                                  - message: RequestRedirect filter must not be used
-                                      together with backendRefs
-                                    rule: '(has(self.backendRefs) && size(self.backendRefs)
-                                      > 0) ? (!has(self.filters) || self.filters.all(f,
-                                      !has(f.requestRedirect))): true'
-                                  - message: When using RequestRedirect filter with
-                                      path.replacePrefixMatch, exactly one PathPrefix
-                                      match must be specified
-                                    rule: '(has(self.filters) && self.filters.exists_one(f,
-                                      has(f.requestRedirect) && has(f.requestRedirect.path)
-                                      && f.requestRedirect.path.type == ''ReplacePrefixMatch''
-                                      && has(f.requestRedirect.path.replacePrefixMatch)))
-                                      ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: When using URLRewrite filter with path.replacePrefixMatch,
-                                      exactly one PathPrefix match must be specified
-                                    rule: '(has(self.filters) && self.filters.exists_one(f,
-                                      has(f.urlRewrite) && has(f.urlRewrite.path)
-                                      && f.urlRewrite.path.type == ''ReplacePrefixMatch''
-                                      && has(f.urlRewrite.path.replacePrefixMatch)))
-                                      ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: Within backendRefs, when using RequestRedirect
-                                      filter with path.replacePrefixMatch, exactly
-                                      one PathPrefix match must be specified
-                                    rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b,
-                                      (has(b.filters) && b.filters.exists_one(f, has(f.requestRedirect)
-                                      && has(f.requestRedirect.path) && f.requestRedirect.path.type
-                                      == ''ReplacePrefixMatch'' && has(f.requestRedirect.path.replacePrefixMatch)))
-                                      )) ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: Within backendRefs, When using URLRewrite
-                                      filter with path.replacePrefixMatch, exactly
-                                      one PathPrefix match must be specified
-                                    rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b,
-                                      (has(b.filters) && b.filters.exists_one(f, has(f.urlRewrite)
-                                      && has(f.urlRewrite.path) && f.urlRewrite.path.type
-                                      == ''ReplacePrefixMatch'' && has(f.urlRewrite.path.replacePrefixMatch)))
-                                      )) ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
                                 maxItems: 16
-                                minItems: 1
                                 type: array
                                 x-kubernetes-list-type: atomic
-                                x-kubernetes-validations:
-                                - message: While 16 rules and 64 matches per rule
-                                    are allowed, the total number of matches across
-                                    all rules in a route must be less than 128
-                                  rule: '(self.size() > 0 ? self[0].matches.size()
-                                    : 0) + (self.size() > 1 ? self[1].matches.size()
-                                    : 0) + (self.size() > 2 ? self[2].matches.size()
-                                    : 0) + (self.size() > 3 ? self[3].matches.size()
-                                    : 0) + (self.size() > 4 ? self[4].matches.size()
-                                    : 0) + (self.size() > 5 ? self[5].matches.size()
-                                    : 0) + (self.size() > 6 ? self[6].matches.size()
-                                    : 0) + (self.size() > 7 ? self[7].matches.size()
-                                    : 0) + (self.size() > 8 ? self[8].matches.size()
-                                    : 0) + (self.size() > 9 ? self[9].matches.size()
-                                    : 0) + (self.size() > 10 ? self[10].matches.size()
-                                    : 0) + (self.size() > 11 ? self[11].matches.size()
-                                    : 0) + (self.size() > 12 ? self[12].matches.size()
-                                    : 0) + (self.size() > 13 ? self[13].matches.size()
-                                    : 0) + (self.size() > 14 ? self[14].matches.size()
-                                    : 0) + (self.size() > 15 ? self[15].matches.size()
-                                    : 0) <= 128'
                               useDefaultGateways:
                                 enum:
                                 - All
@@ -66834,16 +65866,12 @@ spec:
                                     type: string
                                   group:
                                     maxLength: 253
-                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                     type: string
                                   kind:
                                     maxLength: 63
-                                    minLength: 1
-                                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                     type: string
                                   name:
                                     maxLength: 253
-                                    minLength: 1
                                     type: string
                                   portNumber:
                                     format: int32
@@ -66857,7 +65885,6 @@ spec:
                               selector:
                                 additionalProperties:
                                   maxLength: 63
-                                  minLength: 0
                                   type: string
                                 type: object
                               targetPortNumber:
@@ -67387,7 +66414,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -67793,7 +66819,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                     requests:
@@ -67801,7 +66826,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                   type: object
@@ -68139,7 +67163,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -68545,7 +67568,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                     requests:
@@ -68553,7 +67575,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                   type: object
@@ -68907,7 +67928,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -69313,7 +68333,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                     requests:
@@ -69321,7 +68340,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                   type: object
@@ -69581,7 +68599,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                           preemptionPolicy:
@@ -69638,7 +68655,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 type: object
                               requests:
@@ -69646,7 +68662,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 type: object
                             type: object
@@ -70013,7 +69028,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -70035,7 +69049,6 @@ spec:
                                       anyOf:
                                       - type: integer
                                       - type: string
-                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                   type: object
                                 ephemeral:
@@ -70085,7 +69098,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   type: object
                                                 requests:
@@ -70093,7 +69105,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   type: object
                                               type: object
@@ -70420,7 +69431,6 @@ spec:
                                                           anyOf:
                                                           - type: integer
                                                           - type: string
-                                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                           x-kubernetes-int-or-string: true
                                                         resource:
                                                           type: string
@@ -70647,8 +69657,6 @@ spec:
                             x-kubernetes-list-map-keys:
                             - name
                             x-kubernetes-list-type: map
-                        required:
-                        - containers
                         type: object
                       tokenizer:
                         properties:
@@ -71168,7 +70176,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -71574,7 +70581,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -71582,7 +70588,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -71920,7 +70925,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -72326,7 +71330,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -72334,7 +71337,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -72688,7 +71690,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -73094,7 +72095,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -73102,7 +72102,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -73362,7 +72361,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 type: object
                               preemptionPolicy:
@@ -73419,7 +72417,6 @@ spec:
                                       anyOf:
                                       - type: integer
                                       - type: string
-                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                     type: object
                                   requests:
@@ -73427,7 +72424,6 @@ spec:
                                       anyOf:
                                       - type: integer
                                       - type: string
-                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                     type: object
                                 type: object
@@ -73794,7 +72790,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -73816,7 +72811,6 @@ spec:
                                           anyOf:
                                           - type: integer
                                           - type: string
-                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                           x-kubernetes-int-or-string: true
                                       type: object
                                     ephemeral:
@@ -73866,7 +72860,6 @@ spec:
                                                         anyOf:
                                                         - type: integer
                                                         - type: string
-                                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                         x-kubernetes-int-or-string: true
                                                       type: object
                                                     requests:
@@ -73874,7 +72867,6 @@ spec:
                                                         anyOf:
                                                         - type: integer
                                                         - type: string
-                                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                         x-kubernetes-int-or-string: true
                                                       type: object
                                                   type: object
@@ -74201,7 +73193,6 @@ spec:
                                                               anyOf:
                                                               - type: integer
                                                               - type: string
-                                                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                               x-kubernetes-int-or-string: true
                                                             resource:
                                                               type: string
@@ -74623,19 +73614,257 @@ spec:
                     format: int32
                     minimum: 1
                     type: integer
+                  wva:
+                    properties:
+                      hpa:
+                        properties:
+                          behavior:
+                            properties:
+                              scaleDown:
+                                properties:
+                                  policies:
+                                    items:
+                                      properties:
+                                        periodSeconds:
+                                          format: int32
+                                          type: integer
+                                        type:
+                                          type: string
+                                        value:
+                                          format: int32
+                                          type: integer
+                                      required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  selectPolicy:
+                                    type: string
+                                  stabilizationWindowSeconds:
+                                    format: int32
+                                    type: integer
+                                  tolerance:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                type: object
+                              scaleUp:
+                                properties:
+                                  policies:
+                                    items:
+                                      properties:
+                                        periodSeconds:
+                                          format: int32
+                                          type: integer
+                                        type:
+                                          type: string
+                                        value:
+                                          format: int32
+                                          type: integer
+                                      required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  selectPolicy:
+                                    type: string
+                                  stabilizationWindowSeconds:
+                                    format: int32
+                                    type: integer
+                                  tolerance:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                type: object
+                            type: object
+                        type: object
+                      keda:
+                        properties:
+                          advanced:
+                            properties:
+                              horizontalPodAutoscalerConfig:
+                                properties:
+                                  behavior:
+                                    properties:
+                                      scaleDown:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                      scaleUp:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                    type: object
+                                  name:
+                                    type: string
+                                type: object
+                              restoreToOriginalReplicaCount:
+                                type: boolean
+                              scalingModifiers:
+                                properties:
+                                  activationTarget:
+                                    type: string
+                                  formula:
+                                    type: string
+                                  metricType:
+                                    enum:
+                                    - AverageValue
+                                    - Value
+                                    type: string
+                                  target:
+                                    type: string
+                                type: object
+                            type: object
+                          cooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          fallback:
+                            properties:
+                              behavior:
+                                default: static
+                                enum:
+                                - static
+                                - currentReplicas
+                                - currentReplicasIfHigher
+                                - currentReplicasIfLower
+                                - scalingModifiers
+                                type: string
+                              failureThreshold:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              replicas:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                            required:
+                            - failureThreshold
+                            - replicas
+                            type: object
+                          idleReplicaCount:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          initialCooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          pollingInterval:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
+                        x-kubernetes-validations:
+                        - message: horizontalPodAutoscalerConfig.name must not be
+                            set; the controller manages the HPA name
+                          rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                            == 0'
+                      variantCost:
+                        default: "10.0"
+                        pattern: ^\d+(\.\d+)?$
+                        type: string
+                    type: object
+                    x-kubernetes-validations:
+                    - message: scalingModifiers must not be set; WVA controls the
+                        scaling metric formula and logic
+                      rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                        == 0 && size(self.keda.advanced.scalingModifiers.target) ==
+                        0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                        == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                        == 0)'
+                    - message: hpa and keda are mutually exclusive; choose one actuator
+                        backend
+                      rule: '!(has(self.hpa) && has(self.keda))'
+                    - message: either hpa or keda must be specified as the actuator
+                        backend
+                      rule: has(self.hpa) || has(self.keda)
                 required:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: keda must be specified when scaling is configured
-                  rule: has(self.keda)
+                - message: either wva or keda must be specified when scaling is configured
+                  rule: has(self.wva) || has(self.keda)
+                - message: wva and keda are mutually exclusive
+                  rule: '!(has(self.wva) && has(self.keda))'
                 - message: at least one trigger is required when using direct KEDA
                     scaling
                   rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                 - message: minReplicas cannot exceed maxReplicas
                   rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
                 - message: minReplicas is required when idleReplicaCount is set
-                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
+                  rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                    || has(self.minReplicas)'
+                - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                    defines the replica floor when no triggers are active
+                  rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                    || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
+                    self.minReplicas'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                     defines the replica floor when no triggers are active
                   rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas)
@@ -75161,7 +74390,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -75567,7 +74795,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -75575,7 +74802,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -75913,7 +75139,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -76319,7 +75544,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -76327,7 +75551,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -76681,7 +75904,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -77087,7 +76309,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -77095,7 +76316,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -77355,7 +76575,6 @@ spec:
                       anyOf:
                       - type: integer
                       - type: string
-                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     type: object
                   preemptionPolicy:
@@ -77412,7 +76631,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       requests:
@@ -77420,7 +76638,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                     type: object
@@ -77787,7 +77004,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -77809,7 +77025,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                           type: object
                         ephemeral:
@@ -77859,7 +77074,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -77867,7 +77081,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -78194,7 +77407,6 @@ spec:
                                                   anyOf:
                                                   - type: integer
                                                   - type: string
-                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                   x-kubernetes-int-or-string: true
                                                 resource:
                                                   type: string
@@ -78421,8 +77633,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                required:
-                - containers
                 type: object
               tracing:
                 properties:
@@ -78953,7 +78163,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -79359,7 +78568,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -79367,7 +78575,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -79705,7 +78912,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -80111,7 +79317,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -80119,7 +79324,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -80473,7 +79677,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -80879,7 +80082,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -80887,7 +80089,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -81147,7 +80348,6 @@ spec:
                       anyOf:
                       - type: integer
                       - type: string
-                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     type: object
                   preemptionPolicy:
@@ -81204,7 +80404,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       requests:
@@ -81212,7 +80411,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                     type: object
@@ -81579,7 +80777,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -81601,7 +80798,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                           type: object
                         ephemeral:
@@ -81651,7 +80847,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -81659,7 +80854,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -81986,7 +81180,6 @@ spec:
                                                   anyOf:
                                                   - type: integer
                                                   - type: string
-                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                   x-kubernetes-int-or-string: true
                                                 resource:
                                                   type: string
@@ -82213,8 +81406,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                required:
-                - containers
                 type: object
             type: object
             x-kubernetes-validations:
@@ -83021,20 +82212,258 @@ spec:
                         format: int32
                         minimum: 1
                         type: integer
+                      wva:
+                        properties:
+                          hpa:
+                            properties:
+                              behavior:
+                                properties:
+                                  scaleDown:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                  scaleUp:
+                                    properties:
+                                      policies:
+                                        items:
+                                          properties:
+                                            periodSeconds:
+                                              format: int32
+                                              type: integer
+                                            type:
+                                              type: string
+                                            value:
+                                              format: int32
+                                              type: integer
+                                          required:
+                                          - periodSeconds
+                                          - type
+                                          - value
+                                          type: object
+                                        type: array
+                                        x-kubernetes-list-type: atomic
+                                      selectPolicy:
+                                        type: string
+                                      stabilizationWindowSeconds:
+                                        format: int32
+                                        type: integer
+                                      tolerance:
+                                        anyOf:
+                                        - type: integer
+                                        - type: string
+                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                        x-kubernetes-int-or-string: true
+                                    type: object
+                                type: object
+                            type: object
+                          keda:
+                            properties:
+                              advanced:
+                                properties:
+                                  horizontalPodAutoscalerConfig:
+                                    properties:
+                                      behavior:
+                                        properties:
+                                          scaleDown:
+                                            properties:
+                                              policies:
+                                                items:
+                                                  properties:
+                                                    periodSeconds:
+                                                      format: int32
+                                                      type: integer
+                                                    type:
+                                                      type: string
+                                                    value:
+                                                      format: int32
+                                                      type: integer
+                                                  required:
+                                                  - periodSeconds
+                                                  - type
+                                                  - value
+                                                  type: object
+                                                type: array
+                                                x-kubernetes-list-type: atomic
+                                              selectPolicy:
+                                                type: string
+                                              stabilizationWindowSeconds:
+                                                format: int32
+                                                type: integer
+                                              tolerance:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                            type: object
+                                          scaleUp:
+                                            properties:
+                                              policies:
+                                                items:
+                                                  properties:
+                                                    periodSeconds:
+                                                      format: int32
+                                                      type: integer
+                                                    type:
+                                                      type: string
+                                                    value:
+                                                      format: int32
+                                                      type: integer
+                                                  required:
+                                                  - periodSeconds
+                                                  - type
+                                                  - value
+                                                  type: object
+                                                type: array
+                                                x-kubernetes-list-type: atomic
+                                              selectPolicy:
+                                                type: string
+                                              stabilizationWindowSeconds:
+                                                format: int32
+                                                type: integer
+                                              tolerance:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                            type: object
+                                        type: object
+                                      name:
+                                        type: string
+                                    type: object
+                                  restoreToOriginalReplicaCount:
+                                    type: boolean
+                                  scalingModifiers:
+                                    properties:
+                                      activationTarget:
+                                        type: string
+                                      formula:
+                                        type: string
+                                      metricType:
+                                        enum:
+                                        - AverageValue
+                                        - Value
+                                        type: string
+                                      target:
+                                        type: string
+                                    type: object
+                                type: object
+                              cooldownPeriod:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              fallback:
+                                properties:
+                                  behavior:
+                                    default: static
+                                    enum:
+                                    - static
+                                    - currentReplicas
+                                    - currentReplicasIfHigher
+                                    - currentReplicasIfLower
+                                    - scalingModifiers
+                                    type: string
+                                  failureThreshold:
+                                    format: int32
+                                    minimum: 0
+                                    type: integer
+                                  replicas:
+                                    format: int32
+                                    minimum: 0
+                                    type: integer
+                                required:
+                                - failureThreshold
+                                - replicas
+                                type: object
+                              idleReplicaCount:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              initialCooldownPeriod:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              pollingInterval:
+                                format: int32
+                                minimum: 1
+                                type: integer
+                            type: object
+                            x-kubernetes-validations:
+                            - message: horizontalPodAutoscalerConfig.name must not
+                                be set; the controller manages the HPA name
+                              rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                                || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                                == 0'
+                          variantCost:
+                            default: "10.0"
+                            pattern: ^\d+(\.\d+)?$
+                            type: string
+                        type: object
+                        x-kubernetes-validations:
+                        - message: scalingModifiers must not be set; WVA controls
+                            the scaling metric formula and logic
+                          rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                            == 0 && size(self.keda.advanced.scalingModifiers.target)
+                            == 0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                            == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                            == 0)'
+                        - message: hpa and keda are mutually exclusive; choose one
+                            actuator backend
+                          rule: '!(has(self.hpa) && has(self.keda))'
+                        - message: either hpa or keda must be specified as the actuator
+                            backend
+                          rule: has(self.hpa) || has(self.keda)
                     required:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: keda must be specified when scaling is configured
-                      rule: has(self.keda)
+                    - message: either wva or keda must be specified when scaling is
+                        configured
+                      rule: has(self.wva) || has(self.keda)
+                    - message: wva and keda are mutually exclusive
+                      rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct
                         KEDA scaling
                       rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                     - message: minReplicas cannot exceed maxReplicas
                       rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
                     - message: minReplicas is required when idleReplicaCount is set
-                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
-                        has(self.minReplicas)'
+                      rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                        || has(self.minReplicas)'
+                    - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                        defines the replica floor when no triggers are active
+                      rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                        || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
+                        < self.minReplicas'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                         defines the replica floor when no triggers are active
                       rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
@@ -83555,7 +82984,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -83961,7 +83389,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -83969,7 +83396,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -84307,7 +83733,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -84713,7 +84138,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -84721,7 +84145,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -85075,7 +84498,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -85481,7 +84903,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -85489,7 +84910,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -85749,7 +85169,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       preemptionPolicy:
@@ -85806,7 +85225,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                           requests:
@@ -85814,7 +85232,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
@@ -86181,7 +85598,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -86203,7 +85619,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                               type: object
                             ephemeral:
@@ -86253,7 +85668,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                             requests:
@@ -86261,7 +85675,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                           type: object
@@ -86588,7 +86001,6 @@ spec:
                                                       anyOf:
                                                       - type: integer
                                                       - type: string
-                                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                       x-kubernetes-int-or-string: true
                                                     resource:
                                                       type: string
@@ -86815,8 +86227,6 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
-                    required:
-                    - containers
                     type: object
                   worker:
                     properties:
@@ -87334,7 +86744,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -87740,7 +87149,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -87748,7 +87156,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -88086,7 +87493,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -88492,7 +87898,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -88500,7 +87905,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -88854,7 +88258,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -89260,7 +88663,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                                 requests:
@@ -89268,7 +88670,6 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
-                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                   type: object
                               type: object
@@ -89528,7 +88929,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       preemptionPolicy:
@@ -89585,7 +88985,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                           requests:
@@ -89593,7 +88992,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                         type: object
@@ -89960,7 +89358,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           resource:
                                             type: string
@@ -89982,7 +89379,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                               type: object
                             ephemeral:
@@ -90032,7 +89428,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                             requests:
@@ -90040,7 +89435,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               type: object
                                           type: object
@@ -90367,7 +89761,6 @@ spec:
                                                       anyOf:
                                                       - type: integer
                                                       - type: string
-                                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                       x-kubernetes-int-or-string: true
                                                     resource:
                                                       type: string
@@ -90594,8 +89987,6 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
-                    required:
-                    - containers
                     type: object
                 type: object
                 x-kubernetes-validations:
@@ -90683,8 +90074,6 @@ spec:
                               hostnames:
                                 items:
                                   maxLength: 253
-                                  minLength: 1
-                                  pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                   type: string
                                 maxItems: 16
                                 type: array
@@ -90695,22 +90084,16 @@ spec:
                                     group:
                                       default: gateway.networking.k8s.io
                                       maxLength: 253
-                                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                     kind:
                                       default: Gateway
                                       maxLength: 63
-                                      minLength: 1
-                                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                       type: string
                                     name:
                                       maxLength: 253
-                                      minLength: 1
                                       type: string
                                     namespace:
                                       maxLength: 63
-                                      minLength: 1
-                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                       type: string
                                     port:
                                       format: int32
@@ -90719,8 +90102,6 @@ spec:
                                       type: integer
                                     sectionName:
                                       maxLength: 253
-                                      minLength: 1
-                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                   required:
                                   - name
@@ -90749,18 +90130,10 @@ spec:
                                                     allowHeaders:
                                                       items:
                                                         maxLength: 256
-                                                        minLength: 1
-                                                        pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                         type: string
                                                       maxItems: 64
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowHeaders cannot
-                                                          contain '*' alongside other
-                                                          methods
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     allowMethods:
                                                       items:
                                                         enum:
@@ -90778,32 +90151,16 @@ spec:
                                                       maxItems: 9
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowMethods cannot
-                                                          contain '*' alongside other
-                                                          methods
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     allowOrigins:
                                                       items:
                                                         maxLength: 253
-                                                        minLength: 1
-                                                        pattern: (^\*$)|(^(http(s)?):\/\/(((\*\.)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9-]+|\*)(:([0-9]{1,5}))?)$)
                                                         type: string
                                                       maxItems: 64
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowOrigins cannot
-                                                          contain '*' alongside other
-                                                          origins
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     exposeHeaders:
                                                       items:
                                                         maxLength: 256
-                                                        minLength: 1
-                                                        pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                         type: string
                                                       maxItems: 64
                                                       type: array
@@ -90818,16 +90175,12 @@ spec:
                                                   properties:
                                                     group:
                                                       maxLength: 253
-                                                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                       type: string
                                                     kind:
                                                       maxLength: 63
-                                                      minLength: 1
-                                                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                       type: string
                                                     name:
                                                       maxLength: 253
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - group
@@ -90841,22 +90194,16 @@ spec:
                                                         group:
                                                           default: ""
                                                           maxLength: 253
-                                                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                           type: string
                                                         kind:
                                                           default: Service
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                           type: string
                                                         name:
                                                           maxLength: 253
-                                                          minLength: 1
                                                           type: string
                                                         namespace:
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                           type: string
                                                         port:
                                                           format: int32
@@ -90866,12 +90213,6 @@ spec:
                                                       required:
                                                       - name
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: Must have port for
-                                                          Service reference
-                                                        rule: '(size(self.group) ==
-                                                          0 && self.kind == ''Service'')
-                                                          ? has(self.port) : true'
                                                     forwardBody:
                                                       properties:
                                                         maxSize:
@@ -90902,7 +90243,6 @@ spec:
                                                           x-kubernetes-list-type: set
                                                         path:
                                                           maxLength: 1024
-                                                          pattern: ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$
                                                           type: string
                                                       type: object
                                                     protocol:
@@ -90914,23 +90254,6 @@ spec:
                                                   - backendRef
                                                   - protocol
                                                   type: object
-                                                  x-kubernetes-validations:
-                                                  - message: grpc must be specified
-                                                      when protocol is set to 'GRPC'
-                                                    rule: 'self.protocol == ''GRPC''
-                                                      ? has(self.grpc) : true'
-                                                  - message: protocol must be 'GRPC'
-                                                      when grpc is set
-                                                    rule: 'has(self.grpc) ? self.protocol
-                                                      == ''GRPC'' : true'
-                                                  - message: http must be specified
-                                                      when protocol is set to 'HTTP'
-                                                    rule: 'self.protocol == ''HTTP''
-                                                      ? has(self.http) : true'
-                                                  - message: protocol must be 'HTTP'
-                                                      when http is set
-                                                    rule: 'has(self.http) ? self.protocol
-                                                      == ''HTTP'' : true'
                                                 requestHeaderModifier:
                                                   properties:
                                                     add:
@@ -90938,12 +90261,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -90965,12 +90285,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -90989,22 +90306,16 @@ spec:
                                                         group:
                                                           default: ""
                                                           maxLength: 253
-                                                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                           type: string
                                                         kind:
                                                           default: Service
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                           type: string
                                                         name:
                                                           maxLength: 253
-                                                          minLength: 1
                                                           type: string
                                                         namespace:
                                                           maxLength: 63
-                                                          minLength: 1
-                                                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                           type: string
                                                         port:
                                                           format: int32
@@ -91014,12 +90325,6 @@ spec:
                                                       required:
                                                       - name
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: Must have port for
-                                                          Service reference
-                                                        rule: '(size(self.group) ==
-                                                          0 && self.kind == ''Service'')
-                                                          ? has(self.port) : true'
                                                     fraction:
                                                       properties:
                                                         denominator:
@@ -91034,10 +90339,6 @@ spec:
                                                       required:
                                                       - numerator
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: numerator must be
-                                                          less than or equal to denominator
-                                                        rule: self.numerator <= self.denominator
                                                     percent:
                                                       format: int32
                                                       maximum: 100
@@ -91046,18 +90347,10 @@ spec:
                                                   required:
                                                   - backendRef
                                                   type: object
-                                                  x-kubernetes-validations:
-                                                  - message: Only one of percent or
-                                                      fraction may be specified in
-                                                      HTTPRequestMirrorFilter
-                                                    rule: '!(has(self.percent) &&
-                                                      has(self.fraction))'
                                                 requestRedirect:
                                                   properties:
                                                     hostname:
                                                       maxLength: 253
-                                                      minLength: 1
-                                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                       type: string
                                                     path:
                                                       properties:
@@ -91075,31 +90368,6 @@ spec:
                                                       required:
                                                       - type
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: replaceFullPath must
-                                                          be specified when type is
-                                                          set to 'ReplaceFullPath'
-                                                        rule: 'self.type == ''ReplaceFullPath''
-                                                          ? has(self.replaceFullPath)
-                                                          : true'
-                                                      - message: type must be 'ReplaceFullPath'
-                                                          when replaceFullPath is
-                                                          set
-                                                        rule: 'has(self.replaceFullPath)
-                                                          ? self.type == ''ReplaceFullPath''
-                                                          : true'
-                                                      - message: replacePrefixMatch
-                                                          must be specified when type
-                                                          is set to 'ReplacePrefixMatch'
-                                                        rule: 'self.type == ''ReplacePrefixMatch''
-                                                          ? has(self.replacePrefixMatch)
-                                                          : true'
-                                                      - message: type must be 'ReplacePrefixMatch'
-                                                          when replacePrefixMatch
-                                                          is set
-                                                        rule: 'has(self.replacePrefixMatch)
-                                                          ? self.type == ''ReplacePrefixMatch''
-                                                          : true'
                                                     port:
                                                       format: int32
                                                       maximum: 65535
@@ -91127,12 +90395,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -91154,12 +90419,9 @@ spec:
                                                         properties:
                                                           name:
                                                             maxLength: 256
-                                                            minLength: 1
-                                                            pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                             type: string
                                                           value:
                                                             maxLength: 4096
-                                                            minLength: 1
                                                             type: string
                                                         required:
                                                         - name
@@ -91185,8 +90447,6 @@ spec:
                                                   properties:
                                                     hostname:
                                                       maxLength: 253
-                                                      minLength: 1
-                                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                       type: string
                                                     path:
                                                       properties:
@@ -91204,147 +90464,26 @@ spec:
                                                       required:
                                                       - type
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: replaceFullPath must
-                                                          be specified when type is
-                                                          set to 'ReplaceFullPath'
-                                                        rule: 'self.type == ''ReplaceFullPath''
-                                                          ? has(self.replaceFullPath)
-                                                          : true'
-                                                      - message: type must be 'ReplaceFullPath'
-                                                          when replaceFullPath is
-                                                          set
-                                                        rule: 'has(self.replaceFullPath)
-                                                          ? self.type == ''ReplaceFullPath''
-                                                          : true'
-                                                      - message: replacePrefixMatch
-                                                          must be specified when type
-                                                          is set to 'ReplacePrefixMatch'
-                                                        rule: 'self.type == ''ReplacePrefixMatch''
-                                                          ? has(self.replacePrefixMatch)
-                                                          : true'
-                                                      - message: type must be 'ReplacePrefixMatch'
-                                                          when replacePrefixMatch
-                                                          is set
-                                                        rule: 'has(self.replacePrefixMatch)
-                                                          ? self.type == ''ReplacePrefixMatch''
-                                                          : true'
                                                   type: object
                                               required:
                                               - type
                                               type: object
-                                              x-kubernetes-validations:
-                                              - message: filter.cors must be nil if
-                                                  the filter.type is not CORS
-                                                rule: '!(has(self.cors) && self.type
-                                                  != ''CORS'')'
-                                              - message: filter.cors must be specified
-                                                  for CORS filter.type
-                                                rule: '!(!has(self.cors) && self.type
-                                                  == ''CORS'')'
-                                              - message: filter.requestHeaderModifier
-                                                  must be nil if the filter.type is
-                                                  not RequestHeaderModifier
-                                                rule: '!(has(self.requestHeaderModifier)
-                                                  && self.type != ''RequestHeaderModifier'')'
-                                              - message: filter.requestHeaderModifier
-                                                  must be specified for RequestHeaderModifier
-                                                  filter.type
-                                                rule: '!(!has(self.requestHeaderModifier)
-                                                  && self.type == ''RequestHeaderModifier'')'
-                                              - message: filter.responseHeaderModifier
-                                                  must be nil if the filter.type is
-                                                  not ResponseHeaderModifier
-                                                rule: '!(has(self.responseHeaderModifier)
-                                                  && self.type != ''ResponseHeaderModifier'')'
-                                              - message: filter.responseHeaderModifier
-                                                  must be specified for ResponseHeaderModifier
-                                                  filter.type
-                                                rule: '!(!has(self.responseHeaderModifier)
-                                                  && self.type == ''ResponseHeaderModifier'')'
-                                              - message: filter.requestMirror must
-                                                  be nil if the filter.type is not
-                                                  RequestMirror
-                                                rule: '!(has(self.requestMirror) &&
-                                                  self.type != ''RequestMirror'')'
-                                              - message: filter.requestMirror must
-                                                  be specified for RequestMirror filter.type
-                                                rule: '!(!has(self.requestMirror)
-                                                  && self.type == ''RequestMirror'')'
-                                              - message: filter.requestRedirect must
-                                                  be nil if the filter.type is not
-                                                  RequestRedirect
-                                                rule: '!(has(self.requestRedirect)
-                                                  && self.type != ''RequestRedirect'')'
-                                              - message: filter.requestRedirect must
-                                                  be specified for RequestRedirect
-                                                  filter.type
-                                                rule: '!(!has(self.requestRedirect)
-                                                  && self.type == ''RequestRedirect'')'
-                                              - message: filter.urlRewrite must be
-                                                  nil if the filter.type is not URLRewrite
-                                                rule: '!(has(self.urlRewrite) && self.type
-                                                  != ''URLRewrite'')'
-                                              - message: filter.urlRewrite must be
-                                                  specified for URLRewrite filter.type
-                                                rule: '!(!has(self.urlRewrite) &&
-                                                  self.type == ''URLRewrite'')'
-                                              - message: filter.extensionRef must
-                                                  be nil if the filter.type is not
-                                                  ExtensionRef
-                                                rule: '!(has(self.extensionRef) &&
-                                                  self.type != ''ExtensionRef'')'
-                                              - message: filter.extensionRef must
-                                                  be specified for ExtensionRef filter.type
-                                                rule: '!(!has(self.extensionRef) &&
-                                                  self.type == ''ExtensionRef'')'
                                             maxItems: 16
                                             type: array
                                             x-kubernetes-list-type: atomic
-                                            x-kubernetes-validations:
-                                            - message: May specify either httpRouteFilterRequestRedirect
-                                                or httpRouteFilterRequestRewrite,
-                                                but not both
-                                              rule: '!(self.exists(f, f.type == ''RequestRedirect'')
-                                                && self.exists(f, f.type == ''URLRewrite''))'
-                                            - message: CORS filter cannot be repeated
-                                              rule: self.filter(f, f.type == 'CORS').size()
-                                                <= 1
-                                            - message: RequestHeaderModifier filter
-                                                cannot be repeated
-                                              rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
-                                                <= 1
-                                            - message: ResponseHeaderModifier filter
-                                                cannot be repeated
-                                              rule: self.filter(f, f.type == 'ResponseHeaderModifier').size()
-                                                <= 1
-                                            - message: RequestRedirect filter cannot
-                                                be repeated
-                                              rule: self.filter(f, f.type == 'RequestRedirect').size()
-                                                <= 1
-                                            - message: URLRewrite filter cannot be
-                                                repeated
-                                              rule: self.filter(f, f.type == 'URLRewrite').size()
-                                                <= 1
                                           group:
                                             default: ""
                                             maxLength: 253
-                                            pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                             type: string
                                           kind:
                                             default: Service
                                             maxLength: 63
-                                            minLength: 1
-                                            pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                             type: string
                                           name:
                                             maxLength: 253
-                                            minLength: 1
                                             type: string
                                           namespace:
                                             maxLength: 63
-                                            minLength: 1
-                                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                             type: string
                                           port:
                                             format: int32
@@ -91360,10 +90499,6 @@ spec:
                                         required:
                                         - name
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: Must have port for Service reference
-                                          rule: '(size(self.group) == 0 && self.kind
-                                            == ''Service'') ? has(self.port) : true'
                                       maxItems: 16
                                       type: array
                                       x-kubernetes-list-type: atomic
@@ -91377,17 +90512,10 @@ spec:
                                               allowHeaders:
                                                 items:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 maxItems: 64
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowHeaders cannot contain
-                                                    '*' alongside other methods
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               allowMethods:
                                                 items:
                                                   enum:
@@ -91405,30 +90533,16 @@ spec:
                                                 maxItems: 9
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowMethods cannot contain
-                                                    '*' alongside other methods
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               allowOrigins:
                                                 items:
                                                   maxLength: 253
-                                                  minLength: 1
-                                                  pattern: (^\*$)|(^(http(s)?):\/\/(((\*\.)?([a-zA-Z0-9\-]+\.)*[a-zA-Z0-9-]+|\*)(:([0-9]{1,5}))?)$)
                                                   type: string
                                                 maxItems: 64
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowOrigins cannot contain
-                                                    '*' alongside other origins
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               exposeHeaders:
                                                 items:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 maxItems: 64
                                                 type: array
@@ -91443,16 +90557,12 @@ spec:
                                             properties:
                                               group:
                                                 maxLength: 253
-                                                pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                 type: string
                                               kind:
                                                 maxLength: 63
-                                                minLength: 1
-                                                pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                 type: string
                                               name:
                                                 maxLength: 253
-                                                minLength: 1
                                                 type: string
                                             required:
                                             - group
@@ -91466,22 +90576,16 @@ spec:
                                                   group:
                                                     default: ""
                                                     maxLength: 253
-                                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                     type: string
                                                   kind:
                                                     default: Service
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                     type: string
                                                   name:
                                                     maxLength: 253
-                                                    minLength: 1
                                                     type: string
                                                   namespace:
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                     type: string
                                                   port:
                                                     format: int32
@@ -91491,12 +90595,6 @@ spec:
                                                 required:
                                                 - name
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: Must have port for Service
-                                                    reference
-                                                  rule: '(size(self.group) == 0 &&
-                                                    self.kind == ''Service'') ? has(self.port)
-                                                    : true'
                                               forwardBody:
                                                 properties:
                                                   maxSize:
@@ -91527,7 +90625,6 @@ spec:
                                                     x-kubernetes-list-type: set
                                                   path:
                                                     maxLength: 1024
-                                                    pattern: ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$
                                                     type: string
                                                 type: object
                                               protocol:
@@ -91539,23 +90636,6 @@ spec:
                                             - backendRef
                                             - protocol
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: grpc must be specified when
-                                                protocol is set to 'GRPC'
-                                              rule: 'self.protocol == ''GRPC'' ? has(self.grpc)
-                                                : true'
-                                            - message: protocol must be 'GRPC' when
-                                                grpc is set
-                                              rule: 'has(self.grpc) ? self.protocol
-                                                == ''GRPC'' : true'
-                                            - message: http must be specified when
-                                                protocol is set to 'HTTP'
-                                              rule: 'self.protocol == ''HTTP'' ? has(self.http)
-                                                : true'
-                                            - message: protocol must be 'HTTP' when
-                                                http is set
-                                              rule: 'has(self.http) ? self.protocol
-                                                == ''HTTP'' : true'
                                           requestHeaderModifier:
                                             properties:
                                               add:
@@ -91563,12 +90643,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -91590,12 +90667,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -91614,22 +90688,16 @@ spec:
                                                   group:
                                                     default: ""
                                                     maxLength: 253
-                                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                     type: string
                                                   kind:
                                                     default: Service
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                                     type: string
                                                   name:
                                                     maxLength: 253
-                                                    minLength: 1
                                                     type: string
                                                   namespace:
                                                     maxLength: 63
-                                                    minLength: 1
-                                                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
                                                     type: string
                                                   port:
                                                     format: int32
@@ -91639,12 +90707,6 @@ spec:
                                                 required:
                                                 - name
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: Must have port for Service
-                                                    reference
-                                                  rule: '(size(self.group) == 0 &&
-                                                    self.kind == ''Service'') ? has(self.port)
-                                                    : true'
                                               fraction:
                                                 properties:
                                                   denominator:
@@ -91659,10 +90721,6 @@ spec:
                                                 required:
                                                 - numerator
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: numerator must be less
-                                                    than or equal to denominator
-                                                  rule: self.numerator <= self.denominator
                                               percent:
                                                 format: int32
                                                 maximum: 100
@@ -91671,16 +90729,10 @@ spec:
                                             required:
                                             - backendRef
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: Only one of percent or fraction
-                                                may be specified in HTTPRequestMirrorFilter
-                                              rule: '!(has(self.percent) && has(self.fraction))'
                                           requestRedirect:
                                             properties:
                                               hostname:
                                                 maxLength: 253
-                                                minLength: 1
-                                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                 type: string
                                               path:
                                                 properties:
@@ -91698,29 +90750,6 @@ spec:
                                                 required:
                                                 - type
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: replaceFullPath must be
-                                                    specified when type is set to
-                                                    'ReplaceFullPath'
-                                                  rule: 'self.type == ''ReplaceFullPath''
-                                                    ? has(self.replaceFullPath) :
-                                                    true'
-                                                - message: type must be 'ReplaceFullPath'
-                                                    when replaceFullPath is set
-                                                  rule: 'has(self.replaceFullPath)
-                                                    ? self.type == ''ReplaceFullPath''
-                                                    : true'
-                                                - message: replacePrefixMatch must
-                                                    be specified when type is set
-                                                    to 'ReplacePrefixMatch'
-                                                  rule: 'self.type == ''ReplacePrefixMatch''
-                                                    ? has(self.replacePrefixMatch)
-                                                    : true'
-                                                - message: type must be 'ReplacePrefixMatch'
-                                                    when replacePrefixMatch is set
-                                                  rule: 'has(self.replacePrefixMatch)
-                                                    ? self.type == ''ReplacePrefixMatch''
-                                                    : true'
                                               port:
                                                 format: int32
                                                 maximum: 65535
@@ -91748,12 +90777,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -91775,12 +90801,9 @@ spec:
                                                   properties:
                                                     name:
                                                       maxLength: 256
-                                                      minLength: 1
-                                                      pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                       type: string
                                                     value:
                                                       maxLength: 4096
-                                                      minLength: 1
                                                       type: string
                                                   required:
                                                   - name
@@ -91806,8 +90829,6 @@ spec:
                                             properties:
                                               hostname:
                                                 maxLength: 253
-                                                minLength: 1
-                                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                                 type: string
                                               path:
                                                 properties:
@@ -91825,119 +90846,13 @@ spec:
                                                 required:
                                                 - type
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: replaceFullPath must be
-                                                    specified when type is set to
-                                                    'ReplaceFullPath'
-                                                  rule: 'self.type == ''ReplaceFullPath''
-                                                    ? has(self.replaceFullPath) :
-                                                    true'
-                                                - message: type must be 'ReplaceFullPath'
-                                                    when replaceFullPath is set
-                                                  rule: 'has(self.replaceFullPath)
-                                                    ? self.type == ''ReplaceFullPath''
-                                                    : true'
-                                                - message: replacePrefixMatch must
-                                                    be specified when type is set
-                                                    to 'ReplacePrefixMatch'
-                                                  rule: 'self.type == ''ReplacePrefixMatch''
-                                                    ? has(self.replacePrefixMatch)
-                                                    : true'
-                                                - message: type must be 'ReplacePrefixMatch'
-                                                    when replacePrefixMatch is set
-                                                  rule: 'has(self.replacePrefixMatch)
-                                                    ? self.type == ''ReplacePrefixMatch''
-                                                    : true'
                                             type: object
                                         required:
                                         - type
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: filter.cors must be nil if the
-                                            filter.type is not CORS
-                                          rule: '!(has(self.cors) && self.type !=
-                                            ''CORS'')'
-                                        - message: filter.cors must be specified for
-                                            CORS filter.type
-                                          rule: '!(!has(self.cors) && self.type ==
-                                            ''CORS'')'
-                                        - message: filter.requestHeaderModifier must
-                                            be nil if the filter.type is not RequestHeaderModifier
-                                          rule: '!(has(self.requestHeaderModifier)
-                                            && self.type != ''RequestHeaderModifier'')'
-                                        - message: filter.requestHeaderModifier must
-                                            be specified for RequestHeaderModifier
-                                            filter.type
-                                          rule: '!(!has(self.requestHeaderModifier)
-                                            && self.type == ''RequestHeaderModifier'')'
-                                        - message: filter.responseHeaderModifier must
-                                            be nil if the filter.type is not ResponseHeaderModifier
-                                          rule: '!(has(self.responseHeaderModifier)
-                                            && self.type != ''ResponseHeaderModifier'')'
-                                        - message: filter.responseHeaderModifier must
-                                            be specified for ResponseHeaderModifier
-                                            filter.type
-                                          rule: '!(!has(self.responseHeaderModifier)
-                                            && self.type == ''ResponseHeaderModifier'')'
-                                        - message: filter.requestMirror must be nil
-                                            if the filter.type is not RequestMirror
-                                          rule: '!(has(self.requestMirror) && self.type
-                                            != ''RequestMirror'')'
-                                        - message: filter.requestMirror must be specified
-                                            for RequestMirror filter.type
-                                          rule: '!(!has(self.requestMirror) && self.type
-                                            == ''RequestMirror'')'
-                                        - message: filter.requestRedirect must be
-                                            nil if the filter.type is not RequestRedirect
-                                          rule: '!(has(self.requestRedirect) && self.type
-                                            != ''RequestRedirect'')'
-                                        - message: filter.requestRedirect must be
-                                            specified for RequestRedirect filter.type
-                                          rule: '!(!has(self.requestRedirect) && self.type
-                                            == ''RequestRedirect'')'
-                                        - message: filter.urlRewrite must be nil if
-                                            the filter.type is not URLRewrite
-                                          rule: '!(has(self.urlRewrite) && self.type
-                                            != ''URLRewrite'')'
-                                        - message: filter.urlRewrite must be specified
-                                            for URLRewrite filter.type
-                                          rule: '!(!has(self.urlRewrite) && self.type
-                                            == ''URLRewrite'')'
-                                        - message: filter.extensionRef must be nil
-                                            if the filter.type is not ExtensionRef
-                                          rule: '!(has(self.extensionRef) && self.type
-                                            != ''ExtensionRef'')'
-                                        - message: filter.extensionRef must be specified
-                                            for ExtensionRef filter.type
-                                          rule: '!(!has(self.extensionRef) && self.type
-                                            == ''ExtensionRef'')'
                                       maxItems: 16
                                       type: array
                                       x-kubernetes-list-type: atomic
-                                      x-kubernetes-validations:
-                                      - message: May specify either httpRouteFilterRequestRedirect
-                                          or httpRouteFilterRequestRewrite, but not
-                                          both
-                                        rule: '!(self.exists(f, f.type == ''RequestRedirect'')
-                                          && self.exists(f, f.type == ''URLRewrite''))'
-                                      - message: CORS filter cannot be repeated
-                                        rule: self.filter(f, f.type == 'CORS').size()
-                                          <= 1
-                                      - message: RequestHeaderModifier filter cannot
-                                          be repeated
-                                        rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
-                                          <= 1
-                                      - message: ResponseHeaderModifier filter cannot
-                                          be repeated
-                                        rule: self.filter(f, f.type == 'ResponseHeaderModifier').size()
-                                          <= 1
-                                      - message: RequestRedirect filter cannot be
-                                          repeated
-                                        rule: self.filter(f, f.type == 'RequestRedirect').size()
-                                          <= 1
-                                      - message: URLRewrite filter cannot be repeated
-                                        rule: self.filter(f, f.type == 'URLRewrite').size()
-                                          <= 1
                                     matches:
                                       default:
                                       - path:
@@ -91950,8 +90865,6 @@ spec:
                                               properties:
                                                 name:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 type:
                                                   default: Exact
@@ -91961,7 +90874,6 @@ spec:
                                                   type: string
                                                 value:
                                                   maxLength: 4096
-                                                  minLength: 1
                                                   type: string
                                               required:
                                               - name
@@ -92001,66 +90913,11 @@ spec:
                                                 maxLength: 1024
                                                 type: string
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: value must be an absolute path
-                                                and start with '/' when type one of
-                                                ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? self.value.startsWith(''/'') : true'
-                                            - message: must not contain '//' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''//'') : true'
-                                            - message: must not contain '/./' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''/./'') :
-                                                true'
-                                            - message: must not contain '/../' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''/../'') :
-                                                true'
-                                            - message: must not contain '%2f' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''%2f'') :
-                                                true'
-                                            - message: must not contain '%2F' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''%2F'') :
-                                                true'
-                                            - message: must not contain '#' when type
-                                                one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''#'') : true'
-                                            - message: must not end with '/..' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.endsWith(''/..'') :
-                                                true'
-                                            - message: must not end with '/.' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.endsWith(''/.'') : true'
-                                            - message: type must be one of ['Exact',
-                                                'PathPrefix', 'RegularExpression']
-                                              rule: self.type in ['Exact','PathPrefix']
-                                                || self.type == 'RegularExpression'
-                                            - message: must only contain valid characters
-                                                (matching ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$)
-                                                for types ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? self.value.matches(r"""^(?:[-A-Za-z0-9/._~!$&''()*+,;=:@]|[%][0-9a-fA-F]{2})+$""")
-                                                : true'
                                           queryParams:
                                             items:
                                               properties:
                                                 name:
                                                   maxLength: 256
-                                                  minLength: 1
-                                                  pattern: ^[A-Za-z0-9!#$%&'*+\-.^_\x60|~]+$
                                                   type: string
                                                 type:
                                                   default: Exact
@@ -92070,7 +90927,6 @@ spec:
                                                   type: string
                                                 value:
                                                   maxLength: 1024
-                                                  minLength: 1
                                                   type: string
                                               required:
                                               - name
@@ -92087,15 +90943,12 @@ spec:
                                       x-kubernetes-list-type: atomic
                                     name:
                                       maxLength: 253
-                                      minLength: 1
-                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                     retry:
                                       properties:
                                         attempts:
                                           type: integer
                                         backoff:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         codes:
                                           items:
@@ -92108,7 +90961,6 @@ spec:
                                     sessionPersistence:
                                       properties:
                                         absoluteTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         cookieConfig:
                                           properties:
@@ -92120,7 +90972,6 @@ spec:
                                               type: string
                                           type: object
                                         idleTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         sessionName:
                                           maxLength: 128
@@ -92132,102 +90983,17 @@ spec:
                                           - Header
                                           type: string
                                       type: object
-                                      x-kubernetes-validations:
-                                      - message: AbsoluteTimeout must be specified
-                                          when cookie lifetimeType is Permanent
-                                        rule: '!has(self.cookieConfig) || !has(self.cookieConfig.lifetimeType)
-                                          || self.cookieConfig.lifetimeType != ''Permanent''
-                                          || has(self.absoluteTimeout)'
-                                      - message: cookieConfig can only be set with
-                                          type Cookie
-                                        rule: '!has(self.cookieConfig) || self.type
-                                          == ''Cookie'''
                                     timeouts:
                                       properties:
                                         backendRequest:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                         request:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                       type: object
-                                      x-kubernetes-validations:
-                                      - message: backendRequest timeout cannot be
-                                          longer than request timeout
-                                        rule: '!(has(self.request) && has(self.backendRequest)
-                                          && duration(self.request) != duration(''0s'')
-                                          && duration(self.backendRequest) > duration(self.request))'
                                   type: object
-                                  x-kubernetes-validations:
-                                  - message: RequestRedirect filter must not be used
-                                      together with backendRefs
-                                    rule: '(has(self.backendRefs) && size(self.backendRefs)
-                                      > 0) ? (!has(self.filters) || self.filters.all(f,
-                                      !has(f.requestRedirect))): true'
-                                  - message: When using RequestRedirect filter with
-                                      path.replacePrefixMatch, exactly one PathPrefix
-                                      match must be specified
-                                    rule: '(has(self.filters) && self.filters.exists_one(f,
-                                      has(f.requestRedirect) && has(f.requestRedirect.path)
-                                      && f.requestRedirect.path.type == ''ReplacePrefixMatch''
-                                      && has(f.requestRedirect.path.replacePrefixMatch)))
-                                      ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: When using URLRewrite filter with path.replacePrefixMatch,
-                                      exactly one PathPrefix match must be specified
-                                    rule: '(has(self.filters) && self.filters.exists_one(f,
-                                      has(f.urlRewrite) && has(f.urlRewrite.path)
-                                      && f.urlRewrite.path.type == ''ReplacePrefixMatch''
-                                      && has(f.urlRewrite.path.replacePrefixMatch)))
-                                      ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: Within backendRefs, when using RequestRedirect
-                                      filter with path.replacePrefixMatch, exactly
-                                      one PathPrefix match must be specified
-                                    rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b,
-                                      (has(b.filters) && b.filters.exists_one(f, has(f.requestRedirect)
-                                      && has(f.requestRedirect.path) && f.requestRedirect.path.type
-                                      == ''ReplacePrefixMatch'' && has(f.requestRedirect.path.replacePrefixMatch)))
-                                      )) ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: Within backendRefs, When using URLRewrite
-                                      filter with path.replacePrefixMatch, exactly
-                                      one PathPrefix match must be specified
-                                    rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b,
-                                      (has(b.filters) && b.filters.exists_one(f, has(f.urlRewrite)
-                                      && has(f.urlRewrite.path) && f.urlRewrite.path.type
-                                      == ''ReplacePrefixMatch'' && has(f.urlRewrite.path.replacePrefixMatch)))
-                                      )) ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
                                 maxItems: 16
-                                minItems: 1
                                 type: array
                                 x-kubernetes-list-type: atomic
-                                x-kubernetes-validations:
-                                - message: While 16 rules and 64 matches per rule
-                                    are allowed, the total number of matches across
-                                    all rules in a route must be less than 128
-                                  rule: '(self.size() > 0 ? self[0].matches.size()
-                                    : 0) + (self.size() > 1 ? self[1].matches.size()
-                                    : 0) + (self.size() > 2 ? self[2].matches.size()
-                                    : 0) + (self.size() > 3 ? self[3].matches.size()
-                                    : 0) + (self.size() > 4 ? self[4].matches.size()
-                                    : 0) + (self.size() > 5 ? self[5].matches.size()
-                                    : 0) + (self.size() > 6 ? self[6].matches.size()
-                                    : 0) + (self.size() > 7 ? self[7].matches.size()
-                                    : 0) + (self.size() > 8 ? self[8].matches.size()
-                                    : 0) + (self.size() > 9 ? self[9].matches.size()
-                                    : 0) + (self.size() > 10 ? self[10].matches.size()
-                                    : 0) + (self.size() > 11 ? self[11].matches.size()
-                                    : 0) + (self.size() > 12 ? self[12].matches.size()
-                                    : 0) + (self.size() > 13 ? self[13].matches.size()
-                                    : 0) + (self.size() > 14 ? self[14].matches.size()
-                                    : 0) + (self.size() > 15 ? self[15].matches.size()
-                                    : 0) <= 128'
                               useDefaultGateways:
                                 enum:
                                 - All
@@ -92298,18 +91064,13 @@ spec:
                                   group:
                                     default: ""
                                     maxLength: 253
-                                    minLength: 0
-                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                     type: string
                                   kind:
                                     default: Service
                                     maxLength: 63
-                                    minLength: 1
-                                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
                                     type: string
                                   name:
                                     maxLength: 253
-                                    minLength: 1
                                     type: string
                                   port:
                                     properties:
@@ -92324,20 +91085,13 @@ spec:
                                 required:
                                 - name
                                 type: object
-                                x-kubernetes-validations:
-                                - message: port is required when kind is 'Service'
-                                    or unspecified (defaults to 'Service')
-                                  rule: self.kind != 'Service' || has(self.port)
                               selector:
                                 properties:
                                   matchLabels:
                                     additionalProperties:
                                       maxLength: 63
-                                      minLength: 0
-                                      pattern: ^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$
                                       type: string
                                     maxProperties: 64
-                                    minProperties: 1
                                     type: object
                                 required:
                                 - matchLabels
@@ -92354,12 +91108,8 @@ spec:
                                   - number
                                   type: object
                                 maxItems: 8
-                                minItems: 1
                                 type: array
                                 x-kubernetes-list-type: atomic
-                                x-kubernetes-validations:
-                                - message: port number must be unique
-                                  rule: self.all(p1, self.exists_one(p2, p1.number==p2.number))
                             required:
                             - endpointPickerRef
                             - selector
@@ -92885,7 +91635,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -93291,7 +92040,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                     requests:
@@ -93299,7 +92047,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                   type: object
@@ -93637,7 +92384,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -94043,7 +92789,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                     requests:
@@ -94051,7 +92796,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                   type: object
@@ -94405,7 +93149,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -94811,7 +93554,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                     requests:
@@ -94819,7 +93561,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       type: object
                                   type: object
@@ -95079,7 +93820,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                             type: object
                           preemptionPolicy:
@@ -95136,7 +93876,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 type: object
                               requests:
@@ -95144,7 +93883,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 type: object
                             type: object
@@ -95511,7 +94249,6 @@ spec:
                                                 anyOf:
                                                 - type: integer
                                                 - type: string
-                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                 x-kubernetes-int-or-string: true
                                               resource:
                                                 type: string
@@ -95533,7 +94270,6 @@ spec:
                                       anyOf:
                                       - type: integer
                                       - type: string
-                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                   type: object
                                 ephemeral:
@@ -95583,7 +94319,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   type: object
                                                 requests:
@@ -95591,7 +94326,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   type: object
                                               type: object
@@ -95918,7 +94652,6 @@ spec:
                                                           anyOf:
                                                           - type: integer
                                                           - type: string
-                                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                           x-kubernetes-int-or-string: true
                                                         resource:
                                                           type: string
@@ -96145,8 +94878,6 @@ spec:
                             x-kubernetes-list-map-keys:
                             - name
                             x-kubernetes-list-type: map
-                        required:
-                        - containers
                         type: object
                       tokenizer:
                         properties:
@@ -96666,7 +95397,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -97072,7 +95802,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -97080,7 +95809,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -97418,7 +96146,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -97824,7 +96551,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -97832,7 +96558,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -98186,7 +96911,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -98592,7 +97316,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -98600,7 +97323,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -98860,7 +97582,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 type: object
                               preemptionPolicy:
@@ -98917,7 +97638,6 @@ spec:
                                       anyOf:
                                       - type: integer
                                       - type: string
-                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                     type: object
                                   requests:
@@ -98925,7 +97645,6 @@ spec:
                                       anyOf:
                                       - type: integer
                                       - type: string
-                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                       x-kubernetes-int-or-string: true
                                     type: object
                                 type: object
@@ -99292,7 +98011,6 @@ spec:
                                                     anyOf:
                                                     - type: integer
                                                     - type: string
-                                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                     x-kubernetes-int-or-string: true
                                                   resource:
                                                     type: string
@@ -99314,7 +98032,6 @@ spec:
                                           anyOf:
                                           - type: integer
                                           - type: string
-                                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                           x-kubernetes-int-or-string: true
                                       type: object
                                     ephemeral:
@@ -99364,7 +98081,6 @@ spec:
                                                         anyOf:
                                                         - type: integer
                                                         - type: string
-                                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                         x-kubernetes-int-or-string: true
                                                       type: object
                                                     requests:
@@ -99372,7 +98088,6 @@ spec:
                                                         anyOf:
                                                         - type: integer
                                                         - type: string
-                                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                         x-kubernetes-int-or-string: true
                                                       type: object
                                                   type: object
@@ -99699,7 +98414,6 @@ spec:
                                                               anyOf:
                                                               - type: integer
                                                               - type: string
-                                                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                               x-kubernetes-int-or-string: true
                                                             resource:
                                                               type: string
@@ -100121,19 +98835,257 @@ spec:
                     format: int32
                     minimum: 1
                     type: integer
+                  wva:
+                    properties:
+                      hpa:
+                        properties:
+                          behavior:
+                            properties:
+                              scaleDown:
+                                properties:
+                                  policies:
+                                    items:
+                                      properties:
+                                        periodSeconds:
+                                          format: int32
+                                          type: integer
+                                        type:
+                                          type: string
+                                        value:
+                                          format: int32
+                                          type: integer
+                                      required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  selectPolicy:
+                                    type: string
+                                  stabilizationWindowSeconds:
+                                    format: int32
+                                    type: integer
+                                  tolerance:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                type: object
+                              scaleUp:
+                                properties:
+                                  policies:
+                                    items:
+                                      properties:
+                                        periodSeconds:
+                                          format: int32
+                                          type: integer
+                                        type:
+                                          type: string
+                                        value:
+                                          format: int32
+                                          type: integer
+                                      required:
+                                      - periodSeconds
+                                      - type
+                                      - value
+                                      type: object
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                  selectPolicy:
+                                    type: string
+                                  stabilizationWindowSeconds:
+                                    format: int32
+                                    type: integer
+                                  tolerance:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                type: object
+                            type: object
+                        type: object
+                      keda:
+                        properties:
+                          advanced:
+                            properties:
+                              horizontalPodAutoscalerConfig:
+                                properties:
+                                  behavior:
+                                    properties:
+                                      scaleDown:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                      scaleUp:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                    type: object
+                                  name:
+                                    type: string
+                                type: object
+                              restoreToOriginalReplicaCount:
+                                type: boolean
+                              scalingModifiers:
+                                properties:
+                                  activationTarget:
+                                    type: string
+                                  formula:
+                                    type: string
+                                  metricType:
+                                    enum:
+                                    - AverageValue
+                                    - Value
+                                    type: string
+                                  target:
+                                    type: string
+                                type: object
+                            type: object
+                          cooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          fallback:
+                            properties:
+                              behavior:
+                                default: static
+                                enum:
+                                - static
+                                - currentReplicas
+                                - currentReplicasIfHigher
+                                - currentReplicasIfLower
+                                - scalingModifiers
+                                type: string
+                              failureThreshold:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              replicas:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                            required:
+                            - failureThreshold
+                            - replicas
+                            type: object
+                          idleReplicaCount:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          initialCooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          pollingInterval:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
+                        x-kubernetes-validations:
+                        - message: horizontalPodAutoscalerConfig.name must not be
+                            set; the controller manages the HPA name
+                          rule: '!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig)
+                            || size(self.advanced.horizontalPodAutoscalerConfig.name)
+                            == 0'
+                      variantCost:
+                        default: "10.0"
+                        pattern: ^\d+(\.\d+)?$
+                        type: string
+                    type: object
+                    x-kubernetes-validations:
+                    - message: scalingModifiers must not be set; WVA controls the
+                        scaling metric formula and logic
+                      rule: '!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula)
+                        == 0 && size(self.keda.advanced.scalingModifiers.target) ==
+                        0 && size(self.keda.advanced.scalingModifiers.activationTarget)
+                        == 0 && size(self.keda.advanced.scalingModifiers.metricType)
+                        == 0)'
+                    - message: hpa and keda are mutually exclusive; choose one actuator
+                        backend
+                      rule: '!(has(self.hpa) && has(self.keda))'
+                    - message: either hpa or keda must be specified as the actuator
+                        backend
+                      rule: has(self.hpa) || has(self.keda)
                 required:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: keda must be specified when scaling is configured
-                  rule: has(self.keda)
+                - message: either wva or keda must be specified when scaling is configured
+                  rule: has(self.wva) || has(self.keda)
+                - message: wva and keda are mutually exclusive
+                  rule: '!(has(self.wva) && has(self.keda))'
                 - message: at least one trigger is required when using direct KEDA
                     scaling
                   rule: '!has(self.keda) || size(self.keda.triggers) > 0'
                 - message: minReplicas cannot exceed maxReplicas
                   rule: '!has(self.minReplicas) || self.minReplicas <= self.maxReplicas'
                 - message: minReplicas is required when idleReplicaCount is set
-                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
+                  rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                    || has(self.minReplicas)'
+                - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
+                    defines the replica floor when no triggers are active
+                  rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
+                    || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
+                    self.minReplicas'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                     defines the replica floor when no triggers are active
                   rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas)
@@ -100659,7 +99611,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -101065,7 +100016,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -101073,7 +100023,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -101411,7 +100360,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -101817,7 +100765,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -101825,7 +100772,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -102179,7 +101125,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -102585,7 +101530,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -102593,7 +101537,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -102853,7 +101796,6 @@ spec:
                       anyOf:
                       - type: integer
                       - type: string
-                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     type: object
                   preemptionPolicy:
@@ -102910,7 +101852,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       requests:
@@ -102918,7 +101859,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                     type: object
@@ -103285,7 +102225,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -103307,7 +102246,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                           type: object
                         ephemeral:
@@ -103357,7 +102295,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -103365,7 +102302,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -103692,7 +102628,6 @@ spec:
                                                   anyOf:
                                                   - type: integer
                                                   - type: string
-                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                   x-kubernetes-int-or-string: true
                                                 resource:
                                                   type: string
@@ -103919,8 +102854,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                required:
-                - containers
                 type: object
               tracing:
                 properties:
@@ -104451,7 +103384,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -104857,7 +103789,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -104865,7 +103796,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -105203,7 +104133,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -105609,7 +104538,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -105617,7 +104545,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -105971,7 +104898,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -106377,7 +105303,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                             requests:
@@ -106385,7 +105310,6 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
-                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                 x-kubernetes-int-or-string: true
                               type: object
                           type: object
@@ -106645,7 +105569,6 @@ spec:
                       anyOf:
                       - type: integer
                       - type: string
-                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
                     type: object
                   preemptionPolicy:
@@ -106702,7 +105625,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                       requests:
@@ -106710,7 +105632,6 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         type: object
                     type: object
@@ -107077,7 +105998,6 @@ spec:
                                         anyOf:
                                         - type: integer
                                         - type: string
-                                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                         x-kubernetes-int-or-string: true
                                       resource:
                                         type: string
@@ -107099,7 +106019,6 @@ spec:
                               anyOf:
                               - type: integer
                               - type: string
-                              pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                               x-kubernetes-int-or-string: true
                           type: object
                         ephemeral:
@@ -107149,7 +106068,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                         requests:
@@ -107157,7 +106075,6 @@ spec:
                                             anyOf:
                                             - type: integer
                                             - type: string
-                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                             x-kubernetes-int-or-string: true
                                           type: object
                                       type: object
@@ -107484,7 +106401,6 @@ spec:
                                                   anyOf:
                                                   - type: integer
                                                   - type: string
-                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                   x-kubernetes-int-or-string: true
                                                 resource:
                                                   type: string
@@ -107711,8 +106627,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                required:
-                - containers
                 type: object
             type: object
             x-kubernetes-validations:
