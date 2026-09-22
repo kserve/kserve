@@ -155,7 +155,7 @@ type WorkloadSpec struct {
 
 	// Scaling configuration for autoscaling this workload.
 	// When specified, the controller creates and manages autoscaling resources
-	// (ServiceMonitor and the selected actuator — HPA or KEDA ScaledObject, annotated for WVA discovery)
+	// (ServiceMonitor and the selected actuator — HPA or KEDA ScaledObject)
 	// targeting this workload.
 	// Mutually exclusive with the static 'replicas' field.
 	// In a disaggregated setup, each workload (decode and prefill) can have its own independent scaling configuration,
@@ -439,8 +439,8 @@ type InferencePoolSpec struct {
 // ScalingSpec configures autoscaling for the LLM inference deployment.
 // When scaling is configured, the controller creates and manages autoscaling resources
 // (ServiceMonitor and the selected actuator — HPA or KEDA ScaledObject).
-// Use WVA for metric-driven scaling (actuators annotated for WVA discovery), or KEDA for direct
-// scaling with user-defined triggers (no WVA required).
+// Direct KEDA scaling uses user-defined triggers. The deprecated WVA fields are retained only
+// so existing resources can be decoded during upgrades; new WVA configuration is rejected.
 // +kubebuilder:validation:XValidation:rule="has(self.wva) || has(self.keda)",message="either wva or keda must be specified when scaling is configured"
 // +kubebuilder:validation:XValidation:rule="!(has(self.wva) && has(self.keda))",message="wva and keda are mutually exclusive"
 // +kubebuilder:validation:XValidation:rule="!has(self.keda) || size(self.keda.triggers) > 0",message="at least one trigger is required when using direct KEDA scaling"
@@ -462,9 +462,8 @@ type ScalingSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	MaxReplicas int32 `json:"maxReplicas"`
 
-	// WVA configures the Workload Variant Autoscaler (WVA) for scaling.
-	// WVA scales based on a variety of inference metrics (KV cache utilization, queue depth, etc.)
-	// rather than traditional CPU/memory metrics.
+	// WVA is deprecated and retained only for decoding existing resources during upgrades.
+	// Existing WVA configuration is not reconciled and new WVA configuration is rejected.
 	// +optional
 	WVA *WVASpec `json:"wva,omitempty"`
 
@@ -475,8 +474,8 @@ type ScalingSpec struct {
 	KEDA *DirectKEDAScalingSpec `json:"keda,omitempty"`
 }
 
-// WVASpec configures the Workload Variant Autoscaler.
-// scalingModifiers under wva.keda.advanced are forbidden because WVA owns the metric formula.
+// WVASpec is the deprecated Workload Variant Autoscaler configuration retained for upgrade compatibility.
+// New WVA configuration is rejected and existing WVA configuration is not reconciled.
 // +kubebuilder:validation:XValidation:rule="!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula) == 0 && size(self.keda.advanced.scalingModifiers.target) == 0 && size(self.keda.advanced.scalingModifiers.activationTarget) == 0 && size(self.keda.advanced.scalingModifiers.metricType) == 0)",message="scalingModifiers must not be set; WVA controls the scaling metric formula and logic"
 type WVASpec struct {
 	// VariantCost specifies the cost per replica for this variant (used in saturation analysis).
