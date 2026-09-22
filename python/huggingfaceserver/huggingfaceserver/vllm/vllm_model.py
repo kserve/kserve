@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 from argparse import Namespace
 from typing import Any, Dict, Optional, Union, AsyncGenerator
 from http import HTTPStatus
@@ -50,12 +51,15 @@ from kserve.protocol.rest.openai.types import (
     Rerank,
 )
 from .utils import build_async_engine_client_from_engine_args, build_vllm_engine_args
+from .engine_health import (
+    DEFAULT_VLLM_HEALTH_CHECK_TIMEOUT_SECONDS,
+    VLLMEngineHealth,
+)
 
 
 class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-extension-no-member
-    engine_client: EngineClient
-    vllm_engine_args: AsyncEngineArgs = None
-    args: Namespace = None
+    server_health_check_enabled: bool = True
+    engine_client: Optional[EngineClient]
     ready: bool = False
     openai_serving_models: Optional[OpenAIServingModels] = None
     openai_serving_completion: Optional[OpenAIServingCompletion] = None
@@ -70,17 +74,34 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
         request_logger: Optional[RequestLogger] = None,
     ):
         super().__init__(model_name)
-        self.args = args
+        self.args: Namespace = args
         validate_parsed_serve_args(args)
         engine_args = build_vllm_engine_args(args)
-        self.vllm_engine_args = engine_args
+        self.vllm_engine_args: AsyncEngineArgs = engine_args
         self.request_logger = request_logger
         self.model_name = model_name
-        self.base_model_paths = []
+        self.base_model_paths: list[BaseModelPath] = []
         self.log_stats = True
         self.model_config = None
+        self.engine_client = None
+        health_check_timeout = getattr(
+            args,
+            "vllm_health_check_timeout",
+            DEFAULT_VLLM_HEALTH_CHECK_TIMEOUT_SECONDS,
+        )
+        self._engine_health = VLLMEngineHealth(health_check_timeout)
 
     async def start_engine(self):
+        try:
+            return await self._start_engine()
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            self.ready = False
+            self._engine_health.mark_failed(error)
+            raise
+
+    async def _start_engine(self):
         if self.args.tool_parser_plugin and len(self.args.tool_parser_plugin) > 3:
             ToolParserManager.import_tool_parser(self.args.tool_parser_plugin)
 
@@ -110,7 +131,8 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
             self.vllm_engine_args,
         ) as engine_client:
             self.engine_client = engine_client
-            vllm_config = self.engine_client.vllm_config
+            self._engine_health.set_engine_client(engine_client)
+            vllm_config = engine_client.vllm_config
 
             if self.args.served_model_name is not None:
                 served_model_names = self.args.served_model_name
@@ -126,7 +148,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
             self.model_config = vllm_config.model_config
 
             # Get supported tasks from engine
-            supported_tasks = await self.engine_client.get_supported_tasks()
+            supported_tasks = await engine_client.get_supported_tasks()
 
             resolved_chat_template = load_chat_template(self.args.chat_template)
             chat_template_config = ChatTemplateConfig(
@@ -136,7 +158,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
             )
 
             self.openai_serving_models = OpenAIServingModels(
-                engine_client=self.engine_client,
+                engine_client=engine_client,
                 base_model_paths=self.base_model_paths,
                 lora_modules=self.args.lora_modules,
             )
@@ -161,7 +183,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
 
             self.openai_serving_chat = (
                 OpenAIServingChat(
-                    self.engine_client,
+                    engine_client,
                     self.openai_serving_models,
                     self.args.response_role,
                     openai_serving_render=openai_serving_render,
@@ -184,7 +206,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
 
             self.openai_serving_completion = (
                 OpenAIServingCompletion(
-                    self.engine_client,
+                    engine_client,
                     self.openai_serving_models,
                     openai_serving_render=openai_serving_render,
                     request_logger=self.request_logger,
@@ -198,7 +220,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
 
             self.openai_serving_embedding = (
                 ServingEmbedding(
-                    self.engine_client,
+                    engine_client,
                     self.openai_serving_models,
                     request_logger=self.request_logger,
                     chat_template_config=chat_template_config,
@@ -210,7 +232,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
 
             self.serving_reranking = (
                 ServingScores(
-                    self.engine_client,
+                    engine_client,
                     self.openai_serving_models,
                     supported_tasks=supported_tasks,
                     request_logger=self.request_logger,
@@ -225,6 +247,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
             )
 
         self.ready = True
+        self._engine_health.mark_ready()
         return self.ready
 
     def load(self) -> bool:
@@ -235,15 +258,19 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
         pass
 
     def stop_engine(self):
-        if self.engine_client:
-            # V1 AsyncLLM only (V0 is deprecated)
-            self.engine_client.shutdown()
-        self.ready = False
+        self._engine_health.mark_stopping()
+        try:
+            if self.engine_client:
+                # V1 AsyncLLM only (V0 is deprecated)
+                self.engine_client.shutdown()
+        finally:
+            self.ready = False
+
+    async def is_live(self) -> bool:
+        return await self._engine_health.is_live()
 
     async def healthy(self) -> bool:
-        # check_health() may throw exceptions which are caught in OpenAIEndpoints class
-        await self.engine_client.check_health()
-        return True
+        return await self._engine_health.is_ready()
 
     async def create_completion(
         self,
