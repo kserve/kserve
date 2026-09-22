@@ -71,6 +71,10 @@ func (r *LLMISVCReconciler) deleteHPAIfExists(ctx context.Context, s *v1alpha2.L
 }
 
 func (r *LLMISVCReconciler) propagateScalingStatus(ctx context.Context, s *v1alpha2.LLMInferenceService, sc *v1alpha2.ScalingSpec, name string, ready func(), notReady func(string, string, ...interface{}), unset func()) error {
+	if sc != nil && sc.WVA != nil && !utils.GetForceStopRuntime(s) {
+		notReady("WVAUnsupported", "WVA autoscaling is no longer supported; autoscaling is disabled. Remove spec.scaling.wva and configure direct KEDA scaling if needed")
+		return nil
+	}
 	if sc == nil || utils.GetForceStopRuntime(s) || sc.KEDA == nil {
 		unset()
 		return nil

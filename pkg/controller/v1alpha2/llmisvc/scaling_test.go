@@ -73,6 +73,31 @@ func newTestLLMISVC(name, namespace string) *v1alpha2.LLMInferenceService {
 	}
 }
 
+func TestPropagateScalingStatusWVAUnsupported(t *testing.T) {
+	svc := newTestLLMISVC("my-model", "prod")
+	var gotReason, gotMessage string
+	readyCalled, unsetCalled := false, false
+
+	err := (&LLMISVCReconciler{}).propagateScalingStatus(
+		context.Background(),
+		svc,
+		&v1alpha2.ScalingSpec{WVA: &v1alpha2.WVASpec{}},
+		"my-model-kserve-keda",
+		func() { readyCalled = true },
+		func(reason, message string, _ ...interface{}) {
+			gotReason = reason
+			gotMessage = message
+		},
+		func() { unsetCalled = true },
+	)
+
+	require.NoError(t, err)
+	assert.False(t, readyCalled)
+	assert.False(t, unsetCalled)
+	assert.Equal(t, "WVAUnsupported", gotReason)
+	assert.Contains(t, gotMessage, "WVA autoscaling is no longer supported")
+}
+
 func TestExpectedDirectScaledObject(t *testing.T) {
 	tests := []struct {
 		name           string

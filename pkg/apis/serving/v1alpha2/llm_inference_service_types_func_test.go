@@ -593,6 +593,18 @@ func TestDetermineWorkloadReadiness_ScalingConditions(t *testing.T) {
 		assert.Equal(t, "FailedGetExternalMetric", cond.Reason)
 	})
 
+	t.Run("unsupported WVA scaling does not block WorkloadsReady", func(t *testing.T) {
+		svc := newTestLLMISVC()
+		svc.MarkMainWorkloadReady()
+		svc.MarkScalingNotReady("WVAUnsupported", "WVA autoscaling is no longer supported")
+
+		svc.DetermineWorkloadReadiness()
+
+		assert.Equal(t, "False", getConditionStatus(svc, ScalingReady))
+		assert.Equal(t, "WVAUnsupported", svc.GetStatus().GetCondition(ScalingReady).Reason)
+		assert.Equal(t, "True", getConditionStatus(svc, WorkloadReady))
+	})
+
 	t.Run("PrefillScalingReady=False blocks WorkloadsReady", func(t *testing.T) {
 		svc := newTestLLMISVC()
 		svc.MarkMainWorkloadReady()

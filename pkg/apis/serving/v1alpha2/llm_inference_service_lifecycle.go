@@ -243,6 +243,9 @@ func (in *LLMInferenceService) DetermineWorkloadReadiness() {
 		if cond == nil {
 			continue
 		}
+		if (cond.Type == ScalingReady || cond.Type == PrefillScalingReady) && cond.Reason == "WVAUnsupported" {
+			continue
+		}
 		if cond.IsFalse() {
 			in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(WorkloadReady, cond.Reason, cond.Message)
 			return
