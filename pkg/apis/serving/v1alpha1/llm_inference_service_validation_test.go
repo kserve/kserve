@@ -93,6 +93,73 @@ func TestValidateUpdate_DeletionBypass(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestValidateWVAConfiguration(t *testing.T) {
+	makeWVAWorkload := func() WorkloadSpec {
+		return WorkloadSpec{Scaling: &ScalingSpec{MaxReplicas: 2, WVA: &WVASpec{}}}
+	}
+
+	tests := []struct {
+		name    string
+		old     *LLMInferenceService
+		current *LLMInferenceService
+		wantErr bool
+	}{
+		{
+			name: "create with WVA is rejected",
+			current: func() *LLMInferenceService {
+				svc := newBaseLLMInferenceService()
+				svc.Spec.WorkloadSpec = makeWVAWorkload()
+				return svc
+			}(),
+			wantErr: true,
+		},
+		{
+			name: "update adding WVA is rejected",
+			old:  newBaseLLMInferenceService(),
+			current: func() *LLMInferenceService {
+				svc := newBaseLLMInferenceService()
+				svc.Spec.WorkloadSpec = makeWVAWorkload()
+				return svc
+			}(),
+			wantErr: true,
+		},
+		{
+			name: "update retaining existing WVA is allowed",
+			old: func() *LLMInferenceService {
+				svc := newBaseLLMInferenceService()
+				svc.Spec.WorkloadSpec = makeWVAWorkload()
+				return svc
+			}(),
+			current: func() *LLMInferenceService {
+				svc := newBaseLLMInferenceService()
+				svc.Spec.WorkloadSpec = makeWVAWorkload()
+				return svc
+			}(),
+		},
+		{
+			name: "update removing existing WVA is allowed",
+			old: func() *LLMInferenceService {
+				svc := newBaseLLMInferenceService()
+				svc.Spec.WorkloadSpec = makeWVAWorkload()
+				return svc
+			}(),
+			current: newBaseLLMInferenceService(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := (&LLMInferenceServiceValidator{}).validateWVAConfig(tt.old, tt.current)
+			if tt.wantErr {
+				require.NotEmpty(t, err)
+				assert.ErrorContains(t, err[0], "WVA autoscaling is no longer supported")
+				return
+			}
+			assert.Empty(t, err)
+		})
+	}
+}
+
 func TestValidateTrafficFields_V1Alpha1(t *testing.T) {
 	validator := &LLMInferenceServiceValidator{}
 

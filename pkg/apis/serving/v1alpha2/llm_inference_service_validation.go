@@ -86,6 +86,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
+	allErrs = append(allErrs, l.validateWVAConfig(prev, llmSvc)...)
 
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
@@ -109,6 +110,45 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	return warnings, apierrors.NewInvalid(
 		LLMInferenceServiceGVK.GroupKind(),
 		llmSvc.Name, allErrs)
+}
+
+// validateWVAConfig keeps the WVA fields readable for upgrade compatibility while
+// preventing new resources from adopting an autoscaler that is no longer reconciled.
+func (l *LLMInferenceServiceValidator) validateWVAConfig(prev, llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+	validateWorkload := func(path *field.Path, oldWorkload, newWorkload *WorkloadSpec) {
+		var oldWVA, newWVA *WVASpec
+		if oldWorkload != nil && oldWorkload.Scaling != nil {
+			oldWVA = oldWorkload.Scaling.WVA
+		}
+		if newWorkload != nil && newWorkload.Scaling != nil {
+			newWVA = newWorkload.Scaling.WVA
+		}
+		if newWVA != nil && oldWVA == nil {
+			allErrs = append(allErrs, field.Forbidden(path.Child("scaling", "wva"),
+				"WVA autoscaling is no longer supported; remove spec.scaling.wva and use direct KEDA scaling if needed"))
+		}
+	}
+
+	var oldSpec *LLMInferenceServiceSpec
+	if prev != nil {
+		oldSpec = &prev.Spec
+	}
+	validateWorkload(field.NewPath("spec"), workloadSpec(oldSpec), workloadSpec(&llmSvc.Spec))
+	var oldPrefill, newPrefill *WorkloadSpec
+	if oldSpec != nil {
+		oldPrefill = oldSpec.Prefill
+	}
+	newPrefill = llmSvc.Spec.Prefill
+	validateWorkload(field.NewPath("spec", "prefill"), oldPrefill, newPrefill)
+	return allErrs
+}
+
+func workloadSpec(spec *LLMInferenceServiceSpec) *WorkloadSpec {
+	if spec == nil {
+		return nil
+	}
+	return &spec.WorkloadSpec
 }
 
 func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
