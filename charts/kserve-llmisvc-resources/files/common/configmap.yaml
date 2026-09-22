@@ -391,6 +391,25 @@ data:
            # Set to true for Gateway controllers (e.g. GKE Gateway) that do not support the optional timeouts field.
            "disableHTTPRouteTimeout": false,
 
+           # loraModelRoutingStrategy selects how LLMInferenceService LoRA adapter expansion represents
+           # model identities in generated HTTPRoutes. It only applies where model-based routing is in
+           # effect, and a change reaches every LoRA service on its next reconcile unless the service pins
+           # its own value with the spec annotation serving.kserve.io/lora-model-routing-strategy,
+           # which a preset may carry. "exact" (the default when omitted) renders one Exact header match
+           # per identity; "regex" collapses the base model and all adapters into a single anchored
+           # RegularExpression match. Any other value fails config loading, like the other ingress keys.
+           # A route the strategy cannot be applied to (a user-supplied model-routing match the regex
+           # transform does not recognize) reports HTTPRoutesReady=False with reason
+           # RoutingPreconditionNotMet while workload and scheduler reconciliation continue; the existing
+           # HTTPRoute keeps serving as-is (deleted group peers are still pruned from it) but is not
+           # recreated if removed. The practical "regex" ceiling depends on the gateway: Envoy Gateway
+           # disables Envoy's RE2 program-size check, so the 4096-character header value limit binds
+           # (Envoy logs a size warning past roughly 70 adapters); Istio allows a program size of 32768;
+           # a provider left at Envoy's default of 100 fits only a couple of adapters. A proxy that
+           # rejects the pattern reports an xDS NACK in the gateway controller's logs, not on the
+           # HTTPRoute.
+           "loraModelRoutingStrategy": "exact",
+
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.
            # Name of the inference service  ( {{ .Name}} )
@@ -634,6 +653,37 @@ data:
          # This is to disable localmodel pv and pvc management for namespaces without isvcs
          "disableVolumeManagement": false
        }
+
+     # ====================================== KERNELCACHE CONFIGURATION ======================================
+     # Example
+     kernelcache: |-
+       {
+         # enabled controls KernelCache, KernelCacheCapture, and related webhook behavior.
+         "enabled": false,
+         # defaultSidecarInjection controls MCV injection when a workload does not override it.
+         "defaultSidecarInjection": true,
+         # defaultMountType is used when KernelCache does not specify a mount type.
+         "defaultMountType": "oci",
+         # defaultNodeGroup selects the KernelCacheNodeGroup for automatically created KernelCaches.
+         # Set it to an empty value when every workload must select a node group explicitly.
+         "defaultNodeGroup": "",
+         # jobNamespace is the pre-created namespace where kernel cache preparation Jobs are created.
+         "jobNamespace": "kserve-kernelcache-jobs",
+         # mcvImage is the MCV container image used by cache capture and preparation flows.
+         "mcvImage": "kserve/kserve-mcv:latest-minimal",
+         # prefetchImage is the lightweight image used by OCI prefetch Jobs.
+         "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+         # abandonedCapturePolicy controls generated captures whose producer Pod disappears
+         # before completion. Supported values are retain and delete.
+         "abandonedCapturePolicy": "retain",
+         # jobTTLSecondsAfterFinished controls how long completed preparation Jobs are retained.
+         "jobTTLSecondsAfterFinished": 600,
+         # mcvCaptureReadinessTimeoutSeconds limits how long the MCV capture sidecar waits for workload readiness.
+         "mcvCaptureReadinessTimeoutSeconds": 600,
+         # reconcileIntervalSeconds controls KCN status reconciliation.
+         # Periodic Node image validation uses the node agent's internal interval.
+         "reconcileIntervalSeconds": 300
+       }
   agent: |-
     {
         "image" : "kserve/agent:latest",
@@ -712,6 +762,20 @@ data:
         "disableIstioVirtualHost": false,
         "disableIngressCreation": false,
         "disableHTTPRouteTimeout": false
+    }
+  kernelcache: |-
+    {
+      "enabled": false,
+      "defaultSidecarInjection": true,
+      "defaultMountType": "oci",
+      "defaultNodeGroup": "",
+      "jobNamespace": "kserve-kernelcache-jobs",
+      "mcvImage": "kserve/kserve-mcv:latest-minimal",
+      "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+      "abandonedCapturePolicy": "retain",
+      "jobTTLSecondsAfterFinished": 600,
+      "mcvCaptureReadinessTimeoutSeconds": 600,
+      "reconcileIntervalSeconds": 300
     }
   localModel: |-
     {

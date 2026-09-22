@@ -20,6 +20,7 @@ import pytest_asyncio
 from httpx_retries import Retry, RetryTransport
 import httpx
 import kserve
+from kubernetes import client
 from kserve import KServeClient, InferenceRESTClient, RESTConfig
 from kserve.constants.constants import PredictorProtocol
 from kserve.logging import logger, KSERVE_LOG_CONFIG
@@ -35,6 +36,7 @@ from .common.namespace import (
     delete_namespace,
     get_core_api,
     provision_secrets,
+    provision_serving_runtimes,
     skip_resource_deletion,
     wait_pods_terminated,
     worker_namespace_name,
@@ -145,20 +147,21 @@ def test_namespace_session(_e2e_worker_id):
     ns_name = worker_namespace_name(_e2e_worker_id)
 
     create_namespace(core_v1, ns_name)
-    provision_secrets(core_v1, ns_name)
-
-    yield ns_name
-
-    if skip_resource_deletion():
-        logger.info("Preserving namespace %s", ns_name)
-        return
-
-    wait_pods_terminated(core_v1, ns_name)
-    delete_namespace(core_v1, ns_name)
+    try:
+        provision_secrets(core_v1, ns_name)
+        provision_serving_runtimes(client.CustomObjectsApi(), ns_name)
+        yield ns_name
+    finally:
+        if skip_resource_deletion():
+            logger.info("Preserving namespace %s", ns_name)
+        else:
+            wait_pods_terminated(core_v1, ns_name)
+            delete_namespace(core_v1, ns_name)
 
 
 @pytest.fixture(scope="function")
 def test_namespace(test_namespace_session):
     """Reuse the worker namespace; delete ISVCs after each test."""
     yield test_namespace_session
-    cleanup_isvcs(test_namespace_session)
+    if not skip_resource_deletion():
+        cleanup_isvcs(test_namespace_session)

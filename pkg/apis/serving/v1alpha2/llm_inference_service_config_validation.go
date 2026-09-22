@@ -22,15 +22,13 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 )
 
 // +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha2-llminferenceserviceconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceserviceconfigs,verbs=create;update,versions=v1alpha2,name=llminferenceserviceconfig.kserve-webhook-server.v1alpha2.validator,admissionReviewVersions=v1
@@ -50,37 +48,23 @@ type LLMInferenceServiceConfigValidator struct {
 	PreventWellKnownConfigDeletion bool
 }
 
-var _ webhook.CustomValidator = &LLMInferenceServiceConfigValidator{}
+var _ admission.Validator[*LLMInferenceServiceConfig] = &LLMInferenceServiceConfigValidator{}
 
 func (l *LLMInferenceServiceConfigValidator) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&LLMInferenceServiceConfig{}).
+	return ctrl.NewWebhookManagedBy(mgr, &LLMInferenceServiceConfig{}).
 		WithValidator(l).
 		Complete()
 }
 
-func (l *LLMInferenceServiceConfigValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (l *LLMInferenceServiceConfigValidator) ValidateCreate(ctx context.Context, config *LLMInferenceServiceConfig) (admission.Warnings, error) {
 	warnings := admission.Warnings{}
-	config, err := utils.Convert[*LLMInferenceServiceConfig](obj)
-	if err != nil {
-		return warnings, err
-	}
-
 	return warnings, l.validate(ctx, config)
 }
 
-func (l *LLMInferenceServiceConfigValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (l *LLMInferenceServiceConfigValidator) ValidateUpdate(ctx context.Context, oldConfig, newConfig *LLMInferenceServiceConfig) (admission.Warnings, error) {
 	logger := log.FromContext(ctx)
 	warnings := admission.Warnings{}
 
-	oldConfig, err := utils.Convert[*LLMInferenceServiceConfig](oldObj)
-	if err != nil {
-		return warnings, err
-	}
-	newConfig, err := utils.Convert[*LLMInferenceServiceConfig](newObj)
-	if err != nil {
-		return warnings, err
-	}
 	if newConfig.GetDeletionTimestamp() != nil {
 		return warnings, nil
 	}
@@ -97,14 +81,9 @@ func (l *LLMInferenceServiceConfigValidator) ValidateUpdate(ctx context.Context,
 	return warnings, l.validate(ctx, newConfig)
 }
 
-func (l *LLMInferenceServiceConfigValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (l *LLMInferenceServiceConfigValidator) ValidateDelete(ctx context.Context, config *LLMInferenceServiceConfig) (admission.Warnings, error) {
 	logger := log.FromContext(ctx)
 	warnings := admission.Warnings{}
-
-	config, err := utils.Convert[*LLMInferenceServiceConfig](obj)
-	if err != nil {
-		return warnings, err
-	}
 
 	// Warn if deleting a well-known config
 	if l.WellKnownConfigChecker != nil && l.WellKnownConfigChecker(config.Name) && constants.KServeNamespace == config.Namespace {
@@ -134,6 +113,18 @@ func (l *LLMInferenceServiceConfigValidator) validate(ctx context.Context, confi
 	}
 
 	allErrs = append(allErrs, l.validateScheduler(config)...)
+
+	// A config's adapters are merged into the LLMInferenceService spec and reach the
+	// controller unchanged, but LLMInferenceServiceValidator only sees the unmerged
+	// service, so without this they would be validated by nothing. The base model name
+	// stays empty when the config does not set one: it is supplied by the service at
+	// merge time, and config.Name is a different identifier that would reject legitimate
+	// adapter names.
+	allErrs = append(allErrs, ValidateLoRAAdapters(
+		config.Spec.Model.LoRA,
+		ptr.Deref(config.Spec.Model.Name, ""),
+		field.NewPath("spec", "model", "lora"),
+	)...)
 
 	if len(allErrs) > 0 {
 		return apierrors.NewInvalid(

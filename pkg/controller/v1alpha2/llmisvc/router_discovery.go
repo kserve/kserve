@@ -371,21 +371,28 @@ func extractRoutePaths(route *gwapiv1.HTTPRoute, modelRoutingHeader string) []st
 // for the configured model-based routing header.
 //
 // This distinguishes controller-managed model-routing rules from arbitrary
-// user-provided header rules. Only matches whose header name equals the
-// configured modelRoutingHeader (e.g. "X-Gateway-Model-Name") are treated as
+// user-provided header rules. Only matches naming the configured
+// modelRoutingHeader (e.g. "X-Gateway-Model-Name") are treated as
 // model-routing endpoints. When modelRoutingHeader is empty (feature not
 // configured), no match qualifies — so header-bearing rules are simply ignored
 // during path extraction, preserving the pre-model-routing behavior.
 func isModelBasedRoutingMatch(match gwapiv1.HTTPRouteMatch, modelRoutingHeader string) bool {
-	if modelRoutingHeader == "" {
-		return false
-	}
 	for _, h := range match.Headers {
-		if string(h.Name) == modelRoutingHeader {
+		if isModelRoutingHeader(h.Name, modelRoutingHeader) {
 			return true
 		}
 	}
 	return false
+}
+
+// isModelRoutingHeader reports whether name is the configured model-routing
+// header. HTTP header names are case-insensitive and the API server keeps
+// whatever spelling the author wrote, so every model-routing path compares
+// through here: matching a case variant in one place but not another would
+// make the same rule visible to expansion but invisible to stripping and URL
+// discovery. An empty modelRoutingHeader disables the feature.
+func isModelRoutingHeader(name gwapiv1.HTTPHeaderName, modelRoutingHeader string) bool {
+	return modelRoutingHeader != "" && strings.EqualFold(string(name), modelRoutingHeader)
 }
 
 // hasServiceBackend returns true if the rule has at least one backendRef with Kind "Service"

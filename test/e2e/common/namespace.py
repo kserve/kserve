@@ -26,7 +26,10 @@ from kubernetes import client, config
 
 logger = logging.getLogger("e2e.namespace")
 
-SEED_NAMESPACE = os.environ.get("KSERVE_SEED_NAMESPACE", "kserve-ci-e2e-test")
+SEED_NAMESPACE = os.environ.get(
+    "KSERVE_SEED_NAMESPACE",
+    os.environ.get("KSERVE_TEST_NAMESPACE", "kserve-ci-e2e-test"),
+)
 S3_CREDENTIALS_SECRET = os.environ.get("S3_CREDENTIALS_SECRET", "seaweedfs-s3-creds")
 STORAGE_CONFIG_SECRET = "storage-config"
 WORKER_NAMESPACE_PREFIX = "e2e"
@@ -58,7 +61,9 @@ def _namespace_labels(core_v1: client.CoreV1Api) -> dict:
         return labels
     seed_labels = seed.metadata.labels or {}
     for key, value in seed_labels.items():
-        if key == "istio-injection" or key.startswith("pod-security.kubernetes.io/"):
+        if key in ("istio-injection", "istio.io/rev") or key.startswith(
+            "pod-security.kubernetes.io/"
+        ):
             labels[key] = value
     return labels
 
@@ -144,6 +149,42 @@ def provision_secrets(core_v1: client.CoreV1Api, namespace: str) -> None:
                 time.sleep(1)
                 continue
             raise
+
+
+def provision_serving_runtimes(api: client.CustomObjectsApi, namespace: str) -> None:
+    """Reuse seed ServingRuntimes once per worker, including on clusters without CSRs."""
+    try:
+        runtimes = api.list_namespaced_custom_object(
+            "serving.kserve.io", "v1alpha1", SEED_NAMESPACE, "servingruntimes"
+        )
+    except client.rest.ApiException as e:
+        if e.status == 404:
+            return
+        raise
+    for runtime in runtimes.get("items", []):
+        metadata = runtime["metadata"]
+        body = {
+            "apiVersion": runtime["apiVersion"],
+            "kind": "ServingRuntime",
+            "metadata": {
+                "name": metadata["name"],
+                "namespace": namespace,
+                "labels": metadata.get("labels", {}),
+                "annotations": {
+                    key: value
+                    for key, value in (metadata.get("annotations") or {}).items()
+                    if key != "kubectl.kubernetes.io/last-applied-configuration"
+                },
+            },
+            "spec": runtime["spec"],
+        }
+        try:
+            api.create_namespaced_custom_object(
+                "serving.kserve.io", "v1alpha1", namespace, "servingruntimes", body
+            )
+        except client.rest.ApiException as e:
+            if e.status != 409:
+                raise
 
 
 def delete_namespace(core_v1: client.CoreV1Api, namespace: str) -> None:

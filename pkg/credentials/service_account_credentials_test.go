@@ -2338,6 +2338,65 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 			shouldFail: true,
 			matcher:    gomega.HaveOccurred(),
 		},
+		"storage spec with cabundle and type override": {
+			secret: &corev1.Secret{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Secret",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "storage-secret",
+					Namespace: namespace,
+				},
+				StringData: map[string]string{"minio": "{\n      \"type\": \"s3\",\n      \"access_key_id\": \"minio\",\n      \"secret_access_key\": \"minio123\",\n      \"endpoint_url\": \"https://minio-service.kubeflow:9000\",\n      \"bucket\": \"test-bucket\",\n      \"region\": \"us-south\",\n      \"cabundle_configmap\": \"my-ca-bundle\"\n    }"},
+			},
+			storageKey:        "minio",
+			storageSecretName: "storage-secret",
+			overrideParams:    map[string]string{"type": "s3", "bucket": "test-bucket"},
+			container: &corev1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+			},
+			shouldFail: false,
+			matcher: gomega.Equal(&corev1.Container{
+				Name:  "init-container",
+				Image: "kserve/init-container:latest",
+				Args: []string{
+					"s3://test-bucket/models/",
+					"/mnt/models/",
+				},
+				Env: []corev1.EnvVar{
+					{
+						Name:  "AWS_CA_BUNDLE_CONFIGMAP",
+						Value: "my-ca-bundle",
+					},
+					{
+						Name:  "STORAGE_CONFIG",
+						Value: "",
+						ValueFrom: &corev1.EnvVarSource{
+							FieldRef:         nil,
+							ResourceFieldRef: nil,
+							ConfigMapKeyRef:  nil,
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "storage-secret",
+								},
+								Key:      "minio",
+								Optional: nil,
+							},
+						},
+					},
+					{
+						Name:  "STORAGE_OVERRIDE_CONFIG",
+						Value: "{\"bucket\":\"test-bucket\",\"type\":\"s3\"}",
+					},
+				},
+			}),
+		},
 	}
 
 	for _, tc := range scenarios {

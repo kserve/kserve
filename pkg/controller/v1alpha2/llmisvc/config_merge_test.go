@@ -18,7 +18,9 @@ package llmisvc_test
 
 import (
 	"encoding/json"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -2085,6 +2087,42 @@ func TestReplaceVariables(t *testing.T) {
 			},
 		},
 		{
+			// Zero cpu was accepted before cpu became a validated field, so pinned
+			// presets exist that render it. The frozen function must keep emitting
+			// the same flag; returning empty here would drop --kv-transfer-config
+			// from the entrypoint and roll the workload on a controller upgrade.
+			name: "kvTransferConfig renders a zero cpu rather than failing",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"}},
+							},
+						},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{},
+					},
+				},
+			},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Args: []string{`--kv-transfer-config '{\"kv_connector\":\"OffloadingConnector\",\"kv_connector_extra_config\":{\"cpu_bytes_to_use\":0,\"spec_name\":\"TieringOffloadingSpec\"},\"kv_role\":\"kv_both\"}'`}},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "kvTransferConfig renders --kv-transfer-config from kvCacheOffloading",
 			cfg: &v1alpha2.LLMInferenceServiceConfig{
 				Spec: v1alpha2.LLMInferenceServiceSpec{
@@ -2279,6 +2317,30 @@ func TestReplaceVariables(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "legacy pinned template input is unchanged by baseRef-only kvCacheOffloading",
+			cfg: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi")},
+						Template: &corev1.PodSpec{Containers: []corev1.Container{{
+							Args: []string{"{{ kvTransferConfig .Spec.KVCacheOffloading }}"},
+						}}},
+					},
+				},
+			},
+			llmSvc: &v1alpha2.LLMInferenceService{},
+			want: &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi")},
+						Template: &corev1.PodSpec{Containers: []corev1.Container{{
+							Args: []string{""},
+						}}},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -2357,6 +2419,230 @@ printf '%s' "$2"`
 		HaveKeyWithValue("spec_name", "TieringOffloadingSpec"),
 		HaveKeyWithValue("eviction_policy", "lru"),
 	))
+}
+
+// The slot path writes raw JSON into an env var value rather than into the
+// entrypoint text, so it needs none of the escaping the template contract does.
+// Both must survive eval and come out as JSON vLLM can parse.
+func TestKVTransferSlotBashSafe(t *testing.T) {
+	g := NewWithT(t)
+
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available")
+	}
+
+	cfg := &v1alpha2.LLMInferenceServiceConfig{
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					CPU:            resource.MustParse("10Gi"),
+					EvictionPolicy: "lru",
+				},
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: "main",
+						Env:  []corev1.EnvVar{{Name: llmisvc.KVTransferArgsEnvVarForTest}},
+					}},
+				},
+			},
+		},
+	}
+	g.Expect(llmisvc.ApplyKVCacheCarriersForTest(cfg)).To(Succeed())
+
+	slot := cfg.Spec.Template.Containers[0].Env[0]
+	g.Expect(slot.Value).To(ContainSubstring(`--kv-transfer-config '`))
+
+	// Same shape as the config template: the env value is expanded inside eval,
+	// where the wrapping single quotes protect the JSON's double quotes.
+	script := `eval "set -- ${` + slot.Name + `}"
+printf '%s' "$2"`
+	cmd := exec.CommandContext(t.Context(), bashPath, "-c", script) // #nosec G204 -- test input, not user data
+	cmd.Env = append(cmd.Environ(), slot.Name+"="+slot.Value)
+	out, err := cmd.CombinedOutput()
+	g.Expect(err).ToNot(HaveOccurred(), "bash execution failed: %s", string(out))
+
+	var parsed map[string]any
+	g.Expect(json.Unmarshal(out, &parsed)).To(Succeed(), "vllm would reject: %q", string(out))
+	g.Expect(parsed).To(HaveKeyWithValue("kv_connector", "OffloadingConnector"))
+	g.Expect(parsed["kv_connector_extra_config"]).To(And(
+		HaveKeyWithValue("spec_name", "CPUOffloadingSpec"),
+		HaveKeyWithValue("eviction_policy", "lru"),
+	))
+}
+
+// TestReplaceVariables_NixlTransferConfigBashSafe runs the P/D templates' actual
+// KV_TRANSFER_ARGS shape through bash, with the same inlined connector constant the presets
+// carry and VLLM_VERSION pinned to the dev string llm-d images report so the NixlConnector
+// branch (not the 0.22.0 OffloadingConnector gate) is under test. It covers both sides of
+// the NIXL probe: unconditional injection kills non-NIXL images ("RuntimeError: NIXL is not
+// available"), so "no NIXL, no injection" is asserted here rather than left to e2e.
+// TestPresetsInlineNixlConnector proves the constant used here is the one the presets render.
+func TestReplaceVariables_NixlTransferConfigBashSafe(t *testing.T) {
+	bashPath, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash not available")
+	}
+
+	// Mirrors the decode/prefill templates: user-supplied config wins, then the
+	// version-gated carrier slot, then the NIXL-gated P/D fallback. The slot is left
+	// unset here, which is a P/D topology without kvCacheOffloading.
+	// Kept as joined lines rather than one raw literal: golangci-lint's --fix rewrites a
+	// multi-line raw string here and drops a line in the process, leaving unbalanced if/fi.
+	scriptTmpl := strings.Join([]string{
+		`VLLM_VERSION="0.1.dev1+g51f799c1a"`,
+		`KV_TRANSFER_ARGS=""`,
+		`if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then`,
+		`  if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then`,
+		`    if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then`,
+		`      KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"`,
+		`    fi`,
+		`  fi`,
+		`  if [ -z "${KV_TRANSFER_ARGS}" ]; then`,
+		`    NIXL_PY=$(command -v python3 || command -v python || true)`,
+		`    if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then`,
+		`      KV_TRANSFER_ARGS="KV_CONNECTOR_ARG"`,
+		`    fi`,
+		`  fi`,
+		`fi`,
+		`eval "set -- ${KV_TRANSFER_ARGS}"`,
+		`printf '%s' "$2"`,
+	}, "\n")
+
+	// Shim python3 on PATH so the probe can be driven both ways without NIXL installed.
+	stubPython := func(t *testing.T, importSucceeds bool) string {
+		t.Helper()
+		dir := t.TempDir()
+		body := "#!/bin/sh\nexit 1\n"
+		if importSucceeds {
+			body = "#!/bin/sh\nexit 0\n"
+		}
+		if err := os.WriteFile(filepath.Join(dir, "python3"), []byte(body), 0o755); err != nil { //nolint:gosec // G306: probe stub must be executable
+			t.Fatalf("writing python3 stub: %v", err)
+		}
+		return dir
+	}
+
+	for _, tc := range []struct {
+		name string
+		arg  string // the literal --kv-transfer-config the preset inlines for this side
+		role string
+	}{
+		{name: "decode consumes KV", arg: `--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'`, role: "kv_consumer"},
+		{name: "prefill produces KV", arg: `--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'`, role: "kv_producer"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			cfg := &v1alpha2.LLMInferenceServiceConfig{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Command: []string{"/bin/bash", "-c", strings.ReplaceAll(scriptTmpl, "KV_CONNECTOR_ARG", tc.arg)}},
+							},
+						},
+					},
+				},
+			}
+
+			// No kvCacheOffloading: this is a plain P/D topology, the #5987 reproducer.
+			got, err := llmisvc.ReplaceVariables(&v1alpha2.LLMInferenceService{}, cfg, nil)
+			g.Expect(err).ToNot(HaveOccurred())
+			renderedScript := got.Spec.Template.Containers[0].Command[2]
+
+			run := func(pathDir string, extraEnv ...string) string {
+				t.Helper()
+				cmd := exec.CommandContext(t.Context(), bashPath, "-c", renderedScript) // #nosec G204 -- test input, not user data
+				cmd.Env = append(cmd.Environ(), "PATH="+pathDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+				cmd.Env = append(cmd.Env, extraEnv...)
+				out, runErr := cmd.CombinedOutput()
+				g.Expect(runErr).ToNot(HaveOccurred(), "bash execution failed: %s", string(out))
+				// The template echoes its decision; the connector JSON is the final line.
+				lines := strings.Split(string(out), "\n")
+				return lines[len(lines)-1]
+			}
+
+			// NIXL present: the connector is injected and the JSON survives bash intact.
+			var parsed map[string]any
+			jsonArg := run(stubPython(t, true))
+			g.Expect(json.Unmarshal([]byte(jsonArg), &parsed)).To(Succeed(), "vllm would reject: %q", jsonArg)
+			g.Expect(parsed).To(HaveKeyWithValue("kv_connector", "NixlConnector"))
+			g.Expect(parsed).To(HaveKeyWithValue("kv_role", tc.role))
+
+			// NIXL absent: inject nothing. Injecting here is what breaks CPU engines.
+			g.Expect(run(stubPython(t, false))).To(BeEmpty(),
+				"a connector was injected on an image without NIXL")
+
+			// A user-supplied connector must still win over the injected default.
+			g.Expect(run(stubPython(t, true), `VLLM_ADDITIONAL_ARGS=--kv-transfer-config '{"kv_connector":"MyConnector"}'`)).To(BeEmpty(),
+				"KServe overrode a user-supplied --kv-transfer-config")
+		})
+	}
+}
+
+// TestPresetsInlineNixlConnector renders the real decode/prefill presets and asserts the
+// engine-side NixlConnector --kv-transfer-config is inlined in the container command with the
+// role each side owns. The connector is a preset constant (not a controller template func), so
+// changing it can only come from editing the preset — a pinned preset never re-renders behind
+// the user. Follows the preset-rendering pattern of TestSingleNodeTensorParallelRendered.
+func TestPresetsInlineNixlConnector(t *testing.T) {
+	presetsDir := filepath.Join(ktesting.ProjectRoot(), "config", "llmisvcconfig")
+
+	tests := []struct {
+		name    string
+		file    string
+		llmSvc  *v1alpha2.LLMInferenceService
+		wantArg string
+	}{
+		{
+			name: "decode template inlines the consumer connector",
+			file: "config-llm-decode-template.yaml",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+				},
+			},
+			wantArg: `--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'`,
+		},
+		{
+			name: "prefill template inlines the producer connector",
+			file: "config-llm-prefill-template.yaml",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model:   v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+					Prefill: &v1alpha2.WorkloadSpec{},
+				},
+			},
+			wantArg: `--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+
+			data, err := os.ReadFile(filepath.Clean(filepath.Join(presetsDir, tt.file)))
+			g.Expect(err).ToNot(HaveOccurred())
+			config := loadConfig(t, data, tt.file)
+
+			got, err := llmisvc.ReplaceVariables(tt.llmSvc, config, &llmisvc.Config{})
+			g.Expect(err).ToNot(HaveOccurred())
+
+			var containers []corev1.Container
+			switch {
+			case got.Spec.Prefill != nil && got.Spec.Prefill.Template != nil:
+				containers = got.Spec.Prefill.Template.Containers
+			case got.Spec.Template != nil:
+				containers = got.Spec.Template.Containers
+			}
+			g.Expect(containers).ToNot(BeEmpty())
+
+			g.Expect(strings.Join(containers[0].Command, " ")).To(ContainSubstring(tt.wantArg))
+		})
+	}
 }
 
 func mustParseURL(s string) apis.URL {
@@ -3069,6 +3355,44 @@ spec:
 				if args[i] != want {
 					t.Errorf("arg[%d] = %q, want %q", i, args[i], want)
 				}
+			}
+		})
+	}
+}
+
+func TestSelectSingleNodeTemplateName(t *testing.T) {
+	tests := []struct {
+		name    string
+		runtime *string
+		want    string
+	}{
+		{
+			name:    "nil runtime defaults to vllm template",
+			runtime: nil,
+			want:    "kserve-config-llm-template",
+		},
+		{
+			name:    "empty runtime defaults to vllm template",
+			runtime: ptr.To(""),
+			want:    "kserve-config-llm-template",
+		},
+		{
+			name:    "unknown runtime name defaults to vllm template",
+			runtime: ptr.To("some-other-runtime"),
+			want:    "kserve-config-llm-template",
+		},
+		{
+			name:    "kserve-llm-sglang runtime selects sglang template",
+			runtime: ptr.To(llmisvc.SGLangServingRuntimeName),
+			want:    "kserve-config-sglang-template",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := llmisvc.SelectSingleNodeTemplateName(tt.runtime)
+			if got != tt.want {
+				t.Errorf("SelectSingleNodeTemplateName(%v) = %q, want %q", tt.runtime, got, tt.want)
 			}
 		})
 	}

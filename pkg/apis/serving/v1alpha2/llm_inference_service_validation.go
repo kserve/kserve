@@ -23,21 +23,20 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 
 	"k8s.io/utils/ptr"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/constants"
 	kservevalidation "github.com/kserve/kserve/pkg/validation"
 )
 
@@ -59,33 +58,19 @@ const (
 // +kubebuilder:object:generate=false
 type LLMInferenceServiceValidator struct{}
 
-var _ webhook.CustomValidator = &LLMInferenceServiceValidator{}
+var _ admission.Validator[*LLMInferenceService] = &LLMInferenceServiceValidator{}
 
 func (l *LLMInferenceServiceValidator) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&LLMInferenceService{}).
+	return ctrl.NewWebhookManagedBy(mgr, &LLMInferenceService{}).
 		WithValidator(l).
 		Complete()
 }
 
-func (l *LLMInferenceServiceValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	llmSvc, err := utils.Convert[*LLMInferenceService](obj)
-	if err != nil {
-		return nil, err
-	}
-
+func (l *LLMInferenceServiceValidator) ValidateCreate(ctx context.Context, llmSvc *LLMInferenceService) (admission.Warnings, error) {
 	return l.validate(ctx, nil, llmSvc)
 }
 
-func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	llmSvc, err := utils.Convert[*LLMInferenceService](newObj)
-	if err != nil {
-		return nil, err
-	}
-	prev, err := utils.Convert[*LLMInferenceService](oldObj)
-	if err != nil {
-		return nil, err
-	}
+func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, prev, llmSvc *LLMInferenceService) (admission.Warnings, error) {
 	if llmSvc.GetDeletionTimestamp() != nil {
 		return nil, nil
 	}
@@ -93,7 +78,7 @@ func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, oldOb
 	return l.validate(ctx, prev, llmSvc)
 }
 
-func (l *LLMInferenceServiceValidator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
+func (l *LLMInferenceServiceValidator) ValidateDelete(_ context.Context, _ *LLMInferenceService) (admission.Warnings, error) {
 	// No validation needed for deletion
 	return admission.Warnings{}, nil
 }
@@ -119,6 +104,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
 	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
 	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
+	allErrs = append(allErrs, l.validateLoRAModelRoutingStrategyAnnotation(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
@@ -782,11 +768,22 @@ func (l *LLMInferenceServiceValidator) validateKVCacheOffloading(llmSvc *LLMInfe
 	return allErrs
 }
 
+// validateKVCacheOffloadingSpec validates one kvCacheOffloading block.
 func validateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Path) field.ErrorList {
-	if kv == nil || len(kv.Secondary) == 0 {
+	if kv == nil {
 		return nil
 	}
 	var allErrs field.ErrorList
+	// A negative size is always a mistake. Not ratcheted: the rendered spec is
+	// re-validated as a create on every reconcile, so a stored negative already
+	// fails there, and correcting the field is accepted either way.
+	if kv.CPU.Sign() < 0 {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("cpu"), kv.CPU.String(),
+			"cpu must not be negative"))
+	}
+	if len(kv.Secondary) == 0 {
+		return allErrs
+	}
 	if kv.CPU.IsZero() {
 		allErrs = append(allErrs, field.Required(fldPath.Child("cpu"),
 			"cpu must be set when secondary tiers are configured"))
@@ -996,4 +993,32 @@ func validatePositiveIntOrPercent(fldPath *field.Path, val intstr.IntOrString) f
 	}
 
 	return allErrs
+}
+
+// validateLoRAModelRoutingStrategyAnnotation rejects an unusable
+// serving.kserve.io/lora-model-routing-strategy at admission, so a typo fails
+// the apply instead of parking the service in RoutingPreconditionNotMet. The
+// merged spec is re-validated at reconcile, which covers a preset-carried value.
+// Trimmed and case-insensitive, matching the consumer.
+func (l *LLMInferenceServiceValidator) validateLoRAModelRoutingStrategyAnnotation(llmSvc *LLMInferenceService) field.ErrorList {
+	return ValidateLoRAModelRoutingStrategyAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))
+}
+
+// ValidateLoRAModelRoutingStrategyAnnotation is shared with the v1alpha1
+// validator, which keeps its own checklist, so both API versions reject the
+// same values.
+func ValidateLoRAModelRoutingStrategyAnnotation(annotations map[string]string, path *field.Path) field.ErrorList {
+	raw, ok := annotations[constants.LoRAModelRoutingStrategyAnnotationKey]
+	if !ok {
+		return nil
+	}
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", constants.LoRAModelRoutingStrategyExact, constants.LoRAModelRoutingStrategyRegex:
+		return nil
+	}
+	return field.ErrorList{field.NotSupported(
+		path.Key(constants.LoRAModelRoutingStrategyAnnotationKey),
+		raw,
+		[]string{constants.LoRAModelRoutingStrategyExact, constants.LoRAModelRoutingStrategyRegex},
+	)}
 }

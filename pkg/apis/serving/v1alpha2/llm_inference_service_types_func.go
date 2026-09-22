@@ -17,9 +17,12 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"strings"
+
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
 
+	"github.com/kserve/kserve/pkg/constants"
 	kservevalidation "github.com/kserve/kserve/pkg/validation"
 )
 
@@ -126,6 +129,10 @@ func (s *LLMInferenceService) IsUsingLLMInferenceServiceConfigInNamespace(name, 
 	// Use applied configs from the last successful reconciliation when available.
 	if len(s.Status.AppliedConfigRefs) > 0 {
 		for i := range s.Status.AppliedConfigRefs {
+			if s.Status.AppliedConfigRefs[i].Source == AppliedConfigSourceServingRuntime {
+				continue
+			}
+
 			if string(s.Status.AppliedConfigRefs[i].Name) != name {
 				continue
 			}
@@ -138,7 +145,7 @@ func (s *LLMInferenceService) IsUsingLLMInferenceServiceConfigInNamespace(name, 
 	}
 
 	// Fallback: appliedConfigs is empty (not yet reconciled, or cleared on stop).
-	for _, value := range s.Status.Annotations {
+	for _, value := range s.PinnedConfigNames() {
 		if value == name {
 			return true
 		}
@@ -151,6 +158,18 @@ func (s *LLMInferenceService) IsUsingLLMInferenceServiceConfigInNamespace(name, 
 	}
 
 	return false
+}
+
+// PinnedConfigNames returns the config names pinned in Status.Annotations
+// by the WellKnownConfigResolver, identified by key prefix (allowlist).
+func (s *LLMInferenceService) PinnedConfigNames() []string {
+	var names []string
+	for key, value := range s.Status.Annotations {
+		if strings.HasPrefix(key, constants.WellKnownConfigPinAnnotationPrefix) {
+			names = append(names, value)
+		}
+	}
+	return names
 }
 
 // HasManagedDRA reports whether managed DRA is enabled via annotations.

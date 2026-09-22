@@ -102,7 +102,12 @@ V2_ROUTE_PREFIX = "/v2"
 V1_ROUTE_PREFIX = "/v1"
 
 DEFAULT_HTTP_PORT = 8080
+DEFAULT_HTTPS_PORT = 8443
 DEFAULT_GRPC_PORT = 8081
+
+# Server-side TLS environment variables
+KSERVE_TLS_CERT_FILE_ENV = "KSERVE_TLS_CERT_FILE"
+KSERVE_TLS_KEY_FILE_ENV = "KSERVE_TLS_KEY_FILE"
 
 # Header containing the json length in case of REST raw response.
 INFERENCE_CONTENT_LENGTH_HEADER = "inference-header-content-length"

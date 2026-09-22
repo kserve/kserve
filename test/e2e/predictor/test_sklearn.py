@@ -15,11 +15,10 @@
 import asyncio
 import json
 import os
+from urllib.parse import quote
 
+import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
 import pytest
-from kubernetes import client
-from kubernetes.client import V1ContainerPort, V1ResourceRequirements
-
 from kserve import (
     KServeClient,
     V1beta1InferenceService,
@@ -30,13 +29,14 @@ from kserve import (
     V1beta1SKLearnSpec,
     constants,
 )
-
-import kserve.protocol.grpc.grpc_predict_v2_pb2 as inference_pb2
+from kubernetes import client
+from kubernetes.client import V1ContainerPort, V1ResourceRequirements
 
 from ..common.utils import (
-    predict_isvc,
-    predict_grpc,
     get_container_worker_count,
+    predict_grpc,
+    predict_isvc,
+    wait_for_pod_logs,
 )
 
 
@@ -75,6 +75,20 @@ async def test_sklearn_kserve(rest_v1_client, network_layer, test_namespace):
         namespace=test_namespace,
     )
     assert res["predictions"] == [1, 1]
+
+    pods = kserve_client.core_api.list_namespaced_pod(
+        test_namespace,
+        label_selector=f"serving.kserve.io/inferenceservice={service_name}",
+    )
+    assert len(pods.items) == 1
+    logs = await wait_for_pod_logs(
+        kserve_client.core_api,
+        pods.items[0].metadata.name,
+        test_namespace,
+        expected_substring=f"POST /v1/models/{service_name}:predict",
+    )
+    assert f"POST {quote(f'/v1/models/{service_name}:predict')}" in logs
+    assert '"telemetry.sdk.name": "opentelemetry"' not in logs
 
 
 @pytest.mark.predictor

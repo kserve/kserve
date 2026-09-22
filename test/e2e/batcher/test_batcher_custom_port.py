@@ -73,15 +73,20 @@ async def test_batcher_custom_port(
     try:
         kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     except RuntimeError as e:
-        print(
-            kserve_client.api_instance.get_namespaced_custom_object(
-                "serving.knative.dev",
-                "v1",
-                test_namespace,
-                "services",
-                service_name + "-predictor",
+        try:
+            print(
+                kserve_client.api_instance.get_namespaced_custom_object(
+                    "serving.knative.dev",
+                    "v1",
+                    test_namespace,
+                    "services",
+                    service_name + "-predictor",
+                )
             )
-        )
+        # Fall back for Standard Deployments
+        except Exception:
+            isvc = kserve_client.get(service_name, namespace=test_namespace)
+            print(isvc)
         pods = kserve_client.core_api.list_namespaced_pod(
             test_namespace,
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),

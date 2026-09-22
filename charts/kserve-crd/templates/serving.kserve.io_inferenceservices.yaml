@@ -3,7 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: kserve/serving-cert
-    controller-gen.kubebuilder.io/version: v0.19.0
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: inferenceservices.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -8409,6 +8409,11 @@ spec:
                             x-kubernetes-list-map-keys:
                               - name
                             x-kubernetes-list-type: map
+                          schedulingGroup:
+                            properties:
+                              podGroupName:
+                                type: string
+                            type: object
                           securityContext:
                             properties:
                               appArmorProfile:
@@ -11450,6 +11455,10 @@ spec:
                                                 type: integer
                                               signerName:
                                                 type: string
+                                              userAnnotations:
+                                                additionalProperties:
+                                                  type: string
+                                                type: object
                                             required:
                                               - keyType
                                               - signerName
@@ -14424,6 +14433,11 @@ spec:
                                 x-kubernetes-list-map-keys:
                                   - name
                                 x-kubernetes-list-type: map
+                              schedulingGroup:
+                                properties:
+                                  podGroupName:
+                                    type: string
+                                type: object
                               securityContext:
                                 properties:
                                   appArmorProfile:
@@ -15201,6 +15215,10 @@ spec:
                                                     type: integer
                                                   signerName:
                                                     type: string
+                                                  userAnnotations:
+                                                    additionalProperties:
+                                                      type: string
+                                                    type: object
                                                 required:
                                                   - keyType
                                                   - signerName
@@ -19261,6 +19279,11 @@ spec:
                       x-kubernetes-list-map-keys:
                         - name
                       x-kubernetes-list-type: map
+                    schedulingGroup:
+                      properties:
+                        podGroupName:
+                          type: string
+                      type: object
                     securityContext:
                       properties:
                         appArmorProfile:
@@ -20056,6 +20079,10 @@ spec:
                                           type: integer
                                         signerName:
                                           type: string
+                                        userAnnotations:
+                                          additionalProperties:
+                                            type: string
+                                          type: object
                                       required:
                                         - keyType
                                         - signerName
@@ -27803,6 +27830,11 @@ spec:
                       x-kubernetes-list-map-keys:
                         - name
                       x-kubernetes-list-type: map
+                    schedulingGroup:
+                      properties:
+                        podGroupName:
+                          type: string
+                      type: object
                     securityContext:
                       properties:
                         appArmorProfile:
@@ -30814,6 +30846,10 @@ spec:
                                           type: integer
                                         signerName:
                                           type: string
+                                        userAnnotations:
+                                          additionalProperties:
+                                            type: string
+                                          type: object
                                       required:
                                         - keyType
                                         - signerName
@@ -33788,6 +33824,11 @@ spec:
                           x-kubernetes-list-map-keys:
                             - name
                           x-kubernetes-list-type: map
+                        schedulingGroup:
+                          properties:
+                            podGroupName:
+                              type: string
+                          type: object
                         securityContext:
                           properties:
                             appArmorProfile:
@@ -34565,6 +34606,10 @@ spec:
                                               type: integer
                                             signerName:
                                               type: string
+                                            userAnnotations:
+                                              additionalProperties:
+                                                type: string
+                                              type: object
                                           required:
                                             - keyType
                                             - signerName
@@ -35495,6 +35540,17 @@ spec:
                         workingDir:
                           type: string
                       type: object
+                  type: object
+                tracing:
+                  properties:
+                    exporter:
+                      type: string
+                    exporterEndpoint:
+                      type: string
+                    sampler:
+                      type: string
+                    samplerArg:
+                      type: string
                   type: object
                 transformer:
                   properties:
@@ -37871,6 +37927,11 @@ spec:
                       x-kubernetes-list-map-keys:
                         - name
                       x-kubernetes-list-type: map
+                    schedulingGroup:
+                      properties:
+                        podGroupName:
+                          type: string
+                      type: object
                     securityContext:
                       properties:
                         appArmorProfile:
@@ -38666,6 +38727,10 @@ spec:
                                           type: integer
                                         signerName:
                                           type: string
+                                        userAnnotations:
+                                          additionalProperties:
+                                            type: string
+                                          type: object
                                       required:
                                         - keyType
                                         - signerName
