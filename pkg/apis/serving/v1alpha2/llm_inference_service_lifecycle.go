@@ -265,6 +265,8 @@ func (in *LLMInferenceService) DetermineWorkloadReadiness() {
 		if cond == nil {
 			continue
 		}
+		// Existing WVA resources remain operational with autoscaling disabled. Keep
+		// the persistent warning visible without making the workload NotReady.
 		if (cond.Type == ScalingReady || cond.Type == PrefillScalingReady) && cond.Reason == "WVAUnsupported" {
 			continue
 		}
