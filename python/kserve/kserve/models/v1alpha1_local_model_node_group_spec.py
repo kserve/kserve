@@ -151,7 +151,7 @@ class V1alpha1LocalModelNodeGroupSpec(object):
     def tolerations(self):
         """Gets the tolerations of this V1alpha1LocalModelNodeGroupSpec.  # noqa: E501
 
-        Used to specify tolerations for download jobs  # noqa: E501
+        Used to specify tolerations for download jobs and for the localmodelnode agent DaemonSet, so both can be scheduled onto the tainted nodes of this node group  # noqa: E501
 
         :return: The tolerations of this V1alpha1LocalModelNodeGroupSpec.  # noqa: E501
         :rtype: list[V1Toleration]
@@ -162,7 +162,7 @@ class V1alpha1LocalModelNodeGroupSpec(object):
     def tolerations(self, tolerations):
         """Sets the tolerations of this V1alpha1LocalModelNodeGroupSpec.
 
-        Used to specify tolerations for download jobs  # noqa: E501
+        Used to specify tolerations for download jobs and for the localmodelnode agent DaemonSet, so both can be scheduled onto the tainted nodes of this node group  # noqa: E501
 
         :param tolerations: The tolerations of this V1alpha1LocalModelNodeGroupSpec.  # noqa: E501
         :type: list[V1Toleration]

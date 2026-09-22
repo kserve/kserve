@@ -2910,7 +2910,7 @@ func schema_pkg_apis_serving_v1alpha1_LocalModelNodeGroupSpec(ref common.Referen
 							},
 						},
 						SchemaProps: spec.SchemaProps{
-							Description: "Used to specify tolerations for download jobs",
+							Description: "Used to specify tolerations for download jobs and for the localmodelnode agent DaemonSet, so both can be scheduled onto the tainted nodes of this node group",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

@@ -1589,7 +1589,7 @@
           "$ref": "#/definitions/resource.Quantity"
         },
         "tolerations": {
-          "description": "Used to specify tolerations for download jobs",
+          "description": "Used to specify tolerations for download jobs and for the localmodelnode agent DaemonSet, so both can be scheduled onto the tainted nodes of this node group",
           "type": "array",
           "items": {
             "default": {},

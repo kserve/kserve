@@ -31,7 +31,8 @@ type LocalModelNodeGroupSpec struct {
 	PersistentVolumeSpec corev1.PersistentVolumeSpec `json:"persistentVolumeSpec"`
 	// Used to create PersistentVolumeClaims for download and in inference service namespaces
 	PersistentVolumeClaimSpec corev1.PersistentVolumeClaimSpec `json:"persistentVolumeClaimSpec"`
-	// Used to specify tolerations for download jobs
+	// Used to specify tolerations for download jobs and for the localmodelnode agent DaemonSet,
+	// so both can be scheduled onto the tainted nodes of this node group
 	// +optional
 	// +listType=atomic
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
