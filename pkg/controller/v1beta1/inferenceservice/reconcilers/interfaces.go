@@ -24,6 +24,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	isvcutils "github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice/utils"
 )
 
 // WorkloadReconciler reconciles workload resources (Deployment or Rollout)
@@ -36,6 +37,9 @@ type WorkloadReconciler interface {
 
 	// SetControllerReferences sets owner references on all workloads
 	SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error
+
+	// CleanupOrphans deletes resources selected by scope whose names are not retained.
+	CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error
 }
 
 // ServiceReconciler reconciles service resources
@@ -48,6 +52,9 @@ type ServiceReconciler interface {
 
 	// SetControllerReferences sets owner references on all services
 	SetControllerReferences(owner metav1.Object, scheme *runtime.Scheme) error
+
+	// CleanupOrphans deletes resources selected by scope whose names are not retained.
+	CleanupOrphans(ctx context.Context, scope isvcutils.OrphanScope) error
 }
 
 // IngressReconciler reconciles ingress/routing resources

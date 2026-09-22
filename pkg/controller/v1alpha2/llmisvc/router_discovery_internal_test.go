@@ -19,6 +19,7 @@ package llmisvc
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -84,4 +85,29 @@ func TestResolvedGatewayKeys(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestModelRoutingHeaderRecognitionIsShared pins that every model-routing path
+// agrees on which header is the routing header. HTTP header names are
+// case-insensitive and the API server keeps whatever spelling the author wrote,
+// so recognizing a case variant in one place but not another would make the same
+// rule visible to LoRA expansion but invisible to stripping and URL discovery.
+func TestModelRoutingHeaderRecognitionIsShared(t *testing.T) {
+	const configured = "X-Gateway-Model-Name"
+
+	for _, name := range []string{"X-Gateway-Model-Name", "x-gateway-model-name", "X-GATEWAY-MODEL-NAME"} {
+		match := gwapiv1.HTTPRouteMatch{
+			Headers: []gwapiv1.HTTPHeaderMatch{{Name: gwapiv1.HTTPHeaderName(name), Value: "v"}},
+		}
+		assert.True(t, isModelRoutingHeader(gwapiv1.HTTPHeaderName(name), configured), "header %q", name)
+		assert.True(t, isModelBasedRoutingMatch(match, configured),
+			"match on %q must be recognized by every model-routing path", name)
+	}
+
+	assert.False(t, isModelRoutingHeader("X-Other", configured))
+	// An unconfigured header disables the feature rather than matching everything.
+	assert.False(t, isModelRoutingHeader("X-Gateway-Model-Name", ""))
+	assert.False(t, isModelBasedRoutingMatch(gwapiv1.HTTPRouteMatch{
+		Headers: []gwapiv1.HTTPHeaderMatch{{Name: "X-Gateway-Model-Name"}},
+	}, ""))
 }

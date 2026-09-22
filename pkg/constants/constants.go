@@ -180,6 +180,7 @@ var (
 	LocalModelPVCNameAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/localmodel-pvc-name"
 	ConfidentialEnabledAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/confidential-enabled"
 	ConfidentialResourceIdAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/confidential-resource-id"
+	LocalModelLoRAAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/localmodel-lora"
 )
 
 // kserve networking constants
@@ -201,6 +202,7 @@ var (
 
 const (
 	HfURIPrefix        = "hf://"
+	MsURIPrefix        = "modelscope://"
 	OciURIPrefix       = "oci://"
 	OciNativeURIPrefix = "oci+native://"
 	OciFetchURIPrefix  = "oci+fetch://"
@@ -459,6 +461,17 @@ const (
 	// LLMServedByAnnotationKey enables the x-served-by response header middleware.
 	// Set to "true" on an LLMInferenceService to inject the middleware.
 	LLMServedByAnnotationKey = "serving.kserve.io/enable-served-by-header"
+
+	// LLMAcceleratorAnnotationKey is the Status.Annotations key where the
+	// resolved accelerator type (cpu/gpu/unknown) is persisted during
+	// reconciliation for telemetry scraping.
+	LLMAcceleratorAnnotationKey = "serving.kserve.io/accelerator-type"
+
+	// WellKnownConfigPinAnnotationPrefix is the key prefix shared by all
+	// config-pin annotations written to Status.Annotations by the
+	// WellKnownConfigResolver. Used as an allowlist when reading config
+	// references from annotations.
+	WellKnownConfigPinAnnotationPrefix = "serving.kserve.io/config-"
 )
 
 // LLMInferenceService constants
@@ -482,12 +495,22 @@ const (
 
 // InferenceService model server args
 const (
-	ArgumentModelName      = "--model_name"
-	ArgumentModelDir       = "--model_dir"
-	ArgumentModelClassName = "--model_class_name"
-	ArgumentPredictorHost  = "--predictor_host"
-	ArgumentHttpPort       = "--http_port"
-	ArgumentWorkers        = "--workers"
+	ArgumentModelName       = "--model_name"
+	ArgumentModelDir        = "--model_dir"
+	ArgumentModelClassName  = "--model_class_name"
+	ArgumentPredictorHost   = "--predictor_host"
+	ArgumentPredictorUseSSL = "--predictor_use_ssl"
+	ArgumentHttpPort        = "--http_port"
+	ArgumentWorkers         = "--workers"
+)
+
+// Transformer-to-predictor TLS env var keys
+const (
+	PredictorHostEnvVar      = "PREDICTOR_HOST"
+	PredictorPortEnvVar      = "PREDICTOR_PORT"
+	PredictorProtocolEnvVar  = "PREDICTOR_PROTOCOL"
+	TransformerTLSCertEnvVar = "KSERVE_TLS_CERT_FILE"
+	TransformerTLSKeyEnvVar  = "KSERVE_TLS_KEY_FILE"
 )
 
 // InferenceService container names
@@ -952,3 +975,15 @@ func GetRouterReadinessProbe() *corev1.Probe {
 	}
 	return probe
 }
+
+// LoRAModelRoutingStrategyAnnotationKey pins the LoRA routing strategy for one
+// LLMInferenceService, overriding the cluster-wide loraModelRoutingStrategy.
+// Set on spec.annotations, so a preset can carry it.
+const LoRAModelRoutingStrategyAnnotationKey = KServeAPIGroupName + "/lora-model-routing-strategy"
+
+// Values accepted by the loraModelRoutingStrategy ConfigMap key and the
+// LoRAModelRoutingStrategyAnnotationKey annotation; compared case-insensitively.
+const (
+	LoRAModelRoutingStrategyExact = "exact"
+	LoRAModelRoutingStrategyRegex = "regex"
+)

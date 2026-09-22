@@ -19,6 +19,9 @@ package llmisvc
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -29,7 +32,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -175,6 +181,39 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 	return s
 }
 
+// deploymentSelectorLabels returns the labels for a workload Deployment's spec.selector:
+// the component's identity labels, taking the values workloadLabels sets for those keys.
+// workloadLabels keys that identity does not define are left out.
+func deploymentSelectorLabels(identity, workloadLabels map[string]string) map[string]string {
+	selector := make(map[string]string, len(identity))
+	maps.Copy(selector, identity)
+	for k, v := range workloadLabels {
+		if _, isIdentity := selector[k]; isIdentity {
+			selector[k] = v
+		}
+	}
+	return selector
+}
+
+func (r *LLMISVCReconciler) propagateInferencePoolRefLabelSelector(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, labels map[string]string) error {
+	if !utils.GetForceStopRuntime(llmSvc) && llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
+		infPool := &igwapi.InferencePool{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: llmSvc.GetNamespace(),
+				Name:      llmSvc.Spec.Router.Scheduler.Pool.Ref.Name,
+			},
+		}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(infPool), infPool); err != nil {
+			return fmt.Errorf("failed to get InferencePool %s/%s: %w", infPool.GetNamespace(), infPool.GetName(), err)
+		}
+
+		for k, v := range infPool.Spec.Selector.MatchLabels {
+			labels[string(k)] = string(v)
+		}
+	}
+	return nil
+}
+
 func workloadServiceName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return kmeta.ChildName(llmSvc.GetName(), "-kserve-workload-svc")
 }
@@ -221,6 +260,38 @@ func PreserveDeploymentReplicas() UpdateOption[*appsv1.Deployment] {
 		if expectedGiven.Spec.Replicas == nil {
 			expected.Spec.Replicas = curr.Spec.Replicas
 		}
+	})
+}
+
+// PreserveDeploymentSelector returns an UpdateOption that carries the stored
+// Deployment's spec.selector over to the object being written, since spec.selector is
+// immutable and the API server accepts no other value.
+//
+// If the pod template does not satisfy that selector, it returns a
+// reconcile.TerminalError naming the labels it is missing: the Deployment has to be
+// recreated, so requeuing the update cannot change the outcome.
+func PreserveDeploymentSelector() UpdateOption[*appsv1.Deployment] {
+	return BeforeDryRun(func(expected, curr *appsv1.Deployment) error {
+		if curr.Spec.Selector == nil {
+			return nil
+		}
+		expected.Spec.Selector = curr.Spec.Selector.DeepCopy()
+
+		var unsatisfied []string
+		for k, v := range curr.Spec.Selector.MatchLabels {
+			if expected.Spec.Template.Labels[k] != v {
+				unsatisfied = append(unsatisfied, fmt.Sprintf("%s=%q", k, v))
+			}
+		}
+		if len(unsatisfied) == 0 {
+			return nil
+		}
+		slices.Sort(unsatisfied)
+
+		return reconcile.TerminalError(fmt.Errorf(
+			"deployment %s/%s must be recreated to reconcile: its selector is "+
+				"immutable and requires %s, which the pod template no longer sets",
+			curr.GetNamespace(), curr.GetName(), strings.Join(unsatisfied, ", ")))
 	})
 }
 

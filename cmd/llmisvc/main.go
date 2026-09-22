@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -55,6 +56,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+	"github.com/kserve/kserve/pkg/oteljson"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
 	kservetls "github.com/kserve/kserve/pkg/tls"
 	llmisvcwebhook "github.com/kserve/kserve/pkg/webhook/admission/llminferenceservice"
@@ -90,6 +92,7 @@ type Options struct {
 	tlsMinVersion         string
 	tlsCipherSuites       string
 	zapOpts               zap.Options
+	logFormat             oteljson.Format
 }
 
 func DefaultOptions() Options {
@@ -102,6 +105,7 @@ func DefaultOptions() Options {
 		migrationTimeout:      1 * time.Hour,
 		migrationPollInterval: 30 * time.Second,
 		zapOpts:               zap.Options{},
+		logFormat:             oteljson.FormatZap,
 	}
 }
 
@@ -121,6 +125,7 @@ func GetOptions() Options {
 	flag.DurationVar(&opts.migrationTimeout, "storage-migration-timeout", opts.migrationTimeout, "Total retry budget for storage version migration.")
 	flag.DurationVar(&opts.migrationPollInterval, "storage-migration-poll-interval", opts.migrationPollInterval, "Polling interval for storage version migration retries after initial backoff.")
 	opts.zapOpts.BindFlags(flag.CommandLine)
+	oteljson.BindFlags(flag.CommandLine, &opts.logFormat)
 	flag.Parse()
 	return opts
 }
@@ -128,6 +133,9 @@ func GetOptions() Options {
 func main() {
 	ctx := signals.SetupSignalHandler()
 	options := GetOptions()
+	if options.logFormat == oteljson.FormatOTelJSON {
+		oteljson.Apply(&options.zapOpts, "kserve-llmisvc-controller", os.Stdout)
+	}
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&options.zapOpts)))
 
 	defaults := DefaultOptions()
@@ -168,7 +176,7 @@ func main() {
 	switch {
 	case options.tlsMinVersion != "" || options.tlsCipherSuites != "":
 		var err error
-		tlsOpts, err = kservetls.Resolve(ctx, cfg, options.tlsMinVersion, options.tlsCipherSuites)
+		tlsOpts, err = resolveTLS(ctx, options.tlsMinVersion, options.tlsCipherSuites)
 		if err != nil {
 			setupLog.Error(err, "unable to resolve TLS configuration")
 			os.Exit(1)
@@ -181,7 +189,7 @@ func main() {
 		}
 	default:
 		var err error
-		tlsOpts, err = kservetls.Resolve(ctx, cfg, "", "")
+		tlsOpts, err = resolveTLS(ctx, "", "")
 		if err != nil {
 			setupLog.Error(err, "unable to resolve TLS configuration")
 			os.Exit(1)
@@ -247,6 +255,8 @@ func main() {
 		os.Exit(1)
 	}
 
+	ctrlmetrics.Registry.MustRegister(llmisvc.NewInfoMetricsCollector(mgr.GetClient()))
+
 	// Register webhooks: validation (v1alpha1, v1alpha2) and conversion
 	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
 	if err = v1alpha2LLMValidator.SetupWithManager(mgr); err != nil {
@@ -278,14 +288,12 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceserviceconfig-v1alpha2")
 		os.Exit(1)
 	}
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.LLMInferenceService{}).
+	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha2.LLMInferenceService{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create conversion webhook", "webhook", "llminferenceservice")
 		os.Exit(1)
 	}
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.LLMInferenceServiceConfig{}).
+	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha2.LLMInferenceServiceConfig{}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create conversion webhook", "webhook", "llminferenceserviceconfig")
 		os.Exit(1)
@@ -307,16 +315,14 @@ func main() {
 	// Register version-specific mutating webhooks.
 	// This ensures admission decoding matches request version (v1alpha1 or v1alpha2)
 	// before shared defaulting logic is applied.
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha1.LLMInferenceService{}).
+	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha1.LLMInferenceService{}).
 		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha1{Client: mgr.GetClient(), Clientset: clientSet}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create defaulting webhook", "webhook", "llminferenceservice-v1alpha1")
 		os.Exit(1)
 	}
 
-	if err = ctrl.NewWebhookManagedBy(mgr).
-		For(&v1alpha2.LLMInferenceService{}).
+	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha2.LLMInferenceService{}).
 		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha2{Client: mgr.GetClient(), Clientset: clientSet}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create defaulting webhook", "webhook", "llminferenceservice-v1alpha2")
@@ -393,7 +399,11 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctx); err != nil {
+	startCtx, err := setupDistroStartup(ctx, mgr)
+	if err != nil {
+		setupLog.Error(err, "Failed to set up distro startup; profile changes will not trigger a restart")
+	}
+	if err := mgr.Start(startCtx); err != nil {
 		setupLog.Error(err, "unable to run the manager")
 		os.Exit(1)
 	}

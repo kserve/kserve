@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.19.0
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: llminferenceserviceconfigs.serving.kserve.io
 spec:
   group: serving.kserve.io
@@ -544,12 +544,15 @@ spec:
                                     - currentReplicas
                                     - currentReplicasIfHigher
                                     - currentReplicasIfLower
+                                    - scalingModifiers
                                   type: string
                                 failureThreshold:
                                   format: int32
+                                  minimum: 0
                                   type: integer
                                 replicas:
                                   format: int32
+                                  minimum: 0
                                   type: integer
                               required:
                                 - failureThreshold
@@ -573,6 +576,9 @@ spec:
                                   authenticationRef:
                                     properties:
                                       kind:
+                                        enum:
+                                          - TriggerAuthentication
+                                          - ClusterTriggerAuthentication
                                         type: string
                                       name:
                                         type: string
@@ -588,6 +594,7 @@ spec:
                                   name:
                                     type: string
                                   type:
+                                    minLength: 1
                                     type: string
                                   useCachedMetrics:
                                     type: boolean
@@ -791,12 +798,15 @@ spec:
                                         - currentReplicas
                                         - currentReplicasIfHigher
                                         - currentReplicasIfLower
+                                        - scalingModifiers
                                       type: string
                                     failureThreshold:
                                       format: int32
+                                      minimum: 0
                                       type: integer
                                     replicas:
                                       format: int32
+                                      minimum: 0
                                       type: integer
                                   required:
                                     - failureThreshold
@@ -3635,6 +3645,11 @@ spec:
                           x-kubernetes-list-map-keys:
                             - name
                           x-kubernetes-list-type: map
+                        schedulingGroup:
+                          properties:
+                            podGroupName:
+                              type: string
+                          type: object
                         securityContext:
                           properties:
                             appArmorProfile:
@@ -4406,6 +4421,10 @@ spec:
                                               type: integer
                                             signerName:
                                               type: string
+                                            userAnnotations:
+                                              additionalProperties:
+                                                type: string
+                                              type: object
                                           required:
                                             - keyType
                                             - signerName
@@ -7386,6 +7405,11 @@ spec:
                           x-kubernetes-list-map-keys:
                             - name
                           x-kubernetes-list-type: map
+                        schedulingGroup:
+                          properties:
+                            podGroupName:
+                              type: string
+                          type: object
                         securityContext:
                           properties:
                             appArmorProfile:
@@ -8157,6 +8181,10 @@ spec:
                                               type: integer
                                             signerName:
                                               type: string
+                                            userAnnotations:
+                                              additionalProperties:
+                                                type: string
+                                              type: object
                                           required:
                                             - keyType
                                             - signerName
@@ -12236,6 +12264,11 @@ spec:
                               x-kubernetes-list-map-keys:
                                 - name
                               x-kubernetes-list-type: map
+                            schedulingGroup:
+                              properties:
+                                podGroupName:
+                                  type: string
+                              type: object
                             securityContext:
                               properties:
                                 appArmorProfile:
@@ -13007,6 +13040,10 @@ spec:
                                                   type: integer
                                                 signerName:
                                                   type: string
+                                                userAnnotations:
+                                                  additionalProperties:
+                                                    type: string
+                                                  type: object
                                               required:
                                                 - keyType
                                                 - signerName
@@ -15989,6 +16026,11 @@ spec:
                                   x-kubernetes-list-map-keys:
                                     - name
                                   x-kubernetes-list-type: map
+                                schedulingGroup:
+                                  properties:
+                                    podGroupName:
+                                      type: string
+                                  type: object
                                 securityContext:
                                   properties:
                                     appArmorProfile:
@@ -16760,6 +16802,10 @@ spec:
                                                       type: integer
                                                     signerName:
                                                       type: string
+                                                    userAnnotations:
+                                                      additionalProperties:
+                                                        type: string
+                                                      type: object
                                                   required:
                                                     - keyType
                                                     - signerName
@@ -16960,6 +17006,8 @@ spec:
                           type: object
                       type: object
                   type: object
+                runtime:
+                  type: string
                 scaling:
                   properties:
                     keda:
@@ -17068,12 +17116,15 @@ spec:
                                 - currentReplicas
                                 - currentReplicasIfHigher
                                 - currentReplicasIfLower
+                                - scalingModifiers
                               type: string
                             failureThreshold:
                               format: int32
+                              minimum: 0
                               type: integer
                             replicas:
                               format: int32
+                              minimum: 0
                               type: integer
                           required:
                             - failureThreshold
@@ -17097,6 +17148,9 @@ spec:
                               authenticationRef:
                                 properties:
                                   kind:
+                                    enum:
+                                      - TriggerAuthentication
+                                      - ClusterTriggerAuthentication
                                     type: string
                                   name:
                                     type: string
@@ -17112,6 +17166,7 @@ spec:
                               name:
                                 type: string
                               type:
+                                minLength: 1
                                 type: string
                               useCachedMetrics:
                                 type: boolean
@@ -17315,12 +17370,15 @@ spec:
                                     - currentReplicas
                                     - currentReplicasIfHigher
                                     - currentReplicasIfLower
+                                    - scalingModifiers
                                   type: string
                                 failureThreshold:
                                   format: int32
+                                  minimum: 0
                                   type: integer
                                 replicas:
                                   format: int32
+                                  minimum: 0
                                   type: integer
                               required:
                                 - failureThreshold
@@ -20164,6 +20222,11 @@ spec:
                       x-kubernetes-list-map-keys:
                         - name
                       x-kubernetes-list-type: map
+                    schedulingGroup:
+                      properties:
+                        podGroupName:
+                          type: string
+                      type: object
                     securityContext:
                       properties:
                         appArmorProfile:
@@ -20935,6 +20998,10 @@ spec:
                                           type: integer
                                         signerName:
                                           type: string
+                                        userAnnotations:
+                                          additionalProperties:
+                                            type: string
+                                          type: object
                                       required:
                                         - keyType
                                         - signerName
@@ -21141,6 +21208,8 @@ spec:
                     samplerArg:
                       type: string
                   type: object
+                trustRemoteCode:
+                  type: boolean
                 worker:
                   properties:
                     activeDeadlineSeconds:
@@ -23926,6 +23995,11 @@ spec:
                       x-kubernetes-list-map-keys:
                         - name
                       x-kubernetes-list-type: map
+                    schedulingGroup:
+                      properties:
+                        podGroupName:
+                          type: string
+                      type: object
                     securityContext:
                       properties:
                         appArmorProfile:
@@ -24697,6 +24771,10 @@ spec:
                                           type: integer
                                         signerName:
                                           type: string
+                                        userAnnotations:
+                                          additionalProperties:
+                                            type: string
+                                          type: object
                                       required:
                                         - keyType
                                         - signerName
@@ -25464,12 +25542,15 @@ spec:
                                     - currentReplicas
                                     - currentReplicasIfHigher
                                     - currentReplicasIfLower
+                                    - scalingModifiers
                                   type: string
                                 failureThreshold:
                                   format: int32
+                                  minimum: 0
                                   type: integer
                                 replicas:
                                   format: int32
+                                  minimum: 0
                                   type: integer
                               required:
                                 - failureThreshold
@@ -25493,6 +25574,9 @@ spec:
                                   authenticationRef:
                                     properties:
                                       kind:
+                                        enum:
+                                          - TriggerAuthentication
+                                          - ClusterTriggerAuthentication
                                         type: string
                                       name:
                                         type: string
@@ -25508,6 +25592,7 @@ spec:
                                   name:
                                     type: string
                                   type:
+                                    minLength: 1
                                     type: string
                                   useCachedMetrics:
                                     type: boolean
@@ -25711,12 +25796,15 @@ spec:
                                         - currentReplicas
                                         - currentReplicasIfHigher
                                         - currentReplicasIfLower
+                                        - scalingModifiers
                                       type: string
                                     failureThreshold:
                                       format: int32
+                                      minimum: 0
                                       type: integer
                                     replicas:
                                       format: int32
+                                      minimum: 0
                                       type: integer
                                   required:
                                     - failureThreshold
@@ -28555,6 +28643,11 @@ spec:
                           x-kubernetes-list-map-keys:
                             - name
                           x-kubernetes-list-type: map
+                        schedulingGroup:
+                          properties:
+                            podGroupName:
+                              type: string
+                          type: object
                         securityContext:
                           properties:
                             appArmorProfile:
@@ -29326,6 +29419,10 @@ spec:
                                               type: integer
                                             signerName:
                                               type: string
+                                            userAnnotations:
+                                              additionalProperties:
+                                                type: string
+                                              type: object
                                           required:
                                             - keyType
                                             - signerName
@@ -32306,6 +32403,11 @@ spec:
                           x-kubernetes-list-map-keys:
                             - name
                           x-kubernetes-list-type: map
+                        schedulingGroup:
+                          properties:
+                            podGroupName:
+                              type: string
+                          type: object
                         securityContext:
                           properties:
                             appArmorProfile:
@@ -33077,6 +33179,10 @@ spec:
                                               type: integer
                                             signerName:
                                               type: string
+                                            userAnnotations:
+                                              additionalProperties:
+                                                type: string
+                                              type: object
                                           required:
                                             - keyType
                                             - signerName
@@ -37187,6 +37293,11 @@ spec:
                               x-kubernetes-list-map-keys:
                                 - name
                               x-kubernetes-list-type: map
+                            schedulingGroup:
+                              properties:
+                                podGroupName:
+                                  type: string
+                              type: object
                             securityContext:
                               properties:
                                 appArmorProfile:
@@ -37958,6 +38069,10 @@ spec:
                                                   type: integer
                                                 signerName:
                                                   type: string
+                                                userAnnotations:
+                                                  additionalProperties:
+                                                    type: string
+                                                  type: object
                                               required:
                                                 - keyType
                                                 - signerName
@@ -40940,6 +41055,11 @@ spec:
                                   x-kubernetes-list-map-keys:
                                     - name
                                   x-kubernetes-list-type: map
+                                schedulingGroup:
+                                  properties:
+                                    podGroupName:
+                                      type: string
+                                  type: object
                                 securityContext:
                                   properties:
                                     appArmorProfile:
@@ -41711,6 +41831,10 @@ spec:
                                                       type: integer
                                                     signerName:
                                                       type: string
+                                                    userAnnotations:
+                                                      additionalProperties:
+                                                        type: string
+                                                      type: object
                                                   required:
                                                     - keyType
                                                     - signerName
@@ -41911,6 +42035,8 @@ spec:
                           type: object
                       type: object
                   type: object
+                runtime:
+                  type: string
                 scaling:
                   properties:
                     keda:
@@ -42019,12 +42145,15 @@ spec:
                                 - currentReplicas
                                 - currentReplicasIfHigher
                                 - currentReplicasIfLower
+                                - scalingModifiers
                               type: string
                             failureThreshold:
                               format: int32
+                              minimum: 0
                               type: integer
                             replicas:
                               format: int32
+                              minimum: 0
                               type: integer
                           required:
                             - failureThreshold
@@ -42048,6 +42177,9 @@ spec:
                               authenticationRef:
                                 properties:
                                   kind:
+                                    enum:
+                                      - TriggerAuthentication
+                                      - ClusterTriggerAuthentication
                                     type: string
                                   name:
                                     type: string
@@ -42063,6 +42195,7 @@ spec:
                               name:
                                 type: string
                               type:
+                                minLength: 1
                                 type: string
                               useCachedMetrics:
                                 type: boolean
@@ -42266,12 +42399,15 @@ spec:
                                     - currentReplicas
                                     - currentReplicasIfHigher
                                     - currentReplicasIfLower
+                                    - scalingModifiers
                                   type: string
                                 failureThreshold:
                                   format: int32
+                                  minimum: 0
                                   type: integer
                                 replicas:
                                   format: int32
+                                  minimum: 0
                                   type: integer
                               required:
                                 - failureThreshold
@@ -45115,6 +45251,11 @@ spec:
                       x-kubernetes-list-map-keys:
                         - name
                       x-kubernetes-list-type: map
+                    schedulingGroup:
+                      properties:
+                        podGroupName:
+                          type: string
+                      type: object
                     securityContext:
                       properties:
                         appArmorProfile:
@@ -45886,6 +46027,10 @@ spec:
                                           type: integer
                                         signerName:
                                           type: string
+                                        userAnnotations:
+                                          additionalProperties:
+                                            type: string
+                                          type: object
                                       required:
                                         - keyType
                                         - signerName
@@ -46092,6 +46237,8 @@ spec:
                     samplerArg:
                       type: string
                   type: object
+                trustRemoteCode:
+                  type: boolean
                 worker:
                   properties:
                     activeDeadlineSeconds:
@@ -48877,6 +49024,11 @@ spec:
                       x-kubernetes-list-map-keys:
                         - name
                       x-kubernetes-list-type: map
+                    schedulingGroup:
+                      properties:
+                        podGroupName:
+                          type: string
+                      type: object
                     securityContext:
                       properties:
                         appArmorProfile:
@@ -49648,6 +49800,10 @@ spec:
                                           type: integer
                                         signerName:
                                           type: string
+                                        userAnnotations:
+                                          additionalProperties:
+                                            type: string
+                                          type: object
                                       required:
                                         - keyType
                                         - signerName

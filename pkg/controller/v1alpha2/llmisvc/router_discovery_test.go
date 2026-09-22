@@ -1988,6 +1988,66 @@ func TestDiscoverURLs(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("listeners sharing a port do not produce duplicate URLs", func(t *testing.T) {
+		// A route that pins spec.hostnames makes the hostname listener-independent,
+		// so every listener on the same port builds the identical URL. Those
+		// duplicates flow straight into status.addresses, which is user-visible.
+		g := NewWithT(t)
+		ctx := t.Context()
+
+		scheme := runtime.NewScheme()
+		g.Expect(gwapiv1.Install(scheme)).To(Succeed())
+		g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+
+		route := HTTPRoute("test-route",
+			InNamespace[*gwapiv1.HTTPRoute]("test-ns"),
+			WithHostnames("pinned.example.com"),
+			WithParentRefs(gwapiv1.ParentReference{
+				Name:      "my-gateway",
+				Namespace: ptr.To(gwapiv1.Namespace("gw-ns")),
+				Group:     ptr.To(gwapiv1.Group("gateway.networking.k8s.io")),
+				Kind:      ptr.To(gwapiv1.Kind("Gateway")),
+			}),
+		)
+
+		fakeClient := fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(
+				route,
+				Gateway("my-gateway",
+					InNamespace[*gwapiv1.Gateway]("gw-ns"),
+					WithListeners(
+						gwapiv1.Listener{
+							Name:     "https-a",
+							Port:     443,
+							Protocol: gwapiv1.HTTPSProtocolType,
+							Hostname: ptr.To(gwapiv1.Hostname("a.example.com")),
+						},
+						gwapiv1.Listener{
+							Name:     "https-b",
+							Port:     443,
+							Protocol: gwapiv1.HTTPSProtocolType,
+							Hostname: ptr.To(gwapiv1.Hostname("b.example.com")),
+						},
+					),
+					WithAddresses("1.2.3.4"),
+				),
+				DefaultGatewayClass(),
+			).
+			Build()
+
+		gateways, gwErr := llmisvc.DiscoverGateways(ctx, fakeClient, route)
+		g.Expect(gwErr).ToNot(HaveOccurred())
+		discovered, err := llmisvc.DiscoverURLs(ctx, fakeClient, gateways, route, llmisvc.Config{})
+		g.Expect(err).ToNot(HaveOccurred())
+
+		actual := make([]string, 0, len(discovered))
+		for _, d := range discovered {
+			actual = append(actual, d.URL.String())
+		}
+		g.Expect(actual).To(ConsistOf("https://pinned.example.com/"))
+	})
 }
 
 func TestFilterURLs(t *testing.T) {

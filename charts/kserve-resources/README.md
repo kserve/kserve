@@ -2,14 +2,14 @@
 
 Helm chart for deploying kserve resources
 
-![Version: v0.20.0](https://img.shields.io/badge/Version-v0.20.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.20.0](https://img.shields.io/badge/AppVersion-v0.20.0-informational?style=flat-square)
+![Version: v0.21.0-rc1](https://img.shields.io/badge/Version-v0.21.0--rc1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.21.0-rc1](https://img.shields.io/badge/AppVersion-v0.21.0--rc1-informational?style=flat-square)
 
 ## Installing the Chart
 
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --version v0.20.0
+$ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --version v0.21.0-rc1
 ```
 
 ## Values
@@ -43,6 +43,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.gateway.localGateway.gateway | string | `"knative-serving/knative-local-gateway"` |  |
 | kserve.controller.gateway.localGateway.gatewayService | string | `"knative-local-gateway.istio-system.svc.cluster.local"` |  |
 | kserve.controller.gateway.localGateway.knativeGatewayService | string | `""` |  |
+| kserve.controller.gateway.loraModelRoutingStrategy | string | `"exact"` |  |
 | kserve.controller.gateway.pathTemplate | string | `""` |  |
 | kserve.controller.gateway.urlScheme | string | `"http"` |  |
 | kserve.controller.image | string | `"kserve/kserve-controller"` |  |
@@ -125,8 +126,10 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.storage.containerSecurityContext.runAsNonRoot | bool | `true` |  |
 | kserve.storage.cpuModelcar | string | `"10m"` |  |
 | kserve.storage.enableModelcar | bool | `true` |  |
+| kserve.storage.enableOciModelSupport | bool | `false` |  |
 | kserve.storage.image | string | `"kserve/storage-initializer"` |  |
 | kserve.storage.memoryModelcar | string | `"15Mi"` |  |
+| kserve.storage.ociModelMode | string | `""` |  |
 | kserve.storage.resources.limits.cpu | string | `"1"` |  |
 | kserve.storage.resources.limits.memory | string | `"1Gi"` |  |
 | kserve.storage.resources.requests.cpu | string | `"100m"` |  |
@@ -146,4 +149,4 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.storage.tag | string | `""` |  |
 | kserve.storage.uidModelcar | int | `1010` |  |
 | kserve.storagecontainer.enabled | string | `""` |  |
-| kserve.version | string | `"v0.20.0"` |  |
+| kserve.version | string | `"v0.21.0-rc1"` |  |

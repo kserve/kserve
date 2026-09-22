@@ -18,7 +18,6 @@ package llmisvc_test
 
 import (
 	"context"
-	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,7 +26,6 @@ import (
 	"knative.dev/pkg/kmeta"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 )
 
@@ -37,27 +35,11 @@ var _ = Describe("LLMInferenceService TLS Toggle", func() {
 			svcName := "test-llm-tls-off"
 			testNs := NewTestNamespace(ctx, envTest)
 
-			// Patch the global ConfigMap to disable TLS
-			cfgMap := &corev1.ConfigMap{}
-			cfgMapKey := types.NamespacedName{
-				Name:      constants.InferenceServiceConfigMapName,
-				Namespace: constants.KServeNamespace,
-			}
-			Expect(envTest.Get(ctx, cfgMapKey, cfgMap)).To(Succeed())
-
-			originalIngress := cfgMap.Data["ingress"]
-			var ingressCfg map[string]interface{}
-			Expect(json.Unmarshal([]byte(originalIngress), &ingressCfg)).To(Succeed())
-			ingressCfg["enableLLMInferenceServiceTLS"] = false
-			updatedIngress, err := json.Marshal(ingressCfg)
-			Expect(err).ToNot(HaveOccurred())
-			cfgMap.Data["ingress"] = string(updatedIngress)
-			Expect(envTest.Client.Update(ctx, cfgMap)).To(Succeed())
-
+			// Patch the global ConfigMap to disable TLS. The fixture ConfigMap
+			// enables it, so cleanup restores that rather than the raw JSON.
+			PatchIngressConfigKey(ctx, envTest.Client, "enableLLMInferenceServiceTLS", false)
 			DeferCleanup(func(ctx context.Context) {
-				Expect(envTest.Get(ctx, cfgMapKey, cfgMap)).To(Succeed())
-				cfgMap.Data["ingress"] = originalIngress
-				Expect(envTest.Client.Update(ctx, cfgMap)).To(Succeed())
+				PatchIngressConfigKey(ctx, envTest.Client, "enableLLMInferenceServiceTLS", true)
 			})
 
 			// Create configs and LLMInferenceService

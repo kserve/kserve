@@ -167,9 +167,9 @@ jobs:
       - name: Install all components via kserve-install.sh (KServe + LocalModel + LLMISvc)
         run: |
           if [ "${{ matrix.install-method }}" == "helm" ]; then
-            ./hack/kserve-install.sh --type kserve,localmodel,llmisvc --raw --helm --local-chart --kserve-version ${TAG}
+            ./hack/kserve-install.sh --ci --type kserve,localmodel,llmisvc --raw --helm --local-chart --kserve-version ${TAG}
           else
-            ./hack/kserve-install.sh --type kserve,localmodel,llmisvc --raw --kustomize --kserve-version ${TAG}
+            ./hack/kserve-install.sh --ci --type kserve,localmodel,llmisvc --raw --kustomize --kserve-version ${TAG}
           fi
       - name: Verify all controllers are running
         run: |

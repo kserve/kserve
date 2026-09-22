@@ -24,9 +24,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kserve/kserve/pkg/agent/storage"
 	"github.com/kserve/kserve/pkg/utils"
@@ -61,15 +59,10 @@ type TrainedModelValidator struct{}
 
 // +kubebuilder:webhook:verbs=create;update,path=/validate-trainedmodel,mutating=false,failurePolicy=fail,groups=serving.kserve.io,resources=trainedmodels,versions=v1alpha1,name=trainedmodel.kserve-webhook-server.validator
 
-var _ webhook.CustomValidator = &TrainedModelValidator{}
+var _ admission.Validator[*TrainedModel] = &TrainedModelValidator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (v *TrainedModelValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	tm, err := utils.Convert[*TrainedModel](obj)
-	if err != nil {
-		tmLogger.Error(err, "Unable to convert object to TrainedModel")
-		return nil, err
-	}
+func (v *TrainedModelValidator) ValidateCreate(ctx context.Context, tm *TrainedModel) (admission.Warnings, error) {
 	tmLogger.Info("validate create", "name", tm.Name)
 	return nil, utils.FirstNonNilError([]error{
 		tm.validateTrainedModel(),
@@ -77,17 +70,7 @@ func (v *TrainedModelValidator) ValidateCreate(ctx context.Context, obj runtime.
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *TrainedModelValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	newTm, err := utils.Convert[*TrainedModel](newObj)
-	if err != nil {
-		tmLogger.Error(err, "Unable to convert object to TrainedModel")
-		return nil, err
-	}
-	oldTm, err := utils.Convert[*TrainedModel](oldObj)
-	if err != nil {
-		tmLogger.Error(err, "Unable to convert object to TrainedModel")
-		return nil, err
-	}
+func (v *TrainedModelValidator) ValidateUpdate(ctx context.Context, oldTm, newTm *TrainedModel) (admission.Warnings, error) {
 	if newTm.GetDeletionTimestamp() != nil {
 		return nil, nil
 	}
@@ -100,12 +83,7 @@ func (v *TrainedModelValidator) ValidateUpdate(ctx context.Context, oldObj, newO
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *TrainedModelValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	tm, err := utils.Convert[*TrainedModel](obj)
-	if err != nil {
-		tmLogger.Error(err, "Unable to convert object to TrainedModel")
-		return nil, err
-	}
+func (v *TrainedModelValidator) ValidateDelete(ctx context.Context, tm *TrainedModel) (admission.Warnings, error) {
 	tmLogger.Info("validate delete", "name", tm.Name)
 	return nil, nil
 }

@@ -1,0 +1,45 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: qwen2-7b-instruct-amd
+spec:
+  model:
+    uri: hf://Qwen/Qwen2.5-7B-Instruct
+    name: Qwen/Qwen2.5-7B-Instruct
+  replicas: 2
+
+  # There are 2 ways of achieving the same outcome:
+  # 1) Use matching labels of the inference pool of the other LLMInferenceService
+  # 2) Referencing the InferencePool of the other LLMInferenceService owning the scheduler with `.spec.router.scheduler.pool.ref.name`
+
+  # Option 1: Use matching labels of the inference pool
+  # Same shared label as the NVIDIA instance so that the InferencePool
+  # selector matches these pods too.
+  labels:
+    app.kubernetes.io/name: qwen2-7b-instruct-nvidia
+    app.kubernetes.io/part-of: llminferenceservice
+    kserve.io/component: workload
+
+  # Option 2: Referencing the InferencePool (Implemented in Kserve 0.19)
+  # router:
+  #   scheduler:
+  #     pool:
+  #       ref:
+  #         name: qwen2-7b-instruct-nvidia-inference-pool
+  # no route, no gateway.
+
+  # Traffic reaches these pods through the shared InferencePool
+  # managed by the NVIDIA LLMInferenceService's scheduler/EPP.
+  template:
+    containers:
+      - name: main
+        image: ghcr.io/llm-d/llm-d-rocm:v0.9.0
+        resources:
+          limits:
+            cpu: '4'
+            memory: 32Gi
+            amd.com/gpu: "1"
+          requests:
+            cpu: '2'
+            memory: 16Gi
+            amd.com/gpu: "1"

@@ -16,7 +16,8 @@ spec:
         - name: adapter-2
           uri: hf://edbeeching/opt-125m-lora
       # Optional: override vLLM LoRA runtime settings.
-      # maxRank defaults to 64, maxAdapters and maxCpuAdapters default to the number of configured adapters.
+      # Leave these unset and vLLM's own defaults apply (--max-lora-rank 16, --max-loras 1).
+      # The controller only passes them through when they are set explicitly.
       maxRank: 64
       maxAdapters: 2
       maxCpuAdapters: 4

@@ -1,0 +1,20 @@
+DESCRIPTION: Install LocalModel dependencies using helm
+RELEASE: true
+
+TOOLS:
+  - helm
+  - kustomize
+  - yq
+
+INCLUDE_DEFINITIONS:
+  - ./localmodel-dependency-install.definition
+    
+COMPONENTS:
+  - name: kserve-helm
+    env:
+      ENABLE_LLMISVC: false
+      ENABLE_KSERVE: false
+      ENABLE_LOCALMODEL: true
+      INSTALL_RUNTIMES: false
+      INSTALL_LLMISVC_CONFIGS: false
+      

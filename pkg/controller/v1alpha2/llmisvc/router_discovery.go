@@ -179,6 +179,12 @@ func DiscoverURLs(ctx context.Context, c client.Client, gateways []ResolvedGatew
 						return nil, fmt.Errorf("failed to combine URLs for Gateway %s/%s: %w", g.Gateway.Namespace, g.Gateway.Name, err)
 					}
 					for _, u := range gatewayURLs {
+						// Listeners collide: two listeners sharing a port yield the same
+						// URL whenever the hostname is listener-independent, which is the
+						// case when the route pins spec.hostnames.
+						if _, exists := seen[u.String()]; exists {
+							continue
+						}
 						seen[u.String()] = struct{}{}
 						urls = append(urls, DiscoveredURL{URL: u, Origin: origin})
 					}
@@ -365,21 +371,28 @@ func extractRoutePaths(route *gwapiv1.HTTPRoute, modelRoutingHeader string) []st
 // for the configured model-based routing header.
 //
 // This distinguishes controller-managed model-routing rules from arbitrary
-// user-provided header rules. Only matches whose header name equals the
-// configured modelRoutingHeader (e.g. "X-Gateway-Model-Name") are treated as
+// user-provided header rules. Only matches naming the configured
+// modelRoutingHeader (e.g. "X-Gateway-Model-Name") are treated as
 // model-routing endpoints. When modelRoutingHeader is empty (feature not
 // configured), no match qualifies — so header-bearing rules are simply ignored
 // during path extraction, preserving the pre-model-routing behavior.
 func isModelBasedRoutingMatch(match gwapiv1.HTTPRouteMatch, modelRoutingHeader string) bool {
-	if modelRoutingHeader == "" {
-		return false
-	}
 	for _, h := range match.Headers {
-		if string(h.Name) == modelRoutingHeader {
+		if isModelRoutingHeader(h.Name, modelRoutingHeader) {
 			return true
 		}
 	}
 	return false
+}
+
+// isModelRoutingHeader reports whether name is the configured model-routing
+// header. HTTP header names are case-insensitive and the API server keeps
+// whatever spelling the author wrote, so every model-routing path compares
+// through here: matching a case variant in one place but not another would
+// make the same rule visible to expansion but invisible to stripping and URL
+// discovery. An empty modelRoutingHeader disables the feature.
+func isModelRoutingHeader(name gwapiv1.HTTPHeaderName, modelRoutingHeader string) bool {
+	return modelRoutingHeader != "" && strings.EqualFold(string(name), modelRoutingHeader)
 }
 
 // hasServiceBackend returns true if the rule has at least one backendRef with Kind "Service"
@@ -443,7 +456,10 @@ func selectListeners(gateway *gwapiv1.Gateway, sectionName *gwapiv1.SectionName,
 		}
 		return 2
 	}
-	slices.SortFunc(listeners, func(a, b *gwapiv1.Listener) int {
+	// Stable: precedence is only ever 0, 1 or 2, so every pair of same-scheme
+	// listeners ties. An unstable sort would permute them and silently re-pick
+	// which listener wins, so keep the gateway's declared listener order.
+	slices.SortStableFunc(listeners, func(a, b *gwapiv1.Listener) int {
 		return precedence(a) - precedence(b)
 	})
 

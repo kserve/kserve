@@ -18,8 +18,10 @@ package utils
 
 import (
 	"errors"
+	"slices"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega/types"
 	"k8s.io/utils/ptr"
@@ -781,6 +783,89 @@ func TestMergeRuntimeContainers(t *testing.T) {
 			if !g.Expect(res).To(gomega.Equal(scenario.expected)) {
 				t.Errorf("got %v, want %v", res, scenario.expected)
 			}
+		})
+	}
+}
+
+func TestMergeArgs(t *testing.T) {
+	tests := []struct {
+		name        string
+		runtimeArgs []string
+		isvcArgs    []string
+		expected    []string
+	}{
+		{
+			name:        "no overlap",
+			runtimeArgs: []string{"--model_name=foo", "--model_dir=/mnt/models"},
+			isvcArgs:    []string{"--http_port=5000"},
+			expected:    []string{"--model_name=foo", "--model_dir=/mnt/models", "--http_port=5000"},
+		},
+		{
+			name:        "override equals form",
+			runtimeArgs: []string{"--model_name=foo", "--http_port=8080"},
+			isvcArgs:    []string{"--http_port=5000"},
+			expected:    []string{"--model_name=foo", "--http_port=5000"},
+		},
+		{
+			name:        "override two-element form",
+			runtimeArgs: []string{"--model_name", "foo", "--http_port", "8080"},
+			isvcArgs:    []string{"--http_port=5000"},
+			expected:    []string{"--model_name", "foo", "--http_port=5000"},
+		},
+		{
+			name:        "override mixed forms",
+			runtimeArgs: []string{"--model_name=foo", "--http_port", "8080", "--model_dir=/mnt/models"},
+			isvcArgs:    []string{"--http_port", "5000"},
+			expected:    []string{"--model_name=foo", "--model_dir=/mnt/models", "--http_port", "5000"},
+		},
+		{
+			name:        "empty isvc args",
+			runtimeArgs: []string{"--http_port=8080"},
+			isvcArgs:    nil,
+			expected:    []string{"--http_port=8080"},
+		},
+		{
+			name:        "empty runtime args",
+			runtimeArgs: nil,
+			isvcArgs:    []string{"--http_port=5000"},
+			expected:    []string{"--http_port=5000"},
+		},
+		{
+			name:        "both empty",
+			runtimeArgs: nil,
+			isvcArgs:    nil,
+			expected:    nil,
+		},
+		{
+			name:        "valueless flag does not consume next flag",
+			runtimeArgs: []string{"--verbose", "--http_port=8080"},
+			isvcArgs:    []string{"--verbose"},
+			expected:    []string{"--http_port=8080", "--verbose"},
+		},
+		{
+			name:        "override equals form keeps two-element neighbours",
+			runtimeArgs: []string{"--model_name=foo", "--http_port=8080", "--model_dir=/mnt/models"},
+			isvcArgs:    []string{"--http_port=5000"},
+			expected:    []string{"--model_name=foo", "--model_dir=/mnt/models", "--http_port=5000"},
+		},
+		{
+			name:        "override two-element form keeps equals neighbours",
+			runtimeArgs: []string{"--model_name=foo", "--http_port", "8080", "--model_dir=/mnt/models"},
+			isvcArgs:    []string{"--http_port", "5000"},
+			expected:    []string{"--model_name=foo", "--model_dir=/mnt/models", "--http_port", "5000"},
+		},
+		{
+			name:        "multiple overrides mixed forms",
+			runtimeArgs: []string{"--http_port=8080", "--model_name", "default", "--workers=1"},
+			isvcArgs:    []string{"--http_port=5000", "--model_name", "custom"},
+			expected:    []string{"--workers=1", "--http_port=5000", "--model_name", "custom"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			result := mergeArgs(tt.runtimeArgs, tt.isvcArgs)
+			g.Expect(result).To(gomega.Equal(tt.expected))
 		})
 	}
 }
@@ -2716,6 +2801,45 @@ func TestMergeServingRuntimeAndInferenceServiceSpecs(t *testing.T) {
 				g.Expect(index).NotTo(gomega.Equal(-1))
 				g.Expect(err).To(scenario.expectedErr)
 			}
+		})
+	}
+}
+
+func TestSortPodsByCreatedTimestampDescIsDeterministic(t *testing.T) {
+	// CreationTimestamp is serialized as RFC3339, so replicas of the same
+	// ReplicaSet share it to the second. The cache lists pods in random map
+	// order, so an unstable sort with a timestamp-only comparator would hand
+	// callers a different Items[0] on every reconcile.
+	sameSecond := metav1.NewTime(time.Date(2026, 8, 14, 10, 0, 0, 0, time.UTC))
+	older := metav1.NewTime(sameSecond.Add(-time.Minute))
+
+	pods := []corev1.Pod{
+		{ObjectMeta: metav1.ObjectMeta{Name: "predictor-xyz-1", CreationTimestamp: sameSecond}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "predictor-xyz-2", CreationTimestamp: sameSecond}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "predictor-xyz-3", CreationTimestamp: sameSecond}},
+		{ObjectMeta: metav1.ObjectMeta{Name: "predictor-abc-0", CreationTimestamp: older}},
+	}
+
+	// Feeding the same set in two opposite orders is enough: a comparator that
+	// leaves ties unordered carries the input order through to the output, so
+	// the two runs disagree. Fixed inputs keep a CI failure reproducible.
+	reversed := slices.Clone(pods)
+	slices.Reverse(reversed)
+
+	for name, input := range map[string][]corev1.Pod{"forward": pods, "reversed": reversed} {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			list := &corev1.PodList{Items: slices.Clone(input)}
+
+			sortPodsByCreatedTimestampDesc(list)
+
+			names := make([]string, 0, len(list.Items))
+			for _, p := range list.Items {
+				names = append(names, p.Name)
+			}
+			g.Expect(names).To(gomega.Equal([]string{
+				"predictor-xyz-1", "predictor-xyz-2", "predictor-xyz-3", "predictor-abc-0",
+			}))
 		})
 	}
 }

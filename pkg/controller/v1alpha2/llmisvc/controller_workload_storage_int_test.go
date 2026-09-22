@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -53,6 +54,10 @@ var (
 			"enableModelcar": true,
 			"caBundleConfigMapName": "global-s3-custom-certs",
 			"caBundleVolumeMountPath": "/path/to/globalcerts"
+		}`
+	isvcConfigPatchLocalModelEnabled = `{
+			"enabled": true,
+			"jobNamespace": "kserve-localmodel-jobs"
 		}`
 	isvcConfigPatchCredentials = `{
        		"s3": {
@@ -1292,6 +1297,9 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 
 		It("should rewrite model URI to PVC when local model cache labels are present", func(ctx SpecContext) {
 			// given
+			patchInferenceServiceConfig(ctx, "localModel", isvcConfigPatchLocalModelEnabled)
+			defer restoreInferenceServiceConfig(ctx)
+
 			svcName := "test-llm-storage-local-cache"
 			testNs := NewTestNamespace(ctx, envTest)
 
@@ -1300,19 +1308,31 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 			Expect(err).ToNot(HaveOccurred())
 
 			storageKey := v1alpha1.GetStorageKey(sourceUri)
-			pvcName := "test-cache-gpu1"
+			nodeGroup := "gpu1"
+
+			// The defaulting webhook, not the test, owns the local model cache labels and
+			// annotations the controller reads - it derives them from a matching cache.
+			localModelCache := &v1alpha1.LocalModelCache{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-cache",
+				},
+				Spec: v1alpha1.LocalModelCacheSpec{
+					SourceModelUri: sourceUri,
+					ModelSize:      resource.MustParse("10Gi"),
+					NodeGroups:     []string{nodeGroup},
+				},
+			}
+			Expect(envTest.Create(ctx, localModelCache)).To(Succeed())
+			defer func() {
+				Expect(envTest.Delete(ctx, localModelCache)).To(Succeed())
+			}()
+
+			pvcName := localModelCache.Name + "-" + nodeGroup
 
 			llmSvc := &v1alpha2.LLMInferenceService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      svcName,
 					Namespace: testNs.Name,
-					Labels: map[string]string{
-						constants.LocalModelLabel: "test-cache",
-					},
-					Annotations: map[string]string{
-						constants.LocalModelSourceUriAnnotationKey: sourceUri,
-						constants.LocalModelPVCNameAnnotationKey:   pvcName,
-					},
 				},
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Model: v1alpha2.LLMModelSpec{
@@ -1335,7 +1355,19 @@ var _ = Describe("LLMInferenceService Controller - Storage configuration", func(
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - verify main deployment uses PVC mount with rewritten URI
+			// then - the defaulter resolved the cache onto the resource
+			Eventually(func(g Gomega, ctx context.Context) error {
+				defaulted := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), defaulted); err != nil {
+					return err
+				}
+				g.Expect(defaulted.Labels).To(HaveKeyWithValue(constants.LocalModelLabel, localModelCache.Name))
+				g.Expect(defaulted.Annotations).To(HaveKeyWithValue(constants.LocalModelSourceUriAnnotationKey, sourceUri))
+				g.Expect(defaulted.Annotations).To(HaveKeyWithValue(constants.LocalModelPVCNameAnnotationKey, pvcName))
+				return nil
+			}).WithContext(ctx).Should(Succeed())
+
+			// and - main deployment uses PVC mount with rewritten URI
 			expectedMainDeployment := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{

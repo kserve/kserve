@@ -203,7 +203,10 @@ func sortClusterServingRuntimeList(runtimes *v1alpha1.ClusterServingRuntimeList)
 }
 
 func sortSupportedRuntimeByPriority(runtimes []v1alpha1.SupportedRuntime, modelFormat ModelFormat) {
-	sort.Slice(runtimes, func(i, j int) bool {
+	// Stable: equal priorities (and the common case of no priority at all) must
+	// preserve the caller's creation-timestamp/name ordering. sort.Slice is
+	// unstable and would permute those ties, re-selecting a different runtime.
+	sort.SliceStable(runtimes, func(i, j int) bool {
 		p1 := runtimes[i].Spec.GetPriority(modelFormat.Name)
 		p2 := runtimes[j].Spec.GetPriority(modelFormat.Name)
 
