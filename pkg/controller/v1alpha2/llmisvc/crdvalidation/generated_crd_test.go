@@ -28,7 +28,7 @@ import (
 	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
-func TestGeneratedCRDsDoNotExposeWVAScaling(t *testing.T) {
+func TestGeneratedCRDsExposeWVAScaling(t *testing.T) {
 	crdRoot := filepath.Join(pkgtest.ProjectRoot(), "config", "crd", "full", "llmisvc")
 	crdFiles := []string{
 		"serving.kserve.io_llminferenceservices.yaml",
@@ -51,36 +51,40 @@ func TestGeneratedCRDsDoNotExposeWVAScaling(t *testing.T) {
 				if version.Schema == nil || version.Schema.OpenAPIV3Schema == nil {
 					continue
 				}
-				assertNoWVAScalingProperty(
-					t,
+				if !containsWVAScalingProperty(
 					version.Schema.OpenAPIV3Schema,
 					"spec",
-					version.Name,
-				)
+				) {
+					t.Errorf("generated CRD version %s does not expose spec.scaling.wva", version.Name)
+				}
 			}
 		})
 	}
 }
 
-func assertNoWVAScalingProperty(
-	t *testing.T,
+func containsWVAScalingProperty(
 	schema *apiextensionsv1.JSONSchemaProps,
 	path string,
-	version string,
-) {
-	t.Helper()
+) bool {
 	for name, property := range schema.Properties {
 		propertyPath := path + "." + name
 		if name == "wva" && strings.HasSuffix(path, ".scaling") {
-			t.Errorf("generated CRD version %s exposes %s", version, propertyPath)
+			return true
 		}
-		assertNoWVAScalingProperty(t, &property, propertyPath, version)
+		if containsWVAScalingProperty(&property, propertyPath) {
+			return true
+		}
 	}
 
 	if schema.Items != nil && schema.Items.Schema != nil {
-		assertNoWVAScalingProperty(t, schema.Items.Schema, path+"[]", version)
+		if containsWVAScalingProperty(schema.Items.Schema, path+"[]") {
+			return true
+		}
 	}
 	if schema.AdditionalProperties != nil && schema.AdditionalProperties.Schema != nil {
-		assertNoWVAScalingProperty(t, schema.AdditionalProperties.Schema, path+"{}", version)
+		if containsWVAScalingProperty(schema.AdditionalProperties.Schema, path+"{}") {
+			return true
+		}
 	}
+	return false
 }
