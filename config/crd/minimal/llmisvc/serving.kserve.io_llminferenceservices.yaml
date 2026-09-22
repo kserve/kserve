@@ -4825,8 +4825,6 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
-                    required:
-                    - containers
                     type: object
                   worker:
                     properties:
@@ -8726,8 +8724,6 @@ spec:
                         x-kubernetes-list-map-keys:
                         - name
                         x-kubernetes-list-type: map
-                    required:
-                    - containers
                     type: object
                 type: object
                 x-kubernetes-validations:
@@ -14399,8 +14395,6 @@ spec:
                             x-kubernetes-list-map-keys:
                             - name
                             x-kubernetes-list-type: map
-                        required:
-                        - containers
                         type: object
                       tokenizer:
                         properties:
@@ -22653,8 +22647,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                required:
-                - containers
                 type: object
               tracing:
                 properties:
@@ -26565,8 +26557,6 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
-                required:
-                - containers
                 type: object
             type: object
             x-kubernetes-validations:
