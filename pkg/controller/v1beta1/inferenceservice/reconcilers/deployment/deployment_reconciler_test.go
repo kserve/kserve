@@ -1672,6 +1672,31 @@ func TestSetControllerReferences(t *testing.T) {
 	assert.Equal(t, owner.Name, deployment1.GetOwnerReferences()[0].Name)
 	assert.Len(t, deployment2.GetOwnerReferences(), 1)
 	assert.Equal(t, owner.Name, deployment2.GetOwnerReferences()[0].Name)
+	assert.Equal(t, constants.KServeManagedLabelValue, deployment1.Labels[constants.KServeManagedLabelKey])
+	assert.Equal(t, constants.KServeManagedLabelValue, deployment2.Labels[constants.KServeManagedLabelKey])
+}
+
+func TestReconcileLabelsExistingDeploymentWithoutRollout(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, appsv1.AddToScheme(scheme))
+	require.NoError(t, v1beta1.AddToScheme(scheme))
+	existing := createRawDefaultDeployment(metav1.ObjectMeta{
+		Name: "model", Namespace: "default", Labels: map[string]string{"app": "model"},
+	}, nil, &corev1.PodSpec{}, nil)
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).Build()
+	desired := existing.DeepCopy()
+	// Exercise the shared label map used by the resource constructor.
+	desired.Labels = desired.Spec.Template.Labels
+	reconciler := &DeploymentReconciler{client: cl, DeploymentList: []*appsv1.Deployment{desired}}
+	require.NoError(t, reconciler.SetControllerReferences(&v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "default", UID: "model"},
+	}, scheme))
+	_, err := reconciler.Reconcile(t.Context())
+	require.NoError(t, err)
+	actual := &appsv1.Deployment{}
+	require.NoError(t, cl.Get(t.Context(), kclient.ObjectKeyFromObject(existing), actual))
+	assert.Equal(t, constants.KServeManagedLabelValue, actual.Labels[constants.KServeManagedLabelKey])
+	assert.Equal(t, existing.Spec.Template, actual.Spec.Template)
 }
 
 func TestCleanupOrphans(t *testing.T) {
