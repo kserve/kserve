@@ -99,6 +99,20 @@ kserve:
       securityContext:
         runAsUser: 1000
         runAsNonRoot: true
+  kernelcache:
+    enabled: false
+    defaultSidecarInjection: true
+    defaultMountType: 'oci'
+    defaultNodeGroup: ''
+    jobNamespace: 'kserve-kernelcache-jobs'
+    mcvImage: 'kserve/kserve-mcv'
+    mcvTag: ''
+    prefetchImage: 'registry.access.redhat.com/ubi9/ubi-minimal:latest'
+    prefetchTag: ''
+    abandonedCapturePolicy: 'retain'
+    jobTTLSecondsAfterFinished: 600
+    mcvCaptureReadinessTimeoutSeconds: 600
+    reconcileIntervalSeconds: 300
   security:
     autoMountServiceAccountToken: true
   inferenceservice:
@@ -135,5 +149,19 @@ kserve:
           memory: 200Mi
       nodeSelector:
         kserve/localmodel: worker
+      affinity: {}
+      tolerations: []
+  kernelcachenode:
+    controller:
+      image: kserve/kserve-kernelcachenode-agent
+      tag: ''
+      imagePullPolicy: IfNotPresent
+      resources:
+        limits:
+          cpu: 100m
+          memory: 300Mi
+        requests:
+          cpu: 10m
+          memory: 128Mi
       affinity: {}
       tolerations: []

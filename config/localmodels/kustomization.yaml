@@ -11,8 +11,10 @@ labels:
 resources:
 - ../certmanager/localmodel
 - ../rbac/localmodel
+- ../rbac/kernelcache
 - manager.yaml
 - ../localmodelnodes
+- ../kernelcachenodes
 - ../webhook/localmodel
 
 patches:

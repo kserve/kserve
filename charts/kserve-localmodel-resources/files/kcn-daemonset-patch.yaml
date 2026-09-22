@@ -1,0 +1,18 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kserve-kernelcachenode-agent
+spec:
+  template:
+    spec:
+      tolerations:
+        {{- toYaml (.Values.kserve.kernelcachenode.controller.tolerations | default list) | nindent 8 }}
+      affinity:
+        {{- toYaml (.Values.kserve.kernelcachenode.controller.affinity | default dict) | nindent 8 }}
+      containers:
+      - name: manager
+        image: "{{ .Values.kserve.kernelcachenode.controller.image }}:{{ .Values.kserve.kernelcachenode.controller.tag | default .Values.kserve.version }}"
+        imagePullPolicy: {{ .Values.kserve.kernelcachenode.controller.imagePullPolicy }}
+        resources:
+          {{- toYaml .Values.kserve.kernelcachenode.controller.resources | nindent 10 }}

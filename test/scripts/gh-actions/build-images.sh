@@ -35,6 +35,8 @@ echo "Github SHA ${TAG}"
 CONTROLLER_IMG_TAG=${KO_DOCKER_REPO}/${CONTROLLER_IMG}:${TAG}
 LOCALMODEL_CONTROLLER_IMG_TAG=${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG}
 LOCALMODEL_AGENT_IMG_TAG=${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG}
+KERNELCACHE_AGENT_IMG_TAG=${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG}
+MCV_IMG_TAG=${KO_DOCKER_REPO}/${MCV_IMG}:${TAG}
 STORAGE_INIT_IMG_TAG=${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}:${TAG}
 AGENT_IMG_TAG=${KO_DOCKER_REPO}/${AGENT_IMG}:${TAG}
 ROUTER_IMG_TAG=${KO_DOCKER_REPO}/${ROUTER_IMG}:${TAG}
@@ -61,6 +63,14 @@ else
   echo "Building localmodel agent image"
   docker buildx build -f localmodel-agent.Dockerfile . -t "${LOCALMODEL_AGENT_IMG_TAG}" \
     -o type=docker,dest="${DOCKER_IMAGES_PATH}/${LOCALMODEL_AGENT_IMG}-${TAG}",compression-level=0
+
+  echo "Building kernelcache agent image"
+  docker buildx build -f kernelcache-agent.Dockerfile . -t "${KERNELCACHE_AGENT_IMG_TAG}" \
+    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${KERNELCACHE_AGENT_IMG}-${TAG}",compression-level=0
+
+  echo "Building mcv image"
+  docker buildx build -f kernelcache/mcv/mcv.Dockerfile . -t "${MCV_IMG_TAG}" \
+    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${MCV_IMG}-${TAG}",compression-level=0
 
   echo "Building agent image"
   docker buildx build -f agent.Dockerfile . -t "${AGENT_IMG_TAG}" \

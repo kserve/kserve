@@ -1,0 +1,42 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kserve-kernelcache-nodegroup-manager
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - nodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resourceNames:
+  - kserve-kernelcachenode-agent
+  resources:
+  - daemonsets
+  verbs:
+  - get
+  - patch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachenodegroups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachenodes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch

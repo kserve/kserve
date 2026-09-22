@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	kernelcachecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcache"
 	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
 	"github.com/kserve/kserve/pkg/oteljson"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
@@ -168,6 +169,17 @@ func main() {
 		Scheme:    mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "LocalModelNamespaceCache")
+		os.Exit(1)
+	}
+
+	// Setup KernelCacheNode lifecycle controller.
+	setupLog.Info("Setting up v1alpha1 KernelCacheNode controller")
+	if err = (&kernelcachecontroller.KernelCacheNodeReconciler{
+		Client: mgr.GetClient(),
+		Reader: mgr.GetAPIReader(),
+		Log:    ctrl.Log.WithName("v1alpha1Controllers").WithName("KernelCacheNode"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCacheNode")
 		os.Exit(1)
 	}
 

@@ -1365,6 +1365,9 @@ install_kserve_helm() {
             config_args+=(--set "kserve.localmodel.enabled=true")
             config_args+=(--set "kserve.localmodel.defaultJobImage=kserve/storage-initializer")
             config_args+=(--set "kserve.localmodel.defaultJobImageTag=${KSERVE_VERSION}")
+            config_args+=(--set "kserve.kernelcache.enabled=true")
+            config_args+=(--set "kserve.kernelcache.mcvImage=kserve/kserve-mcv")
+            config_args+=(--set "kserve.kernelcache.mcvTag=${KSERVE_VERSION}-minimal")
         fi
         # Add custom configurations if provided
         if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
@@ -1598,7 +1601,7 @@ main() {
         if [ -n "${SET_KSERVE_VERSION}" ]; then
             PULL_POLICY_KSERVE="--set kserve.controller.imagePullPolicy=IfNotPresent"
             PULL_POLICY_LLMISVC="--set kserve.llmisvc.controller.imagePullPolicy=IfNotPresent"
-            PULL_POLICY_LOCALMODEL="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent"
+            PULL_POLICY_LOCALMODEL="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent --set kserve.kernelcachenode.controller.imagePullPolicy=IfNotPresent"
         fi
         
         if is_positive "${ENABLE_KSERVE}"; then
