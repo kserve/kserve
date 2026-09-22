@@ -21,11 +21,15 @@ import (
 	"flag"
 	"os"
 
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -148,6 +152,19 @@ func main() {
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,
 		HealthProbeBindAddress: options.probeAddr,
+		Cache: cache.Options{
+			ByObject: map[client.Object]cache.ByObject{
+				// We only ever touch the localmodelnode agent DaemonSet, so there is no reason to
+				// cache every DaemonSet in the cluster.
+				&appsv1.DaemonSet{}: {
+					Namespaces: map[string]cache.Config{
+						constants.KServeNamespace: {
+							FieldSelector: fields.OneTermEqualSelector("metadata.name", localmodelcontroller.AgentDaemonSetName),
+						},
+					},
+				},
+			},
+		},
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to set up overall controller manager")
@@ -227,6 +244,17 @@ func main() {
 		Log:    ctrl.Log.WithName("v1alpha1Controllers").WithName("KernelCache"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCache")
+		os.Exit(1)
+	}
+
+	// Setup the controller that keeps the agent DaemonSet tolerations in sync with the node groups
+	setupLog.Info("Setting up v1alpha1 LocalModelNodeGroup agent DaemonSet controller")
+	if err = (&localmodelcontroller.AgentDaemonSetReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("v1alpha1Controllers").WithName("AgentDaemonSet"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "AgentDaemonSet")
 		os.Exit(1)
 	}
 
