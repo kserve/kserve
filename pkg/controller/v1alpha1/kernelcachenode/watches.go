@@ -33,6 +33,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	"github.com/kserve/kserve/pkg/kernelcache/nodegroup"
 )
 
@@ -108,7 +109,7 @@ func (r *KernelCacheNodeReconciler) enqueueCurrentNodeForJob(ctx context.Context
 	if !r.isRelevantJob(obj) {
 		return nil
 	}
-	config, err := r.getKernelCacheConfig(ctx)
+	config, err := kernelcacheconfig.Load(ctx, r.Client)
 	if err != nil {
 		r.Log.Error(err, "unable to load KernelCache configuration for Job event", "job", client.ObjectKeyFromObject(obj))
 		return nil
