@@ -3067,6 +3067,203 @@ plugins:
 				g.Expect(obj).NotTo(HaveKey("dataLayer"))
 			},
 		},
+		{
+			name:    "groups the three flat crossReplica fields under dataLayer.crossReplica",
+			migrate: withMigrateCrossReplica,
+			configYAML: `
+dataLayer:
+  crossReplicaSyncerPluginRef: local-syncer
+  crossReplicaSyncInterval: 5s
+  crossReplicaPublishTimeout: 2s
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				dl, _, _ := unstructured.NestedMap(obj, "dataLayer")
+				g.Expect(dl).NotTo(HaveKey("crossReplicaSyncerPluginRef"))
+				g.Expect(dl).NotTo(HaveKey("crossReplicaSyncInterval"))
+				g.Expect(dl).NotTo(HaveKey("crossReplicaPublishTimeout"))
+
+				cr, found, err := unstructured.NestedMap(obj, "dataLayer", "crossReplica")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(found).To(BeTrue())
+				g.Expect(cr).To(HaveKeyWithValue("syncerPluginRef", "local-syncer"))
+				g.Expect(cr).To(HaveKeyWithValue("syncInterval", "5s"))
+				g.Expect(cr).To(HaveKeyWithValue("publishTimeout", "2s"))
+			},
+		},
+		{
+			name:    "keeps an existing crossReplica entry and drops the legacy field",
+			migrate: withMigrateCrossReplica,
+			configYAML: `
+dataLayer:
+  crossReplicaSyncerPluginRef: legacy-syncer
+  crossReplica:
+    syncerPluginRef: current-syncer
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				dl, _, _ := unstructured.NestedMap(obj, "dataLayer")
+				g.Expect(dl).NotTo(HaveKey("crossReplicaSyncerPluginRef"))
+				cr, _, _ := unstructured.NestedMap(obj, "dataLayer", "crossReplica")
+				g.Expect(cr).To(HaveKeyWithValue("syncerPluginRef", "current-syncer"))
+			},
+		},
+		{
+			name:    "migrates only the crossReplica fields that are set",
+			migrate: withMigrateCrossReplica,
+			configYAML: `
+dataLayer:
+  crossReplicaSyncInterval: 5s
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				cr, _, _ := unstructured.NestedMap(obj, "dataLayer", "crossReplica")
+				g.Expect(cr).To(HaveKeyWithValue("syncInterval", "5s"))
+				g.Expect(cr).NotTo(HaveKey("syncerPluginRef"))
+				g.Expect(cr).NotTo(HaveKey("publishTimeout"))
+			},
+		},
+		{
+			name:    "no crossReplica fields - no-op",
+			migrate: withMigrateCrossReplica,
+			configYAML: `
+dataLayer:
+  injectDefaults: true
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				dl, _, _ := unstructured.NestedMap(obj, "dataLayer")
+				g.Expect(dl).NotTo(HaveKey("crossReplica"))
+				g.Expect(dl).To(HaveKeyWithValue("injectDefaults", true))
+			},
+		},
+		{
+			name:    "moves the bare discovery.pluginRef under discovery.endpoints",
+			migrate: withMigrateDiscoveryPluginRef,
+			configYAML: `
+dataLayer:
+  discovery:
+    pluginRef: file-discovery
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				discovery, _, _ := unstructured.NestedMap(obj, "dataLayer", "discovery")
+				g.Expect(discovery).NotTo(HaveKey("pluginRef"))
+				endpoints, found, err := unstructured.NestedMap(obj, "dataLayer", "discovery", "endpoints")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(found).To(BeTrue())
+				g.Expect(endpoints).To(HaveKeyWithValue("pluginRef", "file-discovery"))
+			},
+		},
+		{
+			name:    "keeps an existing discovery.endpoints.pluginRef and drops the bare field",
+			migrate: withMigrateDiscoveryPluginRef,
+			configYAML: `
+dataLayer:
+  discovery:
+    pluginRef: legacy-discovery
+    endpoints:
+      pluginRef: file-discovery
+    peers:
+      pluginRef: peer-plugin
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				discovery, _, _ := unstructured.NestedMap(obj, "dataLayer", "discovery")
+				g.Expect(discovery).NotTo(HaveKey("pluginRef"))
+				endpoints, _, _ := unstructured.NestedMap(obj, "dataLayer", "discovery", "endpoints")
+				g.Expect(endpoints).To(HaveKeyWithValue("pluginRef", "file-discovery"))
+				peers, _, _ := unstructured.NestedMap(obj, "dataLayer", "discovery", "peers")
+				g.Expect(peers).To(HaveKeyWithValue("pluginRef", "peer-plugin"))
+			},
+		},
+		{
+			name:    "no discovery section - no-op",
+			migrate: withMigrateDiscoveryPluginRef,
+			configYAML: `
+dataLayer:
+  injectDefaults: true
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				dl, _, _ := unstructured.NestedMap(obj, "dataLayer")
+				g.Expect(dl).NotTo(HaveKey("discovery"))
+			},
+		},
+		{
+			// llm-d-router resolved the two with len(parsers) == 0, so a config
+			// declaring an empty list still ran with the legacy parser.
+			name:    "carries the legacy parser over an empty requestHandler.parsers",
+			migrate: withMigrateParser,
+			configYAML: `
+parser:
+  pluginRef: openai-parser
+requestHandler:
+  parsers: []
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				g.Expect(obj).NotTo(HaveKey("parser"))
+				parsers, _, _ := unstructured.NestedSlice(obj, "requestHandler", "parsers")
+				g.Expect(parsers).To(HaveLen(1))
+				g.Expect(parsers[0]).To(HaveKeyWithValue("pluginRef", "openai-parser"))
+			},
+		},
+		{
+			name:    "carries the legacy saturationDetector over an explicit null",
+			migrate: withMigrateSaturationDetector,
+			configYAML: `
+saturationDetector:
+  pluginRef: max-saturation-detector
+flowControl:
+  saturationDetector: null
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				g.Expect(obj).NotTo(HaveKey("saturationDetector"))
+				sd, _, _ := unstructured.NestedMap(obj, "flowControl", "saturationDetector")
+				g.Expect(sd).To(HaveKeyWithValue("pluginRef", "max-saturation-detector"))
+			},
+		},
+		{
+			// The router compared its struct pointers against nil, and a declared
+			// {} decodes to a non-nil pointer, so it wins over the legacy field.
+			name:    "keeps an empty flowControl.saturationDetector map",
+			migrate: withMigrateSaturationDetector,
+			configYAML: `
+saturationDetector:
+  pluginRef: max-saturation-detector
+flowControl:
+  saturationDetector: {}
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				g.Expect(obj).NotTo(HaveKey("saturationDetector"))
+				sd, _, _ := unstructured.NestedMap(obj, "flowControl", "saturationDetector")
+				g.Expect(sd).To(BeEmpty())
+			},
+		},
+		{
+			name:    "carries a legacy crossReplica value over an empty string",
+			migrate: withMigrateCrossReplica,
+			configYAML: `
+dataLayer:
+  crossReplicaSyncerPluginRef: local-syncer
+  crossReplica:
+    syncerPluginRef: ""
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				cr, _, _ := unstructured.NestedMap(obj, "dataLayer", "crossReplica")
+				g.Expect(cr).To(HaveKeyWithValue("syncerPluginRef", "local-syncer"))
+			},
+		},
+		{
+			name:    "carries the bare discovery.pluginRef over an empty endpoints.pluginRef",
+			migrate: withMigrateDiscoveryPluginRef,
+			configYAML: `
+dataLayer:
+  discovery:
+    pluginRef: file-discovery
+    endpoints:
+      pluginRef: ""
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				discovery, _, _ := unstructured.NestedMap(obj, "dataLayer", "discovery")
+				g.Expect(discovery).NotTo(HaveKey("pluginRef"))
+				endpoints, _, _ := unstructured.NestedMap(obj, "dataLayer", "discovery", "endpoints")
+				g.Expect(endpoints).To(HaveKeyWithValue("pluginRef", "file-discovery"))
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -3155,6 +3352,226 @@ plugins:
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
 								{Name: "main", Args: []string{"--config-text", legacyConfig}},
+							},
+						},
+					},
+				},
+			}
+
+			g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)).To(Succeed())
+
+			tt.validateConfig(g, d.Spec.Template.Spec.Containers[0].Args[1])
+		})
+	}
+}
+
+// TestWithMigrateLLMDAPIVersion covers the apiVersion relabel in isolation for
+// both targets a caller can pass: llm-d.ai/v1alpha1 for a 0.9.x/0.10.x binary
+// and llm-d.ai/v1 for 0.11.0 and later. A config already on the target is
+// untouched, and a config without an apiVersion is left alone rather than being
+// given one.
+func TestWithMigrateLLMDAPIVersion(t *testing.T) {
+	tests := []struct {
+		name       string
+		target     string
+		configYAML string
+		expected   string
+	}{
+		{
+			name:   "migrates the removed GIE apiVersion to v1alpha1",
+			target: "llm-d.ai/v1alpha1",
+			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+`,
+			expected: "llm-d.ai/v1alpha1",
+		},
+		{
+			name:   "migrates the removed GIE apiVersion to v1",
+			target: "llm-d.ai/v1",
+			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+`,
+			expected: "llm-d.ai/v1",
+		},
+		{
+			name:   "migrates the deprecated llm-d.ai/v1alpha1 apiVersion to v1",
+			target: "llm-d.ai/v1",
+			configYAML: `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+`,
+			expected: "llm-d.ai/v1",
+		},
+		{
+			name:   "leaves v1alpha1 alone when v1alpha1 is the target",
+			target: "llm-d.ai/v1alpha1",
+			configYAML: `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+`,
+			expected: "llm-d.ai/v1alpha1",
+		},
+		{
+			// Downgrade is not supported: relabelling a v1 config back would not
+			// make an older binary accept it, since the v1 layout has no lossless
+			// v1alpha1 equivalent. The config is left as-is rather than rewritten
+			// into something that is neither valid v1 nor valid v1alpha1.
+			name:   "does not rewrite a v1 config when the target is older",
+			target: "llm-d.ai/v1alpha1",
+			configYAML: `apiVersion: llm-d.ai/v1
+kind: EndpointPickerConfig
+`,
+			expected: "llm-d.ai/v1",
+		},
+		{
+			name:   "leaves a config without an apiVersion alone",
+			target: "llm-d.ai/v1",
+			configYAML: `plugins:
+- type: queue-scorer
+`,
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			var obj map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
+			u := unstructured.Unstructured{Object: obj}
+
+			g.Expect(withMigrateLLMDAPIVersion(tt.target)(context.Background(), &u)).To(Succeed())
+			g.Expect(u.GetAPIVersion()).To(Equal(tt.expected))
+		})
+	}
+}
+
+// TestSchedulerTransformGraduatesEPPConfigToV1 verifies the full >=0.11.0
+// graduation path end to end: a config written for the v1alpha1 layout is
+// relabelled llm-d.ai/v1 only together with the key moves that layout requires,
+// so the scheduler never sees a v1 config carrying a key the v1 types dropped.
+// A 0.10.0 deployment keeps the old apiVersion and the old layout, which is
+// what that binary accepts.
+func TestSchedulerTransformGraduatesEPPConfigToV1(t *testing.T) {
+	v1alpha1LayoutConfig := `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+dataLayer:
+  crossReplicaSyncerPluginRef: local-syncer
+  crossReplicaSyncInterval: 5s
+  crossReplicaPublishTimeout: 2s
+  discovery:
+    pluginRef: file-discovery
+plugins:
+- type: single-profile-handler
+`
+
+	tests := []struct {
+		name           string
+		version        string
+		configYAML     string
+		validateConfig func(g Gomega, configText string)
+	}{
+		{
+			name:       "graduates apiVersion and layout for v0.11.0",
+			version:    "0.11.0",
+			configYAML: v1alpha1LayoutConfig,
+			validateConfig: func(g Gomega, configText string) {
+				var cfg map[string]interface{}
+				g.Expect(yaml.Unmarshal([]byte(configText), &cfg)).To(Succeed())
+
+				apiVersion, _, _ := unstructured.NestedString(cfg, "apiVersion")
+				g.Expect(apiVersion).To(Equal("llm-d.ai/v1"))
+
+				dl, _, _ := unstructured.NestedMap(cfg, "dataLayer")
+				g.Expect(dl).NotTo(HaveKey("crossReplicaSyncerPluginRef"))
+				g.Expect(dl).NotTo(HaveKey("crossReplicaSyncInterval"))
+				g.Expect(dl).NotTo(HaveKey("crossReplicaPublishTimeout"))
+
+				cr, _, _ := unstructured.NestedMap(cfg, "dataLayer", "crossReplica")
+				g.Expect(cr).To(HaveKeyWithValue("syncerPluginRef", "local-syncer"))
+				g.Expect(cr).To(HaveKeyWithValue("syncInterval", "5s"))
+				g.Expect(cr).To(HaveKeyWithValue("publishTimeout", "2s"))
+
+				discovery, _, _ := unstructured.NestedMap(cfg, "dataLayer", "discovery")
+				g.Expect(discovery).NotTo(HaveKey("pluginRef"))
+				endpoints, _, _ := unstructured.NestedMap(cfg, "dataLayer", "discovery", "endpoints")
+				g.Expect(endpoints).To(HaveKeyWithValue("pluginRef", "file-discovery"))
+			},
+		},
+		{
+			name:    "graduates the removed GIE apiVersion for v0.11.0",
+			version: "0.11.0",
+			configYAML: `apiVersion: inference.networking.x-k8s.io/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+`,
+			validateConfig: func(g Gomega, configText string) {
+				g.Expect(configText).To(ContainSubstring("apiVersion: llm-d.ai/v1\n"))
+				g.Expect(configText).NotTo(ContainSubstring("inference.networking.x-k8s.io/v1alpha1"))
+			},
+		},
+		{
+			name:       "keeps the v1alpha1 apiVersion and layout for v0.10.0",
+			version:    "0.10.0",
+			configYAML: v1alpha1LayoutConfig,
+			validateConfig: func(g Gomega, configText string) {
+				var cfg map[string]interface{}
+				g.Expect(yaml.Unmarshal([]byte(configText), &cfg)).To(Succeed())
+
+				apiVersion, _, _ := unstructured.NestedString(cfg, "apiVersion")
+				g.Expect(apiVersion).To(Equal("llm-d.ai/v1alpha1"))
+
+				dl, _, _ := unstructured.NestedMap(cfg, "dataLayer")
+				g.Expect(dl).To(HaveKey("crossReplicaSyncerPluginRef"))
+				g.Expect(dl).NotTo(HaveKey("crossReplica"))
+				discovery, _, _ := unstructured.NestedMap(cfg, "dataLayer", "discovery")
+				g.Expect(discovery).To(HaveKeyWithValue("pluginRef", "file-discovery"))
+			},
+		},
+		{
+			name:    "leaves a config already on v1 unchanged for v0.11.0",
+			version: "0.11.0",
+			configYAML: `apiVersion: llm-d.ai/v1
+kind: EndpointPickerConfig
+dataLayer:
+  crossReplica:
+    syncerPluginRef: local-syncer
+  discovery:
+    endpoints:
+      pluginRef: file-discovery
+plugins:
+- type: single-profile-handler
+`,
+			validateConfig: func(g Gomega, configText string) {
+				var cfg map[string]interface{}
+				g.Expect(yaml.Unmarshal([]byte(configText), &cfg)).To(Succeed())
+
+				apiVersion, _, _ := unstructured.NestedString(cfg, "apiVersion")
+				g.Expect(apiVersion).To(Equal("llm-d.ai/v1"))
+
+				cr, _, _ := unstructured.NestedMap(cfg, "dataLayer", "crossReplica")
+				g.Expect(cr).To(HaveKeyWithValue("syncerPluginRef", "local-syncer"))
+				endpoints, _, _ := unstructured.NestedMap(cfg, "dataLayer", "discovery", "endpoints")
+				g.Expect(endpoints).To(HaveKeyWithValue("pluginRef", "file-discovery"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			d := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"app.kubernetes.io/version": tt.version,
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "main", Args: []string{"--config-text", tt.configYAML}},
 							},
 						},
 					},
