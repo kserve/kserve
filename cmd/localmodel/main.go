@@ -183,6 +183,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Setup KernelCache preparation and aggregation controller.
+	setupLog.Info("Setting up v1alpha1 KernelCache controller")
+	if err = (&kernelcachecontroller.KernelCacheReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("v1alpha1Controllers").WithName("KernelCache"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCache")
+		os.Exit(1)
+	}
+
 	// Setup webhook
 	setupLog.Info("setting up webhook server")
 	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha1.LocalModelCache{}).
