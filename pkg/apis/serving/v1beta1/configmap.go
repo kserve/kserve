@@ -180,6 +180,10 @@ type LocalModelConfig struct {
 const (
 	DefaultKernelCacheMCVImage                                = "kserve/kserve-mcv:latest-minimal"
 	DefaultKernelCachePrefetchImage                           = "registry.access.redhat.com/ubi9/ubi-minimal:latest"
+	DefaultKernelCacheMountType                               = "oci"
+	DefaultKernelCacheJobNamespace                            = "kserve-kernelcache-jobs"
+	DefaultKernelCacheJobTTLSeconds                     int32 = 600
+	DefaultKernelCacheReconcileIntervalSeconds          int64 = 300
 	DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds int64 = 600
 	DefaultKernelCacheAbandonedCapturePolicy                  = "retain"
 )
@@ -446,14 +450,19 @@ func NewLocalModelConfig(isvcConfigMap *corev1.ConfigMap) (*LocalModelConfig, er
 	return localModelConfig, nil
 }
 
-// NewKernelCacheConfig parses the KernelCache configuration from the
-// inferenceservice-config ConfigMap and applies the controller defaults.
+// NewKernelCacheConfig parses the KernelCache configuration and applies source defaults.
 func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, error) {
+	jobTTLSeconds := DefaultKernelCacheJobTTLSeconds
+	reconcileIntervalSeconds := DefaultKernelCacheReconcileIntervalSeconds
 	kernelCacheConfig := &KernelCacheConfig{
 		DefaultSidecarInjection:           true,
+		DefaultMountType:                  DefaultKernelCacheMountType,
+		JobNamespace:                      DefaultKernelCacheJobNamespace,
 		MCVImage:                          DefaultKernelCacheMCVImage,
 		MCVCaptureReadinessTimeoutSeconds: DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds,
 		PrefetchImage:                     DefaultKernelCachePrefetchImage,
+		JobTTLSecondsAfterFinished:        &jobTTLSeconds,
+		ReconcileIntervalSeconds:          &reconcileIntervalSeconds,
 		AbandonedCapturePolicy:            DefaultKernelCacheAbandonedCapturePolicy,
 	}
 	if kernelCache, ok := isvcConfigMap.Data[KernelCacheConfigName]; ok {
@@ -466,6 +475,20 @@ func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, 
 	}
 	if kernelCacheConfig.PrefetchImage == "" {
 		kernelCacheConfig.PrefetchImage = DefaultKernelCachePrefetchImage
+	}
+	if kernelCacheConfig.DefaultMountType == "" {
+		kernelCacheConfig.DefaultMountType = DefaultKernelCacheMountType
+	}
+	if kernelCacheConfig.JobNamespace == "" {
+		kernelCacheConfig.JobNamespace = DefaultKernelCacheJobNamespace
+	}
+	if kernelCacheConfig.JobTTLSecondsAfterFinished == nil {
+		value := DefaultKernelCacheJobTTLSeconds
+		kernelCacheConfig.JobTTLSecondsAfterFinished = &value
+	}
+	if kernelCacheConfig.ReconcileIntervalSeconds == nil {
+		value := DefaultKernelCacheReconcileIntervalSeconds
+		kernelCacheConfig.ReconcileIntervalSeconds = &value
 	}
 	if kernelCacheConfig.AbandonedCapturePolicy == "" {
 		kernelCacheConfig.AbandonedCapturePolicy = DefaultKernelCacheAbandonedCapturePolicy

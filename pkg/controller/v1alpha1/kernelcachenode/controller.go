@@ -31,15 +31,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
-	"github.com/kserve/kserve/pkg/constants"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 )
 
 const (
@@ -79,7 +76,7 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, fmt.Errorf("get KernelCacheNode %q: %w", r.NodeName, err)
 	}
 
-	config, err := r.getKernelCacheConfig(ctx)
+	config, err := kernelcacheconfig.Load(ctx, r.Client)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("load KernelCache configuration: %w", err)
 	}
@@ -91,25 +88,6 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	interval := defaultReconcileInterval
-	if config.ReconcileIntervalSeconds != nil && *config.ReconcileIntervalSeconds > 0 {
-		interval = time.Duration(*config.ReconcileIntervalSeconds) * time.Second
-	}
+	interval := time.Duration(*config.ReconcileIntervalSeconds) * time.Second
 	return ctrl.Result{RequeueAfter: interval}, nil
-}
-
-// Configuration loading.
-func (r *KernelCacheNodeReconciler) getKernelCacheConfig(ctx context.Context) (*v1beta1.KernelCacheConfig, error) {
-	configMap := &corev1.ConfigMap{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Namespace: constants.KServeNamespace,
-		Name:      constants.InferenceServiceConfigMapName,
-	}, configMap); err != nil {
-		return nil, fmt.Errorf("get ConfigMap %s/%s: %w", constants.KServeNamespace, constants.InferenceServiceConfigMapName, err)
-	}
-	config, err := v1beta1.NewKernelCacheConfig(configMap)
-	if err != nil {
-		return nil, fmt.Errorf("parse KernelCache configuration from ConfigMap %s/%s: %w", constants.KServeNamespace, constants.InferenceServiceConfigMapName, err)
-	}
-	return config, nil
 }

@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 )
 
 // RunPeriodicImageValidation performs an image check at startup and then at a fixed interval.
@@ -46,7 +48,7 @@ func (r *KernelCacheNodeReconciler) runImageValidation(ctx context.Context) {
 }
 
 func (r *KernelCacheNodeReconciler) validateNodeImages(ctx context.Context) error {
-	config, err := r.getKernelCacheConfig(ctx)
+	config, err := kernelcacheconfig.Load(ctx, r.Client)
 	if err != nil {
 		return fmt.Errorf("load KernelCache configuration for image validation: %w", err)
 	}

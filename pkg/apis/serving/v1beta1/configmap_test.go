@@ -96,15 +96,17 @@ func TestNewKernelCacheConfigDefaults(t *testing.T) {
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(config.Enabled).To(gomega.BeFalse())
 		g.Expect(config.DefaultSidecarInjection).To(gomega.BeTrue())
-		g.Expect(config.DefaultMountType).To(gomega.BeEmpty())
+		g.Expect(config.DefaultMountType).To(gomega.Equal(DefaultKernelCacheMountType))
 		g.Expect(config.DefaultNodeGroup).To(gomega.BeEmpty())
-		g.Expect(config.JobNamespace).To(gomega.BeEmpty())
+		g.Expect(config.JobNamespace).To(gomega.Equal(DefaultKernelCacheJobNamespace))
 		g.Expect(config.MCVImage).To(gomega.Equal(DefaultKernelCacheMCVImage))
 		g.Expect(config.PrefetchImage).To(gomega.Equal(DefaultKernelCachePrefetchImage))
 		g.Expect(config.MCVCaptureReadinessTimeoutSeconds).To(gomega.Equal(DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds))
 		g.Expect(config.AbandonedCapturePolicy).To(gomega.Equal(DefaultKernelCacheAbandonedCapturePolicy))
-		g.Expect(config.JobTTLSecondsAfterFinished).To(gomega.BeNil())
-		g.Expect(config.ReconcileIntervalSeconds).To(gomega.BeNil())
+		g.Expect(config.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
+		g.Expect(*config.JobTTLSecondsAfterFinished).To(gomega.Equal(DefaultKernelCacheJobTTLSeconds))
+		g.Expect(config.ReconcileIntervalSeconds).ToNot(gomega.BeNil())
+		g.Expect(*config.ReconcileIntervalSeconds).To(gomega.Equal(DefaultKernelCacheReconcileIntervalSeconds))
 	}
 }
 
@@ -184,6 +186,25 @@ func TestNewKernelCacheConfigUsesConfiguredValues(t *testing.T) {
 	g.Expect(config.ReconcileIntervalSeconds).ToNot(gomega.BeNil())
 	g.Expect(*config.ReconcileIntervalSeconds).To(gomega.Equal(int64(300)))
 	g.Expect(config.AbandonedCapturePolicy).To(gomega.Equal("delete"))
+}
+
+func TestNewKernelCacheConfigRestoresDefaultsForEmptyValues(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{
+			"defaultMountType": "",
+			"jobNamespace": "",
+			"jobTTLSecondsAfterFinished": null,
+			"reconcileIntervalSeconds": null
+		}`,
+	}}
+
+	config, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(config.DefaultMountType).To(gomega.Equal(DefaultKernelCacheMountType))
+	g.Expect(config.JobNamespace).To(gomega.Equal(DefaultKernelCacheJobNamespace))
+	g.Expect(*config.JobTTLSecondsAfterFinished).To(gomega.Equal(DefaultKernelCacheJobTTLSeconds))
+	g.Expect(*config.ReconcileIntervalSeconds).To(gomega.Equal(DefaultKernelCacheReconcileIntervalSeconds))
 }
 
 func TestNewKernelCacheConfigRejectsInvalidValues(t *testing.T) {

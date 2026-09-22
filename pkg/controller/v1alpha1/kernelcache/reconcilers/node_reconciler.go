@@ -36,8 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
-	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	"github.com/kserve/kserve/pkg/kernelcache/nodegroup"
 )
 
@@ -56,7 +56,7 @@ type KernelCacheNodeReconciler struct {
 }
 
 func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, _ ctrl.Request) (ctrl.Result, error) {
-	config, err := r.getKernelCacheConfig(ctx)
+	config, err := kernelcacheconfig.Load(ctx, r.Client)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("load KernelCache configuration: %w", err)
 	}
@@ -78,21 +78,6 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, _ ctrl.Reques
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (r *KernelCacheNodeReconciler) getKernelCacheConfig(ctx context.Context) (*v1beta1.KernelCacheConfig, error) {
-	configMap := &corev1.ConfigMap{}
-	if err := r.Get(ctx, client.ObjectKey{
-		Namespace: constants.KServeNamespace,
-		Name:      constants.InferenceServiceConfigMapName,
-	}, configMap); err != nil {
-		return nil, fmt.Errorf("get ConfigMap %s/%s: %w", constants.KServeNamespace, constants.InferenceServiceConfigMapName, err)
-	}
-	config, err := v1beta1.NewKernelCacheConfig(configMap)
-	if err != nil {
-		return nil, fmt.Errorf("parse KernelCache configuration: %w", err)
-	}
-	return config, nil
 }
 
 func (r *KernelCacheNodeReconciler) listAndValidateNodeGroups(ctx context.Context) ([]v1alpha1.KernelCacheNodeGroup, error) {
