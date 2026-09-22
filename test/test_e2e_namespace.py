@@ -16,7 +16,8 @@
 
 import copy
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
+from uuid import UUID
 
 from kubernetes import client
 
@@ -24,6 +25,39 @@ from test.e2e.common import namespace
 
 
 class NamespaceProvisioningTest(unittest.TestCase):
+    def test_consecutive_sessions_do_not_reuse_a_terminating_namespace(self):
+        with patch.object(
+            namespace,
+            "uuid4",
+            side_effect=[
+                UUID("11111111-1111-4111-8111-111111111111"),
+                UUID("22222222-2222-4222-8222-222222222222"),
+            ],
+            create=True,
+        ):
+            previous = namespace.worker_namespace_name("gw0")
+            current = namespace.worker_namespace_name("gw0")
+        self.assertNotEqual(previous, current)
+        self.assertLessEqual(len(current), 18)
+        self.assertRegex(current, r"^e2e-gw0-[a-f0-9]+$")
+
+    def test_worker_namespace_fits_component_hostnames(self):
+        # Component names from the raw collocation and gRPC transformer tests.
+        for worker_id in ("gw0", "master", "gw1234567890"):
+            worker_namespace = namespace.worker_namespace_name(worker_id)
+            for component in (
+                "raw-custom-model-collocation-12345-predictor",
+                "model-grpc-trans-grpc-raw-12345-transformer",
+            ):
+                for hostname in (
+                    f"{component}-{worker_namespace}.example.com",
+                    f"{component}.{worker_namespace}.example.com",
+                ):
+                    with self.subTest(hostname=hostname):
+                        for label in hostname.split("."):
+                            self.assertLessEqual(len(label), 63)
+                            self.assertRegex(label, r"^[a-z0-9]([-a-z0-9]*[a-z0-9])?$")
+
     def test_namespaced_runtime_is_copied_without_server_metadata(self):
         runtime = {
             "apiVersion": "serving.kserve.io/v1alpha1",

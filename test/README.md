@@ -3,7 +3,9 @@ Please refer to [unit and e2e tests guide](https://github.com/kserve/website/blo
 
 ## E2E worker namespaces
 
-Tests using `test_namespace` reuse one namespace per pytest worker. Setup copies
+Tests using `test_namespace` reuse one namespace per pytest worker. Each session
+gets a fresh namespace name, so consecutive pytest runs cannot collide with a
+previous session's namespace while Kubernetes is still deleting it. Setup copies
 storage secrets and namespaced `ServingRuntime` definitions from
 `KSERVE_SEED_NAMESPACE` (defaults to `KSERVE_TEST_NAMESPACE`, then
 `kserve-ci-e2e-test`). Install the test runtimes in that seed namespace before

@@ -21,6 +21,7 @@ deleted after each test so workers do not collide or starve Knative ingress.
 import logging
 import os
 import time
+from uuid import uuid4
 
 from kubernetes import client, config
 
@@ -40,7 +41,10 @@ def skip_resource_deletion() -> bool:
 
 
 def worker_namespace_name(worker_id: str) -> str:
-    return f"{WORKER_NAMESPACE_PREFIX}-{worker_id}"[:24]
+    """Called once by the session fixture; avoid namespaces still being deleted."""
+    # Leave 45 characters for the longest test component name and its separator.
+    prefix = f"{WORKER_NAMESPACE_PREFIX}-{worker_id}"[:7]
+    return f"{prefix}-{uuid4().hex[:10]}"
 
 
 def get_core_api() -> client.CoreV1Api:
