@@ -20,6 +20,7 @@ import (
 	"strings"
 	"testing"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -473,11 +474,11 @@ func validDisaggScalingSpec() *ScalingSpec {
 	return &ScalingSpec{
 		MinReplicas: ptr.To(int32(1)),
 		MaxReplicas: 5,
-		WVA: &WVASpec{
-			VariantCost: "10.0",
-			ActuatorSpec: ActuatorSpec{
-				HPA: &HPAScalingSpec{},
-			},
+		KEDA: &DirectKEDAScalingSpec{
+			Triggers: []kedav1alpha1.ScaleTriggers{{
+				Type:     "cpu",
+				Metadata: map[string]string{"value": "80"},
+			}},
 		},
 	}
 }
