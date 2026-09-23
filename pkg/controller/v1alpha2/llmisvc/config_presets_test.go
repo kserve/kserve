@@ -1224,12 +1224,13 @@ func TestSGLangTemplateNilParallelism(t *testing.T) {
 		t.Errorf("Expected no --tp flag when Parallelism.Tensor is unset, got command: %q", cmd)
 	}
 	if strings.Contains(cmd, "--trust-remote-code") {
-		t.Errorf("Expected no --trust-remote-code flag when TrustRemoteCode is false, got command: %q", cmd)
+		t.Errorf("Expected no --trust-remote-code flag by default, got command: %q", cmd)
 	}
 }
 
-// TestSGLangTemplateTrustRemoteCode verifies --trust-remote-code is included when TrustRemoteCode=true.
-func TestSGLangTemplateTrustRemoteCode(t *testing.T) {
+// TestSGLangTemplateForwardsContainerArgs verifies runtime-specific flags can be
+// supplied explicitly without a dedicated LLMInferenceService API field.
+func TestSGLangTemplateForwardsContainerArgs(t *testing.T) {
 	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
 	filePath := filepath.Join(presetsDir, "config-sglang-template.yaml")
 
@@ -1241,7 +1242,20 @@ func TestSGLangTemplateTrustRemoteCode(t *testing.T) {
 	config := loadConfig(t, data, filePath)
 
 	llmSvc := llmisvc.LLMInferenceServiceSample()
-	llmSvc.Spec.TrustRemoteCode = true
+	llmSvc.Spec.Template = &corev1.PodSpec{
+		Containers: []corev1.Container{{
+			Name: "main",
+			Args: []string{"--trust-remote-code"},
+		}},
+	}
+
+	mergedSpec, err := llmisvc.MergeSpecs(t.Context(), config.Spec, llmSvc.Spec)
+	if err != nil {
+		t.Fatalf("MergeSpecs() returned unexpected error: %v", err)
+	}
+	config.Spec = mergedSpec
+	effectiveSvc := llmSvc.DeepCopy()
+	effectiveSvc.Spec = mergedSpec
 
 	kserveSystemConfig := llmisvc.Config{
 		SystemNamespace:         "kserve",
@@ -1249,13 +1263,16 @@ func TestSGLangTemplateTrustRemoteCode(t *testing.T) {
 		IngressGatewayNamespace: "kserve",
 	}
 
-	out, err := llmisvc.ReplaceVariables(llmSvc, config, &kserveSystemConfig)
+	out, err := llmisvc.ReplaceVariables(effectiveSvc, config, &kserveSystemConfig)
 	if err != nil {
 		t.Fatalf("ReplaceVariables() returned unexpected error: %v", err)
 	}
 
-	cmd := out.Spec.Template.Containers[0].Command[2]
-	if !strings.Contains(cmd, "--trust-remote-code") {
-		t.Errorf("Expected --trust-remote-code flag when TrustRemoteCode=true, got command: %q", cmd)
+	container := out.Spec.Template.Containers[0]
+	if strings.Contains(container.Command[2], "--trust-remote-code") {
+		t.Errorf("Expected no automatically injected --trust-remote-code flag, got command: %q", container.Command[2])
+	}
+	if diff := cmp.Diff([]string{"--trust-remote-code"}, container.Args); diff != "" {
+		t.Errorf("Expected explicit container args to be forwarded (-want, +got):\n%s", diff)
 	}
 }

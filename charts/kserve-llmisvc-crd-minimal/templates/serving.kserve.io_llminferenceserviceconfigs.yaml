@@ -21287,8 +21287,6 @@ spec:
                     samplerArg:
                       type: string
                   type: object
-                trustRemoteCode:
-                  type: boolean
                 worker:
                   properties:
                     activeDeadlineSeconds:
