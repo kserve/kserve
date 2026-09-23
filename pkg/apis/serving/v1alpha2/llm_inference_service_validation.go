@@ -591,6 +591,12 @@ func ValidateWorkloadScaling(basePath *field.Path, workload *WorkloadSpec) field
 	}
 
 	if scaling.KEDA == nil {
+		// Retain existing WVA resources for upgrade compatibility. The admission
+		// validator rejects new WVA configuration, while the controller leaves
+		// existing WVA autoscaling disabled until the field is removed.
+		if scaling.WVA != nil {
+			return allErrs
+		}
 		allErrs = append(allErrs, field.Required(
 			scalingPath,
 			"keda must be specified when scaling is configured",
