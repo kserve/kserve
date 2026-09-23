@@ -236,6 +236,11 @@ type KVCacheOffloadingSpec struct {
 	// CPU is the amount of CPU RAM to allocate as the primary KV cache tier
 	// (maps to vLLM kv_connector_extra_config.cpu_bytes_to_use). Accepts standard
 	// Kubernetes quantity notation, e.g. "10Gi".
+	//
+	// This sizes one engine's tier. Tensor parallelism divides it across the
+	// engine's ranks, but a pod running parallelism.dataLocal local engines holds
+	// one copy each, so both the shared-memory volume and the container's memory
+	// limit have to cover the product rather than this value alone.
 	CPU resource.Quantity `json:"cpu"`
 
 	// EvictionPolicy for the primary CPU KV cache tier. Defaults to "lru".
@@ -941,12 +946,16 @@ type SourcedAddress struct {
 type AppliedConfigSource string
 
 const (
-	// AppliedConfigSourcePreset indicates the config was automatically injected
-	// by the controller based on the deployment pattern (single-node, multi-node,
-	// disaggregated, scheduler, router).
+	// AppliedConfigSourcePreset indicates the config is one KServe both selected
+	// and ships: chosen by the controller from the deployment pattern (single-node,
+	// multi-node, disaggregated, scheduler, router) and resolved from the KServe
+	// namespace.
 	AppliedConfigSourcePreset AppliedConfigSource = "Preset"
-	// AppliedConfigSourceUserRef indicates the config was explicitly referenced
-	// by the user via spec.baseRefs.
+	// AppliedConfigSourceUserRef indicates the config is not one KServe ships. That
+	// covers a config referenced via spec.baseRefs, and also one resolved from the
+	// service's own namespace under a well-known preset name - answering to the
+	// name is not evidence of provenance, and such a copy is not trusted with the
+	// settings a shipped preset contributes to the controller.
 	AppliedConfigSourceUserRef AppliedConfigSource = "UserRef"
 	// AppliedConfigSourceServingRuntime indicates the container spec was
 	// contributed by a ServingRuntime or ClusterServingRuntime resolved from
@@ -965,9 +974,10 @@ type AppliedConfigRef struct {
 	// from. Omitted for cluster-scoped resources such as ClusterServingRuntime.
 	// +optional
 	Namespace gwapiv1.Namespace `json:"namespace,omitempty"`
-	// Source indicates how this config was selected - either automatically injected
-	// as a well-known default based on the deployment pattern, or explicitly
-	// referenced via spec.baseRefs.
+	// Source indicates where this config came from: one KServe ships and selected
+	// itself, one the service referenced, or a container spec contributed by a
+	// ServingRuntime. A config resolved outside the KServe namespace reports
+	// UserRef even when it answers to a well-known preset name.
 	// +required
 	Source AppliedConfigSource `json:"source"`
 }

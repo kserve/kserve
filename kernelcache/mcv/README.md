@@ -13,7 +13,7 @@ A Model/GPU kernel cache container packaging utility inspired by
 
 - Build container images containing GPU Kernel/Model caches.
 - Extract a cache from an OCI image
-- Compatible with docker or buildah
+- Compatible with Docker, Buildah, and direct OCI packaging
 - **Single-layer image output** (squashed) for cosign compatibility
 - Client API for retrieving and extracting images
 - Artifact and image signing via cosign (indirectly)
@@ -34,9 +34,57 @@ A Model/GPU kernel cache container packaging utility inspired by
 ### Install dependencies
 
 ```bash
-sudo dnf install gpgme-devel
-sudo dnf install btrfs-progs-devel
+sudo dnf install -y gpgme-devel btrfs-progs-devel
 ```
+OR
+```bash
+sudo apt install -y libgpgme-dev libbtrfs-dev uidmap
+```
+
+On Ubuntu 24.04, *running* `mcv` unprivileged to build cache images (its
+embedded buildah creates a user namespace) requires unprivileged user
+namespaces, which Ubuntu restricts by default via AppArmor. This is only needed
+at runtime — compiling with `make build` does not need it. There are two ways to
+allow it.
+
+**Preferred — scoped AppArmor profile.** Grant the `userns` permission only to
+the `mcv` binary, leaving the global restriction in place for every other
+program. Create `/etc/apparmor.d/mcv` (adjust the path to match your installed
+binary):
+
+```bash
+abi <abi/4.0>,
+include <tunables/global>
+
+profile mcv /home/<user>/go/bin/mcv {
+  userns,
+  include if exists <local/mcv>
+}
+```
+
+Then load it:
+
+```bash
+sudo apparmor_parser -r /etc/apparmor.d/mcv
+```
+
+When running MCV inside a container instead of natively, apply the same `userns`
+permission to the container runtime's profile (e.g. `podman`/`rootlesskit`)
+rather than to `mcv`.
+
+**Simpler but less secure — disable the restriction globally.** This re-enables
+unprivileged user namespaces for *all* programs, weakening a defense-in-depth
+protection against kernel exploits that abuse user namespaces. Prefer the scoped
+profile above; use this only on disposable/dev machines:
+
+```bash
+sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+# To persist across reboots:
+echo 'kernel.apparmor_restrict_unprivileged_userns=0' | sudo tee /etc/sysctl.d/99-userns.conf
+ ```
+
+### Build and Install
 
 Build the binary:
 
@@ -66,13 +114,19 @@ Usage:
 Flags:
   -c, --create               Create OCI image from cache directory
   -e, --extract              Extract Triton/vLLM cache from OCI image
+      --snapshot             Write a recursive cache directory snapshot
+      --delta-from-snapshot  Create an OCI image from changes after a snapshot
   -i, --image string         OCI image name (required for create, extract, check-compat)
   -d, --dir string           Triton/vLLM cache directory path
       --gpu-info             Display GPU-specific information
       --check-compat         Check GPU compatibility with specified image
   -b, --baremetal            Enable detailed baremetal preflight checks
   -l, --log-level string     Set logging verbosity (debug, info, warning, error) (default "info")
-      --builder string       Specify the builder to use (buildah or docker)
+      --builder string       Builder: buildah, docker, or oci
+      --result string        Write OCI create result as JSON to this file
+      --snapshot-file string Cache snapshot file path
+      --exclude-dir stringArray
+                              Directory below --dir to exclude from snapshot
       --no-gpu               Disable GPU detection and preflight checks (for testing)
       --stub                 Use mock/stub data for hardware info (for testing)
   -t, --timeout int          Timeout in minutes for hardware detection operations (0 = disable) (default 10)
@@ -102,21 +156,38 @@ Two image variants are available:
    ```bash
    make build-image-mcv
    # or directly:
-   podman build --target mcv-unified -t quay.io/gkm/mcv:unified -f mcv/images/amd64.dockerfile .
+   podman build --target mcv-unified -t quay.io/gkm/mcv:unified -f mcv/images/Containerfile .
    ```
 
 2. **No-GPU** (~176MB) - For `--no-gpu` workflows, arm64/mac; no CUDA/ROCm libraries
    ```bash
    make build-image-mcv-no-gpu
    # or directly:
-   podman build --target mcv-minimal -t quay.io/gkm/mcv:no-gpu -f mcv/images/amd64.dockerfile .
+   podman build --target mcv-minimal -t quay.io/gkm/mcv:no-gpu -f mcv/images/Containerfile .
    ```
 
 **How it works:** With `--no-gpu`, MCV extracts GPU information (backend, architecture, warp size) from cache metadata rather than detecting actual hardware. The cache files created by vLLM/Triton already contain all necessary GPU information in environment variables.
 
 **GPU access flags** (e.g., `--gpus all` for NVIDIA, `--device /dev/kfd --device /dev/dri` for AMD) are **ONLY** required for GPU validation/preflight checks. They are **NOT** needed when using `--no-gpu` for cache creation or extraction.
+When using `podman run --device`, `--group-add keep-groups` may be needed for device access. But `--group-add keep-groups` requires crun (not runc).
 
 For detailed usage examples, container configuration, GPU access requirements, and CI/CD integration, see [docs/no-gpu-usage.md](./docs/no-gpu-usage.md).
+
+### OCI delta capture
+
+The OCI builder packages and pushes a cache image directly to a registry. It
+also supports creating an image from cache changes recorded after a baseline
+snapshot. See [docs/oci-delta-capture.md](./docs/oci-delta-capture.md).
+
+The KServe capture sidecar uses the same OCI and snapshot flow with grouped
+configuration and readiness reporting. See
+[docs/capture-sidecar.md](./docs/capture-sidecar.md).
+
+CLI constraints:
+
+- `--delta-from-snapshot` requires `--create --builder oci`.
+- `--exclude-dir` can only be used with `--snapshot`.
+- `--result` currently requires `--builder oci`.
 
 
 ## Dependencies
@@ -581,25 +652,61 @@ To use docker on the host with an MCV image, you need to mount the cache
 directory to the container and run the following command:
 
 ```bash
-docker run --rm -it --privileged \
-  -v <path-to-cache>/example:/example \
++# Buildah storage is at /home/appuser/.local/share/containers (owned by UID 1000).
++# Mount a writable host directory there so --user 1000:1000 can write regardless
++# of the host user's UID. Using --user $(id -u):$(id -g) fails whenever the host
++# UID is not 1000, because those pre-created paths are owned by UID 1000 in the image.
++sudo install -d -o 1000 -g 1000 -m 700 /tmp/mcv-storage
++
++docker run --rm -it \
++  --user 1000:1000 \
++  --security-opt seccomp=unconfined \
++  --security-opt apparmor=unconfined \
++  -v <path-to-cache>/example:/example:Z \
++  -v /tmp/mcv-storage:/home/appuser/.local/share/containers:Z \
   kserve/kserve-mcv:latest-minimal bash -lc '
     /mcv -c -i quay.io/gkm/vector-add-cache:rocm \
         -d /example/vector-add-cache-rocm --no-gpu &&
     buildah push containers-storage:quay.io/gkm/vector-add-cache:rocm \
         docker-archive:/example/vector-add-cache-rocm.tar:quay.io/gkm/vector-add-cache:rocm
   '
+WARN[2025-09-11 16:46:54] running newgidmap: exit status 1: newgidmap: write to gid_map failed: Operation not permitted
+WARN[2025-09-11 16:46:54] /usr/bin/newgidmap should be setgid or have filecaps setgid
+WARN[2025-09-11 16:46:54] Falling back to single mapping
+WARN[2025-09-11 16:46:54] Error running newuidmap: exit status 1: newuidmap: write to uid_map failed: Operation not permitted
+WARN[2025-09-11 16:46:54] Falling back to single mapping
 INFO[2025-09-11 16:46:54] Setting log level: info
 INFO[2025-09-11 16:46:54] Using buildah to build the image
 INFO[2025-09-11 16:46:54] Detected cache components: [triton]
 INFO[2025-09-11 16:46:55] Image built! 8ce4bc2e98abfa8c0a5a6f6046c1c7bc8ac09805ecb029427a995dc2897828f8
 INFO[2025-09-11 16:46:55] OCI image created successfully.
+WARN[0000] running newgidmap: exit status 1: newgidmap: write to gid_map failed: Operation not permitted
+WARN[0000] /usr/bin/newgidmap should be setgid or have filecaps setgid
+WARN[0000] Falling back to single mapping
+WARN[0000] Error running newuidmap: exit status 1: newuidmap: write to uid_map failed: Operation not permitted
+WARN[0000] Falling back to single mapping
 Getting image source signatures
 Copying blob 24b82d6fef87 done
 Copying config 8ce4bc2e98 done
 Writing manifest to image destination
 Storing signatures
 ```
+
+> **NOTE:** The Warnings are known and everything still works fine.
+> An include library is making a system call that it doesn't have permission for,
+> so it fails and falls back to another method that succeeds.
+>
+> **Security note — `seccomp=unconfined` / `apparmor=unconfined`.** MCV runs
+> buildah *inside* the container to assemble the OCI image, which needs
+> `mount`/`unshare`/`pivot_root` and user-namespace operations that Docker's
+> default seccomp and AppArmor profiles block for non-privileged containers.
+> Disabling both is a deliberate, security-reviewed fallback — it is far narrower
+> than `--privileged` (no added capabilities, host devices, or host namespaces),
+> and the blast radius is bounded: the container runs as a non-root user
+> (`--user`), performs a single packaging task, and is removed on exit (`--rm`).
+> To harden further, replace these flags with scoped seccomp and AppArmor
+> profiles that allow only buildah's required syscalls/operations, or run the
+> same command under **rootless Podman**, which needs neither flag.
 
 Then on host:
 
@@ -625,11 +732,11 @@ To use podman on the host with an MCV image, you need to mount the cache
 directory to the container and run the following command:
 
 ```bash
-podman run --rm -it --privileged \
-  -v <path-to-cache>/example:/example \
+podman run --rm -it \
+  -v <path-to-cache>/example:/example:Z,U \
   quay.io/gkm/mcv bash -lc '
     /mcv -c -i quay.io/gkm/vector-add-cache:rocm \
-        -d /example/vector-add-cache-rocm &&
+        -d /example/vector-add-cache-rocm --no-gpu &&
     buildah push containers-storage:quay.io/gkm/vector-add-cache:rocm \
         oci-archive:/example/vector-add-cache-rocm.oci:quay.io/gkm/vector-add-cache:rocm
   '

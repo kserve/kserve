@@ -141,6 +141,14 @@ jobs:
           compression-level: 0
           if-no-files-found: error
 
+      - name: Upload kernelcache agent image
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ env.BASE_ARTIFACT_PREFIX }}-${{ env.KERNELCACHE_AGENT_IMG }}-${{ env.TAG }}
+          path: ${{ env.DOCKER_IMAGES_PATH }}/${{ env.KERNELCACHE_AGENT_IMG }}-${{ env.TAG }}
+          compression-level: 0
+          if-no-files-found: error
+
       - name: Upload storage initializer image
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -340,6 +348,7 @@ jobs:
             "${KO_DOCKER_REPO}/${CONTROLLER_IMG}:${TAG}"
             "${KO_DOCKER_REPO}/${LOCALMODEL_CONTROLLER_IMG}:${TAG}"
             "${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG}"
+            "${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG}"
             "${KO_DOCKER_REPO}/${AGENT_IMG}:${TAG}"
             "${KO_DOCKER_REPO}/${STORAGE_INIT_IMG}:${TAG}"
             "${KO_DOCKER_REPO}/${ROUTER_IMG}:${TAG}"

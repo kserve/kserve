@@ -164,7 +164,7 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 		variant := isvc.Spec.Predictor.Name
 
 		for i := range podSpec.Containers {
-			isvcutils.InjectPredictorTracing(isvc.Spec.Tracing, isvc.Namespace, isvc.Name, variant, serverType, &podSpec.Containers[i])
+			isvcutils.InjectComponentTracing(isvc.Spec.Tracing, isvc.Namespace, isvc.Name, variant, serverType, "", &podSpec.Containers[i])
 		}
 	}
 

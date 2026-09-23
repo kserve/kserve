@@ -100,49 +100,5 @@ func staticDeviceStartup() Device {
 }
 
 func NewStubbedDeviceCache() *DeviceCache {
-	return &DeviceCache{
-		Devices: map[string]CachedDevice{
-			"gpu": {
-				Name:       stubbedAMDName,
-				DeviceType: 1, // DeviceType for GPU, adjust if you have a constant
-				HwType:     "gpu",
-				TritonInfo: []TritonGPUInfo{
-					{
-						Name:              "card0",
-						UUID:              "daff740f-0000-1000-8062-0165038984ec",
-						ComputeCapability: "",
-						Arch:              gfxArchMI210,
-						WarpSize:          64,
-						MemoryTotalMB:     65520,
-						PTXVersion:        0,
-						Backend:           hipBackend,
-						ID:                0,
-					},
-					{
-						Name:              "card1",
-						UUID:              "acff740f-0000-1000-806b-c6ef57f28db1",
-						ComputeCapability: "",
-						Arch:              gfxArchMI210,
-						WarpSize:          64,
-						MemoryTotalMB:     65520,
-						PTXVersion:        0,
-						Backend:           hipBackend,
-						ID:                1,
-					},
-				},
-				Summaries: []DeviceSummary{
-					{
-						ID:            "0",
-						DriverVersion: "6.12.10-100.fc40.x86_64",
-						ProductName:   "STUBBED Aldebaran/MI200 [Instinct MI210]",
-					},
-					{
-						ID:            "1",
-						DriverVersion: "6.12.10-100.fc40.x86_64",
-						ProductName:   "STUBBED Aldebaran/MI200 [Instinct MI210]",
-					},
-				},
-			},
-		},
-	}
+	return stubbedDeviceCache(activeStubProfile())
 }

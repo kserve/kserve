@@ -24,6 +24,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 )
 
@@ -327,4 +329,31 @@ func TestVLLMCache_FirstMetadataWithEmptyHash(t *testing.T) {
 	expectedSubpath := filepath.Join(constants.TorchCompileDir, torchAOTCompileDirName)
 	assert.Equal(t, expectedSubpath, labels[kmCacheMountSubpath],
 		"Must use metadata entry matching firstHash, not blindly use allMetadata[0]")
+}
+
+// TestDetectActualGPUInfo_NoGPUMode verifies that detectActualGPUInfo returns
+// UnknownBackend immediately when GPU detection is disabled via --no-gpu, without
+// attempting to access any GPU hardware or libraries.
+func TestDetectActualGPUInfo_NoGPUMode(t *testing.T) {
+	if _, err := config.Initialize(t.TempDir()); err != nil {
+		t.Fatalf("Initialize: %v", err)
+	}
+
+	origGPU := config.IsGPUEnabled()
+	config.SetEnabledGPU(false)
+	t.Cleanup(func() { config.SetEnabledGPU(origGPU) })
+
+	backend, arch, warpSize, ptxVersion := detectActualGPUInfo()
+	if backend != UnknownBackend {
+		t.Errorf("expected backend %q, got %q", UnknownBackend, backend)
+	}
+	if arch != UnknownBackend {
+		t.Errorf("expected arch %q, got %q", UnknownBackend, arch)
+	}
+	if warpSize != 0 {
+		t.Errorf("expected warpSize 0, got %d", warpSize)
+	}
+	if ptxVersion != 0 {
+		t.Errorf("expected ptxVersion 0, got %d", ptxVersion)
+	}
 }

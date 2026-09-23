@@ -6,11 +6,14 @@ participant "Cache" as Cache
 participant "Filesystem" as FS
 participant "Buildah" as Buildah
 participant "Docker" as Docker
+participant "Registry" as Registry
 
-User -> CLI : mcv -c -i <image> -d <cacheDir> [--builder buildah|docker]
+User -> CLI : mcv -c -i <image> -d <cacheDir> [--builder buildah|docker|oci]
 CLI -> Builder : NewWithBuilder(builder)\n(auto: buildah, else docker)
 
-alt buildah available (default) or --builder buildah
+alt --builder oci
+    Builder --> CLI : ociBuilder
+else buildah available (default) or --builder buildah
     Builder --> CLI : buildahBuilder
 else docker available or --builder docker
     Builder --> CLI : dockerBuilder
@@ -45,6 +48,9 @@ alt Buildah builder
     Builder -> Buildah : Add(manifest dir + cache dir)
     Builder -> Buildah : SetLabel(cache labels)
     Buildah --> Builder : Commit (Docker Schema 2 manifest)
+else OCI builder
+    Builder -> Registry : Push OCI image and return digest
+    Registry --> Builder : image digest
 else Docker builder
     Builder -> Builder : schema2ImageFromBuildContext()\ncompat tar layer (Docker gzip)
     Builder -> Docker : ImageLoad(tarball)

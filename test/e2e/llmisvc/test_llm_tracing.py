@@ -44,6 +44,10 @@ def _query_jaeger(path: str, params: dict) -> dict:
     Uses ApiClient.call_api with a pre-built resource path so the path is not
     URL-encoded, and passes query parameters separately so they are appended
     correctly.  Auth is inherited from the kubeconfig loaded by inject_k8s_proxy.
+
+    _return_http_data_only makes the raw urllib3 response the return value on
+    every client version: kubernetes<36 otherwise wraps it in a
+    (data, status, headers) tuple, while 36+ returns it bare.
     """
     resource_path = (
         f"/api/v1/namespaces/{JAEGER_NAMESPACE}/services/"
@@ -56,8 +60,9 @@ def _query_jaeger(path: str, params: dict) -> dict:
         query_params=list(params.items()),
         auth_settings=["BearerToken"],
         _preload_content=False,
+        _return_http_data_only=True,
     )
-    return json.loads(resp[0].data)
+    return json.loads(resp.data)
 
 
 def _get_jaeger_traces(service_name: str, namespace: str = "", limit: int = 20) -> list:

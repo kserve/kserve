@@ -1,5 +1,5 @@
 kserve:
-  version: v0.21.0-rc0
+  version: v0.21.0-rc1
   createSharedResources: true
   inferenceServiceConfig:
     enabled: ''
@@ -91,6 +91,20 @@ kserve:
       securityContext:
         runAsUser: 1000
         runAsNonRoot: true
+  kernelcache:
+    enabled: false
+    defaultSidecarInjection: true
+    defaultMountType: 'oci'
+    defaultNodeGroup: ''
+    jobNamespace: 'kserve-kernelcache-jobs'
+    mcvImage: 'kserve/kserve-mcv'
+    mcvTag: ''
+    prefetchImage: 'registry.access.redhat.com/ubi9/ubi-minimal:latest'
+    prefetchTag: ''
+    abandonedCapturePolicy: 'retain'
+    jobTTLSecondsAfterFinished: 600
+    mcvCaptureReadinessTimeoutSeconds: 600
+    reconcileIntervalSeconds: 300
   security:
     autoMountServiceAccountToken: true
   inferenceservice:

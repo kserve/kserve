@@ -25,6 +25,8 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestEPPServiceName(t *testing.T) {
@@ -409,6 +411,20 @@ func TestIsUsingLLMInferenceServiceConfig(t *testing.T) {
 				},
 			},
 			configName: "kserve-llm-sglang",
+			want:       false,
+		},
+		{
+			name: "accelerator annotation value is not a config reference",
+			llmSvc: &LLMInferenceService{
+				Status: LLMInferenceServiceStatus{
+					Status: duckv1.Status{
+						Annotations: map[string]string{
+							constants.LLMAcceleratorAnnotationKey: "gpu",
+						},
+					},
+				},
+			},
+			configName: "gpu",
 			want:       false,
 		},
 	}
@@ -861,6 +877,53 @@ func TestManagedDRAContainerName(t *testing.T) {
 			if gotValue != tt.wantValue || gotPresent != tt.wantPresent {
 				t.Errorf("ManagedDRAContainerName() = (%q, %v), want (%q, %v)",
 					gotValue, gotPresent, tt.wantValue, tt.wantPresent)
+			}
+		})
+	}
+}
+
+func TestDisaggregatedSetRequested(t *testing.T) {
+	tests := []struct {
+		name        string
+		llmSvc      *LLMInferenceService
+		annotations map[string]string
+		want        bool
+	}{
+		{name: "nil receiver", llmSvc: nil, want: false},
+		{name: "no annotations", annotations: nil, want: false},
+		{name: "unrelated annotation", annotations: map[string]string{"foo": "bar"}, want: false},
+		{
+			name:        "opted in",
+			annotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "true"},
+			want:        true,
+		},
+		{
+			name:        "opted out",
+			annotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "false"},
+			want:        false,
+		},
+		{
+			// Read from metadata, not spec.annotations, since spec.annotations are
+			// propagated onto pods.
+			name:        "spec annotations are not consulted",
+			annotations: nil,
+			want:        false,
+		},
+		{
+			name:        "malformed value is not opt-in",
+			annotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "yes"},
+			want:        false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := tt.llmSvc
+			if svc == nil && tt.name != "nil receiver" {
+				svc = &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Annotations: tt.annotations}}
+			}
+			if got := svc.DisaggregatedSetRequested(); got != tt.want {
+				t.Errorf("DisaggregatedSetRequested() = %v, want %v", got, tt.want)
 			}
 		})
 	}

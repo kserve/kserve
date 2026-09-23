@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	disaggregatedsetv1 "sigs.k8s.io/lws/api/disaggregatedset/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -139,6 +140,12 @@ type LLMISVCReconciler struct {
 	Config *rest.Config
 	record.EventRecorder
 	Clientset kubernetes.Interface
+
+	// DisaggregatedSetAvailable reports whether the DisaggregatedSet CRD was present
+	// when SetupWithManager ran. Discovery is cached for the manager's lifetime, so
+	// installing the LWS operator after startup requires a controller restart, the
+	// same constraint that already applies to LeaderWorkerSet.
+	DisaggregatedSetAvailable bool
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -149,6 +156,7 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=servingruntimes;clusterservingruntimes,verbs=get;list;watch
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=leaderworkerset.x-k8s.io,resources=leaderworkersets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=disaggregatedset.x-k8s.io,resources=disaggregatedsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // Secret access stays cluster-scoped so Owns() can watch TLS cert secrets in workload namespaces.
 // Keep create/update/patch/delete so reconcile and force-stop can manage TLS secrets.
@@ -293,6 +301,8 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	// Replace the spec with the merged configuration for reconciliation
 	// We are only writing to status, so we can safely use the original object.
 	llmSvc.Spec = baseCfg.Spec
+
+	RecordAcceleratorAnnotation(llmSvc)
 
 	if err := r.reconcileWorkload(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile workload: %w", err)
@@ -459,6 +469,11 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), lwsapi.GroupVersion.String(), "LeaderWorkerSet"); ok && err == nil {
 		b = b.Owns(&lwsapi.LeaderWorkerSet{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), disaggregatedsetv1.GroupVersion.String(), "DisaggregatedSet"); ok && err == nil {
+		r.DisaggregatedSetAvailable = true
+		b = b.Owns(&disaggregatedsetv1.DisaggregatedSet{}, builder.WithPredicates(childResourcesPredicate))
 	}
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), resourcev1.SchemeGroupVersion.String(), "ResourceClaimTemplate"); ok && err == nil {

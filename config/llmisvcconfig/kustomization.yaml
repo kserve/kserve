@@ -12,7 +12,6 @@ resources:
   - config-llm-scheduler.yaml
   - config-llm-scheduler-eppconfig-default.yaml
   - config-llm-scheduler-eppconfig-default-pd.yaml
-  - config-llm-scheduler-latency-predictor.yaml
   - config-llm-template.yaml
   - config-llm-tokenizer.yaml
   - config-llm-tracing.yaml
