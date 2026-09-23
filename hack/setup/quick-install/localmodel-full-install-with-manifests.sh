@@ -7346,6 +7346,10 @@ spec:
         image: kserve/kserve-localmodelnode-agent:latest
         imagePullPolicy: Always
         name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
         resources:
           limits:
             cpu: 100m
@@ -7365,6 +7369,9 @@ spec:
         - mountPath: /mnt/models
           name: models
           readOnly: false
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
       nodeSelector:
         kserve/localmodel: worker
       securityContext:
@@ -7378,6 +7385,10 @@ spec:
           path: /models
           type: DirectoryOrCreate
         name: models
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: localmodel-webhook-server-cert
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
