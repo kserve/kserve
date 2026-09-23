@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type LocalModelCacheStatus struct {
@@ -41,6 +42,23 @@ type LocalModelCacheStatus struct {
 	// +listType=map
 	// +listMapKey=type
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type"`
+
+	// SharedPVCImport records the last successful shared-PVC import. It is set only for a
+	// LocalModelNamespaceCache in shared-PVC mode and is the durable evidence that the
+	// destination was published as Ready, so the controller does not start a new import
+	// writer against data that active consumers still read once the retained Job is gone.
+	// +optional
+	SharedPVCImport *SharedPVCImportStatus `json:"sharedPVCImport,omitempty"`
+}
+
+// SharedPVCImportStatus describes a completed shared-PVC import.
+type SharedPVCImportStatus struct {
+	// PVCUID is the UID of the referenced PersistentVolumeClaim the model was imported onto.
+	// A claim recreated under the same name has a different UID and is imported again.
+	PVCUID types.UID `json:"pvcUID"`
+	// CompletionTime is when the import Job completed.
+	// +optional
+	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 }
 
 // +k8s:openapi-gen=true
