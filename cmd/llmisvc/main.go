@@ -25,12 +25,8 @@ import (
 	"strconv"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	apixclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -41,7 +37,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apiextensions/storageversion"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -206,8 +201,6 @@ func main() {
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
 	}
 
-	llmSvcCacheSelector, _ := metav1.LabelSelectorAsSelector(&llmisvc.ChildResourcesLabelSelector)
-
 	mgrOpts := ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
@@ -215,34 +208,8 @@ func main() {
 		HealthProbeBindAddress: options.probeAddr,
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       "llminferenceservice-kserve-controller-manager",
-		Cache: cache.Options{
-			ByObject: map[client.Object]cache.ByObject{
-				&corev1.Secret{}: {
-					Label: llmSvcCacheSelector,
-				},
-				&corev1.ConfigMap{}: {
-					Namespaces: map[string]cache.Config{
-						cache.AllNamespaces: {
-							LabelSelector: llmSvcCacheSelector,
-						},
-						constants.KServeNamespace: {
-							// Namespace-specific cache configs do not merge with AllNamespaces.
-							// Keep the system namespace scope limited to the global config read by LLMISVC.
-							FieldSelector: fields.OneTermEqualSelector("metadata.name", constants.InferenceServiceConfigMapName),
-						},
-					},
-				},
-				&appsv1.Deployment{}: {
-					Label: llmSvcCacheSelector,
-				},
-				&corev1.Pod{}: {
-					Label: llmSvcCacheSelector,
-				},
-				&autoscalingv2.HorizontalPodAutoscaler{}: {
-					Label: llmSvcCacheSelector,
-				},
-			},
-		},
+		Cache:                  llmisvc.NewCacheOptions(),
+		Client:                 llmisvc.NewClientOptions(),
 	}
 
 	if err := customizeManagerOptions(&mgrOpts); err != nil {

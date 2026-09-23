@@ -258,21 +258,6 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		c.Log.Error(err, "Failed to get local model config during controller manager setup")
 		return err
 	}
-	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.PersistentVolumeClaim{}, OwnerKey, func(rawObj client.Object) []string {
-		pvc := rawObj.(*corev1.PersistentVolumeClaim)
-		owner := metav1.GetControllerOf(pvc)
-		if owner == nil {
-			return nil
-		}
-		if owner.APIVersion != APIGVStr || owner.Kind != ModelCacheCRName {
-			return nil
-		}
-
-		return []string{owner.Name}
-	}); err != nil {
-		return err
-	}
-
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &v1beta1.InferenceService{}, LocalModelKey, func(rawObj client.Object) []string {
 		isvc := rawObj.(*v1beta1.InferenceService)
 		if model, ok := isvc.GetLabels()[constants.LocalModelLabel]; ok {
@@ -338,8 +323,8 @@ func (c *LocalModelReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	controllerBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.LocalModelCache{}).
-		Owns(&corev1.PersistentVolume{}).
-		Owns(&corev1.PersistentVolumeClaim{})
+		Owns(&corev1.PersistentVolume{}, builder.OnlyMetadata).
+		Owns(&corev1.PersistentVolumeClaim{}, builder.OnlyMetadata)
 
 	llmIsvcPredicates := predicate.Funcs{
 		UpdateFunc: func(e event.UpdateEvent) bool {
