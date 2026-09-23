@@ -6741,14 +6741,20 @@ rules:
   - ""
   resources:
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 11588949f (follow up comment)
   - namespaces
   verbs:
   - get
 - apiGroups:
   - ""
   resources:
+<<<<<<< HEAD
 =======
 >>>>>>> 45dc0fcf4 (feat: add KernelCache preparation controller)
+=======
+>>>>>>> 11588949f (follow up comment)
   - serviceaccounts
   verbs:
   - create
