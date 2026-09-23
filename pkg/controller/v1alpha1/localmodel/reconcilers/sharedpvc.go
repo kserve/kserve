@@ -58,6 +58,7 @@ var (
 	// (serviceAccountName or storage spec). No Job is created in that case; the reconcile is
 	// retried with backoff so the import starts once the referenced secret/SA exists.
 	errImportCredentials = errors.New("import credential resolution failed")
+	errReimportBlocked   = errors.New("re-import blocked by active consumers")
 )
 
 // sharedState is the derived readiness/copies outcome for a shared-PVC cache.
@@ -67,6 +68,11 @@ type sharedState struct {
 	message   string
 	available int
 	failed    int
+	// imported, when set, records a completed import in status. clearImported drops a stale
+	// record once a fresh import Job is underway. When neither is set the existing record is
+	// preserved, so transient or blocked states never lose the evidence of prior success.
+	imported      *v1alpha1.SharedPVCImportStatus
+	clearImported bool
 }
 
 // reconcileSharedPVC handles a LocalModelNamespaceCache in shared-PVC mode (spec.pvcRef set).
@@ -126,8 +132,18 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 	}
 
 	// Get or create the single deterministic import Job.
-	job, requeue, err := c.getOrCreateImportJob(ctx, localModel, pvc, storageKey, isvcConfigMap)
+	job, requeue, err := c.getOrCreateImportJob(ctx, localModel, pvc, storageKey, isvcConfigMap, consumers)
 	if err != nil {
+		if errors.Is(err, errReimportBlocked) {
+			// Not an error to retry: removing a consumer enqueues this cache via the
+			// InferenceService/LLMInferenceService watches.
+			log.Info("Re-import blocked by active consumers", "message", err.Error())
+			return c.applySharedStatus(ctx, localModel, sharedState{
+				status:  metav1.ConditionFalse,
+				reason:  v1alpha1.ReasonReimportBlocked,
+				message: err.Error(),
+			}, consumers)
+		}
 		if errors.Is(err, errImportJobConflict) {
 			if _, statusErr := c.applySharedStatus(ctx, localModel, sharedState{
 				status:  metav1.ConditionFalse,
@@ -158,7 +174,7 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 		return c.applySharedStatus(ctx, localModel, importPendingState(message), consumers)
 	}
 
-	return c.applySharedStatus(ctx, localModel, stateFromJob(job), consumers)
+	return c.applySharedStatus(ctx, localModel, stateFromJob(job, pvc), consumers)
 }
 
 func (c *LocalModelNamespaceCacheReconciler) finalizeSharedPVC(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache) (ctrl.Result, error) {
@@ -310,7 +326,10 @@ func cachePrecedes(candidate, current *v1alpha1.LocalModelNamespaceCache) bool {
 
 // getOrCreateImportJob returns the existing deterministic import Job, or creates it. A retained
 // succeeded/failed Job is returned as-is; a second Job is never created while one exists.
-func (c *LocalModelNamespaceCacheReconciler) getOrCreateImportJob(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim, storageKey string, isvcConfigMap *corev1.ConfigMap) (*batchv1.Job, bool, error) {
+// When the Job is gone after a successful import onto the current claim, no replacement is
+// created while consumers still reference the cache: the Job writes straight into the model
+// destination their pods read.
+func (c *LocalModelNamespaceCacheReconciler) getOrCreateImportJob(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim, storageKey string, isvcConfigMap *corev1.ConfigMap, consumers cacheConsumers) (*batchv1.Job, bool, error) {
 	jobName := importJobName(localModel.Name)
 	job := &batchv1.Job{}
 	err := c.Get(ctx, types.NamespacedName{Name: jobName, Namespace: localModel.Namespace}, job)
@@ -318,6 +337,9 @@ func (c *LocalModelNamespaceCacheReconciler) getOrCreateImportJob(ctx context.Co
 		return c.validateExistingImportJob(ctx, job, localModel, pvc, storageKey)
 	}
 	if !apierr.IsNotFound(err) {
+		return nil, false, err
+	}
+	if err := reimportBlocked(localModel, pvc, consumers); err != nil {
 		return nil, false, err
 	}
 
@@ -369,6 +391,25 @@ func (c *LocalModelNamespaceCacheReconciler) validateExistingImportJob(ctx conte
 		return nil, false, err
 	}
 	return nil, true, nil
+}
+
+// reimportBlocked returns errReimportBlocked when the cache previously imported onto this
+// exact claim (same UID) and consumers still reference it. A claim recreated under the same
+// name has a new UID and holds no data, so it is imported again regardless of consumers. An
+// import that never succeeded leaves no record and is retried as before.
+func reimportBlocked(localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim, consumers cacheConsumers) error {
+	imported := localModel.Status.SharedPVCImport
+	if imported == nil || imported.PVCUID != pvc.UID {
+		return nil
+	}
+	isvcCount, llmSvcCount := len(consumers.isvcs), len(consumers.llmSvcs)
+	if isvcCount == 0 && llmSvcCount == 0 {
+		return nil
+	}
+	return fmt.Errorf("%w: import Job %s/%s is missing after a successful import onto PVC %q; "+
+		"%d InferenceService and %d LLMInferenceService consumer(s) still read the destination; "+
+		"remove them to allow one replacement import",
+		errReimportBlocked, localModel.Namespace, importJobName(localModel.Name), pvc.Name, isvcCount, llmSvcCount)
 }
 
 // buildImportJob constructs the single import Job for a shared-PVC cache.
@@ -461,17 +502,22 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 	return job, nil
 }
 
-// stateFromJob maps import Job state to copies and the Ready condition.
-func stateFromJob(job *batchv1.Job) sharedState {
+// stateFromJob maps import Job state to copies, the Ready condition, and the import record.
+// A completed Job records the claim it imported onto; any other Job is a fresh import in
+// progress, so a record from an earlier import is dropped.
+func stateFromJob(job *batchv1.Job, pvc *corev1.PersistentVolumeClaim) sharedState {
 	switch {
 	case jobHasCondition(job, batchv1.JobComplete):
-		return sharedState{status: metav1.ConditionTrue, reason: v1alpha1.ReasonImportSucceeded, message: "Model import completed", available: 1}
+		return sharedState{
+			status: metav1.ConditionTrue, reason: v1alpha1.ReasonImportSucceeded, message: "Model import completed", available: 1,
+			imported: &v1alpha1.SharedPVCImportStatus{PVCUID: pvc.UID, CompletionTime: job.Status.CompletionTime},
+		}
 	case jobHasCondition(job, batchv1.JobFailed):
-		return sharedState{status: metav1.ConditionFalse, reason: v1alpha1.ReasonImportFailed, message: "Model import job failed; delete the job to retry", failed: 1}
+		return sharedState{status: metav1.ConditionFalse, reason: v1alpha1.ReasonImportFailed, message: "Model import job failed; delete the job to retry", failed: 1, clearImported: true}
 	case job.Status.Active > 0 || (job.Status.Ready != nil && *job.Status.Ready > 0):
-		return sharedState{status: metav1.ConditionFalse, reason: v1alpha1.ReasonImportRunning, message: "Model import job is running"}
+		return sharedState{status: metav1.ConditionFalse, reason: v1alpha1.ReasonImportRunning, message: "Model import job is running", clearImported: true}
 	default:
-		return sharedState{status: metav1.ConditionFalse, reason: v1alpha1.ReasonImportPending, message: "Model import job is pending"}
+		return sharedState{status: metav1.ConditionFalse, reason: v1alpha1.ReasonImportPending, message: "Model import job is pending", clearImported: true}
 	}
 }
 
@@ -492,6 +538,12 @@ func (c *LocalModelNamespaceCacheReconciler) applySharedStatus(ctx context.Conte
 	desired.Status.ModelCopies = &v1alpha1.ModelCopies{Total: 1, Available: state.available, Failed: state.failed}
 	if len(consumers) > 0 {
 		setConsumerReferences(&desired.Status, consumers[0])
+	}
+	switch {
+	case state.imported != nil:
+		desired.Status.SharedPVCImport = state.imported
+	case state.clearImported:
+		desired.Status.SharedPVCImport = nil
 	}
 	switch state.status {
 	case metav1.ConditionTrue:
