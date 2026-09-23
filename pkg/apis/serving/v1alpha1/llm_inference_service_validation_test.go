@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
@@ -59,6 +60,25 @@ func TestValidateCreateRejectsUnsupportedLoRARoutingStrategyAnnotation(t *testin
 			require.ErrorContains(t, err, constants.LoRAModelRoutingStrategyAnnotationKey)
 		})
 	}
+}
+
+func TestValidateKVCacheOffloading(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	valid := &LLMInferenceService{Spec: LLMInferenceServiceSpec{WorkloadSpec: WorkloadSpec{
+		KVCacheOffloading: &KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{{FileSystem: &FileSystemTierSpec{
+				EmptyDir: &EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+			}}},
+		},
+	}}}
+	assert.NoError(t, validator.validate(t.Context(), nil, valid))
+
+	invalid := valid.DeepCopy()
+	invalid.Spec.KVCacheOffloading.Secondary[0].FileSystem.PVC = &PVCTierSpec{}
+	err := validator.validate(t.Context(), nil, invalid)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exactly one of emptyDir or pvc")
 }
 
 func newBaseLLMInferenceService() *LLMInferenceService {

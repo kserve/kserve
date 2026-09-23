@@ -209,6 +209,10 @@ type KVCacheOffloadingSpec struct {
 	// CPU is the amount of CPU RAM to allocate as the primary KV cache tier
 	// (maps to vLLM kv_connector_extra_config.cpu_bytes_to_use). Accepts standard
 	// Kubernetes quantity notation, e.g. "10Gi".
+	// This sizes one engine's tier. Tensor parallelism divides it across the engine's
+	// ranks, but a pod running parallelism.dataLocal local engines holds one copy each,
+	// so both the shared-memory volume and the container's memory limit have to cover
+	// the product rather than this value alone.
 	CPU resource.Quantity `json:"cpu"`
 
 	// EvictionPolicy for the primary CPU KV cache tier. Defaults to "lru".
