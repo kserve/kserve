@@ -6732,10 +6732,24 @@ rules:
   resources:
   - configmaps
   - nodes
+  - pods
   verbs:
   - get
   - list
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - get
 - apiGroups:
   - apps
   resourceNames:
@@ -6746,9 +6760,19 @@ rules:
   - get
   - patch
 - apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
   - serving.kserve.io
   resources:
   - kernelcachenodegroups
+  - kernelcaches
   verbs:
   - get
   - list
@@ -6763,6 +6787,14 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcaches/status
+  verbs:
+  - get
+  - patch
+  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

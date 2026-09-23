@@ -17,6 +17,7 @@ limitations under the License.
 package kernelcachenode
 
 import (
+	"strings"
 	"testing"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -28,6 +29,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
 )
 
 func TestCurrentNodeReadinessPredicate(t *testing.T) {
@@ -135,6 +137,21 @@ func TestCurrentJobPredicate(t *testing.T) {
 	}
 	if pred.Create(event.CreateEvent{Object: job("kernel-cache-jobs", wrongNodeLabels)}) {
 		t.Fatal("did not expect another node's Job to enqueue this node")
+	}
+}
+
+func TestCurrentJobPredicateMatchesHashedLongNodeName(t *testing.T) {
+	nodeName := "gpu-node-" + strings.Repeat("n", 70)
+	reconciler := &KernelCacheNodeReconciler{NodeName: nodeName}
+	pred := reconciler.currentJobPredicate()
+
+	job := &batchv1.Job{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
+		kernelCacheNameLabel:      "cache",
+		kernelCacheNamespaceLabel: "team-a",
+		kernelCacheNodeLabel:      kernelcachelabels.Value(nodeName),
+	}}}
+	if !pred.Create(event.CreateEvent{Object: job}) {
+		t.Fatal("expected a Job with the hashed node label to enqueue this node")
 	}
 }
 
