@@ -8,10 +8,15 @@ gets a fresh namespace name, so consecutive pytest runs cannot collide with a
 previous session's namespace while Kubernetes is still deleting it. Setup copies
 storage secrets and namespaced `ServingRuntime` definitions from
 `KSERVE_SEED_NAMESPACE` (defaults to `KSERVE_TEST_NAMESPACE`, then
-`kserve-ci-e2e-test`). Install the test runtimes in that seed namespace before
-running the suite. Each worker gets its own copy once per session, so ODH tests
-can use namespaced runtimes without installing `ClusterServingRuntime` resources.
-Upstream clusters with only cluster-scoped runtimes need no runtime copies.
+`kserve-ci-e2e-test`). The default test installation uses `ClusterServingRuntime`
+resources, which are available across namespaces and are not copied or modified
+by this fixture. If a test environment instead uses namespaced `ServingRuntime`
+resources, install them in the seed namespace before running the suite; each
+worker receives a copy once per session.
+
+Namespace isolation separates test resources and their cleanup. It does not
+install or update cluster-scoped CRDs; the test environment must install the
+CRDs and controller for the revision under test before running the suite.
 
 Worker namespaces inherit the seed's Istio injection and pod-security labels.
 Platform-specific mesh membership, network policies, and additional runtime
