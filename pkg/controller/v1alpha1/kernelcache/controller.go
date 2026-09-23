@@ -20,6 +20,7 @@ limitations under the License.
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcaches/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core,resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=namespaces,verbs=get
 // +kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;create
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups=apps,resources=daemonsets,resourceNames=kserve-kernelcachenode-agent,verbs=get;patch

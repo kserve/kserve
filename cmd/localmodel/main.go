@@ -187,6 +187,7 @@ func main() {
 	setupLog.Info("Setting up v1alpha1 KernelCache controller")
 	if err = (&kernelcachecontroller.KernelCacheReconciler{
 		Client: mgr.GetClient(),
+		Reader: mgr.GetAPIReader(),
 		Log:    ctrl.Log.WithName("v1alpha1Controllers").WithName("KernelCache"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCache")

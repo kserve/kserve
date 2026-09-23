@@ -50,9 +50,6 @@ const (
 	reasonPreparing               = "Preparing"
 	reasonCacheReady              = "CacheReady"
 	reasonPreparationFailed       = "PreparationFailed"
-	kernelCacheNameLabel          = "serving.kserve.io/kernel-cache-name"
-	kernelCacheNamespaceLabel     = "serving.kserve.io/kernel-cache-namespace"
-	kernelCacheNodeLabel          = "serving.kserve.io/kernel-cache-node"
 )
 
 func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

@@ -34,6 +34,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
 	"github.com/kserve/kserve/pkg/kernelcache/nodegroup"
 )
 
@@ -93,7 +94,7 @@ func (r *KernelCacheNodeReconciler) isRelevantJob(obj client.Object) bool {
 	if labels[kernelCacheNameLabel] == "" || labels[kernelCacheNamespaceLabel] == "" {
 		return false
 	}
-	if nodeName, ok := labels[kernelCacheNodeLabel]; !ok || nodeName != r.NodeName {
+	if nodeName, ok := labels[kernelCacheNodeLabel]; !ok || nodeName != kernelcachelabels.Value(r.NodeName) {
 		return false
 	}
 	return true

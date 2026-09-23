@@ -31,6 +31,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
 )
 
 const (
@@ -125,13 +126,18 @@ func (r *KernelCacheReconciler) ensureOCIPrefetchJob(
 		return err
 	}
 
-	labels := kernelCacheLabels(kernelCache, node.Name)
+	metadata := kernelcachelabels.ObjectMeta(kernelCache.Name, kernelCache.Namespace, node.Name)
 	job = &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{Name: jobName, Namespace: config.JobNamespace, Labels: labels},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        jobName,
+			Namespace:   config.JobNamespace,
+			Labels:      metadata.Labels,
+			Annotations: metadata.Annotations,
+		},
 		Spec: batchv1.JobSpec{
 			TTLSecondsAfterFinished: kernelCacheJobTTL(config),
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: labels},
+				ObjectMeta: metav1.ObjectMeta{Labels: metadata.Labels, Annotations: metadata.Annotations},
 				Spec: corev1.PodSpec{
 					RestartPolicy:      corev1.RestartPolicyNever,
 					ServiceAccountName: kernelCachePrefetchServiceAccount,
@@ -157,14 +163,6 @@ func (r *KernelCacheReconciler) ensureOCIPrefetchJob(
 		return err
 	}
 	return nil
-}
-
-func kernelCacheLabels(kernelCache *v1alpha1.KernelCache, nodeName string) map[string]string {
-	return map[string]string{
-		kernelCacheNameLabel:      kernelCache.Name,
-		kernelCacheNamespaceLabel: kernelCache.Namespace,
-		kernelCacheNodeLabel:      nodeName,
-	}
 }
 
 func kernelCachePrefetchJobName(kernelCache *v1alpha1.KernelCache, node *corev1.Node) string {

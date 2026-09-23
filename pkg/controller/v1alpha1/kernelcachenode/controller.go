@@ -37,13 +37,14 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
 )
 
 const (
 	// Labels identify KernelCache prefetch Jobs and their target node.
-	kernelCacheNameLabel      = "serving.kserve.io/kernel-cache-name"
-	kernelCacheNamespaceLabel = "serving.kserve.io/kernel-cache-namespace"
-	kernelCacheNodeLabel      = "serving.kserve.io/kernel-cache-node"
+	kernelCacheNameLabel      = kernelcachelabels.KernelCacheNameLabel
+	kernelCacheNamespaceLabel = kernelcachelabels.KernelCacheNamespaceLabel
+	kernelCacheNodeLabel      = kernelcachelabels.KernelCacheNodeLabel
 
 	// Reconciliation and image validation intervals.
 	defaultReconcileInterval = 5 * time.Minute

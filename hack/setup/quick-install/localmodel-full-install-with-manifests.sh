@@ -6740,6 +6740,12 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
   - serviceaccounts
   verbs:
   - create
