@@ -108,37 +108,246 @@ func TestOpenVINODefaulter(t *testing.T) {
 	}
 }
 
-func TestOpenVINOSpec_GetContainer(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+func TestCreateOpenVINOModelServingContainerV1(t *testing.T) {
+	protocolV1 := constants.ProtocolV1
 
-	metadata := metav1.ObjectMeta{Name: constants.InferenceServiceContainerName}
-	scenarios := map[string]struct {
-		spec PredictorSpec
-	}{
-		"simple": {
-			spec: PredictorSpec{
-				OpenVINO: &OpenVINOSpec{
-					PredictorExtensionSpec: PredictorExtensionSpec{
-						StorageURI: proto.String("s3://modelzoo"),
-						Container: corev1.Container{
-							Name:      constants.InferenceServiceContainerName,
-							Image:     "openvino/model_server:latest",
-							Args:      nil,
-							Env:       nil,
-							Resources: corev1.ResourceRequirements{},
-						},
-					},
-				},
-				ComponentExtensionSpec: ComponentExtensionSpec{},
+	requestedResource := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "100",
+			},
+		},
+		Requests: corev1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "90",
 			},
 		},
 	}
-
+	config := InferenceServicesConfig{}
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		isvc                  InferenceService
+		expectedContainerSpec *corev1.Container
+	}{
+		"ContainerSpecWithoutRuntime": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "openvino",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						OpenVINO: &OpenVINOSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:      proto.String("gs://someUri"),
+								ProtocolVersion: &protocolV1,
+								Container: corev1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &corev1.Container{
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+			},
+		},
+		"ContainerSpecWithDefaultImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "openvino",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						OpenVINO: &OpenVINOSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:      proto.String("gs://someUri"),
+								RuntimeVersion:  proto.String("0.1.0"),
+								ProtocolVersion: &protocolV1,
+								Container: corev1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &corev1.Container{
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+			},
+		},
+		"ContainerSpecWithCustomImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "openvino",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						OpenVINO: &OpenVINOSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:      proto.String("gs://someUri"),
+								ProtocolVersion: &protocolV1,
+								Container: corev1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &corev1.Container{
+				Image:     "customImage:0.1.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+			},
+		},
+		"ContainerSpecWithContainerConcurrency": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "openvino",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						ComponentExtensionSpec: ComponentExtensionSpec{
+							ContainerConcurrency: proto.Int64(1),
+						},
+						OpenVINO: &OpenVINOSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:      proto.String("gs://someUri"),
+								RuntimeVersion:  proto.String("0.1.0"),
+								ProtocolVersion: &protocolV1,
+								Container: corev1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &corev1.Container{
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+			},
+		},
+	}
 	for name, scenario := range scenarios {
 		t.Run(name, func(t *testing.T) {
-			res := scenario.spec.OpenVINO.GetContainer(metadata, &scenario.spec.ComponentExtensionSpec, nil)
-			if !g.Expect(res).To(gomega.Equal(&scenario.spec.OpenVINO.Container)) {
-				t.Errorf("got %v, want %v", res, scenario.spec.OpenVINO.Container)
+			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
+			predictor.Default(&config)
+			res := predictor.GetContainer(metav1.ObjectMeta{Name: "someName"}, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
+				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
+			}
+		})
+	}
+}
+
+func TestCreateOpenVINOModelServingContainerV2(t *testing.T) {
+	protocolV2 := constants.ProtocolV2
+
+	requestedResource := corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "100",
+			},
+		},
+		Requests: corev1.ResourceList{
+			"cpu": resource.Quantity{
+				Format: "90",
+			},
+		},
+	}
+	config := InferenceServicesConfig{}
+	g := gomega.NewGomegaWithT(t)
+	scenarios := map[string]struct {
+		isvc                  InferenceService
+		expectedContainerSpec *corev1.Container
+	}{
+		"ContainerSpecWithDefaultImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "openvino",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						OpenVINO: &OpenVINOSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:      proto.String("gs://someUri"),
+								RuntimeVersion:  proto.String("0.1.0"),
+								ProtocolVersion: &protocolV2,
+								Container: corev1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &corev1.Container{
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+			},
+		},
+		"ContainerSpecWithCustomImage": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "openvino",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						OpenVINO: &OpenVINOSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								StorageURI:      proto.String("gs://someUri"),
+								ProtocolVersion: &protocolV2,
+								Container: corev1.Container{
+									Image:     "customImage:0.1.0",
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &corev1.Container{
+				Image:     "customImage:0.1.0",
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+			},
+		},
+		"ContainerSpecWithoutStorageURI": {
+			isvc: InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "openvino",
+				},
+				Spec: InferenceServiceSpec{
+					Predictor: PredictorSpec{
+						OpenVINO: &OpenVINOSpec{
+							PredictorExtensionSpec: PredictorExtensionSpec{
+								ProtocolVersion: &protocolV2,
+								Container: corev1.Container{
+									Resources: requestedResource,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedContainerSpec: &corev1.Container{
+				Name:      constants.InferenceServiceContainerName,
+				Resources: requestedResource,
+			},
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			predictor := scenario.isvc.Spec.Predictor.GetImplementation()
+			predictor.Default(&config)
+			res := predictor.GetContainer(scenario.isvc.ObjectMeta, &scenario.isvc.Spec.Predictor.ComponentExtensionSpec, &config)
+			if !g.Expect(res).To(gomega.Equal(scenario.expectedContainerSpec)) {
+				t.Errorf("got %q, want %q", res, scenario.expectedContainerSpec)
 			}
 		})
 	}
