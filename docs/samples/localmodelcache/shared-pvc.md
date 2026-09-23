@@ -113,6 +113,13 @@ kubectl apply -f shared-pvc.yaml
   apply a changed setting, delete a pending or failed import Job. A wrong `fsGroup` can
   leave the Job pending (admission rejects its Pod) or failed (the import cannot write
   the volume). A completed Job is kept, since its data is already on the claim.
+- A **successful** import is recorded in `status.sharedPVCImport` (PVC UID and
+  completion time). If the completed Job is later deleted while InferenceServices or
+  LLMInferenceServices still reference the cache, no replacement Job is created: the
+  Job writes straight into the destination those workloads read. The cache reports
+  `ReimportBlocked` and stays that way until the consumers are removed; then exactly
+  one replacement Job is created. A recreated PVC (new UID) is imported again
+  regardless of consumers, since it holds no data.
 - A Job with the deterministic name that is not owned by the cache is never adopted
   or deleted; the cache reports `ImportJobConflict` until the collision is removed.
 
@@ -134,6 +141,7 @@ The cache reports a single positive-polarity `Ready` condition (with
 | `False` | `ImportFailed` | The import Job failed; delete the Job to retry. |
 | `False` | `ImportCredentialError` | The `serviceAccountName`/`storage` credentials could not be resolved; no Job is created and the import is retried with backoff once they exist. |
 | `False` | `ImportJobConflict` | The deterministic import Job name is occupied by a Job the cache does not own. |
+| `False` | `ReimportBlocked` | The completed import Job is gone but consumers still reference the cache; remove them to allow one replacement import. |
 | `True`  | `ImportSucceeded` | The model is imported and available for serving. |
 
 `lastTransitionTime` changes only when the `Ready` status (True/False/Unknown)
