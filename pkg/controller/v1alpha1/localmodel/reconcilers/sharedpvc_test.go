@@ -756,6 +756,34 @@ func TestReconcileSharedPVCBlocksReimportWhileConsumersRemain(t *testing.T) {
 	}
 }
 
+// The import record is written by this controller, and the cached client offers no
+// read-your-write consistency: a Job deleted moments after completion can look missing
+// while the informer has not yet observed the record. Creating a replacement then is the
+// exact double-writer this gate exists to prevent, so the record is confirmed against the
+// apiserver before any Job is created with consumers present.
+func TestReconcileSharedPVCBlocksReimportWhenRecordNotYetInInformerCache(t *testing.T) {
+	recorded := importedSharedCache("pvc-uid")
+	pvc := boundSharedPVC("pvc-uid")
+	cl, scheme := sharedPVCFixture(t, recorded, pvc)
+	stale := &v1alpha1.LocalModelNamespaceCache{}
+	if err := cl.Get(context.Background(), client.ObjectKeyFromObject(recorded), stale); err != nil {
+		t.Fatalf("get cache: %v", err)
+	}
+	stale.Status.SharedPVCImport = nil
+	reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, APIReader: cl, Scheme: scheme}
+
+	if _, err := reconciler.reconcileSharedPVC(context.Background(), stale, &corev1.ConfigMap{}, sharedConsumer()); err != nil {
+		t.Fatalf("reconcileSharedPVC() error = %v, want nil", err)
+	}
+	if jobs := listImportJobs(t, cl); len(jobs) != 0 {
+		t.Fatalf("a stale cached read must not start a second writer against live consumers, got %d import Job(s)", len(jobs))
+	}
+	condition := stale.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+	if condition == nil || condition.Status != metav1.ConditionFalse || condition.Reason != v1alpha1.ReasonReimportBlocked {
+		t.Fatalf("cache Ready condition = %#v, want False/%s", condition, v1alpha1.ReasonReimportBlocked)
+	}
+}
+
 func TestReconcileSharedPVCReimportsOnceConsumersRemoved(t *testing.T) {
 	cache := importedSharedCache("pvc-uid")
 	pvc := boundSharedPVC("pvc-uid")
