@@ -193,7 +193,7 @@ var _ = Describe("Omni Modality (TTS/TTI)", func() {
 				g.Expect(routes).ToNot(BeEmpty())
 
 				var got []string
-				var sawAudioPrefix, sawImagesPrefix, sawSpeechExact bool
+				var sawAudioPrefix, sawImagesPrefix, sawSpeechExact, sawAudioPublisher bool
 				for _, r := range routes {
 					for _, rule := range r.Spec.Rules {
 						isPool := false
@@ -221,12 +221,16 @@ var _ = Describe("Omni Modality (TTS/TTI)", func() {
 							if typ == gwapiv1.PathMatchExact && v == "/v1/audio/speech" && len(m.Headers) > 0 {
 								sawSpeechExact = true
 							}
+							if typ == gwapiv1.PathMatchPathPrefix && strings.Contains(v, "/publishers/") && strings.Contains(v, "v1/audio") {
+								sawAudioPublisher = true
+							}
 						}
 					}
 				}
 				g.Expect(sawAudioPrefix).To(BeTrue(), "expected PathPrefix audio rule to InferencePool, got %v", got)
 				g.Expect(sawImagesPrefix).To(BeTrue(), "expected PathPrefix images rule to InferencePool, got %v", got)
 				g.Expect(sawSpeechExact).To(BeTrue(), "expected Exact /v1/audio/speech model-routing match, got %v", got)
+				g.Expect(sawAudioPublisher).To(BeTrue(), "expected publisher-qualified audio rule to InferencePool, got %v", got)
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})

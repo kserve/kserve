@@ -48,14 +48,17 @@ func TestRouterRoutePresetExposesModalityEndpoints(t *testing.T) {
 		require.Contains(t, content, want, "router route preset must route %s to the InferencePool", want)
 	}
 
-	// The preset embeds a Gateway API HTTPRoute, which caps rules at 16 and
-	// matches per rule at 8. Exceeding either rejects the preset at CRD
-	// validation time; guard it here without needing envtest.
+	// The preset embeds a Gateway API HTTPRoute, which caps rules at 16, matches
+	// per rule at 64, and total matches at 128. Exceeding any of them rejects
+	// the preset at CRD validation time; guard it here without needing envtest.
 	preset := &v1alpha2.LLMInferenceServiceConfig{}
 	require.NoError(t, yaml.Unmarshal(data, preset))
 	rules := preset.Spec.Router.Route.HTTP.Spec.Rules
 	require.LessOrEqual(t, len(rules), 16, "HTTPRoute rules exceed Gateway API max")
+	total := 0
 	for _, r := range rules {
-		require.LessOrEqual(t, len(r.Matches), 8, "rule %q matches exceed Gateway API max", r.Name)
+		require.LessOrEqual(t, len(r.Matches), 64, "rule %q matches exceed Gateway API max", r.Name)
+		total += len(r.Matches)
 	}
+	require.LessOrEqual(t, total, 128, "HTTPRoute total matches exceed Gateway API max")
 }
