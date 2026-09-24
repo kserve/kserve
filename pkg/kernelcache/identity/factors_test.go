@@ -67,15 +67,15 @@ func TestParseRuntimeConfigFactorsCanonicalizesCommaSeparatedValues(t *testing.T
 	require.Equal(t, first, second)
 }
 
-func TestParseRuntimeConfigFactorsUsesCommandOverArgs(t *testing.T) {
+func TestParseRuntimeConfigFactorsUsesArgsOverCommand(t *testing.T) {
 	factors := ParseRuntimeConfigFactors(
 		[]string{"--max-num-seqs=128", "--tensor_parallel_size=2"},
 		[]string{"--max-num-seqs", "256", "--tp=4"},
 		nil,
 	)
 
-	require.Equal(t, "128", factors["option.maxNumSeqs"])
-	require.Equal(t, "2", factors[TensorParallelSizeFactor])
+	require.Equal(t, "256", factors["option.maxNumSeqs"])
+	require.Equal(t, "4", factors[TensorParallelSizeFactor])
 }
 
 func TestParseRuntimeConfigFactorsPreservesJSONValue(t *testing.T) {

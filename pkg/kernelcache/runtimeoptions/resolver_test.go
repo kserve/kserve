@@ -35,8 +35,8 @@ func TestResolvePrecedenceAndCLIForms(t *testing.T) {
 	})
 
 	want := map[string]string{
-		"dtype":                "fp8",
-		"tensor-parallel-size": "8",
+		"dtype":                "bfloat16",
+		"tensor-parallel-size": "4",
 	}
 	assertStringMapEqual(t, want, got)
 }
@@ -92,7 +92,7 @@ func TestResolveShellCommandAndEnvironmentExpansion(t *testing.T) {
 
 	assertStringMapEqual(t, map[string]string{
 		"dtype":                "bfloat16",
-		"tensor-parallel-size": "4",
+		"tensor-parallel-size": "2",
 	}, got)
 }
 
