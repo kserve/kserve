@@ -155,7 +155,7 @@ type WorkloadSpec struct {
 
 	// Scaling configuration for autoscaling this workload.
 	// When specified, the controller creates and manages autoscaling resources
-	// (ServiceMonitor and the selected actuator — HPA or KEDA ScaledObject, annotated for WVA discovery)
+	// (ServiceMonitor and the selected actuator — HPA or KEDA ScaledObject)
 	// targeting this workload.
 	// Mutually exclusive with the static 'replicas' field.
 	// In a disaggregated setup, each workload (decode and prefill) can have its own independent scaling configuration,
@@ -439,15 +439,13 @@ type InferencePoolSpec struct {
 // ScalingSpec configures autoscaling for the LLM inference deployment.
 // When scaling is configured, the controller creates and manages autoscaling resources
 // (ServiceMonitor and the selected actuator — HPA or KEDA ScaledObject).
-// Use WVA for metric-driven scaling (actuators annotated for WVA discovery), or KEDA for direct
-// scaling with user-defined triggers (no WVA required).
-// +kubebuilder:validation:XValidation:rule="has(self.wva) || has(self.keda)",message="either wva or keda must be specified when scaling is configured"
+// Direct KEDA scaling uses user-defined triggers. The deprecated WVA fields are retained only
+// so existing resources can be decoded during upgrades; new WVA configuration is rejected.
 // +kubebuilder:validation:XValidation:rule="!(has(self.wva) && has(self.keda))",message="wva and keda are mutually exclusive"
 // +kubebuilder:validation:XValidation:rule="!has(self.keda) || size(self.keda.triggers) > 0",message="at least one trigger is required when using direct KEDA scaling"
 // +kubebuilder:validation:XValidation:rule="!has(self.minReplicas) || self.minReplicas <= self.maxReplicas",message="minReplicas cannot exceed maxReplicas"
 // +kubebuilder:validation:XValidation:rule="!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)",message="minReplicas is required when idleReplicaCount is set"
 // +kubebuilder:validation:XValidation:rule="!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas",message="idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active"
-// +kubebuilder:validation:XValidation:rule="!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)",message="minReplicas is required when idleReplicaCount is set"
 // +kubebuilder:validation:XValidation:rule="!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas) || self.keda.idleReplicaCount < self.minReplicas",message="idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active"
 type ScalingSpec struct {
 	// MinReplicas is the minimum number of replicas for the deployment during active scaling.
@@ -463,21 +461,20 @@ type ScalingSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	MaxReplicas int32 `json:"maxReplicas"`
 
-	// WVA configures the Workload Variant Autoscaler (WVA) for scaling.
-	// WVA scales based on a variety of inference metrics (KV cache utilization, queue depth, etc.)
-	// rather than traditional CPU/memory metrics.
+	// WVA is deprecated and retained only for decoding existing resources during upgrades.
+	// Existing WVA configuration is not reconciled and new WVA configuration is rejected.
 	// +optional
 	WVA *WVASpec `json:"wva,omitempty"`
 
 	// KEDA configures direct KEDA scaling without WVA.
 	// Users specify their own triggers (CPU, Prometheus, queue depth, etc.) and the controller
-	// creates a ScaledObject with those triggers. Mutually exclusive with WVA.
+	// creates a ScaledObject with those triggers.
 	// +optional
 	KEDA *DirectKEDAScalingSpec `json:"keda,omitempty"`
 }
 
-// WVASpec configures the Workload Variant Autoscaler.
-// scalingModifiers under wva.keda.advanced are forbidden because WVA owns the metric formula.
+// WVASpec is the deprecated Workload Variant Autoscaler configuration retained for upgrade compatibility.
+// New WVA configuration is rejected and existing WVA configuration is not reconciled.
 // +kubebuilder:validation:XValidation:rule="!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula) == 0 && size(self.keda.advanced.scalingModifiers.target) == 0 && size(self.keda.advanced.scalingModifiers.activationTarget) == 0 && size(self.keda.advanced.scalingModifiers.metricType) == 0)",message="scalingModifiers must not be set; WVA controls the scaling metric formula and logic"
 type WVASpec struct {
 	// VariantCost specifies the cost per replica for this variant (used in saturation analysis).
@@ -499,33 +496,22 @@ type WVASpec struct {
 // +kubebuilder:validation:XValidation:rule="has(self.hpa) || has(self.keda)",message="either hpa or keda must be specified as the actuator backend"
 type ActuatorSpec struct {
 	// HPA configures the HorizontalPodAutoscaler as the actuator backend.
-	// When specified, HPA reads the wva_desired_replicas metric via the Kubernetes Metrics API
-	// (requires Prometheus Adapter) and scales the deployment accordingly.
-	// Mutually exclusive with KEDA.
 	// +optional
 	HPA *HPAScalingSpec `json:"hpa,omitempty"`
-
 	// KEDA configures a KEDA ScaledObject as the actuator backend.
-	// When specified, KEDA queries Prometheus directly for the wva_desired_replicas metric
-	// and scales the deployment accordingly. KEDA does not require a Prometheus Adapter.
-	// Mutually exclusive with HPA.
 	// +optional
 	KEDA *KEDAScalingSpec `json:"keda,omitempty"`
 }
 
 // HPAScalingSpec configures the HorizontalPodAutoscaler behavior.
-// The fields are directly from the upstream Kubernetes autoscaling/v2 API.
 type HPAScalingSpec struct {
-	// Behavior configures the scaling behavior of the target in both Up and Down directions
-	// (scaleUp and scaleDown fields respectively).
+	// Behavior configures the scaling behavior of the target in both Up and Down directions.
 	// +optional
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
 
 // KEDAScalingSpec configures the KEDA ScaledObject for autoscaling.
 // The fields are directly from the upstream KEDA ScaledObject API.
-// Note: WVA-only restrictions on scalingModifiers live on WVASpec so direct KEDA
-// (DirectKEDAScalingSpec) can use scalingModifiers when users define their own triggers.
 // +kubebuilder:validation:XValidation:rule="!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0",message="horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name"
 type KEDAScalingSpec struct {
 	// PollingInterval is the interval in seconds to check each trigger on.
@@ -558,7 +544,7 @@ type KEDAScalingSpec struct {
 	IdleReplicaCount *int32 `json:"idleReplicaCount,omitempty"`
 
 	// Fallback defines the replica count to maintain when the scaler is in a fallback state
-	// (e.g., when Prometheus or WVA metrics are unavailable). This allows the deployment to
+	// (e.g., when metrics are unavailable). This allows the deployment to
 	// hold a safe replica count during metric outages rather than scaling to zero.
 	// +optional
 	Fallback *kedav1alpha1.Fallback `json:"fallback,omitempty"`
@@ -569,7 +555,7 @@ type KEDAScalingSpec struct {
 	Advanced *kedav1alpha1.AdvancedConfig `json:"advanced,omitempty"`
 }
 
-// DirectKEDAScalingSpec configures direct KEDA scaling without WVA.
+// DirectKEDAScalingSpec configures direct KEDA scaling.
 // It embeds KEDAScalingSpec for shared ScaledObject settings and adds user-defined triggers.
 type DirectKEDAScalingSpec struct {
 	KEDAScalingSpec `json:",inline"`

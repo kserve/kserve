@@ -20,6 +20,7 @@ import (
 	"context"
 	"testing"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -302,5 +303,17 @@ func TestObserveWorkloadStatus(t *testing.T) {
 
 			assert.Equal(t, tc.expectedWorkloads, svc.Status.Workloads)
 		})
+	}
+}
+
+func TestExpectedDirectScaledObjectDoesNotAddLegacyConfiguration(t *testing.T) {
+	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns"}}
+	scaling := &v1alpha2.ScalingSpec{MaxReplicas: 3, KEDA: &v1alpha2.DirectKEDAScalingSpec{Triggers: []kedav1alpha1.ScaleTriggers{{Type: "cpu"}}}}
+	obj := expectedDirectScaledObject(svc, scaling, mainScaleTargetRef(svc), "svc-kserve-keda")
+	if len(obj.Annotations) != 0 {
+		t.Fatalf("unexpected annotations: %v", obj.Annotations)
+	}
+	if len(obj.Spec.Triggers) != 1 || obj.Spec.Triggers[0].Type != "cpu" {
+		t.Fatalf("unexpected triggers: %#v", obj.Spec.Triggers)
 	}
 }

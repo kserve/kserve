@@ -234,13 +234,9 @@ func convertScalingSpecToV1Alpha2(src *ScalingSpec) *v1alpha2.ScalingSpec {
 	}
 
 	if src.WVA != nil {
-		dst.WVA = &v1alpha2.WVASpec{
-			VariantCost: src.WVA.VariantCost,
-		}
+		dst.WVA = &v1alpha2.WVASpec{VariantCost: src.WVA.VariantCost}
 		if src.WVA.HPA != nil {
-			dst.WVA.HPA = &v1alpha2.HPAScalingSpec{
-				Behavior: src.WVA.HPA.Behavior,
-			}
+			dst.WVA.HPA = &v1alpha2.HPAScalingSpec{Behavior: src.WVA.HPA.Behavior}
 		}
 		if src.WVA.KEDA != nil {
 			dst.WVA.KEDA = convertKEDAScalingSpecToV1Alpha2(src.WVA.KEDA)
@@ -265,13 +261,9 @@ func convertScalingSpecFromV1Alpha2(src *v1alpha2.ScalingSpec) *ScalingSpec {
 	}
 
 	if src.WVA != nil {
-		dst.WVA = &WVASpec{
-			VariantCost: src.WVA.VariantCost,
-		}
+		dst.WVA = &WVASpec{VariantCost: src.WVA.VariantCost}
 		if src.WVA.HPA != nil {
-			dst.WVA.HPA = &HPAScalingSpec{
-				Behavior: src.WVA.HPA.Behavior,
-			}
+			dst.WVA.HPA = &HPAScalingSpec{Behavior: src.WVA.HPA.Behavior}
 		}
 		if src.WVA.KEDA != nil {
 			dst.WVA.KEDA = convertKEDAScalingSpecFromV1Alpha2(src.WVA.KEDA)
