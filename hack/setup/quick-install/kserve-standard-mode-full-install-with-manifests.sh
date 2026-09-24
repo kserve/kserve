@@ -55724,7 +55724,8 @@ data:
         "enableModelcar": true,
         "cpuModelcar": "10m",
         "memoryModelcar": "15Mi",
-        "uidModelcar": 1010
+        "uidModelcar": 1010,
+        "modelVolumeSource": null
     }
 kind: ConfigMap
 metadata:
