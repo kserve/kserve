@@ -179,10 +179,7 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 
 func (c *LocalModelNamespaceCacheReconciler) finalizeSharedPVC(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache) (ctrl.Result, error) {
 	job := &batchv1.Job{}
-	reader := c.APIReader
-	if reader == nil {
-		reader = c.Client
-	}
+	reader := c.authoritativeReader()
 	// Finalizer release is a correctness decision: use an authoritative read so a newly
 	// created Job cannot be missed because the informer cache has not observed it yet.
 	err := reader.Get(ctx, types.NamespacedName{Name: importJobName(localModel.Name), Namespace: localModel.Namespace}, job)
@@ -284,10 +281,7 @@ func checkPVCPreflight(pvc *corev1.PersistentVolumeClaim, modelSize resource.Qua
 // the same claim are allowed.
 func (c *LocalModelNamespaceCacheReconciler) destinationConflict(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, storageKey string) (string, error) {
 	caches := &v1alpha1.LocalModelNamespaceCacheList{}
-	reader := c.APIReader
-	if reader == nil {
-		reader = c.Client
-	}
+	reader := c.authoritativeReader()
 	// Destination ownership is a correctness decision, so bypass the informer cache to make
 	// concurrent admissions visible before either cache can create its import Job.
 	if err := reader.List(ctx, caches, client.InNamespace(localModel.Namespace)); err != nil {
@@ -339,7 +333,7 @@ func (c *LocalModelNamespaceCacheReconciler) getOrCreateImportJob(ctx context.Co
 	if !apierr.IsNotFound(err) {
 		return nil, false, err
 	}
-	if err := reimportBlocked(localModel, pvc, consumers); err != nil {
+	if err := c.reimportGate(ctx, localModel, pvc, consumers); err != nil {
 		return nil, false, err
 	}
 
@@ -391,6 +385,36 @@ func (c *LocalModelNamespaceCacheReconciler) validateExistingImportJob(ctx conte
 		return nil, false, err
 	}
 	return nil, true, nil
+}
+
+// reimportGate decides whether a replacement import Job may be created. The cached object is
+// checked first so the common path costs nothing. When consumers are present the record is then
+// confirmed against the apiserver: this controller writes the record itself and the informer
+// cache gives no read-your-write guarantee, so a Job deleted shortly after completion can look
+// missing while the record is still in flight. Trusting the cached read there would start the
+// second writer this gate exists to prevent. A missing cache is reported as an error rather than
+// treated as unblocked; the next reconcile observes the deletion and stops.
+func (c *LocalModelNamespaceCacheReconciler) reimportGate(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim, consumers cacheConsumers) error {
+	if err := reimportBlocked(localModel, pvc, consumers); err != nil {
+		return err
+	}
+	if len(consumers.isvcs) == 0 && len(consumers.llmSvcs) == 0 {
+		return nil
+	}
+	fresh := &v1alpha1.LocalModelNamespaceCache{}
+	if err := c.authoritativeReader().Get(ctx, client.ObjectKeyFromObject(localModel), fresh); err != nil {
+		return err
+	}
+	return reimportBlocked(fresh, pvc, consumers)
+}
+
+// authoritativeReader returns a reader that bypasses the informer cache, falling back to the
+// cached client when the manager supplied no APIReader (unit tests).
+func (c *LocalModelNamespaceCacheReconciler) authoritativeReader() client.Reader {
+	if c.APIReader != nil {
+		return c.APIReader
+	}
+	return c.Client
 }
 
 // reimportBlocked returns errReimportBlocked when the cache previously imported onto this
