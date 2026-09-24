@@ -37,6 +37,11 @@ const (
 	// schedulerConfigMapKey is the key in the inferenceservice-config ConfigMap
 	// that holds scheduler-specific configuration (annotation keys, etc.).
 	schedulerConfigMapKey = "scheduler"
+
+	// llmISVCConfigMapKey is the key in the inferenceservice-config ConfigMap that
+	// holds LLMInferenceService controller settings, currently the feature gates.
+	// The key is optional and absent by default; see LLMISVCConfig.
+	llmISVCConfigMapKey = "llmisvc"
 )
 
 // DefaultExpirationAnnotations is the default list of annotation keys
@@ -86,6 +91,58 @@ func NewSchedulerConfig(isvcConfigMap *corev1.ConfigMap) (*SchedulerConfig, erro
 	return cfg, nil
 }
 
+// FeatureGates holds opt-in switches for LLMInferenceService controller behaviour that
+// is not yet on by default. Every gate is off unless explicitly enabled, so the zero
+// value is the supported production configuration.
+type FeatureGates struct {
+	// DisaggregatedSet enables the DisaggregatedSet workload backend for disaggregated
+	// (prefill/decode) services, which upgrades both roles as one coordinated unit
+	// instead of letting them roll independently.
+	//
+	// This gate alone changes nothing. A service opts in individually with the
+	// serving.kserve.io/enable-disaggregated-set annotation, and the LWS
+	// DisaggregatedSet CRD must be installed on the cluster.
+	DisaggregatedSet bool `json:"disaggregatedSet,omitempty"`
+}
+
+// LLMISVCConfig holds LLMInferenceService controller settings read from the "llmisvc"
+// key of the inferenceservice-config ConfigMap.
+//
+// The key is optional and is not shipped in the default ConfigMap, matching the other
+// controller-private keys in that ConfigMap ("scheduler",
+// "autoscaling-wva-controller-config"). To enable a gate, add for example:
+//
+//	llmisvc: |-
+//	  {"featureGates": {"disaggregatedSet": true}}
+type LLMISVCConfig struct {
+	FeatureGates FeatureGates `json:"featureGates,omitempty"`
+}
+
+// NewLLMISVCConfig parses the "llmisvc" key from the inferenceservice-config ConfigMap.
+//
+// A missing key yields the zero value, which leaves every feature gate off. Syntactically
+// invalid JSON is an error rather than a silent fallback, so a broken block cannot be
+// mistaken for "gates off".
+//
+// An unrecognised field name is deliberately tolerated and ignored, which means a typo in
+// a gate name reads as that gate being off. Decoding is intentionally not strict: this key
+// lives in a ConfigMap shared by every controller and is re-read on every reconcile, and a
+// parse error here aborts reconciliation for all LLMInferenceServices, not only the ones
+// using the feature. Failing closed on an unknown field would let a typo in an optional
+// key, or a downgrade to a binary that predates a gate, stall the whole controller. The
+// cost of tolerance is a gate that silently stays off, which surfaces as soon as the
+// feature is exercised; the cost of strictness is an outage. See TestNewLLMISVCConfig,
+// which pins this behaviour.
+func NewLLMISVCConfig(isvcConfigMap *corev1.ConfigMap) (*LLMISVCConfig, error) {
+	cfg := &LLMISVCConfig{}
+	if raw, ok := isvcConfigMap.Data[llmISVCConfigMapKey]; ok {
+		if err := json.Unmarshal([]byte(raw), cfg); err != nil {
+			return nil, fmt.Errorf("unable to parse %s config json: %w", llmISVCConfigMapKey, err)
+		}
+	}
+	return cfg, nil
+}
+
 // Config holds configuration needed for LLM inference services.
 // It aggregates ingress, storage, credential, and autoscaling settings from the KServe configmap.
 type Config struct {
@@ -112,6 +169,11 @@ type Config struct {
 	// WVAAutoscalingConfig holds Prometheus and monitoring settings for WVA autoscaling.
 	// nil when the "autoscaling-wva-controller-config" key is not present in inferenceservice-config.
 	WVAAutoscalingConfig *WVAAutoscalingConfig `json:"-"`
+
+	// FeatureGates holds the opt-in behaviour switches from the "llmisvc" key of
+	// inferenceservice-config. The zero value leaves every gate off, so a directly
+	// constructed Config behaves as it did before any gate existed.
+	FeatureGates FeatureGates `json:"featureGates,omitempty"`
 
 	// Storage and credential configs are excluded from JSON serialization
 	// as they contain sensitive information
@@ -300,6 +362,12 @@ func toConfig(isvcConfigMap *corev1.ConfigMap) (*Config, error) {
 		}
 		config.WVAAutoscalingConfig = asCfg
 	}
+
+	llmISVCConfig, errConvert := NewLLMISVCConfig(isvcConfigMap)
+	if errConvert != nil {
+		return nil, fmt.Errorf("failed to parse %s config: %w", llmISVCConfigMapKey, errConvert)
+	}
+	config.FeatureGates = llmISVCConfig.FeatureGates
 
 	return config, nil
 }

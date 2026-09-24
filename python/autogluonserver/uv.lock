@@ -2195,7 +2195,7 @@ wheels = [
 
 [[package]]
 name = "kserve"
-version = "0.21.0rc1"
+version = "0.21.0"
 source = { directory = "../kserve" }
 dependencies = [
     { name = "aiohttp" },
@@ -2303,7 +2303,7 @@ test = [
 
 [[package]]
 name = "kserve-storage"
-version = "0.21.0rc1"
+version = "0.21.0"
 source = { virtual = "../storage" }
 dependencies = [
     { name = "aiohttp" },

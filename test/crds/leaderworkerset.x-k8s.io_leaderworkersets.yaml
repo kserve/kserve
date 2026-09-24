@@ -17728,6 +17728,8 @@ spec:
                   On scale down, the leader pod as well as the workers statefulset will be deleted.
                   Default to 1.
                 format: int32
+                maximum: 1000000
+                minimum: 0
                 type: integer
               rolloutStrategy:
                 description: |-

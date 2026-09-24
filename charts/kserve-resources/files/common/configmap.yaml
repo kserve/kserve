@@ -555,7 +555,7 @@ data:
              "propagate": [
                 "Authorization",
                 "Test-Header-*",
-                "*Trace-Id*"
+                ".*Trace-Id.*"
              ]
            }
 
@@ -662,10 +662,10 @@ data:
          "enabled": false,
          # defaultSidecarInjection controls MCV injection when a workload does not override it.
          "defaultSidecarInjection": true,
-         # defaultMountType is used when KernelCache does not specify a mount type.
+         # defaultMountType is used when KernelCache does not specify a mount type.(Currently, only OCI is supported)
          "defaultMountType": "oci",
-         # defaultNodeGroup selects the KernelCacheNodeGroup for automatically created KernelCaches.
-         # Set it to an empty value when every workload must select a node group explicitly.
+         #defaultNodeGroup specifies the NodeGroup to use when no NodeGroup matches the workload.
+         # If empty and no NodeGroup matches, the KernelCache is not created.
          "defaultNodeGroup": "",
          # jobNamespace is the pre-created namespace where kernel cache preparation Jobs are created.
          "jobNamespace": "kserve-kernelcache-jobs",
@@ -676,9 +676,9 @@ data:
          # abandonedCapturePolicy controls generated captures whose producer Pod disappears
          # before completion. Supported values are retain and delete.
          "abandonedCapturePolicy": "retain",
-         # jobTTLSecondsAfterFinished controls how long completed preparation Jobs are retained.
+         # jobTTLSecondsAfterFinished controls how long completed preparation Jobs(Downloading OCI image to the node) are retained.
          "jobTTLSecondsAfterFinished": 600,
-         # mcvCaptureReadinessTimeoutSeconds limits how long the MCV capture sidecar waits for workload readiness.
+         # mcvCaptureReadinessTimeoutSeconds limits how long MCV waits for runtime readiness before capture. Larger models may require a longer timeout.
          "mcvCaptureReadinessTimeoutSeconds": 600,
          # reconcileIntervalSeconds controls KCN status reconciliation.
          # Periodic Node image validation uses the node agent's internal interval.
@@ -838,7 +838,8 @@ data:
         "enableModelcar": true,
         "cpuModelcar": "10m",
         "memoryModelcar": "15Mi",
-        "uidModelcar": 1010
+        "uidModelcar": 1010,
+        "modelVolumeSource": null
     }
 kind: ConfigMap
 metadata:
