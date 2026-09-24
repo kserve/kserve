@@ -531,8 +531,9 @@ const (
 
 // InferenceService container names
 const (
-	InferenceServiceContainerName   = "kserve-container"
-	StorageInitializerContainerName = "storage-initializer"
+	InferenceServiceContainerName    = "kserve-container"
+	LLMInferenceServiceContainerName = "main"
+	StorageInitializerContainerName  = "storage-initializer"
 
 	// TransformerContainerName transformer container name in collocation
 	TransformerContainerName = "transformer-container"
