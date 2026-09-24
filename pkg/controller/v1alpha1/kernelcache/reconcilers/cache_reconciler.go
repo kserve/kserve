@@ -125,8 +125,5 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 func kernelCacheNodeGroupName(kernelCache *v1alpha1.KernelCache, defaultNodeGroup string) string {
-	if kernelCache.Spec.NodeGroupRef != nil && kernelCache.Spec.NodeGroupRef.Name != "" {
-		return kernelCache.Spec.NodeGroupRef.Name
-	}
-	return defaultNodeGroup
+	return nodegroup.ResolveKernelCacheNodeGroupName(kernelCache, defaultNodeGroup)
 }
