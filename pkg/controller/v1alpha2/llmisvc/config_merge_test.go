@@ -3386,6 +3386,11 @@ func TestSelectSingleNodeTemplateName(t *testing.T) {
 			runtime: ptr.To(llmisvc.SGLangServingRuntimeName),
 			want:    "kserve-config-sglang-template",
 		},
+		{
+			name:    "kserve-llm-omni runtime selects omni template",
+			runtime: ptr.To(llmisvc.OmniServingRuntimeName),
+			want:    "kserve-config-llm-omni-template",
+		},
 	}
 
 	for _, tt := range tests {

@@ -1,0 +1,27 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-scheduler-eppconfig-modality
+  namespace: kserve
+spec:
+  router:
+    scheduler:
+      config:
+        # Load-only EndpointPickerConfig for vLLM-Omni TTS/TTI modality endpoints.
+        # Mirrors the llm-d diffusion-serving tts/t2i profiles: diffusion and
+        # speech synthesis expose no prefix/KV-cache signal and the EPP
+        # tokenizer produces no TokenizedRequest for audio/image inputs, so the
+        # text prefix-cache chain would never score. Prefer the least-busy
+        # endpoint instead. Intentionally free of token-producer/precise-prefix
+        # plugins so no standalone tokenizer is auto-deployed.
+        inline:
+          apiVersion: llm-d.ai/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+            - type: active-request-scorer
+            - type: max-score-picker
+          schedulingProfiles:
+            - name: default
+              plugins:
+                - pluginRef: active-request-scorer
+                - pluginRef: max-score-picker
