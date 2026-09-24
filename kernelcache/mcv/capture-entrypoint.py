@@ -26,14 +26,15 @@ SNAPSHOT_PATH = os.environ.get(
     "MCV_SNAPSHOT_PATH", "/tmp/mcv/cache-snapshot.json"
 )
 DEFAULT_READINESS_TIMEOUT_SECONDS = 600
+CAPTURE_CONFIG_VERSION = 1
 SNAPSHOT_RETRY_ATTEMPTS = 3
 SNAPSHOT_RETRY_DELAY_SECONDS = 5
 COMMAND_POLL_INTERVAL_SECONDS = 0.2
 COMMAND_TERMINATION_TIMEOUT_SECONDS = 10
 SHUTDOWN_POLL_INTERVAL_SECONDS = 1
 SESSION_TEST_FAILURE_MARKERS = (
-    "testing value /status/activeSession/id failed: test failed",
-    "testing value /status/activeSession/podName failed: test failed",
+    "runtimeResult.sourcePodName is already claimed",
+    "reporter identity is not authorized for this KernelCacheCapture",
 )
 
 shutdown_event = threading.Event()
@@ -68,7 +69,7 @@ def required_string(config, key, name):
 
 
 def validate_capture_config(config):
-    if config.get("version") != 1:
+    if config.get("version") != CAPTURE_CONFIG_VERSION:
         raise CaptureConfigurationError(
             "MCV_CAPTURE_CONFIG has an unsupported version"
         )
@@ -253,7 +254,7 @@ def read_json_access(path):
 
 
 def is_capture_session_superseded(status_code, response):
-    if status_code != 422:
+    if status_code not in (400, 403, 409, 422):
         return False
 
     try:
@@ -267,13 +268,11 @@ def is_capture_session_superseded(status_code, response):
         return False
     if status.get("status") != "Failure":
         return False
-    if status.get("reason") != "Invalid":
-        return False
-    if status.get("code") != 422:
-        return False
 
     message = status.get("message")
     if not isinstance(message, str):
+        return False
+    if status_code == 422 and status.get("reason") != "Invalid":
         return False
     return any(marker in message for marker in SESSION_TEST_FAILURE_MARKERS)
 
@@ -321,24 +320,39 @@ def reporter_request(status):
     path = "/apis/serving.kserve.io/v1alpha1/namespaces/{}/kernelcachecaptures/{}/status".format(
         urllib.parse.quote(namespace, safe=""), urllib.parse.quote(name, safe="")
     )
-    request = urllib.request.Request(
-        "https://kubernetes.default.svc" + path,
-        data=json.dumps([
-            {"op": "test", "path": "/status/activeSession/id",
-             "value": session_id},
-            {"op": "test", "path": "/status/activeSession/podName",
-             "value": source_pod_name},
-            {"op": "add", "path": "/status/runtimeResult", "value": status},
-        ]).encode(),
-        headers={
-            "Authorization": "Bearer " + access["token"],
-            "Content-Type": "application/json-patch+json",
-        },
-        method="PATCH",
-    )
+    api_url = "https://kubernetes.default.svc" + path
+    auth_headers = {"Authorization": "Bearer " + access["token"]}
     context = ssl.create_default_context(cafile=kubernetes_ca_file())
     try:
-        with urllib.request.urlopen(request, context=context, timeout=10):
+        get_request = urllib.request.Request(api_url, headers=auth_headers, method="GET")
+        with urllib.request.urlopen(get_request, context=context, timeout=10) as response:
+            capture = json.loads(response.read().decode("utf-8"))
+        current_status = capture.get("status")
+        if not isinstance(current_status, dict):
+            current_status = {}
+        current_result = current_status.get("runtimeResult")
+        if not isinstance(current_result, dict):
+            current_result = {}
+        current_source = current_result.get("sourcePodName", "")
+        current_session = current_result.get("captureSessionID", "")
+        if (current_source or current_session) and (
+            current_source != source_pod_name or current_session != session_id
+        ):
+            raise CaptureSessionSuperseded()
+
+        updated_result = dict(current_result)
+        updated_result.update(status)
+        updated_result["sourcePodName"] = source_pod_name
+        updated_result["captureSessionID"] = session_id
+        current_status["runtimeResult"] = updated_result
+        capture["status"] = current_status
+        put_request = urllib.request.Request(
+            api_url,
+            data=json.dumps(capture).encode(),
+            headers={**auth_headers, "Content-Type": "application/json"},
+            method="PUT",
+        )
+        with urllib.request.urlopen(put_request, context=context, timeout=10):
             pass
     except urllib.error.HTTPError as error:
         response = error.read().decode("utf-8", errors="replace")
