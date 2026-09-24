@@ -128,9 +128,8 @@ spec:
             # a rule carries a single ReplacePrefixMatch, and the preset must stay
             # within the Gateway API caps (16 rules, 8 matches per rule). Grouping
             # also forward-covers sibling paths (e.g. /v1/audio/speech/batch).
-            # Publisher-qualified modality paths are intentionally left to the
-            # existing publisher catch-all (direct to Service, as today) for the
-            # same rule-budget reason.
+            # Publisher-qualified modality paths get their own grouped rules
+            # below for the same reason.
             - name: v1-audio-path
               backendRefs:
                 - group: inference.networking.k8s.io
@@ -240,21 +239,6 @@ spec:
                     - type: Exact
                       name: "{{ .GlobalConfig.ModelBasedRoutingHeaderName }}"
                       value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}
-              timeouts:
-                backendRequest: 0s
-                request: 0s
-            # Modality endpoints for shared-gateway model-based routing. Separate
-            # from v1-model-routing: a rule carries at most 8 matches and that
-            # rule is already full.
-            - name: v1-modality-model-routing
-              backendRefs:
-                - group: inference.networking.k8s.io
-                  kind: InferencePool
-                  name: |-
-                    {{ ChildName .ObjectMeta.Name `-inference-pool` }}
-                  port: 8000
-                  weight: 1
-              matches:
                 - path:
                     type: Exact
                     value: /v1/audio/speech
@@ -299,7 +283,7 @@ spec:
                       value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}
               timeouts:
                 backendRequest: 0s
-                request: 600s
+                request: 0s
             # Publisher-qualified model paths provide a stable, version-independent
             # endpoint using spec.model.name instead of metadata.name.
             # The /publishers/ path prefix is reserved for this purpose.
@@ -392,6 +376,55 @@ spec:
               timeouts:
                 backendRequest: 0s
                 request: 0s
+            - name: v1-audio-publisher-path
+              backendRefs:
+                - group: inference.networking.k8s.io
+                  kind: InferencePool
+                  name: |-
+                    {{ ChildName .ObjectMeta.Name `-inference-pool` }}
+                  port: 8000
+                  weight: 1
+              matches:
+                - path:
+                    type: PathPrefix
+                    value: |-
+                      /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}/v1/audio
+              filters:
+                - type: URLRewrite
+                  urlRewrite:
+                    path:
+                      type: ReplacePrefixMatch
+                      replacePrefixMatch: /v1/audio
+              timeouts:
+                backendRequest: 0s
+                request: 600s
+            - name: v1-images-publisher-path
+              backendRefs:
+                - group: inference.networking.k8s.io
+                  kind: InferencePool
+                  name: |-
+                    {{ ChildName .ObjectMeta.Name `-inference-pool` }}
+                  port: 8000
+                  weight: 1
+              matches:
+                - path:
+                    type: PathPrefix
+                    value: |-
+                      /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}/v1/images
+              filters:
+                - type: URLRewrite
+                  urlRewrite:
+                    path:
+                      type: ReplacePrefixMatch
+                      replacePrefixMatch: /v1/images
+              timeouts:
+                backendRequest: 0s
+                request: 600s
+            # Catch-all rules route to the workload Service directly (bypassing
+            # InferencePool) for endpoints not handled by the scheduler, such as
+            # /v1/models, /health, or custom paths exposed by the runtime. They
+            # stay separate rules: a URLRewrite ReplacePrefixMatch rule admits
+            # exactly one PathPrefix match.
             - name: v1-publisher-path-catch-all
               backendRefs:
                 - kind: Service
@@ -413,9 +446,6 @@ spec:
               timeouts:
                 backendRequest: 0s
                 request: 0s
-            # Catch-all rules route to the workload Service directly (bypassing
-            # InferencePool) for endpoints not handled by the scheduler, such as
-            # /v1/models, /health, or custom paths exposed by the runtime.
             - name: v1-catch-all-path
               backendRefs:
                 - kind: Service

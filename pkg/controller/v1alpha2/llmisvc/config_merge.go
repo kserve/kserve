@@ -160,13 +160,18 @@ const SGLangServingRuntimeName = "kserve-llm-sglang"
 // inputs.
 const OmniServingRuntimeName = "kserve-llm-omni"
 
+// isOmniRuntime reports whether the service targets the vLLM-Omni runtime.
+func isOmniRuntime(runtime *string) bool {
+	return runtime != nil && *runtime == OmniServingRuntimeName
+}
+
 // selectSingleNodeTemplateName returns the well-known config template name for
 // a single-node Non-P/D deployment based on the requested runtime. When runtime
 // points at the well-known SGLang ServingRuntime, the SGLang-specific
 // infrastructure template is used; for the omni runtime the omni template is
 // used; otherwise the default vLLM template.
 func selectSingleNodeTemplateName(runtime *string) string {
-	if runtime != nil && *runtime == OmniServingRuntimeName {
+	if isOmniRuntime(runtime) {
 		return configOmniTemplateName
 	}
 	if runtime != nil && *runtime == SGLangServingRuntimeName {
@@ -561,7 +566,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			// Older images fall back to the hardcoded schedulerConfigText().
 			if injectDefaultSchedulerConfig && routerVersionSupportsPreset(ctx, schedulerCfg) {
 				switch {
-				case resolvedSpec.Runtime != nil && *resolvedSpec.Runtime == OmniServingRuntimeName:
+				case isOmniRuntime(resolvedSpec.Runtime):
 					// Omni TTS/TTI: load-only profile. The text prefix-cache
 					// chain has no TokenizedRequest for audio/image inputs.
 					refs = append(refs, presetRef(wr.Resolve(llmSvc, configRouterSchedulerModalityEPPConfigName)))

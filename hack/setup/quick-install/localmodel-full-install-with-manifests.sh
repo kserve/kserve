@@ -4415,17 +4415,6 @@ spec:
               path:
                 type: Exact
                 value: /v1/messages/
-            name: v1-model-routing
-            timeouts:
-              backendRequest: 0s
-              request: 0s
-          - backendRefs:
-            - group: inference.networking.k8s.io
-              kind: InferencePool
-              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
-              port: 8000
-              weight: 1
-            matches:
             - headers:
               - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
                 type: Exact
@@ -4474,10 +4463,10 @@ spec:
               path:
                 type: Exact
                 value: /v1/images/generations/
-            name: v1-modality-model-routing
+            name: v1-model-routing
             timeouts:
               backendRequest: 0s
-              request: 600s
+              request: 0s
           - backendRefs:
             - group: inference.networking.k8s.io
               kind: InferencePool
@@ -4563,6 +4552,48 @@ spec:
               backendRequest: 0s
               request: 0s
           - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/audio
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}/v1/audio
+            name: v1-audio-publisher-path
+            timeouts:
+              backendRequest: 0s
+              request: 600s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/images
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}/v1/images
+            name: v1-images-publisher-path
+            timeouts:
+              backendRequest: 0s
+              request: 600s
+          - backendRefs:
             - kind: Service
               name: '{{ ChildName .ObjectMeta.Name `-kserve-workload-svc` }}'
               port: 8000
@@ -4578,22 +4609,6 @@ spec:
                 type: PathPrefix
                 value: /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
                   }}
-            name: v1-publisher-path-catch-all
-            timeouts:
-              backendRequest: 0s
-              request: 0s
-          - backendRefs:
-            - kind: Service
-              name: '{{ ChildName .ObjectMeta.Name `-kserve-workload-svc` }}'
-              port: 8000
-              weight: 1
-            filters:
-            - type: URLRewrite
-              urlRewrite:
-                path:
-                  replacePrefixMatch: /
-                  type: ReplacePrefixMatch
-            matches:
             - path:
                 type: PathPrefix
                 value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}
