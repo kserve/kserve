@@ -101,6 +101,28 @@ kserve:
     mcvTag: ''
     prefetchImage: 'registry.access.redhat.com/ubi9/ubi-minimal:latest'
     prefetchTag: ''
+    registry:
+      endpoint: ''
+      caConfigMapRef:
+        name: ''
+        key: ''
+      auth:
+        type: 'none'
+        tokenTTLSeconds: 600
+        pushRoleRef:
+          kind: ''
+          name: ''
+        pullRoleRef:
+          kind: ''
+          name: ''
+    artifactSecurity:
+      mode: 'none'
+      failurePolicy: 'reject'
+      cert:
+        signingProfileRef: ''
+        trustBundle: ''
+        trustBundleKey: ''
+        subjectRegexp: ''
     abandonedCapturePolicy: 'retain'
     jobTTLSecondsAfterFinished: 600
     mcvCaptureReadinessTimeoutSeconds: 600
