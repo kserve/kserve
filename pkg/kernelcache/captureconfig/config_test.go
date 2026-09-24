@@ -99,3 +99,46 @@ func TestParseCaptureConfigRejectsMissingRequiredFields(t *testing.T) {
 	_, err := ParseCaptureConfig(`{"version":1,"cacheDir":"/workspace/cache/0","targetImage":"registry.example/team/cache:session","capture":{"name":"capture","namespace":"team","sessionID":"session-id"}}`)
 	require.EqualError(t, err, "parse capture config: cachePaths is required")
 }
+
+func TestParseCaptureConfigRejectsInvalidJSON(t *testing.T) {
+	_, err := ParseCaptureConfig(`{"version":1,`)
+	require.Error(t, err)
+}
+
+func TestMarshalReadinessConfig(t *testing.T) {
+	value, err := MarshalReadinessConfig(ReadinessConfig{
+		URL:                               "http://127.0.0.1:8080/health",
+		MCVCaptureReadinessTimeoutSeconds: 600,
+	})
+	require.NoError(t, err)
+	require.JSONEq(t, `{"url":"http://127.0.0.1:8080/health","mcvCaptureReadinessTimeoutSeconds":600}`, value)
+}
+
+func TestMarshalReadinessConfigRejectsInvalidValues(t *testing.T) {
+	tests := []struct {
+		name   string
+		config ReadinessConfig
+		err    string
+	}{
+		{name: "missing URL", config: ReadinessConfig{MCVCaptureReadinessTimeoutSeconds: 600}, err: "url is required"},
+		{name: "whitespace URL", config: ReadinessConfig{URL: "  ", MCVCaptureReadinessTimeoutSeconds: 600}, err: "url is required"},
+		{name: "zero timeout", config: ReadinessConfig{URL: "http://127.0.0.1:8080/health"}, err: "mcvCaptureReadinessTimeoutSeconds must be greater than zero"},
+		{name: "negative timeout", config: ReadinessConfig{URL: "http://127.0.0.1:8080/health", MCVCaptureReadinessTimeoutSeconds: -1}, err: "mcvCaptureReadinessTimeoutSeconds must be greater than zero"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := MarshalReadinessConfig(test.config)
+			require.EqualError(t, err, "marshal readiness config: "+test.err)
+		})
+	}
+}
+
+func TestMarshalRuntimeInfo(t *testing.T) {
+	value, err := MarshalRuntimeInfo(RuntimeInfo{
+		CommandHash:  "command-hash",
+		ArgsHash:     "args-hash",
+		ModelURIHash: "model-uri-hash",
+	})
+	require.NoError(t, err)
+	require.JSONEq(t, `{"commandHash":"command-hash","argsHash":"args-hash","modelURIHash":"model-uri-hash"}`, value)
+}

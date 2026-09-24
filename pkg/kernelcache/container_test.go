@@ -153,7 +153,7 @@ func TestResolveOCIPath(t *testing.T) {
 	}{
 		{name: "uses vllm default", want: "io.vllm.cache"},
 		{name: "accepts vllm path", requested: "io.vllm.cache", want: "io.vllm.cache"},
-		{name: "accepts triton path", requested: "io.triton.cache", want: "io.triton.cache"},
+		{name: "accepts triton path", requested: tritonOCIPath, want: tritonOCIPath},
 		{name: "rejects unsupported path", requested: "custom/cache", wantFailure: true},
 	}
 

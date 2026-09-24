@@ -47,13 +47,13 @@ type CaptureConfig struct {
 	// Version identifies the JSON wire format used by the capture sidecar.
 	Version int `json:"version"`
 	// CacheDir is the mounted cache directory that MCV snapshots and packages.
-	CacheDir string `json:"cacheDir,omitempty"`
+	CacheDir string `json:"cacheDir"`
 	// TargetImage is the OCI image destination for the captured cache.
-	TargetImage string `json:"targetImage,omitempty"`
+	TargetImage string `json:"targetImage"`
 	// Capture identifies the KernelCacheCapture resource and capture session.
 	Capture CaptureIdentity `json:"capture"`
 	// CachePaths describes the cache directories included in the captured image.
-	CachePaths []v1alpha1.KernelCachePath `json:"cachePaths,omitempty"`
+	CachePaths []v1alpha1.KernelCachePath `json:"cachePaths"`
 }
 
 // CaptureIdentity identifies a capture session.
@@ -117,6 +117,9 @@ func ParseCaptureConfig(value string) (CaptureConfig, error) {
 
 // MarshalReadinessConfig serializes readiness configuration.
 func MarshalReadinessConfig(config ReadinessConfig) (string, error) {
+	if err := validateReadinessConfig(config); err != nil {
+		return "", fmt.Errorf("marshal readiness config: %w", err)
+	}
 	data, err := json.Marshal(config)
 	if err != nil {
 		return "", fmt.Errorf("marshal readiness config: %w", err)
@@ -162,6 +165,16 @@ func validateCaptureConfig(config CaptureConfig) error {
 		if cachePath.OCIPath == "" {
 			return fmt.Errorf("cachePaths[%d].ociPath is required", index)
 		}
+	}
+	return nil
+}
+
+func validateReadinessConfig(config ReadinessConfig) error {
+	if strings.TrimSpace(config.URL) == "" {
+		return errors.New("url is required")
+	}
+	if config.MCVCaptureReadinessTimeoutSeconds <= 0 {
+		return errors.New("mcvCaptureReadinessTimeoutSeconds must be greater than zero")
 	}
 	return nil
 }

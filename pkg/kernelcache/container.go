@@ -29,6 +29,7 @@ const (
 	vllmCacheRootEnv     = "VLLM_CACHE_ROOT"
 	defaultVLLMCachePath = "/root/.cache/vllm"
 	defaultOCIPath       = "io.vllm.cache"
+	tritonOCIPath        = "io.triton.cache"
 )
 
 // ResolveRuntimeContainerName resolves the container that owns a cache path.
@@ -85,8 +86,8 @@ func ResolveOCIPath(requested string) (string, error) {
 	if requested == "" {
 		return defaultOCIPath, nil
 	}
-	if requested != defaultOCIPath && requested != "io.triton.cache" {
-		return "", fmt.Errorf("unsupported OCI path %q; supported paths are %q and %q", requested, defaultOCIPath, "io.triton.cache")
+	if requested != defaultOCIPath && requested != tritonOCIPath {
+		return "", fmt.Errorf("unsupported OCI path %q; supported paths are %q and %q", requested, defaultOCIPath, tritonOCIPath)
 	}
 	return requested, nil
 }
