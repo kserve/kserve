@@ -12,7 +12,9 @@ resources:
   - config-llm-scheduler.yaml
   - config-llm-scheduler-eppconfig-default.yaml
   - config-llm-scheduler-eppconfig-default-pd.yaml
+  - config-llm-scheduler-eppconfig-modality.yaml
   - config-llm-template.yaml
+  - config-llm-omni-template.yaml
   - config-llm-tokenizer.yaml
   - config-llm-tracing.yaml
   - config-llm-worker-data-parallel.yaml

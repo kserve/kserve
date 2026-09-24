@@ -1,0 +1,12 @@
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
+  name: kserve-llm-omni
+spec:
+  supportedModelFormats:
+    - name: vllm-omni
+      version: "1"
+      autoSelect: false
+  containers:
+    - name: main
+      image: docker.io/vllm/vllm-omni:v0.26.0
