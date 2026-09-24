@@ -264,7 +264,17 @@ class CaptureEntrypointTest(unittest.TestCase):
         def urlopen(request, **_kwargs):
             requests.append(request)
             if request.get_method() == "GET":
-                return FakeHTTPResponse({"status": {"runtimeResult": current_result}})
+                return FakeHTTPResponse(
+                    {
+                        "status": {
+                            "activeSession": {
+                                "id": "session-id",
+                                "podName": "model-pod",
+                            },
+                            "runtimeResult": current_result,
+                        }
+                    }
+                )
             return FakeHTTPResponse({})
 
         with (
@@ -312,7 +322,15 @@ class CaptureEntrypointTest(unittest.TestCase):
                 ):
                     _requests.append(request)
                     return FakeHTTPResponse(
-                        {"status": {"runtimeResult": _current_result}}
+                        {
+                            "status": {
+                                "activeSession": {
+                                    "id": "session-id",
+                                    "podName": "model-pod",
+                                },
+                                "runtimeResult": _current_result,
+                            }
+                        }
                     )
 
                 with (
@@ -338,6 +356,123 @@ class CaptureEntrypointTest(unittest.TestCase):
 
                 self.assertEqual(1, len(requests))
 
+    def test_reporter_request_rejects_different_active_session_before_first_result(
+        self,
+    ):
+        for pod_name, session_id in (
+            ("other-pod", "session-id"),
+            ("model-pod", "other-session"),
+        ):
+            with self.subTest(pod_name=pod_name, session_id=session_id):
+                requests = []
+
+                def urlopen(
+                    request,
+                    _requests=requests,
+                    _session_id=session_id,
+                    _pod_name=pod_name,
+                    **_kwargs,
+                ):
+                    _requests.append(request)
+                    return FakeHTTPResponse(
+                        {
+                            "status": {
+                                "activeSession": {
+                                    "id": _session_id,
+                                    "podName": _pod_name,
+                                }
+                            }
+                        }
+                    )
+
+                with (
+                    mock.patch.dict(os.environ, grouped_environment(), clear=True),
+                    mock.patch.object(
+                        capture_entrypoint,
+                        "read_json_access",
+                        return_value={"token": "token"},
+                    ),
+                    mock.patch.object(
+                        capture_entrypoint.ssl,
+                        "create_default_context",
+                        return_value=mock.Mock(),
+                    ),
+                    mock.patch.object(
+                        capture_entrypoint.urllib.request,
+                        "urlopen",
+                        side_effect=urlopen,
+                    ),
+                ):
+                    with self.assertRaises(capture_entrypoint.CaptureSessionSuperseded):
+                        capture_entrypoint.reporter_request({"state": "Capturing"})
+
+                self.assertEqual(1, len(requests))
+
+    def test_reporter_request_allows_first_result_without_active_session(self):
+        requests = []
+
+        def urlopen(request, **_kwargs):
+            requests.append(request)
+            if request.get_method() == "GET":
+                return FakeHTTPResponse({"status": {}})
+            return FakeHTTPResponse({})
+
+        with (
+            mock.patch.dict(os.environ, grouped_environment(), clear=True),
+            mock.patch.object(
+                capture_entrypoint, "read_json_access", return_value={"token": "token"}
+            ),
+            mock.patch.object(
+                capture_entrypoint.ssl,
+                "create_default_context",
+                return_value=mock.Mock(),
+            ),
+            mock.patch.object(
+                capture_entrypoint.urllib.request, "urlopen", side_effect=urlopen
+            ),
+        ):
+            capture_entrypoint.reporter_request({"state": "Capturing"})
+
+        self.assertEqual(2, len(requests))
+        self.assertEqual("PUT", requests[1].get_method())
+
+    def test_reporter_request_allows_first_result_with_active_session(self):
+        requests = []
+
+        def urlopen(request, **_kwargs):
+            requests.append(request)
+            if request.get_method() == "GET":
+                return FakeHTTPResponse(
+                    {
+                        "status": {
+                            "activeSession": {
+                                "id": "session-id",
+                                "podName": "model-pod",
+                            }
+                        }
+                    }
+                )
+            return FakeHTTPResponse({})
+
+        with (
+            mock.patch.dict(os.environ, grouped_environment(), clear=True),
+            mock.patch.object(
+                capture_entrypoint, "read_json_access", return_value={"token": "token"}
+            ),
+            mock.patch.object(
+                capture_entrypoint.ssl,
+                "create_default_context",
+                return_value=mock.Mock(),
+            ),
+            mock.patch.object(
+                capture_entrypoint.urllib.request, "urlopen", side_effect=urlopen
+            ),
+        ):
+            capture_entrypoint.reporter_request({"state": "Capturing"})
+
+        self.assertEqual(2, len(requests))
+        self.assertEqual("PUT", requests[1].get_method())
+
     def test_report_does_not_retry_configuration_errors(self):
         with mock.patch.object(
             capture_entrypoint,
@@ -351,16 +486,40 @@ class CaptureEntrypointTest(unittest.TestCase):
     def test_capture_session_superseded_detection_requires_claim_marker(self):
         cases = (
             (
+                400,
                 {
                     "kind": "Status",
                     "status": "Failure",
-                    "reason": "Invalid",
-                    "code": 422,
+                    "reason": "BadRequest",
+                    "code": 400,
                     "message": "runtimeResult.sourcePodName is already claimed",
                 },
                 True,
             ),
             (
+                403,
+                {
+                    "kind": "Status",
+                    "status": "Failure",
+                    "reason": "Forbidden",
+                    "code": 403,
+                    "message": "reporter identity is not authorized for this KernelCacheCapture",
+                },
+                True,
+            ),
+            (
+                409,
+                {
+                    "kind": "Status",
+                    "status": "Failure",
+                    "reason": "Conflict",
+                    "code": 409,
+                    "message": "runtimeResult.sourcePodName is already claimed",
+                },
+                True,
+            ),
+            (
+                422,
                 {
                     "kind": "Status",
                     "status": "Failure",
@@ -371,6 +530,7 @@ class CaptureEntrypointTest(unittest.TestCase):
                 True,
             ),
             (
+                422,
                 {
                     "kind": "Status",
                     "status": "Failure",
@@ -380,14 +540,14 @@ class CaptureEntrypointTest(unittest.TestCase):
                 },
                 False,
             ),
-            ("not-json", False),
+            (422, "not-json", False),
         )
-        for response, expected in cases:
-            with self.subTest(response=response):
+        for status_code, response, expected in cases:
+            with self.subTest(status_code=status_code, response=response):
                 body = response if isinstance(response, str) else json.dumps(response)
                 self.assertEqual(
                     expected,
-                    capture_entrypoint.is_capture_session_superseded(422, body),
+                    capture_entrypoint.is_capture_session_superseded(status_code, body),
                 )
 
     def test_report_stops_when_capture_session_is_superseded(self):

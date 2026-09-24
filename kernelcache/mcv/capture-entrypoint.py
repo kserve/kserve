@@ -330,6 +330,13 @@ def reporter_request(status):
         current_status = capture.get("status")
         if not isinstance(current_status, dict):
             current_status = {}
+        active_session = current_status.get("activeSession")
+        if active_session is not None and (
+            not isinstance(active_session, dict)
+            or active_session.get("id") != session_id
+            or active_session.get("podName") != source_pod_name
+        ):
+            raise CaptureSessionSuperseded()
         current_result = current_status.get("runtimeResult")
         if not isinstance(current_result, dict):
             current_result = {}
