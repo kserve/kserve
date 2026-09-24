@@ -134,6 +134,57 @@ data:
       "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }},
       "disableVolumeManagement": {{ .Values.kserve.localmodel.disableVolumeManagement }}
     }
+  kernelcache: |-
+    {
+      "enabled": {{ .Values.kserve.kernelcache.enabled }},
+      "defaultSidecarInjection": {{ .Values.kserve.kernelcache.defaultSidecarInjection }},
+      "defaultMountType": "{{ .Values.kserve.kernelcache.defaultMountType }}",
+      "defaultNodeGroup": "{{ .Values.kserve.kernelcache.defaultNodeGroup }}",
+      "jobNamespace": "{{ .Values.kserve.kernelcache.jobNamespace }}",
+      "mcvImage": "{{ .Values.kserve.kernelcache.mcvImage }}:{{ .Values.kserve.kernelcache.mcvTag | default .Values.kserve.version }}",
+      "prefetchImage": "{{ .Values.kserve.kernelcache.prefetchImage }}{{ if .Values.kserve.kernelcache.prefetchTag }}:{{ .Values.kserve.kernelcache.prefetchTag }}{{ end }}",
+      "registry": {
+        "endpoint": {{ .Values.kserve.kernelcache.registry.endpoint | toJson }},
+{{ if or .Values.kserve.kernelcache.registry.caConfigMapRef.name .Values.kserve.kernelcache.registry.caConfigMapRef.key }}
+        "caConfigMapRef": {
+          "name": {{ .Values.kserve.kernelcache.registry.caConfigMapRef.name | toJson }},
+          "key": {{ .Values.kserve.kernelcache.registry.caConfigMapRef.key | toJson }}
+        },
+{{ end }}
+        "auth": {
+          "type": {{ .Values.kserve.kernelcache.registry.auth.type | toJson }},
+          "tokenTTLSeconds": {{ .Values.kserve.kernelcache.registry.auth.tokenTTLSeconds }}{{ if or .Values.kserve.kernelcache.registry.auth.pushRoleRef.kind .Values.kserve.kernelcache.registry.auth.pushRoleRef.name .Values.kserve.kernelcache.registry.auth.pullRoleRef.kind .Values.kserve.kernelcache.registry.auth.pullRoleRef.name }},{{ end }}
+{{ if or .Values.kserve.kernelcache.registry.auth.pushRoleRef.kind .Values.kserve.kernelcache.registry.auth.pushRoleRef.name }}
+          "pushRoleRef": {
+            "kind": {{ .Values.kserve.kernelcache.registry.auth.pushRoleRef.kind | toJson }},
+            "name": {{ .Values.kserve.kernelcache.registry.auth.pushRoleRef.name | toJson }}
+          }{{ if or .Values.kserve.kernelcache.registry.auth.pullRoleRef.kind .Values.kserve.kernelcache.registry.auth.pullRoleRef.name }},{{ end }}
+{{ end }}
+{{ if or .Values.kserve.kernelcache.registry.auth.pullRoleRef.kind .Values.kserve.kernelcache.registry.auth.pullRoleRef.name }}
+          "pullRoleRef": {
+            "kind": {{ .Values.kserve.kernelcache.registry.auth.pullRoleRef.kind | toJson }},
+            "name": {{ .Values.kserve.kernelcache.registry.auth.pullRoleRef.name | toJson }}
+          }
+{{ end }}
+        }
+      },
+      "artifactSecurity": {
+        "mode": {{ .Values.kserve.kernelcache.artifactSecurity.mode | toJson }},
+        "failurePolicy": {{ .Values.kserve.kernelcache.artifactSecurity.failurePolicy | toJson }}{{ if or .Values.kserve.kernelcache.artifactSecurity.cert.signingProfileRef .Values.kserve.kernelcache.artifactSecurity.cert.trustBundle .Values.kserve.kernelcache.artifactSecurity.cert.trustBundleKey .Values.kserve.kernelcache.artifactSecurity.cert.subjectRegexp }},{{ end }}
+{{ if or .Values.kserve.kernelcache.artifactSecurity.cert.signingProfileRef .Values.kserve.kernelcache.artifactSecurity.cert.trustBundle .Values.kserve.kernelcache.artifactSecurity.cert.trustBundleKey .Values.kserve.kernelcache.artifactSecurity.cert.subjectRegexp }}
+        "cert": {
+          "signingProfileRef": {{ .Values.kserve.kernelcache.artifactSecurity.cert.signingProfileRef | toJson }},
+          "trustBundle": {{ .Values.kserve.kernelcache.artifactSecurity.cert.trustBundle | toJson }},
+          "trustBundleKey": {{ .Values.kserve.kernelcache.artifactSecurity.cert.trustBundleKey | toJson }},
+          "subjectRegexp": {{ .Values.kserve.kernelcache.artifactSecurity.cert.subjectRegexp | toJson }}
+        }
+{{ end }}
+      },
+      "abandonedCapturePolicy": "{{ .Values.kserve.kernelcache.abandonedCapturePolicy }}",
+      "jobTTLSecondsAfterFinished": {{ .Values.kserve.kernelcache.jobTTLSecondsAfterFinished }},
+      "mcvCaptureReadinessTimeoutSeconds": {{ .Values.kserve.kernelcache.mcvCaptureReadinessTimeoutSeconds }},
+      "reconcileIntervalSeconds": {{ .Values.kserve.kernelcache.reconcileIntervalSeconds }}
+    }
   security: |-
     {
       "autoMountServiceAccountToken": {{ .Values.kserve.security.autoMountServiceAccountToken }}
