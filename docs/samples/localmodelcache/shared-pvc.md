@@ -99,6 +99,11 @@ kubectl apply -f shared-pvc.yaml
   `ReimportBlocked` and stays that way until the consumers are removed; then exactly
   one replacement Job is created. A recreated PVC (new UID) is imported again
   regardless of consumers, since it holds no data.
+- Consumers are counted by object, not by running Pod. Deleting the last consumer
+  unblocks the re-import immediately, so the replacement Job can start writing the
+  destination while that consumer's Pods are still terminating. Wait for those Pods
+  to be gone before expecting a clean replacement import; runtimes that memory-map
+  model files can fault on data overwritten underneath them.
 - A Job with the deterministic name that is not owned by the cache is never adopted
   or deleted; the cache reports `ImportJobConflict` until the collision is removed.
 
