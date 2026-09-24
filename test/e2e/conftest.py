@@ -146,8 +146,8 @@ def test_namespace_session(_e2e_worker_id):
     core_v1 = get_core_api()
     ns_name = worker_namespace_name(_e2e_worker_id)
 
-    create_namespace(core_v1, ns_name)
     try:
+        create_namespace(core_v1, ns_name)
         provision_secrets(core_v1, ns_name)
         provision_serving_runtimes(client.CustomObjectsApi(), ns_name)
         yield ns_name
@@ -155,13 +155,13 @@ def test_namespace_session(_e2e_worker_id):
         if skip_resource_deletion():
             logger.info("Preserving namespace %s", ns_name)
         else:
-            wait_pods_terminated(core_v1, ns_name)
             delete_namespace(core_v1, ns_name)
 
 
 @pytest.fixture(scope="function")
 def test_namespace(test_namespace_session):
-    """Reuse the worker namespace; delete ISVCs after each test."""
+    """Reuse the worker namespace; delete ISVCs and wait for pods after each test."""
     yield test_namespace_session
     if not skip_resource_deletion():
         cleanup_isvcs(test_namespace_session)
+        wait_pods_terminated(get_core_api(), test_namespace_session)

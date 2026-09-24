@@ -22,9 +22,86 @@ from uuid import UUID
 from kubernetes import client
 
 from test.e2e.common import namespace
+from test.e2e import conftest
 
 
 class NamespaceProvisioningTest(unittest.TestCase):
+    def test_namespace_creation_timeout_still_deletes_namespace(self):
+        core = Mock()
+        with (
+            patch.object(conftest, "get_core_api", return_value=core),
+            patch.object(conftest, "worker_namespace_name", return_value="worker"),
+            patch.object(conftest, "create_namespace", side_effect=TimeoutError),
+            patch.object(conftest, "skip_resource_deletion", return_value=False),
+        ):
+            fixture = conftest.test_namespace_session.__wrapped__("gw0")
+            with self.assertRaises(TimeoutError):
+                next(fixture)
+        core.delete_namespace.assert_called_once_with("worker")
+
+    def test_each_test_waits_for_pods_after_deleting_isvcs(self):
+        calls = []
+        with (
+            patch.object(conftest, "skip_resource_deletion", return_value=False),
+            patch.object(conftest, "get_core_api"),
+            patch.object(
+                conftest,
+                "cleanup_isvcs",
+                side_effect=lambda ns: calls.append(("delete", ns)),
+            ),
+            patch.object(
+                conftest,
+                "wait_pods_terminated",
+                side_effect=lambda api, ns: calls.append(("wait", ns)),
+            ),
+        ):
+            fixture = conftest.test_namespace.__wrapped__("worker")
+            self.assertEqual(next(fixture), "worker")
+            with self.assertRaises(StopIteration):
+                next(fixture)
+        self.assertEqual(calls, [("delete", "worker"), ("wait", "worker")])
+
+    def test_pod_wait_includes_garbage_collection_propagation(self):
+        core = Mock()
+        core.list_namespaced_pod.side_effect = [
+            client.V1PodList(
+                items=[client.V1Pod(metadata=client.V1ObjectMeta(name="pending-gc"))]
+            ),
+            client.V1PodList(items=[]),
+        ]
+        with patch.object(namespace.time, "sleep"):
+            namespace.wait_pods_terminated(core, "worker")
+        self.assertEqual(core.list_namespaced_pod.call_count, 2)
+
+    def test_pod_cleanup_timeout_and_api_errors_are_not_hidden(self):
+        core = Mock()
+        with patch.object(namespace.time, "monotonic", side_effect=[0, 181]):
+            with self.assertRaises(TimeoutError):
+                namespace.wait_pods_terminated(core, "worker")
+        for status in (404, 403):
+            with self.subTest(status=status):
+                core.list_namespaced_pod.side_effect = client.rest.ApiException(
+                    status=status
+                )
+                if status == 404:
+                    namespace.wait_pods_terminated(core, "worker")
+                else:
+                    with self.assertRaises(client.rest.ApiException):
+                        namespace.wait_pods_terminated(core, "worker")
+
+    def test_preserve_resources_skips_per_test_cleanup(self):
+        with (
+            patch.object(conftest, "skip_resource_deletion", return_value=True),
+            patch.object(conftest, "cleanup_isvcs") as cleanup,
+            patch.object(conftest, "wait_pods_terminated") as wait,
+        ):
+            fixture = conftest.test_namespace.__wrapped__("worker")
+            next(fixture)
+            with self.assertRaises(StopIteration):
+                next(fixture)
+        cleanup.assert_not_called()
+        wait.assert_not_called()
+
     def test_consecutive_sessions_do_not_reuse_a_terminating_namespace(self):
         with patch.object(
             namespace,

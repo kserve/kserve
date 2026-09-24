@@ -201,17 +201,21 @@ def delete_namespace(core_v1: client.CoreV1Api, namespace: str) -> None:
 
 
 def wait_pods_terminated(core_v1: client.CoreV1Api, namespace: str) -> None:
-    deadline = time.monotonic() + 60
+    """Wait for ISVC pods, including those not yet marked by garbage collection."""
+    deadline = time.monotonic() + 180
     while time.monotonic() < deadline:
         try:
             pods = core_v1.list_namespaced_pod(
                 namespace, label_selector="serving.kserve.io/inferenceservice"
             ).items
-            if not any(p.metadata.deletion_timestamp for p in pods):
+            if not pods:
                 return
-        except client.rest.ApiException:
-            return
+        except client.rest.ApiException as e:
+            if e.status == 404:
+                return
+            raise
         time.sleep(2)
+    raise TimeoutError(f"ISVC pods in {namespace} did not disappear within 180 seconds")
 
 
 def _delete_namespaced_custom_objects(
