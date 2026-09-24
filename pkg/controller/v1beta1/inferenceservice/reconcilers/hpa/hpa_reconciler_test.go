@@ -435,6 +435,7 @@ func TestCreateHPAWithBehavior(t *testing.T) {
 		componentExt *v1beta1.ComponentExtensionSpec
 		configMap    *corev1.ConfigMap
 		expected     *autoscalingv2.HorizontalPodAutoscalerBehavior
+		wantErr      bool
 	}{
 		{
 			name: "behavior from component spec",
@@ -456,6 +457,29 @@ func TestCreateHPAWithBehavior(t *testing.T) {
 				},
 				ScaleDown: &autoscalingv2.HPAScalingRules{
 					StabilizationWindowSeconds: &scaleDownWindow,
+				},
+			},
+		},
+		{
+			name: "full behavior with policies is propagated",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+						ScaleUp: &autoscalingv2.HPAScalingRules{
+							StabilizationWindowSeconds: &scaleUpWindow,
+							Policies: []autoscalingv2.HPAScalingPolicy{
+								{Type: autoscalingv2.PercentScalingPolicy, Value: 100, PeriodSeconds: 60},
+							},
+						},
+					},
+				},
+			},
+			expected: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+				ScaleUp: &autoscalingv2.HPAScalingRules{
+					StabilizationWindowSeconds: &scaleUpWindow,
+					Policies: []autoscalingv2.HPAScalingPolicy{
+						{Type: autoscalingv2.PercentScalingPolicy, Value: 100, PeriodSeconds: 60},
+					},
 				},
 			},
 		},
@@ -503,11 +527,35 @@ func TestCreateHPAWithBehavior(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "all defaults — no behavior and nil configMap",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{},
+			},
+			configMap: nil,
+			expected: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+		},
+		{
+			name: "malformed configmap returns error",
+			componentExt: &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{},
+			},
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					"autoscaler": `{invalid json`,
+				},
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			hpa, err := createHPA(metav1.ObjectMeta{Name: "test"}, tt.componentExt, tt.configMap)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
 			require.NoError(t, err)
 			if diff := cmp.Diff(tt.expected, hpa.Spec.Behavior); diff != "" {
 				t.Errorf("Test %q unexpected hpa behavior (-want +got): %v", tt.name, diff)
