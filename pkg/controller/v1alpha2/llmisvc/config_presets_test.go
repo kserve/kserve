@@ -642,7 +642,6 @@ func TestPresetFiles(t *testing.T) {
 											"  --port 8000\n" +
 											"  --host 0.0.0.0\n" +
 											" --tp 1\n" +
-											"\n" +
 											")\n" +
 											"exec \"${args[@]}\" \"$@\"",
 										"--",
