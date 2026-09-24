@@ -75,7 +75,7 @@ class NamespaceProvisioningTest(unittest.TestCase):
 
     def test_pod_cleanup_timeout_and_api_errors_are_not_hidden(self):
         core = Mock()
-        with patch.object(namespace.time, "monotonic", side_effect=[0, 181]):
+        with patch.object(namespace.time, "monotonic", side_effect=[0, 361]):
             with self.assertRaises(TimeoutError):
                 namespace.wait_pods_terminated(core, "worker")
         for status in (404, 403):
@@ -88,6 +88,24 @@ class NamespaceProvisioningTest(unittest.TestCase):
                 else:
                     with self.assertRaises(client.rest.ApiException):
                         namespace.wait_pods_terminated(core, "worker")
+
+    def test_pod_wait_allows_knative_termination_grace_period(self):
+        core = Mock()
+        pod = client.V1Pod(
+            metadata=client.V1ObjectMeta(name="knative-predictor"),
+            spec=client.V1PodSpec(containers=[], termination_grace_period_seconds=300),
+        )
+        core.list_namespaced_pod.side_effect = [
+            client.V1PodList(items=[pod]),
+            client.V1PodList(items=[pod]),
+            client.V1PodList(items=[]),
+        ]
+        with (
+            patch.object(namespace.time, "monotonic", side_effect=[0, 0, 181, 301]),
+            patch.object(namespace.time, "sleep"),
+        ):
+            namespace.wait_pods_terminated(core, "worker")
+        self.assertEqual(core.list_namespaced_pod.call_count, 3)
 
     def test_preserve_resources_skips_per_test_cleanup(self):
         with (

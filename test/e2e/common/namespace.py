@@ -202,7 +202,8 @@ def delete_namespace(core_v1: client.CoreV1Api, namespace: str) -> None:
 
 def wait_pods_terminated(core_v1: client.CoreV1Api, namespace: str) -> None:
     """Wait for ISVC pods, including those not yet marked by garbage collection."""
-    deadline = time.monotonic() + 180
+    # Knative pods have a 300s termination grace period; allow GC some time too.
+    deadline = time.monotonic() + 360
     while time.monotonic() < deadline:
         try:
             pods = core_v1.list_namespaced_pod(
@@ -215,7 +216,7 @@ def wait_pods_terminated(core_v1: client.CoreV1Api, namespace: str) -> None:
                 return
             raise
         time.sleep(2)
-    raise TimeoutError(f"ISVC pods in {namespace} did not disappear within 180 seconds")
+    raise TimeoutError(f"ISVC pods in {namespace} did not disappear within 360 seconds")
 
 
 def _delete_namespaced_custom_objects(
