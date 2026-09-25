@@ -30,6 +30,7 @@ from pkg import component_processor
 from pkg import definition_parser
 from pkg import file_reader
 from pkg import logger
+from pkg import manifest_builder
 from pkg import script_builder
 
 
@@ -267,6 +268,7 @@ def main():
     """Main entry point."""
     input_path, output_dir = parse_arguments()
     definition_files, output_dir = collect_definition_files(input_path, output_dir)
+    manifest_builder.clear_kustomize_build_cache()
 
     failed = 0
     for definition_file in definition_files:
