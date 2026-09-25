@@ -993,6 +993,147 @@ var _ = Describe("Inference Graph controller test", func() {
 		})
 	})
 
+	Context("When creating an inferencegraph in Knative deployment mode with custom annotations", func() {
+		It("Should propagate custom annotations to the knative service metadata as well as the revision template", func() {
+			By("By creating a new InferenceGraph")
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			graphName := "igknativeannotations1"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			ctx := context.Background()
+			customAnnotationKey := "custom.annotation/hostname"
+			ig := &v1alpha1.InferenceGraph{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": string(constants.Knative),
+						customAnnotationKey:                "test-hostname",
+						// Annotations on the ServiceAnnotationDisallowedList must not leak onto the
+						// knative service metadata, even though they are still honored on the revision
+						// template (pod) annotations.
+						autoscaling.MaxScaleAnnotationKey: "5",
+					},
+				},
+				Spec: v1alpha1.InferenceGraphSpec{
+					Nodes: map[string]v1alpha1.InferenceRouter{
+						v1alpha1.GraphRootNodeName: {
+							RouterType: v1alpha1.Sequence,
+							Steps: []v1alpha1.InferenceStep{
+								{
+									InferenceTarget: v1alpha1.InferenceTarget{
+										ServiceURL: "http://someservice.example.com",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
+			defer k8sClient.Delete(ctx, ig)
+
+			actualService := &knservingv1.Service{}
+			Eventually(func() error {
+				return k8sClient.Get(context.TODO(), serviceKey, actualService)
+			}, timeout, interval).Should(Succeed())
+
+			// The custom annotation reaches the knative service's top-level metadata (so it can be
+			// picked up by tools such as external-dns off the resulting Route/VirtualService) ...
+			Expect(actualService.Annotations).To(HaveKeyWithValue(customAnnotationKey, "test-hostname"))
+			// ... and remains on the revision template (pod) annotations too, unchanged from today.
+			Expect(actualService.Spec.Template.Annotations).To(HaveKeyWithValue(customAnnotationKey, "test-hostname"))
+
+			// Disallowed-list annotations must not leak onto the service metadata.
+			Expect(actualService.Annotations).NotTo(HaveKey(autoscaling.MaxScaleAnnotationKey))
+			Expect(actualService.Spec.Template.Annotations).To(HaveKeyWithValue(autoscaling.MaxScaleAnnotationKey, "5"))
+
+			// The autoscaling class annotation knative injects a default for must not leak onto the
+			// service metadata either, which would happen if annotations were captured for passthrough
+			// after SetAutoScalingAnnotations mutated the map instead of before.
+			Expect(actualService.Annotations).NotTo(HaveKey(autoscaling.ClassAnnotationKey))
+		})
+
+		It("Should update the knative service metadata when a custom annotation is changed on an existing IG", func() {
+			By("By creating a new InferenceGraph")
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(context.TODO(), configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(context.TODO(), configMap)
+
+			graphName := "igknativeannotations2"
+			expectedRequest := reconcile.Request{NamespacedName: types.NamespacedName{Name: graphName, Namespace: "default"}}
+			serviceKey := expectedRequest.NamespacedName
+			ctx := context.Background()
+			customAnnotationKey := "custom.annotation/hostname"
+			ig := &v1alpha1.InferenceGraph{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      serviceKey.Name,
+					Namespace: serviceKey.Namespace,
+					Annotations: map[string]string{
+						"serving.kserve.io/deploymentMode": string(constants.Knative),
+						customAnnotationKey:                "hostname-a",
+					},
+				},
+				Spec: v1alpha1.InferenceGraphSpec{
+					Nodes: map[string]v1alpha1.InferenceRouter{
+						v1alpha1.GraphRootNodeName: {
+							RouterType: v1alpha1.Sequence,
+							Steps: []v1alpha1.InferenceStep{
+								{
+									InferenceTarget: v1alpha1.InferenceTarget{
+										ServiceURL: "http://someservice.example.com",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, ig)).Should(Succeed())
+			defer k8sClient.Delete(ctx, ig)
+
+			actualService := &knservingv1.Service{}
+			Eventually(func() error {
+				return k8sClient.Get(ctx, serviceKey, actualService)
+			}, timeout, interval).Should(Succeed())
+			Eventually(func() map[string]string {
+				_ = k8sClient.Get(ctx, serviceKey, actualService)
+				return actualService.Annotations
+			}, timeout, interval).Should(HaveKeyWithValue(customAnnotationKey, "hostname-a"))
+
+			By("Updating the custom annotation on the InferenceGraph")
+			actualIG := &v1alpha1.InferenceGraph{}
+			Expect(k8sClient.Get(ctx, serviceKey, actualIG)).Should(Succeed())
+			updatedIG := actualIG.DeepCopy()
+			updatedIG.Annotations[customAnnotationKey] = "hostname-b"
+			Expect(k8sClient.Update(ctx, updatedIG)).NotTo(HaveOccurred())
+
+			// The updated value must reach the existing knative service's metadata -- this exercises
+			// semanticEquals/reconcileKsvc's annotation sync path on the update branch, not just the
+			// initial create.
+			Eventually(func() map[string]string {
+				_ = k8sClient.Get(ctx, serviceKey, actualService)
+				return actualService.Annotations
+			}, timeout, interval).Should(HaveKeyWithValue(customAnnotationKey, "hostname-b"))
+			Expect(actualService.Spec.Template.Annotations).To(HaveKeyWithValue(customAnnotationKey, "hostname-b"))
+		})
+	})
+
 	Context("When creating an InferenceGraph in Knative mode", func() {
 		It("Should fail if Knative Serving is not installed", func() {
 			// Simulate Knative Serving is absent by setting to false the relevant item in utils.gvResourcesCache variable
