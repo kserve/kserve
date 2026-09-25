@@ -153,3 +153,23 @@ func TestMatchingGroups(t *testing.T) {
 		t.Fatalf("unexpected matches: %#v", matches)
 	}
 }
+
+func TestResolveKernelCacheNodeGroupName(t *testing.T) {
+	defaultName := "default-workers"
+	tests := []struct {
+		name  string
+		cache *v1alpha1.KernelCache
+		want  string
+	}{
+		{name: "uses explicit reference", cache: &v1alpha1.KernelCache{Spec: v1alpha1.KernelCacheSpec{NodeGroupRef: &corev1.LocalObjectReference{Name: "gpu-workers"}}}, want: "gpu-workers"},
+		{name: "uses default for missing reference", cache: &v1alpha1.KernelCache{}, want: defaultName},
+		{name: "uses default for nil cache", want: defaultName},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := ResolveKernelCacheNodeGroupName(test.cache, defaultName); got != test.want {
+				t.Fatalf("got %q, want %q", got, test.want)
+			}
+		})
+	}
+}

@@ -57,7 +57,6 @@ func TestDiscoverCachesForNode(t *testing.T) {
 	kernelCache := &v1alpha1.KernelCache{
 		ObjectMeta: metav1.ObjectMeta{Name: "qwen-cache", Namespace: "staging"},
 		Spec: v1alpha1.KernelCacheSpec{
-			NodeGroupRef: &corev1.LocalObjectReference{Name: nodeGroup.Name},
 			Artifact: v1alpha1.KernelCacheArtifact{
 				Identity: v1alpha1.KernelCacheIdentity{
 					Footprints: v1alpha1.KernelCacheFootprints{
@@ -82,7 +81,7 @@ func TestDiscoverCachesForNode(t *testing.T) {
 	reconciler := &KernelCacheNodeReconciler{Client: k8sClient, NodeName: node.Name}
 	kernelCacheNode := &v1alpha1.KernelCacheNode{}
 
-	podsUsing, changed, err := reconciler.discoverCaches(context.Background(), kernelCacheNode)
+	podsUsing, changed, err := reconciler.discoverCaches(context.Background(), kernelCacheNode, nodeGroup.Name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,9 +107,17 @@ func TestDiscoverCachesForNode(t *testing.T) {
 	}
 }
 
-func TestCacheWithoutNodeGroupDoesNotMatchNode(t *testing.T) {
-	if matchesNodeGroup(&v1alpha1.KernelCache{}, map[string]struct{}{"gpu-workers": {}}) {
-		t.Fatal("expected cache without nodeGroupRef not to match the node")
+func TestCacheWithoutNodeGroupUsesDefault(t *testing.T) {
+	cache := &v1alpha1.KernelCache{}
+	matchingGroups := map[string]struct{}{"gpu-workers": {}}
+	if !matchesNodeGroup(cache, matchingGroups, "gpu-workers") {
+		t.Fatal("expected cache without nodeGroupRef to use the default node group")
+	}
+	if matchesNodeGroup(cache, matchingGroups, "cpu-workers") {
+		t.Fatal("expected cache without nodeGroupRef not to match a different default node group")
+	}
+	if matchesNodeGroup(cache, matchingGroups, "") {
+		t.Fatal("expected cache without nodeGroupRef and default not to match")
 	}
 }
 
@@ -144,7 +151,7 @@ func TestDiscoverCachesRemovesAndRestoresEntryWithNodeReadiness(t *testing.T) {
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(node).WithObjects(node, nodeGroup, kernelCache).Build()
 	reconciler := &KernelCacheNodeReconciler{Client: k8sClient, NodeName: nodeName}
 
-	if _, _, err := reconciler.discoverCaches(t.Context(), kernelCacheNode); err != nil {
+	if _, _, err := reconciler.discoverCaches(t.Context(), kernelCacheNode, ""); err != nil {
 		t.Fatal(err)
 	}
 	if len(kernelCacheNode.Status.CacheStatus) != 0 {
@@ -162,7 +169,7 @@ func TestDiscoverCachesRemovesAndRestoresEntryWithNodeReadiness(t *testing.T) {
 	if storedNode.Status.Conditions[0].Status != corev1.ConditionTrue {
 		t.Fatalf("expected stored node to be Ready, got %q", storedNode.Status.Conditions[0].Status)
 	}
-	_, changed, err := reconciler.discoverCaches(t.Context(), kernelCacheNode)
+	_, changed, err := reconciler.discoverCaches(t.Context(), kernelCacheNode, "")
 	if err != nil {
 		t.Fatal(err)
 	}
