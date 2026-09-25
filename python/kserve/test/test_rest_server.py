@@ -83,6 +83,24 @@ def test_config_timeout_keep_alive_default(monkeypatch):
     assert rs.config.timeout_keep_alive == 65
 
 
+@pytest.mark.parametrize(
+    "ssl_certfile,ssl_keyfile",
+    [("/etc/tls/tls.crt", None), (None, "/etc/tls/tls.key")],
+)
+def test_rejects_partial_ssl_configuration(ssl_certfile, ssl_keyfile):
+    with pytest.raises(
+        ValueError, match="ssl_certfile and ssl_keyfile must be configured together"
+    ):
+        rest_mod.RESTServer(
+            app="dummy:app",
+            data_plane=Mock(),
+            model_repository_extension=Mock(),
+            http_port=8080,
+            ssl_certfile=ssl_certfile,
+            ssl_keyfile=ssl_keyfile,
+        )
+
+
 @pytest.mark.asyncio
 async def test_ssl_cert_refresher_lifecycle(monkeypatch):
     monkeypatch.setattr(rest_mod.RESTServer, "create_application", lambda self: None)
@@ -115,3 +133,66 @@ async def test_ssl_cert_refresher_lifecycle(monkeypatch):
         cert_path="/etc/tls/tls.crt",
     )
     refresher.stop.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+async def test_tls_profile_provider_lifecycle(monkeypatch):
+    monkeypatch.setattr(rest_mod.RESTServer, "create_application", lambda self: None)
+    monkeypatch.setattr(rest_mod.uvicorn.Server, "serve", AsyncMock())
+    ssl_context = Mock()
+    provider = Mock()
+    provider_factory = Mock(return_value=provider)
+
+    rs = rest_mod.RESTServer(
+        app="dummy:app",
+        data_plane=Mock(),
+        model_repository_extension=Mock(),
+        http_port=8443,
+        ssl_certfile="/etc/tls/tls.crt",
+        ssl_keyfile="/etc/tls/tls.key",
+        tls_profile_provider_factory=provider_factory,
+    )
+
+    def load_config():
+        rs.config.loaded = True
+        rs.config.ssl = ssl_context
+
+    monkeypatch.setattr(rs.config, "load", load_config)
+
+    await rs.start()
+
+    provider_factory.assert_called_once_with(ssl_context)
+    provider.start.assert_called_once_with()
+    provider.stop.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+async def test_tls_profile_provider_start_failure_stops_refreshers(monkeypatch):
+    monkeypatch.setattr(rest_mod.RESTServer, "create_application", lambda self: None)
+    cert_refresher = Mock()
+    monkeypatch.setattr(rest_mod, "SSLCertRefresher", Mock(return_value=cert_refresher))
+    provider = Mock()
+    provider.start.side_effect = RuntimeError("provider failed")
+    ssl_context = Mock()
+
+    rs = rest_mod.RESTServer(
+        app="dummy:app",
+        data_plane=Mock(),
+        model_repository_extension=Mock(),
+        http_port=8443,
+        ssl_certfile="/etc/tls/tls.crt",
+        ssl_keyfile="/etc/tls/tls.key",
+        tls_profile_provider_factory=Mock(return_value=provider),
+    )
+
+    def load_config():
+        rs.config.loaded = True
+        rs.config.ssl = ssl_context
+
+    monkeypatch.setattr(rs.config, "load", load_config)
+
+    with pytest.raises(RuntimeError, match="provider failed"):
+        await rs.start()
+
+    cert_refresher.stop.assert_called_once_with()
+    provider.stop.assert_called_once_with()
