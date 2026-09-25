@@ -107,7 +107,16 @@ func (r *KernelCacheReconciler) reconcileCaptureKernelCache(ctx context.Context,
 			},
 		}
 		if err := r.Create(ctx, kernelCache); err != nil {
-			return err
+			if !apierrors.IsAlreadyExists(err) {
+				return err
+			}
+			reader := r.Reader
+			if reader == nil {
+				reader = r.Client
+			}
+			if err := reader.Get(ctx, req.NamespacedName, kernelCache); err != nil {
+				return err
+			}
 		}
 	}
 

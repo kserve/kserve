@@ -438,7 +438,10 @@ func (r *KernelCacheCaptureControllerReconciler) ensureManagedServiceAccountWith
 }
 
 func (r *KernelCacheCaptureControllerReconciler) ensureRoleBinding(ctx context.Context, desired *rbacv1.RoleBinding, label string) error {
-	desired.Labels = map[string]string{label: "true"}
+	if desired.Labels == nil {
+		desired.Labels = map[string]string{}
+	}
+	desired.Labels[label] = "true"
 	current := &rbacv1.RoleBinding{}
 	if err := r.Reader.Get(ctx, client.ObjectKeyFromObject(desired), current); err != nil {
 		if !apierrors.IsNotFound(err) {

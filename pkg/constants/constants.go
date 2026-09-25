@@ -1019,7 +1019,7 @@ func KernelCacheCaptureRevisionName(sourceName, revisionID string) string {
 	}
 
 	digest := sha256.Sum256([]byte(sourceName))
-	digestText := fmt.Sprintf("-%x", digest[:4])
+	digestText := fmt.Sprintf("-%x", digest[:6])
 	keep := available - len(digestText)
 	if keep < 1 {
 		return ""
