@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -314,8 +313,8 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 				// If --http_port is set in args, use that port for the probe so the
 				// readiness check targets the port the server actually listens on.
 				if argPort, ok := getArgValue(container.Args, constants.ArgumentHttpPort); ok {
-					if parsed, err := strconv.ParseInt(argPort, 10, 32); err == nil {
-						probePort = int32(parsed)
+					if parsed, ok := utils.ParsePort(argPort); ok {
+						probePort = parsed
 					}
 				}
 				container.ReadinessProbe = &corev1.Probe{
@@ -354,18 +353,26 @@ func getArgValue(args []string, flag string) (string, bool) {
 	return lastVal, found
 }
 
-// setArgValue replaces the value of an existing "--flag value" pair in an args
-// slice, or appends it if absent. It handles both two-element and "=" forms.
+// setArgValue replaces every occurrence of a flag in an args slice, or appends
+// it if absent. It handles both two-element and "=" forms.
 func setArgValue(args []string, flag, value string) []string {
+	found := false
 	for i, arg := range args {
-		if arg == flag && i+1 < len(args) {
-			args[i+1] = value
-			return args
+		if arg == flag {
+			if i+1 < len(args) {
+				args[i+1] = value
+			} else {
+				args = append(args, value)
+			}
+			found = true
 		}
 		if strings.HasPrefix(arg, flag+"=") {
 			args[i] = flag + "=" + value
-			return args
+			found = true
 		}
+	}
+	if found {
+		return args
 	}
 	return append(args, flag, value)
 }

@@ -1852,6 +1852,27 @@ func TestSetArgValue(t *testing.T) {
 			value:    "8443",
 			expected: []string{"--http_port", "8443"},
 		},
+		{
+			name:     "append value to trailing flag",
+			args:     []string{"--model_name", "foo", "--http_port"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--model_name", "foo", "--http_port", "8443"},
+		},
+		{
+			name:     "replace duplicate mixed forms",
+			args:     []string{"--http_port", "9000", "--http_port=0"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443", "--http_port=8443"},
+		},
+		{
+			name:     "replace duplicate mixed forms in reverse order",
+			args:     []string{"--http_port=9000", "--http_port", "65536"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port=8443", "--http_port", "8443"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1892,6 +1913,27 @@ func TestSetDefaultPodSpec_ReadinessProbeRespectsHttpPort(t *testing.T) {
 			ports:        []corev1.ContainerPort{{ContainerPort: 9090}},
 			args:         []string{"--http_port", "8443"},
 			expectedPort: 8443,
+		},
+		{
+			name:         "zero --http_port falls back to default",
+			args:         []string{"--http_port", "0"},
+			expectedPort: 8080,
+		},
+		{
+			name:         "negative --http_port falls back to container port",
+			ports:        []corev1.ContainerPort{{ContainerPort: 9090}},
+			args:         []string{"--http_port", "-1"},
+			expectedPort: 9090,
+		},
+		{
+			name:         "oversized --http_port falls back to default",
+			args:         []string{"--http_port=65536"},
+			expectedPort: 8080,
+		},
+		{
+			name:         "malformed --http_port falls back to default",
+			args:         []string{"--http_port", "not-a-port"},
+			expectedPort: 8080,
 		},
 	}
 	for _, tt := range tests {
