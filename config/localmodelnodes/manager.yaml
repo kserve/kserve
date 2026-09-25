@@ -34,6 +34,10 @@ spec:
         image: ko://github.com/kserve/kserve/cmd/localmodelnode
         imagePullPolicy: Always
         name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -55,6 +59,9 @@ spec:
           - mountPath: /mnt/models
             name: models
             readOnly: false
+          - mountPath: /tmp/k8s-webhook-server/serving-certs
+            name: cert
+            readOnly: true
         resources:
           limits:
             cpu: 100m
@@ -67,4 +74,8 @@ spec:
           hostPath:
             path: /models
             type: DirectoryOrCreate
+        - name: cert
+          secret:
+            defaultMode: 420
+            secretName: localmodel-webhook-server-cert
       terminationGracePeriodSeconds: 10
