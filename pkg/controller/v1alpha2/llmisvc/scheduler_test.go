@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -374,6 +375,26 @@ func TestSchedulerDefaultPreset(t *testing.T) {
 		{Ref: "prefix-cache-affinity-filter"},
 		{Ref: "token-load-scorer"},
 	}))
+}
+
+// TestSchedulerConfigTextOmni asserts the legacy fallback config (routers too
+// old for presets) is load-only for omni services: the text prefix-cache chain
+// has no TokenizedRequest for audio/image inputs, so prefix-cache-scorer must
+// not appear, while non-omni services keep the default chain.
+func TestSchedulerConfigTextOmni(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	omniSvc := &v1alpha2.LLMInferenceService{}
+	omniSvc.Spec.Runtime = ptr.To(OmniServingRuntimeName)
+	omniText := schedulerConfigText(omniSvc)
+	g.Expect(omniText).To(ContainSubstring("queue-scorer"))
+	g.Expect(omniText).To(ContainSubstring("max-score-picker"))
+	g.Expect(omniText).NotTo(ContainSubstring("prefix-cache-scorer"))
+	g.Expect(omniText).NotTo(ContainSubstring("kv-cache-utilization-scorer"))
+
+	plainSvc := &v1alpha2.LLMInferenceService{}
+	plainText := schedulerConfigText(plainSvc)
+	g.Expect(plainText).To(ContainSubstring("prefix-cache-scorer"))
 }
 
 func TestFilterArgs(t *testing.T) {

@@ -57,6 +57,8 @@ const (
 	configTemplateNameSuffix = "config-llm-template"
 	// Single node SGLang deployment template
 	configSGLangTemplateNameSuffix = "config-sglang-template"
+	// Single node vLLM-Omni deployment template (TTS/TTI modality endpoints)
+	configOmniTemplateNameSuffix = "config-llm-omni-template"
 	// Disaggregated prefill/decode templates
 	configDecodeTemplateNameSuffix  = "config-llm-decode-template"
 	configPrefillTemplateNameSuffix = "config-llm-prefill-template"
@@ -72,6 +74,7 @@ const (
 	configRouterSchedulerNameSuffix                   = "config-llm-scheduler"
 	configRouterSchedulerDefaultEPPConfigNameSuffix   = "config-llm-scheduler-eppconfig-default"    // default EPPConfig
 	configRouterSchedulerDefaultPDEPPConfigNameSuffix = "config-llm-scheduler-eppconfig-default-pd" // default EPPConfig for P/D
+	configRouterSchedulerModalityEPPConfigNameSuffix  = "config-llm-scheduler-eppconfig-modality"   // load-only EPPConfig for omni TTS/TTI
 	configRouterRouteNameSuffix                       = "config-llm-router-route"
 	configTokenizerNameSuffix                         = "config-llm-tokenizer" // #nosec G101
 	// Tracing configurations
@@ -82,6 +85,7 @@ var (
 	configPrefix                                = constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_CONFIG_PREFIX", "kserve-")
 	configTemplateName                          = configPrefix + configTemplateNameSuffix
 	configSGLangTemplateName                    = configPrefix + configSGLangTemplateNameSuffix
+	configOmniTemplateName                      = configPrefix + configOmniTemplateNameSuffix
 	configDecodeTemplateName                    = configPrefix + configDecodeTemplateNameSuffix
 	configDecodeWorkerPipelineParallelName      = configPrefix + configDecodeWorkerPipelineParallelNameSuffix
 	configWorkerPipelineParallelName            = configPrefix + configWorkerPipelineParallelNameSuffix
@@ -93,6 +97,7 @@ var (
 	configRouterSchedulerName                   = configPrefix + configRouterSchedulerNameSuffix
 	configRouterSchedulerDefaultEPPConfigName   = configPrefix + configRouterSchedulerDefaultEPPConfigNameSuffix
 	configRouterSchedulerDefaultPDEPPConfigName = configPrefix + configRouterSchedulerDefaultPDEPPConfigNameSuffix
+	configRouterSchedulerModalityEPPConfigName  = configPrefix + configRouterSchedulerModalityEPPConfigNameSuffix
 	configRouterRouteName                       = configPrefix + configRouterRouteNameSuffix
 	configTokenizerName                         = configPrefix + configTokenizerNameSuffix
 	configTracingName                           = configPrefix + configTracingNameSuffix
@@ -110,6 +115,7 @@ var _ = sets.New[string](
 var WellKnownDefaultConfigs = sets.New[string](
 	configTemplateName,
 	configSGLangTemplateName,
+	configOmniTemplateName,
 	configDecodeTemplateName,
 	configWorkerDataParallelName,
 	configDecodeWorkerDataParallelName,
@@ -118,6 +124,7 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configRouterSchedulerName,
 	configRouterSchedulerDefaultEPPConfigName,
 	configRouterSchedulerDefaultPDEPPConfigName,
+	configRouterSchedulerModalityEPPConfigName,
 	configRouterRouteName,
 	configTokenizerName,
 	configTracingName,
@@ -145,11 +152,28 @@ var useVersionedConfig, _ = strconv.ParseBool(constants.GetEnvOrDefault("LLM_INF
 // name-based mapping and kserve-config-sglang-template can be removed.
 const SGLangServingRuntimeName = "kserve-llm-sglang"
 
+// OmniServingRuntimeName is the well-known ClusterServingRuntime name that
+// supplies the vLLM-Omni container image. When spec.runtime is set to this
+// name, the controller selects the omni infrastructure template
+// (kserve-config-llm-omni-template) and the modality EPP preset instead of
+// the text prefix-cache chain, which has no TokenizedRequest for audio/image
+// inputs.
+const OmniServingRuntimeName = "kserve-llm-omni"
+
+// isOmniRuntime reports whether the service targets the vLLM-Omni runtime.
+func isOmniRuntime(runtime *string) bool {
+	return runtime != nil && *runtime == OmniServingRuntimeName
+}
+
 // selectSingleNodeTemplateName returns the well-known config template name for
 // a single-node Non-P/D deployment based on the requested runtime. When runtime
 // points at the well-known SGLang ServingRuntime, the SGLang-specific
-// infrastructure template is used; otherwise the default vLLM template.
+// infrastructure template is used; for the omni runtime the omni template is
+// used; otherwise the default vLLM template.
 func selectSingleNodeTemplateName(runtime *string) string {
+	if isOmniRuntime(runtime) {
+		return configOmniTemplateName
+	}
 	if runtime != nil && *runtime == SGLangServingRuntimeName {
 		return configSGLangTemplateName
 	}
@@ -541,9 +565,14 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			// The presets require llm-d-router image version >= routerPresetMinVersion.
 			// Older images fall back to the hardcoded schedulerConfigText().
 			if injectDefaultSchedulerConfig && routerVersionSupportsPreset(ctx, schedulerCfg) {
-				if resolvedSpec.Prefill != nil { // P/D disagg.
+				switch {
+				case isOmniRuntime(resolvedSpec.Runtime):
+					// Omni TTS/TTI: load-only profile. The text prefix-cache
+					// chain has no TokenizedRequest for audio/image inputs.
+					refs = append(refs, presetRef(wr.Resolve(llmSvc, configRouterSchedulerModalityEPPConfigName)))
+				case resolvedSpec.Prefill != nil: // P/D disagg.
 					refs = append(refs, presetRef(wr.Resolve(llmSvc, configRouterSchedulerDefaultPDEPPConfigName)))
-				} else {
+				default:
 					refs = append(refs, presetRef(wr.Resolve(llmSvc, configRouterSchedulerDefaultEPPConfigName)))
 				}
 			}
