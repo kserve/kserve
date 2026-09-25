@@ -62,6 +62,7 @@ var (
 	// logger flags
 	logUrl              = flag.String("log-url", "", "The URL to send request/response logs to")
 	workers             = flag.Int("workers", 5, "Number of workers")
+	logWorkQueueSize    = flag.Int("log-work-queue-size", kfslogger.LoggerWorkerQueueSize, "Size of the logger work queue; once full, new log events are dropped instead of blocking the request path")
 	sourceUri           = flag.String("source-uri", "", "The source URI to use when publishing cloudevents")
 	logMode             = flag.String("log-mode", string(v1beta1.LogAll), "Whether to log 'request', 'response' or 'all'")
 	logStorePath        = flag.String("log-store-path", "", "The path to the log output")
@@ -160,7 +161,7 @@ func main() {
 	var loggerArgs *loggerArgs
 	if *logUrl != "" {
 		logger.Info("Starting logger")
-		loggerArgs = startLogger(*workers, logStorePath, *logMarshallerUrl, *logMarshallerPort,
+		loggerArgs = startLogger(*workers, *logWorkQueueSize, logStorePath, *logMarshallerUrl, *logMarshallerPort,
 			*logBatchSize, *logBatchInterval, logger)
 	}
 
@@ -272,7 +273,7 @@ func startBatcher(logger *zap.SugaredLogger) *batcherArgs {
 	}
 }
 
-func startLogger(workers int, logStorePath *string, marshallerUrl string, marshallerPort int,
+func startLogger(workers int, workQueueSize int, logStorePath *string, marshallerUrl string, marshallerPort int,
 	batchSize int, batchInterval time.Duration, log *zap.SugaredLogger,
 ) *loggerArgs {
 	loggingMode := v1beta1.LoggerType(*logMode)
@@ -361,7 +362,7 @@ func startLogger(workers int, logStorePath *string, marshallerUrl string, marsha
 	}
 
 	log.Info("Starting the log dispatcher")
-	kfslogger.StartDispatcher(workers, store, batchStrategy, log)
+	kfslogger.StartDispatcher(workers, workQueueSize, store, batchStrategy, log)
 	return &loggerArgs{
 		loggerType:       loggingMode,
 		logUrl:           logUrlParsed,
