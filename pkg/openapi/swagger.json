@@ -4686,6 +4686,14 @@
         "kserveIngressGateway": {
           "type": "string"
         },
+        "llmInferenceServiceTLSCipherSuites": {
+          "description": "LLMInferenceServiceTLSCipherSuites configures TLS 1.2 cipher suites using Go/IANA names; values are translated to OpenSSL names for vLLM.",
+          "type": "string"
+        },
+        "llmInferenceServiceTLSMinVersion": {
+          "description": "LLMInferenceServiceTLSMinVersion configures the minimum TLS version for Go-based LLMISVC components. vLLM does not expose a minimum-version option.",
+          "type": "string"
+        },
         "localGateway": {
           "type": "string"
         },

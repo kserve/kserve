@@ -16,11 +16,19 @@ spec:
                 - "/bin/bash"
                 - "-c"
                 - |-
+                  {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}TLS_CIPHER_ARGS=""
+                  TLS_CIPHER_HELP="$(vllm launch render --help=all 2>&1 || true)"
+                  case "${TLS_CIPHER_HELP}" in
+                    *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+                    *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+                  esac
+                  {{ end }}
                   exec vllm launch render /mnt/models/base \
                     --port=8000 \
                     {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh \
                     --ssl-certfile /var/run/kserve/tls/tls.crt \
-                    --ssl-keyfile /var/run/kserve/tls/tls.key{{ end }}
+                    --ssl-keyfile /var/run/kserve/tls/tls.key{{ end }} \
+                    {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{ end }}
               args: []
               ports:
                 - name: render-http

@@ -33,6 +33,22 @@ fi
 echo "Generating Python SDK for KServe ..."
 java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -g python -o ${SDK_OUTPUT_PATH} -c ${SWAGGER_CODEGEN_CONF}
 
+# Preserve the positional constructor contract that predates the LLM TLS fields.
+# New fields are keyword-only so generated clients cannot silently rebind existing
+# positional arguments when this model grows.
+INGRESS_CONFIG_MODEL="${SDK_OUTPUT_PATH}/kserve/models/v1beta1_ingress_config.py"
+INGRESS_TLS_KWONLY=", *, llm_inference_service_tls_cipher_suites=None, llm_inference_service_tls_min_version=None):"
+sed -i'.bak' -e '/def __init__(.*, local_vars_configuration=None):/{
+s/, llm_inference_service_tls_cipher_suites=None,/,/
+s/, llm_inference_service_tls_min_version=None,/,/
+s/, local_vars_configuration=None):/, local_vars_configuration=None'"${INGRESS_TLS_KWONLY}"'/
+}' "${INGRESS_CONFIG_MODEL}"
+rm -f "${INGRESS_CONFIG_MODEL}.bak"
+grep -qF "local_vars_configuration=None${INGRESS_TLS_KWONLY}" "${INGRESS_CONFIG_MODEL}" || {
+    echo "client-gen: keyword-only patch did not apply to ${INGRESS_CONFIG_MODEL}" >&2
+    exit 1
+}
+
 # Fix openapi-generator 4.3.1 bug: model references with dots in swagger definition
 # names (e.g. "v1alpha2.LLMInferenceService") are emitted as broken Python expressions
 # like "kserve.models.v1alpha2/llm_inference_service.v1alpha2.LLMInferenceService("

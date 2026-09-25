@@ -986,6 +986,9 @@ type templateGlobalConfig struct {
 	IngressGatewayName      string
 	IngressGatewayNamespace string
 	EnableTLS               bool
+	TLSMinVersion           string
+	TLSCipherSuites         string
+	TLSCipherSuitesOpenSSL  string
 
 	// ModelBasedRoutingHeaderName is the HTTP header used to select a model in
 	// shared-gateway deployments (e.g. "X-Gateway-Model-Name"). Exposed here so
@@ -1110,6 +1113,9 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 			IngressGatewayName:          reconcilerConfig.IngressGatewayName,
 			IngressGatewayNamespace:     reconcilerConfig.IngressGatewayNamespace,
 			EnableTLS:                   reconcilerConfig.EnableTLS,
+			TLSMinVersion:               reconcilerConfig.TLSMinVersion,
+			TLSCipherSuites:             reconcilerConfig.TLSCipherSuites,
+			TLSCipherSuitesOpenSSL:      reconcilerConfig.TLSCipherSuitesOpenSSL,
 			ModelBasedRoutingHeaderName: reconcilerConfig.ModelBasedRoutingHeaderName,
 		}
 		infPoolNamespacedName := types.NamespacedName{
@@ -1144,7 +1150,48 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	if err := json.Unmarshal(buf.Bytes(), out); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config from template: %w", err)
 	}
+	dropOmittedArgs(out)
 	return out, nil
+}
+
+// OmittedArgMarker lets a preset drop an argv entry when its value is unset,
+// which a template cannot do alone: rendering runs over the JSON encoding, so an
+// action can blank a list element but not remove it.
+const OmittedArgMarker = "__KSERVE_OMIT_ARG__"
+
+// dropOmittedArgs removes marked entries from the command and args of every
+// container in every pod spec. Only those fields are filtered so a marker in a
+// probe or environment value cannot be silently removed.
+func dropOmittedArgs(cfg *v1alpha2.LLMInferenceServiceConfig) {
+	if cfg == nil {
+		return
+	}
+	podSpecs := []*corev1.PodSpec{cfg.Spec.Template, cfg.Spec.Worker}
+	if cfg.Spec.Prefill != nil {
+		podSpecs = append(podSpecs, cfg.Spec.Prefill.Template, cfg.Spec.Prefill.Worker)
+	}
+	if cfg.Spec.Router != nil && cfg.Spec.Router.Scheduler != nil {
+		podSpecs = append(podSpecs, cfg.Spec.Router.Scheduler.Template)
+		if cfg.Spec.Router.Scheduler.Tokenizer != nil {
+			podSpecs = append(podSpecs, cfg.Spec.Router.Scheduler.Tokenizer.Template)
+		}
+	}
+
+	for _, podSpec := range podSpecs {
+		if podSpec == nil {
+			continue
+		}
+		for _, containers := range [][]corev1.Container{podSpec.InitContainers, podSpec.Containers} {
+			for i := range containers {
+				containers[i].Command = slices.DeleteFunc(containers[i].Command, func(arg string) bool {
+					return arg == OmittedArgMarker
+				})
+				containers[i].Args = slices.DeleteFunc(containers[i].Args, func(arg string) bool {
+					return arg == OmittedArgMarker
+				})
+			}
+		}
+	}
 }
 
 // configNotFoundError is returned by getConfig when an LLMInferenceServiceConfig
