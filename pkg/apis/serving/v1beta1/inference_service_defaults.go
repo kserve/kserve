@@ -26,13 +26,12 @@ import (
 	"google.golang.org/protobuf/proto"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
-
-	"k8s.io/client-go/kubernetes/scheme"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -132,8 +131,12 @@ func (d *InferenceServiceDefaulter) Default(ctx context.Context, isvc *Inference
 	var models *v1alpha1.LocalModelCacheList
 	var nsModels *v1alpha1.LocalModelNamespaceCacheList
 	if !localModelDisabledForIsvc && localModelConfig.Enabled {
+		modelScheme := runtime.NewScheme()
+		if err := v1alpha1.AddToScheme(modelScheme); err != nil {
+			return err
+		}
 		var c client.Client
-		if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
+		if c, err = client.New(cfg, client.Options{Scheme: modelScheme}); err != nil {
 			mutatorLogger.Error(err, "Failed to start client")
 			return err
 		}

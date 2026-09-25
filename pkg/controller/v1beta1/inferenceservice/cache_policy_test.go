@@ -19,6 +19,7 @@ package inferenceservice
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -29,12 +30,16 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/constants"
 	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
 	localmodelnodecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodelnode"
 	llmisvccontroller "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
@@ -42,6 +47,38 @@ import (
 )
 
 var _ = Describe("controller cache policies", func() {
+	It("defaults InferenceServices with local model caching enabled using a private scheme", func(ctx SpecContext) {
+		kubeconfig := clientcmdapi.Config{
+			Clusters: map[string]*clientcmdapi.Cluster{"envtest": {
+				Server: cfg.Host, CertificateAuthorityData: cfg.CAData,
+			}},
+			AuthInfos: map[string]*clientcmdapi.AuthInfo{"envtest": {
+				ClientCertificateData: cfg.CertData, ClientKeyData: cfg.KeyData,
+			}},
+			Contexts: map[string]*clientcmdapi.Context{"envtest": {
+				Cluster: "envtest", AuthInfo: "envtest",
+			}},
+			CurrentContext: "envtest",
+		}
+		path := filepath.Join(GinkgoT().TempDir(), "kubeconfig")
+		Expect(clientcmd.WriteToFile(kubeconfig, path)).To(Succeed())
+		GinkgoT().Setenv("KUBECONFIG", path)
+		configMap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
+			Data:       getBaseTestConfigs(),
+		}
+		configMap.Data["localModel"] = `{"enabled":true}`
+		Expect(k8sClient.Create(ctx, configMap)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) { Expect(k8sClient.Delete(ctx, configMap)).To(Succeed()) })
+		isvc := &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "local-model-defaulting", Namespace: "default"},
+			Spec: v1beta1.InferenceServiceSpec{Predictor: v1beta1.PredictorSpec{
+				Model: &v1beta1.ModelSpec{ModelFormat: v1beta1.ModelFormat{Name: "sklearn"}},
+			}},
+		}
+		Expect((&v1beta1.InferenceServiceDefaulter{}).Default(ctx, isvc)).To(Succeed())
+	})
+
 	It("keeps unlabeled Job conflicts visible through direct local-model reads", func(ctx SpecContext) {
 		mgr := startCachePolicyManager(ctx, localmodelcontroller.NewCacheOptions(), localmodelcontroller.NewClientOptions(), &batchv1.Job{})
 		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "import-cache-"}}
