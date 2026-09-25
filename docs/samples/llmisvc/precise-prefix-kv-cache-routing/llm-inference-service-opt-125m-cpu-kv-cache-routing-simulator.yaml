@@ -15,7 +15,7 @@ spec:
     scheduler:
       config:
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
             - type: single-profile-handler

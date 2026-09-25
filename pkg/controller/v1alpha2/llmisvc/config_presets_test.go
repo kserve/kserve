@@ -101,7 +101,7 @@ func TestPresetFiles(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Name:  "llm-d-routing-sidecar",
-									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.10.0",
+									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0",
 									Command: []string{
 										"/app/pd-sidecar",
 										"--port=8000",

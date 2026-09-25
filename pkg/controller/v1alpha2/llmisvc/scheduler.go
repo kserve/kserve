@@ -1438,6 +1438,16 @@ func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
 //  8. WithRemovePlugin – strip disagg-headers-handler, prefill-header-handler,
 //     and pd-profile-handler (v0.11.0+, disagg-headers-handler removed from
 //     llm-d-router; the other two are legacy names from prior renames)
+//  9. withMigrateSaturationDetector, withMigrateParser, withMigratePeerDiscovery –
+//     relocate the saturationDetector, parser and dataLayer.peerDiscovery fields
+//     removed from EndpointPickerConfig in v0.11.0
+//  10. withMigrateCrossReplica, withMigrateDiscoveryPluginRef – regroup the
+//     dataLayer.crossReplica* fields under dataLayer.crossReplica and fold
+//     dataLayer.discovery.pluginRef into discovery.endpoints, the layout the
+//     graduated llm-d.ai/v1 config API expects (v0.11.0+)
+//  11. withMigrateLLMDAPIVersion – relabel a deprecated apiVersion to the
+//     newest one the binary accepts: llm-d.ai/v1alpha1 for 0.9.x and 0.10.x,
+//     llm-d.ai/v1 from 0.11.0 on
 func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService, enableTLS bool) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
@@ -1482,7 +1492,14 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 	if v.Compare(*semver.New("0.9.0")) >= 0 {
 		opts = append(opts, withRemovePrefixCacheScorerParametersV09)
 		opts = append(opts, withRemoveUnnecessaryTokenizer(d))
-		opts = append(opts, withMigrateLLMDAPIVersion)
+		// The apiVersion is relabelled to the newest one the running binary
+		// accepts: 0.9.x and 0.10.x have no llm-d.ai/v1 in their scheme and
+		// would reject a config carrying it.
+		apiVersion := eppConfigAPIVersionV1Alpha1
+		if v.Compare(*semver.New("0.11.0")) >= 0 {
+			apiVersion = eppConfigAPIVersionV1
+		}
+		opts = append(opts, withMigrateLLMDAPIVersion(apiVersion))
 
 		// Decompose precise-prefix-cache-scorer into the 3-plugin pipeline
 		// when the standalone tokenizer is enabled. Gated to >= 0.9.0 because
@@ -1534,11 +1551,28 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 	// - prefill-header-handler  (pre-v0.7.0 name, renamed to disagg-headers-handler) to support upgrade from pre-v0.7 to 0.11
 	// - pd-profile-handler      (pre-v0.7.0 name, renamed to disagg-headers-handler) to support upgrade from pre-v0.7 to 0.11
 	// - disagg-headers-handler  (v0.7.0 name, no longer recognised by router after 0.11.0)
+	//
+	// It also drops three EndpointPickerConfig fields that were deprecated in
+	// v0.9.0 and removed in v0.11.0. The EPP decodes its config with a strict
+	// serializer, so a config carrying any of them stops the binary from
+	// starting; each is relocated to the field that replaced it.
+	//
+	// v0.11.0 additionally graduates the config API to llm-d.ai/v1, which regroups
+	// the dataLayer.crossReplica* fields under dataLayer.crossReplica and replaces
+	// dataLayer.discovery.pluginRef with dataLayer.discovery.endpoints.pluginRef.
+	// These run under the same gate as the llm-d.ai/v1 relabel above, so a config
+	// is never handed to the scheduler as v1 while still carrying a key the v1
+	// types dropped.
 	if v.Compare(*semver.New("0.11.0")) >= 0 {
 		opts = append(opts,
 			WithRemovePlugin("prefill-header-handler"),
 			WithRemovePlugin("disagg-headers-handler"),
 			WithRemovePlugin("pd-profile-handler"),
+			withMigrateSaturationDetector,
+			withMigrateParser,
+			withMigratePeerDiscovery,
+			withMigrateCrossReplica,
+			withMigrateDiscoveryPluginRef,
 		)
 	}
 
@@ -1554,14 +1588,151 @@ func withMigrateDisaggHeadersHandler(ctx context.Context, u *unstructured.Unstru
 	return WithRenamePlugin("prefill-header-handler", "disagg-headers-handler")(ctx, u)
 }
 
-// withMigrateLLMDAPIVersion rewrites the deprecated EndpointPickerConfig
-// apiVersion inference.networking.x-k8s.io/v1alpha1 to llm-d.ai/v1alpha1, which
-// is the apiVersion accepted by the scheduler binary from v0.9.0 onward.
-func withMigrateLLMDAPIVersion(_ context.Context, u *unstructured.Unstructured) error {
-	if u.GetAPIVersion() == "inference.networking.x-k8s.io/v1alpha1" {
-		u.SetAPIVersion("llm-d.ai/v1alpha1")
+// moveLegacyConfigField relocates a deprecated EndpointPickerConfig field to
+// the path that replaced it. The legacy field is always removed, because the
+// EPP decodes its configuration with a strict serializer and would refuse to
+// start while it is present. The value is only written to the new path when
+// that path holds nothing, matching the router's own "if both are set, the
+// new field is used" rule for the deprecation window. wrap, when non-nil,
+// adapts the legacy value to the shape of the replacement field.
+func moveLegacyConfigField(u *unstructured.Unstructured, from, to []string, wrap func(interface{}) interface{}) error {
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, from...)
+	if err != nil || !found {
+		return err
+	}
+	unstructured.RemoveNestedField(u.Object, from...)
+
+	if existing, exists, err := unstructured.NestedFieldNoCopy(u.Object, to...); err != nil {
+		return err
+	} else if exists && !isUnsetConfigValue(existing) {
+		return nil
+	}
+
+	if wrap != nil {
+		val = wrap(val)
+	}
+	return unstructured.SetNestedField(u.Object, val, to...)
+}
+
+// isUnsetConfigValue reports whether a replacement field is declared but holds
+// nothing, in which case the legacy value it superseded still has to be carried
+// over. This mirrors how llm-d-router itself resolved the two during the
+// deprecation window: it tested a list replacement with len() == 0 and a scalar
+// one against the empty string, so a config declaring requestHandler.parsers: []
+// or an explicit null kept using the legacy field. An empty map is deliberately
+// not unset: the router compared its struct pointers against nil, and a declared
+// {} decodes to a non-nil pointer.
+func isUnsetConfigValue(v interface{}) bool {
+	switch val := v.(type) {
+	case nil:
+		return true
+	case []interface{}:
+		return len(val) == 0
+	case string:
+		return val == ""
+	default:
+		return false
+	}
+}
+
+// withMigrateSaturationDetector moves the top-level saturationDetector into
+// flowControl.saturationDetector. llm-d-router deprecated the old field in
+// v0.9.0 and removed it in v0.11.0.
+func withMigrateSaturationDetector(_ context.Context, u *unstructured.Unstructured) error {
+	return moveLegacyConfigField(u,
+		[]string{"saturationDetector"},
+		[]string{"flowControl", "saturationDetector"},
+		nil)
+}
+
+// withMigrateParser moves the top-level parser into requestHandler.parsers.
+// llm-d-router deprecated the old field in v0.9.0 and removed it in v0.11.0.
+// The replacement is a list, so the single legacy entry becomes its only
+// element.
+func withMigrateParser(_ context.Context, u *unstructured.Unstructured) error {
+	return moveLegacyConfigField(u,
+		[]string{"parser"},
+		[]string{"requestHandler", "parsers"},
+		func(val interface{}) interface{} { return []interface{}{val} })
+}
+
+// withMigratePeerDiscovery moves dataLayer.peerDiscovery under
+// dataLayer.discovery.peers, which replaced it in llm-d-router v0.11.0.
+func withMigratePeerDiscovery(_ context.Context, u *unstructured.Unstructured) error {
+	return moveLegacyConfigField(u,
+		[]string{"dataLayer", "peerDiscovery"},
+		[]string{"dataLayer", "discovery", "peers"},
+		nil)
+}
+
+// EndpointPickerConfig apiVersions, in the order the scheduler binary accepted
+// them:
+//   - eppConfigAPIVersionGIE: the original group, dropped by llm-d-router in
+//     v0.11.0 - a config still carrying it fails to load.
+//   - eppConfigAPIVersionV1Alpha1: accepted from v0.9.0, still loads in v0.11.0
+//     but is converted in-memory and reported as deprecated on every start.
+//   - eppConfigAPIVersionV1: the graduated version, accepted from v0.11.0.
+const (
+	eppConfigAPIVersionGIE      = "inference.networking.x-k8s.io/v1alpha1"
+	eppConfigAPIVersionV1Alpha1 = "llm-d.ai/v1alpha1"
+	eppConfigAPIVersionV1       = "llm-d.ai/v1"
+)
+
+// withMigrateLLMDAPIVersion relabels a config on a deprecated
+// EndpointPickerConfig apiVersion to target, which callers set to the newest
+// apiVersion the scheduler binary being reconciled accepts - llm-d.ai/v1alpha1
+// for 0.9.x and 0.10.x, llm-d.ai/v1 from 0.11.0 on. Relabelling past what the
+// binary knows is not an option: it decodes with a strict serializer and an
+// unknown group stops it from starting.
+//
+// A config with no apiVersion at all is left alone: the scheduler rejects it
+// either way, and inventing a group here would mask the error.
+//
+// Like every migration in schedulerTransform this is upgrade-only. A config
+// already rendered as llm-d.ai/v1 is not rewritten back when target is an older
+// apiVersion, because relabelling alone would not make it loadable and the
+// layout cannot be reversed without losing configuration: v0.10.0 has no
+// dataLayer.crossReplicaPublishTimeout, no peerDiscovery, and its
+// dataLayer.discovery carries a required pluginRef with no endpoints or peers.
+// Rolling the router back to v0.10.0 or older therefore requires restoring the
+// scheduler config by hand.
+func withMigrateLLMDAPIVersion(target string) mutateSchedulerConfigFunc {
+	return func(_ context.Context, u *unstructured.Unstructured) error {
+		switch u.GetAPIVersion() {
+		case eppConfigAPIVersionGIE, eppConfigAPIVersionV1Alpha1:
+			u.SetAPIVersion(target)
+		}
+		return nil
+	}
+}
+
+// withMigrateCrossReplica groups the three flat dataLayer.crossReplica* fields
+// under dataLayer.crossReplica, which replaced them when the config API
+// graduated to llm-d.ai/v1 in llm-d-router v0.11.0.
+func withMigrateCrossReplica(_ context.Context, u *unstructured.Unstructured) error {
+	for _, field := range []struct{ from, to string }{
+		{from: "crossReplicaSyncerPluginRef", to: "syncerPluginRef"},
+		{from: "crossReplicaSyncInterval", to: "syncInterval"},
+		{from: "crossReplicaPublishTimeout", to: "publishTimeout"},
+	} {
+		if err := moveLegacyConfigField(u,
+			[]string{"dataLayer", field.from},
+			[]string{"dataLayer", "crossReplica", field.to},
+			nil); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+// withMigrateDiscoveryPluginRef moves the bare dataLayer.discovery.pluginRef to
+// dataLayer.discovery.endpoints.pluginRef. The bare field was deprecated in
+// llm-d-router v0.11.0 and is absent from the graduated llm-d.ai/v1 types.
+func withMigrateDiscoveryPluginRef(_ context.Context, u *unstructured.Unstructured) error {
+	return moveLegacyConfigField(u,
+		[]string{"dataLayer", "discovery", "pluginRef"},
+		[]string{"dataLayer", "discovery", "endpoints", "pluginRef"},
+		nil)
 }
 
 // withMigrateCoreMetricsExtractor renames the model-server-protocol-metrics
