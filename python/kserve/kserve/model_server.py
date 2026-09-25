@@ -329,6 +329,7 @@ class ModelServer:
         self._rest_server = None
         self._rest_multiprocess_server = None
         self._grpc_server = None
+        self._shutdown_task: Optional[asyncio.Task] = None
         self.servers = []
 
     def setup_event_loop(self):
@@ -426,7 +427,10 @@ class ModelServer:
                 logger.info("Stopping the grpc server")
                 await self._grpc_server.stop(sig)
 
-        asyncio.create_task(shutdown())
+        # Keep a reference: the event loop only holds a weak one, so an
+        # unreferenced task can be garbage collected before it finishes and
+        # the servers would never be stopped.
+        self._shutdown_task = asyncio.create_task(shutdown())
         for model_name in list(self.registered_models.get_models().keys()):
             self.registered_models.unload(model_name)
 
