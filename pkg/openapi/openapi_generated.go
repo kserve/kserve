@@ -139,7 +139,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheArtifactCertConfig":     schema_pkg_apis_serving_v1beta1_KernelCacheArtifactCertConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheArtifactSecurityConfig": schema_pkg_apis_serving_v1beta1_KernelCacheArtifactSecurityConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheConfig":                 schema_pkg_apis_serving_v1beta1_KernelCacheConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheConfigMapKeyRef":        schema_pkg_apis_serving_v1beta1_KernelCacheConfigMapKeyRef(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheRegistryAuth":           schema_pkg_apis_serving_v1beta1_KernelCacheRegistryAuth(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheRegistryConfig":         schema_pkg_apis_serving_v1beta1_KernelCacheRegistryConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheRegistryRoleRef":        schema_pkg_apis_serving_v1beta1_KernelCacheRegistryRoleRef(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":                      schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LocalModelConfig":                  schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                        schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
@@ -8628,7 +8631,7 @@ func schema_pkg_apis_serving_v1beta1_KernelCacheConfig(ref common.ReferenceCallb
 					},
 					"registry": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Registry contains the endpoint used to build generated capture image references. Registry credentials are added by the registry authentication integration.",
+							Description: "Registry configures the OCI registry used by capture and prefetch operations.",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheRegistryConfig"),
 						},
@@ -8649,20 +8652,137 @@ func schema_pkg_apis_serving_v1beta1_KernelCacheConfig(ref common.ReferenceCallb
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_KernelCacheConfigMapKeyRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelCacheConfigMapKeyRef identifies a value in a ConfigMap.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the referenced ConfigMap.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Key is the data key containing the referenced value.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name", "key"},
+			},
+		},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_KernelCacheRegistryAuth(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelCacheRegistryAuth defines how KernelCache obtains registry credentials.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Type selects none or serviceAccountToken authentication. The zero value is treated as none.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"tokenTTLSeconds": {
+						SchemaProps: spec.SchemaProps{
+							Description: "TokenTTLSeconds is the lifetime of a token issued through TokenRequest. The default is 600 seconds when serviceAccountToken is selected.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"pushRoleRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PushRoleRef identifies the Role or ClusterRole bound to the per-capture ServiceAccount used to publish captured images.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheRegistryRoleRef"),
+						},
+					},
+					"pullRoleRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PullRoleRef identifies the Role or ClusterRole bound to the prefetch ServiceAccount used to pull cache images.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheRegistryRoleRef"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheRegistryRoleRef"},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_KernelCacheRegistryConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "KernelCacheRegistryConfig contains the endpoint used by generated capture images. Registry authentication configuration is intentionally added separately.",
+				Description: "KernelCacheRegistryConfig defines the registry endpoint, trust bundle, and authentication used by KernelCache capture and prefetch operations.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"endpoint": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Endpoint is the OCI registry host and optional port.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"auth": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Auth configures how registry credentials are provisioned.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheRegistryAuth"),
+						},
+					},
+					"caConfigMapRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CAConfigMapRef optionally references a ConfigMap key containing the registry CA bundle.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheConfigMapKeyRef"),
 						},
 					},
 				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheConfigMapKeyRef", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheRegistryAuth"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_KernelCacheRegistryRoleRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelCacheRegistryRoleRef identifies the Kubernetes Role or ClusterRole used to authorize registry access.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is Role or ClusterRole.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the name of the referenced Role or ClusterRole.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"kind", "name"},
 			},
 		},
 	}

@@ -187,7 +187,15 @@ const (
 	DefaultKernelCacheJobTTLSeconds                     int32 = 600
 	DefaultKernelCacheReconcileIntervalSeconds          int64 = 300
 	DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds int64 = 600
-	DefaultKernelCacheAbandonedCapturePolicy                  = "retain"
+	// DefaultKernelCacheRegistryTokenTTLSeconds is the default lifetime of a
+	// registry ServiceAccount token issued for KernelCache access.
+	DefaultKernelCacheRegistryTokenTTLSeconds int64 = 600
+	DefaultKernelCacheAbandonedCapturePolicy        = "retain"
+	// KernelCacheRegistryAuthTypeNone disables registry credential provisioning.
+	KernelCacheRegistryAuthTypeNone = "none"
+	// KernelCacheRegistryAuthTypeServiceAccountToken uses the Kubernetes
+	// TokenRequest API to issue short-lived registry credentials.
+	KernelCacheRegistryAuthTypeServiceAccountToken = "serviceAccountToken"
 )
 
 // +kubebuilder:object:generate=false
@@ -205,8 +213,7 @@ type KernelCacheConfig struct {
 	JobTTLSecondsAfterFinished        *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
 	ReconcileIntervalSeconds          *int64 `json:"reconcileIntervalSeconds,omitempty"`
 	AbandonedCapturePolicy            string `json:"abandonedCapturePolicy,omitempty"`
-	// Registry contains the endpoint used to build generated capture image references.
-	// Registry credentials are added by the registry authentication integration.
+	// Registry configures the OCI registry used by capture and prefetch operations.
 	Registry KernelCacheRegistryConfig `json:"registry,omitempty"`
 	// ArtifactSecurity controls signing of completed capture artifacts.
 	ArtifactSecurity KernelCacheArtifactSecurityConfig `json:"artifactSecurity,omitempty"`
@@ -228,10 +235,89 @@ type KernelCacheConfig struct {
 	CaptureSessionID string `json:"-"`
 }
 
-// KernelCacheRegistryConfig contains the endpoint used by generated capture images.
-// Registry authentication configuration is intentionally added separately.
+// +kubebuilder:object:generate=false
+// KernelCacheRegistryConfig defines the registry endpoint, trust bundle, and
+// authentication used by KernelCache capture and prefetch operations.
 type KernelCacheRegistryConfig struct {
+	// Endpoint is the OCI registry host and optional port.
 	Endpoint string `json:"endpoint,omitempty"`
+	// Auth configures how registry credentials are provisioned.
+	Auth KernelCacheRegistryAuth `json:"auth,omitempty"`
+	// CAConfigMapRef optionally references a ConfigMap key containing the
+	// registry CA bundle.
+	CAConfigMapRef *KernelCacheConfigMapKeyRef `json:"caConfigMapRef,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+// KernelCacheRegistryAuth defines how KernelCache obtains registry credentials.
+type KernelCacheRegistryAuth struct {
+	// Type selects none or serviceAccountToken authentication. The zero value
+	// is treated as none.
+	Type string `json:"type,omitempty"`
+	// TokenTTLSeconds is the lifetime of a token issued through TokenRequest.
+	// The default is 600 seconds when serviceAccountToken is selected.
+	TokenTTLSeconds int64 `json:"tokenTTLSeconds,omitempty"`
+	// PushRoleRef identifies the Role or ClusterRole bound to the per-capture
+	// ServiceAccount used to publish captured images.
+	PushRoleRef *KernelCacheRegistryRoleRef `json:"pushRoleRef,omitempty"`
+	// PullRoleRef identifies the Role or ClusterRole bound to the prefetch
+	// ServiceAccount used to pull cache images.
+	PullRoleRef *KernelCacheRegistryRoleRef `json:"pullRoleRef,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+// KernelCacheRegistryRoleRef identifies the Kubernetes Role or ClusterRole
+// used to authorize registry access.
+type KernelCacheRegistryRoleRef struct {
+	// Kind is Role or ClusterRole.
+	Kind string `json:"kind"`
+	// Name is the name of the referenced Role or ClusterRole.
+	Name string `json:"name"`
+}
+
+// +kubebuilder:object:generate=false
+// KernelCacheConfigMapKeyRef identifies a value in a ConfigMap.
+type KernelCacheConfigMapKeyRef struct {
+	// Name is the name of the referenced ConfigMap.
+	Name string `json:"name"`
+	// Key is the data key containing the referenced value.
+	Key string `json:"key"`
+}
+
+// Validate checks registry authentication settings without provisioning any
+// credentials. Credential lifecycle handling is performed by consumers.
+func (c *KernelCacheRegistryConfig) Validate() error {
+	switch c.Auth.Type {
+	case "", KernelCacheRegistryAuthTypeNone:
+		return nil
+	case KernelCacheRegistryAuthTypeServiceAccountToken:
+		if c.Endpoint == "" || strings.ContainsAny(c.Endpoint, "/ \t\n") {
+			return errors.New("registry.endpoint must be a registry host with optional port")
+		}
+		if err := validateKernelCacheRegistryRoleRef("pushRoleRef", c.Auth.PushRoleRef); err != nil {
+			return err
+		}
+		if err := validateKernelCacheRegistryRoleRef("pullRoleRef", c.Auth.PullRoleRef); err != nil {
+			return err
+		}
+		if c.Auth.TokenTTLSeconds != 0 &&
+			(c.Auth.TokenTTLSeconds < DefaultKernelCacheRegistryTokenTTLSeconds || c.Auth.TokenTTLSeconds > 3600) {
+			return errors.New("registry.auth.tokenTTLSeconds must be between 600 and 3600")
+		}
+	default:
+		return fmt.Errorf("unsupported registry.auth.type %q", c.Auth.Type)
+	}
+	return nil
+}
+
+func validateKernelCacheRegistryRoleRef(field string, ref *KernelCacheRegistryRoleRef) error {
+	if ref == nil || ref.Kind == "" || ref.Name == "" {
+		return fmt.Errorf("registry.auth.%s requires kind and name", field)
+	}
+	if ref.Kind != "Role" && ref.Kind != "ClusterRole" {
+		return fmt.Errorf("registry.auth.%s.kind must be Role or ClusterRole", field)
+	}
+	return nil
 }
 
 // +kubebuilder:object:generate=false
@@ -279,6 +365,18 @@ func (c *KernelCacheConfig) DeepCopy() *KernelCacheConfig {
 	if c.ReconcileIntervalSeconds != nil {
 		value := *c.ReconcileIntervalSeconds
 		out.ReconcileIntervalSeconds = &value
+	}
+	if c.Registry.CAConfigMapRef != nil {
+		value := *c.Registry.CAConfigMapRef
+		out.Registry.CAConfigMapRef = &value
+	}
+	if c.Registry.Auth.PushRoleRef != nil {
+		value := *c.Registry.Auth.PushRoleRef
+		out.Registry.Auth.PushRoleRef = &value
+	}
+	if c.Registry.Auth.PullRoleRef != nil {
+		value := *c.Registry.Auth.PullRoleRef
+		out.Registry.Auth.PullRoleRef = &value
 	}
 	return &out
 }
@@ -542,6 +640,9 @@ func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, 
 		JobTTLSecondsAfterFinished:        &jobTTLSeconds,
 		ReconcileIntervalSeconds:          &reconcileIntervalSeconds,
 		AbandonedCapturePolicy:            DefaultKernelCacheAbandonedCapturePolicy,
+		Registry: KernelCacheRegistryConfig{
+			Auth: KernelCacheRegistryAuth{Type: KernelCacheRegistryAuthTypeNone},
+		},
 		ArtifactSecurity: KernelCacheArtifactSecurityConfig{
 			Mode:          "none",
 			FailurePolicy: string(kernelcachetypes.FailurePolicyReject),
@@ -583,6 +684,13 @@ func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, 
 	}
 	if kernelCacheConfig.MCVCaptureReadinessTimeoutSeconds <= 0 {
 		return nil, errors.New("kernelcache.mcvCaptureReadinessTimeoutSeconds must be greater than zero")
+	}
+	if kernelCacheConfig.Registry.Auth.Type == KernelCacheRegistryAuthTypeServiceAccountToken &&
+		kernelCacheConfig.Registry.Auth.TokenTTLSeconds == 0 {
+		kernelCacheConfig.Registry.Auth.TokenTTLSeconds = DefaultKernelCacheRegistryTokenTTLSeconds
+	}
+	if err := kernelCacheConfig.Registry.Validate(); err != nil {
+		return nil, err
 	}
 	if kernelCacheConfig.ArtifactSecurity.Mode == "" {
 		kernelCacheConfig.ArtifactSecurity.Mode = "none"
