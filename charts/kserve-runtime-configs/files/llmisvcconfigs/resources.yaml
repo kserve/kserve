@@ -2658,6 +2658,7 @@ spec:
             - -c
             - |-
               exec vllm launch render /mnt/models/base \
+                --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" /mnt/models/base \
                 --port=8000 \
                 {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh \
                 --ssl-certfile /var/run/kserve/tls/tls.crt \
