@@ -87,11 +87,12 @@ type LoggerHandler struct {
 	annotations      map[string]string
 	certName         string
 	tlsSkipVerify    bool
+	logAllResponses  bool
 }
 
 func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 	inferenceService string, namespace string, endpoint string, component string, next http.Handler, metadataHeaders []string,
-	certName string, annotations map[string]string, tlsSkipVerify bool,
+	certName string, annotations map[string]string, tlsSkipVerify bool, logAllResponses bool,
 ) http.Handler {
 	logf.SetLogger(zap.New())
 	return &LoggerHandler{
@@ -108,6 +109,7 @@ func New(logUrl *url.URL, sourceUri *url.URL, logMode v1beta1.LoggerType,
 		metadataHeaders:  metadataHeaders,
 		certName:         certName,
 		tlsSkipVerify:    tlsSkipVerify,
+		logAllResponses:  logAllResponses,
 	}
 }
 
@@ -180,8 +182,12 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Record the time when the response is received
 	responseTime := time.Now()
 	// log Response
-	if lrw.statusCode == http.StatusOK {
+	if lrw.statusCode == http.StatusOK || eh.logAllResponses {
 		if eh.logMode == v1beta1.LogAll || eh.logMode == v1beta1.LogResponse {
+			statusCode := 0
+			if eh.logAllResponses {
+				statusCode = lrw.statusCode
+			}
 			if err := QueueLogRequest(LogRequest{
 				Url:              eh.logUrl,
 				Bytes:            &responseBody,
@@ -198,6 +204,7 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				CertName:         eh.certName,
 				TlsSkipVerify:    eh.tlsSkipVerify,
 				OccurrenceTime:   responseTime,
+				StatusCode:       statusCode,
 			}); err != nil {
 				eh.log.Error(err, "Failed to log response")
 			}
