@@ -713,6 +713,212 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			}, duration, interval).Should(Equal(1), "never concurrent import Jobs")
 		})
 
+		It("Should not re-import after success while consumers remain, then create one replacement once they are gone", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+
+			ns := fmt.Sprintf("test-shared-reimport-%d", time.Now().UnixNano())
+			defer k8sClient.Delete(ctx, createTestNamespace(ctx, ns))
+
+			pvc := makeRWXPVC("reimport-pvc", ns)
+			Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, pvc)
+
+			cache := makeSharedCache("shared-reimport", ns, "reimport-pvc")
+			Expect(k8sClient.Create(ctx, cache)).Should(Succeed())
+			defer k8sClient.Delete(ctx, cache)
+
+			cacheKey := types.NamespacedName{Name: "shared-reimport", Namespace: ns}
+			jobKey := types.NamespacedName{Name: "shared-reimport-import", Namespace: ns}
+
+			originalJob := &batchv1.Job{}
+			Eventually(func() error { return k8sClient.Get(ctx, jobKey, originalJob) }, timeout, interval).Should(Succeed())
+			markJobCondition(ctx, jobKey, batchv1.JobComplete)
+
+			Eventually(func() bool {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
+					return false
+				}
+				return current.IsReady() &&
+					current.Status.SharedPVCImport != nil &&
+					current.Status.SharedPVCImport.PVCUID == pvc.UID &&
+					current.Status.SharedPVCImport.CompletionTime != nil
+			}, timeout, interval).Should(BeTrue(), "a completed import must be recorded against the claim UID")
+
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "reimport-consumer",
+					Namespace: ns,
+					Labels: map[string]string{
+						constants.LocalModelLabel:          cache.Name,
+						constants.LocalModelNamespaceLabel: ns,
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Model: &v1beta1.ModelSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{StorageURI: ptr.To(sourceModelUri)},
+							ModelFormat:            v1beta1.ModelFormat{Name: "sklearn"},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+			Eventually(func() int {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
+					return -1
+				}
+				return len(current.Status.InferenceServices)
+			}, timeout, interval).Should(Equal(1))
+
+			// The retained Job disappears while the consumer still reads the destination.
+			Expect(k8sClient.Delete(ctx, originalJob, client.PropagationPolicy(metav1.DeletePropagationBackground))).Should(Succeed())
+
+			Eventually(func() string {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
+					return ""
+				}
+				if condition := current.Status.GetCondition(v1alpha1.LocalModelCacheReady); condition != nil {
+					return condition.Reason
+				}
+				return ""
+			}, timeout, interval).Should(Equal(v1alpha1.ReasonReimportBlocked))
+			Consistently(func() int {
+				jobs := &batchv1.JobList{}
+				_ = k8sClient.List(ctx, jobs, client.InNamespace(ns))
+				return len(jobs.Items)
+			}, duration, interval).Should(Equal(0), "no replacement Job while a consumer references the cache")
+			current := &v1alpha1.LocalModelNamespaceCache{}
+			Expect(k8sClient.Get(ctx, cacheKey, current)).Should(Succeed())
+			Expect(current.Status.SharedPVCImport).NotTo(BeNil(), "the import record must survive the blocked state")
+			Expect(current.Status.GetCondition(v1alpha1.LocalModelCacheReady).Message).To(ContainSubstring("1 InferenceService"))
+
+			// Removing the consumer allows exactly one replacement import.
+			Expect(k8sClient.Delete(ctx, isvc)).Should(Succeed())
+			Eventually(func() bool {
+				replacement := &batchv1.Job{}
+				if err := k8sClient.Get(ctx, jobKey, replacement); err != nil {
+					return false
+				}
+				return replacement.UID != originalJob.UID
+			}, timeout, interval).Should(BeTrue(), "one replacement Job once consumers are gone")
+			Consistently(func() int {
+				jobs := &batchv1.JobList{}
+				_ = k8sClient.List(ctx, jobs, client.InNamespace(ns))
+				return len(jobs.Items)
+			}, duration, interval).Should(Equal(1), "never concurrent import Jobs")
+			Eventually(func() bool {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
+					return false
+				}
+				return current.Status.SharedPVCImport == nil
+			}, timeout, interval).Should(BeTrue(), "a fresh import clears the previous record")
+		})
+
+		It("Should re-import onto a recreated PVC even while consumers reference the cache", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+
+			ns := fmt.Sprintf("test-shared-reimport-pvc-%d", time.Now().UnixNano())
+			defer k8sClient.Delete(ctx, createTestNamespace(ctx, ns))
+
+			pvc := makeRWXPVC("recreated-pvc", ns)
+			Expect(k8sClient.Create(ctx, pvc)).Should(Succeed())
+
+			cache := makeSharedCache("shared-recreated", ns, "recreated-pvc")
+			Expect(k8sClient.Create(ctx, cache)).Should(Succeed())
+			defer k8sClient.Delete(ctx, cache)
+
+			cacheKey := types.NamespacedName{Name: "shared-recreated", Namespace: ns}
+			jobKey := types.NamespacedName{Name: "shared-recreated-import", Namespace: ns}
+
+			originalJob := &batchv1.Job{}
+			Eventually(func() error { return k8sClient.Get(ctx, jobKey, originalJob) }, timeout, interval).Should(Succeed())
+			markJobCondition(ctx, jobKey, batchv1.JobComplete)
+			Eventually(func() bool {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
+					return false
+				}
+				return current.Status.SharedPVCImport != nil && current.Status.SharedPVCImport.PVCUID == pvc.UID
+			}, timeout, interval).Should(BeTrue())
+
+			isvc := &v1beta1.InferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "recreated-consumer",
+					Namespace: ns,
+					Labels: map[string]string{
+						constants.LocalModelLabel:          cache.Name,
+						constants.LocalModelNamespaceLabel: ns,
+					},
+				},
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						Model: &v1beta1.ModelSpec{
+							PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{StorageURI: ptr.To(sourceModelUri)},
+							ModelFormat:            v1beta1.ModelFormat{Name: "sklearn"},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, isvc)
+			Eventually(func() int {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
+					return -1
+				}
+				return len(current.Status.InferenceServices)
+			}, timeout, interval).Should(Equal(1))
+
+			// Recreate the claim under the same name: a new UID and no data. envtest has no
+			// PVC-protection controller to clear the admission-added finalizer.
+			currentPVC := &corev1.PersistentVolumeClaim{}
+			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(pvc), currentPVC)).Should(Succeed())
+			currentPVC.Finalizers = nil
+			Expect(k8sClient.Update(ctx, currentPVC)).Should(Succeed())
+			Expect(k8sClient.Delete(ctx, currentPVC)).Should(Succeed())
+			Eventually(func() bool {
+				return errors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(pvc), &corev1.PersistentVolumeClaim{}))
+			}, timeout, interval).Should(BeTrue())
+			recreated := makeRWXPVC("recreated-pvc", ns)
+			Expect(k8sClient.Create(ctx, recreated)).Should(Succeed())
+			defer k8sClient.Delete(ctx, recreated)
+			Expect(recreated.UID).NotTo(Equal(pvc.UID))
+
+			// The stale Job is replaced despite the consumer: the old record names the old claim.
+			Eventually(func() bool {
+				current := &batchv1.Job{}
+				if err := k8sClient.Get(ctx, jobKey, current); err != nil {
+					return false
+				}
+				return !current.DeletionTimestamp.IsZero() || current.UID != originalJob.UID
+			}, timeout, interval).Should(BeTrue())
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &batchv1.Job{}
+				if err := k8sClient.Get(ctx, jobKey, current); err != nil {
+					return client.IgnoreNotFound(err)
+				}
+				if current.UID != originalJob.UID {
+					return nil
+				}
+				current.Finalizers = nil
+				return k8sClient.Update(ctx, current)
+			})).Should(Succeed())
+			Eventually(func() bool {
+				replacement := &batchv1.Job{}
+				if err := k8sClient.Get(ctx, jobKey, replacement); err != nil {
+					return false
+				}
+				return replacement.UID != originalJob.UID && replacement.Annotations["serving.kserve.io/import-pvc-uid"] == string(recreated.UID)
+			}, timeout, interval).Should(BeTrue(), "a recreated claim must be imported again even with consumers")
+		})
+
 		It("Should delete the cache cleanly and preserve the referenced PVC", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)
