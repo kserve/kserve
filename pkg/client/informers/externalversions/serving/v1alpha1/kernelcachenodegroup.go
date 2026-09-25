@@ -34,11 +34,39 @@ import (
 )
 
 // KernelCacheNodeGroupInformer provides access to a shared informer and lister for
-// KernelCacheNodeGroups.
+// KernelCacheNodeGroups. Prefer using the type-safe variant (see [TypedKernelCacheNodeGroupInformer]).
 type KernelCacheNodeGroupInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() servingv1alpha1.KernelCacheNodeGroupLister
 }
+
+// TypedKernelCacheNodeGroupInformer provides access to a shared informer and lister for
+// KernelCacheNodeGroups, including the type-safe TypedInformer variant.
+// It is a superset of KernelCacheNodeGroupInformer.
+type TypedKernelCacheNodeGroupInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() KernelCacheNodeGroupIndexInformer
+	Lister() servingv1alpha1.KernelCacheNodeGroupLister
+}
+
+// KernelCacheNodeGroupIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type KernelCacheNodeGroupIndexInformer cache.TypedSharedIndexInformer[*apisservingv1alpha1.KernelCacheNodeGroup]
+
+// KernelCacheNodeGroupHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for KernelCacheNodeGroup.
+type KernelCacheNodeGroupHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisservingv1alpha1.KernelCacheNodeGroup]
+
+// KernelCacheNodeGroupDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for KernelCacheNodeGroup.
+type KernelCacheNodeGroupDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisservingv1alpha1.KernelCacheNodeGroup]
+
+// KernelCacheNodeGroupFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for KernelCacheNodeGroup.
+type KernelCacheNodeGroupFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisservingv1alpha1.KernelCacheNodeGroup]
+
+// KernelCacheNodeGroupIndexers is a specialization of [cache.TypedIndexers] for KernelCacheNodeGroup.
+type KernelCacheNodeGroupIndexers = cache.TypedIndexers[*apisservingv1alpha1.KernelCacheNodeGroup]
+
+// DeletedKernelCacheNodeGroup is a specialization of [cache.DeletedObject] for KernelCacheNodeGroup.
+type DeletedKernelCacheNodeGroup = cache.DeletedObject[*apisservingv1alpha1.KernelCacheNodeGroup]
 
 type kernelCacheNodeGroupInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -48,25 +76,49 @@ type kernelCacheNodeGroupInformer struct {
 // NewKernelCacheNodeGroupInformer constructs a new informer for KernelCacheNodeGroup type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedKernelCacheNodeGroupInformer]).
 func NewKernelCacheNodeGroupInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewKernelCacheNodeGroupInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedKernelCacheNodeGroupInformer constructs a new informer for KernelCacheNodeGroup type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedKernelCacheNodeGroupInformer(client versioned.Interface, resyncPeriod time.Duration, indexers KernelCacheNodeGroupIndexers) KernelCacheNodeGroupIndexInformer {
+	return NewTypedKernelCacheNodeGroupInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredKernelCacheNodeGroupInformer constructs a new informer for KernelCacheNodeGroup type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredKernelCacheNodeGroupInformer]).
 func NewFilteredKernelCacheNodeGroupInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewKernelCacheNodeGroupInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedKernelCacheNodeGroupInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredKernelCacheNodeGroupInformer constructs a new informer for KernelCacheNodeGroup type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredKernelCacheNodeGroupInformer(client versioned.Interface, resyncPeriod time.Duration, indexers KernelCacheNodeGroupIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) KernelCacheNodeGroupIndexInformer {
+	return NewTypedKernelCacheNodeGroupInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewKernelCacheNodeGroupInformerWithOptions constructs a new informer for KernelCacheNodeGroup type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedKernelCacheNodeGroupInformerWithOptions]).
 func NewKernelCacheNodeGroupInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedKernelCacheNodeGroupInformerWithOptions(client, options)
+}
+
+// NewTypedKernelCacheNodeGroupInformerWithOptions constructs a new informer for KernelCacheNodeGroup type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedKernelCacheNodeGroupInformerWithOptions(client versioned.Interface, options internalinterfaces.InformerOptions) KernelCacheNodeGroupIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "serving.kserve.io", Version: "v1alpha1", Resource: "kernelcachenodegroups"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.KernelCacheNodeGroup](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -99,17 +151,57 @@ func NewKernelCacheNodeGroupInformerWithOptions(client versioned.Interface, opti
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *kernelCacheNodeGroupInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewKernelCacheNodeGroupInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedKernelCacheNodeGroupInformerWithOptions(client, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *kernelCacheNodeGroupInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisservingv1alpha1.KernelCacheNodeGroup{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *kernelCacheNodeGroupInformer) TypedInformer() KernelCacheNodeGroupIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.KernelCacheNodeGroup](f.factory.InformerFor(&apisservingv1alpha1.KernelCacheNodeGroup{}, f.defaultInformer))
 }
 
 func (f *kernelCacheNodeGroupInformer) Lister() servingv1alpha1.KernelCacheNodeGroupLister {
 	return servingv1alpha1.NewKernelCacheNodeGroupLister(f.Informer().GetIndexer())
+}
+
+// ToTypedKernelCacheNodeGroupInformer converts an untyped informer into a TypedKernelCacheNodeGroupInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *KernelCacheNodeGroup. If that is not the case, calling type-safe methods of the returned
+// TypedKernelCacheNodeGroupInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedKernelCacheNodeGroupInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedKernelCacheNodeGroupInformer(informer KernelCacheNodeGroupInformer) TypedKernelCacheNodeGroupInformer {
+	if informer, ok := informer.(TypedKernelCacheNodeGroupInformer); ok {
+		return informer
+	}
+	return &kernelCacheNodeGroupTypedInformerAdapter{informer}
+}
+
+type kernelCacheNodeGroupTypedInformerAdapter struct {
+	KernelCacheNodeGroupInformer
+}
+
+func (a *kernelCacheNodeGroupTypedInformerAdapter) TypedInformer() KernelCacheNodeGroupIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.KernelCacheNodeGroup](a.Informer())
+}
+
+// ToKernelCacheNodeGroupIndexInformer converts an untyped informer into a KernelCacheNodeGroupIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *KernelCacheNodeGroup. If that is not the case, calling type-safe methods of the returned
+// KernelCacheNodeGroupIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a KernelCacheNodeGroupIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToKernelCacheNodeGroupIndexInformer(informer cache.SharedIndexInformer) KernelCacheNodeGroupIndexInformer {
+	if informer, ok := informer.(KernelCacheNodeGroupIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.KernelCacheNodeGroup](informer)
 }
