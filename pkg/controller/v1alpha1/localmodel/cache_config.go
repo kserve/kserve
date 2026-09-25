@@ -49,6 +49,8 @@ func NewClientOptions() client.Options {
 	return client.Options{Cache: &client.CacheOptions{DisableFor: []client.Object{
 		// Name-conflict checks must see Jobs without our cache labels.
 		&batchv1.Job{},
+		// KernelCache prefetch checks do not have a ServiceAccount watch.
+		&corev1.ServiceAccount{},
 		// Typed volume reads must not create a second, full-object informer.
 		&corev1.PersistentVolume{}, &corev1.PersistentVolumeClaim{},
 		&v1alpha1.LocalModelNodeGroup{}, &v1alpha1.ClusterStorageContainer{},

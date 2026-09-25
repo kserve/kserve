@@ -71,6 +71,14 @@ var _ = Describe("controller cache policies", func() {
 		Expect(mgr.GetClient().Get(ctx, key, &batchv1.Job{})).To(Succeed())
 	})
 
+	It("allows KernelCache prefetch ServiceAccount reads without an informer", func(ctx SpecContext) {
+		mgr := startCachePolicyManager(ctx, localmodelcontroller.NewCacheOptions(), localmodelcontroller.NewClientOptions())
+		key := client.ObjectKey{Namespace: "default", Name: "kernel-cache-prefetcher"}
+		Expect(apierrors.IsNotFound(mgr.GetClient().Get(ctx, key, &corev1.ServiceAccount{}))).To(BeTrue())
+		var notCached *cache.ErrResourceNotCached
+		Expect(errors.As(mgr.GetCache().Get(ctx, key, &corev1.ServiceAccount{}), &notCached)).To(BeTrue())
+	})
+
 	It("limits each node agent to its own Jobs and LocalModelNode", func(ctx SpecContext) {
 		const node = "cache-policy-node-a"
 		opts, err := localmodelnodecontroller.NewCacheOptions(node)

@@ -178,6 +178,7 @@ var (
 	LocalModelNamespaceLabel                         = InferenceServiceInternalAnnotationsPrefix + "/localmodel-namespace"
 	LocalModelSourceUriAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/localmodel-sourceuri"
 	LocalModelPVCNameAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/localmodel-pvc-name"
+	KernelCacheUsageAnnotationKey                    = InferenceServiceInternalAnnotationsPrefix + "/kernelcache-usage"
 	ConfidentialEnabledAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/confidential-enabled"
 	ConfidentialResourceIdAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/confidential-resource-id"
 	LocalModelLoRAAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/localmodel-lora"
@@ -461,6 +462,21 @@ const (
 	// LLMServedByAnnotationKey enables the x-served-by response header middleware.
 	// Set to "true" on an LLMInferenceService to inject the middleware.
 	LLMServedByAnnotationKey = "serving.kserve.io/enable-served-by-header"
+
+	// LLMDisaggregatedSetAnnotationKey opts a disaggregated (prefill/decode)
+	// LLMInferenceService into the DisaggregatedSet workload backend, which manages
+	// both roles as one object so they roll together during an upgrade instead of
+	// racing independently.
+	//
+	// Set on the object's metadata, not spec.annotations, since the latter propagate to
+	// pods. The only accepted values are "true" and "false", compared case-insensitively
+	// after trimming, matching StopAnnotationKey; anything else is rejected at admission.
+	//
+	// Opting in additionally requires the DisaggregatedSet feature gate in the "llmisvc"
+	// key of inferenceservice-config and the LWS DisaggregatedSet CRD on the cluster.
+	// Without either, the annotation is inert and the service keeps using the Deployment
+	// or LeaderWorkerSet path unchanged.
+	LLMDisaggregatedSetAnnotationKey = KServeAPIGroupName + "/enable-disaggregated-set"
 
 	// LLMAcceleratorAnnotationKey is the Status.Annotations key where the
 	// resolved accelerator type (cpu/gpu/unknown) is persisted during

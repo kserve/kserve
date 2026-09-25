@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	localmodelnodecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodelnode"
+	kservemetrics "github.com/kserve/kserve/pkg/metrics"
 	"github.com/kserve/kserve/pkg/oteljson"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
 )
@@ -52,6 +53,8 @@ type Options struct {
 	webhookPort          int
 	enableLeaderElection bool
 	probeAddr            string
+	metricsSecure        bool
+	metricsCertPath      string
 	tlsMinVersion        string
 	tlsCipherSuites      string
 	zapOpts              zap.Options
@@ -73,9 +76,12 @@ func DefaultOptions() Options {
 // GetOptions parses the program flags and returns them as Options.
 func GetOptions() Options {
 	opts := DefaultOptions()
+	flag.StringVar(&opts.metricsAddr, "metrics-addr", opts.metricsAddr, "The address the metric endpoint binds to.")
 	flag.BoolVar(&opts.enableLeaderElection, "leader-elect", opts.enableLeaderElection,
 		"Enable leader election for kserve controller manager. "+
 			"Enabling this will ensure there is only one active kserve controller manager.")
+	flag.BoolVar(&opts.metricsSecure, "metrics-secure", opts.metricsSecure, "Serve metrics over HTTPS with Kubernetes authentication and authorization.")
+	flag.StringVar(&opts.metricsCertPath, "metrics-cert-path", opts.metricsCertPath, "Directory containing tls.crt and tls.key for the metrics server. If empty, self-signed certificates are generated.")
 	flag.StringVar(&opts.tlsMinVersion, "tls-min-version", opts.tlsMinVersion, "Minimum TLS version (VersionTLS12, VersionTLS13). Defaults to VersionTLS12.")
 	flag.StringVar(&opts.tlsCipherSuites, "tls-cipher-suites", opts.tlsCipherSuites, "Comma-separated list of TLS cipher suites (Go names). If empty, Go defaults are used.")
 	opts.zapOpts.BindFlags(flag.CommandLine)
@@ -130,12 +136,20 @@ func main() {
 		setupLog.Error(err, "unable to add controller APIs to scheme")
 		os.Exit(1)
 	}
+	metricsServerOptions, err := kservemetrics.ConfigureServerOptions(metricsserver.Options{
+		BindAddress:   options.metricsAddr,
+		SecureServing: options.metricsSecure,
+		CertDir:       options.metricsCertPath,
+		TLSOpts:       tlsOpts,
+	})
+	if err != nil {
+		setupLog.Error(err, "unable to configure metrics server")
+		os.Exit(1)
+	}
+
 	mgr, err := manager.New(cfg, manager.Options{
-		Scheme: scheme,
-		Metrics: metricsserver.Options{
-			BindAddress: options.metricsAddr,
-			TLSOpts:     tlsOpts,
-		},
+		Scheme:  scheme,
+		Metrics: metricsServerOptions,
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port:    options.webhookPort,
 			TLSOpts: tlsOpts,
