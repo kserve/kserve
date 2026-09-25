@@ -67,6 +67,8 @@ func TestParseRuntimeConfigFactorsCanonicalizesCommaSeparatedValues(t *testing.T
 	require.Equal(t, first, second)
 }
 
+// Kubernetes appends Args after Command in the effective argv, so Args wins
+// when the same runtime option is specified in both fields.
 func TestParseRuntimeConfigFactorsUsesArgsOverCommand(t *testing.T) {
 	factors := ParseRuntimeConfigFactors(
 		[]string{"--max-num-seqs=128", "--tensor_parallel_size=2"},

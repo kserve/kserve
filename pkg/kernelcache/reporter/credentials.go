@@ -37,10 +37,10 @@ const (
 	AccessSecretAnnotation       = "internal.serving.kserve.io/kernelcache-reporter-secret"
 	AccessKey                    = "access.json"
 	ManagedLabel                 = "internal.serving.kserve.io/kernelcache-reporter"
+	tokenRefreshBuffer           = time.Minute
 	defaultTokenTTLSeconds int64 = 600
+	reporterResourcePrefix       = "kernel-cache-reporter-"
 )
-
-const reporterResourcePrefix = "kernel-cache-reporter-"
 
 // ServiceAccountName returns the reporter identity name scoped to one KCC.
 func ServiceAccountName(captureName string) string {
@@ -160,7 +160,7 @@ func (c *Credentials) issue(ctx context.Context, pod *corev1.Pod, serviceAccount
 			return errors.New("reporter access Secret does not belong to this capture")
 		}
 		var existing Credential
-		if json.Unmarshal(current.Data[AccessKey], &existing) == nil && existing.Token != "" && existing.ExpiresAt.After(time.Now().Add(time.Minute)) {
+		if json.Unmarshal(current.Data[AccessKey], &existing) == nil && existing.Token != "" && existing.ExpiresAt.After(time.Now().Add(tokenRefreshBuffer)) {
 			updated = current
 			return nil
 		}

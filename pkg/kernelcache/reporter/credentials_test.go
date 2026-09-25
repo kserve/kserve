@@ -26,8 +26,10 @@ import (
 	"github.com/stretchr/testify/require"
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kubernetesfake "k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 )
@@ -95,6 +97,91 @@ func TestIssueForCaptureRefreshesExpiringCredential(t *testing.T) {
 	require.NoError(t, json.Unmarshal(got.Data[AccessKey], &refreshed))
 	require.Equal(t, "refreshed-token", refreshed.Token)
 	require.True(t, refreshed.ExpiresAt.After(time.Now().Add(4*time.Minute)))
+}
+
+func TestIssueForCaptureCreatesReporterSecret(t *testing.T) {
+	ctx := context.Background()
+	captureName := "model-kcc-abc123"
+	pod, owner := reporterTestPodAndOwner()
+	clientset := kubernetesfake.NewSimpleClientset(pod)
+	tokenRequests := 0
+	installReporterTokenReactor(clientset, &tokenRequests, "new-token", time.Now().Add(5*time.Minute))
+
+	got, err := (&Credentials{Client: clientset}).IssueForCapture(ctx, pod, captureName, owner)
+	require.NoError(t, err)
+	require.Equal(t, 1, tokenRequests)
+	require.Equal(t, SecretName(captureName), got.Name)
+
+	var credential Credential
+	require.NoError(t, json.Unmarshal(got.Data[AccessKey], &credential))
+	require.Equal(t, "new-token", credential.Token)
+}
+
+func TestIssueForCaptureUsesSecretCreatedConcurrently(t *testing.T) {
+	ctx := context.Background()
+	captureName := "model-kcc-abc123"
+	pod, owner := reporterTestPodAndOwner()
+	clientset := kubernetesfake.NewSimpleClientset(pod)
+	clientset.PrependReactor("create", "secrets", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		createAction := action.(k8stesting.CreateAction)
+		secret := createAction.GetObject().(*corev1.Secret).DeepCopy()
+		if err := clientset.Tracker().Create(corev1.SchemeGroupVersion.WithResource("secrets"), secret, secret.Namespace); err != nil {
+			return true, nil, err
+		}
+		return true, nil, apierrors.NewAlreadyExists(schema.GroupResource{Resource: "secrets"}, secret.Name)
+	})
+	tokenRequests := 0
+	installReporterTokenReactor(clientset, &tokenRequests, "new-token", time.Now().Add(5*time.Minute))
+
+	got, err := (&Credentials{Client: clientset}).IssueForCapture(ctx, pod, captureName, owner)
+	require.NoError(t, err)
+	require.Equal(t, 1, tokenRequests)
+	require.Equal(t, SecretName(captureName), got.Name)
+}
+
+func TestIssueForCaptureRejectsInactiveOrMismatchedPod(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*corev1.Pod)
+		want   string
+	}{
+		{
+			name: "stale uid",
+			mutate: func(pod *corev1.Pod) {
+				pod.UID = "new-pod-uid"
+			},
+			want: "capture Pod is no longer active",
+		},
+		{
+			name: "pod is terminating",
+			mutate: func(pod *corev1.Pod) {
+				now := metav1.Now()
+				pod.DeletionTimestamp = &now
+			},
+			want: "capture Pod is no longer active",
+		},
+		{
+			name: "annotation mismatch",
+			mutate: func(pod *corev1.Pod) {
+				pod.Annotations[AccessSecretAnnotation] = SecretName("other-capture")
+			},
+			want: "capture Pod has no reporter access Secret reference",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := context.Background()
+			captureName := "model-kcc-abc123"
+			pod, owner := reporterTestPodAndOwner()
+			livePod := pod.DeepCopy()
+			test.mutate(livePod)
+			clientset := kubernetesfake.NewSimpleClientset(livePod)
+
+			_, err := (&Credentials{Client: clientset}).IssueForCapture(ctx, pod, captureName, owner)
+			require.EqualError(t, err, test.want)
+		})
+	}
 }
 
 func TestIssueForCaptureRejectsForeignSecret(t *testing.T) {
