@@ -187,7 +187,7 @@ func createDefaultSvc(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Com
 	}
 
 	// Allow platform-specific customization of the service (e.g. annotations, port overrides).
-	customizeService(service, componentMeta)
+	customizeService(service, componentMeta, podSpec)
 
 	return service
 }
