@@ -56273,6 +56273,17 @@ data:
          "mcvImage": "kserve/kserve-mcv:latest-minimal",
          # prefetchImage is the lightweight image used by OCI prefetch Jobs.
          "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+         # registry defines the default capture registry and its access settings.
+         "registry": {
+           "auth": {
+             "type": "none"
+           }
+         },
+         # artifactSecurity controls signing after capture and verification before preparation.
+         "artifactSecurity": {
+           "mode": "none",
+           "failurePolicy": "reject"
+         },
          # abandonedCapturePolicy controls generated captures whose producer Pod disappears
          # before completion. Supported values are retain and delete.
          "abandonedCapturePolicy": "retain",
@@ -56372,6 +56383,15 @@ data:
       "jobNamespace": "kserve-kernelcache-jobs",
       "mcvImage": "kserve/kserve-mcv:latest-minimal",
       "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+      "registry": {
+        "auth": {
+          "type": "none"
+        }
+      },
+      "artifactSecurity": {
+        "mode": "none",
+        "failurePolicy": "reject"
+      },
       "abandonedCapturePolicy": "retain",
       "jobTTLSecondsAfterFinished": 600,
       "mcvCaptureReadinessTimeoutSeconds": 600,
