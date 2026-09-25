@@ -4474,8 +4474,15 @@ func schema_pkg_apis_serving_v1beta1_AuthenticationRef(ref common.ReferenceCallb
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "name is the name of the authentication secret",
+							Description: "name is the name of the TriggerAuthentication or ClusterTriggerAuthentication",
 							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "kind is the kind of the referenced authentication resource. Possible values are TriggerAuthentication and ClusterTriggerAuthentication. Defaults to TriggerAuthentication when empty.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

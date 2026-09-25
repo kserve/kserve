@@ -2452,8 +2452,12 @@
     "v1beta1.AuthenticationRef": {
       "type": "object",
       "properties": {
+        "kind": {
+          "description": "kind is the kind of the referenced authentication resource. Possible values are TriggerAuthentication and ClusterTriggerAuthentication. Defaults to TriggerAuthentication when empty.",
+          "type": "string"
+        },
         "name": {
-          "description": "name is the name of the authentication secret",
+          "description": "name is the name of the TriggerAuthentication or ClusterTriggerAuthentication",
           "type": "string",
           "default": ""
         }
