@@ -4609,6 +4609,22 @@ spec:
                 type: PathPrefix
                 value: /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
                   }}
+            name: v1-publisher-path-catch-all
+            timeouts:
+              backendRequest: 0s
+              request: 0s
+          - backendRefs:
+            - kind: Service
+              name: '{{ ChildName .ObjectMeta.Name `-kserve-workload-svc` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /
+                  type: ReplacePrefixMatch
+            matches:
             - path:
                 type: PathPrefix
                 value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}
