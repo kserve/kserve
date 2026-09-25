@@ -35,6 +35,8 @@ def _retry_session(
 ) -> requests.Session:
     retry = Retry(
         total=total_retries,
+        connect=total_retries,
+        read=total_retries,
         backoff_factor=backoff_factor,
         status_forcelist=retry_status_codes,
         allowed_methods=allowed_methods,

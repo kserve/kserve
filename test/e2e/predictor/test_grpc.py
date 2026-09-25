@@ -30,7 +30,6 @@ from kubernetes.client import V1ResourceRequirements
 from kubernetes import client
 from kubernetes.client import V1Container, V1ContainerPort
 from ..common.utils import (
-    KSERVE_TEST_NAMESPACE,
     predict_grpc,
     predict_isvc,
     wait_for_pod_logs,
@@ -40,7 +39,7 @@ from ..common.utils import (
 @pytest.mark.grpc
 @pytest.mark.predictor
 @pytest.mark.asyncio(scope="session")
-async def test_custom_model_grpc():
+async def test_custom_model_grpc(network_layer, test_namespace):
     service_name = "custom-grpc-logger"
     model_name = "custom-model"
 
@@ -62,7 +61,7 @@ async def test_custom_model_grpc():
     logger_isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(name=msg_dumper, namespace=KSERVE_TEST_NAMESPACE),
+        metadata=client.V1ObjectMeta(name=msg_dumper, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=logger_predictor),
     )
 
@@ -70,12 +69,12 @@ async def test_custom_model_grpc():
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(logger_isvc)
-    kserve_client.wait_isvc_ready(msg_dumper, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(msg_dumper, namespace=test_namespace)
 
     predictor = V1beta1PredictorSpec(
         logger=V1beta1LoggerSpec(
             mode="all",
-            url=f"http://{msg_dumper}." + KSERVE_TEST_NAMESPACE + ".svc.cluster.local",
+            url=f"http://{msg_dumper}." + test_namespace + ".svc.cluster.local",
         ),
         containers=[
             V1Container(
@@ -96,14 +95,12 @@ async def test_custom_model_grpc():
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
     with open("./data/custom_model_input.json") as json_file:
         data = json.load(json_file)
@@ -120,14 +117,18 @@ async def test_custom_model_grpc():
         }
     ]
     response = await predict_grpc(
-        service_name=service_name, payload=payload, model_name=model_name
+        service_name=service_name,
+        payload=payload,
+        model_name=model_name,
+        network_layer=network_layer,
+        namespace=test_namespace,
     )
     fields = response.outputs[0].data
     points = ["%.3f" % (point) for point in fields]
     assert points == ["14.976", "14.037", "13.966", "12.252", "12.086"]
 
     pods = kserve_client.core_api.list_namespaced_pod(
-        KSERVE_TEST_NAMESPACE,
+        test_namespace,
         label_selector="serving.kserve.io/inferenceservice={}".format(msg_dumper),
     )
     log = ""
@@ -142,13 +143,11 @@ async def test_custom_model_grpc():
         log += pod_log
     assert "org.kubeflow.serving.inference.request" in log
     assert "org.kubeflow.serving.inference.response" in log
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
-    kserve_client.delete(msg_dumper, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.dual_protocol
 @pytest.mark.asyncio(scope="session")
-async def test_sklearn_dual_protocol(rest_v2_client, network_layer):
+async def test_sklearn_dual_protocol(rest_v2_client, network_layer, test_namespace):
     service_name = "sklearn-dual-protocol"
     model_name = "sklearn-dual-protocol"
 
@@ -170,9 +169,7 @@ async def test_sklearn_dual_protocol(rest_v2_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -181,9 +178,8 @@ async def test_sklearn_dual_protocol(rest_v2_client, network_layer):
     )
 
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-    # GRPC Request
     with open("./data/iris_input_v2_grpc.json") as json_file:
         payload = json.load(json_file)["inputs"]
 
@@ -192,16 +188,16 @@ async def test_sklearn_dual_protocol(rest_v2_client, network_layer):
         payload=payload,
         model_name=model_name,
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     prediction = response.outputs[0].data
     assert prediction == [1, 1]
 
-    # REST Request
     res = await predict_isvc(
         rest_v2_client,
         service_name,
         "./data/iris_input_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs[0].data == [1, 1]
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

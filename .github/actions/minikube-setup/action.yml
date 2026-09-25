@@ -27,7 +27,9 @@ runs:
       with:
         version: 'v1.34.4'
 
-    - name: Create /etc/cni/net.d
+    # medyagh/setup-minikube chmods /etc/cni/net.d before creating it on some
+    # runners; ensure the directory exists so minikube setup does not flake.
+    - name: Ensure CNI config directory exists
       shell: bash
       run: sudo mkdir -p /etc/cni/net.d
 

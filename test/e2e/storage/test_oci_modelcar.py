@@ -39,7 +39,7 @@ from kserve import (
     constants,
 )
 
-from ..common.utils import KSERVE_NAMESPACE, KSERVE_TEST_NAMESPACE
+from ..common.utils import KSERVE_NAMESPACE
 
 SKLEARN_MODELCAR_URI = os.environ.get("SKLEARN_MODELCAR_URI")
 
@@ -109,7 +109,7 @@ def _assert_modelcar_uid(pod, uid_modelcar, resource_kind):
 
 
 @pytest.mark.predictor
-def test_oci_modelcar_uid_isvc():
+def test_oci_modelcar_uid_isvc(test_namespace):
     """ISVC with oci:// produces matching UIDs on containers.
 
     1. Reads uidModelcar from the inferenceservice-config.
@@ -154,23 +154,19 @@ def test_oci_modelcar_uid_isvc():
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=test_namespace,
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
-    try:
-        kserve_client.create(isvc)
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+    kserve_client.create(isvc)
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
 
-        pods = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE,
-            label_selector=f"{ISVC_LABEL_KEY}={service_name}",
-        )
-        assert pods.items, f"No pod found for ISVC '{service_name}' after ready"
-        pod = pods.items[0]
+    pods = kserve_client.core_api.list_namespaced_pod(
+        test_namespace,
+        label_selector=f"{ISVC_LABEL_KEY}={service_name}",
+    )
+    assert pods.items, f"No pod found for ISVC '{service_name}' after ready"
+    pod = pods.items[0]
 
-        _assert_modelcar_uid(pod, uid_modelcar, "InferenceService")
-
-    finally:
-        kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    _assert_modelcar_uid(pod, uid_modelcar, "InferenceService")
