@@ -7021,10 +7021,21 @@ rules:
   - serving.kserve.io
   resources:
   - clusterstoragecontainers
+  - localmodelcaches
+  - localmodelnamespacecaches
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
   - localmodelnodegroups
   verbs:
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - serving.kserve.io
