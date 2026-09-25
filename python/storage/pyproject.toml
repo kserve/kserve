@@ -36,7 +36,12 @@ dependencies = [
     "azure-core>=1.38.0",
     # GHSA-38jv-5279-wg99, CVE-2026-21441 urllib3 decompression-bomb bypass via HTTP redirects
     # Pinning because it is a transitive dependency.
-    "urllib3>=2.6.3"
+    "urllib3>=2.6.3",
+
+    # IBM Power (ppc64le)
+    # add transitive dependencies as top-level dependency for uv to resolve it on ppc64le with explicit index
+    "google-crc32c ; platform_machine == 'ppc64le'",
+    "pyyaml ; platform_machine == 'ppc64le'",
 ]
 name = "kserve-storage"
 version = "0.21.0"
@@ -55,3 +60,18 @@ confidential = ["jwcrypto>=1.5.0"]
 [project.scripts]
 kserve-decrypt = "kserve_storage.confidential.cli:main"
 
+[tool.uv]
+index-strategy = "unsafe-best-match"
+required-environments = ["sys_platform == 'linux' and platform_machine == 'ppc64le'"]
+
+[[tool.uv.index]]
+name = "ibm-ppc64le"
+url = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/"
+explicit = true
+
+[tool.uv.sources]
+# IBM Power (ppc64le)
+# Explicitly use the IBM index when resolving the following packages on ppc64le
+google-crc32c = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+pyyaml = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
+hf-xet = {index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'"}
