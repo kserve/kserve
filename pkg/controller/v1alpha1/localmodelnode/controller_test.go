@@ -36,6 +36,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/credentials"
 )
 
 type MockFileInfo struct {
@@ -812,6 +813,201 @@ var _ = Describe("LocalModelNode controller", func() {
 				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
 				return err == nil && len(jobs.Items) == 1
 			}, timeout, interval).Should(BeTrue(), "Download job should be created with storage key")
+		})
+
+		It("Should mount imagePullSecrets as docker config on the download job", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			fsMock.clear()
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: map[string]string{
+					"localModel": `{
+						"jobNamespace": "kserve-localmodel-jobs",
+						"defaultJobImage": "kserve/storage-initializer:latest"
+					}`,
+					"storageInitializer": `{
+						"image": "kserve/storage-initializer:latest",
+						"cpuRequest": "100m",
+						"cpuLimit": "1",
+						"memoryRequest": "200Mi",
+						"memoryLimit": "1Gi",
+						"ociInsecureRegistry": true
+					}`,
+				},
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{Name: "gpu"},
+				Spec:       localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			nodeName = "worker-oci-pull-secret"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+				Spec: v1alpha1.LocalModelNodeSpec{
+					LocalModels: []v1alpha1.LocalModelInfo{
+						{
+							SourceModelUri: "oci+fetch://ghcr.io/example/model:v1",
+							ModelName:      "oci-private",
+							ImagePullSecrets: []corev1.LocalObjectReference{
+								{Name: "reg-cred-a"},
+								{Name: "reg-cred-b"},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{"model": "oci-private", "node": nodeName}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
+			}, timeout, interval).Should(BeTrue(), "Download job should be created")
+
+			job := &jobs.Items[0]
+			Expect(job.Spec.Template.Spec.Containers).To(HaveLen(1))
+			container := job.Spec.Template.Spec.Containers[0]
+			Expect(container.Args[0]).To(Equal("oci://ghcr.io/example/model:v1"))
+
+			var dockerVol *corev1.Volume
+			for i := range job.Spec.Template.Spec.Volumes {
+				if job.Spec.Template.Spec.Volumes[i].Name == credentials.OciFetchDockerConfigVolumeName {
+					dockerVol = &job.Spec.Template.Spec.Volumes[i]
+					break
+				}
+			}
+			Expect(dockerVol).NotTo(BeNil())
+			Expect(dockerVol.Secret).NotTo(BeNil())
+			Expect(dockerVol.Secret.SecretName).To(Equal("reg-cred-a"))
+
+			var dockerMount *corev1.VolumeMount
+			for i := range container.VolumeMounts {
+				if container.VolumeMounts[i].Name == credentials.OciFetchDockerConfigVolumeName {
+					dockerMount = &container.VolumeMounts[i]
+					break
+				}
+			}
+			Expect(dockerMount).NotTo(BeNil())
+			Expect(dockerMount.MountPath).To(Equal(credentials.OciFetchDockerConfigDir))
+
+			var dockerEnv, insecureEnv *corev1.EnvVar
+			for i := range container.Env {
+				switch container.Env[i].Name {
+				case credentials.OciFetchDockerConfigPathEnvVar:
+					dockerEnv = &container.Env[i]
+				case credentials.OciInsecureRegistryEnvVar:
+					insecureEnv = &container.Env[i]
+				}
+			}
+			Expect(dockerEnv).NotTo(BeNil())
+			Expect(dockerEnv.Value).To(Equal(credentials.OciFetchDockerConfigDir + "/config.json"))
+			Expect(insecureEnv).NotTo(BeNil())
+			Expect(insecureEnv.Value).To(Equal("true"))
+		})
+
+		It("Should not mount docker config for public oci:// without imagePullSecrets", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			fsMock.clear()
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: map[string]string{
+					"localModel": `{
+						"jobNamespace": "kserve-localmodel-jobs",
+						"defaultJobImage": "kserve/storage-initializer:latest"
+					}`,
+					"storageInitializer": `{
+						"image": "kserve/storage-initializer:latest",
+						"cpuRequest": "100m",
+						"cpuLimit": "1",
+						"memoryRequest": "200Mi",
+						"memoryLimit": "1Gi"
+					}`,
+				},
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{Name: "gpu"},
+				Spec:       localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			nodeName = "worker-oci-public"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+				Spec: v1alpha1.LocalModelNodeSpec{
+					LocalModels: []v1alpha1.LocalModelInfo{
+						{
+							SourceModelUri: "oci://ghcr.io/example/public-model:v1",
+							ModelName:      "oci-public",
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{"model": "oci-public", "node": nodeName}
+			Eventually(func() bool {
+				err := k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))
+				return err == nil && len(jobs.Items) == 1
+			}, timeout, interval).Should(BeTrue(), "Download job should be created for public oci://")
+
+			job := &jobs.Items[0]
+			for _, vol := range job.Spec.Template.Spec.Volumes {
+				Expect(vol.Name).NotTo(Equal(credentials.OciFetchDockerConfigVolumeName))
+			}
+			container := job.Spec.Template.Spec.Containers[0]
+			Expect(container.Args[0]).To(Equal("oci://ghcr.io/example/public-model:v1"))
+			for _, env := range container.Env {
+				Expect(env.Name).NotTo(Equal(credentials.OciFetchDockerConfigPathEnvVar))
+			}
 		})
 
 		It("Should create download job in jobNamespace for namespace-scoped LocalModelNamespaceCache", func() {

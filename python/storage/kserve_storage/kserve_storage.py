@@ -33,7 +33,9 @@ from typing import List, Optional, TYPE_CHECKING
 import zipfile
 from pathlib import Path
 from typing import Tuple
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
+from urllib.request import Request, urlopen
 import certifi
 import requests
 
@@ -87,17 +89,73 @@ _GIT_RE = r"https://.+\.git"
 # the docker config.json. oras-py ignores DOCKER_CONFIG and only reads ~/.docker/config.json,
 # so the handler reads this path and passes it as an explicit config_path.
 _OCI_DOCKER_CONFIG_PATH_ENV = "KSERVE_OCI_DOCKER_CONFIG"
-# Default docker config.json path if the env var is unset (e.g. direct CLI invocation). Kept
-# in sync with ociFetchDockerConfigDir in pkg/webhook/admission/pod/oci_fetch.go. It is under
-# /mnt, not /root, because the storage-initializer runs as UID 1000 and cannot read /root.
+# Default docker config.json path if the env var is unset (e.g. direct CLI invocation).
+# Must match credentials.OciFetchDockerConfigDir in pkg/credentials/oci_docker_config.go.
+# It is under /mnt, not /root, because the storage-initializer runs as UID 1000.
 _OCI_DOCKER_CONFIG_PATH = "/mnt/oci-fetch-auth/config.json"
 
-# Env var by which the Go webhook (ConfigureOciFetchToContainer) signals that the
+# Env var by which the Go webhook and LocalModelCache download Job signal that the
 # target registry should be treated as plain-HTTP/insecure (self-signed or no TLS).
 # Defaults to secure (verified HTTPS) when unset -- this is an explicit opt-in,
 # mirroring how CA_BUNDLE_VOLUME_MOUNT_POINT etc. are wired: Go-side config field ->
 # env var on the init container -> read here.
 _OCI_INSECURE_REGISTRY_ENV = "KSERVE_OCI_INSECURE_REGISTRY"
+
+
+def _oci_insecure_registry_enabled() -> bool:
+    return os.environ.get(_OCI_INSECURE_REGISTRY_ENV, "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+
+def _oci_auth_backend_from_www_authenticate(header: str) -> str:
+    """Map a Www-Authenticate challenge to oras-py's auth_backend.
+
+    Bearer (Docker Hub, GHCR, quay.io) uses the token backend. Basic-only
+    (Distribution htpasswd) uses basic. When both appear, prefer token so
+    bearer-only registries keep working.
+    """
+    if not header:
+        return "token"
+    found = [m.lower() for m in re.findall(r"(?i)(?:^|,\s*)(Bearer|Basic)\b", header)]
+    if "bearer" in found:
+        return "token"
+    if "basic" in found:
+        return "basic"
+    return "token"
+
+
+def _oci_auth_backend_for_registry(registry: str, insecure: bool) -> str:
+    """Probe GET /v2/ and select basic vs token from the 401 challenge.
+
+    Probe failure defaults to token so imagePullSecrets against bearer
+    registries do not break if /v2/ is unreachable.
+    """
+    urls = []
+    if insecure:
+        urls.append("http://%s/v2/" % registry)
+    urls.append("https://%s/v2/" % registry)
+    for url in urls:
+        try:
+            ctx = None
+            if url.startswith("https://") and insecure:
+                ctx = ssl._create_unverified_context()
+            req = Request(url, method="GET")
+            with urlopen(req, timeout=5, context=ctx) as resp:
+                header = resp.headers.get("Www-Authenticate", "")
+                if header:
+                    return _oci_auth_backend_from_www_authenticate(header)
+                return "token"
+        except HTTPError as err:
+            header = err.headers.get("Www-Authenticate", "") if err.headers else ""
+            if header:
+                return _oci_auth_backend_from_www_authenticate(header)
+        except (URLError, TimeoutError, OSError, ValueError):
+            continue
+    return "token"
+
 
 # Prefix identifying the modelcar layout's model subtree within an OCI layer tar.
 _OCI_MODELS_PREFIX = "models/"
@@ -283,7 +341,14 @@ def _login_from_docker_config(
     except (ValueError, UnicodeDecodeError):
         return
     try:
-        client.login(username=username, password=password, hostname=registry)
+        login_kwargs = {
+            "username": username,
+            "password": password,
+            "hostname": registry,
+        }
+        if _oci_insecure_registry_enabled():
+            login_kwargs["tls_verify"] = False
+        client.login(**login_kwargs)
     except Exception:  # noqa: BLE001
         # Login failed (network, bad creds) — fall to anonymous; the
         # subsequent get_manifest/pull will surface a clear error
@@ -1455,12 +1520,17 @@ class Storage(object):
         if not os.path.exists(config_path):
             config_path = None
 
-        insecure = os.environ.get(_OCI_INSECURE_REGISTRY_ENV, "").strip().lower() in (
-            "1",
-            "true",
-            "yes",
+        insecure = _oci_insecure_registry_enabled()
+        # oras-py's default token backend 401s against htpasswd HTTP registries.
+        # Always-basic breaks Docker Hub / quay.io (bearer-only). Probe /v2/ and
+        # match the Www-Authenticate scheme; anonymous pulls stay on token.
+        registry = target.split("/", 1)[0]
+        auth_backend = (
+            _oci_auth_backend_for_registry(registry, insecure)
+            if config_path
+            else "token"
         )
-        client = oras.client.OrasClient(insecure=insecure)
+        client = oras.client.OrasClient(insecure=insecure, auth_backend=auth_backend)
         if config_path:
             _login_from_docker_config(client, target, config_path)
 

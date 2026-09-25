@@ -382,7 +382,11 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	container.Args = []string{localModel.Spec.SourceModelUri, constants.DefaultModelLocalMountPath}
+	storageUri := localModel.Spec.SourceModelUri
+	if _, normalized, isOci := utils.ParseOciScheme(storageUri); isOci {
+		storageUri = normalized
+	}
+	container.Args = []string{storageUri, constants.DefaultModelLocalMountPath}
 	container.VolumeMounts = []corev1.VolumeMount{
 		{
 			MountPath: constants.DefaultModelLocalMountPath,
@@ -403,6 +407,13 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 		},
 	}
 
+	if len(localModel.Spec.ImagePullSecrets) > 0 {
+		c.Log.Info("Injecting OCI dockerconfigjson credentials", "secrets", localModel.Spec.ImagePullSecrets)
+		if err := credentials.MountImagePullSecretsAsDockerConfig(localModel.Spec.ImagePullSecrets, container, &volumes); err != nil {
+			return nil, fmt.Errorf("%w: %w", errImportCredentials, err)
+		}
+	}
+
 	if localModel.Spec.ServiceAccountName != "" || localModel.Spec.Storage != nil {
 		if c.CredentialBuilder == nil {
 			c.CredentialBuilder = credentials.NewCredentialBuilder(c.Client, c.Clientset, isvcConfigMap)
@@ -414,6 +425,10 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 			// real cause behind ImportFailed.
 			return nil, fmt.Errorf("%w: %w", errImportCredentials, err)
 		}
+	}
+
+	if storageInitializerConfig != nil && storageInitializerConfig.OciInsecureRegistry {
+		credentials.SetOciInsecureRegistryEnv(container)
 	}
 
 	var fsGroup *int64
@@ -521,17 +536,19 @@ func importPendingState(message string) sharedState {
 }
 
 // importSpecHash returns a stable hash of the spec fields that shape the import Job's
-// credentials (serviceAccountName and storage). It is stamped on the Job so a credential
-// fix invalidates a non-completed Job and triggers a fresh import.
+// credentials (serviceAccountName, storage, and imagePullSecrets). It is stamped on the Job
+// so a credential fix invalidates a non-completed Job and triggers a fresh import.
 func importSpecHash(localModel *v1alpha1.LocalModelNamespaceCache) string {
 	// Marshal a fixed-shape struct so the hash is stable across field ordering and nil vs
 	// empty; json.Marshal of a *string / *struct is deterministic for this input.
 	payload, err := json.Marshal(struct {
 		ServiceAccountName string                          `json:"serviceAccountName"`
 		Storage            *v1alpha1.LocalModelStorageSpec `json:"storage"`
+		ImagePullSecrets   []corev1.LocalObjectReference   `json:"imagePullSecrets"`
 	}{
 		ServiceAccountName: localModel.Spec.ServiceAccountName,
 		Storage:            localModel.Spec.Storage,
+		ImagePullSecrets:   localModel.Spec.ImagePullSecrets,
 	})
 	if err != nil {
 		// Marshalling plain strings and maps cannot fail; fall back to a constant so a

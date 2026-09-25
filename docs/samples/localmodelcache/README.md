@@ -19,6 +19,15 @@ Now you can specify credentials directly in the `LocalModelCache` CRD using the 
 - `serviceAccountName`: Reference a service account with attached secrets
 - `storage.key`: Reference a specific key in the storage-config secret
 - `storage.parameters`: Inline parameters for storage configuration
+- `imagePullSecrets`: `kubernetes.io/dockerconfigjson` secrets for `oci://` imports (projected as `config.json` + `KSERVE_OCI_DOCKER_CONFIG`; first secret only)
+
+Secrets and service accounts must exist in the same namespace as the download Job. They are **not** copied from the user namespace.
+
+| Cache type | Import Job namespace | Where `serviceAccountName` / `storage` / `imagePullSecrets` must exist |
+|---|---|---|
+| `LocalModelCache` (cluster-scoped) | `localModel.jobNamespace` | job namespace |
+| `LocalModelNamespaceCache` with `nodeGroups` | `localModel.jobNamespace` | job namespace |
+| `LocalModelNamespaceCache` with `pvcRef` | the cache's namespace | cache namespace |
 
 ## Credential Specification Methods
 
@@ -95,7 +104,61 @@ stringData:
     }
 ```
 
-### Method 3: Inline Parameters
+### Method 3: ImagePullSecrets (OCI / private registry)
+
+Use a dockerconfigjson secret in the Job namespace (see the table above). Do **not** put registry credentials on `serviceAccountName` — that path has no OCI/oras branch.
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: reg-cred
+  namespace: kserve-localmodel-jobs
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: <base64 docker config.json>
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: LocalModelCache
+metadata:
+  name: oci-model
+spec:
+  sourceModelUri: "oci://registry.example.com/models/my-model:v1"
+  modelSize: 5Gi
+  nodeGroups:
+    - workers
+  imagePullSecrets:
+    - name: reg-cred
+```
+
+For a `pvcRef` cache, the Secret and the `LocalModelNamespaceCache` both live in the user namespace:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: reg-cred
+  namespace: my-team          # same namespace as the cache and the PVC
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: <base64>
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: LocalModelNamespaceCache
+metadata:
+  name: llm
+  namespace: my-team
+spec:
+  sourceModelUri: oci://registry.example.com/models/llm:v1
+  modelSize: 10Gi
+  pvcRef: models-rwx
+  imagePullSecrets:
+    - name: reg-cred
+```
+
+Only the first secret is used. Combine credentials for multiple registries into a single dockerconfigjson secret. For HTTP or self-signed registries, set `storageInitializer.ociInsecureRegistry` in `inferenceservice-config`.
+
+### Method 4: Inline Parameters
 
 Provide storage parameters inline for additional configuration.
 
@@ -146,6 +209,7 @@ storageInitializer: |-
 | `nodeGroups` | []string | Required. Node groups to cache the model on |
 | `serviceAccountName` | string | Optional. Service account for credential lookup |
 | `storage` | LocalModelStorageSpec | Optional. Storage configuration for credentials |
+| `imagePullSecrets` | []LocalObjectReference | Optional. dockerconfigjson secrets for `oci://` imports (first secret only; same namespace as the download Job) |
 
 ### LocalModelStorageSpec
 

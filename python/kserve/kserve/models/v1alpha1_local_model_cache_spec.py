@@ -47,6 +47,7 @@ class V1alpha1LocalModelCacheSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'image_pull_secrets': 'list[V1LocalObjectReference]',
         'model_size': 'ResourceQuantity',
         'node_groups': 'list[str]',
         'service_account_name': 'str',
@@ -55,6 +56,7 @@ class V1alpha1LocalModelCacheSpec(object):
     }
 
     attribute_map = {
+        'image_pull_secrets': 'imagePullSecrets',
         'model_size': 'modelSize',
         'node_groups': 'nodeGroups',
         'service_account_name': 'serviceAccountName',
@@ -62,12 +64,13 @@ class V1alpha1LocalModelCacheSpec(object):
         'storage': 'storage'
     }
 
-    def __init__(self, model_size=None, node_groups=None, service_account_name=None, source_model_uri='', storage=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, image_pull_secrets=None, model_size=None, node_groups=None, service_account_name=None, source_model_uri='', storage=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1LocalModelCacheSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._image_pull_secrets = None
         self._model_size = None
         self._node_groups = None
         self._service_account_name = None
@@ -75,6 +78,8 @@ class V1alpha1LocalModelCacheSpec(object):
         self._storage = None
         self.discriminator = None
 
+        if image_pull_secrets is not None:
+            self.image_pull_secrets = image_pull_secrets
         self.model_size = model_size
         self.node_groups = node_groups
         if service_account_name is not None:
@@ -82,6 +87,29 @@ class V1alpha1LocalModelCacheSpec(object):
         self.source_model_uri = source_model_uri
         if storage is not None:
             self.storage = storage
+
+    @property
+    def image_pull_secrets(self):
+        """Gets the image_pull_secrets of this V1alpha1LocalModelCacheSpec.  # noqa: E501
+
+        ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job namespace used to authenticate OCI (oci://) imports. Only the first secret is projected into the download container; merge multiple registries into one secret. Do not use serviceAccountName for dockerconfigjson — the shared credential dispatcher has no OCI/oras branch.  # noqa: E501
+
+        :return: The image_pull_secrets of this V1alpha1LocalModelCacheSpec.  # noqa: E501
+        :rtype: list[V1LocalObjectReference]
+        """
+        return self._image_pull_secrets
+
+    @image_pull_secrets.setter
+    def image_pull_secrets(self, image_pull_secrets):
+        """Sets the image_pull_secrets of this V1alpha1LocalModelCacheSpec.
+
+        ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job namespace used to authenticate OCI (oci://) imports. Only the first secret is projected into the download container; merge multiple registries into one secret. Do not use serviceAccountName for dockerconfigjson — the shared credential dispatcher has no OCI/oras branch.  # noqa: E501
+
+        :param image_pull_secrets: The image_pull_secrets of this V1alpha1LocalModelCacheSpec.  # noqa: E501
+        :type: list[V1LocalObjectReference]
+        """
+
+        self._image_pull_secrets = image_pull_secrets
 
     @property
     def model_size(self):
@@ -135,7 +163,7 @@ class V1alpha1LocalModelCacheSpec(object):
     def service_account_name(self):
         """Gets the service_account_name of this V1alpha1LocalModelCacheSpec.  # noqa: E501
 
-        ServiceAccountName specifies the service account to use for credential lookup.  # noqa: E501
+        ServiceAccountName specifies the service account to use for credential lookup. The service account must exist in the download job namespace (localModel.jobNamespace).  # noqa: E501
 
         :return: The service_account_name of this V1alpha1LocalModelCacheSpec.  # noqa: E501
         :rtype: str
@@ -146,7 +174,7 @@ class V1alpha1LocalModelCacheSpec(object):
     def service_account_name(self, service_account_name):
         """Sets the service_account_name of this V1alpha1LocalModelCacheSpec.
 
-        ServiceAccountName specifies the service account to use for credential lookup.  # noqa: E501
+        ServiceAccountName specifies the service account to use for credential lookup. The service account must exist in the download job namespace (localModel.jobNamespace).  # noqa: E501
 
         :param service_account_name: The service_account_name of this V1alpha1LocalModelCacheSpec.  # noqa: E501
         :type: str
