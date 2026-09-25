@@ -20,6 +20,9 @@ package types
 type SignRequest struct {
 	// ImageRef is the image to sign, by tag or digest.
 	ImageRef string
+
+	// ProfileRef identifies the namespace-scoped signing profile as namespace/name.
+	ProfileRef string
 }
 
 // SignResult reports the outcome of a signing operation.

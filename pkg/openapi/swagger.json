@@ -4710,6 +4710,40 @@
         }
       }
     },
+    "v1beta1.KernelCacheArtifactCertConfig": {
+      "description": "KernelCacheArtifactCertConfig contains certificate signing profile settings.",
+      "type": "object",
+      "properties": {
+        "signingProfileRef": {
+          "type": "string"
+        },
+        "subjectRegexp": {
+          "type": "string"
+        },
+        "trustBundle": {
+          "type": "string"
+        },
+        "trustBundleKey": {
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.KernelCacheArtifactSecurityConfig": {
+      "description": "KernelCacheArtifactSecurityConfig configures signing of completed artifacts.",
+      "type": "object",
+      "properties": {
+        "cert": {
+          "default": {},
+          "$ref": "#/definitions/v1beta1.KernelCacheArtifactCertConfig"
+        },
+        "failurePolicy": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        }
+      }
+    },
     "v1beta1.KernelCacheConfig": {
       "description": "KernelCacheConfig contains the shared KernelCache configuration loaded from the kernelcache entry in the inferenceservice-config ConfigMap.",
       "type": "object",
@@ -4721,6 +4755,11 @@
       "properties": {
         "abandonedCapturePolicy": {
           "type": "string"
+        },
+        "artifactSecurity": {
+          "description": "ArtifactSecurity controls signing of completed capture artifacts.",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.KernelCacheArtifactSecurityConfig"
         },
         "defaultMountType": {
           "type": "string"
@@ -4757,6 +4796,93 @@
         "reconcileIntervalSeconds": {
           "type": "integer",
           "format": "int64"
+        },
+        "registry": {
+          "description": "Registry configures the OCI registry used by capture and prefetch operations.",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.KernelCacheRegistryConfig"
+        }
+      }
+    },
+    "v1beta1.KernelCacheConfigMapKeyRef": {
+      "description": "KernelCacheConfigMapKeyRef identifies a value in a ConfigMap.",
+      "type": "object",
+      "required": [
+        "name",
+        "key"
+      ],
+      "properties": {
+        "key": {
+          "description": "Key is the data key containing the referenced value.",
+          "type": "string",
+          "default": ""
+        },
+        "name": {
+          "description": "Name is the name of the referenced ConfigMap.",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "v1beta1.KernelCacheRegistryAuth": {
+      "description": "KernelCacheRegistryAuth defines how KernelCache obtains registry credentials.",
+      "type": "object",
+      "properties": {
+        "pullRoleRef": {
+          "description": "PullRoleRef identifies the Role or ClusterRole bound to the prefetch ServiceAccount used to pull cache images.",
+          "$ref": "#/definitions/v1beta1.KernelCacheRegistryRoleRef"
+        },
+        "pushRoleRef": {
+          "description": "PushRoleRef identifies the Role or ClusterRole bound to the per-capture ServiceAccount used to publish captured images.",
+          "$ref": "#/definitions/v1beta1.KernelCacheRegistryRoleRef"
+        },
+        "tokenTTLSeconds": {
+          "description": "TokenTTLSeconds is the lifetime of a token issued through TokenRequest. The default is 600 seconds when serviceAccountToken is selected.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "type": {
+          "description": "Type selects none or serviceAccountToken authentication. The zero value is treated as none.",
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.KernelCacheRegistryConfig": {
+      "description": "KernelCacheRegistryConfig defines the registry endpoint, trust bundle, and authentication used by KernelCache capture and prefetch operations.",
+      "type": "object",
+      "properties": {
+        "auth": {
+          "description": "Auth configures how registry credentials are provisioned.",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.KernelCacheRegistryAuth"
+        },
+        "caConfigMapRef": {
+          "description": "CAConfigMapRef optionally references a ConfigMap key containing the registry CA bundle.",
+          "$ref": "#/definitions/v1beta1.KernelCacheConfigMapKeyRef"
+        },
+        "endpoint": {
+          "description": "Endpoint is the OCI registry host and optional port.",
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.KernelCacheRegistryRoleRef": {
+      "description": "KernelCacheRegistryRoleRef identifies the Kubernetes Role or ClusterRole used to authorize registry access.",
+      "type": "object",
+      "required": [
+        "kind",
+        "name"
+      ],
+      "properties": {
+        "kind": {
+          "description": "Kind is Role or ClusterRole.",
+          "type": "string",
+          "default": ""
+        },
+        "name": {
+          "description": "Name is the name of the referenced Role or ClusterRole.",
+          "type": "string",
+          "default": ""
         }
       }
     },
