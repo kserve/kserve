@@ -48,7 +48,8 @@ type specIndex struct {
 }
 
 // Resolve returns the last resolvable value for each registered option.
-// Values are applied in Env, Args, and Command order.
+// Values are applied in Env, Command, and Args order to match the container's
+// effective argv order.
 func Resolve(container *corev1.Container, specs []Spec) map[string]string {
 	result := map[string]string{}
 	if container == nil {
@@ -57,8 +58,8 @@ func Resolve(container *corev1.Container, specs []Spec) map[string]string {
 
 	index := indexSpecs(specs)
 	resolveEnv(result, container.Env, index)
-	parseOptionTokens(result, container.Args, index, false)
 	resolveCommand(result, container.Command, container.Env, index)
+	parseOptionTokens(result, container.Args, index, false)
 	return result
 }
 
