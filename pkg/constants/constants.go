@@ -440,7 +440,8 @@ const (
 
 // LLMInferenceService label constants (uses Kubernetes recommended label keys above)
 const (
-	LLMInferenceServicePartOfValue = "llminferenceservice"
+	LLMInferenceServiceRevisionLabelKey = "serving.kserve.io/llmisvc-revision"
+	LLMInferenceServicePartOfValue      = "llminferenceservice"
 	// LLMInferenceService component label values (for KubernetesComponentLabelKey)
 	LLMComponentRouter                = "llminferenceservice-router"
 	LLMComponentRouterScheduler       = "llminferenceservice-router-scheduler"

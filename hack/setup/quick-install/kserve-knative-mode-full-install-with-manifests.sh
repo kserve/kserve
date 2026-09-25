@@ -2653,6 +2653,8 @@ metadata:
 spec:
   annotations:
     serving.kserve.io/model-based-routing-enabled: "true"
+  labels:
+    serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
     - command:
@@ -2994,6 +2996,8 @@ metadata:
 spec:
   annotations:
     serving.kserve.io/model-based-routing-enabled: "true"
+  labels:
+    serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
     - command:
@@ -3654,6 +3658,8 @@ spec:
   prefill:
     annotations:
       serving.kserve.io/model-based-routing-enabled: "true"
+    labels:
+      serving.kserve.io/llmisvc-revision: placeholder
     template:
       containers:
       - command:
@@ -3936,6 +3942,8 @@ spec:
   prefill:
     annotations:
       serving.kserve.io/model-based-routing-enabled: "true"
+    labels:
+      serving.kserve.io/llmisvc-revision: placeholder
     template:
       containers:
       - command:
