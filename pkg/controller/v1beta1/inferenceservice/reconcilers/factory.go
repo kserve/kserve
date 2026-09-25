@@ -35,6 +35,7 @@ import (
 // WorkloadReconcilerParams contains parameters for workload reconciler creation
 type WorkloadReconcilerParams struct {
 	Client              client.Client
+	Clientset           kubernetes.Interface
 	Scheme              *runtime.Scheme
 	ComponentMeta       metav1.ObjectMeta
 	WorkerComponentMeta metav1.ObjectMeta
@@ -84,8 +85,8 @@ func (f *ReconcilerFactory) CreateWorkloadReconciler(
 ) (WorkloadReconciler, error) {
 	switch deploymentMode {
 	case constants.Standard, constants.LegacyRawDeployment:
-		deploymentRec, err := deployment.NewDeploymentReconciler(
-			params.Client, params.Scheme, params.ComponentMeta, params.WorkerComponentMeta,
+		deploymentRec, err := deployment.NewDeploymentReconciler(ctx,
+			params.Client, params.Clientset, params.Scheme, params.ComponentMeta, params.WorkerComponentMeta,
 			params.ComponentExt, params.PodSpec, params.WorkerPodSpec, params.DeployConfig,
 		)
 		if err != nil {

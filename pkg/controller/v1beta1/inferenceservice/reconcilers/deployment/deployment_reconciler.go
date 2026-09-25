@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmp"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,12 +52,15 @@ var log = logf.Log.WithName("DeploymentReconciler")
 // DeploymentReconciler reconciles the raw kubernetes deployment resource
 type DeploymentReconciler struct {
 	client         kclient.Client
+	clientset      kubernetes.Interface
 	scheme         *runtime.Scheme
 	DeploymentList []*appsv1.Deployment
 	componentExt   *v1beta1.ComponentExtensionSpec
 }
 
-func NewDeploymentReconciler(client kclient.Client,
+func NewDeploymentReconciler(ctx context.Context,
+	client kclient.Client,
+	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	workerComponentMeta metav1.ObjectMeta,
@@ -69,12 +73,19 @@ func NewDeploymentReconciler(client kclient.Client,
 		return nil, fmt.Errorf("failed to create raw deployment: %w", err)
 	}
 
-	return &DeploymentReconciler{
+	r := &DeploymentReconciler{
 		client:         client,
+		clientset:      clientset,
 		scheme:         scheme,
 		DeploymentList: deploymentList,
 		componentExt:   componentExt,
-	}, nil
+	}
+
+	if err := r.customizeDeployments(ctx, componentMeta, podSpec); err != nil {
+		return nil, err
+	}
+
+	return r, nil
 }
 
 func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta metav1.ObjectMeta,
