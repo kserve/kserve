@@ -77,6 +77,10 @@ func (p *InferencePoolSpec) HasRef() bool {
 	return p != nil && p.Ref != nil && p.Ref.Name != ""
 }
 
+func (l *LoRASpec) HasAdapters() bool {
+	return l != nil && len(l.Adapters) > 0
+}
+
 func (p *ParallelismSpec) IsPipelineParallel() bool {
 	if p == nil {
 		return false

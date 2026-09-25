@@ -292,15 +292,13 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 			llmSvc, kserveTypes.ResolveOciModelMode(config.StorageConfig))
 	}
 
-	baseCfg, err := r.reconcileBaseRefs(ctx, llmSvc, config)
+	effective, err := r.reconcileBaseRefs(ctx, llmSvc, config)
 	if err != nil {
 		return err
 	}
 
-	logger.V(2).Info("Reconciling with combined base configurations", "combined.spec", baseCfg.Spec, "original.spec", llmSvc.Spec)
-	// Replace the spec with the merged configuration for reconciliation
-	// We are only writing to status, so we can safely use the original object.
-	llmSvc.Spec = baseCfg.Spec
+	logger.V(2).Info("Reconciling with combined base configurations", "combined.spec", effective, "original.spec", llmSvc.Spec)
+	llmSvc.Spec = effective
 
 	RecordAcceleratorAnnotation(llmSvc)
 
@@ -529,19 +527,18 @@ func (r *LLMISVCReconciler) enqueueOnGatewayChange(logger logr.Logger) handler.E
 					Namespace: llmSvc.Namespace,
 					Name:      llmSvc.Name,
 				}})
-				continue // skip the expensive combineBaseRefsConfig fallback
+				continue // skip the expensive spec-resolution fallback
 			}
 
 			// Fallback: service created before status.routing was introduced.
 			// Use the old derivation path until it reconciles and populates status.
-			llmSvcCopy := llmSvc.DeepCopy()
-			result, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
+			result, err := r.specResolver().Resolve(ctx, &llmSvc, cfg)
 			if err != nil {
 				logger.Error(err, "Failed to combine base refs config", "llmSvc", llmSvc.Name)
 				continue
 			}
 
-			combinedCfg := result.Config.Spec
+			combinedCfg := result.Spec
 
 			// Skip services that don't use gateways
 			if combinedCfg.Router == nil || combinedCfg.Router.Gateway == nil {
@@ -610,14 +607,13 @@ func (r *LLMISVCReconciler) enqueueOnHttpRouteChange(logger logr.Logger) handler
 
 			// Fallback: service created before status.routing was introduced.
 			// Use the old derivation path until it reconciles and populates status.
-			llmSvcCopy := llmSvc.DeepCopy()
-			result, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
+			result, err := r.specResolver().Resolve(ctx, &llmSvc, cfg)
 			if err != nil {
 				logger.Error(err, "Failed to combine base refs config", "llmSvc", llmSvc.Name)
 				continue
 			}
 
-			combinedCfg := result.Config.Spec
+			combinedCfg := result.Spec
 
 			// Skip services that don't use HTTPRoute refs
 			if combinedCfg.Router == nil || combinedCfg.Router.Route == nil || !combinedCfg.Router.Route.HTTP.HasRefs() {
@@ -665,14 +661,13 @@ func (r *LLMISVCReconciler) enqueueOnInferencePoolChange(logger logr.Logger) han
 			return reqs
 		}
 		for _, llmSvc := range llmSvcList.Items {
-			llmSvcCopy := llmSvc.DeepCopy()
-			result, err := r.combineBaseRefsConfig(ctx, llmSvcCopy, cfg)
+			result, err := r.specResolver().Resolve(ctx, &llmSvc, cfg)
 			if err != nil {
 				logger.Error(err, "Failed to combine base refs config", "llmSvc", llmSvc.Name)
 				continue
 			}
 
-			combinedCfg := result.Config.Spec
+			combinedCfg := result.Spec
 			if combinedCfg.Router == nil ||
 				combinedCfg.Router.Scheduler == nil ||
 				combinedCfg.Router.Scheduler.Pool == nil ||
@@ -796,13 +791,13 @@ func (r *LLMISVCReconciler) enqueueOnConfigMapChange(logger logr.Logger) handler
 		}
 
 		for _, llmSvc := range llmSvcList.Items {
-			result, err := r.combineBaseRefsConfig(ctx, &llmSvc, cfg)
+			result, err := r.specResolver().Resolve(ctx, &llmSvc, cfg)
 			if err != nil {
 				logger.Error(err, "Failed to combine baseRefs config", "namespace", llmSvc.Namespace, "name", llmSvc.Name)
 				continue
 			}
 
-			if result.ResolvedSchedulerConfigMap == nil || *result.ResolvedSchedulerConfigMap != client.ObjectKeyFromObject(sub) {
+			if result.SchedulerConfigMap == nil || *result.SchedulerConfigMap != client.ObjectKeyFromObject(sub) {
 				continue
 			}
 

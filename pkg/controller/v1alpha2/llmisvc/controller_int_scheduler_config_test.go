@@ -2274,7 +2274,7 @@ schedulingProfiles:
 	Context("EPP port defaulting for upgrade compatibility", func() {
 		// The port defaulting for configs that omit port (pre-GIE-v1.2.0 upgrade
 		// scenario) is covered by the v1alpha2pool conversion (convertExtensionRefToV1)
-		// and combineBaseRefsConfig. Integration tests for the nil-port case are not
+		// and SpecResolver.Resolve. Integration tests for the nil-port case are not
 		// feasible here because the v1alpha2 CEL rule rejects creating configs without
 		// port, and the v1alpha1 conversion defaults port to 9002 during ConvertTo.
 

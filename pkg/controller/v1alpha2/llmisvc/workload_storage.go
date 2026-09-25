@@ -120,8 +120,12 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 	var resolvedLoRAAdapters []resolvedLoRAAdapter
 	var loraPairs []storageDownloadPair
 	if attachLoRA {
-		var err error
-		resolvedLoRAAdapters, err = rewriteLoRAAdaptersFromLocalModelCache(ctx, r.Client, llmSvc, config.ResolvedLoRAAdapters)
+		// llmSvc.Spec is the merged spec by this point, the same one resolution validated.
+		declared, err := enumerateLoRAAdapters(llmSvc.Spec)
+		if err != nil {
+			return fmt.Errorf("enumerate LoRA adapters: %w", err)
+		}
+		resolvedLoRAAdapters, err = rewriteLoRAAdaptersFromLocalModelCache(ctx, r.Client, llmSvc, declared)
 		if err != nil {
 			return fmt.Errorf("rewrite LoRA adapters from local model cache: %w", err)
 		}

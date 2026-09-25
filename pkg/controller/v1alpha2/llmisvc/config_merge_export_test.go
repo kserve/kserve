@@ -35,9 +35,9 @@ func SetUseVersionedConfigForTest(enabled bool) func() {
 // SelectSingleNodeTemplateName exposes selectSingleNodeTemplateName for testing.
 var SelectSingleNodeTemplateName = selectSingleNodeTemplateName
 
-// ResolveRuntimeSpec exposes (*LLMISVCReconciler).resolveRuntimeSpec for testing.
+// ResolveRuntimeSpec exposes (*SpecResolver).resolveRuntimeSpec for testing.
 func (r *LLMISVCReconciler) ResolveRuntimeSpec(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*v1alpha2.LLMInferenceServiceSpec, error) {
-	return r.resolveRuntimeSpec(ctx, llmSvc)
+	return r.specResolver().resolveRuntimeSpec(ctx, llmSvc)
 }
 
 // KVTransferArgsEnvVarForTest exposes the transfer-argument slot name.

@@ -1436,7 +1436,7 @@ func TestMergeSpecs(t *testing.T) {
 
 func TestGetWorkloadLabelSelectorUsedAsDefaultPoolSelector(t *testing.T) {
 	// Verify that GetWorkloadLabelSelector returns the labels used as default
-	// InferencePool selector in combineBaseRefsConfig (config_merge.go:232-244).
+	// InferencePool selector in SpecResolver.Resolve (spec_resolver.go).
 	// When a user provides custom MatchLabels (e.g., for multi-GPU-vendor pooling),
 	// the default selector is not applied because MatchLabels is non-empty.
 	meta := metav1.ObjectMeta{Name: "test-svc", Namespace: "default"}
