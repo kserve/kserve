@@ -31,6 +31,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/kserve/kserve/pkg/constants"
+	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
 	"github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
@@ -203,6 +204,41 @@ type KernelCacheConfig struct {
 	JobTTLSecondsAfterFinished        *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
 	ReconcileIntervalSeconds          *int64 `json:"reconcileIntervalSeconds,omitempty"`
 	AbandonedCapturePolicy            string `json:"abandonedCapturePolicy,omitempty"`
+	// ArtifactSecurity controls signing of completed capture artifacts.
+	ArtifactSecurity KernelCacheArtifactSecurityConfig `json:"artifactSecurity,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
+// KernelCacheArtifactSecurityConfig configures signing of completed artifacts.
+type KernelCacheArtifactSecurityConfig struct {
+	Mode          string                        `json:"mode,omitempty"`
+	FailurePolicy string                        `json:"failurePolicy,omitempty"`
+	Cert          KernelCacheArtifactCertConfig `json:"cert,omitempty"`
+}
+
+// KernelCacheArtifactCertConfig contains certificate signing profile settings.
+type KernelCacheArtifactCertConfig struct {
+	SigningProfileRef string `json:"signingProfileRef,omitempty"`
+	TrustBundle       string `json:"trustBundle,omitempty"`
+	TrustBundleKey    string `json:"trustBundleKey,omitempty"`
+	SubjectRegexp     string `json:"subjectRegexp,omitempty"`
+}
+
+// ToSecurityConfig converts ConfigMap data to the security package contract.
+func (c KernelCacheArtifactSecurityConfig) ToSecurityConfig() kernelcachetypes.SecurityConfig {
+	mode := c.Mode
+	if mode == "" || mode == "none" {
+		mode = string(kernelcachetypes.ModeDisabled)
+	}
+	return kernelcachetypes.SecurityConfig{
+		Mode:          kernelcachetypes.Mode(mode),
+		FailurePolicy: kernelcachetypes.FailurePolicy(c.FailurePolicy),
+		Cert: kernelcachetypes.CertConfig{
+			TrustBundle:    c.Cert.TrustBundle,
+			TrustBundleKey: c.Cert.TrustBundleKey,
+			SubjectRegexp:  c.Cert.SubjectRegexp,
+		},
+	}
 }
 
 // +kubebuilder:object:generate=false
@@ -464,6 +500,10 @@ func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, 
 		JobTTLSecondsAfterFinished:        &jobTTLSeconds,
 		ReconcileIntervalSeconds:          &reconcileIntervalSeconds,
 		AbandonedCapturePolicy:            DefaultKernelCacheAbandonedCapturePolicy,
+		ArtifactSecurity: KernelCacheArtifactSecurityConfig{
+			Mode:          "none",
+			FailurePolicy: string(kernelcachetypes.FailurePolicyReject),
+		},
 	}
 	if kernelCache, ok := isvcConfigMap.Data[KernelCacheConfigName]; ok {
 		if err := json.Unmarshal([]byte(kernelCache), kernelCacheConfig); err != nil {
@@ -501,6 +541,23 @@ func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, 
 	}
 	if kernelCacheConfig.MCVCaptureReadinessTimeoutSeconds <= 0 {
 		return nil, errors.New("kernelcache.mcvCaptureReadinessTimeoutSeconds must be greater than zero")
+	}
+	if kernelCacheConfig.ArtifactSecurity.Mode == "" {
+		kernelCacheConfig.ArtifactSecurity.Mode = "none"
+	}
+	if kernelCacheConfig.ArtifactSecurity.FailurePolicy == "" {
+		kernelCacheConfig.ArtifactSecurity.FailurePolicy = string(kernelcachetypes.FailurePolicyReject)
+	}
+	securityConfig := kernelCacheConfig.ArtifactSecurity.ToSecurityConfig()
+	securityConfig.Default()
+	if err := securityConfig.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid kernelcache.artifactSecurity: %w", err)
+	}
+	if securityConfig.FailurePolicy != kernelcachetypes.FailurePolicyReject {
+		return nil, errors.New("kernelcache.artifactSecurity.failurePolicy must be reject")
+	}
+	if securityConfig.Mode == kernelcachetypes.ModeCert && strings.TrimSpace(kernelCacheConfig.ArtifactSecurity.Cert.SigningProfileRef) == "" {
+		return nil, errors.New("kernelcache.artifactSecurity.cert.signingProfileRef is required for cert mode")
 	}
 	return kernelCacheConfig, nil
 }
