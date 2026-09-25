@@ -82,3 +82,7 @@ func TestKernelCacheCaptureRevisionName(t *testing.T) {
 	assert.True(t, strings.HasSuffix(name, "-kcc-669889f77f"))
 	assert.NotEqual(t, name, KernelCacheCaptureRevisionName(strings.Repeat("q", 59)+"x", "669889f77f"))
 }
+
+func TestKernelCacheTargetImage(t *testing.T) {
+	assert.Equal(t, "registry.example:5000/test/kernel-cache-qwen:capture-id", KernelCacheTargetImage("registry.example:5000/", "test", "qwen", "capture-id"))
+}

@@ -4796,6 +4796,20 @@
         "reconcileIntervalSeconds": {
           "type": "integer",
           "format": "int64"
+        },
+        "registry": {
+          "description": "Registry contains the endpoint used to build generated capture image references. Registry credentials are added by the registry authentication integration.",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.KernelCacheRegistryConfig"
+        }
+      }
+    },
+    "v1beta1.KernelCacheRegistryConfig": {
+      "description": "KernelCacheRegistryConfig contains the endpoint used by generated capture images. Registry authentication configuration is intentionally added separately.",
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string"
         }
       }
     },

@@ -3,4 +3,5 @@ kind: Kustomization
 
 resources:
 - role.yaml
+- token_requester_role.yaml
 - role_binding.yaml

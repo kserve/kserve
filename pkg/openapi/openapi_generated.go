@@ -139,6 +139,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheArtifactCertConfig":     schema_pkg_apis_serving_v1beta1_KernelCacheArtifactCertConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheArtifactSecurityConfig": schema_pkg_apis_serving_v1beta1_KernelCacheArtifactSecurityConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheConfig":                 schema_pkg_apis_serving_v1beta1_KernelCacheConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheRegistryConfig":         schema_pkg_apis_serving_v1beta1_KernelCacheRegistryConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":                      schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LocalModelConfig":                  schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                        schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
@@ -8625,6 +8626,13 @@ func schema_pkg_apis_serving_v1beta1_KernelCacheConfig(ref common.ReferenceCallb
 							Format: "",
 						},
 					},
+					"registry": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Registry contains the endpoint used to build generated capture image references. Registry credentials are added by the registry authentication integration.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheRegistryConfig"),
+						},
+					},
 					"artifactSecurity": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ArtifactSecurity controls signing of completed capture artifacts.",
@@ -8637,7 +8645,26 @@ func schema_pkg_apis_serving_v1beta1_KernelCacheConfig(ref common.ReferenceCallb
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheArtifactSecurityConfig"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheArtifactSecurityConfig", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheRegistryConfig"},
+	}
+}
+
+func schema_pkg_apis_serving_v1beta1_KernelCacheRegistryConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "KernelCacheRegistryConfig contains the endpoint used by generated capture images. Registry authentication configuration is intentionally added separately.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"endpoint": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
