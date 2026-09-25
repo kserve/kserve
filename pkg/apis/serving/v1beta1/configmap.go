@@ -208,6 +208,7 @@ type KernelCacheConfig struct {
 	ArtifactSecurity KernelCacheArtifactSecurityConfig `json:"artifactSecurity,omitempty"`
 }
 
+// +kubebuilder:object:generate=false
 // KernelCacheArtifactSecurityConfig configures signing of completed artifacts.
 type KernelCacheArtifactSecurityConfig struct {
 	Mode          string                        `json:"mode,omitempty"`

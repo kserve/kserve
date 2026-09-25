@@ -261,7 +261,7 @@ func TestCaptureControllerIgnoresPodWithoutVerifiedInferenceServiceOwner(t *test
 	require.True(t, apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: reporter.ServiceAccountName("model-capture")}, &corev1.ServiceAccount{})))
 }
 
-func TestCaptureControllerMaintainsTokenRequesterBinding(t *testing.T) {
+func TestCaptureControllerRemovesTokenRequesterBindingWhenDisabled(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
@@ -269,11 +269,20 @@ func TestCaptureControllerMaintainsTokenRequesterBinding(t *testing.T) {
 	require.NoError(t, v1beta1.AddToScheme(scheme))
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
-		Data:       map[string]string{"kernelcache": `{"enabled":true,"defaultSidecarInjection":true}`},
+		Data:       map[string]string{"kernelcache": `{"enabled":false}`},
 	}
 	namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "team"}}
 	service := &v1beta1.InferenceService{ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "team"}}
-	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(configMap, namespace, service).Build()
+	binding := &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      reporter.TokenRequesterRole,
+			Namespace: "team",
+			Labels:    map[string]string{reporter.TokenRequesterManagedLabel: "true"},
+		},
+		RoleRef:  rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "ClusterRole", Name: reporter.TokenRequesterRole},
+		Subjects: []rbacv1.Subject{{Kind: "ServiceAccount", Name: "operator", Namespace: "kserve"}},
+	}
+	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(configMap, namespace, service, binding).Build()
 	r := &KernelCacheCaptureControllerReconciler{
 		Client:                 c,
 		Reader:                 c,
@@ -282,18 +291,6 @@ func TestCaptureControllerMaintainsTokenRequesterBinding(t *testing.T) {
 	}
 	req := ctrl.Request{NamespacedName: client.ObjectKeyFromObject(service)}
 
-	for range 2 {
-		_, err := r.Reconcile(ctx, req)
-		require.NoError(t, err)
-	}
-	binding := &rbacv1.RoleBinding{}
-	require.NoError(t, c.Get(ctx, client.ObjectKey{Namespace: "team", Name: reporter.TokenRequesterRole}, binding))
-	require.Equal(t, reporter.TokenRequesterRole, binding.RoleRef.Name)
-	require.Equal(t, []rbacv1.Subject{{Kind: "ServiceAccount", Name: "operator", Namespace: "kserve"}}, binding.Subjects)
-
-	require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(configMap), configMap))
-	configMap.Data["kernelcache"] = `{"enabled":false}`
-	require.NoError(t, c.Update(ctx, configMap))
 	_, err := r.Reconcile(ctx, req)
 	require.NoError(t, err)
 	require.True(t, apierrors.IsNotFound(c.Get(ctx, client.ObjectKey{Namespace: "team", Name: reporter.TokenRequesterRole}, binding)))

@@ -16,6 +16,8 @@ limitations under the License.
 
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachenodegroups,verbs=get;list;watch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachenodes,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachecaptures,verbs=get;list;watch;create;delete
+// +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcachecaptures/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcaches,verbs=get;list;watch
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=kernelcaches/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=nodes,verbs=get;list;watch

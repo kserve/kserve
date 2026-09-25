@@ -58,6 +58,9 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	kernelCache := &v1alpha1.KernelCache{}
 	if err := r.Get(ctx, req.NamespacedName, kernelCache); err != nil {
 		if apierrors.IsNotFound(err) {
+			if err := r.reconcileCaptureKernelCache(ctx, req); err != nil {
+				return ctrl.Result{}, err
+			}
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err

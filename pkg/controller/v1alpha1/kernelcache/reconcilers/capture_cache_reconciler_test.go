@@ -20,6 +20,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -138,9 +139,10 @@ func TestKernelCacheReconcilerCreatesKernelCacheFromCompletedCapture(t *testing.
 
 	capture := &v1alpha1.KernelCacheCapture{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "qwen-kernelcache-capture",
-			Namespace: "team",
-			UID:       types.UID("capture-uid"),
+			Name:       "qwen-kernelcache-capture",
+			Namespace:  "team",
+			UID:        types.UID("capture-uid"),
+			Generation: 1,
 		},
 		Spec: v1alpha1.KernelCacheCaptureSpec{
 			SourceRef: v1alpha1.KernelCacheSourceRef{
@@ -176,7 +178,11 @@ func TestKernelCacheReconcilerCreatesKernelCacheFromCompletedCapture(t *testing.
 	capture.Status.RuntimeResult[runtimeResultImageReferenceKey] = capture.Status.Artifact.ImageReference
 	capture.Status.RuntimeResult[runtimeResultCaptureSessionIDKey] = "session"
 	capture.Status.RuntimeResult[runtimeResultSourcePodNameKey] = "model-pod"
-	capture.Status.Conditions = []metav1.Condition{{Type: "Ready", Status: metav1.ConditionTrue}}
+	capture.Status.Conditions = []metav1.Condition{{
+		Type:               kernelCacheCaptureReadyConditionType,
+		Status:             metav1.ConditionTrue,
+		ObservedGeneration: capture.Generation,
+	}}
 	capture.Status.ActiveSession = &v1alpha1.KernelCacheCaptureSession{
 		ID: "session", PodName: "model-pod", RequestedNodeGroup: "annotation-group",
 	}
@@ -186,6 +192,8 @@ func TestKernelCacheReconcilerCreatesKernelCacheFromCompletedCapture(t *testing.
 	secondCapture.Status.Artifact.ImageReference = "registry.example.com/cache@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
 	secondCapture.Status.RuntimeResult[runtimeResultImageReferenceKey] = secondCapture.Status.Artifact.ImageReference
 	secondCapture.Status.KernelCacheRef = nil
+	require.True(t, isCaptureComplete(capture), "capture fixture must be complete")
+	require.True(t, isCaptureComplete(secondCapture), "second capture fixture must be complete")
 	inferenceService := &v1beta1.InferenceService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "qwen",
@@ -342,7 +350,7 @@ func TestKernelCacheReconcilerWaitsForProducerNodeAssignment(t *testing.T) {
 	err = k8sClient.Get(t.Context(), request.NamespacedName, &v1alpha1.KernelCache{})
 	require.True(t, apierrors.IsNotFound(err))
 	require.Nil(t, capture.Status.KernelCacheRef)
-	event := <-recorder.Events
+	event := requireRecordedEvent(t, recorder.Events)
 	require.True(t, strings.Contains(event, "ProducerNodePending"), event)
 }
 
@@ -369,7 +377,7 @@ func TestKernelCacheReconcilerSkipsAmbiguousNodeGroups(t *testing.T) {
 	updatedCapture := &v1alpha1.KernelCacheCapture{}
 	require.NoError(t, k8sClient.Get(t.Context(), client.ObjectKeyFromObject(capture), updatedCapture))
 	require.Equal(t, v1alpha1.KernelCacheCapturePhaseComplete, updatedCapture.Status.Phase)
-	event := <-recorder.Events
+	event := requireRecordedEvent(t, recorder.Events)
 	require.True(t, strings.Contains(event, "AmbiguousNodeGroup"), event)
 	require.True(t, strings.Contains(event, "gpu-a, gpu-b"), event)
 }
@@ -391,7 +399,7 @@ func TestKernelCacheReconcilerDoesNotFallbackForInvalidRequestedNodeGroup(t *tes
 	require.NoError(t, err)
 	err = k8sClient.Get(t.Context(), request.NamespacedName, &v1alpha1.KernelCache{})
 	require.True(t, apierrors.IsNotFound(err))
-	event := <-recorder.Events
+	event := requireRecordedEvent(t, recorder.Events)
 	require.True(t, strings.Contains(event, "InvalidRequestedNodeGroup"), event)
 }
 
@@ -431,6 +439,17 @@ func TestNodeChangeRequeuesCaptureAssignedToThatNode(t *testing.T) {
 	require.NotContains(t, requests, request)
 }
 
+func requireRecordedEvent(t *testing.T, events <-chan string) string {
+	t.Helper()
+	select {
+	case event := <-events:
+		return event
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for recorder event")
+		return ""
+	}
+}
+
 func newCaptureNodeGroupHarness(
 	t *testing.T,
 	nodeName string,
@@ -446,7 +465,7 @@ func newCaptureNodeGroupHarness(
 	require.NoError(t, v1beta1.AddToScheme(scheme))
 	image := "registry.example.com/cache@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	capture := &v1alpha1.KernelCacheCapture{
-		ObjectMeta: metav1.ObjectMeta{Name: "model-capture", Namespace: "team"},
+		ObjectMeta: metav1.ObjectMeta{Name: "model-capture", Namespace: "team", Generation: 1},
 		Spec:       v1alpha1.KernelCacheCaptureSpec{SourceRef: v1alpha1.KernelCacheSourceRef{Kind: "InferenceService", Name: "model"}},
 		Status: v1alpha1.KernelCacheCaptureStatus{
 			Phase:         v1alpha1.KernelCacheCapturePhaseComplete,
@@ -463,10 +482,15 @@ func newCaptureNodeGroupHarness(
 					ContainerName: "kserve-container", ContainerPath: "/tmp/vllm", OCIPath: "io.vllm.cache",
 				}},
 			},
-			Signing:    &v1alpha1.KernelCacheSigningStatus{Mode: "none", State: v1alpha1.KernelCacheArtifactSecurityStateSkipped},
-			Conditions: []metav1.Condition{{Type: kernelCacheCaptureReadyConditionType, Status: metav1.ConditionTrue}},
+			Signing: &v1alpha1.KernelCacheSigningStatus{Mode: "none", State: v1alpha1.KernelCacheArtifactSecurityStateSkipped},
+			Conditions: []metav1.Condition{{
+				Type:               kernelCacheCaptureReadyConditionType,
+				Status:             metav1.ConditionTrue,
+				ObservedGeneration: 1,
+			}},
 		},
 	}
+	require.True(t, isCaptureComplete(capture), "capture fixture must be complete")
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
 		Data:       map[string]string{"kernelcache": `{"enabled":true,"defaultMountType":"oci","defaultNodeGroup":"` + defaultNodeGroup + `"}`},
