@@ -103,10 +103,109 @@ func TestNewKernelCacheConfigDefaults(t *testing.T) {
 		g.Expect(config.PrefetchImage).To(gomega.Equal(DefaultKernelCachePrefetchImage))
 		g.Expect(config.MCVCaptureReadinessTimeoutSeconds).To(gomega.Equal(DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds))
 		g.Expect(config.AbandonedCapturePolicy).To(gomega.Equal(DefaultKernelCacheAbandonedCapturePolicy))
+		g.Expect(config.Registry.Endpoint).To(gomega.BeEmpty())
+		g.Expect(config.Registry.CAConfigMapRef).To(gomega.BeNil())
+		g.Expect(config.Registry.Auth.Type).To(gomega.Equal(KernelCacheRegistryAuthTypeNone))
+		g.Expect(config.Registry.Auth.TokenTTLSeconds).To(gomega.Equal(int64(0)))
+		g.Expect(config.Registry.Auth.PushRoleRef).To(gomega.BeNil())
+		g.Expect(config.Registry.Auth.PullRoleRef).To(gomega.BeNil())
 		g.Expect(config.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
 		g.Expect(*config.JobTTLSecondsAfterFinished).To(gomega.Equal(DefaultKernelCacheJobTTLSeconds))
 		g.Expect(config.ReconcileIntervalSeconds).ToNot(gomega.BeNil())
 		g.Expect(*config.ReconcileIntervalSeconds).To(gomega.Equal(DefaultKernelCacheReconcileIntervalSeconds))
+	}
+}
+
+func TestNewKernelCacheConfigUsesServiceAccountTokenRegistry(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{
+			"registry": {
+				"endpoint": "registry.example:5000",
+				"caConfigMapRef": {"name": "custom-ca", "key": "bundle.pem"},
+				"auth": {
+					"type": "serviceAccountToken",
+					"pushRoleRef": {"kind": "ClusterRole", "name": "registry-pusher"},
+					"pullRoleRef": {"kind": "ClusterRole", "name": "registry-puller"}
+				}
+			}
+		}`,
+	}}
+
+	config, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(config.Registry.Endpoint).To(gomega.Equal("registry.example:5000"))
+	g.Expect(config.Registry.CAConfigMapRef).To(gomega.Equal(&KernelCacheConfigMapKeyRef{
+		Name: "custom-ca",
+		Key:  "bundle.pem",
+	}))
+	g.Expect(config.Registry.Auth.Type).To(gomega.Equal(KernelCacheRegistryAuthTypeServiceAccountToken))
+	g.Expect(config.Registry.Auth.TokenTTLSeconds).To(gomega.Equal(DefaultKernelCacheRegistryTokenTTLSeconds))
+	g.Expect(config.Registry.Auth.PushRoleRef).To(gomega.Equal(&KernelCacheRegistryRoleRef{
+		Kind: "ClusterRole",
+		Name: "registry-pusher",
+	}))
+	g.Expect(config.Registry.Auth.PullRoleRef).To(gomega.Equal(&KernelCacheRegistryRoleRef{
+		Kind: "ClusterRole",
+		Name: "registry-puller",
+	}))
+}
+
+func TestNewKernelCacheConfigRejectsUnsupportedRegistryAuthType(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{"registry":{"auth":{"type":"unsupported"}}}`,
+	}}
+
+	_, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).To(gomega.MatchError(`unsupported registry.auth.type "unsupported"`))
+}
+
+func TestKernelCacheRegistryConfigRejectsInvalidServiceAccountTokenSettings(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      KernelCacheRegistryConfig
+		expectedErr string
+	}{
+		{
+			name: "missing endpoint",
+			config: KernelCacheRegistryConfig{
+				Auth: KernelCacheRegistryAuth{
+					Type: KernelCacheRegistryAuthTypeServiceAccountToken,
+				},
+			},
+			expectedErr: "registry.endpoint must be a registry host with optional port",
+		},
+		{
+			name: "missing role reference",
+			config: KernelCacheRegistryConfig{
+				Endpoint: "registry.example:5000",
+				Auth: KernelCacheRegistryAuth{
+					Type: KernelCacheRegistryAuthTypeServiceAccountToken,
+				},
+			},
+			expectedErr: "registry.auth.pushRoleRef requires kind and name",
+		},
+		{
+			name: "invalid token ttl",
+			config: KernelCacheRegistryConfig{
+				Endpoint: "registry.example:5000",
+				Auth: KernelCacheRegistryAuth{
+					Type:            KernelCacheRegistryAuthTypeServiceAccountToken,
+					TokenTTLSeconds: 300,
+					PushRoleRef:     &KernelCacheRegistryRoleRef{Kind: "Role", Name: "pusher"},
+					PullRoleRef:     &KernelCacheRegistryRoleRef{Kind: "Role", Name: "puller"},
+				},
+			},
+			expectedErr: "registry.auth.tokenTTLSeconds must be between 600 and 3600",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			g.Expect(test.config.Validate()).To(gomega.MatchError(test.expectedErr))
+		})
 	}
 }
 
