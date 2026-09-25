@@ -17,12 +17,17 @@ limitations under the License.
 package inferenceservice
 
 import (
+	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -36,10 +41,29 @@ func NewCacheOptions() (cache.Options, error) {
 	isvcPodLabelSelector := labels.NewSelector().Add(*isvcPodLabelReq)
 
 	return cache.Options{
+		ReaderFailOnMissingInformer: true,
 		ByObject: map[client.Object]cache.ByObject{
 			&corev1.Pod{}: {
 				Label: isvcPodLabelSelector,
 			},
 		},
 	}, nil
+}
+
+// NewClientOptions uses direct reads for resources without guaranteed informers.
+func NewClientOptions() client.Options {
+	return client.Options{Cache: &client.CacheOptions{
+		DisableFor: []client.Object{
+			// These are read during reconciliation/admission but have no watches.
+			&autoscalingv2.HorizontalPodAutoscaler{},
+			&v1alpha1.ClusterStorageContainer{},
+			&v1alpha1.LocalModelCache{}, &v1alpha1.LocalModelNamespaceCache{},
+			// Runtime discovery and cleanup also read these when their watches
+			// are disabled (missing CSR API or disableIstioVirtualHost).
+			&v1alpha1.ClusterServingRuntime{}, &istioclientv1beta1.VirtualService{},
+			// Routing mode can change through the config map after startup;
+			// only the initial mode's informer is registered by the controller.
+			&gwapiv1.HTTPRoute{}, &netv1.Ingress{},
+		},
+	}}
 }

@@ -21,11 +21,13 @@ import (
 	"flag"
 	"os"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -125,6 +127,12 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	setupLog.Info("Setting up manager")
+	// Cache policies resolve custom resource types while the manager is created.
+	scheme := runtime.NewScheme()
+	if err := kservescheme.AddControllerAPIs(scheme); err != nil {
+		setupLog.Error(err, "unable to add controller APIs to scheme")
+		os.Exit(1)
+	}
 	metricsServerOptions, err := kservemetrics.ConfigureServerOptions(metricsserver.Options{
 		BindAddress:   options.metricsAddr,
 		SecureServing: options.metricsSecure,
@@ -137,6 +145,7 @@ func main() {
 	}
 
 	mgr, err := manager.New(cfg, manager.Options{
+		Scheme:  scheme,
 		Metrics: metricsServerOptions,
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port:    options.webhookPort,
@@ -145,6 +154,8 @@ func main() {
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,
 		HealthProbeBindAddress: options.probeAddr,
+		Cache:                  localmodelcontroller.NewCacheOptions(),
+		Client:                 localmodelcontroller.NewClientOptions(),
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to set up overall controller manager")
@@ -152,12 +163,6 @@ func main() {
 	}
 
 	setupLog.Info("Registering Components.")
-
-	setupLog.Info("Setting up controller schemes")
-	if err := kservescheme.AddControllerAPIs(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add controller APIs to scheme")
-		os.Exit(1)
-	}
 
 	// Setup LocalModel controller
 	localModelEventBroadcaster := record.NewBroadcaster()
@@ -209,15 +214,22 @@ func main() {
 
 	// Setup webhook
 	setupLog.Info("setting up webhook server")
+	// Validation checks status references even after a consumer loses its cache
+	// label, so it must not read through the filtered consumer informer.
+	validationClient, err := client.New(cfg, client.Options{Scheme: mgr.GetScheme()})
+	if err != nil {
+		setupLog.Error(err, "unable to create validation client")
+		os.Exit(1)
+	}
 	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha1.LocalModelCache{}).
-		WithValidator(&localmodelwebhook.LocalModelCacheValidator{Client: mgr.GetClient()}).
+		WithValidator(&localmodelwebhook.LocalModelCacheValidator{Client: validationClient}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "LocalModelCache")
 		os.Exit(1)
 	}
 
 	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha1.LocalModelNamespaceCache{}).
-		WithValidator(&localmodelnamespacecachewebhook.LocalModelNamespaceCacheValidator{Client: mgr.GetClient()}).
+		WithValidator(&localmodelnamespacecachewebhook.LocalModelNamespaceCacheValidator{Client: validationClient}).
 		Complete(); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "LocalModelNamespaceCache")
 		os.Exit(1)

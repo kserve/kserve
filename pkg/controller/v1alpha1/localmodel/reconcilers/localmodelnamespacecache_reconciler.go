@@ -266,16 +266,15 @@ func (c *LocalModelNamespaceCacheReconciler) nodeFuncNamespaceCache(ctx context.
 // PVCs are watched via a map (never owned), so their creation, binding, expansion, and capacity
 // changes trigger reconciliation without the controller taking ownership of user-provided claims.
 func (c *LocalModelNamespaceCacheReconciler) pvcFuncNamespaceCache(ctx context.Context, obj client.Object) []reconcile.Request {
-	pvc := obj.(*corev1.PersistentVolumeClaim)
 	models := &v1alpha1.LocalModelNamespaceCacheList{}
-	if err := c.List(ctx, models, client.InNamespace(pvc.Namespace)); err != nil {
+	if err := c.List(ctx, models, client.InNamespace(obj.GetNamespace())); err != nil {
 		c.Log.Error(err, "list namespace models error when reconciling PVCs")
 		return []reconcile.Request{}
 	}
 	requests := []reconcile.Request{}
 	for i := range models.Items {
 		model := &models.Items[i]
-		if model.Spec.SharedPVCMode() && *model.Spec.PVCRef == pvc.Name {
+		if model.Spec.SharedPVCMode() && *model.Spec.PVCRef == obj.GetName() {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{Name: model.Name, Namespace: model.Namespace},
 			})
@@ -429,7 +428,7 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 
 	controllerBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.LocalModelNamespaceCache{}).
-		Owns(&corev1.PersistentVolumeClaim{}).
+		Owns(&corev1.PersistentVolumeClaim{}, builder.OnlyMetadata).
 		// Shared-PVC import Jobs are owned by the cache, so their status changes trigger reconciliation.
 		Owns(&batchv1.Job{})
 
@@ -463,6 +462,6 @@ func (c *LocalModelNamespaceCacheReconciler) SetupWithManager(mgr ctrl.Manager) 
 		Watches(&v1alpha1.LocalModelNamespaceCache{}, handler.EnqueueRequestsFromMapFunc(c.deletedCacheFuncNamespaceCache), builder.WithPredicates(cacheDeletePredicates)).
 		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(c.nodeFuncNamespaceCache), builder.WithPredicates(nodePredicates)).
 		Watches(&v1alpha1.LocalModelNode{}, handler.EnqueueRequestsFromMapFunc(c.localmodelNodeFuncNamespaceCache), builder.WithPredicates(localModelNodePredicates)).
-		Watches(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(c.pvcFuncNamespaceCache)).
+		WatchesMetadata(&corev1.PersistentVolumeClaim{}, handler.EnqueueRequestsFromMapFunc(c.pvcFuncNamespaceCache)).
 		Complete(c)
 }
