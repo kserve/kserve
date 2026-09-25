@@ -1027,6 +1027,11 @@ func KernelCacheCaptureRevisionName(sourceName, revisionID string) string {
 	return strings.TrimRight(sourceName[:keep], "-.") + digestText + suffix
 }
 
+// KernelCacheTargetImage returns the OCI image reference for one capture.
+func KernelCacheTargetImage(registry, namespace, inferenceServiceName, captureID string) string {
+	return fmt.Sprintf("%s/%s/kernel-cache-%s:%s", strings.TrimSuffix(registry, "/"), namespace, inferenceServiceName, captureID)
+}
+
 // LoRAModelRoutingStrategyAnnotationKey pins the LoRA routing strategy for one
 // LLMInferenceService, overriding the cluster-wide loraModelRoutingStrategy.
 // Set on spec.annotations, so a preset can carry it.
