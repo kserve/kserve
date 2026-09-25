@@ -31,6 +31,8 @@ package kernelcache
 import "github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcache/reconcilers"
 
 type (
-	KernelCacheNodeReconciler = reconcilers.KernelCacheNodeReconciler
-	KernelCacheReconciler     = reconcilers.KernelCacheReconciler
+	KernelCacheCaptureControllerReconciler = reconcilers.KernelCacheCaptureControllerReconciler
+	KernelCacheCaptureReconciler           = reconcilers.KernelCacheCaptureReconciler
+	KernelCacheNodeReconciler              = reconcilers.KernelCacheNodeReconciler
+	KernelCacheReconciler                  = reconcilers.KernelCacheReconciler
 )

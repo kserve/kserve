@@ -4710,6 +4710,40 @@
         }
       }
     },
+    "v1beta1.KernelCacheArtifactCertConfig": {
+      "description": "KernelCacheArtifactCertConfig contains certificate signing profile settings.",
+      "type": "object",
+      "properties": {
+        "signingProfileRef": {
+          "type": "string"
+        },
+        "subjectRegexp": {
+          "type": "string"
+        },
+        "trustBundle": {
+          "type": "string"
+        },
+        "trustBundleKey": {
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.KernelCacheArtifactSecurityConfig": {
+      "description": "KernelCacheArtifactSecurityConfig configures signing of completed artifacts.",
+      "type": "object",
+      "properties": {
+        "cert": {
+          "default": {},
+          "$ref": "#/definitions/v1beta1.KernelCacheArtifactCertConfig"
+        },
+        "failurePolicy": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        }
+      }
+    },
     "v1beta1.KernelCacheConfig": {
       "description": "KernelCacheConfig contains the shared KernelCache configuration loaded from the kernelcache entry in the inferenceservice-config ConfigMap.",
       "type": "object",
@@ -4721,6 +4755,11 @@
       "properties": {
         "abandonedCapturePolicy": {
           "type": "string"
+        },
+        "artifactSecurity": {
+          "description": "ArtifactSecurity controls signing of completed capture artifacts.",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.KernelCacheArtifactSecurityConfig"
         },
         "defaultMountType": {
           "type": "string"
