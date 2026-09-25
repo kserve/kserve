@@ -644,6 +644,7 @@ const (
 	PaddleServer      = "kserve-paddleserver"
 	HuggingFaceServer = "kserve-huggingfaceserver"
 	VLLMServer        = "kserve-vllmserver"
+	OpenVINOServer    = "kserve-openvino"
 )
 
 // Server type annotation values
@@ -680,6 +681,8 @@ func GetServerTypeFromRuntimeName(runtimeName string) string {
 		return ServerTypeHuggingFaceServer
 	case VLLMServer:
 		return ServerTypeVLLMServer
+	case OpenVINOServer:
+		return ServerTypeOVMS
 	default:
 		return ""
 	}
@@ -726,6 +729,7 @@ const (
 	SupportedModelTriton      = "triton"
 	SupportedModelMLFlow      = "mlflow"
 	SupportedModelVLLM        = "vLLM"
+	SupportedModelOpenVINO    = "openvino"
 )
 
 type ProtocolVersion int

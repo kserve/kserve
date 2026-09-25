@@ -19,7 +19,7 @@ spec:
     - --port=9000
     - --rest_port=8080
     - --file_system_poll_wait_seconds=0
-    image: openvino/model_server:replace
+    image: kserve-openvino:replace
     name: kserve-container
     resources:
       limits:
@@ -49,10 +49,8 @@ spec:
     name: onnx
     priority: 2
     version: "1"
-  - autoSelect: true
-    name: tensorflow
+  - name: tensorflow
     priority: 3
     version: "1"
-  - autoSelect: true
-    name: huggingface
+  - name: huggingface
 
