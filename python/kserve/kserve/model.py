@@ -73,6 +73,10 @@ class BaseKServeModel(ABC):
     This class implements the expectations of model repository and model server.
     """
 
+    # Disabled by default to preserve historical server-level health behavior.
+    # Models backed by an independently-failing engine can opt in.
+    server_health_check_enabled: bool = False
+
     @abstractmethod
     def __init__(self, name: str):
         """
@@ -84,6 +88,10 @@ class BaseKServeModel(ABC):
         self.name = name
         self.ready = False
         self.engine = False
+
+    async def is_live(self) -> bool:
+        """Return whether the model's serving engine is recoverably alive."""
+        return True
 
     async def healthy(self) -> bool:
         """

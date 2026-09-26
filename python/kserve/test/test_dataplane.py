@@ -95,6 +95,8 @@ class TestDataPlane:
 
     async def test_liveness(self):
         assert (await DataPlane.live()) == {"status": "alive"}
+        dataplane = DataPlane(model_registry=ModelRepository())
+        assert (await dataplane.live()) == {"status": "alive"}
 
     async def test_server_readiness(self, dataplane_with_model):
         assert (await dataplane_with_model.ready()) is True
@@ -105,6 +107,7 @@ class TestDataPlane:
         # The model server readiness endpoint should return 'True' irrespective of the readiness
         # of the model loaded into it.
         assert (await dataplane_with_model.ready()) is True
+        assert (await dataplane_with_model.live()) == {"status": "alive"}
 
     async def test_model_readiness(self):
         dataplane = DataPlane(model_registry=ModelRepository())

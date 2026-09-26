@@ -44,6 +44,7 @@ from .vllm.utils import (
     maybe_add_vllm_cli_parser,
     vllm_available,
 )
+from .vllm.engine_health import DEFAULT_VLLM_HEALTH_CHECK_TIMEOUT_SECONDS
 
 
 def list_of_strings(arg):
@@ -162,6 +163,14 @@ output_format_group.add_argument(
 )
 parser.add_argument(
     "--disable_log_requests", action="store_true", help="Disable logging requests"
+)
+parser.add_argument(
+    "--vllm_health_check_timeout",
+    "--vllm-health-check-timeout",
+    dest="vllm_health_check_timeout",
+    type=float,
+    default=DEFAULT_VLLM_HEALTH_CHECK_TIMEOUT_SECONDS,
+    help="Timeout in seconds for a vLLM engine health check.",
 )
 
 # The initial_args are required to determine whether the vLLM backend is enabled.
