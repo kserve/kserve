@@ -34,12 +34,14 @@ import (
 )
 
 const (
-	AccessSecretAnnotation       = "internal.serving.kserve.io/kernelcache-reporter-secret"
-	AccessKey                    = "access.json"
-	ManagedLabel                 = "internal.serving.kserve.io/kernelcache-reporter"
-	tokenRefreshBuffer           = time.Minute
-	defaultTokenTTLSeconds int64 = 600
-	reporterResourcePrefix       = "kernel-cache-reporter-"
+	AccessSecretAnnotation           = "internal.serving.kserve.io/kernelcache-reporter-secret"
+	AccessKey                        = "access.json"
+	ManagedLabel                     = "internal.serving.kserve.io/kernelcache-reporter"
+	TokenRequesterRole               = "kserve-kernelcache-token-requester" // #nosec G101 -- Kubernetes RBAC role name, not a credential.
+	TokenRequesterManagedLabel       = "internal.serving.kserve.io/kernelcache-token-requester"
+	tokenRefreshBuffer               = time.Minute
+	defaultTokenTTLSeconds     int64 = 600
+	reporterResourcePrefix           = "kernel-cache-reporter-"
 )
 
 // ServiceAccountName returns the reporter identity name scoped to one KCC.
