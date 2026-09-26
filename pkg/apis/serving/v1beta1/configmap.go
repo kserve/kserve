@@ -227,6 +227,8 @@ type KernelCacheConfig struct {
 	ReadinessEnv []corev1.EnvVar `json:"-"`
 	// ReporterSecretName is the per-capture reporter Secret mounted into MCV.
 	ReporterSecretName string `json:"-"`
+	// CredentialSecretName is the per-capture registry Secret mounted into MCV.
+	CredentialSecretName string `json:"-"`
 	// CaptureName identifies the KernelCacheCapture associated with the Pod.
 	CaptureName string `json:"-"`
 	// CaptureNamespace is the namespace of the associated KernelCacheCapture.

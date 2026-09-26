@@ -47,6 +47,7 @@ import (
 	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
 	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
+	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
 	"github.com/kserve/kserve/pkg/kernelcache/reporter"
 	kernelcachesecurity "github.com/kserve/kserve/pkg/kernelcache/security"
 	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
@@ -157,6 +158,9 @@ func (r *KernelCacheCaptureReconciler) cleanupCaptureIdentities(ctx context.Cont
 		capture.Status.Phase != v1alpha1.KernelCacheCapturePhaseFailed {
 		return nil
 	}
+	if err := r.revokeRegistryAccess(ctx, capture); err != nil {
+		return err
+	}
 	resources := []struct {
 		object client.Object
 		label  string
@@ -165,6 +169,8 @@ func (r *KernelCacheCaptureReconciler) cleanupCaptureIdentities(ctx context.Cont
 		{object: &rbacv1.RoleBinding{ObjectMeta: metav1.ObjectMeta{Name: reporter.RoleBindingName(capture.Name), Namespace: capture.Namespace}}, label: reporter.ManagedLabel},
 		{object: &rbacv1.Role{ObjectMeta: metav1.ObjectMeta{Name: reporter.RoleName(capture.Name), Namespace: capture.Namespace}}, label: reporter.ManagedLabel},
 		{object: &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: reporter.ServiceAccountName(capture.Name), Namespace: capture.Namespace}}, label: reporter.ManagedLabel},
+		{object: &rbacv1.RoleBinding{ObjectMeta: metav1.ObjectMeta{Name: registryauth.PusherRoleBindingName(capture.Name), Namespace: capture.Namespace}}, label: registryauth.ManagedLabel},
+		{object: &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: registryauth.PusherServiceAccountName(capture.Name), Namespace: capture.Namespace}}, label: registryauth.ManagedLabel},
 	}
 	for _, resource := range resources {
 		if err := r.deleteOwnedCaptureObject(ctx, capture, resource.object, resource.label); err != nil {
@@ -172,6 +178,21 @@ func (r *KernelCacheCaptureReconciler) cleanupCaptureIdentities(ctx context.Cont
 		}
 	}
 	return nil
+}
+
+func (r *KernelCacheCaptureReconciler) revokeRegistryAccess(ctx context.Context, capture *v1alpha1.KernelCacheCapture) error {
+	if capture.Status.ActiveSession == nil || capture.Status.ActiveSession.PodName == "" {
+		return nil
+	}
+	reader := r.Reader
+	if reader == nil {
+		reader = r.Client
+	}
+	pod := &corev1.Pod{}
+	if err := reader.Get(ctx, client.ObjectKey{Namespace: capture.Namespace, Name: capture.Status.ActiveSession.PodName}, pod); err != nil {
+		return client.IgnoreNotFound(err)
+	}
+	return registryauth.Revoke(ctx, r.Client, pod)
 }
 
 func (r *KernelCacheCaptureReconciler) deleteOwnedCaptureObject(ctx context.Context, capture *v1alpha1.KernelCacheCapture, object client.Object, managedLabel string) error {

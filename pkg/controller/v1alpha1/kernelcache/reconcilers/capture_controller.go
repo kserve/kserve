@@ -46,11 +46,12 @@ import (
 	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
 	"github.com/kserve/kserve/pkg/kernelcache/captureconfig"
 	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
 	"github.com/kserve/kserve/pkg/kernelcache/reporter"
 	"github.com/kserve/kserve/pkg/kernelcache/workload"
 )
 
-// KernelCacheCaptureControllerReconciler prepares capture reporter identities in workload namespaces.
+// KernelCacheCaptureControllerReconciler prepares capture identities in workload namespaces.
 type KernelCacheCaptureControllerReconciler struct {
 	client.Client
 	Clientset              kubernetes.Interface
@@ -181,6 +182,20 @@ func (r *KernelCacheCaptureControllerReconciler) Reconcile(ctx context.Context, 
 				return ctrl.Result{}, nil
 			}
 			return ctrl.Result{RequeueAfter: 10 * time.Second}, fmt.Errorf("issue capture reporter access: %w", issueErr)
+		}
+		if cfg.Registry.Auth.Type == v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken {
+			if err := r.ensurePusherIdentityForCapture(ctx, capture, cfg.Registry); err != nil {
+				return ctrl.Result{}, err
+			}
+			if r.Clientset == nil {
+				return ctrl.Result{}, errors.New("kernelcache registry access requires a Kubernetes clientset")
+			}
+			if _, err := (&registryauth.Credentials{Client: r.Clientset}).IssueForCapture(ctx, capturePod, capture.Name, cfg.Registry); err != nil {
+				if apierrors.IsNotFound(err) || apierrors.IsGone(err) {
+					return ctrl.Result{}, nil
+				}
+				return ctrl.Result{RequeueAfter: 10 * time.Second}, fmt.Errorf("issue capture registry access: %w", err)
+			}
 		}
 	}
 	if isCapturePod {
