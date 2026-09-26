@@ -1713,7 +1713,7 @@ metadata:
 spec:
   annotations:
     prometheus.kserve.io/path: /metrics
-    prometheus.kserve.io/port: "8080"
+    prometheus.kserve.io/port: "8082"
   containers:
   - env:
     - name: MLSERVER_MODEL_IMPLEMENTATION
