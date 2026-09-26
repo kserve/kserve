@@ -20,6 +20,7 @@ import tarfile
 import unittest.mock as mock
 
 import pytest
+import zstandard
 
 from kserve_storage import Storage
 from kserve_storage.kserve_storage import (
@@ -227,16 +228,23 @@ def test_oci_uncompressed_tar_layer_extracts(tmp_path):
     assert os.path.isfile(os.path.join(out, "model.txt"))
 
 
-def test_oci_zstd_layer_rejected(tmp_path):
-    # zstd layers cannot be decompressed by stdlib tarfile before Python 3.14
-    # (the initializer runs 3.11); reject with an actionable error instead of a
-    # cryptic mid-stream gzip failure. Rejection happens before any blob fetch.
+def test_oci_zstd_layer_extracts(tmp_path):
+    # A zstd-compressed layer (mediaType ...tar+zstd) is streamed through a
+    # zstandard decompressor and then read as an uncompressed tar. A real
+    # zstd->tar round-trip: a broken decompressor wrap surfaces as a real error
+    # rather than passing silently under MagicMock.
     out = str(tmp_path / "out")
+    tar_bytes = _build_layer_tar_bytes(model_files=("model.txt",), compress=False)
+    zstd_bytes = zstandard.ZstdCompressor().compress(tar_bytes)
     manifest = {
         "mediaType": "application/vnd.oci.image.manifest.v1+json",
         "layers": [{"digest": "sha256:layer0", "mediaType": _ZSTD_LAYER}],
     }
-    client = _make_client(manifest)
+    client = mock.MagicMock()
+    client.get_manifest.return_value = manifest
+    client.get_blob.side_effect = lambda target, digest, stream=True: _FakeBlobResponse(
+        zstd_bytes
+    )
     with (
         mock.patch("oras.client.OrasClient", return_value=client),
         mock.patch(
@@ -245,16 +253,120 @@ def test_oci_zstd_layer_rejected(tmp_path):
         ),
         mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
     ):
-        with pytest.raises(RuntimeError) as excinfo:
-            Storage._download_oci("oci://registry.io/mymodel:v1", out)
+        result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
 
-    msg = str(excinfo.value)
-    assert "zstd" in msg
-    # Actionable: hint at rebuilding with gzip or the 3.14 stdlib path, without
-    # asserting the exact wording.
-    assert "gzip" in msg or "3.14" in msg
-    # Rejected before streaming any blob.
-    client.get_blob.assert_not_called()
+    assert result == out
+    assert os.path.isfile(os.path.join(out, "model.txt"))
+    # The zstd layer was fetched and streamed -- not skipped, not rejected.
+    assert client.get_blob.call_count == 1
+
+
+def test_oci_zstd_and_gzip_layers_extract(tmp_path):
+    # A manifest mixing a zstd layer and a gzip layer: each is decompressed by
+    # its own path (zstandard wrap vs tarfile "r|gz") and both models land.
+    out = str(tmp_path / "out")
+    gzip_bytes = _build_layer_tar_bytes(model_files=("gzip_model.txt",), compress=True)
+    zstd_bytes = zstandard.ZstdCompressor().compress(
+        _build_layer_tar_bytes(model_files=("zstd_model.txt",), compress=False)
+    )
+    blobs = {"sha256:gz": gzip_bytes, "sha256:zstd": zstd_bytes}
+    manifest = {
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "layers": [
+            {"digest": "sha256:zstd", "mediaType": _ZSTD_LAYER},
+            {"digest": "sha256:gz", "mediaType": _GZIP_LAYER},
+        ],
+    }
+    client = mock.MagicMock()
+    client.get_manifest.return_value = manifest
+    client.get_blob.side_effect = lambda target, digest, stream=True: _FakeBlobResponse(
+        blobs[digest]
+    )
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+    ):
+        result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    assert result == out
+    assert os.path.isfile(os.path.join(out, "zstd_model.txt"))
+    assert os.path.isfile(os.path.join(out, "gzip_model.txt"))
+    assert client.get_blob.call_count == 2
+
+
+def _build_multi_frame_zstd_blob(tar_bytes, *, frames=2):
+    """Compress tar_bytes into `frames` independently-compressed zstd frames
+    concatenated into one blob -- the layout multithreaded zstd (`zstd -T0`/`-TN`)
+    and chunked/seekable zstd emit for large layers. Each frame is a complete,
+    self-delimiting zstd stream, so a decompressor that stops at the first frame
+    boundary yields only the leading slice of the tar."""
+    step = len(tar_bytes) // frames
+    chunks = [tar_bytes[i * step : (i + 1) * step] for i in range(frames - 1)]
+    chunks.append(tar_bytes[(frames - 1) * step :])
+    return b"".join(zstandard.ZstdCompressor().compress(c) for c in chunks)
+
+
+def test_oci_zstd_multiframe_layer_extracts(tmp_path):
+    # A zstd layer split across multiple frames must decompress as one continuous
+    # stream: the tar is cut mid-archive, so any decompressor that stopped at the
+    # first frame boundary would hand tarfile a truncated archive and silently
+    # drop the tail of the model. Contents are asserted byte-for-byte (not just
+    # existence) precisely because the failure mode here is partial extraction --
+    # an existence-only assert would pass on a half-written file.
+    out = str(tmp_path / "out")
+    # Payloads large enough that the midpoint split lands inside file data rather
+    # than in tar's trailing padding, and that each frame spans several of the
+    # decompression reader's input refills.
+    contents = {
+        "first.bin": bytes(range(256)) * 512,
+        "second.bin": bytes(reversed(range(256))) * 512,
+    }
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode="w") as tar:
+        info = tarfile.TarInfo(name="models")
+        info.type = tarfile.DIRTYPE
+        tar.addfile(info)
+        for name, data in contents.items():
+            info = tarfile.TarInfo(name=f"models/{name}")
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    tar_bytes = buf.getvalue()
+
+    zstd_bytes = _build_multi_frame_zstd_blob(tar_bytes, frames=2)
+    # Guard the fixture itself: assert the blob really is multi-frame, so this
+    # test can never silently degrade into a duplicate of the single-frame case.
+    assert zstd_bytes.count(zstandard.FRAME_HEADER) == 2
+
+    manifest = {
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "layers": [{"digest": "sha256:layer0", "mediaType": _ZSTD_LAYER}],
+    }
+    client = mock.MagicMock()
+    client.get_manifest.return_value = manifest
+    client.get_blob.side_effect = lambda target, digest, stream=True: _FakeBlobResponse(
+        zstd_bytes
+    )
+    with (
+        mock.patch("oras.client.OrasClient", return_value=client),
+        mock.patch(
+            "kserve_storage.kserve_storage.os.path.exists",
+            side_effect=_fake_config_exists(False),
+        ),
+        mock.patch("kserve_storage.kserve_storage._login_from_docker_config"),
+    ):
+        result = Storage._download_oci("oci://registry.io/mymodel:v1", out)
+
+    assert result == out
+    # Every byte of every member survives the frame boundary.
+    for name, data in contents.items():
+        path = os.path.join(out, name)
+        assert os.path.isfile(path), f"{name} missing -- extraction stopped early"
+        with open(path, "rb") as f:
+            assert f.read() == data, f"{name} truncated across the zstd frame boundary"
 
 
 def test_oci_non_tar_layer_skipped(tmp_path):
