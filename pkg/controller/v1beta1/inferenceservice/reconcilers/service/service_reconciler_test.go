@@ -351,6 +351,31 @@ func TestServiceSetControllerReferences(t *testing.T) {
 	assert.Equal(t, owner.Name, service1.GetOwnerReferences()[0].Name)
 	assert.Len(t, service2.GetOwnerReferences(), 1)
 	assert.Equal(t, owner.Name, service2.GetOwnerReferences()[0].Name)
+	assert.Equal(t, constants.KServeManagedLabelValue, service1.Labels[constants.KServeManagedLabelKey])
+	assert.Equal(t, constants.KServeManagedLabelValue, service2.Labels[constants.KServeManagedLabelKey])
+}
+
+func TestReconcileLabelsExistingService(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, v1beta1.AddToScheme(scheme))
+	existing := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "default", Labels: map[string]string{"existing": "label"}},
+		Spec:       corev1.ServiceSpec{ClusterIP: "10.0.0.1"},
+	}
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).Build()
+	desired := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "default"}}
+	reconciler := &ServiceReconciler{client: cl, ServiceList: []*corev1.Service{desired}}
+	require.NoError(t, reconciler.SetControllerReferences(&v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "default", UID: "model"},
+	}, scheme))
+	_, err := reconciler.Reconcile(t.Context())
+	require.NoError(t, err)
+	actual := &corev1.Service{}
+	require.NoError(t, cl.Get(t.Context(), client.ObjectKeyFromObject(existing), actual))
+	assert.Equal(t, constants.KServeManagedLabelValue, actual.Labels[constants.KServeManagedLabelKey])
+	assert.Equal(t, existing.Spec, actual.Spec)
+	assert.Equal(t, "label", actual.Labels["existing"])
 }
 
 func TestCleanupOrphans(t *testing.T) {

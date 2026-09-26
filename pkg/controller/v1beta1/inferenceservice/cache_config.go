@@ -17,6 +17,7 @@ limitations under the License.
 package inferenceservice
 
 import (
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -34,12 +35,27 @@ func NewCacheOptions() (cache.Options, error) {
 		return cache.Options{}, err
 	}
 	isvcPodLabelSelector := labels.NewSelector().Add(*isvcPodLabelReq)
+	// InferenceService and InferenceGraph share this cache. Their resources
+	// carry a common label so both controllers retain their child watches.
+	managedSelector := labels.SelectorFromSet(labels.Set{
+		constants.KServeManagedLabelKey: constants.KServeManagedLabelValue,
+	})
 
 	return cache.Options{
 		ByObject: map[client.Object]cache.ByObject{
+			&appsv1.Deployment{}: {Label: managedSelector},
+			&corev1.Service{}:    {Label: managedSelector},
 			&corev1.Pod{}: {
 				Label: isvcPodLabelSelector,
 			},
 		},
 	}, nil
+}
+
+// NewClientOptions keeps pre-existing, unlabeled resources visible during
+// upgrades, including orphan cleanup. Watches still use the filtered cache.
+func NewClientOptions() client.Options {
+	return client.Options{Cache: &client.CacheOptions{
+		DisableFor: []client.Object{&appsv1.Deployment{}, &corev1.Service{}},
+	}}
 }
