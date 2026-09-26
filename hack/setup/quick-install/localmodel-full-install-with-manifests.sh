@@ -6757,8 +6757,11 @@ rules:
   - serviceaccounts
   verbs:
   - create
+  - delete
   - get
+  - list
   - patch
+  - watch
 - apiGroups:
   - apps
   resourceNames:
@@ -6809,8 +6812,10 @@ rules:
   - roles
   verbs:
   - create
+  - delete
   - get
   - patch
+  - update
 - apiGroups:
   - serving.kserve.io
   resources:

@@ -81,13 +81,13 @@ func (m *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 			return admission.Errored(http.StatusBadRequest, err)
 		}
 	}
-	err = m.injectKernelCacheArtifact(ctx, pod, kernelCacheConfig)
+	cacheMounted, err := m.injectKernelCacheArtifact(ctx, pod, kernelCacheConfig)
 	if err != nil {
 		logger.Error(err, "Failed to mount KernelCache")
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 
-	if sidecarInjection {
+	if sidecarInjection && !cacheMounted {
 		if err := m.injectMCVSidecar(ctx, pod, kernelCacheConfig); err != nil {
 			logger.Error(err, "Failed to inject MCV sidecar")
 			return admission.Errored(http.StatusInternalServerError, err)

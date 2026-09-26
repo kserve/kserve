@@ -42,6 +42,7 @@ import (
 	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
 	"github.com/kserve/kserve/pkg/kernelcache/captureconfig"
 	"github.com/kserve/kserve/pkg/kernelcache/podconfig"
+	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
 	"github.com/kserve/kserve/pkg/kernelcache/reporter"
 )
 
@@ -158,6 +159,9 @@ func (m *PodMutator) injectMCVSidecar(ctx context.Context, pod *corev1.Pod, cfg 
 		)
 	}
 
+	if updatedConfig.Registry.Auth.Type == v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken {
+		updatedConfig.CredentialSecretName = "mcv-registry-" + captureID
+	}
 	updatedConfig.ReporterSecretName = reporter.SecretName(captureName)
 	updatedConfig.CaptureName = captureName
 	updatedConfig.CaptureNamespace = pod.Namespace
@@ -195,6 +199,9 @@ func (m *PodMutator) injectMCVSidecar(ctx context.Context, pod *corev1.Pod, cfg 
 		mutatedPod.Annotations = map[string]string{}
 	}
 	mutatedPod.Annotations[reporter.AccessSecretAnnotation] = updatedConfig.ReporterSecretName
+	if updatedConfig.CredentialSecretName != "" {
+		mutatedPod.Annotations[registryauth.AccessSecretAnnotation] = updatedConfig.CredentialSecretName
+	}
 	*pod = *mutatedPod
 	return nil
 }
@@ -287,6 +294,9 @@ func getSidecarManifestsWithConfigs(cfg *v1beta1.KernelCacheConfig, readiness ca
 		sidecar.VolumeMounts = append(sidecar.VolumeMounts, corev1.VolumeMount{
 			Name: name, MountPath: fmt.Sprintf("/workspace/cache/%d", index),
 		})
+	}
+	if err := podconfig.ApplyCaptureRegistry(&manifests, &sidecar, cfg.Registry, cfg.CredentialSecretName); err != nil {
+		return corev1.PodSpec{}, err
 	}
 	if err := podconfig.ApplyCaptureReporter(&manifests, &sidecar, cfg.ReporterSecretName); err != nil {
 		return corev1.PodSpec{}, err

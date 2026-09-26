@@ -61,20 +61,20 @@ func (m *PodMutator) injectKernelCacheArtifact(
 	ctx context.Context,
 	pod *corev1.Pod,
 	cfg *v1beta1.KernelCacheConfig,
-) error {
+) (bool, error) {
 	selection, found, err := m.findKernelCacheSelection(ctx, pod)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if !found {
-		return nil
+		return false, nil
 	}
 	mutatedPod := pod.DeepCopy()
 	if err := injectKernelCacheMount(mutatedPod, selection.cache, cfg); err != nil {
-		return err
+		return false, err
 	}
 	*pod = *mutatedPod
-	return nil
+	return true, nil
 }
 
 func (m *PodMutator) findKernelCacheSelection(ctx context.Context, pod *corev1.Pod) (*kernelCacheSelection, bool, error) {
