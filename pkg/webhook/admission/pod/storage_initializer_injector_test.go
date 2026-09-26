@@ -73,6 +73,31 @@ var (
 	}
 )
 
+// storageInitializerSecurityContext mirrors the restricted Pod Security Standard
+// context that utils.CreateInitContainerWithConfig sets on the fallback
+// storage-initializer init container.
+func storageInitializerSecurityContext() *corev1.SecurityContext {
+	return &corev1.SecurityContext{
+		AllowPrivilegeEscalation: ptr.Bool(false),
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+		Privileged:   ptr.Bool(false),
+		RunAsNonRoot: ptr.Bool(true),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
+}
+
+// storageInitializerSecurityContextWithUID is the restricted context after
+// SetIstioCniSecurityContext has added the Istio sidecar user identifier.
+func storageInitializerSecurityContextWithUID(uid int64) *corev1.SecurityContext {
+	securityContext := storageInitializerSecurityContext()
+	securityContext.RunAsUser = ptr.Int64(uid)
+	return securityContext
+}
+
 func TestStorageInitializerInjector(t *testing.T) {
 	scenarios := map[string]struct {
 		original *corev1.Pod
@@ -190,6 +215,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -256,6 +282,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      constants.StorageInitializerVolumeName,
@@ -323,6 +350,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      constants.StorageInitializerVolumeName,
@@ -390,6 +418,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      constants.StorageInitializerVolumeName,
@@ -514,6 +543,7 @@ func TestStorageInitializerInjector(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -782,6 +812,7 @@ func TestCredentialInjection(t *testing.T) {
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -885,6 +916,7 @@ func TestCredentialInjection(t *testing.T) {
 							Args:                     []string{"gs://foo", constants.DefaultModelLocalMountPath},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1007,6 +1039,7 @@ func TestCredentialInjection(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1105,6 +1138,7 @@ func TestCredentialInjection(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1211,6 +1245,7 @@ func TestStorageInitializerConfigmap(t *testing.T) {
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1581,6 +1616,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1687,6 +1723,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1811,6 +1848,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -1936,6 +1974,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -2052,6 +2091,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -2163,6 +2203,7 @@ func TestCaBundleConfigMapVolumeMountInStorageInitializer(t *testing.T) {
 							},
 							Resources:                resourceRequirement,
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3027,6 +3068,7 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 								},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3098,6 +3140,7 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3133,6 +3176,99 @@ func TestStorageContainerCRDInjection(t *testing.T) {
 		if diff, _ := kmp.SafeDiff(scenario.expected.Spec, scenario.original.Spec); diff != "" {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
+	}
+}
+
+// TestStorageInitializerRestrictedSecurityContext asserts that the injected
+// storage-initializer init container carries every field the restricted Pod
+// Security Standard requires, both when the webhook builds the container itself
+// and when a ClusterStorageContainer mirroring config/storagecontainers/default.yaml
+// supplies it.
+func TestStorageInitializerRestrictedSecurityContext(t *testing.T) {
+	restrictedSpec := v1alpha1.ClusterStorageContainer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "restricted-default",
+		},
+		Spec: v1alpha1.StorageContainerSpec{
+			Container: corev1.Container{
+				Name:            "storage-initializer",
+				Image:           "kserve/storage-initializer:latest",
+				ImagePullPolicy: corev1.PullIfNotPresent,
+				SecurityContext: storageInitializerSecurityContext(),
+			},
+			SupportedUriFormats: []v1alpha1.SupportedUriFormat{{Prefix: "restricted://"}},
+		},
+	}
+	if err := c.Create(t.Context(), &restrictedSpec); err != nil {
+		t.Fatalf("unable to create cluster storage container: %v", err)
+	}
+	defer func() {
+		if err := c.Delete(t.Context(), &restrictedSpec); err != nil {
+			t.Errorf("unable to delete cluster storage container: %v", err)
+		}
+	}()
+
+	scenarios := map[string]struct {
+		storageURI    string
+		expectedImage string
+	}{
+		"without ClusterStorageContainer": {
+			storageURI:    "https://unmatched.example.com/model.bin",
+			expectedImage: constants.StorageInitializerContainerImage + ":" + constants.StorageInitializerContainerImageVersion,
+		},
+		"with ClusterStorageContainer from default.yaml": {
+			storageURI:    "restricted://foo",
+			expectedImage: "kserve/storage-initializer:latest",
+		},
+	}
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						constants.StorageInitializerSourceUriInternalAnnotationKey: scenario.storageURI,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: constants.InferenceServiceContainerName,
+						},
+					},
+				},
+			}
+			injector := &StorageInitializerInjector{
+				credentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
+					Data: map[string]string{},
+				}),
+				config: storageInitializerConfig,
+				client: c,
+			}
+			require.NoError(t, injector.InjectStorageInitializer(t.Context(), pod))
+
+			var initContainer *corev1.Container
+			for i := range pod.Spec.InitContainers {
+				if pod.Spec.InitContainers[i].Name == constants.StorageInitializerContainerName {
+					initContainer = &pod.Spec.InitContainers[i]
+				}
+			}
+			require.NotNil(t, initContainer, "storage-initializer init container was not injected")
+			// The image tells which path built the container.
+			assert.Equal(t, scenario.expectedImage, initContainer.Image)
+
+			securityContext := initContainer.SecurityContext
+			require.NotNil(t, securityContext)
+			assert.Equal(t, ptr.Bool(false), securityContext.AllowPrivilegeEscalation)
+			assert.Equal(t, ptr.Bool(false), securityContext.Privileged)
+			assert.Equal(t, ptr.Bool(true), securityContext.RunAsNonRoot)
+			require.NotNil(t, securityContext.Capabilities)
+			assert.Equal(t, []corev1.Capability{"ALL"}, securityContext.Capabilities.Drop)
+			require.NotNil(t, securityContext.SeccompProfile)
+			assert.Equal(t, corev1.SeccompProfileTypeRuntimeDefault, securityContext.SeccompProfile.Type)
+			// The image declares its non-root user, so the kubelet verifies
+			// runAsNonRoot without a fixed runAsUser pinned in the manifest.
+			assert.Nil(t, securityContext.RunAsUser)
+		})
 	}
 }
 
@@ -3544,9 +3680,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
 							},
-							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: ptr.Int64(501),
-							},
+							SecurityContext: storageInitializerSecurityContextWithUID(501),
 						},
 					},
 					Volumes: []corev1.Volume{
@@ -3620,9 +3754,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 									MountPath: constants.DefaultModelLocalMountPath,
 								},
 							},
-							SecurityContext: &corev1.SecurityContext{
-								RunAsUser: ptr.Int64(1337),
-							},
+							SecurityContext: storageInitializerSecurityContextWithUID(1337),
 						},
 					},
 					Volumes: []corev1.Volume{
@@ -3704,6 +3836,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3771,6 +3904,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3850,6 +3984,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -3929,6 +4064,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -4008,6 +4144,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -4086,6 +4223,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -4164,6 +4302,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
@@ -4243,6 +4382,7 @@ func TestStorageInitializerUIDForIstioCNI(t *testing.T) {
 								{Name: "HF_XET_NUM_CONCURRENT_RANGE_GETS", Value: "8"},
 							},
 							TerminationMessagePolicy: "FallbackToLogsOnError",
+							SecurityContext:          storageInitializerSecurityContext(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name:      "kserve-provision-location",
