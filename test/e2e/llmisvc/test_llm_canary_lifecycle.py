@@ -610,6 +610,81 @@ def wait_for_group_weight(api, observer, member, expected, ns, timeout=30):
     raise TimeoutError(f"{member} weight={w}, expected {expected} (from {observer})")
 
 
+def wait_for_group_weights(api, observer, expected, ns, timeout=60):
+    """Wait for the observer's group status to reflect the expected weight map.
+
+    Reads the complete weight map from the observer's group status in a single
+    atomic read, avoiding races where individual member weights converge at
+    different times. The observer's group status is updated after the HTTPRoute
+    is reconciled, so this also implicitly waits for route reconciliation.
+
+    Args:
+        api: Kubernetes CustomObjectsApi client.
+        observer: Name of the LLMInferenceService whose group status to observe.
+        expected: Dict mapping member name to expected weight.
+        ns: Namespace.
+        timeout: Timeout in seconds.
+    """
+    deadline = time.monotonic() + timeout
+    last_error = None
+    while time.monotonic() < deadline:
+        try:
+            obj = api.get_namespaced_custom_object(
+                KSERVE_GROUP, KSERVE_VERSION, ns, KSERVE_PLURAL, observer
+            )
+            members = (
+                obj.get("status", {})
+                .get("router", {})
+                .get("group", {})
+                .get("members", [])
+            )
+            actual = {
+                m.get("name"): m.get("weight")
+                for m in members
+                if m.get("name") in expected
+            }
+            if actual == expected:
+                return
+        except k8s_client.ApiException as e:
+            last_error = e
+        time.sleep(1)
+    msg = f"{observer} group weights={actual}, expected {expected}"
+    if last_error:
+        msg += f" (last error: {last_error})"
+    raise TimeoutError(msg)
+
+
+def wait_for_group_route_weights(api, owner, ns, expected, timeout=60):
+    """Wait for the owner HTTPRoute's model-routing rule to reflect group weights."""
+    deadline = time.monotonic() + timeout
+    expected = sorted(expected)
+    actual = []
+    last_error = None
+    while time.monotonic() < deadline:
+        try:
+            route = api.get_namespaced_custom_object(
+                "gateway.networking.k8s.io",
+                "v1",
+                ns,
+                "httproutes",
+                f"{owner}-kserve-route",
+            )
+            for rule in route.get("spec", {}).get("rules", []):
+                if rule.get("name") == "v1-model-routing":
+                    actual = sorted(
+                        ref.get("weight", 1) for ref in rule.get("backendRefs", [])
+                    )
+                    if actual == expected:
+                        return
+        except k8s_client.ApiException as e:
+            last_error = e
+        time.sleep(1)
+    msg = f"{owner} route weights={actual}, expected {expected}"
+    if last_error:
+        msg += f" (last error: {last_error})"
+    raise TimeoutError(msg)
+
+
 def _has_istio():
     try:
         k8s_client.ApiextensionsV1Api().read_custom_resource_definition(
@@ -919,7 +994,7 @@ class TestCanaryLifecycle:
         driver.mark("canary_mutation")
         patch_weight(api, v2, 3, ns)
         patch_weight(api, v1, 7, ns)
-        wait_for_group_weight(api, v1, v2, 3, ns)
+        wait_for_group_weights(api, v1, {v1: 7, v2: 3}, ns)
         wait_for_healthy_route(
             f"{gateway}/v1/completions",
             {
@@ -935,7 +1010,7 @@ class TestCanaryLifecycle:
         driver.mark("promote_mutation")
         patch_weight(api, v1, 0, ns)
         patch_weight(api, v2, 9, ns)
-        wait_for_group_weight(api, v2, v1, 0, ns)
+        wait_for_group_weights(api, v1, {v1: 0, v2: 9}, ns)
         wait_for_healthy_route(
             f"{gateway}/v1/completions",
             {
@@ -1471,3 +1546,75 @@ class TestCanaryLifecycle:
             assert v1_after == 0, f"v1 got {v1_after} requests after stop"
 
             logger.info("Force-stop route owner verified")
+
+
+# Unit test for wait_for_group_route_weights - does not require a cluster.
+# Uses explicit markers to avoid inheriting llmisvc_serial/cluster_cpu from the class.
+@pytest.mark.unit
+@pytest.mark.llminferenceservice
+def test_wait_for_group_route_weights_waits_for_model_route_update():
+    """Test that wait_for_group_route_weights validates route and rule names.
+
+    The fake API verifies:
+    - The correct route name is requested (owner-kserve-route)
+    - The correct rule name is selected (v1-model-routing)
+    - A different rule (v1-catch-all-model-routing) with different weights
+      would cause the test to fail if the name filter is wrong.
+    """
+
+    class API:
+        def __init__(self):
+            self.calls = 0
+            self.requested_route = None
+            self.requested_group = None
+            self.requested_version = None
+            self.requested_plural = None
+
+        def get_namespaced_custom_object(self, group, version, ns, plural, name):
+            self.calls += 1
+            self.requested_group = group
+            self.requested_version = version
+            self.requested_plural = plural
+            self.requested_route = name
+
+            # Verify the route name matches expected pattern
+            assert group == "gateway.networking.k8s.io", f"Wrong group: {group}"
+            assert version == "v1", f"Wrong version: {version}"
+            assert plural == "httproutes", f"Wrong plural: {plural}"
+            assert name == "canary-v1-kserve-route", f"Wrong route name: {name}"
+
+            # Return a route with two rules - the correct one and a distractor
+            # If the rule name filter is wrong, we'd get the wrong weights
+            weights = [9, 1] if self.calls == 1 else [7, 3]
+            return {
+                "spec": {
+                    "rules": [
+                        {
+                            "name": "v1-catch-all-model-routing",
+                            "backendRefs": [
+                                {"name": f"backend-{w}", "weight": w}
+                                for w in [
+                                    1,
+                                    9,
+                                ]  # Different weights - would fail if selected
+                            ],
+                        },
+                        {
+                            "name": "v1-model-routing",
+                            "backendRefs": [
+                                {"name": f"backend-{weight}", "weight": weight}
+                                for weight in weights
+                            ],
+                        },
+                    ]
+                }
+            }
+
+    api = API()
+    wait_for_group_route_weights(api, "canary-v1", "test-ns", [7, 3])
+
+    assert api.calls == 2
+    assert api.requested_route == "canary-v1-kserve-route"
+    assert api.requested_group == "gateway.networking.k8s.io"
+    assert api.requested_version == "v1"
+    assert api.requested_plural == "httproutes"
