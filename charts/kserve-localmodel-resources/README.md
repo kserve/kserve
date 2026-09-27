@@ -76,15 +76,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.kernelcachenode.controller.resources.requests.memory | string | `"128Mi"` |  |
 | kserve.kernelcachenode.controller.tag | string | `""` |  |
 | kserve.kernelcachenode.controller.tolerations | list | `[]` |  |
-| kserve.localmodel.agent.affinity | object | `{}` |  |
-| kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
-| kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
-| kserve.localmodel.agent.nodeSelector | object | `{}` |  |
 | kserve.localmodel.agent.reconcilationFrequencyInSecs | int | `60` |  |
-| kserve.localmodel.agent.securityContext.runAsNonRoot | bool | `true` |  |
-| kserve.localmodel.agent.securityContext.runAsUser | int | `1000` |  |
-| kserve.localmodel.agent.tag | string | `""` |  |
-| kserve.localmodel.agent.tolerations | list | `[]` |  |
 | kserve.localmodel.controller.image | string | `"kserve/kserve-localmodel-controller"` |  |
 | kserve.localmodel.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
 | kserve.localmodel.controller.resources.limits.cpu | string | `"100m"` |  |
