@@ -398,6 +398,7 @@ const (
 	InferenceServiceDefaultHttpPort     = "8080"
 	InferenceServiceDefaultAgentPortStr = "9081"
 	InferenceServiceDefaultAgentPort    = 9081
+	LoggerMetricsPort                   = 9089
 	CommonDefaultHttpPort               = 80
 	AggregateMetricsPortName            = "aggr-metric"
 )
