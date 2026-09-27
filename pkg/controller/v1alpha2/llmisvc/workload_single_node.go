@@ -87,9 +87,15 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context,
 }
 
 func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
+	curr := &appsv1.Deployment{}
+	currKey := types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: mainDeploymentName(llmSvc)}
+	if err := r.Get(ctx, currKey, curr); err != nil && !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get current deployment %s: %w", currKey, err)
+	}
+
 	role := constants.LLMDRoleDecode
 	if llmSvc.Spec.Prefill == nil {
-		role = constants.LLMDRoleBoth
+		role = nonDisaggregatedRole(curr.Spec.Template.Labels[constants.LLMDRoleLabelKey])
 	}
 
 	labels := r.singleNodeLabels(llmSvc)
@@ -169,10 +175,6 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 			}
 		}
 
-		curr := &appsv1.Deployment{}
-		if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("failed to get current deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
-		}
 		if err := r.attachModelArtifacts(ctx, serviceAccount, llmSvc, curr.Spec.Template.Spec, &d.Spec.Template.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
 			return nil, fmt.Errorf("failed to attach model artifacts to main deployment: %w", err)
 		}
