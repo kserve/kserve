@@ -63,15 +63,15 @@ const (
 	runtimeResultCapturedAtKey                   = "capturedAt"
 	runtimeResultCompletedAtKey                  = "completedAt"
 	runtimeResultCacheSizeBytesKey               = "cacheSizeBytes"
-	runtimeResultSourcePodNameKey                = "sourcePodName"
-	runtimeResultCaptureSessionIDKey             = "captureSessionID"
+	runtimeResultSourcePodNameKey                = kernelcacheutil.RuntimeResultSourcePodNameKey
+	runtimeResultCaptureSessionIDKey             = kernelcacheutil.RuntimeResultCaptureSessionIDKey
 	runtimeResultSucceededState                  = "Succeeded"
 	runtimeResultUnchangedState                  = "Unchanged"
 	runtimeResultFailedState                     = "Failed"
 	runtimeResultWaitingForWorkloadState         = "WaitingForWorkload"
 	runtimeResultCapturingState                  = "Capturing"
 	runtimeResultPushingState                    = "Pushing"
-	kernelCacheCaptureReadyConditionType         = "Ready"
+	kernelCacheCaptureReadyConditionType         = kernelcacheutil.KernelCacheCaptureReadyConditionType
 	kernelCacheCaptureReasonPending              = "Pending"
 	kernelCacheCaptureReasonWaitingForWorkload   = "WaitingForWorkload"
 	kernelCacheCaptureReasonCapturing            = "Capturing"
@@ -79,7 +79,7 @@ const (
 	kernelCacheCaptureReasonComplete             = "CaptureComplete"
 	kernelCacheCaptureReasonUnchanged            = "CacheUnchanged"
 	kernelCacheCaptureReasonFailed               = "CaptureFailed"
-	kernelCacheCaptureReasonProducerGone         = "ProducerGone"
+	kernelCacheCaptureReasonProducerGone         = kernelcacheutil.KernelCacheCaptureReasonProducerGone
 	kernelCacheCaptureReasonRetryingProducerGone = "RetryingProducerGone"
 	kernelCacheCaptureReasonInvalidResult        = "InvalidRuntimeResult"
 	runtimeInfoCommandHashKey                    = cacheidentity.CommandHashFactor

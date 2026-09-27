@@ -68,6 +68,7 @@ rules:
   - serviceaccounts
   verbs:
   - create
+  - delete
   - get
   - patch
 - apiGroups:
@@ -120,6 +121,7 @@ rules:
   - roles
   verbs:
   - create
+  - delete
   - get
   - patch
 - apiGroups:

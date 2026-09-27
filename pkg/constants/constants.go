@@ -137,6 +137,7 @@ var (
 	LoggerCredentialPathKey                     = KServeAPIGroupName + "/logger-secret-path"
 	LoggerCredentialFileKey                     = KServeAPIGroupName + "/logger-secret-file"
 	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
+	KernelCacheSupportedAnnotationKey           = KServeAPIGroupName + "/kernelcache-supported"
 	KernelCacheSidecarInjectionAnnotationKey    = KServeAPIGroupName + "/kernelcache-sidecar-injection"
 	KernelCacheNodeGroupAnnotationKey           = KServeAPIGroupName + "/kernelcache-nodegroup"
 	ModelFormatAnnotationKey                    = "modelFormat"

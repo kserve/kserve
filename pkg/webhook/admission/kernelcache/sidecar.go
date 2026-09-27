@@ -119,12 +119,14 @@ func (m *PodMutator) injectMCVSidecar(ctx context.Context, pod *corev1.Pod, cfg 
 			updatedConfig.CachePaths[index].OCIPath = ociPath
 		}
 	}
-	containerName, err := kernelcacheutil.ResolveRuntimeContainerName(pod.Spec.Containers, "")
+	var containerName string
 	if len(updatedConfig.CachePaths) > 0 {
 		containerName = updatedConfig.CachePaths[0].ContainerName
-	}
-	if err != nil && len(updatedConfig.CachePaths) == 0 {
-		return nil
+	} else {
+		containerName, err = kernelcacheutil.ResolveRuntimeContainerName(pod.Spec.Containers, "")
+		if err != nil {
+			return err
+		}
 	}
 	containerIndex := findContainerIndex(pod.Spec.Containers, containerName)
 	if containerIndex < 0 {
@@ -146,10 +148,7 @@ func (m *PodMutator) injectMCVSidecar(ctx context.Context, pod *corev1.Pod, cfg 
 		if updatedConfig.Registry.Endpoint == "" {
 			return errors.New("kernelcache.registry.endpoint is required when no KernelCacheCapture target is configured")
 		}
-		targetID := captureID
-		if revisionID != "" {
-			targetID = revisionID
-		}
+		targetID := revisionID
 		updatedConfig.TargetImage = constants.KernelCacheTargetImage(
 			updatedConfig.Registry.Endpoint,
 			pod.Namespace,
@@ -214,8 +213,8 @@ func skipSidecarForTerminalCapture(capture *v1alpha1.KernelCacheCapture) bool {
 		if capture.Status.Artifact != nil || capture.Status.KernelCacheRef != nil {
 			return true
 		}
-		condition := meta.FindStatusCondition(capture.Status.Conditions, "Ready")
-		return condition == nil || condition.Status != metav1.ConditionFalse || condition.Reason != "ProducerGone"
+		condition := meta.FindStatusCondition(capture.Status.Conditions, kernelcacheutil.KernelCacheCaptureReadyConditionType)
+		return condition == nil || condition.Status != metav1.ConditionFalse || condition.Reason != kernelcacheutil.KernelCacheCaptureReasonProducerGone
 	default:
 		return false
 	}

@@ -55,6 +55,9 @@ func (m *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 	if pod.Labels[constants.InferenceServicePodLabelKey] == "" {
 		return admission.ValidationResponse(true, "")
 	}
+	if pod.Annotations[constants.KernelCacheSupportedAnnotationKey] != "true" {
+		return admission.ValidationResponse(true, "")
+	}
 	logger.Info("Mutating Pod for KernelCache", "pod", pod.Name, "namespace", req.Namespace)
 
 	// Load kernelcache configuration

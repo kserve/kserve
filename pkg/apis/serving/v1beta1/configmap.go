@@ -228,6 +228,7 @@ type KernelCacheConfig struct {
 	CaptureSessionID string `json:"-"`
 }
 
+// +kubebuilder:object:generate=false
 // KernelCacheRegistryConfig contains the endpoint used by generated capture images.
 // Registry authentication configuration is intentionally added separately.
 type KernelCacheRegistryConfig struct {

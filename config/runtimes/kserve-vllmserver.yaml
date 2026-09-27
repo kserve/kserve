@@ -8,6 +8,7 @@ spec:
   annotations:
     prometheus.kserve.io/port: "8080"
     prometheus.kserve.io/path: "/metrics"
+    serving.kserve.io/kernelcache-supported: "true"
   supportedModelFormats:
     - name: vLLM
       version: "1"

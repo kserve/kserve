@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
 	"github.com/kserve/kserve/pkg/kernelcache/reporter"
 )
 
@@ -66,13 +67,13 @@ func (v *CaptureStatusValidator) Handle(_ context.Context, req admission.Request
 	}
 
 	if active := oldCapture.Status.ActiveSession; active != nil &&
-		(newRuntimeResult["captureSessionID"] != active.ID ||
-			newRuntimeResult["sourcePodName"] != active.PodName) {
+		(newRuntimeResult[kernelcacheutil.RuntimeResultCaptureSessionIDKey] != active.ID ||
+			newRuntimeResult[kernelcacheutil.RuntimeResultSourcePodNameKey] != active.PodName) {
 		return admission.Denied("reporter identity is not authorized for this KernelCacheCapture")
 	}
 
-	oldSource := oldRuntimeResult["sourcePodName"]
-	newSource := newRuntimeResult["sourcePodName"]
+	oldSource := oldRuntimeResult[kernelcacheutil.RuntimeResultSourcePodNameKey]
+	newSource := newRuntimeResult[kernelcacheutil.RuntimeResultSourcePodNameKey]
 	if oldSource != "" && newSource != oldSource {
 		return admission.Denied(fmt.Sprintf("runtimeResult.sourcePodName is already claimed by %q", oldSource))
 	}
