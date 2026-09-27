@@ -97,6 +97,16 @@ $ helm install kserve-runtime-configs oci://ghcr.io/kserve/charts/kserve-runtime
 | kserve.servingruntime.mlserver.securityContext.runAsNonRoot | bool | `true` |  |
 | kserve.servingruntime.mlserver.tag | string | `"1.5.0"` |  |
 | kserve.servingruntime.modelNamePlaceholder | string | `"{{.Name}}"` |  |
+| kserve.servingruntime.openvinoserver.disabled | bool | `false` |  |
+| kserve.servingruntime.openvinoserver.image | string | `"openvino/model_server"` |  |
+| kserve.servingruntime.openvinoserver.imagePullPolicy | string | `"IfNotPresent"` |  |
+| kserve.servingruntime.openvinoserver.imagePullSecrets | list | `[]` |  |
+| kserve.servingruntime.openvinoserver.securityContext.allowPrivilegeEscalation | bool | `false` |  |
+| kserve.servingruntime.openvinoserver.securityContext.capabilities.drop[0] | string | `"ALL"` |  |
+| kserve.servingruntime.openvinoserver.securityContext.privileged | bool | `false` |  |
+| kserve.servingruntime.openvinoserver.securityContext.runAsNonRoot | bool | `true` |  |
+| kserve.servingruntime.openvinoserver.securityContext.runAsUser | int | `5000` |  |
+| kserve.servingruntime.openvinoserver.tag | string | `"latest"` |  |
 | kserve.servingruntime.paddleserver.disabled | bool | `false` |  |
 | kserve.servingruntime.paddleserver.image | string | `"kserve/paddleserver"` |  |
 | kserve.servingruntime.paddleserver.imagePullPolicy | string | `"IfNotPresent"` |  |
