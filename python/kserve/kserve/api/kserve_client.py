@@ -513,17 +513,27 @@ class KServeClient(object):
         host = urlparse(isvc["status"]["url"]).netloc
         headers = {"Host": host}
 
-        for _ in range(round(timeout_seconds / polling_interval)):
-            time.sleep(polling_interval)
+        if polling_interval <= 0:
+            raise ValueError("polling_interval must be positive")
+
+        deadline = time.monotonic() + timeout_seconds
+        while (remaining := deadline - time.monotonic()) > 0:
             # Check model health API
             url = f"http://{cluster_ip}/{protocol_version}/models/{model_name}"
             if protocol_version.lower() == "v2":
                 url = (
                     f"http://{cluster_ip}/{protocol_version}/models/{model_name}/ready"
                 )
-            response = requests.get(url, headers=headers).status_code
-            if response == 200:
-                return
+            try:
+                response = requests.get(url, headers=headers, timeout=remaining)
+                if response.status_code == 200 and time.monotonic() < deadline:
+                    return
+            except requests.Timeout:
+                pass
+
+            remaining = deadline - time.monotonic()
+            if remaining > 0:
+                time.sleep(min(polling_interval, remaining))
 
         raise RuntimeError(
             f"InferenceService ({service_name}) has not loaded the \
