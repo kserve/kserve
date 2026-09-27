@@ -152,9 +152,22 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 			return nil, fmt.Errorf("failed to propagate InferencePool reference labels: %w", err)
 		}
 	}
+	// Get the existing LWS once. It is used for the role label below and, later,
+	// to keep the storage-init images of the leader across upgrades.
+	currLWS := &lwsapi.LeaderWorkerSet{}
+	currKey := types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: mainLWSName(llmSvc)}
+	if err := r.Get(ctx, currKey, currLWS); err != nil && !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
+		return nil, fmt.Errorf("failed to get current leader worker set %s: %w", currKey, err)
+	}
+
 	role := constants.LLMDRoleDecode
+	// for non-P/D case, get existing value from label: if both, stay both; if not set, use prefill-decode
 	if llmSvc.Spec.Prefill == nil {
-		role = constants.LLMDRoleBoth
+		var currentRole string
+		if currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+			currentRole = currLWS.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels[constants.LLMDRoleLabelKey]
+		}
+		role = nonDisaggregatedRole(currentRole)
 	}
 	leaderLabels := map[string]string{
 		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadLeader,
@@ -190,12 +203,6 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 			},
 			StartupPolicy: lwsapi.LeaderCreatedStartupPolicy,
 		},
-	}
-
-	// Fetch the current LWS once to preserve storage-init images across upgrades.
-	currLWS := &lwsapi.LeaderWorkerSet{}
-	if err := r.Get(ctx, client.ObjectKeyFromObject(expected), currLWS); err != nil && !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
-		return nil, fmt.Errorf("failed to get current leader worker set %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
 	}
 
 	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
