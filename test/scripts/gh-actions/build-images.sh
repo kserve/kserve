@@ -68,9 +68,9 @@ else
   docker buildx build -f kernelcache-agent.Dockerfile . -t "${KERNELCACHE_AGENT_IMG_TAG}" \
     -o type=docker,dest="${DOCKER_IMAGES_PATH}/${KERNELCACHE_AGENT_IMG}-${TAG}",compression-level=0
 
-  echo "Building mcv image"
-  docker buildx build -f kernelcache/mcv/mcv.Dockerfile . -t "${MCV_IMG_TAG}" \
-    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${MCV_IMG}-${TAG}",compression-level=0
+  echo "Building mcv minimal image"
+  docker buildx build -f kernelcache/mcv/mcv.Dockerfile . --target mcv-minimal -t "${MCV_IMG_TAG}-minimal" \
+    -o type=docker,dest="${DOCKER_IMAGES_PATH}/${MCV_IMG}-${TAG}-minimal",compression-level=0
 
   echo "Building agent image"
   docker buildx build -f agent.Dockerfile . -t "${AGENT_IMG_TAG}" \

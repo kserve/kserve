@@ -116,6 +116,25 @@ func TestNewKernelCacheConfigDefaults(t *testing.T) {
 	}
 }
 
+func TestKernelCacheRegistryConfigRejectsIncompleteCAConfigMapRef(t *testing.T) {
+	tests := []struct {
+		name string
+		ref  *KernelCacheConfigMapKeyRef
+	}{
+		{name: "missing name", ref: &KernelCacheConfigMapKeyRef{Key: "bundle.pem"}},
+		{name: "missing key", ref: &KernelCacheConfigMapKeyRef{Name: "registry-ca"}},
+		{name: "missing name and key", ref: &KernelCacheConfigMapKeyRef{}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			config := KernelCacheRegistryConfig{CAConfigMapRef: test.ref}
+			g.Expect(config.Validate()).To(gomega.MatchError("registry.caConfigMapRef requires name and key"))
+		})
+	}
+}
+
 func TestNewKernelCacheConfigUsesServiceAccountTokenRegistry(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	configMap := &corev1.ConfigMap{Data: map[string]string{
@@ -187,6 +206,41 @@ func TestKernelCacheRegistryConfigRejectsInvalidServiceAccountTokenSettings(t *t
 			expectedErr: "registry.auth.pushRoleRef requires kind and name",
 		},
 		{
+			name: "missing pull role reference",
+			config: KernelCacheRegistryConfig{
+				Endpoint: "registry.example:5000",
+				Auth: KernelCacheRegistryAuth{
+					Type:        KernelCacheRegistryAuthTypeServiceAccountToken,
+					PushRoleRef: &KernelCacheRegistryRoleRef{Kind: "Role", Name: "pusher"},
+				},
+			},
+			expectedErr: "registry.auth.pullRoleRef requires kind and name",
+		},
+		{
+			name: "invalid role reference kind",
+			config: KernelCacheRegistryConfig{
+				Endpoint: "registry.example:5000",
+				Auth: KernelCacheRegistryAuth{
+					Type:        KernelCacheRegistryAuthTypeServiceAccountToken,
+					PushRoleRef: &KernelCacheRegistryRoleRef{Kind: "ServiceAccount", Name: "pusher"},
+					PullRoleRef: &KernelCacheRegistryRoleRef{Kind: "Role", Name: "puller"},
+				},
+			},
+			expectedErr: "registry.auth.pushRoleRef.kind must be Role or ClusterRole",
+		},
+		{
+			name: "endpoint contains path",
+			config: KernelCacheRegistryConfig{
+				Endpoint: "registry.example:5000/lib",
+				Auth: KernelCacheRegistryAuth{
+					Type:        KernelCacheRegistryAuthTypeServiceAccountToken,
+					PushRoleRef: &KernelCacheRegistryRoleRef{Kind: "Role", Name: "pusher"},
+					PullRoleRef: &KernelCacheRegistryRoleRef{Kind: "Role", Name: "puller"},
+				},
+			},
+			expectedErr: "registry.endpoint must be a registry host with optional port",
+		},
+		{
 			name: "invalid token ttl",
 			config: KernelCacheRegistryConfig{
 				Endpoint: "registry.example:5000",
@@ -205,6 +259,24 @@ func TestKernelCacheRegistryConfigRejectsInvalidServiceAccountTokenSettings(t *t
 		t.Run(test.name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
 			g.Expect(test.config.Validate()).To(gomega.MatchError(test.expectedErr))
+		})
+	}
+}
+
+func TestKernelCacheRegistryConfigAcceptsTokenTTLBoundaries(t *testing.T) {
+	for _, ttl := range []int64{DefaultKernelCacheRegistryTokenTTLSeconds, 3600} {
+		t.Run(fmt.Sprintf("ttl_%d", ttl), func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			config := KernelCacheRegistryConfig{
+				Endpoint: "registry.example:5000",
+				Auth: KernelCacheRegistryAuth{
+					Type:            KernelCacheRegistryAuthTypeServiceAccountToken,
+					TokenTTLSeconds: ttl,
+					PushRoleRef:     &KernelCacheRegistryRoleRef{Kind: "Role", Name: "pusher"},
+					PullRoleRef:     &KernelCacheRegistryRoleRef{Kind: "Role", Name: "puller"},
+				},
+			}
+			g.Expect(config.Validate()).To(gomega.Succeed())
 		})
 	}
 }

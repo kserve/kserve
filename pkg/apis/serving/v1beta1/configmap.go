@@ -287,6 +287,9 @@ type KernelCacheConfigMapKeyRef struct {
 // Validate checks registry authentication settings without provisioning any
 // credentials. Credential lifecycle handling is performed by consumers.
 func (c *KernelCacheRegistryConfig) Validate() error {
+	if c.CAConfigMapRef != nil && (c.CAConfigMapRef.Name == "" || c.CAConfigMapRef.Key == "") {
+		return errors.New("registry.caConfigMapRef requires name and key")
+	}
 	switch c.Auth.Type {
 	case "", KernelCacheRegistryAuthTypeNone:
 		return nil
