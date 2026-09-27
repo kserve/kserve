@@ -187,9 +187,6 @@ func (r *KernelCacheCaptureControllerReconciler) Reconcile(ctx context.Context, 
 			if err := r.ensurePusherIdentityForCapture(ctx, capture, cfg.Registry); err != nil {
 				return ctrl.Result{}, err
 			}
-			if r.Clientset == nil {
-				return ctrl.Result{}, errors.New("kernelcache registry access requires a Kubernetes clientset")
-			}
 			if _, err := (&registryauth.Credentials{Client: r.Clientset}).IssueForCapture(ctx, capturePod, capture.Name, cfg.Registry); err != nil {
 				if apierrors.IsNotFound(err) || apierrors.IsGone(err) {
 					return ctrl.Result{}, nil

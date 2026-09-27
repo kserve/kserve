@@ -121,7 +121,11 @@ func (r *KernelCacheReconciler) cleanupPrefetchRoleBindingAfterKernelCacheDeleti
 	config *v1beta1.KernelCacheConfig,
 ) (bool, error) {
 	kernelCaches := &v1alpha1.KernelCacheList{}
-	if err := r.List(ctx, kernelCaches, client.InNamespace(sourceNamespace)); err != nil {
+	reader := r.Reader
+	if reader == nil {
+		reader = r.Client
+	}
+	if err := reader.List(ctx, kernelCaches, client.InNamespace(sourceNamespace)); err != nil {
 		return false, err
 	}
 	if len(kernelCaches.Items) != 0 {

@@ -897,6 +897,7 @@ func TestCaptureSigningRejectsMissingProfileReference(t *testing.T) {
 func TestCleanupCaptureIdentitiesRevokesRegistryAccess(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, rbacv1.AddToScheme(scheme))
 	require.NoError(t, v1alpha1.AddToScheme(scheme))
 
 	capture := &v1alpha1.KernelCacheCapture{

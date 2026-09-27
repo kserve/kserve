@@ -78,6 +78,39 @@ func TestReconcilePrefetchServiceAccountAccessCreatesCrossNamespaceBinding(t *te
 	}
 }
 
+func TestCleanupPrefetchRoleBindingUsesReaderForCurrentKernelCaches(t *testing.T) {
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{
+		corev1.AddToScheme,
+		rbacv1.AddToScheme,
+		batchv1.AddToScheme,
+		v1alpha1.AddToScheme,
+	} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	binding := buildPrefetchImagePullRoleBinding("source", "jobs", &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"})
+	cachedClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		&v1alpha1.KernelCache{ObjectMeta: metav1.ObjectMeta{Name: "stale-cache", Namespace: "source"}},
+		binding,
+	).Build()
+	reader := fake.NewClientBuilder().WithScheme(scheme).Build()
+	reconciler := &KernelCacheReconciler{Client: cachedClient, Reader: reader}
+
+	ready, err := reconciler.cleanupPrefetchRoleBindingAfterKernelCacheDeletion(t.Context(), "source", &v1beta1.KernelCacheConfig{JobNamespace: "jobs"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ready {
+		t.Fatal("expected cleanup to complete using the current KernelCache list")
+	}
+	if err := cachedClient.Get(t.Context(), client.ObjectKey{Namespace: "source", Name: kernelCachePrefetchRoleBinding}, &rbacv1.RoleBinding{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("expected managed pull RoleBinding to be removed, got %v", err)
+	}
+}
+
 func TestReconcilePrefetchServiceAccountAccessRemovesBindingWhenAuthIsDisabled(t *testing.T) {
 	scheme := runtime.NewScheme()
 	for _, addToScheme := range []func(*runtime.Scheme) error{
