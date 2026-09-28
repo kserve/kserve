@@ -354,14 +354,6 @@ func selectionPod(image string) *corev1.Pod {
 	}
 }
 
-func requireIdentity(t *testing.T, namespace, workloadName, image, modelHash string) v1alpha1.KernelCacheIdentity {
-	t.Helper()
-	return requireFullIdentity(t, cacheidentity.KernelCacheIdentityFactors{
-		Namespace: namespace, WorkloadKind: "InferenceService", WorkloadName: workloadName,
-		RuntimeImage: image, ModelURIHash: modelHash,
-	})
-}
-
 func requireFullIdentity(t *testing.T, factors cacheidentity.KernelCacheIdentityFactors) v1alpha1.KernelCacheIdentity {
 	t.Helper()
 	result, err := cacheidentity.Build(factors)
