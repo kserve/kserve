@@ -137,6 +137,7 @@ var (
 	LoggerCredentialPathKey                     = KServeAPIGroupName + "/logger-secret-path"
 	LoggerCredentialFileKey                     = KServeAPIGroupName + "/logger-secret-file"
 	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
+	KernelCacheSupportedAnnotationKey           = KServeAPIGroupName + "/kernelcache-supported"
 	KernelCacheSidecarInjectionAnnotationKey    = KServeAPIGroupName + "/kernelcache-sidecar-injection"
 	KernelCacheNodeGroupAnnotationKey           = KServeAPIGroupName + "/kernelcache-nodegroup"
 	ModelFormatAnnotationKey                    = "modelFormat"
@@ -1026,6 +1027,11 @@ func KernelCacheCaptureRevisionName(sourceName, revisionID string) string {
 		return ""
 	}
 	return strings.TrimRight(sourceName[:keep], "-.") + digestText + suffix
+}
+
+// KernelCacheTargetImage returns the OCI image reference for one capture.
+func KernelCacheTargetImage(registry, namespace, inferenceServiceName, captureID string) string {
+	return fmt.Sprintf("%s/%s/kernel-cache-%s:%s", strings.TrimSuffix(registry, "/"), namespace, inferenceServiceName, captureID)
 }
 
 // LoRAModelRoutingStrategyAnnotationKey pins the LoRA routing strategy for one

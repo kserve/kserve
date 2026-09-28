@@ -23,10 +23,21 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
   - serviceaccounts
   verbs:
   - create
+  - delete
   - get
+  - patch
 - apiGroups:
   - apps
   resourceNames:
@@ -37,6 +48,13 @@ rules:
   - get
   - patch
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  - replicasets
+  verbs:
+  - get
+- apiGroups:
   - batch
   resources:
   - jobs
@@ -45,6 +63,34 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - kserve-kernelcache-token-requester
+  resources:
+  - clusterroles
+  verbs:
+  - bind
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
 - apiGroups:
   - serving.kserve.io
   resources:
@@ -69,8 +115,16 @@ rules:
   - serving.kserve.io
   resources:
   - kernelcachenodegroups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
   - kernelcaches
   verbs:
+  - create
   - get
   - list
   - watch

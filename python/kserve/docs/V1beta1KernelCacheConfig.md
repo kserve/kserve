@@ -16,6 +16,7 @@ Name | Type | Description | Notes
 **mcv_image** | **str** |  | [optional] 
 **prefetch_image** | **str** |  | [optional] 
 **reconcile_interval_seconds** | **int** |  | [optional] 
+**registry** | [**V1beta1KernelCacheRegistryConfig**](V1beta1KernelCacheRegistryConfig.md) |  | [optional] 
 
 [[Back to Model list]](../README.md#documentation-for-models) [[Back to API list]](../README.md#documentation-for-api-endpoints) [[Back to README]](../README.md)
 

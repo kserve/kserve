@@ -2116,6 +2116,7 @@ spec:
   annotations:
     prometheus.kserve.io/path: /metrics
     prometheus.kserve.io/port: "8080"
+    serving.kserve.io/kernelcache-supported: "true"
   containers:
   - args:
     - --port=8080
