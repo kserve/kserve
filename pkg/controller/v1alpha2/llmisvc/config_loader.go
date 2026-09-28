@@ -108,8 +108,7 @@ type FeatureGates struct {
 // key of the inferenceservice-config ConfigMap.
 //
 // The key is optional and is not shipped in the default ConfigMap, matching the other
-// controller-private keys in that ConfigMap ("scheduler",
-// "autoscaling-wva-controller-config"). To enable a gate, add for example:
+// controller-private keys in that ConfigMap ("scheduler"). To enable a gate, add for example:
 //
 //	llmisvc: |-
 //	  {"featureGates": {"disaggregatedSet": true}}
