@@ -27,7 +27,8 @@ import (
 
 // customizeDeployments is the default (upstream) no-op hook for platform-specific
 // customization of the desired Deployments in r.DeploymentList. It runs once the
-// Deployments are built, before they are reconciled against the cluster.
+// Deployments are built, before they are reconciled against the cluster. Conditions it
+// records in r.platformConditions are exposed through PlatformConditions.
 func (r *DeploymentReconciler) customizeDeployments(_ context.Context, _ metav1.ObjectMeta, _ *corev1.PodSpec) error {
 	return nil
 }
