@@ -45,12 +45,12 @@ func (c *Credentials) IssueForCapture(ctx context.Context, pod *corev1.Pod, capt
 	if captureName == "" {
 		return nil, errors.New("registry credential requires a capture name")
 	}
+	if cfg.Auth.Type == "" || cfg.Auth.Type == v1beta1.KernelCacheRegistryAuthTypeNone {
+		return nil, nil
+	}
 	provider, err := NewProvider(c.Client, cfg)
 	if err != nil {
 		return nil, err
-	}
-	if cfg.Auth.Type == "" || cfg.Auth.Type == v1beta1.KernelCacheRegistryAuthTypeNone {
-		return nil, nil
 	}
 	live, err := c.Client.CoreV1().Pods(pod.Namespace).Get(ctx, pod.Name, metav1.GetOptions{})
 	if err != nil {
@@ -60,7 +60,7 @@ func (c *Credentials) IssueForCapture(ctx context.Context, pod *corev1.Pod, capt
 		return nil, apierrors.NewResourceExpired("capture Pod is no longer active")
 	}
 	name := accessSecretName(live)
-	if !strings.HasPrefix(name, "mcv-registry-") {
+	if !strings.HasPrefix(name, AccessNamePrefix) {
 		return nil, errors.New("capture Pod has no registry access Secret reference")
 	}
 	secrets := c.Client.CoreV1().Secrets(live.Namespace)
@@ -108,11 +108,6 @@ func (c *Credentials) IssueForCapture(ctx context.Context, pod *corev1.Pod, capt
 		})
 		if err != nil {
 			return err
-		}
-		now := time.Now()
-		// Use the actual expiration, not the requested lifetime.
-		if !credential.ExpiresAt.After(now) || credential.ExpiresAt.After(now.Add(time.Hour+30*time.Second)) {
-			return errors.New("TokenRequest returned an unacceptable expiration")
 		}
 		data, err := json.Marshal(credential)
 		if err != nil {

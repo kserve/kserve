@@ -60,7 +60,7 @@ func SecretName(captureName string) string { return scopedName(captureName) }
 
 func scopedName(captureName string) string {
 	digest := sha256.Sum256([]byte(captureName))
-	suffix := fmt.Sprintf("-%x", digest[:4])
+	suffix := fmt.Sprintf("-%x", digest[:6])
 	maxBase := 63 - len(reporterResourcePrefix) - len(suffix)
 	if maxBase < 1 {
 		return reporterResourcePrefix + strings.TrimPrefix(suffix, "-")

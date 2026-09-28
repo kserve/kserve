@@ -38,14 +38,101 @@ func TestCaptureRegistryProjection(t *testing.T) {
 	pod := corev1.PodSpec{ServiceAccountName: "runtime"}
 	container := corev1.Container{Name: "mcv"}
 	require.NoError(t, ApplyCaptureRegistry(&pod, &container, cfg, "capture-secret"))
+	require.NoError(t, ApplyCaptureRegistry(&pod, &container, cfg, "capture-secret"))
 	require.Equal(t, "runtime", pod.ServiceAccountName)
 	require.Len(t, pod.Volumes, 1)
 	require.Len(t, pod.Volumes[0].Projected.Sources, 2)
+	require.Len(t, container.VolumeMounts, 1)
+	require.Len(t, container.Env, 3)
 	require.True(t, container.VolumeMounts[0].ReadOnly)
 	require.Equal(t, "access.json", pod.Volumes[0].Projected.Sources[0].Secret.Items[0].Key)
 	require.True(t, *pod.Volumes[0].Projected.Sources[0].Secret.Optional)
 	require.Nil(t, pod.Volumes[0].Projected.Sources[0].ServiceAccountToken)
 	require.Nil(t, pod.AutomountServiceAccountToken)
+}
+
+func TestCaptureRegistryCompletesPartialState(t *testing.T) {
+	cfg := captureRegistryTestConfig()
+	fullPod := corev1.PodSpec{}
+	fullContainer := corev1.Container{Name: "mcv"}
+	require.NoError(t, ApplyCaptureRegistry(&fullPod, &fullContainer, cfg, "capture-secret"))
+
+	t.Run("volume only", func(t *testing.T) {
+		pod := corev1.PodSpec{Volumes: append([]corev1.Volume(nil), fullPod.Volumes...)}
+		container := corev1.Container{Name: "mcv"}
+
+		require.NoError(t, ApplyCaptureRegistry(&pod, &container, cfg, "capture-secret"))
+		require.Equal(t, fullPod.Volumes, pod.Volumes)
+		require.Equal(t, fullContainer.VolumeMounts, container.VolumeMounts)
+		require.Equal(t, fullContainer.Env, container.Env)
+	})
+
+	t.Run("container configuration only", func(t *testing.T) {
+		pod := corev1.PodSpec{}
+		container := corev1.Container{
+			Name:         "mcv",
+			VolumeMounts: append([]corev1.VolumeMount(nil), fullContainer.VolumeMounts...),
+			Env:          append([]corev1.EnvVar(nil), fullContainer.Env...),
+		}
+
+		require.NoError(t, ApplyCaptureRegistry(&pod, &container, cfg, "capture-secret"))
+		require.Equal(t, fullPod.Volumes, pod.Volumes)
+		require.Equal(t, fullContainer.VolumeMounts, container.VolumeMounts)
+		require.Equal(t, fullContainer.Env, container.Env)
+	})
+}
+
+func TestCaptureRegistryRejectsConflictsWithoutPartialMutation(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		pod       corev1.PodSpec
+		container corev1.Container
+		want      string
+	}{
+		{
+			name: "volume",
+			pod: corev1.PodSpec{Volumes: []corev1.Volume{{
+				Name: registryVolume, VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+			}}},
+			want: "conflicting volume",
+		},
+		{
+			name: "volume mount",
+			container: corev1.Container{VolumeMounts: []corev1.VolumeMount{{
+				Name: "other", MountPath: registryPath,
+			}}},
+			want: "conflicting volume mount",
+		},
+		{
+			name: "environment variable",
+			container: corev1.Container{Env: []corev1.EnvVar{{
+				Name: "MCV_REGISTRY_ALLOWED_ENDPOINT", Value: "other.example",
+			}}},
+			want: "conflicting environment variable",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			podBefore := test.pod.DeepCopy()
+			containerBefore := test.container.DeepCopy()
+
+			err := ApplyCaptureRegistry(&test.pod, &test.container, captureRegistryTestConfig(), "capture-secret")
+			require.ErrorContains(t, err, test.want)
+			require.Equal(t, podBefore, &test.pod)
+			require.Equal(t, containerBefore, &test.container)
+		})
+	}
+}
+
+func captureRegistryTestConfig() v1beta1.KernelCacheRegistryConfig {
+	return v1beta1.KernelCacheRegistryConfig{
+		Endpoint: "registry.example:5000",
+		Auth: v1beta1.KernelCacheRegistryAuth{
+			Type:        v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken,
+			PushRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-pusher"},
+			PullRoleRef: &v1beta1.KernelCacheRegistryRoleRef{Kind: "ClusterRole", Name: "registry-puller"},
+		},
+		CAConfigMapRef: &v1beta1.KernelCacheConfigMapKeyRef{Name: "registry-ca", Key: "bundle"},
+	}
 }
 
 func TestRegistryCAWithoutAuthentication(t *testing.T) {

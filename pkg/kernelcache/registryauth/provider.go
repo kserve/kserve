@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	authenticationv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -35,13 +36,19 @@ const (
 	TokenRequesterRole     = "kserve-kernelcache-token-requester" // #nosec G101 -- this is an RBAC role name, not a credential
 	ManagedLabel           = "internal.serving.kserve.io/kernelcache-registry"
 	AccessSecretAnnotation = "internal.serving.kserve.io/kernelcache-access-secret"
+	AccessNamePrefix       = "mcv-registry-"
 	AccessKey              = "access.json"
 )
 
 const (
 	pusherServiceAccountPrefix = "kernel-cache-pusher-"
 	pusherRoleBindingPrefix    = "kernel-cache-pusher-"
+	tokenExpirationClockSkew   = time.Minute
 )
+
+// Registries supported by this provider derive the identity from the
+// ServiceAccount token and require only a non-empty Basic Auth username.
+const ignoredRegistryUsername = "unused"
 
 // PusherServiceAccountName returns the registry identity scoped to one KCC.
 func PusherServiceAccountName(captureName string) string {
@@ -55,7 +62,7 @@ func PusherRoleBindingName(captureName string) string {
 
 func scopedName(prefix, captureName string) string {
 	digest := sha256.Sum256([]byte(captureName))
-	suffix := fmt.Sprintf("-%x", digest[:4])
+	suffix := fmt.Sprintf("-%x", digest[:6])
 	maxBase := 63 - len(prefix) - len(suffix)
 	if maxBase < 1 {
 		return prefix + strings.TrimPrefix(suffix, "-")
@@ -133,5 +140,10 @@ func (p *ServiceAccountTokenProvider) GetCredential(ctx context.Context, req Cre
 	if result.Status.Token == "" {
 		return nil, errors.New("TokenRequest returned empty registry access")
 	}
-	return &RegistryCredential{Registry: req.Registry, Username: "unused", Token: result.Status.Token, ExpiresAt: result.Status.ExpirationTimestamp}, nil
+	now := time.Now()
+	maximumExpiration := now.Add(time.Duration(p.TTLSeconds)*time.Second + tokenExpirationClockSkew)
+	if !result.Status.ExpirationTimestamp.After(now) || result.Status.ExpirationTimestamp.After(maximumExpiration) {
+		return nil, errors.New("TokenRequest returned an unacceptable expiration")
+	}
+	return &RegistryCredential{Registry: req.Registry, Username: ignoredRegistryUsername, Token: result.Status.Token, ExpiresAt: result.Status.ExpirationTimestamp}, nil
 }

@@ -35,6 +35,38 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 )
 
+func TestScopedPusherNamesUseSixByteDigest(t *testing.T) {
+	const captureName = "model-kcc-abc123"
+	const expected = "kernel-cache-pusher-model-kcc-abc123-691719c36ce8"
+
+	require.Equal(t, expected, PusherServiceAccountName(captureName))
+	require.Equal(t, expected, PusherRoleBindingName(captureName))
+}
+
+func TestServiceAccountTokenProviderRejectsExpirationBeyondRequestedTTL(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	client.PrependReactor("create", "serviceaccounts", func(clienttesting.Action) (bool, runtime.Object, error) {
+		return true, &authenticationv1.TokenRequest{Status: authenticationv1.TokenRequestStatus{
+			Token:               "test-token",
+			ExpirationTimestamp: metav1.NewTime(time.Now().Add(50 * time.Minute)),
+		}}, nil
+	})
+	provider := &ServiceAccountTokenProvider{Client: client, TTLSeconds: 600}
+
+	_, err := provider.GetCredential(context.Background(), CredentialRequest{
+		Registry:           "registry.example:5000",
+		ServiceAccountName: "kernel-cache-pusher-test",
+		Secret: corev1.ObjectReference{
+			APIVersion: "v1",
+			Kind:       "Secret",
+			Namespace:  "team",
+			Name:       "registry-access",
+			UID:        types.UID("secret-uid"),
+		},
+	})
+	require.ErrorContains(t, err, "unacceptable expiration")
+}
+
 func TestSecretBoundAccessLifecycle(t *testing.T) {
 	ctx := context.Background()
 	const captureName = "model-kcc-revision"

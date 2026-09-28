@@ -69,23 +69,54 @@ func ApplyCaptureRegistry(pod *corev1.PodSpec, container *corev1.Container, cfg 
 		env = append(env, corev1.EnvVar{Name: "MCV_REGISTRY_CA_FILE", Value: registryPath + "/ca.crt"})
 	}
 	if len(sources) == 0 {
-		container.Env = append(container.Env, env...)
 		return nil
 	}
 	volume := corev1.Volume{Name: registryVolume, VolumeSource: corev1.VolumeSource{Projected: &corev1.ProjectedVolumeSource{Sources: sources}}}
-	found := false
+	volumeExists := false
 	for _, existing := range pod.Volumes {
 		if existing.Name == registryVolume {
 			if !reflect.DeepEqual(existing, volume) {
 				return fmt.Errorf("conflicting volume %q", registryVolume)
 			}
-			found = true
+			volumeExists = true
 		}
 	}
-	if !found {
+
+	volumeMount := corev1.VolumeMount{Name: registryVolume, MountPath: registryPath, ReadOnly: true}
+	volumeMountExists := false
+	for _, existing := range container.VolumeMounts {
+		if existing.Name != volumeMount.Name && existing.MountPath != volumeMount.MountPath {
+			continue
+		}
+		if !reflect.DeepEqual(existing, volumeMount) {
+			return fmt.Errorf("conflicting volume mount %q", registryVolume)
+		}
+		volumeMountExists = true
+	}
+
+	envToAdd := make([]corev1.EnvVar, 0, len(env))
+	for _, desired := range env {
+		found := false
+		for _, existing := range container.Env {
+			if existing.Name != desired.Name {
+				continue
+			}
+			if !reflect.DeepEqual(existing, desired) {
+				return fmt.Errorf("conflicting environment variable %q", desired.Name)
+			}
+			found = true
+		}
+		if !found {
+			envToAdd = append(envToAdd, desired)
+		}
+	}
+
+	if !volumeExists {
 		pod.Volumes = append(pod.Volumes, volume)
 	}
-	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: registryVolume, MountPath: registryPath, ReadOnly: true})
-	container.Env = append(container.Env, env...)
+	if !volumeMountExists {
+		container.VolumeMounts = append(container.VolumeMounts, volumeMount)
+	}
+	container.Env = append(container.Env, envToAdd...)
 	return nil
 }
