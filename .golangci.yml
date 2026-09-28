@@ -158,6 +158,9 @@ linters:
     # Reports unused function parameters and results in your code.
     - unparam
 
+    # Checks Go code for unused constants, variables, functions and types.
+    - unused
+
     # A linter that detect the possibility to use variables/constants from the
     # Go standard library.
     - usestdlibvars
