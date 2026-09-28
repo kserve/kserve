@@ -312,6 +312,9 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
 
+	// There is no upstream status condition for platform resources. A hook that
+	// wants its failure visible in status marks its own condition before returning
+	// the error; otherwise the failure only surfaces as a warning event.
 	if err := r.reconcilePlatformResources(ctx, llmSvc, config); err != nil {
 		return err
 	}
@@ -335,6 +338,9 @@ func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMIn
 		return false, nil
 	}
 
+	// Status is not persisted when finalization fails, so conditions set by the
+	// hook are dropped. A failure here keeps the finalizer in place and only
+	// surfaces in the controller logs.
 	if err := r.finalizePlatformResources(ctx, llmSvc); err != nil {
 		return false, err
 	}
