@@ -146,10 +146,9 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	forceStopRuntime := utils.GetForceStopRuntime(graph)
 
-	configMap, err := r.Clientset.CoreV1().ConfigMaps(constants.KServeNamespace).Get(ctx, constants.InferenceServiceConfigMapName, metav1.GetOptions{})
+	configMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
 	if err != nil {
-		r.Log.Error(err, "Failed to find config map", "name", constants.InferenceServiceConfigMapName)
-		return reconcile.Result{}, err
+		return reconcile.Result{}, errors.Wrapf(err, "fails to get InferenceService config map")
 	}
 	routerConfig, err := getRouterConfigs(configMap)
 	if err != nil {
@@ -182,12 +181,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
-	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, r.Clientset)
-	if err != nil {
-		r.Log.Error(err, "unable to get configmap", "name", constants.InferenceServiceConfigMapName, "namespace", constants.KServeNamespace)
-		return reconcile.Result{}, err
-	}
-	deployConfig, err := v1beta1.NewDeployConfig(isvcConfigMap)
+	deployConfig, err := v1beta1.NewDeployConfig(configMap)
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to create DeployConfig")
 	}
