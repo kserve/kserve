@@ -36,7 +36,7 @@ RUN if [ "$(uname -m)" = "ppc64le" ]; then \
             '' \
             '[[tool.uv.index]]' \
             'name = "ppc64le-wheels"' \
-            'url = "https://wheels.developerfirst.ibm.com/ppc64le/linux"' \
+            'url = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple"' \
             'explicit = true' \
             '' \
             '[tool.uv.sources]' \
