@@ -34,11 +34,39 @@ import (
 )
 
 // ClusterStorageContainerInformer provides access to a shared informer and lister for
-// ClusterStorageContainers.
+// ClusterStorageContainers. Prefer using the type-safe variant (see [TypedClusterStorageContainerInformer]).
 type ClusterStorageContainerInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() servingv1alpha1.ClusterStorageContainerLister
 }
+
+// TypedClusterStorageContainerInformer provides access to a shared informer and lister for
+// ClusterStorageContainers, including the type-safe TypedInformer variant.
+// It is a superset of ClusterStorageContainerInformer.
+type TypedClusterStorageContainerInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() ClusterStorageContainerIndexInformer
+	Lister() servingv1alpha1.ClusterStorageContainerLister
+}
+
+// ClusterStorageContainerIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type ClusterStorageContainerIndexInformer cache.TypedSharedIndexInformer[*apisservingv1alpha1.ClusterStorageContainer]
+
+// ClusterStorageContainerHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for ClusterStorageContainer.
+type ClusterStorageContainerHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisservingv1alpha1.ClusterStorageContainer]
+
+// ClusterStorageContainerDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for ClusterStorageContainer.
+type ClusterStorageContainerDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisservingv1alpha1.ClusterStorageContainer]
+
+// ClusterStorageContainerFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for ClusterStorageContainer.
+type ClusterStorageContainerFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisservingv1alpha1.ClusterStorageContainer]
+
+// ClusterStorageContainerIndexers is a specialization of [cache.TypedIndexers] for ClusterStorageContainer.
+type ClusterStorageContainerIndexers = cache.TypedIndexers[*apisservingv1alpha1.ClusterStorageContainer]
+
+// DeletedClusterStorageContainer is a specialization of [cache.DeletedObject] for ClusterStorageContainer.
+type DeletedClusterStorageContainer = cache.DeletedObject[*apisservingv1alpha1.ClusterStorageContainer]
 
 type clusterStorageContainerInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -49,25 +77,49 @@ type clusterStorageContainerInformer struct {
 // NewClusterStorageContainerInformer constructs a new informer for ClusterStorageContainer type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedClusterStorageContainerInformer]).
 func NewClusterStorageContainerInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewClusterStorageContainerInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedClusterStorageContainerInformer constructs a new informer for ClusterStorageContainer type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedClusterStorageContainerInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers ClusterStorageContainerIndexers) ClusterStorageContainerIndexInformer {
+	return NewTypedClusterStorageContainerInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredClusterStorageContainerInformer constructs a new informer for ClusterStorageContainer type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredClusterStorageContainerInformer]).
 func NewFilteredClusterStorageContainerInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewClusterStorageContainerInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedClusterStorageContainerInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredClusterStorageContainerInformer constructs a new informer for ClusterStorageContainer type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredClusterStorageContainerInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers ClusterStorageContainerIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) ClusterStorageContainerIndexInformer {
+	return NewTypedClusterStorageContainerInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewClusterStorageContainerInformerWithOptions constructs a new informer for ClusterStorageContainer type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedClusterStorageContainerInformerWithOptions]).
 func NewClusterStorageContainerInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedClusterStorageContainerInformerWithOptions(client, namespace, options)
+}
+
+// NewTypedClusterStorageContainerInformerWithOptions constructs a new informer for ClusterStorageContainer type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedClusterStorageContainerInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) ClusterStorageContainerIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "serving.kserve.io", Version: "v1alpha1", Resource: "clusterstoragecontainers"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.ClusterStorageContainer](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -100,17 +152,57 @@ func NewClusterStorageContainerInformerWithOptions(client versioned.Interface, n
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *clusterStorageContainerInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewClusterStorageContainerInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedClusterStorageContainerInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *clusterStorageContainerInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisservingv1alpha1.ClusterStorageContainer{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *clusterStorageContainerInformer) TypedInformer() ClusterStorageContainerIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.ClusterStorageContainer](f.factory.InformerFor(&apisservingv1alpha1.ClusterStorageContainer{}, f.defaultInformer))
 }
 
 func (f *clusterStorageContainerInformer) Lister() servingv1alpha1.ClusterStorageContainerLister {
 	return servingv1alpha1.NewClusterStorageContainerLister(f.Informer().GetIndexer())
+}
+
+// ToTypedClusterStorageContainerInformer converts an untyped informer into a TypedClusterStorageContainerInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *ClusterStorageContainer. If that is not the case, calling type-safe methods of the returned
+// TypedClusterStorageContainerInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedClusterStorageContainerInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedClusterStorageContainerInformer(informer ClusterStorageContainerInformer) TypedClusterStorageContainerInformer {
+	if informer, ok := informer.(TypedClusterStorageContainerInformer); ok {
+		return informer
+	}
+	return &clusterStorageContainerTypedInformerAdapter{informer}
+}
+
+type clusterStorageContainerTypedInformerAdapter struct {
+	ClusterStorageContainerInformer
+}
+
+func (a *clusterStorageContainerTypedInformerAdapter) TypedInformer() ClusterStorageContainerIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.ClusterStorageContainer](a.Informer())
+}
+
+// ToClusterStorageContainerIndexInformer converts an untyped informer into a ClusterStorageContainerIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *ClusterStorageContainer. If that is not the case, calling type-safe methods of the returned
+// ClusterStorageContainerIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a ClusterStorageContainerIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToClusterStorageContainerIndexInformer(informer cache.SharedIndexInformer) ClusterStorageContainerIndexInformer {
+	if informer, ok := informer.(ClusterStorageContainerIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.ClusterStorageContainer](informer)
 }

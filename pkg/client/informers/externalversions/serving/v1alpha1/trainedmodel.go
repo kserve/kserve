@@ -34,11 +34,39 @@ import (
 )
 
 // TrainedModelInformer provides access to a shared informer and lister for
-// TrainedModels.
+// TrainedModels. Prefer using the type-safe variant (see [TypedTrainedModelInformer]).
 type TrainedModelInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() servingv1alpha1.TrainedModelLister
 }
+
+// TypedTrainedModelInformer provides access to a shared informer and lister for
+// TrainedModels, including the type-safe TypedInformer variant.
+// It is a superset of TrainedModelInformer.
+type TypedTrainedModelInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() TrainedModelIndexInformer
+	Lister() servingv1alpha1.TrainedModelLister
+}
+
+// TrainedModelIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type TrainedModelIndexInformer cache.TypedSharedIndexInformer[*apisservingv1alpha1.TrainedModel]
+
+// TrainedModelHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for TrainedModel.
+type TrainedModelHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisservingv1alpha1.TrainedModel]
+
+// TrainedModelDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for TrainedModel.
+type TrainedModelDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisservingv1alpha1.TrainedModel]
+
+// TrainedModelFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for TrainedModel.
+type TrainedModelFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisservingv1alpha1.TrainedModel]
+
+// TrainedModelIndexers is a specialization of [cache.TypedIndexers] for TrainedModel.
+type TrainedModelIndexers = cache.TypedIndexers[*apisservingv1alpha1.TrainedModel]
+
+// DeletedTrainedModel is a specialization of [cache.DeletedObject] for TrainedModel.
+type DeletedTrainedModel = cache.DeletedObject[*apisservingv1alpha1.TrainedModel]
 
 type trainedModelInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -49,25 +77,49 @@ type trainedModelInformer struct {
 // NewTrainedModelInformer constructs a new informer for TrainedModel type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedTrainedModelInformer]).
 func NewTrainedModelInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewTrainedModelInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedTrainedModelInformer constructs a new informer for TrainedModel type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedTrainedModelInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers TrainedModelIndexers) TrainedModelIndexInformer {
+	return NewTypedTrainedModelInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredTrainedModelInformer constructs a new informer for TrainedModel type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredTrainedModelInformer]).
 func NewFilteredTrainedModelInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewTrainedModelInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedTrainedModelInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredTrainedModelInformer constructs a new informer for TrainedModel type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredTrainedModelInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers TrainedModelIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) TrainedModelIndexInformer {
+	return NewTypedTrainedModelInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewTrainedModelInformerWithOptions constructs a new informer for TrainedModel type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedTrainedModelInformerWithOptions]).
 func NewTrainedModelInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedTrainedModelInformerWithOptions(client, namespace, options)
+}
+
+// NewTypedTrainedModelInformerWithOptions constructs a new informer for TrainedModel type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedTrainedModelInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) TrainedModelIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "serving.kserve.io", Version: "v1alpha1", Resource: "trainedmodels"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.TrainedModel](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -100,17 +152,57 @@ func NewTrainedModelInformerWithOptions(client versioned.Interface, namespace st
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *trainedModelInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewTrainedModelInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedTrainedModelInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *trainedModelInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisservingv1alpha1.TrainedModel{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *trainedModelInformer) TypedInformer() TrainedModelIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.TrainedModel](f.factory.InformerFor(&apisservingv1alpha1.TrainedModel{}, f.defaultInformer))
 }
 
 func (f *trainedModelInformer) Lister() servingv1alpha1.TrainedModelLister {
 	return servingv1alpha1.NewTrainedModelLister(f.Informer().GetIndexer())
+}
+
+// ToTypedTrainedModelInformer converts an untyped informer into a TypedTrainedModelInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *TrainedModel. If that is not the case, calling type-safe methods of the returned
+// TypedTrainedModelInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedTrainedModelInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedTrainedModelInformer(informer TrainedModelInformer) TypedTrainedModelInformer {
+	if informer, ok := informer.(TypedTrainedModelInformer); ok {
+		return informer
+	}
+	return &trainedModelTypedInformerAdapter{informer}
+}
+
+type trainedModelTypedInformerAdapter struct {
+	TrainedModelInformer
+}
+
+func (a *trainedModelTypedInformerAdapter) TypedInformer() TrainedModelIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.TrainedModel](a.Informer())
+}
+
+// ToTrainedModelIndexInformer converts an untyped informer into a TrainedModelIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *TrainedModel. If that is not the case, calling type-safe methods of the returned
+// TrainedModelIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a TrainedModelIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTrainedModelIndexInformer(informer cache.SharedIndexInformer) TrainedModelIndexInformer {
+	if informer, ok := informer.(TrainedModelIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.TrainedModel](informer)
 }

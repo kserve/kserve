@@ -34,11 +34,39 @@ import (
 )
 
 // InferenceServiceInformer provides access to a shared informer and lister for
-// InferenceServices.
+// InferenceServices. Prefer using the type-safe variant (see [TypedInferenceServiceInformer]).
 type InferenceServiceInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() servingv1beta1.InferenceServiceLister
 }
+
+// TypedInferenceServiceInformer provides access to a shared informer and lister for
+// InferenceServices, including the type-safe TypedInformer variant.
+// It is a superset of InferenceServiceInformer.
+type TypedInferenceServiceInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() InferenceServiceIndexInformer
+	Lister() servingv1beta1.InferenceServiceLister
+}
+
+// InferenceServiceIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type InferenceServiceIndexInformer cache.TypedSharedIndexInformer[*apisservingv1beta1.InferenceService]
+
+// InferenceServiceHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for InferenceService.
+type InferenceServiceHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisservingv1beta1.InferenceService]
+
+// InferenceServiceDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for InferenceService.
+type InferenceServiceDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisservingv1beta1.InferenceService]
+
+// InferenceServiceFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for InferenceService.
+type InferenceServiceFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisservingv1beta1.InferenceService]
+
+// InferenceServiceIndexers is a specialization of [cache.TypedIndexers] for InferenceService.
+type InferenceServiceIndexers = cache.TypedIndexers[*apisservingv1beta1.InferenceService]
+
+// DeletedInferenceService is a specialization of [cache.DeletedObject] for InferenceService.
+type DeletedInferenceService = cache.DeletedObject[*apisservingv1beta1.InferenceService]
 
 type inferenceServiceInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -49,25 +77,49 @@ type inferenceServiceInformer struct {
 // NewInferenceServiceInformer constructs a new informer for InferenceService type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedInferenceServiceInformer]).
 func NewInferenceServiceInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewInferenceServiceInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedInferenceServiceInformer constructs a new informer for InferenceService type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedInferenceServiceInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers InferenceServiceIndexers) InferenceServiceIndexInformer {
+	return NewTypedInferenceServiceInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredInferenceServiceInformer constructs a new informer for InferenceService type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredInferenceServiceInformer]).
 func NewFilteredInferenceServiceInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewInferenceServiceInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedInferenceServiceInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredInferenceServiceInformer constructs a new informer for InferenceService type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredInferenceServiceInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers InferenceServiceIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) InferenceServiceIndexInformer {
+	return NewTypedInferenceServiceInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewInferenceServiceInformerWithOptions constructs a new informer for InferenceService type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedInferenceServiceInformerWithOptions]).
 func NewInferenceServiceInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedInferenceServiceInformerWithOptions(client, namespace, options)
+}
+
+// NewTypedInferenceServiceInformerWithOptions constructs a new informer for InferenceService type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedInferenceServiceInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) InferenceServiceIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "serving.kserve.io", Version: "v1beta1", Resource: "inferenceservices"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisservingv1beta1.InferenceService](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -100,17 +152,57 @@ func NewInferenceServiceInformerWithOptions(client versioned.Interface, namespac
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *inferenceServiceInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewInferenceServiceInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedInferenceServiceInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *inferenceServiceInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisservingv1beta1.InferenceService{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *inferenceServiceInformer) TypedInformer() InferenceServiceIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1beta1.InferenceService](f.factory.InformerFor(&apisservingv1beta1.InferenceService{}, f.defaultInformer))
 }
 
 func (f *inferenceServiceInformer) Lister() servingv1beta1.InferenceServiceLister {
 	return servingv1beta1.NewInferenceServiceLister(f.Informer().GetIndexer())
+}
+
+// ToTypedInferenceServiceInformer converts an untyped informer into a TypedInferenceServiceInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *InferenceService. If that is not the case, calling type-safe methods of the returned
+// TypedInferenceServiceInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedInferenceServiceInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedInferenceServiceInformer(informer InferenceServiceInformer) TypedInferenceServiceInformer {
+	if informer, ok := informer.(TypedInferenceServiceInformer); ok {
+		return informer
+	}
+	return &inferenceServiceTypedInformerAdapter{informer}
+}
+
+type inferenceServiceTypedInformerAdapter struct {
+	InferenceServiceInformer
+}
+
+func (a *inferenceServiceTypedInformerAdapter) TypedInformer() InferenceServiceIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1beta1.InferenceService](a.Informer())
+}
+
+// ToInferenceServiceIndexInformer converts an untyped informer into a InferenceServiceIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *InferenceService. If that is not the case, calling type-safe methods of the returned
+// InferenceServiceIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a InferenceServiceIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToInferenceServiceIndexInformer(informer cache.SharedIndexInformer) InferenceServiceIndexInformer {
+	if informer, ok := informer.(InferenceServiceIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisservingv1beta1.InferenceService](informer)
 }

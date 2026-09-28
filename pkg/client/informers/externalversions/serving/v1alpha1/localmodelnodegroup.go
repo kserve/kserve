@@ -34,11 +34,39 @@ import (
 )
 
 // LocalModelNodeGroupInformer provides access to a shared informer and lister for
-// LocalModelNodeGroups.
+// LocalModelNodeGroups. Prefer using the type-safe variant (see [TypedLocalModelNodeGroupInformer]).
 type LocalModelNodeGroupInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() servingv1alpha1.LocalModelNodeGroupLister
 }
+
+// TypedLocalModelNodeGroupInformer provides access to a shared informer and lister for
+// LocalModelNodeGroups, including the type-safe TypedInformer variant.
+// It is a superset of LocalModelNodeGroupInformer.
+type TypedLocalModelNodeGroupInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() LocalModelNodeGroupIndexInformer
+	Lister() servingv1alpha1.LocalModelNodeGroupLister
+}
+
+// LocalModelNodeGroupIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type LocalModelNodeGroupIndexInformer cache.TypedSharedIndexInformer[*apisservingv1alpha1.LocalModelNodeGroup]
+
+// LocalModelNodeGroupHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for LocalModelNodeGroup.
+type LocalModelNodeGroupHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisservingv1alpha1.LocalModelNodeGroup]
+
+// LocalModelNodeGroupDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for LocalModelNodeGroup.
+type LocalModelNodeGroupDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisservingv1alpha1.LocalModelNodeGroup]
+
+// LocalModelNodeGroupFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for LocalModelNodeGroup.
+type LocalModelNodeGroupFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisservingv1alpha1.LocalModelNodeGroup]
+
+// LocalModelNodeGroupIndexers is a specialization of [cache.TypedIndexers] for LocalModelNodeGroup.
+type LocalModelNodeGroupIndexers = cache.TypedIndexers[*apisservingv1alpha1.LocalModelNodeGroup]
+
+// DeletedLocalModelNodeGroup is a specialization of [cache.DeletedObject] for LocalModelNodeGroup.
+type DeletedLocalModelNodeGroup = cache.DeletedObject[*apisservingv1alpha1.LocalModelNodeGroup]
 
 type localModelNodeGroupInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -49,25 +77,49 @@ type localModelNodeGroupInformer struct {
 // NewLocalModelNodeGroupInformer constructs a new informer for LocalModelNodeGroup type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedLocalModelNodeGroupInformer]).
 func NewLocalModelNodeGroupInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewLocalModelNodeGroupInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedLocalModelNodeGroupInformer constructs a new informer for LocalModelNodeGroup type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedLocalModelNodeGroupInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers LocalModelNodeGroupIndexers) LocalModelNodeGroupIndexInformer {
+	return NewTypedLocalModelNodeGroupInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredLocalModelNodeGroupInformer constructs a new informer for LocalModelNodeGroup type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredLocalModelNodeGroupInformer]).
 func NewFilteredLocalModelNodeGroupInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewLocalModelNodeGroupInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedLocalModelNodeGroupInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredLocalModelNodeGroupInformer constructs a new informer for LocalModelNodeGroup type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredLocalModelNodeGroupInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers LocalModelNodeGroupIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) LocalModelNodeGroupIndexInformer {
+	return NewTypedLocalModelNodeGroupInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewLocalModelNodeGroupInformerWithOptions constructs a new informer for LocalModelNodeGroup type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedLocalModelNodeGroupInformerWithOptions]).
 func NewLocalModelNodeGroupInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedLocalModelNodeGroupInformerWithOptions(client, namespace, options)
+}
+
+// NewTypedLocalModelNodeGroupInformerWithOptions constructs a new informer for LocalModelNodeGroup type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedLocalModelNodeGroupInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) LocalModelNodeGroupIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "serving.kserve.io", Version: "v1alpha1", Resource: "localmodelnodegroups"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.LocalModelNodeGroup](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -100,17 +152,57 @@ func NewLocalModelNodeGroupInformerWithOptions(client versioned.Interface, names
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *localModelNodeGroupInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewLocalModelNodeGroupInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedLocalModelNodeGroupInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *localModelNodeGroupInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisservingv1alpha1.LocalModelNodeGroup{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *localModelNodeGroupInformer) TypedInformer() LocalModelNodeGroupIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.LocalModelNodeGroup](f.factory.InformerFor(&apisservingv1alpha1.LocalModelNodeGroup{}, f.defaultInformer))
 }
 
 func (f *localModelNodeGroupInformer) Lister() servingv1alpha1.LocalModelNodeGroupLister {
 	return servingv1alpha1.NewLocalModelNodeGroupLister(f.Informer().GetIndexer())
+}
+
+// ToTypedLocalModelNodeGroupInformer converts an untyped informer into a TypedLocalModelNodeGroupInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *LocalModelNodeGroup. If that is not the case, calling type-safe methods of the returned
+// TypedLocalModelNodeGroupInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedLocalModelNodeGroupInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedLocalModelNodeGroupInformer(informer LocalModelNodeGroupInformer) TypedLocalModelNodeGroupInformer {
+	if informer, ok := informer.(TypedLocalModelNodeGroupInformer); ok {
+		return informer
+	}
+	return &localModelNodeGroupTypedInformerAdapter{informer}
+}
+
+type localModelNodeGroupTypedInformerAdapter struct {
+	LocalModelNodeGroupInformer
+}
+
+func (a *localModelNodeGroupTypedInformerAdapter) TypedInformer() LocalModelNodeGroupIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.LocalModelNodeGroup](a.Informer())
+}
+
+// ToLocalModelNodeGroupIndexInformer converts an untyped informer into a LocalModelNodeGroupIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *LocalModelNodeGroup. If that is not the case, calling type-safe methods of the returned
+// LocalModelNodeGroupIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a LocalModelNodeGroupIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToLocalModelNodeGroupIndexInformer(informer cache.SharedIndexInformer) LocalModelNodeGroupIndexInformer {
+	if informer, ok := informer.(LocalModelNodeGroupIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.LocalModelNodeGroup](informer)
 }

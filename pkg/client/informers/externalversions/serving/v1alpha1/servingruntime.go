@@ -34,11 +34,39 @@ import (
 )
 
 // ServingRuntimeInformer provides access to a shared informer and lister for
-// ServingRuntimes.
+// ServingRuntimes. Prefer using the type-safe variant (see [TypedServingRuntimeInformer]).
 type ServingRuntimeInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() servingv1alpha1.ServingRuntimeLister
 }
+
+// TypedServingRuntimeInformer provides access to a shared informer and lister for
+// ServingRuntimes, including the type-safe TypedInformer variant.
+// It is a superset of ServingRuntimeInformer.
+type TypedServingRuntimeInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() ServingRuntimeIndexInformer
+	Lister() servingv1alpha1.ServingRuntimeLister
+}
+
+// ServingRuntimeIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type ServingRuntimeIndexInformer cache.TypedSharedIndexInformer[*apisservingv1alpha1.ServingRuntime]
+
+// ServingRuntimeHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for ServingRuntime.
+type ServingRuntimeHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisservingv1alpha1.ServingRuntime]
+
+// ServingRuntimeDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for ServingRuntime.
+type ServingRuntimeDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisservingv1alpha1.ServingRuntime]
+
+// ServingRuntimeFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for ServingRuntime.
+type ServingRuntimeFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisservingv1alpha1.ServingRuntime]
+
+// ServingRuntimeIndexers is a specialization of [cache.TypedIndexers] for ServingRuntime.
+type ServingRuntimeIndexers = cache.TypedIndexers[*apisservingv1alpha1.ServingRuntime]
+
+// DeletedServingRuntime is a specialization of [cache.DeletedObject] for ServingRuntime.
+type DeletedServingRuntime = cache.DeletedObject[*apisservingv1alpha1.ServingRuntime]
 
 type servingRuntimeInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -49,25 +77,49 @@ type servingRuntimeInformer struct {
 // NewServingRuntimeInformer constructs a new informer for ServingRuntime type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedServingRuntimeInformer]).
 func NewServingRuntimeInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewServingRuntimeInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedServingRuntimeInformer constructs a new informer for ServingRuntime type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedServingRuntimeInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers ServingRuntimeIndexers) ServingRuntimeIndexInformer {
+	return NewTypedServingRuntimeInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredServingRuntimeInformer constructs a new informer for ServingRuntime type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredServingRuntimeInformer]).
 func NewFilteredServingRuntimeInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewServingRuntimeInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedServingRuntimeInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredServingRuntimeInformer constructs a new informer for ServingRuntime type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredServingRuntimeInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers ServingRuntimeIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) ServingRuntimeIndexInformer {
+	return NewTypedServingRuntimeInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewServingRuntimeInformerWithOptions constructs a new informer for ServingRuntime type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedServingRuntimeInformerWithOptions]).
 func NewServingRuntimeInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedServingRuntimeInformerWithOptions(client, namespace, options)
+}
+
+// NewTypedServingRuntimeInformerWithOptions constructs a new informer for ServingRuntime type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedServingRuntimeInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) ServingRuntimeIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "serving.kserve.io", Version: "v1alpha1", Resource: "servingruntimes"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.ServingRuntime](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -100,17 +152,57 @@ func NewServingRuntimeInformerWithOptions(client versioned.Interface, namespace 
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *servingRuntimeInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewServingRuntimeInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedServingRuntimeInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *servingRuntimeInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisservingv1alpha1.ServingRuntime{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *servingRuntimeInformer) TypedInformer() ServingRuntimeIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.ServingRuntime](f.factory.InformerFor(&apisservingv1alpha1.ServingRuntime{}, f.defaultInformer))
 }
 
 func (f *servingRuntimeInformer) Lister() servingv1alpha1.ServingRuntimeLister {
 	return servingv1alpha1.NewServingRuntimeLister(f.Informer().GetIndexer())
+}
+
+// ToTypedServingRuntimeInformer converts an untyped informer into a TypedServingRuntimeInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *ServingRuntime. If that is not the case, calling type-safe methods of the returned
+// TypedServingRuntimeInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedServingRuntimeInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedServingRuntimeInformer(informer ServingRuntimeInformer) TypedServingRuntimeInformer {
+	if informer, ok := informer.(TypedServingRuntimeInformer); ok {
+		return informer
+	}
+	return &servingRuntimeTypedInformerAdapter{informer}
+}
+
+type servingRuntimeTypedInformerAdapter struct {
+	ServingRuntimeInformer
+}
+
+func (a *servingRuntimeTypedInformerAdapter) TypedInformer() ServingRuntimeIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.ServingRuntime](a.Informer())
+}
+
+// ToServingRuntimeIndexInformer converts an untyped informer into a ServingRuntimeIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *ServingRuntime. If that is not the case, calling type-safe methods of the returned
+// ServingRuntimeIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a ServingRuntimeIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToServingRuntimeIndexInformer(informer cache.SharedIndexInformer) ServingRuntimeIndexInformer {
+	if informer, ok := informer.(ServingRuntimeIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.ServingRuntime](informer)
 }

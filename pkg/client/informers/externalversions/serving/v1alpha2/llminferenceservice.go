@@ -34,11 +34,39 @@ import (
 )
 
 // LLMInferenceServiceInformer provides access to a shared informer and lister for
-// LLMInferenceServices.
+// LLMInferenceServices. Prefer using the type-safe variant (see [TypedLLMInferenceServiceInformer]).
 type LLMInferenceServiceInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() servingv1alpha2.LLMInferenceServiceLister
 }
+
+// TypedLLMInferenceServiceInformer provides access to a shared informer and lister for
+// LLMInferenceServices, including the type-safe TypedInformer variant.
+// It is a superset of LLMInferenceServiceInformer.
+type TypedLLMInferenceServiceInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() LLMInferenceServiceIndexInformer
+	Lister() servingv1alpha2.LLMInferenceServiceLister
+}
+
+// LLMInferenceServiceIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type LLMInferenceServiceIndexInformer cache.TypedSharedIndexInformer[*apisservingv1alpha2.LLMInferenceService]
+
+// LLMInferenceServiceHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for LLMInferenceService.
+type LLMInferenceServiceHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisservingv1alpha2.LLMInferenceService]
+
+// LLMInferenceServiceDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for LLMInferenceService.
+type LLMInferenceServiceDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisservingv1alpha2.LLMInferenceService]
+
+// LLMInferenceServiceFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for LLMInferenceService.
+type LLMInferenceServiceFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisservingv1alpha2.LLMInferenceService]
+
+// LLMInferenceServiceIndexers is a specialization of [cache.TypedIndexers] for LLMInferenceService.
+type LLMInferenceServiceIndexers = cache.TypedIndexers[*apisservingv1alpha2.LLMInferenceService]
+
+// DeletedLLMInferenceService is a specialization of [cache.DeletedObject] for LLMInferenceService.
+type DeletedLLMInferenceService = cache.DeletedObject[*apisservingv1alpha2.LLMInferenceService]
 
 type lLMInferenceServiceInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -49,25 +77,49 @@ type lLMInferenceServiceInformer struct {
 // NewLLMInferenceServiceInformer constructs a new informer for LLMInferenceService type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedLLMInferenceServiceInformer]).
 func NewLLMInferenceServiceInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewLLMInferenceServiceInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedLLMInferenceServiceInformer constructs a new informer for LLMInferenceService type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedLLMInferenceServiceInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers LLMInferenceServiceIndexers) LLMInferenceServiceIndexInformer {
+	return NewTypedLLMInferenceServiceInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredLLMInferenceServiceInformer constructs a new informer for LLMInferenceService type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredLLMInferenceServiceInformer]).
 func NewFilteredLLMInferenceServiceInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewLLMInferenceServiceInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedLLMInferenceServiceInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredLLMInferenceServiceInformer constructs a new informer for LLMInferenceService type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredLLMInferenceServiceInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers LLMInferenceServiceIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) LLMInferenceServiceIndexInformer {
+	return NewTypedLLMInferenceServiceInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewLLMInferenceServiceInformerWithOptions constructs a new informer for LLMInferenceService type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedLLMInferenceServiceInformerWithOptions]).
 func NewLLMInferenceServiceInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedLLMInferenceServiceInformerWithOptions(client, namespace, options)
+}
+
+// NewTypedLLMInferenceServiceInformerWithOptions constructs a new informer for LLMInferenceService type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedLLMInferenceServiceInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) LLMInferenceServiceIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "serving.kserve.io", Version: "v1alpha2", Resource: "llminferenceservices"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha2.LLMInferenceService](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -100,17 +152,57 @@ func NewLLMInferenceServiceInformerWithOptions(client versioned.Interface, names
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *lLMInferenceServiceInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewLLMInferenceServiceInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedLLMInferenceServiceInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *lLMInferenceServiceInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisservingv1alpha2.LLMInferenceService{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *lLMInferenceServiceInformer) TypedInformer() LLMInferenceServiceIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha2.LLMInferenceService](f.factory.InformerFor(&apisservingv1alpha2.LLMInferenceService{}, f.defaultInformer))
 }
 
 func (f *lLMInferenceServiceInformer) Lister() servingv1alpha2.LLMInferenceServiceLister {
 	return servingv1alpha2.NewLLMInferenceServiceLister(f.Informer().GetIndexer())
+}
+
+// ToTypedLLMInferenceServiceInformer converts an untyped informer into a TypedLLMInferenceServiceInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *LLMInferenceService. If that is not the case, calling type-safe methods of the returned
+// TypedLLMInferenceServiceInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedLLMInferenceServiceInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedLLMInferenceServiceInformer(informer LLMInferenceServiceInformer) TypedLLMInferenceServiceInformer {
+	if informer, ok := informer.(TypedLLMInferenceServiceInformer); ok {
+		return informer
+	}
+	return &lLMInferenceServiceTypedInformerAdapter{informer}
+}
+
+type lLMInferenceServiceTypedInformerAdapter struct {
+	LLMInferenceServiceInformer
+}
+
+func (a *lLMInferenceServiceTypedInformerAdapter) TypedInformer() LLMInferenceServiceIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha2.LLMInferenceService](a.Informer())
+}
+
+// ToLLMInferenceServiceIndexInformer converts an untyped informer into a LLMInferenceServiceIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *LLMInferenceService. If that is not the case, calling type-safe methods of the returned
+// LLMInferenceServiceIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a LLMInferenceServiceIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToLLMInferenceServiceIndexInformer(informer cache.SharedIndexInformer) LLMInferenceServiceIndexInformer {
+	if informer, ok := informer.(LLMInferenceServiceIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha2.LLMInferenceService](informer)
 }

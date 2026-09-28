@@ -55,6 +55,7 @@ class V1beta1CustomExplainer(object):
         'dns_policy': 'str',
         'enable_service_links': 'bool',
         'ephemeral_containers': 'list[V1EphemeralContainer]',
+        'eviction_responders': 'list[V1EvictionResponder]',
         'host_aliases': 'list[V1HostAlias]',
         'host_ipc': 'bool',
         'host_network': 'bool',
@@ -100,6 +101,7 @@ class V1beta1CustomExplainer(object):
         'dns_policy': 'dnsPolicy',
         'enable_service_links': 'enableServiceLinks',
         'ephemeral_containers': 'ephemeralContainers',
+        'eviction_responders': 'evictionResponders',
         'host_aliases': 'hostAliases',
         'host_ipc': 'hostIPC',
         'host_network': 'hostNetwork',
@@ -136,7 +138,7 @@ class V1beta1CustomExplainer(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, scheduling_gates=None, scheduling_group=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, eviction_responders=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, scheduling_gates=None, scheduling_group=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1CustomExplainer - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -150,6 +152,7 @@ class V1beta1CustomExplainer(object):
         self._dns_policy = None
         self._enable_service_links = None
         self._ephemeral_containers = None
+        self._eviction_responders = None
         self._host_aliases = None
         self._host_ipc = None
         self._host_network = None
@@ -201,6 +204,8 @@ class V1beta1CustomExplainer(object):
             self.enable_service_links = enable_service_links
         if ephemeral_containers is not None:
             self.ephemeral_containers = ephemeral_containers
+        if eviction_responders is not None:
+            self.eviction_responders = eviction_responders
         if host_aliases is not None:
             self.host_aliases = host_aliases
         if host_ipc is not None:
@@ -453,6 +458,29 @@ class V1beta1CustomExplainer(object):
         self._ephemeral_containers = ephemeral_containers
 
     @property
+    def eviction_responders(self):
+        """Gets the eviction_responders of this V1beta1CustomExplainer.  # noqa: E501
+
+        evictionResponders reference responders that react to Evictions based on EvictionRequests. Responders should observe and communicate through the Eviction Resource API to help with the graceful termination of a pod. The responders are selected sequentially, according to their specified priority.  Responders should periodically report on an eviction progress by updating the .status.responders[].heartbeatTime field of the Eviction object. If this field is not updated within the heartbeat deadline defined by the Eviction API (currently 20 minutes), the eviction is passed over to the next responder with a lower priority. If there is no other responder, the last default imperative-eviction.k8s.io/evictor responder with a priority of 100 will evict the pod using the imperative Eviction API (pods/<name>/eviction subresource).  The maximum length of the responders list is 10. Responders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set). This field can only be set on creation and is immutable afterwards.  # noqa: E501
+
+        :return: The eviction_responders of this V1beta1CustomExplainer.  # noqa: E501
+        :rtype: list[V1EvictionResponder]
+        """
+        return self._eviction_responders
+
+    @eviction_responders.setter
+    def eviction_responders(self, eviction_responders):
+        """Sets the eviction_responders of this V1beta1CustomExplainer.
+
+        evictionResponders reference responders that react to Evictions based on EvictionRequests. Responders should observe and communicate through the Eviction Resource API to help with the graceful termination of a pod. The responders are selected sequentially, according to their specified priority.  Responders should periodically report on an eviction progress by updating the .status.responders[].heartbeatTime field of the Eviction object. If this field is not updated within the heartbeat deadline defined by the Eviction API (currently 20 minutes), the eviction is passed over to the next responder with a lower priority. If there is no other responder, the last default imperative-eviction.k8s.io/evictor responder with a priority of 100 will evict the pod using the imperative Eviction API (pods/<name>/eviction subresource).  The maximum length of the responders list is 10. Responders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set). This field can only be set on creation and is immutable afterwards.  # noqa: E501
+
+        :param eviction_responders: The eviction_responders of this V1beta1CustomExplainer.  # noqa: E501
+        :type: list[V1EvictionResponder]
+        """
+
+        self._eviction_responders = eviction_responders
+
+    @property
     def host_aliases(self):
         """Gets the host_aliases of this V1beta1CustomExplainer.  # noqa: E501
 
@@ -594,7 +622,7 @@ class V1beta1CustomExplainer(object):
     def hostname_override(self):
         """Gets the hostname_override of this V1beta1CustomExplainer.  # noqa: E501
 
-        HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod. This field only specifies the pod's hostname and does not affect its DNS records. When this field is set to a non-empty string: - It takes precedence over the values set in `hostname` and `subdomain`. - The Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or set to false. - `hostNetwork` must be set to false.  This field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters. Requires the HostnameOverride feature gate to be enabled.  # noqa: E501
+        HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod. This field only specifies the pod's hostname and does not affect its DNS records. When this field is set to a non-empty string: - It takes precedence over the values set in `hostname` and `subdomain`. - The Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or set to false. - `hostNetwork` must be set to false.  This field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters.  # noqa: E501
 
         :return: The hostname_override of this V1beta1CustomExplainer.  # noqa: E501
         :rtype: str
@@ -605,7 +633,7 @@ class V1beta1CustomExplainer(object):
     def hostname_override(self, hostname_override):
         """Sets the hostname_override of this V1beta1CustomExplainer.
 
-        HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod. This field only specifies the pod's hostname and does not affect its DNS records. When this field is set to a non-empty string: - It takes precedence over the values set in `hostname` and `subdomain`. - The Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or set to false. - `hostNetwork` must be set to false.  This field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters. Requires the HostnameOverride feature gate to be enabled.  # noqa: E501
+        HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod. This field only specifies the pod's hostname and does not affect its DNS records. When this field is set to a non-empty string: - It takes precedence over the values set in `hostname` and `subdomain`. - The Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or set to false. - `hostNetwork` must be set to false.  This field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters.  # noqa: E501
 
         :param hostname_override: The hostname_override of this V1beta1CustomExplainer.  # noqa: E501
         :type: str
@@ -753,7 +781,7 @@ class V1beta1CustomExplainer(object):
     def preemption_policy(self):
         """Gets the preemption_policy of this V1beta1CustomExplainer.  # noqa: E501
 
-        PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.  # noqa: E501
+        PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. When Priority Admission Controller is enabled, it prevents users from setting this field. The admission controller populates this field from PriorityClassName. Defaults to PreemptLowerPriority if unset.  # noqa: E501
 
         :return: The preemption_policy of this V1beta1CustomExplainer.  # noqa: E501
         :rtype: str
@@ -764,7 +792,7 @@ class V1beta1CustomExplainer(object):
     def preemption_policy(self, preemption_policy):
         """Sets the preemption_policy of this V1beta1CustomExplainer.
 
-        PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.  # noqa: E501
+        PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. When Priority Admission Controller is enabled, it prevents users from setting this field. The admission controller populates this field from PriorityClassName. Defaults to PreemptLowerPriority if unset.  # noqa: E501
 
         :param preemption_policy: The preemption_policy of this V1beta1CustomExplainer.  # noqa: E501
         :type: str

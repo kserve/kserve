@@ -34,11 +34,39 @@ import (
 )
 
 // LocalModelCacheInformer provides access to a shared informer and lister for
-// LocalModelCaches.
+// LocalModelCaches. Prefer using the type-safe variant (see [TypedLocalModelCacheInformer]).
 type LocalModelCacheInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() servingv1alpha1.LocalModelCacheLister
 }
+
+// TypedLocalModelCacheInformer provides access to a shared informer and lister for
+// LocalModelCaches, including the type-safe TypedInformer variant.
+// It is a superset of LocalModelCacheInformer.
+type TypedLocalModelCacheInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() LocalModelCacheIndexInformer
+	Lister() servingv1alpha1.LocalModelCacheLister
+}
+
+// LocalModelCacheIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type LocalModelCacheIndexInformer cache.TypedSharedIndexInformer[*apisservingv1alpha1.LocalModelCache]
+
+// LocalModelCacheHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for LocalModelCache.
+type LocalModelCacheHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisservingv1alpha1.LocalModelCache]
+
+// LocalModelCacheDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for LocalModelCache.
+type LocalModelCacheDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisservingv1alpha1.LocalModelCache]
+
+// LocalModelCacheFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for LocalModelCache.
+type LocalModelCacheFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisservingv1alpha1.LocalModelCache]
+
+// LocalModelCacheIndexers is a specialization of [cache.TypedIndexers] for LocalModelCache.
+type LocalModelCacheIndexers = cache.TypedIndexers[*apisservingv1alpha1.LocalModelCache]
+
+// DeletedLocalModelCache is a specialization of [cache.DeletedObject] for LocalModelCache.
+type DeletedLocalModelCache = cache.DeletedObject[*apisservingv1alpha1.LocalModelCache]
 
 type localModelCacheInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -49,25 +77,49 @@ type localModelCacheInformer struct {
 // NewLocalModelCacheInformer constructs a new informer for LocalModelCache type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedLocalModelCacheInformer]).
 func NewLocalModelCacheInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewLocalModelCacheInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedLocalModelCacheInformer constructs a new informer for LocalModelCache type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedLocalModelCacheInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers LocalModelCacheIndexers) LocalModelCacheIndexInformer {
+	return NewTypedLocalModelCacheInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredLocalModelCacheInformer constructs a new informer for LocalModelCache type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredLocalModelCacheInformer]).
 func NewFilteredLocalModelCacheInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewLocalModelCacheInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedLocalModelCacheInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredLocalModelCacheInformer constructs a new informer for LocalModelCache type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredLocalModelCacheInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers LocalModelCacheIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) LocalModelCacheIndexInformer {
+	return NewTypedLocalModelCacheInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewLocalModelCacheInformerWithOptions constructs a new informer for LocalModelCache type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedLocalModelCacheInformerWithOptions]).
 func NewLocalModelCacheInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedLocalModelCacheInformerWithOptions(client, namespace, options)
+}
+
+// NewTypedLocalModelCacheInformerWithOptions constructs a new informer for LocalModelCache type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedLocalModelCacheInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) LocalModelCacheIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "serving.kserve.io", Version: "v1alpha1", Resource: "localmodelcaches"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.LocalModelCache](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -100,17 +152,57 @@ func NewLocalModelCacheInformerWithOptions(client versioned.Interface, namespace
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *localModelCacheInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewLocalModelCacheInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedLocalModelCacheInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *localModelCacheInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisservingv1alpha1.LocalModelCache{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *localModelCacheInformer) TypedInformer() LocalModelCacheIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.LocalModelCache](f.factory.InformerFor(&apisservingv1alpha1.LocalModelCache{}, f.defaultInformer))
 }
 
 func (f *localModelCacheInformer) Lister() servingv1alpha1.LocalModelCacheLister {
 	return servingv1alpha1.NewLocalModelCacheLister(f.Informer().GetIndexer())
+}
+
+// ToTypedLocalModelCacheInformer converts an untyped informer into a TypedLocalModelCacheInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *LocalModelCache. If that is not the case, calling type-safe methods of the returned
+// TypedLocalModelCacheInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedLocalModelCacheInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedLocalModelCacheInformer(informer LocalModelCacheInformer) TypedLocalModelCacheInformer {
+	if informer, ok := informer.(TypedLocalModelCacheInformer); ok {
+		return informer
+	}
+	return &localModelCacheTypedInformerAdapter{informer}
+}
+
+type localModelCacheTypedInformerAdapter struct {
+	LocalModelCacheInformer
+}
+
+func (a *localModelCacheTypedInformerAdapter) TypedInformer() LocalModelCacheIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.LocalModelCache](a.Informer())
+}
+
+// ToLocalModelCacheIndexInformer converts an untyped informer into a LocalModelCacheIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *LocalModelCache. If that is not the case, calling type-safe methods of the returned
+// LocalModelCacheIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a LocalModelCacheIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToLocalModelCacheIndexInformer(informer cache.SharedIndexInformer) LocalModelCacheIndexInformer {
+	if informer, ok := informer.(LocalModelCacheIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.LocalModelCache](informer)
 }

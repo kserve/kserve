@@ -34,11 +34,39 @@ import (
 )
 
 // InferenceGraphInformer provides access to a shared informer and lister for
-// InferenceGraphs.
+// InferenceGraphs. Prefer using the type-safe variant (see [TypedInferenceGraphInformer]).
 type InferenceGraphInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() servingv1alpha1.InferenceGraphLister
 }
+
+// TypedInferenceGraphInformer provides access to a shared informer and lister for
+// InferenceGraphs, including the type-safe TypedInformer variant.
+// It is a superset of InferenceGraphInformer.
+type TypedInferenceGraphInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() InferenceGraphIndexInformer
+	Lister() servingv1alpha1.InferenceGraphLister
+}
+
+// InferenceGraphIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type InferenceGraphIndexInformer cache.TypedSharedIndexInformer[*apisservingv1alpha1.InferenceGraph]
+
+// InferenceGraphHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for InferenceGraph.
+type InferenceGraphHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisservingv1alpha1.InferenceGraph]
+
+// InferenceGraphDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for InferenceGraph.
+type InferenceGraphDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisservingv1alpha1.InferenceGraph]
+
+// InferenceGraphFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for InferenceGraph.
+type InferenceGraphFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisservingv1alpha1.InferenceGraph]
+
+// InferenceGraphIndexers is a specialization of [cache.TypedIndexers] for InferenceGraph.
+type InferenceGraphIndexers = cache.TypedIndexers[*apisservingv1alpha1.InferenceGraph]
+
+// DeletedInferenceGraph is a specialization of [cache.DeletedObject] for InferenceGraph.
+type DeletedInferenceGraph = cache.DeletedObject[*apisservingv1alpha1.InferenceGraph]
 
 type inferenceGraphInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -49,25 +77,49 @@ type inferenceGraphInformer struct {
 // NewInferenceGraphInformer constructs a new informer for InferenceGraph type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedInferenceGraphInformer]).
 func NewInferenceGraphInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewInferenceGraphInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedInferenceGraphInformer constructs a new informer for InferenceGraph type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedInferenceGraphInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers InferenceGraphIndexers) InferenceGraphIndexInformer {
+	return NewTypedInferenceGraphInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredInferenceGraphInformer constructs a new informer for InferenceGraph type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredInferenceGraphInformer]).
 func NewFilteredInferenceGraphInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewInferenceGraphInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedInferenceGraphInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredInferenceGraphInformer constructs a new informer for InferenceGraph type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredInferenceGraphInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers InferenceGraphIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) InferenceGraphIndexInformer {
+	return NewTypedInferenceGraphInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewInferenceGraphInformerWithOptions constructs a new informer for InferenceGraph type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedInferenceGraphInformerWithOptions]).
 func NewInferenceGraphInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedInferenceGraphInformerWithOptions(client, namespace, options)
+}
+
+// NewTypedInferenceGraphInformerWithOptions constructs a new informer for InferenceGraph type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedInferenceGraphInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) InferenceGraphIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "serving.kserve.io", Version: "v1alpha1", Resource: "inferencegraphs"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.InferenceGraph](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -100,17 +152,57 @@ func NewInferenceGraphInformerWithOptions(client versioned.Interface, namespace 
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *inferenceGraphInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewInferenceGraphInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedInferenceGraphInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *inferenceGraphInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisservingv1alpha1.InferenceGraph{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *inferenceGraphInformer) TypedInformer() InferenceGraphIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.InferenceGraph](f.factory.InformerFor(&apisservingv1alpha1.InferenceGraph{}, f.defaultInformer))
 }
 
 func (f *inferenceGraphInformer) Lister() servingv1alpha1.InferenceGraphLister {
 	return servingv1alpha1.NewInferenceGraphLister(f.Informer().GetIndexer())
+}
+
+// ToTypedInferenceGraphInformer converts an untyped informer into a TypedInferenceGraphInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *InferenceGraph. If that is not the case, calling type-safe methods of the returned
+// TypedInferenceGraphInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedInferenceGraphInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedInferenceGraphInformer(informer InferenceGraphInformer) TypedInferenceGraphInformer {
+	if informer, ok := informer.(TypedInferenceGraphInformer); ok {
+		return informer
+	}
+	return &inferenceGraphTypedInformerAdapter{informer}
+}
+
+type inferenceGraphTypedInformerAdapter struct {
+	InferenceGraphInformer
+}
+
+func (a *inferenceGraphTypedInformerAdapter) TypedInformer() InferenceGraphIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.InferenceGraph](a.Informer())
+}
+
+// ToInferenceGraphIndexInformer converts an untyped informer into a InferenceGraphIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *InferenceGraph. If that is not the case, calling type-safe methods of the returned
+// InferenceGraphIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a InferenceGraphIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToInferenceGraphIndexInformer(informer cache.SharedIndexInformer) InferenceGraphIndexInformer {
+	if informer, ok := informer.(InferenceGraphIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.InferenceGraph](informer)
 }
