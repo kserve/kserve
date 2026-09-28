@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -145,12 +146,17 @@ func (r *LLMISVCReconciler) resolveGroupMembers(
 
 // resolvedModelNames returns the deduplicated, sorted set of model names
 // served by a member. Prefers status.Addresses (which reflects baseRef merges)
-// over raw spec.
+// over raw spec. Names are compared without the member's publisher prefix:
+// path-based addresses list both the plain and the publisher-qualified name,
+// model-routing addresses only the qualified one, so a member without path
+// URLs (AnnotationModelBasedRoutingOnly) would otherwise look like it serves
+// different models than its peers.
 func resolvedModelNames(m *v1alpha2.LLMInferenceService) []string {
+	publisherPrefix := fullyQualifiedModelName(m.Namespace, "")
 	var names []string
 	for _, addr := range m.Status.Addresses {
 		for _, model := range addr.Models {
-			names = append(names, model.Name)
+			names = append(names, strings.TrimPrefix(model.Name, publisherPrefix))
 		}
 	}
 

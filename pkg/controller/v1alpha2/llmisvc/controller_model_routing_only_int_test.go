@@ -303,6 +303,59 @@ var _ = Describe("Model Based Routing Only", func() {
 		expectPerModelPathsDropped(ctx, llmSvc, corev1.ConditionTrue, "SetOnService")
 	})
 
+	It("should keep a routing group's split when only one member is model-based routing only", func(ctx SpecContext) {
+		// given - one member drops its per-model paths, so its status lists only
+		// publisher-qualified model names while its peer also lists the plain one
+		testNs := NewTestNamespace(ctx, envTest)
+		gw := createGateway(ctx, testNs, "group-mixed-gw", nil, "203.0.113.73")
+		groupName := "mixed-group"
+
+		member := func(name string, weight int32, opts ...LLMInferenceServiceOption) *v1alpha2.LLMInferenceService {
+			return createService(ctx, testNs, name, append([]LLMInferenceServiceOption{
+				WithGatewayRefs(LLMGatewayRef(gw.Name, testNs.Name)),
+				WithManagedScheduler(),
+				WithGroup(groupName),
+				WithWeight(weight),
+			}, opts...)...)
+		}
+
+		// when
+		modelOnly := member("test-group-model-only", 80, WithSpecAnnotations(modelRoutingOnly))
+		regular := member("test-group-regular", 20)
+		defer func() {
+			testNs.DeleteAndWait(ctx, modelOnly)
+			testNs.DeleteAndWait(ctx, regular)
+		}()
+		ensureRouterManagedResourcesAreReady(ctx, envTest.Client, modelOnly)
+		ensureRouterManagedResourcesAreReady(ctx, envTest.Client, regular)
+
+		// then - both routes split across both members, and neither member reports divergence
+		for _, svc := range []*v1alpha2.LLMInferenceService{modelOnly, regular} {
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, svc)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				backendRefs := groupRoutingBackendRefs(&routes[0], svc)
+				g.Expect(backendRefs).To(ContainElement(SatisfyAll(HaveBackendName(modelOnly.Name), HaveBackendWeight(int32(80)))))
+				g.Expect(backendRefs).To(ContainElement(SatisfyAll(HaveBackendName(regular.Name), HaveBackendWeight(int32(20)))))
+
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(svc), current)).To(Succeed())
+				if degraded := current.Status.GetCondition(v1alpha2.GroupDegraded); degraded != nil {
+					g.Expect(degraded.IsTrue()).To(BeFalse(), "%s: %s", degraded.Reason, degraded.Message)
+				}
+			}).WithContext(ctx).Should(Succeed())
+		}
+
+		expectPerModelPathsDropped(ctx, modelOnly, corev1.ConditionTrue, "SetOnService")
+		expectPerModelPathsDropped(ctx, regular, "", "")
+
+		// then - the model-only member really dropped its per-model paths
+		routes, err := managedRoutes(ctx, modelOnly)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(countPerModelPathMatches(routes[0].Spec.Rules, modelOnly)).To(BeZero())
+	})
+
 	It("should keep per-model path matches when model-based routing is off for the service", func(ctx SpecContext) {
 		// given
 		testNs := NewTestNamespace(ctx, envTest)

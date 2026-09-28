@@ -829,3 +829,57 @@ func TestFinalizeGroupMembership(t *testing.T) {
 		})
 	}
 }
+
+func TestResolvedModelNames(t *testing.T) {
+	address := func(models ...string) v1alpha2.SourcedAddress {
+		addr := v1alpha2.SourcedAddress{}
+		for _, m := range models {
+			addr.Models = append(addr.Models, v1alpha2.ModelSourcedAddressStatus{Name: m})
+		}
+		return addr
+	}
+	member := func(namespace, specModel string, addresses ...v1alpha2.SourcedAddress) *v1alpha2.LLMInferenceService {
+		m := &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: namespace},
+			Spec:       v1alpha2.LLMInferenceServiceSpec{Model: v1alpha2.LLMModelSpec{Name: ptr.To(specModel)}},
+		}
+		m.Status.Addresses = addresses
+		return m
+	}
+	// A path-based address lists the plain and the publisher-qualified name, a
+	// model-routing address only the qualified one.
+	pathAddress := address("publishers/ns/models/org/m", "org/m", "publishers/ns/models/a1", "a1")
+	modelRoutingAddress := address("publishers/ns/models/org/m", "publishers/ns/models/a1")
+
+	tests := []struct {
+		name   string
+		member *v1alpha2.LLMInferenceService
+		want   []string
+	}{
+		{
+			name:   "path and model-routing addresses",
+			member: member("ns", "org/m", pathAddress, modelRoutingAddress),
+			want:   []string{"a1", "org/m"},
+		},
+		{
+			name:   "model-routing addresses only, as with model-based-routing-only",
+			member: member("ns", "org/m", modelRoutingAddress),
+			want:   []string{"a1", "org/m"},
+		},
+		{
+			name:   "a qualified name from another namespace is kept as is",
+			member: member("ns", "org/m", address("publishers/other/models/org/m")),
+			want:   []string{"publishers/other/models/org/m"},
+		},
+		{
+			name:   "no addresses falls back to the spec",
+			member: member("ns", "org/m"),
+			want:   []string{"org/m"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, resolvedModelNames(tt.member))
+		})
+	}
+}
