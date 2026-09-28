@@ -312,6 +312,10 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
 
+	if err := r.reconcilePlatformResources(ctx, llmSvc, config); err != nil {
+		return err
+	}
+
 	if err := r.observeWorkloadStatus(ctx, llmSvc); err != nil {
 		return fmt.Errorf("failed to observe workload status: %w", err)
 	}
@@ -329,6 +333,10 @@ func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMIn
 	}
 	if !done {
 		return false, nil
+	}
+
+	if err := r.finalizePlatformResources(ctx, llmSvc); err != nil {
+		return false, err
 	}
 
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
