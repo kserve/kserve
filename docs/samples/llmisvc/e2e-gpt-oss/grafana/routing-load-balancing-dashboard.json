@@ -31,7 +31,7 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Request distribution (QPS per instance). Uses inference_objective_request_total without a label filter so it works when target_model/target_model_name is missing or named differently. If you see no data, check Prometheus for inference_objective_request_total or inference_model_request_total (older deployments).",
+      "description": "Request distribution (QPS per instance). Uses llm_d_epp_request_total without a label filter so it works when target_model/target_model_name is missing or named differently. llm-d-router before v0.11.0 also exposes this as llm_d_epp_request_total.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -55,7 +55,7 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "sum by(pod) (rate(inference_objective_request_total[5m]))",
+          "expr": "sum by(pod) (rate(llm_d_epp_request_total[5m]))",
           "legendFormat": "{{pod}}",
           "refId": "A"
         }
@@ -135,7 +135,7 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Routing decision latency P99. Tries inference_extension_scheduler_plugin_duration_seconds first; if empty, uses inference_extension_plugin_duration_seconds (some EPP versions expose only the latter).",
+      "description": "Routing decision latency P99. Uses llm_d_epp_plugin_duration_seconds. llm-d-router before v0.11.0 also exposes this as inference_extension_plugin_duration_seconds.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -159,15 +159,9 @@
       "targets": [
         {
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "histogram_quantile(0.99, sum by(le) (rate(inference_extension_scheduler_plugin_duration_seconds_bucket[5m])))",
-          "legendFormat": "P99 (scheduler plugin)",
-          "refId": "A"
-        },
-        {
-          "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "expr": "histogram_quantile(0.99, sum by(le) (rate(inference_extension_plugin_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.99, sum by(le) (rate(llm_d_epp_plugin_duration_seconds_bucket[5m])))",
           "legendFormat": "P99 (plugin)",
-          "refId": "B"
+          "refId": "A"
         }
       ],
       "title": "Routing decision latency P99",
