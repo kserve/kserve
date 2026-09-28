@@ -6779,15 +6779,7 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
-  - kernelcachenodegroups
-  - kernelcaches
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - serving.kserve.io
-  resources:
+  - kernelcachecaptures
   - kernelcachenodes
   verbs:
   - create
@@ -6798,11 +6790,21 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - kernelcachecaptures/status
   - kernelcaches/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachenodegroups
+  - kernelcaches
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

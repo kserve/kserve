@@ -22,6 +22,7 @@ import (
 
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -34,8 +35,9 @@ import (
 // Capture and registry credential flows are integrated by later controllers.
 type KernelCacheReconciler struct {
 	client.Client
-	Reader client.Reader
-	Log    logr.Logger
+	Reader   client.Reader
+	Log      logr.Logger
+	Recorder events.EventRecorder
 }
 
 const (
@@ -56,6 +58,9 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	kernelCache := &v1alpha1.KernelCache{}
 	if err := r.Get(ctx, req.NamespacedName, kernelCache); err != nil {
 		if apierrors.IsNotFound(err) {
+			if err := r.reconcileCaptureKernelCache(ctx, req); err != nil {
+				return ctrl.Result{}, err
+			}
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err

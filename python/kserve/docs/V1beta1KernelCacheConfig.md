@@ -5,6 +5,7 @@ KernelCacheConfig contains the shared KernelCache configuration loaded from the 
 Name | Type | Description | Notes
 ------------ | ------------- | ------------- | -------------
 **abandoned_capture_policy** | **str** |  | [optional] 
+**artifact_security** | [**V1beta1KernelCacheArtifactSecurityConfig**](V1beta1KernelCacheArtifactSecurityConfig.md) |  | [optional] 
 **default_mount_type** | **str** |  | [optional] 
 **default_node_group** | **str** |  | [optional] 
 **default_sidecar_injection** | **bool** |  | [default to False]
