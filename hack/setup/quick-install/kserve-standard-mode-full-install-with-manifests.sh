@@ -2375,11 +2375,16 @@ spec:
 
         {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}# Probe the flag itself because product images may report a product version.
         TLS_CIPHER_ARGS=""
-        TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
-        case "${TLS_CIPHER_HELP}" in
-          *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
-          *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
-        esac
+        # --ssl-ciphers was added in vLLM 0.15.0; keep the probe for product builds with differing flags.
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+          TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+          case "${TLS_CIPHER_HELP}" in
+            *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+            *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+          esac
+        else
+          echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+        fi
         {{ end }}
 
         # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
@@ -2783,11 +2788,15 @@ spec:
         fi
 
         {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}TLS_CIPHER_ARGS=""
-        TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
-        case "${TLS_CIPHER_HELP}" in
-          *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
-          *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
-        esac
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+          TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+          case "${TLS_CIPHER_HELP}" in
+            *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+            *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+          esac
+        else
+          echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+        fi
         {{ end }}eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -3159,11 +3168,15 @@ spec:
         fi
 
         {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}TLS_CIPHER_ARGS=""
-        TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
-        case "${TLS_CIPHER_HELP}" in
-          *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
-          *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
-        esac
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+          TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+          case "${TLS_CIPHER_HELP}" in
+            *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+            *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+          esac
+        else
+          echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+        fi
         {{ end }}eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -3408,11 +3421,16 @@ spec:
 
           {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}# Probe the flag itself because product images may report a product version.
           TLS_CIPHER_ARGS=""
-          TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
-          case "${TLS_CIPHER_HELP}" in
-            *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
-            *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
-          esac
+          # --ssl-ciphers was added in vLLM 0.15.0; keep the probe for product builds with differing flags.
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+            TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+            case "${TLS_CIPHER_HELP}" in
+              *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+              *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+            esac
+          else
+            echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+          fi
           {{ end }}
 
           # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
@@ -3753,11 +3771,15 @@ spec:
           fi
 
           {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}TLS_CIPHER_ARGS=""
-          TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
-          case "${TLS_CIPHER_HELP}" in
-            *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
-            *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
-          esac
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+            TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+            case "${TLS_CIPHER_HELP}" in
+              *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+              *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+            esac
+          else
+            echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+          fi
           {{ end }}eval "exec vllm serve \
             /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -4064,11 +4086,15 @@ spec:
           fi
 
           {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}TLS_CIPHER_ARGS=""
-          TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
-          case "${TLS_CIPHER_HELP}" in
-            *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
-            *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
-          esac
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+            TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+            case "${TLS_CIPHER_HELP}" in
+              *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+              *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+            esac
+          else
+            echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+          fi
           {{ end }}eval "exec vllm serve \
             /mnt/models \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
@@ -4805,11 +4831,16 @@ spec:
 
         {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}# Probe the flag itself because product images may report a product version.
         TLS_CIPHER_ARGS=""
-        TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
-        case "${TLS_CIPHER_HELP}" in
-          *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
-          *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
-        esac
+        # --ssl-ciphers was added in vLLM 0.15.0; keep the probe for product builds with differing flags.
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+          TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+          case "${TLS_CIPHER_HELP}" in
+            *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+            *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+          esac
+        else
+          echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+        fi
         {{ end }}
 
         # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
@@ -4946,12 +4977,18 @@ spec:
             - /bin/bash
             - -c
             - |-
+              VLLM_VERSION=$(vllm --version 2>/dev/null | tail -1 | awk '{print $NF}')
               {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}TLS_CIPHER_ARGS=""
-              TLS_CIPHER_HELP="$(vllm launch render --help=all 2>&1 || true)"
-              case "${TLS_CIPHER_HELP}" in
-                *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
-                *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
-              esac
+              # --ssl-ciphers was added in vLLM 0.15.0; keep the probe for product builds with differing flags.
+              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+                TLS_CIPHER_HELP="$(vllm launch render --help=all 2>&1 || true)"
+                case "${TLS_CIPHER_HELP}" in
+                  *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+                  *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+                esac
+              else
+                echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+              fi
               {{ end }}
               exec vllm launch render /mnt/models/base \
                 --port=8000 \
@@ -5199,11 +5236,16 @@ spec:
 
         {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}# Probe the flag itself because product images may report a product version.
         TLS_CIPHER_ARGS=""
-        TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
-        case "${TLS_CIPHER_HELP}" in
-          *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
-          *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
-        esac
+        # --ssl-ciphers was added in vLLM 0.15.0; keep the probe for product builds with differing flags.
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+          TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+          case "${TLS_CIPHER_HELP}" in
+            *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+            *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+          esac
+        else
+          echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+        fi
         {{ end }}
 
         # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
@@ -5226,11 +5268,15 @@ spec:
         fi
 
         {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}TLS_CIPHER_ARGS=""
-        TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
-        case "${TLS_CIPHER_HELP}" in
-          *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
-          *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
-        esac
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+          TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+          case "${TLS_CIPHER_HELP}" in
+            *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+            *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+          esac
+        else
+          echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+        fi
         {{ end }}eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
