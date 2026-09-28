@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -390,14 +391,20 @@ func llmInferenceServiceReadinessFalse(status v1alpha2.LLMInferenceServiceStatus
 	return readyCondition != nil && readyCondition.Status == corev1.ConditionFalse
 }
 
+// readyIndependentConditions are informational: False says a feature did not
+// apply while the service keeps serving. They can't be filtered by severity,
+// since every sub-condition outside the Ready condition set gets Info severity,
+// including the ones that do roll up into Ready.
+var readyIndependentConditions = []apis.ConditionType{v1alpha2.GroupReady, v1alpha2.PerModelPathsDropped}
+
 // GetFailConditions returns a comma-separated list of sub-condition Types whose Status is False.
 // The top-level apis.ConditionReady is intentionally excluded because it is the aggregate that
 // is being reported on; including it would be self-referential ("Ready is no longer Ready
-// because of: Ready, ...").
+// because of: Ready, ..."). So are readyIndependentConditions, which never cause it.
 func GetFailConditions(svc *v1alpha2.LLMInferenceService) string {
 	msg := ""
 	for _, cond := range svc.Status.Conditions {
-		if cond.Type == apis.ConditionReady {
+		if cond.Type == apis.ConditionReady || slices.Contains(readyIndependentConditions, cond.Type) {
 			continue
 		}
 		if cond.Status == corev1.ConditionFalse {

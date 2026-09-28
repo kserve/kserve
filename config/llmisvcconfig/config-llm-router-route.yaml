@@ -15,6 +15,14 @@
 #
 # The catch-all Service rules follow the same split: a PathPrefix rule with
 # URLRewrite for path-based access, and a header-only rule for model-based routing.
+#
+# serving.kserve.io/model-based-routing-only: "true" drops the per-model path
+# matches (both the /{namespace}/{name} and the publisher paths) and keeps only
+# the model-routing ones. An explicit "true" or "false" in the service's
+# spec.annotations decides for that service; otherwise every parent Gateway has
+# to set "true". It needs model-based routing to be active for the service
+# (serving.kserve.io/model-based-routing-enabled: "true" from the workload
+# preset); a route without model-routing matches keeps its paths.
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
