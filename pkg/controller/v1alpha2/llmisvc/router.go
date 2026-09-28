@@ -86,8 +86,8 @@ const AnnotationModelBasedRoutingOnly = "serving.kserve.io/model-based-routing-o
 // kept off the workload Service and pod templates, where changing them would
 // roll the pods. A key can only join before it ships: dropping one that pod
 // templates already carry changes their hash and rolls every workload that has
-// it on upgrade, which is why AnnotationLoRAModelRoutingStrategy is not here.
-var routingSpecAnnotations = []string{AnnotationModelBasedRoutingEnabled, AnnotationModelBasedRoutingOnly}
+// it on upgrade.
+var routingSpecAnnotations = []string{AnnotationModelBasedRoutingEnabled, AnnotationModelBasedRoutingOnly, AnnotationLoRAModelRoutingStrategy}
 
 // AnnotationLoRAModelRoutingStrategy pins the LoRA routing strategy for one
 // service, overriding the cluster-wide loraModelRoutingStrategy. Read from

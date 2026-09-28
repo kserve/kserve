@@ -347,6 +347,14 @@ var _ = Describe("LoRA model routing strategy", func() {
 		eventuallyManagedRoute(ctx, inherited, func(g Gomega, route *gwapiv1.HTTPRoute) {
 			g.Expect(route).To(HaveHeaderMatch(headerName, loraRegexPattern(ns.Name, "adapter")))
 		})
+
+		// The strategy only shapes the route, so it stays off the pod template
+		// and changing it never rolls the workload.
+		deployment := &appsv1.Deployment{}
+		Eventually(func(g Gomega, ctx context.Context) {
+			g.Expect(envTest.Get(ctx, types.NamespacedName{Name: pinned.Name + "-kserve", Namespace: ns.Name}, deployment)).To(Succeed())
+		}).WithContext(ctx).Should(Succeed())
+		Expect(deployment.Spec.Template.Annotations).NotTo(HaveKey(llmisvc.AnnotationLoRAModelRoutingStrategy))
 	})
 
 	It("should not rewrite the route when adapters are reordered", func(ctx SpecContext) {
