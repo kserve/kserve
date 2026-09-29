@@ -124,6 +124,9 @@ func (f *ReconcilerFactory) CreateIngressReconciler(
 ) (IngressReconciler, error) {
 	switch deploymentMode {
 	case constants.Standard, constants.LegacyRawDeployment:
+		if platformIngress, err := resolvePlatformIngressReconciler(params); err != nil || platformIngress != nil {
+			return platformIngress, err
+		}
 		if params.IngressConfig.EnableGatewayAPI {
 			// Gateway API HTTPRoute
 			return ingress.NewRawHTTPRouteReconciler(
