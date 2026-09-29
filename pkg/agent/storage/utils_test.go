@@ -76,6 +76,29 @@ func TestCreateLocalModelFileRejectsSymlinkEscape(t *testing.T) {
 	}
 }
 
+func TestCreateLocalModelFilePreservesExistingDirectory(t *testing.T) {
+	modelDir := t.TempDir()
+	destination := filepath.Join(modelDir, "model1", "weights")
+	if err := os.MkdirAll(destination, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	file, _, err := createLocalModelFile(modelDir, "model1", "weights")
+	if file != nil {
+		_ = file.Close()
+	}
+	if err == nil {
+		t.Fatal("expected an existing directory to be rejected")
+	}
+	info, err := os.Stat(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info.IsDir() {
+		t.Fatal("existing directory was replaced")
+	}
+}
+
 func TestCreateLocalModelFilePreservesBackslash(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("backslash is a path separator on Windows")

@@ -20,39 +20,39 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/kserve/kserve/pkg/agent/mocks"
 )
 
-func writeGCSObject(t *testing.T, provider *GCSProvider, bucketName string, objectName string, contents string) {
+func writeGCSObject(t *testing.T, provider *GCSProvider, objectName string, contents string) {
 	t.Helper()
 
-	writer := provider.Client.Bucket(bucketName).Object(objectName).NewWriter(context.Background())
+	writer := provider.Client.Bucket("testBucket").Object(objectName).NewWriter(context.Background())
 	if _, err := writer.Write([]byte(contents)); err != nil {
 		t.Fatalf("failed to write object %q: %v", objectName, err)
 	}
 }
 
-func newTestGCSProvider(t *testing.T, bucketName string) *GCSProvider {
+func newTestGCSProvider(t *testing.T) *GCSProvider {
 	t.Helper()
 
 	client := mocks.NewMockClient()
-	if err := client.Bucket(bucketName).Create(context.Background(), "test", nil); err != nil {
-		t.Fatalf("failed to create bucket %q: %v", bucketName, err)
+	if err := client.Bucket("testBucket").Create(context.Background(), "test", nil); err != nil {
+		t.Fatalf("failed to create test bucket: %v", err)
 	}
 	return &GCSProvider{Client: client}
 }
 
 func TestGCSDownloadAllowsNestedObjectPath(t *testing.T) {
 	const (
-		bucketName    = "testBucket"
 		modelName     = "model1"
 		modelContents = "Model Contents"
 	)
 
-	provider := newTestGCSProvider(t, bucketName)
-	writeGCSObject(t, provider, bucketName, "models/nested/model.bin", modelContents)
+	provider := newTestGCSProvider(t)
+	writeGCSObject(t, provider, "models/nested/model.bin", modelContents)
 
 	modelDir := t.TempDir()
 	if err := provider.DownloadModel(modelDir, modelName, "gs://testBucket/models"); err != nil {
@@ -70,7 +70,6 @@ func TestGCSDownloadAllowsNestedObjectPath(t *testing.T) {
 
 func TestGCSDownloadRejectsPathTraversal(t *testing.T) {
 	const (
-		bucketName       = "testBucket"
 		modelName        = "model1"
 		originalContents = "do not overwrite"
 	)
@@ -81,8 +80,8 @@ func TestGCSDownloadRejectsPathTraversal(t *testing.T) {
 		t.Fatalf("failed to write outside file: %v", err)
 	}
 
-	provider := newTestGCSProvider(t, bucketName)
-	writeGCSObject(t, provider, bucketName, "models/../../outside.txt", "malicious")
+	provider := newTestGCSProvider(t)
+	writeGCSObject(t, provider, "models/../../outside.txt", "malicious")
 
 	modelDir := filepath.Join(tmpDir, "models")
 	if err := provider.DownloadModel(modelDir, modelName, "gs://testBucket/models"); err == nil {
@@ -100,13 +99,12 @@ func TestGCSDownloadRejectsPathTraversal(t *testing.T) {
 
 func TestGCSDownloadAllowsEmptyModelName(t *testing.T) {
 	const (
-		bucketName    = "testBucket"
 		modelContents = "Model Contents"
 	)
 
-	provider := newTestGCSProvider(t, bucketName)
-	writeGCSObject(t, provider, bucketName, "nested/", "")
-	writeGCSObject(t, provider, bucketName, "nested/model.bin", modelContents)
+	provider := newTestGCSProvider(t)
+	writeGCSObject(t, provider, "nested/", "")
+	writeGCSObject(t, provider, "nested/model.bin", modelContents)
 
 	modelDir := t.TempDir()
 	if err := provider.DownloadModel(modelDir, "", "gs://testBucket/"); err != nil {
@@ -124,7 +122,6 @@ func TestGCSDownloadAllowsEmptyModelName(t *testing.T) {
 
 func TestGCSDownloadWithEmptyModelNameRejectsPathTraversal(t *testing.T) {
 	const (
-		bucketName       = "testBucket"
 		originalContents = "do not overwrite"
 	)
 
@@ -134,8 +131,8 @@ func TestGCSDownloadWithEmptyModelNameRejectsPathTraversal(t *testing.T) {
 		t.Fatalf("failed to write outside file: %v", err)
 	}
 
-	provider := newTestGCSProvider(t, bucketName)
-	writeGCSObject(t, provider, bucketName, "../../outside.txt", "malicious")
+	provider := newTestGCSProvider(t)
+	writeGCSObject(t, provider, "../../outside.txt", "malicious")
 
 	modelDir := filepath.Join(tmpDir, "models")
 	if err := provider.DownloadModel(modelDir, "", "gs://testBucket/"); err == nil {
@@ -153,13 +150,12 @@ func TestGCSDownloadWithEmptyModelNameRejectsPathTraversal(t *testing.T) {
 
 func TestGCSDownloadAllowsExactObjectPath(t *testing.T) {
 	const (
-		bucketName    = "testBucket"
 		modelName     = "model1"
 		modelContents = "Model Contents"
 	)
 
-	provider := newTestGCSProvider(t, bucketName)
-	writeGCSObject(t, provider, bucketName, "models/model.bin", modelContents)
+	provider := newTestGCSProvider(t)
+	writeGCSObject(t, provider, "models/model.bin", modelContents)
 
 	modelDir := t.TempDir()
 	if err := provider.DownloadModel(modelDir, modelName, "gs://testBucket/models/model.bin"); err != nil {
@@ -172,5 +168,57 @@ func TestGCSDownloadAllowsExactObjectPath(t *testing.T) {
 	}
 	if string(got) != modelContents {
 		t.Fatalf("downloaded contents = %q, want %q", string(got), modelContents)
+	}
+}
+
+func TestGCSDownloadReplacesExistingFilePermissions(t *testing.T) {
+	previousUmask := syscall.Umask(0)
+	t.Cleanup(func() { syscall.Umask(previousUmask) })
+
+	const (
+		modelName     = "model1"
+		modelContents = "Model Contents"
+	)
+
+	for _, tc := range []struct {
+		name string
+		mode os.FileMode
+	}{
+		{name: "existing0640", mode: 0o640},
+		{name: "existing0444", mode: 0o444},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			provider := newTestGCSProvider(t)
+			writeGCSObject(t, provider, "models/model.bin", modelContents)
+
+			modelDir := t.TempDir()
+			modelPath := filepath.Join(modelDir, modelName)
+			if err := os.Mkdir(modelPath, 0o750); err != nil {
+				t.Fatalf("failed to create model directory: %v", err)
+			}
+			fileName := filepath.Join(modelPath, "model.bin")
+			if err := os.WriteFile(fileName, []byte("corrupted model contents"), tc.mode); err != nil {
+				t.Fatalf("failed to create existing model file: %v", err)
+			}
+
+			if err := provider.DownloadModel(modelDir, modelName, "gs://testBucket/models"); err != nil {
+				t.Fatalf("expected download to replace existing model file: %v", err)
+			}
+
+			got, err := os.ReadFile(fileName) //nolint:gosec // G304: test path is rooted in t.TempDir
+			if err != nil {
+				t.Fatalf("failed to read downloaded model: %v", err)
+			}
+			if string(got) != modelContents {
+				t.Fatalf("downloaded contents = %q, want %q", string(got), modelContents)
+			}
+			info, err := os.Stat(fileName)
+			if err != nil {
+				t.Fatalf("failed to stat downloaded model: %v", err)
+			}
+			if got := info.Mode().Perm(); got != 0o666 {
+				t.Fatalf("downloaded file permissions = %04o, want 0666", got)
+			}
+		})
 	}
 }
