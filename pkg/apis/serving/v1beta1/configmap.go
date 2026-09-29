@@ -241,6 +241,8 @@ type KernelCacheConfig struct {
 type KernelCacheRegistryConfig struct {
 	// Endpoint is the OCI registry host and optional port.
 	Endpoint string `json:"endpoint,omitempty"`
+	// Insecure allows MCV to use plain HTTP for registry operations. The default is false.
+	Insecure bool `json:"insecure,omitempty"`
 	// Auth configures how registry credentials are provisioned.
 	Auth KernelCacheRegistryAuth `json:"auth,omitempty"`
 	// CAConfigMapRef optionally references a ConfigMap key containing the
@@ -644,7 +646,8 @@ func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, 
 		ReconcileIntervalSeconds:          &reconcileIntervalSeconds,
 		AbandonedCapturePolicy:            DefaultKernelCacheAbandonedCapturePolicy,
 		Registry: KernelCacheRegistryConfig{
-			Auth: KernelCacheRegistryAuth{Type: KernelCacheRegistryAuthTypeNone},
+			Insecure: false,
+			Auth:     KernelCacheRegistryAuth{Type: KernelCacheRegistryAuthTypeNone},
 		},
 		ArtifactSecurity: KernelCacheArtifactSecurityConfig{
 			Mode:          "none",

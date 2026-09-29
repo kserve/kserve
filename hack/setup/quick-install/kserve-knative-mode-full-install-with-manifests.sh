@@ -57921,6 +57921,7 @@ data:
          # registry defines the OCI registry used by capture and prefetch.
          "registry": {
            # endpoint is required for serviceAccountToken authentication.
+           # insecure defaults to false. Set it to true only for an HTTP registry.
            # caConfigMapRef optionally references a ConfigMap key containing the registry CA.
            "auth": {
              # type is none or serviceAccountToken. The default is none.

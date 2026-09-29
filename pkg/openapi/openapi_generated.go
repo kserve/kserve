@@ -8679,6 +8679,13 @@ func schema_pkg_apis_serving_v1beta1_KernelCacheRegistryConfig(ref common.Refere
 							Format:      "",
 						},
 					},
+					"insecure": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Insecure allows MCV to use plain HTTP for registry operations. The default is false.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"auth": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Auth configures how registry credentials are provisioned.",

@@ -19,6 +19,7 @@ package kernelcache
 const (
 	KernelCacheCaptureReadyConditionType = "Ready"
 	KernelCacheCaptureReasonProducerGone = "ProducerGone"
+	RegistryInsecureEnv                  = "MCV_REGISTRY_INSECURE"
 	RuntimeResultSourcePodNameKey        = "sourcePodName"
 	RuntimeResultCaptureSessionIDKey     = "captureSessionID"
 )

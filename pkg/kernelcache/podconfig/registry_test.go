@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
 )
 
 func TestCaptureRegistryProjection(t *testing.T) {
@@ -147,4 +148,12 @@ func TestRegistryCAWithoutAuthentication(t *testing.T) {
 	require.Equal(t, "MCV_REGISTRY_CA_FILE", container.Env[0].Name)
 	cfg.Auth.Type = "invalid"
 	require.Error(t, ApplyCaptureRegistry(&pod, &container, cfg, ""))
+}
+
+func TestCaptureRegistryInsecureWithoutAuthentication(t *testing.T) {
+	cfg := v1beta1.KernelCacheRegistryConfig{Insecure: true}
+	container := corev1.Container{}
+
+	require.NoError(t, ApplyCaptureRegistry(&corev1.PodSpec{}, &container, cfg, ""))
+	require.Equal(t, []corev1.EnvVar{{Name: kernelcacheutil.RegistryInsecureEnv, Value: "true"}}, container.Env)
 }
