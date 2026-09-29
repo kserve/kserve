@@ -35,6 +35,8 @@ import (
 )
 
 func TestScopedReporterNamesAreDeterministicAndBounded(t *testing.T) {
+	require.Equal(t, "kernel-cache-reporter-model-kcc-abc123-691719c36ce8", ServiceAccountName("model-kcc-abc123"))
+
 	captureName := strings.Repeat("model-", 20) + "kcc-abc123"
 	for _, name := range []string{
 		ServiceAccountName(captureName),
