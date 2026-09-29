@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io/fs"
 	"net/http"
@@ -72,11 +73,25 @@ func createLocalModelFile(modelDir string, modelName string, objectPath string) 
 
 	parentDir := path.Dir(relativePath)
 	if parentDir != "." {
-		if err := root.MkdirAll(filepath.FromSlash(parentDir), os.ModePerm); err != nil { //nolint:gosec // G301: shared model volume must be traversable by the model server
+		// The shared model volume must be traversable by the model server.
+		if err := root.MkdirAll(filepath.FromSlash(parentDir), os.ModePerm); err != nil {
 			return nil, "", fmt.Errorf("unable to create parent directory for object %s: %w", objectPath, err)
 		}
 	}
-	file, err := root.Create(filepath.FromSlash(relativePath))
+	localPath := filepath.FromSlash(relativePath)
+	info, err := root.Lstat(localPath)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, "", fmt.Errorf("unable to inspect file for object %s: %w", objectPath, err)
+	}
+	// Replace existing files so retries restore permissions for the model server,
+	// even when the previous file is read-only. Leave directories untouched.
+	if err == nil && !info.IsDir() {
+		if err := root.Remove(localPath); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return nil, "", fmt.Errorf("unable to replace file for object %s: %w", objectPath, err)
+		}
+	}
+	// Fail if another writer creates the destination before we do.
+	file, err := root.OpenFile(localPath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
 	if err != nil {
 		return nil, "", fmt.Errorf("unable to create file for object %s: %w", objectPath, err)
 	}
