@@ -1561,7 +1561,6 @@
           "description": "Used to specify tolerations for download jobs and for the localmodelnode agent DaemonSet, so both can be scheduled onto the tainted nodes of this node group",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Toleration"
           },
           "x-kubernetes-list-type": "atomic"
