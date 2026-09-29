@@ -18,10 +18,12 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/netip"
 	"strings"
 	"testing"
+	"time"
 )
 
 type staticHTTPResolver struct {
@@ -107,5 +109,105 @@ func TestValidateHTTPDestinationAddrRejectsSpecialRanges(t *testing.T) {
 				t.Fatalf("expected public address %s to be allowed: %v", address, err)
 			}
 		})
+	}
+}
+
+type httpResolverFunc func(context.Context, string, string) ([]netip.Addr, error)
+
+func (f httpResolverFunc) LookupNetIP(ctx context.Context, network, host string) ([]netip.Addr, error) {
+	return f(ctx, network, host)
+}
+
+func TestResolveHTTPHostNormalizesInternationalizedHostnames(t *testing.T) {
+	for _, tt := range []struct {
+		host string
+		want string
+	}{
+		{host: "bücher.example", want: "xn--bcher-kva.example"},
+		{host: "faß.example", want: "xn--fa-hia.example"},
+		{host: "BÜCHER.Example", want: "xn--bcher-kva.example"},
+		{host: "Models_Store.Example", want: "Models_Store.Example"},
+	} {
+		t.Run(tt.host, func(t *testing.T) {
+			publicAddr := netip.MustParseAddr("93.184.216.34")
+			resolver := httpResolverFunc(func(_ context.Context, network, host string) ([]netip.Addr, error) {
+				if network != "ip" || host != tt.want {
+					t.Fatalf("lookup = (%q, %q), want (%q, %q)", network, host, "ip", tt.want)
+				}
+				return []netip.Addr{publicAddr}, nil
+			})
+			addrs, err := resolveHTTPHost(context.Background(), resolver, tt.host)
+			if err != nil {
+				t.Fatalf("expected hostname to resolve: %v", err)
+			}
+			if len(addrs) != 1 || addrs[0] != publicAddr {
+				t.Fatalf("resolved addresses = %v, want [%s]", addrs, publicAddr)
+			}
+		})
+	}
+}
+
+func TestResolveHTTPHostBoundsDNSLookup(t *testing.T) {
+	for _, tt := range []struct {
+		name          string
+		callerTimeout time.Duration
+	}{
+		{name: "no caller deadline"},
+		{name: "earlier caller deadline", callerTimeout: 10 * time.Second},
+		{name: "later caller deadline", callerTimeout: time.Minute},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			if tt.callerTimeout != 0 {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, tt.callerTimeout)
+				defer cancel()
+			}
+			started := time.Now()
+			var lookupCtx context.Context
+			resolver := httpResolverFunc(func(ctx context.Context, _, _ string) ([]netip.Addr, error) {
+				lookupCtx = ctx
+				deadline, ok := ctx.Deadline()
+				if !ok {
+					t.Fatal("DNS lookup has no deadline")
+				}
+				if deadline.After(time.Now().Add(httpStorageDialTimeout)) {
+					t.Fatalf("DNS deadline %s exceeds the lookup timeout", deadline)
+				}
+				if tt.callerTimeout == 0 || tt.callerTimeout > httpStorageDialTimeout {
+					if deadline.Before(started.Add(httpStorageDialTimeout)) {
+						t.Fatalf("DNS deadline %s is earlier than the lookup timeout", deadline)
+					}
+				}
+				return []netip.Addr{netip.MustParseAddr("93.184.216.34")}, nil
+			})
+			if _, err := resolveHTTPHost(ctx, resolver, "models.example"); err != nil {
+				t.Fatalf("expected lookup to succeed: %v", err)
+			}
+			if tt.callerTimeout != 0 && tt.callerTimeout < httpStorageDialTimeout {
+				callerDeadline, _ := ctx.Deadline()
+				lookupDeadline, _ := lookupCtx.Deadline()
+				if !lookupDeadline.Equal(callerDeadline) {
+					t.Fatalf("DNS deadline = %s, want caller deadline %s", lookupDeadline, callerDeadline)
+				}
+			}
+			if lookupCtx.Err() != context.Canceled {
+				t.Fatalf("lookup context was not released: %v", lookupCtx.Err())
+			}
+			if ctx.Err() != nil {
+				t.Fatalf("lookup canceled the caller context: %v", ctx.Err())
+			}
+		})
+	}
+}
+
+func TestResolveHTTPHostPreservesCallerCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	resolver := httpResolverFunc(func(ctx context.Context, _, _ string) ([]netip.Addr, error) {
+		return nil, ctx.Err()
+	})
+	if _, err := resolveHTTPHost(ctx, resolver, "models.example"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected caller cancellation, got: %v", err)
 	}
 }

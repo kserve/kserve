@@ -26,6 +26,9 @@ import (
 	"net/url"
 	"syscall"
 	"time"
+	"unicode/utf8"
+
+	"golang.org/x/net/idna"
 )
 
 const (
@@ -153,10 +156,26 @@ func resolveHTTPHost(ctx context.Context, resolver httpHostResolver, host string
 		return []netip.Addr{addr}, nil
 	}
 
+	// Match net/http: normalize Unicode hostnames while preserving ASCII names.
+	for _, r := range host {
+		if r < utf8.RuneSelf {
+			continue
+		}
+		asciiHost, err := idna.Lookup.ToASCII(host)
+		if err != nil {
+			return nil, fmt.Errorf("invalid HTTP(S) storage URI host %q: %w", host, err)
+		}
+		host = asciiHost
+		break
+	}
+
 	if resolver == nil {
 		resolver = net.DefaultResolver
 	}
-	addrs, err := resolver.LookupNetIP(ctx, "ip", host)
+	// Bound preflight DNS independently of dialing and model body transfers.
+	lookupCtx, cancel := context.WithTimeout(ctx, httpStorageDialTimeout)
+	defer cancel()
+	addrs, err := resolver.LookupNetIP(lookupCtx, "ip", host)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve HTTP(S) storage URI host %q: %w", host, err)
 	}
