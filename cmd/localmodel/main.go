@@ -22,7 +22,6 @@ import (
 	"os"
 
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -154,13 +153,11 @@ func main() {
 		HealthProbeBindAddress: options.probeAddr,
 		Cache: cache.Options{
 			ByObject: map[client.Object]cache.ByObject{
-				// We only ever touch the localmodelnode agent DaemonSet, so there is no reason to
-				// cache every DaemonSet in the cluster.
+				// The only DaemonSets this manager touches are the node agents in the KServe
+				// namespace, so there is no reason to cache every DaemonSet in the cluster.
 				&appsv1.DaemonSet{}: {
 					Namespaces: map[string]cache.Config{
-						constants.KServeNamespace: {
-							FieldSelector: fields.OneTermEqualSelector("metadata.name", localmodelcontroller.AgentDaemonSetName),
-						},
+						constants.KServeNamespace: {},
 					},
 				},
 			},
