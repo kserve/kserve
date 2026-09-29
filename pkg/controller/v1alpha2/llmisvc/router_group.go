@@ -153,11 +153,22 @@ func (r *LLMISVCReconciler) resolveGroupMembers(
 // different models than its peers.
 func resolvedModelNames(m *v1alpha2.LLMInferenceService) []string {
 	publisherPrefix := fullyQualifiedModelName(m.Namespace, "")
-	var names []string
+	listed := map[string]bool{}
 	for _, addr := range m.Status.Addresses {
 		for _, model := range addr.Models {
-			names = append(names, strings.TrimPrefix(model.Name, publisherPrefix))
+			listed[model.Name] = true
 		}
+	}
+
+	var names []string
+	for name := range listed {
+		// Skip the plain name when its qualified form is listed: trimming the
+		// qualified one already yields it, and a plain name may itself start
+		// with the publisher prefix.
+		if listed[publisherPrefix+name] {
+			continue
+		}
+		names = append(names, strings.TrimPrefix(name, publisherPrefix))
 	}
 
 	if len(names) > 0 {

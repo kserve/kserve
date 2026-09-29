@@ -883,3 +883,58 @@ func TestResolvedModelNames(t *testing.T) {
 		})
 	}
 }
+
+// Real SourcedAddress output: a member with path URLs and one with only the
+// model-routing URL, as with model-based-routing-only, serve the same models.
+func TestResolvedModelNamesAcrossAddressTypes(t *testing.T) {
+	pathURL := apis.HTTP("gateway.example.com")
+	pathURL.Path = "/ns/svc"
+	modelRoutingURL := apis.HTTP("gateway.example.com")
+
+	tests := []struct {
+		name     string
+		model    string
+		adapters []string
+		want     []string
+	}{
+		{
+			name:     "plain names",
+			model:    "org/m",
+			adapters: []string{"a1"},
+			want:     []string{"a1", "org/m"},
+		},
+		{
+			name:     "names already starting with the member's publisher prefix",
+			model:    "publishers/ns/models/m",
+			adapters: []string{"publishers/ns/models/a1"},
+			want:     []string{"publishers/ns/models/a1", "publishers/ns/models/m"},
+		},
+		{
+			name:  "name starting with another namespace's publisher prefix",
+			model: "publishers/other/models/m",
+			want:  []string{"publishers/other/models/m"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			member := func(urls ...*apis.URL) *v1alpha2.LLMInferenceService {
+				m := &v1alpha2.LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns"},
+					Spec:       v1alpha2.LLMInferenceServiceSpec{Model: v1alpha2.LLMModelSpec{Name: ptr.To(tt.model)}},
+				}
+				if len(tt.adapters) > 0 {
+					m.Spec.Model.LoRA = &v1alpha2.LoRASpec{}
+					for _, a := range tt.adapters {
+						m.Spec.Model.LoRA.Adapters = append(m.Spec.Model.LoRA.Adapters, v1alpha2.LLMModelSpec{Name: ptr.To(a)})
+					}
+				}
+				for _, u := range urls {
+					m.Status.Addresses = append(m.Status.Addresses, SourcedAddress(t.Context(), DiscoveredURL{URL: u}, m))
+				}
+				return m
+			}
+			assert.Equal(t, tt.want, resolvedModelNames(member(pathURL, modelRoutingURL)), "path and model-routing URLs")
+			assert.Equal(t, tt.want, resolvedModelNames(member(modelRoutingURL)), "model-routing URL only")
+		})
+	}
+}
