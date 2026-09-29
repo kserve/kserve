@@ -164,10 +164,12 @@ func TestResolveHTTPHostBoundsDNSLookup(t *testing.T) {
 				defer cancel()
 			}
 			started := time.Now()
-			var lookupCtx context.Context
+			var lookupDone <-chan struct{}
+			var lookupDeadline time.Time
 			resolver := httpResolverFunc(func(ctx context.Context, _, _ string) ([]netip.Addr, error) {
-				lookupCtx = ctx
+				lookupDone = ctx.Done()
 				deadline, ok := ctx.Deadline()
+				lookupDeadline = deadline
 				if !ok {
 					t.Fatal("DNS lookup has no deadline")
 				}
@@ -186,13 +188,14 @@ func TestResolveHTTPHostBoundsDNSLookup(t *testing.T) {
 			}
 			if tt.callerTimeout != 0 && tt.callerTimeout < httpStorageDialTimeout {
 				callerDeadline, _ := ctx.Deadline()
-				lookupDeadline, _ := lookupCtx.Deadline()
 				if !lookupDeadline.Equal(callerDeadline) {
 					t.Fatalf("DNS deadline = %s, want caller deadline %s", lookupDeadline, callerDeadline)
 				}
 			}
-			if lookupCtx.Err() != context.Canceled {
-				t.Fatalf("lookup context was not released: %v", lookupCtx.Err())
+			select {
+			case <-lookupDone:
+			default:
+				t.Fatal("lookup context was not released")
 			}
 			if ctx.Err() != nil {
 				t.Fatalf("lookup canceled the caller context: %v", ctx.Err())

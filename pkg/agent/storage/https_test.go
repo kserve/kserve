@@ -326,7 +326,7 @@ func TestRestrictedHTTPTransportAllowsPublicDestination(t *testing.T) {
 		t.Fatalf("expected public destination download to succeed: %v", err)
 	}
 
-	got, err := os.ReadFile(filepath.Join(modelDir, "model", "model.joblib"))
+	got, err := os.ReadFile(filepath.Join(modelDir, "model", "model.joblib")) //nolint:gosec // G304: test-controlled path under t.TempDir()
 	if err != nil {
 		t.Fatalf("failed to read downloaded model: %v", err)
 	}
