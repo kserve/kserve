@@ -35,9 +35,9 @@ import (
 // component is reconciled.
 //
 // It runs once finalization is handled and status conditions are initialized. It is not called
-// for InferenceServices being deleted or for ModelMesh ones without a transformer. When
-// reconciliationPaused is true the components are not reconciled, and status is persisted only if
-// the hook changed it.
+// for InferenceServices being deleted (see finalizePlatform) or for ModelMesh ones without a
+// transformer. When reconciliationPaused is true the components are not reconciled, and status is
+// persisted only if the hook changed it.
 //
 // The returned context replaces ctx for the rest of the reconcile. Workload customization hooks
 // such as customizeDeployments only receive component metadata, so values resolved here from the
@@ -57,5 +57,15 @@ func (r *InferenceServiceReconciler) preReconcilePlatform(ctx context.Context,
 // is recorded in status, and before ingress. It is not called when a component fails or requests
 // a requeue, or when reconciliation is paused.
 func (r *InferenceServiceReconciler) postReconcilePlatform(_ context.Context, _ *v1beta1.InferenceService, _ *corev1.ConfigMap) error {
+	return nil
+}
+
+// finalizePlatform is a hook for cleaning up platform state that owner references cannot
+// garbage-collect, e.g. cluster-scoped objects shared across InferenceServices. It pairs with
+// preReconcilePlatform, which does not run for InferenceServices being deleted.
+//
+// It runs while the InferenceService finalizer is present, once the upstream external resources
+// are deleted. An error keeps the finalizer, so the cleanup is retried on the next reconcile.
+func (r *InferenceServiceReconciler) finalizePlatform(_ context.Context, _ *v1beta1.InferenceService) error {
 	return nil
 }
