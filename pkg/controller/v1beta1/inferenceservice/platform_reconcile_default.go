@@ -21,26 +21,41 @@ package inferenceservice
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 )
 
-// reconcilePlatformInferenceService is a hook for platform-specific InferenceService policy that
-// has to be resolved before any component is reconciled. Distribution-specific builds (compiled
-// with -tags distro) can provide their own implementation; the default does nothing.
+// The hooks below are no-ops upstream. Distribution-specific builds (compiled with -tags distro)
+// can provide their own implementations. Errors returned by the hooks are passed through
+// unwrapped and without persisting status, so implementations own the error text.
+
+// preReconcilePlatform is a hook for platform-specific state that has to be resolved before any
+// component is reconciled.
 //
-// It runs once the finalizer is registered and status conditions are initialized. It is not called
+// It runs once finalization is handled and status conditions are initialized. It is not called
 // for InferenceServices being deleted or for ModelMesh ones without a transformer. When
 // reconciliationPaused is true the components are not reconciled, and status is persisted only if
-// the hook changed it. Errors are returned as is, without persisting status.
+// the hook changed it.
 //
 // The returned context replaces ctx for the rest of the reconcile. Workload customization hooks
 // such as customizeDeployments only receive component metadata, so values resolved here from the
 // whole InferenceService reach them through the context. It must be ctx or derived from it with
 // context.WithValue, never nil, detached or with a new deadline. Those hooks also run for
 // InferenceGraphs, which never pass through here, so a missing value means no policy.
-func (r *InferenceServiceReconciler) reconcilePlatformInferenceService(ctx context.Context,
+func (r *InferenceServiceReconciler) preReconcilePlatform(ctx context.Context,
 	_ *v1beta1.InferenceService, _ constants.DeploymentModeType, _ bool,
 ) (context.Context, error) {
 	return ctx, nil
+}
+
+// postReconcilePlatform is a hook for platform-specific state that depends on the outcome of
+// component reconciliation, and receives the inferenceservice-config ConfigMap.
+//
+// It runs once all components are reconciled, so the serving runtime selected for the predictor
+// is recorded in status, and before ingress. It is not called when a component fails or requests
+// a requeue, or when reconciliation is paused.
+func (r *InferenceServiceReconciler) postReconcilePlatform(_ context.Context, _ *v1beta1.InferenceService, _ *corev1.ConfigMap) error {
+	return nil
 }

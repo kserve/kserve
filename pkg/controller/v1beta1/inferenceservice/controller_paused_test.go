@@ -90,7 +90,7 @@ func newWriteTrackingReconciler(t *testing.T, isvc *v1beta1.InferenceService) (*
 }
 
 // A Ready InferenceService with auto-update disabled is not reconciled, and its status is left as
-// stored unless the platform hook recorded something.
+// stored unless preReconcilePlatform recorded something.
 func TestReconcileSkipsPausedInferenceService(t *testing.T) {
 	tests := []struct {
 		name       string

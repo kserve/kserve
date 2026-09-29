@@ -214,7 +214,7 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Ensure status is initialized so we always have a status section (fixes empty status when reconciliation fails early).
 	// This must happen after the finalizer patch, whose response replaces the in-memory status, before any
-	// early-return path that calls updateStatus, and before the platform hook: a condition it records can add
+	// early-return path that calls updateStatus, and before preReconcilePlatform: a condition it records can add
 	// Ready without the other dependents, which would skip initialization.
 	if isvc.Status.GetCondition(apis.ConditionReady) == nil {
 		isvc.Status.InitializeConditions()
@@ -225,14 +225,14 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	reconciliationPaused := annotations[constants.DisableAutoUpdateAnnotationKey] == "true" && isvc.Status.IsReady()
 
 	statusBeforePlatform := isvc.Status.DeepCopy()
-	ctx, err = r.reconcilePlatformInferenceService(ctx, isvc, deploymentMode, reconciliationPaused)
+	ctx, err = r.preReconcilePlatform(ctx, isvc, deploymentMode, reconciliationPaused)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	if reconciliationPaused {
 		r.Log.Info("Auto-update is disabled for InferenceService, skipping reconciliation", "InferenceService", isvc.Name)
-		// A paused InferenceService is only written to when the platform hook recorded status.
+		// A paused InferenceService is only written to when preReconcilePlatform recorded status.
 		if !equality.Semantic.DeepEqual(statusBeforePlatform, &isvc.Status) {
 			if err := r.updateStatus(ctx, isvc, deploymentMode); err != nil {
 				return ctrl.Result{}, err
@@ -321,8 +321,8 @@ func (r *InferenceServiceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Runs after the components so that the runtime selected for the predictor is recorded in
 	// isvc.Status.ServingRuntimeName or isvc.Status.ClusterServingRuntimeName.
-	if err := r.reconcileWorkloadPlatformPermissions(ctx, isvc, isvcConfigMap); err != nil {
-		return ctrl.Result{}, errors.Wrapf(err, "fails to reconcile workload platform permissions")
+	if err := r.postReconcilePlatform(ctx, isvc, isvcConfigMap); err != nil {
+		return ctrl.Result{}, err
 	}
 
 	// Handle InferenceService status updates based on the force stop annotation.
