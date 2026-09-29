@@ -2240,6 +2240,8 @@ spec:
             end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end
             }}'
+          - '{{ if .GlobalConfig.EnableTLS }}--metrics-cert-dir=/var/run/kserve/tls{{- end
+            }}'
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
