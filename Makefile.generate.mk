@@ -130,9 +130,9 @@ manifests: controller-gen kustomize yq
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	#With v1 and newer kubernetes protocol requires default
-	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_inferenceservices.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
-	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_clusterservingruntimes.yaml
-	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_servingruntimes.yaml
+	@$(YQ) '(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | .protocol.default) = "TCP"' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	@$(YQ) '(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | .protocol.default) = "TCP"' -i config/crd/full/serving.kserve.io_clusterservingruntimes.yaml
+	@$(YQ) '(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | .protocol.default) = "TCP"' -i config/crd/full/serving.kserve.io_servingruntimes.yaml
 	
 	# Copy kserve crd (with conversion webhook patches applied via kustomize)
 	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "inferenceservices.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_inferenceservices.yaml
@@ -192,11 +192,8 @@ generate: controller-gen helm-docs
 		sort -u > /tmp/copyright_years_cache
 	hack/update-codegen.sh
 	hack/update-openapigen.sh
-	hack/python-sdk/client-gen.sh
-	@while read -r line; do \
-		f=$$(echo "$$line" | cut -f1); year=$$(echo "$$line" | cut -f2); \
-		if [ -f "$$f" ]; then sed -i "s/Copyright [0-9]\{4\} The KServe Authors/Copyright $$year The KServe Authors/" "$$f"; fi; \
-	done < /tmp/copyright_years_cache
+	COPYRIGHT_YEARS_CACHE=/tmp/copyright_years_cache hack/python-sdk/client-gen.sh
+	@python3 hack/setup/preserve-copyright-years.py /tmp/copyright_years_cache
 	@rm -f /tmp/copyright_years_cache
 	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
 
