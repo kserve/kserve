@@ -1,0 +1,40 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: qwen2-7b-instruct-mx-native-s3
+  annotations:
+    serving.kserve.io/exp-modelexpress-mode: native
+    serving.kserve.io/exp-modelexpress-address: modelexpress.modelexpress.svc:8001
+    serving.kserve.io/exp-modelexpress-token-audience: modelexpress
+spec:
+  model:
+    uri: s3://models/Qwen/Qwen2.5-7B-Instruct
+    name: Qwen/Qwen2.5-7B-Instruct
+  replicas: 2
+  router:
+    scheduler: { }
+    route: { }
+    gateway: { }
+  template:
+    containers:
+      - name: main
+        # An image with the modelexpress Python package installed.
+        image: example.com/vllm-modelexpress:latest
+        resources:
+          limits:
+            nvidia.com/gpu: '1'
+            # The RDMA device resource your cluster exposes; name varies by device plugin.
+            rdma/ib: '1'
+          requests:
+            nvidia.com/gpu: '1'
+            rdma/ib: '1'
+            cpu: '4'
+            memory: 32Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          capabilities:
+            add: [ "IPC_LOCK" ]
+            drop: [ "ALL" ]
+          seccompProfile:
+            type: RuntimeDefault
