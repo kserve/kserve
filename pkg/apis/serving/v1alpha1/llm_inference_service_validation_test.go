@@ -1302,3 +1302,32 @@ func validDisaggScalingSpec() *ScalingSpec {
 		},
 	}
 }
+
+func TestValidateCreateModelExpress_V1Alpha1(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	for _, tt := range []struct {
+		name        string
+		annotations map[string]string
+		uri         apis.URL
+		wantErr     string
+	}{
+		{name: "native hf is admitted", annotations: map[string]string{constants.ModelExpressModeAnnotationKey: "native"}, uri: apis.URL{Scheme: "hf", Host: "org", Path: "/model"}},
+		{name: "native pvc is rejected", annotations: map[string]string{constants.ModelExpressModeAnnotationKey: "native"}, uri: apis.URL{Scheme: "pvc", Host: "models", Path: "/llama"}, wantErr: "spec.model.uri"},
+		{name: "layered pvc is admitted", annotations: map[string]string{constants.ModelExpressModeAnnotationKey: "layered"}, uri: apis.URL{Scheme: "pvc", Host: "models", Path: "/llama"}},
+		{name: "unknown mode is rejected", annotations: map[string]string{constants.ModelExpressModeAnnotationKey: "turbo"}, uri: apis.URL{Scheme: "hf", Host: "org", Path: "/model"}, wantErr: constants.ModelExpressModeAnnotationKey},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceService()
+			svc.Annotations = tt.annotations
+			svc.Spec.Model.URI = tt.uri
+
+			_, err := validator.ValidateCreate(t.Context(), svc)
+
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}

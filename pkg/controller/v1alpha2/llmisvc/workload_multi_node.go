@@ -228,6 +228,9 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		if llmSvc.Spec.KVCacheOffloading != nil {
 			attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
 		}
+		if err := attachModelExpress(llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config.ModelExpress); err != nil {
+			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
+		}
 
 		if hasRoutingSidecar(expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec) {
 			log.FromContext(ctx).V(2).Info("Main container has a routing sidecar")
@@ -255,6 +258,9 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
 			attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+		}
+		if err := attachModelExpress(llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config.ModelExpress); err != nil {
+			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
 		}
 
 		if hasRoutingSidecar(expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec) {
@@ -384,6 +390,9 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
 				attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
 			}
+			if err := attachModelExpress(llmSvc, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec, config.ModelExpress); err != nil {
+				return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
+			}
 		}
 		if llmSvc.Spec.Prefill.Worker != nil {
 			expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec = *llmSvc.Spec.Prefill.Worker.DeepCopy()
@@ -395,6 +404,9 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 			}
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
 				attachKVCacheSecondaryTiers(&expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+			}
+			if err := attachModelExpress(llmSvc, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec, config.ModelExpress); err != nil {
+				return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
 			}
 		}
 

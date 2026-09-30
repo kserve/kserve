@@ -197,6 +197,7 @@ func TestPresetFiles(t *testing.T) {
 									},
 									Env: []corev1.EnvVar{
 										{Name: "KSERVE_KV_TRANSFER_ARGS"},
+										{Name: "KSERVE_MODEL_ARGS"},
 										{
 											Name:  "HOME",
 											Value: "/home",
@@ -386,6 +387,7 @@ func TestPresetFiles(t *testing.T) {
 									},
 									Env: []corev1.EnvVar{
 										{Name: "KSERVE_KV_TRANSFER_ARGS"},
+										{Name: "KSERVE_MODEL_ARGS"},
 										{
 											Name:  "HOME",
 											Value: "/home",
@@ -485,6 +487,7 @@ func TestPresetFiles(t *testing.T) {
 									},
 									Env: []corev1.EnvVar{
 										{Name: "KSERVE_KV_TRANSFER_ARGS"},
+										{Name: "KSERVE_MODEL_ARGS"},
 										{
 											Name:  "HOME",
 											Value: "/home",
@@ -1273,5 +1276,65 @@ func TestSGLangTemplateForwardsContainerArgs(t *testing.T) {
 	}
 	if diff := cmp.Diff([]string{"--trust-remote-code"}, container.Args); diff != "" {
 		t.Errorf("Expected explicit container args to be forwarded (-want, +got):\n%s", diff)
+	}
+}
+
+// TestVLLMPresetsDeclareModelArgsSlot verifies every vLLM engine container in the
+// shipped presets takes its model argument from the KSERVE_MODEL_ARGS slot.
+func TestVLLMPresetsDeclareModelArgsSlot(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("Failed to read %s: %v", presetsDir, err)
+	}
+
+	engines := 0
+	for _, entry := range entries {
+		filename := entry.Name()
+		if !strings.HasPrefix(filename, "config-") || !strings.HasSuffix(filename, ".yaml") {
+			continue
+		}
+		filePath := filepath.Join(presetsDir, filename)
+		data, err := os.ReadFile(filepath.Clean(filePath))
+		if err != nil {
+			t.Fatalf("Failed to read %s: %v", filePath, err)
+		}
+		config := loadConfig(t, data, filePath)
+
+		templates := map[string]*corev1.PodSpec{"template": config.Spec.Template, "worker": config.Spec.Worker}
+		if config.Spec.Prefill != nil {
+			templates["prefill template"] = config.Spec.Prefill.Template
+			templates["prefill worker"] = config.Spec.Prefill.Worker
+		}
+		for role, podSpec := range templates {
+			if podSpec == nil {
+				continue
+			}
+			for _, c := range podSpec.Containers {
+				script := strings.Join(append(append([]string{}, c.Command...), c.Args...), " ")
+				if c.Name != "main" || !strings.Contains(script, "vllm serve") {
+					continue
+				}
+				engines++
+				if !strings.Contains(script, "${KSERVE_MODEL_ARGS:-/mnt/models}") {
+					t.Errorf("%s %s: vllm serve does not expand ${KSERVE_MODEL_ARGS:-/mnt/models}", filename, role)
+				}
+				declared := 0
+				for _, e := range c.Env {
+					if e.Name == "KSERVE_MODEL_ARGS" {
+						declared++
+						if e.Value != "" || e.ValueFrom != nil {
+							t.Errorf("%s %s: KSERVE_MODEL_ARGS must be declared empty, got %+v", filename, role, e)
+						}
+					}
+				}
+				if declared != 1 {
+					t.Errorf("%s %s: KSERVE_MODEL_ARGS declared %d times, want 1", filename, role, declared)
+				}
+			}
+		}
+	}
+	if engines != 9 {
+		t.Errorf("Found %d vLLM engine containers across presets, want 9; update this count when adding a preset", engines)
 	}
 }

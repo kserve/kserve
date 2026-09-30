@@ -103,8 +103,10 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		return nil
 	}
 
+	nativeModelExpress := containerName == mainContainerName && config.ModelExpress.native()
+
 	// Rewrite model URI to use cached PVC when local model cache is active
-	if _, ok := llmSvc.Labels[constants.LocalModelLabel]; ok {
+	if _, ok := llmSvc.Labels[constants.LocalModelLabel]; ok && !nativeModelExpress {
 		sourceUri, ok := llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey]
 		if !ok {
 			return fmt.Errorf("LLMInferenceService %s/%s: annotation %s not found", llmSvc.Namespace, llmSvc.Name, constants.LocalModelSourceUriAnnotationKey)
@@ -177,11 +179,18 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		}
 
 	case constants.HfURIPrefix:
-		if len(loraPairs) == 0 {
+		switch {
+		case nativeModelExpress && len(loraPairs) > 0:
+			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
+				return err
+			}
+		case nativeModelExpress:
+			extractAndStripStorageInitializer(podSpec)
+		case len(loraPairs) == 0:
 			if err := r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath); err != nil {
 				return err
 			}
-		} else {
+		default:
 			pairs := append([]storageDownloadPair{{uri: modelUri, path: constants.DefaultModelLocalMountPath}}, loraPairs...)
 			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, pairs); err != nil {
 				return err
@@ -192,6 +201,11 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		if len(loraPairs) == 0 {
 			if err := r.attachS3ModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath); err != nil {
 				return err
+			}
+			if nativeModelExpress {
+				if err := attachModelExpressObjectStore(podSpec, containerName, modelUri); err != nil {
+					return err
+				}
 			}
 		} else {
 			pairs := append([]storageDownloadPair{{uri: modelUri, path: constants.DefaultModelLocalMountPath}}, loraPairs...)
