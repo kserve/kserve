@@ -124,13 +124,13 @@ kserve:
           kind: ''
           name: ''
     artifactSecurity:
-      mode: 'none'
+      mode: 'cert'
       failurePolicy: 'reject'
       cert:
-        signingProfileRef: ''
-        trustBundle: ''
+        signingProfileRef: 'kernelcache-signer'
+        trustBundle: 'kserve/kernelcache-root-ca'
         trustBundleKey: ''
-        subjectRegexp: ''
+        subjectRegexp: 'spiffe://kserve/kernelcache-signer'
     abandonedCapturePolicy: 'retain'
     jobTTLSecondsAfterFinished: 600
     mcvCaptureReadinessTimeoutSeconds: 600

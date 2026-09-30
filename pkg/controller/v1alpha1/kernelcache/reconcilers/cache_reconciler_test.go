@@ -70,7 +70,7 @@ func TestKernelCacheReconcilerCreatesPrefetchJobAndAggregatesStatus(t *testing.T
 		"team/cache": {State: v1alpha1.KernelCacheNodePreparationStatePending},
 	}}}
 	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, Data: map[string]string{
-		"kernelcache": `{"enabled":true,"jobNamespace":"jobs","prefetchImage":"example/prefetch:latest"}`,
+		"kernelcache": `{"enabled":true,"jobNamespace":"jobs","prefetchImage":"example/prefetch:latest","artifactSecurity":{"mode":"none"}}`,
 	}}
 	jobNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "jobs"}}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(cache).WithObjects(cache, group, node, kernelCacheNode, configMap, jobNamespace).Build()

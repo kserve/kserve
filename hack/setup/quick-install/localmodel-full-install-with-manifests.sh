@@ -7469,6 +7469,44 @@ metadata:
   labels:
     app.kubernetes.io/component: localmodel
     app.kubernetes.io/name: kserve
+  name: kernelcache-root-ca
+  namespace: kserve
+spec:
+  commonName: kernelcache-root-ca
+  isCA: true
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: kernelcache-root-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcache-signer
+  namespace: kserve
+spec:
+  commonName: kernelcache-signer
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: kernelcache-ca
+  secretName: kernelcache-signer
+  uris:
+  - spiffe://kserve/kernelcache-signer
+  usages:
+  - digital signature
+  - code signing
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
   name: localmodel-serving-cert
   namespace: kserve
 spec:
@@ -7479,6 +7517,18 @@ spec:
     kind: Issuer
     name: selfsigned-issuer
   secretName: localmodel-webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcache-ca
+  namespace: kserve
+spec:
+  ca:
+    secretName: kernelcache-root-ca
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration

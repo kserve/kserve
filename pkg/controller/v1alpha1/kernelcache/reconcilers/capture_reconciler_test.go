@@ -278,7 +278,7 @@ func TestKernelCacheCaptureReconcilerDoesNotCreateDefaultCapture(t *testing.T) {
 	}
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
-		Data:       map[string]string{"kernelcache": `{"enabled":true}`},
+		Data:       map[string]string{"kernelcache": `{"enabled":true,"artifactSecurity":{"mode":"none"}}`},
 	}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(inferenceService, configMap).Build()
 	reconciler := &KernelCacheCaptureReconciler{Client: k8sClient, Reader: k8sClient}
@@ -529,7 +529,7 @@ func TestKernelCacheCaptureReconcilerProcessesEveryCaptureForInferenceService(t 
 	}
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
-		Data:       map[string]string{"kernelcache": `{"enabled":true}`},
+		Data:       map[string]string{"kernelcache": `{"enabled":true,"artifactSecurity":{"mode":"none"}}`},
 	}
 	first := completedUnsignedCapture("model-capture-first", inferenceService)
 	second := completedUnsignedCapture("model-capture-second", inferenceService)
@@ -663,7 +663,7 @@ func TestCompletedCaptureDoesNotPatchProducerPod(t *testing.T) {
 	}
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
-		Data:       map[string]string{"kernelcache": `{"enabled":true}`},
+		Data:       map[string]string{"kernelcache": `{"enabled":true,"artifactSecurity":{"mode":"none"}}`},
 	}
 	capture := completedUnsignedCapture("model-capture", inferenceService)
 	capture.Status.ActiveSession = &v1alpha1.KernelCacheCaptureSession{ID: "session", PodName: "model-pod"}
@@ -708,7 +708,7 @@ func TestGeneratedInProgressCaptureHandlesMissingProducerByPolicy(t *testing.T) 
 			capture.Status.RuntimeResult = nil
 			capture.Status.Phase = v1alpha1.KernelCacheCapturePhaseCapturing
 			if test.policy != "" {
-				configMap.Data["kernelcache"] = `{"enabled":true,"abandonedCapturePolicy":"` + test.policy + `"}`
+				configMap.Data["kernelcache"] = `{"enabled":true,"abandonedCapturePolicy":"` + test.policy + `","artifactSecurity":{"mode":"none"}}`
 			}
 			scheme := runtime.NewScheme()
 			require.NoError(t, corev1.AddToScheme(scheme))
@@ -797,7 +797,7 @@ func unchangedCaptureFixture() (*v1beta1.InferenceService, *corev1.ConfigMap, *v
 	}
 	configMap := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace},
-		Data:       map[string]string{"kernelcache": `{"enabled":true}`},
+		Data:       map[string]string{"kernelcache": `{"enabled":true,"artifactSecurity":{"mode":"none"}}`},
 	}
 	capture := &v1alpha1.KernelCacheCapture{
 		ObjectMeta: metav1.ObjectMeta{
