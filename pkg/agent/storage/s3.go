@@ -56,7 +56,7 @@ func (m *S3Provider) DownloadModel(modelDir string, modelName string, storageUri
 	tokens := strings.SplitN(s3Uri, "/", 2)
 	prefix := ""
 	if len(tokens) == 2 {
-		prefix = tokens[1]
+		prefix = strings.TrimRight(tokens[1], "/")
 	}
 	bucket := tokens[0]
 
