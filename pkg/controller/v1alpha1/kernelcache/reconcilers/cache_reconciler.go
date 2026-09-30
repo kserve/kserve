@@ -97,6 +97,13 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if !config.Enabled {
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStatePending, 0, reasonFeatureDisabled, "kernel cache is disabled in inferenceservice-config", mountType)
 	}
+	verified, err := r.reconcileArtifactVerification(ctx, kernelCache, config)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !verified {
+		return ctrl.Result{RequeueAfter: time.Minute}, nil
+	}
 
 	if err := r.reconcileKernelCacheUsage(ctx, kernelCache); err != nil {
 		return ctrl.Result{}, err

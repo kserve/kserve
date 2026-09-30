@@ -62,7 +62,7 @@ func (m *PodMutator) injectKernelCacheArtifact(
 	pod *corev1.Pod,
 	cfg *v1beta1.KernelCacheConfig,
 ) (bool, error) {
-	selection, found, err := m.findKernelCacheSelection(ctx, pod)
+	selection, found, err := m.findKernelCacheSelectionWithConfig(ctx, pod, cfg)
 	if err != nil {
 		return false, err
 	}
@@ -78,6 +78,14 @@ func (m *PodMutator) injectKernelCacheArtifact(
 }
 
 func (m *PodMutator) findKernelCacheSelection(ctx context.Context, pod *corev1.Pod) (*kernelCacheSelection, bool, error) {
+	return m.findKernelCacheSelectionWithConfig(ctx, pod, nil)
+}
+
+func (m *PodMutator) findKernelCacheSelectionWithConfig(
+	ctx context.Context,
+	pod *corev1.Pod,
+	cfg *v1beta1.KernelCacheConfig,
+) (*kernelCacheSelection, bool, error) {
 	reader := m.Reader
 	if reader == nil {
 		reader = m.Client
@@ -110,7 +118,7 @@ func (m *PodMutator) findKernelCacheSelection(ctx context.Context, pod *corev1.P
 		return nil, false, nil
 	}
 
-	if selection, found, err := selectKernelCacheCandidate(ctx, reader, pod, requested, candidates); err != nil {
+	if selection, found, err := selectKernelCacheCandidate(ctx, reader, pod, requested, candidates, cfg); err != nil {
 		return nil, false, err
 	} else if found {
 		logger.Info("Matched KernelCache", "kernelCache", client.ObjectKeyFromObject(selection.cache), "matchType", selection.matchType)
@@ -126,13 +134,14 @@ func selectKernelCacheCandidate(
 	pod *corev1.Pod,
 	requested v1alpha1.KernelCacheIdentity,
 	candidates []kernelCacheNodeCandidate,
+	cfg *v1beta1.KernelCacheConfig,
 ) (*kernelCacheSelection, bool, error) {
 	for _, candidate := range candidates {
 		if !candidateMatchesWorkload(requested, candidate) {
 			continue
 		}
 
-		cache, found, err := loadKernelCacheCandidate(ctx, reader, pod, candidate)
+		cache, found, err := loadKernelCacheCandidate(ctx, reader, pod, candidate, cfg)
 		if err != nil {
 			return nil, false, err
 		}
@@ -145,7 +154,7 @@ func selectKernelCacheCandidate(
 			continue
 		}
 
-		cache, found, err := loadKernelCacheCandidate(ctx, reader, pod, candidate)
+		cache, found, err := loadKernelCacheCandidate(ctx, reader, pod, candidate, cfg)
 		if err != nil {
 			return nil, false, err
 		}
@@ -161,6 +170,7 @@ func loadKernelCacheCandidate(
 	reader client.Reader,
 	pod *corev1.Pod,
 	candidate kernelCacheNodeCandidate,
+	cfg *v1beta1.KernelCacheConfig,
 ) (*v1alpha1.KernelCache, bool, error) {
 	cache := &v1alpha1.KernelCache{}
 	key := client.ObjectKey{Namespace: candidate.ref.Namespace, Name: candidate.ref.Name}
@@ -170,7 +180,7 @@ func loadKernelCacheCandidate(
 		}
 		return nil, false, err
 	}
-	if !candidateMatchesKernelCache(candidate, cache) || !cacheCanMountToPod(cache, pod) {
+	if !candidateMatchesKernelCache(candidate, cache) || !cacheCanMountToPod(cache, pod) || !kernelCacheVerificationAllowsUse(cache, cfg) {
 		return nil, false, nil
 	}
 	return cache, true, nil

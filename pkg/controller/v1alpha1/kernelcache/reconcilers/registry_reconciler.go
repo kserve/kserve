@@ -109,6 +109,108 @@ func (r *KernelCacheCaptureControllerReconciler) reconcilePusherRoleBindingForAc
 	return r.Patch(ctx, current, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{}))
 }
 
+// ensureControllerRegistryBindings grants the localmodel controller registry
+// access in a workload namespace. Artifact signing and verification run in the
+// controller Pod, not in the capture pusher or prefetcher Pods.
+func (r *KernelCacheCaptureControllerReconciler) ensureControllerRegistryBindings(ctx context.Context, namespace string, config v1beta1.KernelCacheRegistryConfig) error {
+	if config.Auth.PushRoleRef == nil || config.Auth.PullRoleRef == nil {
+		return errors.New("registry push and pull RoleRefs are required for controller access")
+	}
+	subject := rbacv1.Subject{
+		Kind:      "ServiceAccount",
+		Name:      r.OperatorServiceAccount,
+		Namespace: r.OperatorNamespace,
+	}
+	bindings := []*rbacv1.RoleBinding{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      registryauth.ControllerPushRoleBindingName,
+				Namespace: namespace,
+				Labels:    map[string]string{registryauth.ManagedLabel: "true"},
+			},
+			RoleRef:  kernelCacheRegistryRoleRef(config.Auth.PushRoleRef),
+			Subjects: []rbacv1.Subject{subject},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      registryauth.ControllerPullRoleBindingName,
+				Namespace: namespace,
+				Labels:    map[string]string{registryauth.ManagedLabel: "true"},
+			},
+			RoleRef:  kernelCacheRegistryRoleRef(config.Auth.PullRoleRef),
+			Subjects: []rbacv1.Subject{subject},
+		},
+	}
+	for _, binding := range bindings {
+		if err := r.ensureControllerRegistryRoleBinding(ctx, binding); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *KernelCacheCaptureControllerReconciler) ensureControllerRegistryRoleBinding(ctx context.Context, desired *rbacv1.RoleBinding) error {
+	reader := r.Reader
+	if reader == nil {
+		reader = r.Client
+	}
+	current := &rbacv1.RoleBinding{}
+	if err := reader.Get(ctx, client.ObjectKeyFromObject(desired), current); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+		if err := r.Create(ctx, desired); err == nil {
+			return nil
+		} else if !apierrors.IsAlreadyExists(err) {
+			return err
+		}
+		if err := reader.Get(ctx, client.ObjectKeyFromObject(desired), current); err != nil {
+			return err
+		}
+	}
+	if current.Labels[registryauth.ManagedLabel] != "true" {
+		return fmt.Errorf("reserved controller registry RoleBinding %s/%s is not managed by kernelcache", desired.Namespace, desired.Name)
+	}
+	if current.RoleRef != desired.RoleRef {
+		if err := r.Delete(ctx, current, client.Preconditions{UID: &current.UID, ResourceVersion: &current.ResourceVersion}); err != nil {
+			return client.IgnoreNotFound(err)
+		}
+		return r.Create(ctx, desired)
+	}
+	if reflect.DeepEqual(current.Subjects, desired.Subjects) {
+		return nil
+	}
+	base := current.DeepCopy()
+	current.Subjects = desired.Subjects
+	return r.Patch(ctx, current, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{}))
+}
+
+func (r *KernelCacheCaptureControllerReconciler) cleanupControllerRegistryBindings(ctx context.Context, namespace string) error {
+	reader := r.Reader
+	if reader == nil {
+		reader = r.Client
+	}
+	for _, name := range []string{
+		registryauth.ControllerPushRoleBindingName,
+		registryauth.ControllerPullRoleBindingName,
+	} {
+		binding := &rbacv1.RoleBinding{}
+		if err := reader.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, binding); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return err
+		}
+		if binding.Labels[registryauth.ManagedLabel] != "true" {
+			continue
+		}
+		if err := r.Delete(ctx, binding, client.Preconditions{UID: &binding.UID, ResourceVersion: &binding.ResourceVersion}); client.IgnoreNotFound(err) != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func kernelCacheRegistryRoleRef(ref *v1beta1.KernelCacheRegistryRoleRef) rbacv1.RoleRef {
 	return rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: ref.Kind, Name: ref.Name}
 }

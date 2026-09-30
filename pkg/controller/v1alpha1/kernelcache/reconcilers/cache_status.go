@@ -18,7 +18,9 @@ package reconcilers
 
 import (
 	"context"
+	"fmt"
 	"reflect"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -27,7 +29,136 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	"github.com/kserve/kserve/pkg/kernelcache/registry"
+	kernelcachesecurity "github.com/kserve/kserve/pkg/kernelcache/security"
+	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
 )
+
+func (r *KernelCacheReconciler) reconcileArtifactVerification(
+	ctx context.Context,
+	kernelCache *v1alpha1.KernelCache,
+	config *v1beta1.KernelCacheConfig,
+) (bool, error) {
+	mode := config.ArtifactSecurity.Mode
+	if verification := kernelCache.Status.Verification; verification != nil && verification.Mode == mode &&
+		verification.State == v1alpha1.KernelCacheArtifactSecurityStateSkipped {
+		return mode == "none", nil
+	}
+
+	reader := r.Reader
+	if reader == nil {
+		reader = r.Client
+	}
+	verifier, err := kernelcachesecurity.NewVerifier(ctx, config.ArtifactSecurity.ToSecurityConfig(), kernelcachesecurity.NewKubernetesSecretSource(reader))
+	if err != nil {
+		statusErr := r.updateVerificationStatus(ctx, kernelCache, v1alpha1.KernelCacheVerificationStatus{
+			Mode:    mode,
+			State:   v1alpha1.KernelCacheArtifactSecurityStateFailed,
+			Reason:  "VerifierUnavailable",
+			Message: err.Error(),
+		})
+		if statusErr != nil {
+			return false, statusErr
+		}
+		return false, err
+	}
+
+	request := kernelcachetypes.VerifyRequest{
+		ImageRef:         kernelCache.Spec.Artifact.ImageReference,
+		RegistryInsecure: config.Registry.Insecure,
+	}
+	if config.ArtifactSecurity.Mode == string(kernelcachetypes.ModeCert) {
+		registryAccess, registryAccessErr := registry.NewControllerRegistryAccess(ctx, reader, kernelCache.Namespace, config.Registry, request.ImageRef)
+		if registryAccessErr != nil {
+			statusErr := r.updateVerificationStatus(ctx, kernelCache, v1alpha1.KernelCacheVerificationStatus{
+				Mode:    mode,
+				State:   v1alpha1.KernelCacheArtifactSecurityStateFailed,
+				Reason:  "RegistryUnavailable",
+				Message: registryAccessErr.Error(),
+			})
+			if statusErr != nil {
+				return false, statusErr
+			}
+			return false, registryAccessErr
+		}
+		request.RegistryTransport = registryAccess.Transport
+		request.RegistryAuthenticator = registryAccess.Authenticator
+		request.RegistryInsecure = registryAccess.Insecure
+	}
+	result, err := verifier.Verify(ctx, request)
+	if err != nil {
+		statusErr := r.updateVerificationStatus(ctx, kernelCache, v1alpha1.KernelCacheVerificationStatus{
+			Mode:    mode,
+			State:   v1alpha1.KernelCacheArtifactSecurityStateFailed,
+			Reason:  "VerificationError",
+			Message: err.Error(),
+		})
+		if statusErr != nil {
+			return false, statusErr
+		}
+		return false, err
+	}
+
+	if result.Mode == kernelcachetypes.ModeDisabled {
+		return true, r.updateVerificationStatus(ctx, kernelCache, v1alpha1.KernelCacheVerificationStatus{
+			Mode:    "none",
+			State:   v1alpha1.KernelCacheArtifactSecurityStateSkipped,
+			Reason:  "VerificationNotConfigured",
+			Message: "artifact verification is not configured",
+		})
+	}
+	parts := strings.SplitN(kernelCache.Spec.Artifact.ImageReference, "@", 2)
+	if len(parts) != 2 || result.Digest != parts[1] {
+		return false, r.updateVerificationStatus(ctx, kernelCache, v1alpha1.KernelCacheVerificationStatus{
+			Mode:    string(result.Mode),
+			State:   v1alpha1.KernelCacheArtifactSecurityStateFailed,
+			Reason:  "VerifiedDigestMismatch",
+			Message: fmt.Sprintf("verifier returned digest %q for artifact %q", result.Digest, kernelCache.Spec.Artifact.ImageReference),
+		})
+	}
+	if !result.Verified {
+		return false, r.updateVerificationStatus(ctx, kernelCache, v1alpha1.KernelCacheVerificationStatus{
+			Mode:    string(result.Mode),
+			State:   v1alpha1.KernelCacheArtifactSecurityStateFailed,
+			Reason:  "VerificationFailed",
+			Message: result.Reason,
+		})
+	}
+
+	now := metav1.Now()
+	verifiedAt := &now
+	if previous := kernelCache.Status.Verification; previous != nil && previous.Mode == string(result.Mode) &&
+		previous.State == v1alpha1.KernelCacheArtifactSecurityStateSucceeded && previous.VerifiedAt != nil {
+		verifiedAt = previous.VerifiedAt.DeepCopy()
+	}
+	return true, r.updateVerificationStatus(ctx, kernelCache, v1alpha1.KernelCacheVerificationStatus{
+		Mode:       string(result.Mode),
+		State:      v1alpha1.KernelCacheArtifactSecurityStateSucceeded,
+		Verified:   true,
+		Reason:     "VerificationSucceeded",
+		Message:    "artifact verification completed",
+		VerifiedAt: verifiedAt,
+	})
+}
+
+func (r *KernelCacheReconciler) updateVerificationStatus(
+	ctx context.Context,
+	kernelCache *v1alpha1.KernelCache,
+	verification v1alpha1.KernelCacheVerificationStatus,
+) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		current := &v1alpha1.KernelCache{}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(kernelCache), current); err != nil {
+			return err
+		}
+		if reflect.DeepEqual(current.Status.Verification, &verification) {
+			return nil
+		}
+		current.Status.Verification = &verification
+		return r.Status().Update(ctx, current)
+	})
+}
 
 func (r *KernelCacheReconciler) updateStatus(
 	ctx context.Context,

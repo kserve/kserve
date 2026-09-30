@@ -966,3 +966,17 @@ func TestCleanupCaptureIdentitiesKeepsRegistryAccessForActiveCapture(t *testing.
 	remaining := &corev1.Secret{}
 	require.NoError(t, k8sClient.Get(t.Context(), client.ObjectKeyFromObject(secret), remaining))
 }
+
+func TestCaptureSigningSecurityConfigUsesControllerNamespace(t *testing.T) {
+	config := &v1beta1.KernelCacheConfig{
+		ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{
+			Mode: string(kernelcachetypes.ModeCert),
+			Cert: v1beta1.KernelCacheArtifactCertConfig{
+				SigningProfileRef: "kernelcache-signer",
+			},
+		},
+	}
+
+	securityConfig := captureSigningSecurityConfig(config)
+	require.Equal(t, constants.KServeNamespace+"/kernelcache-signer", securityConfig.Cert.SigningSecret)
+}
