@@ -142,7 +142,6 @@ func TestNewKernelCacheConfigUsesServiceAccountTokenRegistry(t *testing.T) {
 		KernelCacheConfigName: `{
 			"registry": {
 				"endpoint": "registry.example:5000",
-				"insecure": true,
 				"caConfigMapRef": {"name": "custom-ca", "key": "bundle.pem"},
 				"auth": {
 					"type": "serviceAccountToken",
@@ -156,7 +155,7 @@ func TestNewKernelCacheConfigUsesServiceAccountTokenRegistry(t *testing.T) {
 	config, err := NewKernelCacheConfig(configMap)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(config.Registry.Endpoint).To(gomega.Equal("registry.example:5000"))
-	g.Expect(config.Registry.Insecure).To(gomega.BeTrue())
+	g.Expect(config.Registry.Insecure).To(gomega.BeFalse())
 	g.Expect(config.Registry.CAConfigMapRef).To(gomega.Equal(&KernelCacheConfigMapKeyRef{
 		Name: "custom-ca",
 		Key:  "bundle.pem",
@@ -171,6 +170,26 @@ func TestNewKernelCacheConfigUsesServiceAccountTokenRegistry(t *testing.T) {
 		Kind: "ClusterRole",
 		Name: "registry-puller",
 	}))
+}
+
+func TestNewKernelCacheConfigRejectsInsecureServiceAccountTokenRegistry(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{
+			"registry": {
+				"endpoint": "registry.example:5000",
+				"insecure": true,
+				"auth": {
+					"type": "serviceAccountToken",
+					"pushRoleRef": {"kind": "ClusterRole", "name": "registry-pusher"},
+					"pullRoleRef": {"kind": "ClusterRole", "name": "registry-puller"}
+				}
+			}
+		}`,
+	}}
+
+	_, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).To(gomega.MatchError("registry.insecure cannot be used with registry.auth.type serviceAccountToken"))
 }
 
 func TestNewKernelCacheConfigRejectsUnsupportedRegistryAuthType(t *testing.T) {
