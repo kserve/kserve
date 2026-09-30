@@ -2827,7 +2827,7 @@ spec:
           fi
         fi
 
-        eval "exec vllm serve /mnt/models \
+        eval "exec vllm serve ${KSERVE_MODEL_ARGS:-/mnt/models} \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -2844,6 +2844,8 @@ spec:
       - --
       env:
       - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
+      - name: KSERVE_MODEL_ARGS
         value: ""
       - name: HOME
         value: /home
@@ -3209,7 +3211,7 @@ spec:
           echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
         fi
         {{ end }}eval "exec vllm serve \
-          /mnt/models \
+          ${KSERVE_MODEL_ARGS:-/mnt/models} \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -3233,6 +3235,8 @@ spec:
       - --
       env:
       - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
+      - name: KSERVE_MODEL_ARGS
         value: ""
       - name: HOME
         value: /home
@@ -3589,7 +3593,7 @@ spec:
           echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
         fi
         {{ end }}eval "exec vllm serve \
-          /mnt/models \
+          ${KSERVE_MODEL_ARGS:-/mnt/models} \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -3613,6 +3617,8 @@ spec:
       - --
       env:
       - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
+      - name: KSERVE_MODEL_ARGS
         value: ""
       - name: HOME
         value: /home
@@ -4812,7 +4818,7 @@ spec:
             fi
           fi
 
-          eval "exec vllm serve /mnt/models \
+          eval "exec vllm serve ${KSERVE_MODEL_ARGS:-/mnt/models} \
             --served-model-name "{{ .Spec.Model.Name }}" \
             --port 8000 \
             --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -4829,6 +4835,8 @@ spec:
         - --
         env:
         - name: KSERVE_KV_TRANSFER_ARGS
+          value: ""
+        - name: KSERVE_MODEL_ARGS
           value: ""
         - name: HOME
           value: /home
@@ -5130,7 +5138,7 @@ spec:
             echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
           fi
           {{ end }}eval "exec vllm serve \
-            /mnt/models \
+            ${KSERVE_MODEL_ARGS:-/mnt/models} \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
             --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -5154,6 +5162,8 @@ spec:
         - --
         env:
         - name: KSERVE_KV_TRANSFER_ARGS
+          value: ""
+        - name: KSERVE_MODEL_ARGS
           value: ""
         - name: HOME
           value: /home
@@ -5445,7 +5455,7 @@ spec:
             echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
           fi
           {{ end }}eval "exec vllm serve \
-            /mnt/models \
+            ${KSERVE_MODEL_ARGS:-/mnt/models} \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
             --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -5469,6 +5479,8 @@ spec:
         - --
         env:
         - name: KSERVE_KV_TRANSFER_ARGS
+          value: ""
+        - name: KSERVE_MODEL_ARGS
           value: ""
         - name: HOME
           value: /home
@@ -7096,7 +7108,7 @@ spec:
           fi
         fi
 
-        eval "exec vllm serve /mnt/models \
+        eval "exec vllm serve ${KSERVE_MODEL_ARGS:-/mnt/models} \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -7113,6 +7125,8 @@ spec:
       - --
       env:
       - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
+      - name: KSERVE_MODEL_ARGS
         value: ""
       - name: HOME
         value: /home
@@ -7513,7 +7527,7 @@ spec:
           echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
         fi
         {{ end }}eval "exec vllm serve \
-          /mnt/models \
+          ${KSERVE_MODEL_ARGS:-/mnt/models} \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -7537,6 +7551,8 @@ spec:
       - --
       env:
       - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
+      - name: KSERVE_MODEL_ARGS
         value: ""
       - name: HOME
         value: /home
@@ -7801,7 +7817,7 @@ spec:
         fi
 
         eval "exec vllm serve \
-          /mnt/models \
+          ${KSERVE_MODEL_ARGS:-/mnt/models} \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -7825,6 +7841,8 @@ spec:
       - --
       env:
       - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
+      - name: KSERVE_MODEL_ARGS
         value: ""
       - name: HOME
         value: /home

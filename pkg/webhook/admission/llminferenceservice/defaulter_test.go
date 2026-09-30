@@ -491,3 +491,46 @@ func TestDefault_V1Alpha1Object_Disabled_CleansStaleMetadata(t *testing.T) {
 	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
 	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelLoRAAnnotationKey)
 }
+
+func TestSetLocalModelLabel_ModelExpress(t *testing.T) {
+	cache := func(name, uri string) v1alpha1.LocalModelCache {
+		return v1alpha1.LocalModelCache{
+			ObjectMeta: metav1.ObjectMeta{Name: name},
+			Spec: v1alpha1.LocalModelCacheSpec{
+				SourceModelUri: uri,
+				ModelSize:      resource.MustParse("1Gi"),
+				NodeGroups:     []string{"gpu1"},
+			},
+		}
+	}
+	models := &v1alpha1.LocalModelCacheList{Items: []v1alpha1.LocalModelCache{
+		cache("base-cache", "s3://mybucket/base"),
+		cache("adapter-cache", "hf://org/adapter"),
+	}}
+
+	t.Run("native mode skips the base cache and keeps adapter caches", func(t *testing.T) {
+		llmSvc := newLLMSvcWithLoRA("s3://mybucket/base", newLoRAAdapter("hf://org/adapter"))
+		llmSvc.Annotations = map[string]string{
+			constants.ModelExpressModeAnnotationKey:    "native",
+			constants.LocalModelSourceUriAnnotationKey: "s3://mybucket/base",
+			constants.LocalModelPVCNameAnnotationKey:   "base-cache-gpu1",
+		}
+		llmSvc.Labels = map[string]string{constants.LocalModelLabel: "base-cache"}
+
+		SetLocalModelLabel(llmSvc, models, nil)
+
+		assert.NotContains(t, llmSvc.Labels, constants.LocalModelLabel)
+		assert.NotContains(t, llmSvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
+		assert.NotContains(t, llmSvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
+		assert.Equal(t, "adapter-cache", parseLoRAAnnotation(t, llmSvc)[testLoRAAdapterName].Cache)
+	})
+
+	t.Run("layered mode keeps the base cache", func(t *testing.T) {
+		llmSvc := newLLMSvc("s3://mybucket/base")
+		llmSvc.Annotations = map[string]string{constants.ModelExpressModeAnnotationKey: "layered"}
+
+		SetLocalModelLabel(llmSvc, models, nil)
+
+		assert.Equal(t, "base-cache", llmSvc.Labels[constants.LocalModelLabel])
+	})
+}
