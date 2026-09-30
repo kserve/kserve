@@ -345,6 +345,15 @@ jobs:
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "llminferenceservice and (conversion or llmisvc_serial) and cluster_cpu" 1 "envoy-gateway"
 
+      - name: Run ModelExpress LLMInferenceService E2E tests
+        if: always() && steps.llmisvc-e2e-tests.conclusion != 'cancelled'
+        timeout-minutes: 45
+        env:
+          OPT_125M_MODEL_URI: "s3://example-models/facebook/opt-125m"
+          PYTEST_ARGS: "-o junit_logging=log"
+        run: |
+          ./test/scripts/gh-actions/run-e2e-tests.sh "llmisvc_modelexpress and cluster_cpu" 1 "envoy-gateway"
+
       - name: Check system status
         if: always()
         run: |
