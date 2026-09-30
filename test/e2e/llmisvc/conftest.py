@@ -45,6 +45,7 @@ _LLMISVC_CORE_EXCLUDED = {
     "test_llm_lora_regex_routing.py",
     "test_llm_inference_service_config_deletion.py",
     "test_llm_canary_lifecycle.py",
+    "test_llm_modelexpress.py",
 }
 
 
