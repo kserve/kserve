@@ -314,4 +314,4 @@ kubectl apply -k docs/samples/llmisvc/e2e-gpt-oss/ -n kserve-lab
 - **GPU resource**: Inference YAMLs use `nvidia.com/gpu`. Replace with your GPU resource name if different (e.g. MIG `nvidia.com/mig-3g.40gb`).
 - **Storage class**: If your cluster does not have `local-path`, change `storageClassName` in the PVC or create a matching PV.
 
-For more on llm-d and monitoring, see [llm-d Observability and Monitoring](https://github.com/llm-d/llm-d/blob/main/docs/monitoring/README.md).
+For more on llm-d and monitoring, see [llm-d Observability and Monitoring](https://github.com/llm-d/llm-d/blob/main/docs/operations/observability/README.md).
