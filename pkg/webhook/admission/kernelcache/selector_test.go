@@ -58,7 +58,7 @@ func TestSelectKernelCacheWorkloadMatch(t *testing.T) {
 	node.Status.CacheStatus[compatibleCache.Namespace+"/"+compatibleCache.Name] = kernelCacheNodeInfo(compatibleCache, v1alpha1.KernelCacheNodePreparationStateReady)
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &compatibleCache, &workloadCache).Build()}
 
-	selection, found, err := mutator.findKernelCacheSelection(context.Background(), pod)
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, workloadCache.Name, selection.cache.Name)
@@ -68,7 +68,7 @@ func TestSelectKernelCacheSkipsPodWithoutModelSource(t *testing.T) {
 	pod := selectionPod("registry.example/vllm@sha256:" + strings.Repeat("b", 64))
 	mutator := &PodMutator{Client: fake.NewClientBuilder().Build()}
 
-	selection, found, err := mutator.findKernelCacheSelection(context.Background(), pod)
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.False(t, found)
 	require.Nil(t, selection)
@@ -231,7 +231,7 @@ func TestSelectKernelCacheRequiresExactCompatibility(t *testing.T) {
 			node := kernelCacheNode("node-a", candidate, v1alpha1.KernelCacheNodePreparationStateReady)
 			mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &candidate).Build()}
 
-			selection, found, err := mutator.findKernelCacheSelection(context.Background(), pod)
+			selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 			require.NoError(t, err)
 			require.False(t, found)
 			require.Nil(t, selection)
@@ -257,7 +257,7 @@ func TestSelectKernelCacheUsesCompatibilityMatchAcrossWorkloads(t *testing.T) {
 	node := kernelCacheNode("node-a", candidate, v1alpha1.KernelCacheNodePreparationStateReady)
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &candidate).Build()}
 
-	selection, found, err := mutator.findKernelCacheSelection(context.Background(), pod)
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, candidate.Name, selection.cache.Name)
@@ -277,7 +277,7 @@ func TestSelectKernelCacheIgnoresUnreadyNode(t *testing.T) {
 	node := kernelCacheNode("node-a", cache, v1alpha1.KernelCacheNodePreparationStatePending)
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &cache).Build()}
 
-	selection, found, err := mutator.findKernelCacheSelection(context.Background(), pod)
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.False(t, found)
 	require.Nil(t, selection)
@@ -296,7 +296,7 @@ func TestSelectKernelCacheUsesCompatibilityForVersionTag(t *testing.T) {
 	node := kernelCacheNode("node-a", cache, v1alpha1.KernelCacheNodePreparationStateReady)
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &cache).Build()}
 
-	selection, found, err := mutator.findKernelCacheSelection(context.Background(), pod)
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, cache.Name, selection.cache.Name)

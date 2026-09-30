@@ -77,10 +77,6 @@ func (m *PodMutator) injectKernelCacheArtifact(
 	return true, nil
 }
 
-func (m *PodMutator) findKernelCacheSelection(ctx context.Context, pod *corev1.Pod) (*kernelCacheSelection, bool, error) {
-	return m.findKernelCacheSelectionWithConfig(ctx, pod, nil)
-}
-
 func (m *PodMutator) findKernelCacheSelectionWithConfig(
 	ctx context.Context,
 	pod *corev1.Pod,

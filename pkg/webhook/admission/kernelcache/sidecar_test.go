@@ -375,7 +375,7 @@ func TestTerminalCaptureSkipsSidecarWithReadyCompatibilityCache(t *testing.T) {
 		Status: v1alpha1.KernelCacheCaptureStatus{Phase: v1alpha1.KernelCacheCapturePhaseComplete},
 	}
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &cache, capture).Build()}
-	selection, found, err := mutator.findKernelCacheSelection(context.Background(), pod)
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, kernelCacheMatchCompatibility, selection.matchType)
@@ -407,7 +407,7 @@ func TestTerminalCaptureSkipsSidecarWithReadyWorkloadCache(t *testing.T) {
 		Status: v1alpha1.KernelCacheCaptureStatus{Phase: v1alpha1.KernelCacheCapturePhaseComplete},
 	}
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &cache, capture).Build()}
-	selection, found, err := mutator.findKernelCacheSelection(context.Background(), pod)
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, kernelCacheMatchWorkload, selection.matchType)

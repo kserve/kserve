@@ -18,6 +18,7 @@ package reconcilers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -59,7 +60,7 @@ func (r *KernelCacheReconciler) reconcileArtifactVerification(
 			Message: err.Error(),
 		})
 		if statusErr != nil {
-			return false, statusErr
+			return false, errors.Join(statusErr, err)
 		}
 		return false, err
 	}
@@ -78,7 +79,7 @@ func (r *KernelCacheReconciler) reconcileArtifactVerification(
 				Message: registryAccessErr.Error(),
 			})
 			if statusErr != nil {
-				return false, statusErr
+				return false, errors.Join(statusErr, registryAccessErr)
 			}
 			return false, registryAccessErr
 		}
@@ -95,7 +96,7 @@ func (r *KernelCacheReconciler) reconcileArtifactVerification(
 			Message: err.Error(),
 		})
 		if statusErr != nil {
-			return false, statusErr
+			return false, errors.Join(statusErr, err)
 		}
 		return false, err
 	}

@@ -116,7 +116,7 @@ func compatibilityFootprintsMatch(requested, candidate v1alpha1.KernelCacheFootp
 }
 
 func kernelCacheVerificationAllowsUse(cache *v1alpha1.KernelCache, cfg *v1beta1.KernelCacheConfig) bool {
-	if cfg == nil || cfg.ArtifactSecurity.Mode == "" || cfg.ArtifactSecurity.Mode == "none" {
+	if cfg.ArtifactSecurity.Mode == "" || cfg.ArtifactSecurity.Mode == "none" {
 		return true
 	}
 	verification := cache.Status.Verification
