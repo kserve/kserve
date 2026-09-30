@@ -19,6 +19,8 @@ package reconcilers
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,13 +33,14 @@ import (
 	"github.com/kserve/kserve/pkg/kernelcache/nodegroup"
 )
 
-// KernelCacheReconciler prepares KernelCache artifacts on the selected nodes.
-// Capture and registry credential flows are integrated by later controllers.
+// KernelCacheReconciler prepares KernelCache artifacts on the selected nodes
+// and reconciles the shared prefetch authorization used by those artifacts.
 type KernelCacheReconciler struct {
 	client.Client
-	Reader   client.Reader
-	Log      logr.Logger
-	Recorder events.EventRecorder
+	Reader                     client.Reader
+	Log                        logr.Logger
+	Recorder                   events.EventRecorder
+	prefetchAuthorizationMutex sync.Mutex
 }
 
 const (
@@ -60,6 +63,17 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		if apierrors.IsNotFound(err) {
 			if err := r.reconcileCaptureKernelCache(ctx, req); err != nil {
 				return ctrl.Result{}, err
+			}
+			config, configErr := kernelcacheconfig.Load(ctx, r.Client)
+			if configErr != nil {
+				return ctrl.Result{}, configErr
+			}
+			cleanupReady, cleanupErr := r.cleanupPrefetchRoleBindingAfterKernelCacheDeletion(ctx, req.Namespace, config)
+			if cleanupErr != nil {
+				return ctrl.Result{}, cleanupErr
+			}
+			if !cleanupReady {
+				return ctrl.Result{RequeueAfter: time.Minute}, nil
 			}
 			return ctrl.Result{}, nil
 		}
@@ -115,8 +129,14 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err := r.checkNamespace(ctx, config.JobNamespace); err != nil {
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, len(readyNodes.Items), reasonStorageError, err.Error(), mountType)
 	}
-	if err := r.ensurePrefetchServiceAccount(ctx, config.JobNamespace); err != nil {
+	r.prefetchAuthorizationMutex.Lock()
+	prefetchAccessReady, err := r.reconcilePrefetchServiceAccountAccess(ctx, kernelCache, config)
+	r.prefetchAuthorizationMutex.Unlock()
+	if err != nil {
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, len(readyNodes.Items), reasonStorageError, err.Error(), mountType)
+	}
+	if !prefetchAccessReady {
+		return ctrl.Result{RequeueAfter: time.Minute}, nil
 	}
 	if err := r.ensureOCIPrefetchJobs(ctx, kernelCache, nodeGroup, readyNodes, config); err != nil {
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, len(readyNodes.Items), reasonStorageError, err.Error(), mountType)

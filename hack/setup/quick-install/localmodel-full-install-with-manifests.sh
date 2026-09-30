@@ -6769,7 +6769,9 @@ rules:
   - create
   - delete
   - get
+  - list
   - patch
+  - watch
 - apiGroups:
   - apps
   resourceNames:
@@ -6823,6 +6825,7 @@ rules:
   - delete
   - get
   - patch
+  - update
 - apiGroups:
   - serving.kserve.io
   resources:
