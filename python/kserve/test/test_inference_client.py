@@ -317,6 +317,44 @@ class TestInferenceRESTClient:
         assert res.id == request_id
 
     @pytest.mark.parametrize(
+        "rest_client, protocol",
+        [("v2", "v2")],
+        indirect=["rest_client"],
+    )
+    async def test_infer_binary_data_with_json_content_type_header(
+        self, rest_client, protocol
+    ):
+        # Model._http_predict passes {"Content-Type": "application/json"}; it must be
+        # replaced rather than sent alongside the binary content type.
+        request_id = "2ja0ls9j1309"
+        input_data = InferRequest(
+            model_name="TestModel",
+            request_id=request_id,
+            infer_inputs=[
+                InferInput(name="input-0", datatype="INT32", shape=[2, 2]),
+            ],
+        )
+        input_data.inputs[0].set_data_from_numpy(
+            np.array([[1, 2], [3, 4]], dtype=np.int32), binary_data=True
+        )
+        headers = {"Host": "test-server.com", "Content-Type": "application/json"}
+
+        res = await rest_client.infer(
+            "http://test-server/",
+            model_name="TestModel",
+            data=input_data,
+            headers=headers,
+            timeout=2,
+        )
+        assert res.outputs[0].data == [1, 2, 3, 4]
+        assert res.id == request_id
+        # The caller's headers are left untouched.
+        assert headers == {
+            "Host": "test-server.com",
+            "Content-Type": "application/json",
+        }
+
+    @pytest.mark.parametrize(
         "rest_client", ["v1", "v2", "v3"], indirect=["rest_client"]
     )
     async def test_infer_graph_endpoint(self, rest_client, httpx_mock):

@@ -492,7 +492,14 @@ class InferenceRESTClient:
         if isinstance(data, InferRequest):
             data, json_length = data.to_rest()
             if json_length:
-                headers = headers or {}
+                # Copy the caller's headers and drop any JSON Content-Type
+                # (e.g. "Content-Type" set by Model._http_predict), so that only
+                # the binary Content-Type below is sent.
+                headers = {
+                    k: v
+                    for k, v in (headers or {}).items()
+                    if k.lower() != "content-type"
+                }
                 headers[INFERENCE_CONTENT_LENGTH_HEADER] = str(json_length)
                 headers["content-type"] = "application/octet-stream"
         if isinstance(data, dict):
