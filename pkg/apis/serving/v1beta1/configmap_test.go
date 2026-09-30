@@ -136,6 +136,19 @@ func TestKernelCacheRegistryConfigRejectsIncompleteCAConfigMapRef(t *testing.T) 
 	}
 }
 
+func TestKernelCacheRegistryConfigRejectsInsecureWithCAConfigMapRef(t *testing.T) {
+	g := gomega.NewWithT(t)
+	config := KernelCacheRegistryConfig{
+		Insecure: true,
+		CAConfigMapRef: &KernelCacheConfigMapKeyRef{
+			Name: "registry-ca",
+			Key:  "ca.crt",
+		},
+	}
+
+	g.Expect(config.Validate()).To(gomega.MatchError("registry.insecure cannot be used with registry.caConfigMapRef"))
+}
+
 func TestNewKernelCacheConfigUsesServiceAccountTokenRegistry(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	configMap := &corev1.ConfigMap{Data: map[string]string{

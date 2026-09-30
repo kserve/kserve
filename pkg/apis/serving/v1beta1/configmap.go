@@ -294,6 +294,9 @@ func (c *KernelCacheRegistryConfig) Validate() error {
 	if c.CAConfigMapRef != nil && (c.CAConfigMapRef.Name == "" || c.CAConfigMapRef.Key == "") {
 		return errors.New("registry.caConfigMapRef requires name and key")
 	}
+	if c.Insecure && c.CAConfigMapRef != nil {
+		return errors.New("registry.insecure cannot be used with registry.caConfigMapRef")
+	}
 	if c.Insecure && c.Auth.Type == KernelCacheRegistryAuthTypeServiceAccountToken {
 		return errors.New("registry.insecure cannot be used with registry.auth.type serviceAccountToken")
 	}
