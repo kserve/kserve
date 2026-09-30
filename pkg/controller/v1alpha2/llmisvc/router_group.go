@@ -146,29 +146,14 @@ func (r *LLMISVCReconciler) resolveGroupMembers(
 
 // resolvedModelNames returns the deduplicated, sorted set of model names
 // served by a member. Prefers status.Addresses (which reflects baseRef merges)
-// over raw spec. Names are compared without the member's publisher prefix:
-// path-based addresses list both the plain and the publisher-qualified name,
-// model-routing addresses only the qualified one, so a member without path
-// URLs (AnnotationModelBasedRoutingOnly) would otherwise look like it serves
-// different models than its peers.
+// over raw spec. Names are compared as declared, without the publisher prefix,
+// so a member without path URLs (AnnotationModelBasedRoutingOnly) compares
+// equal to peers serving the same models.
 func resolvedModelNames(m *v1alpha2.LLMInferenceService) []string {
 	publisherPrefix := fullyQualifiedModelName(m.Namespace, "")
-	listed := map[string]bool{}
-	for _, addr := range m.Status.Addresses {
-		for _, model := range addr.Models {
-			listed[model.Name] = true
-		}
-	}
-
 	var names []string
-	for name := range listed {
-		// Skip the plain name when its qualified form is listed: trimming the
-		// qualified one already yields it, and a plain name may itself start
-		// with the publisher prefix.
-		if listed[publisherPrefix+name] {
-			continue
-		}
-		names = append(names, strings.TrimPrefix(name, publisherPrefix))
+	for _, addr := range m.Status.Addresses {
+		names = append(names, declaredModelNames(addr, publisherPrefix)...)
 	}
 
 	if len(names) > 0 {
@@ -186,6 +171,34 @@ func resolvedModelNames(m *v1alpha2.LLMInferenceService) []string {
 	}
 	slices.Sort(names)
 	return slices.Compact(names)
+}
+
+// declaredModelNames recovers the model names as declared in the spec from the
+// names an address lists. A model-routing address lists each model only by its
+// publisher-qualified name, so the prefix is trimmed once. A path-based address
+// lists each model under both names, so the declared ones are those whose
+// qualified form is listed alongside. Neither rule looks at the prefix inside a
+// declared name, which may itself start with it or equal another model's
+// qualified name.
+func declaredModelNames(addr v1alpha2.SourcedAddress, publisherPrefix string) []string {
+	names := make([]string, 0, len(addr.Models))
+	if addr.URL != nil && IsModelRoutingURL(addr.URL) {
+		for _, model := range addr.Models {
+			names = append(names, strings.TrimPrefix(model.Name, publisherPrefix))
+		}
+		return names
+	}
+
+	listed := make(map[string]bool, len(addr.Models))
+	for _, model := range addr.Models {
+		listed[model.Name] = true
+	}
+	for _, model := range addr.Models {
+		if listed[publisherPrefix+model.Name] {
+			names = append(names, model.Name)
+		}
+	}
+	return names
 }
 
 // resolveMemberBackendRef reads the member's backend from its status or spec.
