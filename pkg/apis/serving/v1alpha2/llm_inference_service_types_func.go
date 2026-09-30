@@ -180,6 +180,15 @@ func (s *LLMInferenceService) HasManagedDRA() bool {
 	return kservevalidation.HasManagedDRA(s.Annotations)
 }
 
+// ModelExpressMode returns the ModelExpress mode requested via annotation, or ""
+// when ModelExpress is not enabled.
+func (s *LLMInferenceService) ModelExpressMode() (kservevalidation.ModelExpressMode, error) {
+	if s == nil {
+		return "", nil
+	}
+	return kservevalidation.ModelExpressModeFromAnnotations(s.Annotations)
+}
+
 // DisaggregatedSetRequested reports whether this service asks for the DisaggregatedSet
 // workload backend via its spec.annotations. The controller calls it on the spec
 // merged with its presets, which is where the default comes from.

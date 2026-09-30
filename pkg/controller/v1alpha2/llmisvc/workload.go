@@ -65,6 +65,11 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		llmSvc.MarkMainWorkloadNotReady("Stopped", "Service is stopped")
 	}
 
+	if err := r.reconcileModelExpress(ctx, llmSvc, config); err != nil {
+		llmSvc.MarkMainWorkloadNotReady("ModelExpressNotReady", err.Error())
+		return fmt.Errorf("failed to reconcile ModelExpress: %w", err)
+	}
+
 	disaggregatedSetDecision := r.decideDisaggregatedSet(llmSvc, config)
 	r.markDisaggregatedSetDecision(ctx, llmSvc, disaggregatedSetDecision)
 	useDisaggregatedSet := useDisaggregatedSetWorkload(llmSvc, disaggregatedSetDecision)
