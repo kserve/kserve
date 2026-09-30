@@ -19,6 +19,8 @@ package llmisvc
 import (
 	"context"
 	"errors"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -928,6 +930,12 @@ func TestResolvedModelNamesAcrossAddressTypes(t *testing.T) {
 			adapters: []string{"publishers/ns/models/m"},
 			want:     []string{"m", "publishers/ns/models/m"},
 		},
+		{
+			name:     "adapter name with a repeated publisher prefix",
+			model:    "m",
+			adapters: []string{"publishers/ns/models/publishers/ns/models/m"},
+			want:     []string{"m", "publishers/ns/models/publishers/ns/models/m"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -949,6 +957,18 @@ func TestResolvedModelNamesAcrossAddressTypes(t *testing.T) {
 			}
 			assert.Equal(t, tt.want, resolvedModelNames(member(pathURL, modelRoutingURL)), "path and model-routing URLs")
 			assert.Equal(t, tt.want, resolvedModelNames(member(modelRoutingURL)), "model-routing URL only")
+
+			// Model declarations supplied by presets need not be in the stored spec.
+			pathMember := member(pathURL)
+			pathMember.Spec.Model.Name = ptr.To("unresolved-model")
+			pathMember.Spec.Model.LoRA = nil
+			assert.Equal(t, tt.want, resolvedModelNames(pathMember), "path URL only")
+			slices.Reverse(pathMember.Status.Addresses[0].Models)
+			assert.Equal(t, tt.want, resolvedModelNames(pathMember), "reversed address models")
+			slices.SortFunc(pathMember.Status.Addresses[0].Models, func(a, b v1alpha2.ModelSourcedAddressStatus) int {
+				return strings.Compare(a.Name, b.Name)
+			})
+			assert.Equal(t, tt.want, resolvedModelNames(pathMember), "sorted address models")
 		})
 	}
 }
@@ -1005,6 +1025,18 @@ func TestResolvedModelNamesGroupPeers(t *testing.T) {
 			a:     member{model: "m", adapters: []string{"publishers/ns/models/m"}, urls: []*apis.URL{pathURL, modelRoutingURL}},
 			b:     member{model: "m", adapters: []string{"publishers/ns/models/m"}, urls: []*apis.URL{modelRoutingURL}},
 			peers: true,
+		},
+		{
+			name:  "same base and repeatedly prefixed adapter, one member with the model-routing URL only",
+			a:     member{model: "m", adapters: []string{"publishers/ns/models/publishers/ns/models/m"}, urls: []*apis.URL{pathURL, modelRoutingURL}},
+			b:     member{model: "m", adapters: []string{"publishers/ns/models/publishers/ns/models/m"}, urls: []*apis.URL{modelRoutingURL}},
+			peers: true,
+		},
+		{
+			name:  "peer with an additional adapter is not a peer",
+			a:     member{model: "m", adapters: []string{"publishers/ns/models/publishers/ns/models/m"}, urls: []*apis.URL{pathURL, modelRoutingURL}},
+			b:     member{model: "m", adapters: []string{"publishers/ns/models/m", "publishers/ns/models/publishers/ns/models/m"}, urls: []*apis.URL{modelRoutingURL}},
+			peers: false,
 		},
 		{
 			name:  "peer serving only the adapter's name is not a peer",

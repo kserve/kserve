@@ -176,10 +176,9 @@ func resolvedModelNames(m *v1alpha2.LLMInferenceService) []string {
 // declaredModelNames recovers the model names as declared in the spec from the
 // names an address lists. A model-routing address lists each model only by its
 // publisher-qualified name, so the prefix is trimmed once. A path-based address
-// lists each model under both names, so the declared ones are those whose
-// qualified form is listed alongside. Neither rule looks at the prefix inside a
-// declared name, which may itself start with it or equal another model's
-// qualified name.
+// lists each model under both names. Count occurrences because a qualified
+// alias may also be another model's declared name. Consume shorter names first,
+// pairing each with one qualified occurrence, independently of list order.
 func declaredModelNames(addr v1alpha2.SourcedAddress, publisherPrefix string) []string {
 	names := make([]string, 0, len(addr.Models))
 	if addr.URL != nil && IsModelRoutingURL(addr.URL) {
@@ -189,13 +188,23 @@ func declaredModelNames(addr v1alpha2.SourcedAddress, publisherPrefix string) []
 		return names
 	}
 
-	listed := make(map[string]bool, len(addr.Models))
+	counts := make(map[string]int, len(addr.Models))
+	var candidates []string
 	for _, model := range addr.Models {
-		listed[model.Name] = true
+		if counts[model.Name] == 0 {
+			candidates = append(candidates, model.Name)
+		}
+		counts[model.Name]++
 	}
-	for _, model := range addr.Models {
-		if listed[publisherPrefix+model.Name] {
-			names = append(names, model.Name)
+	slices.SortFunc(candidates, func(a, b string) int {
+		return cmp.Compare(len(a), len(b))
+	})
+	for _, declared := range candidates {
+		qualified := publisherPrefix + declared
+		for counts[declared] > 0 && counts[qualified] > 0 {
+			names = append(names, declared)
+			counts[declared]--
+			counts[qualified]--
 		}
 	}
 	return names
