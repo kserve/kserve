@@ -26,6 +26,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
 	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
 )
 
@@ -61,6 +62,9 @@ func ApplyCaptureRegistry(pod *corev1.PodSpec, container *corev1.Container, cfg 
 	default:
 		return fmt.Errorf("unsupported registry.auth.type %q", cfg.Auth.Type)
 	}
+	if cfg.Insecure {
+		env = append(env, corev1.EnvVar{Name: kernelcacheutil.RegistryInsecureEnv, Value: "true"})
+	}
 	if ref := cfg.CAConfigMapRef; ref != nil {
 		if ref.Name == "" || ref.Key == "" {
 			return errors.New("registry.caConfigMapRef requires name and key")
@@ -68,7 +72,12 @@ func ApplyCaptureRegistry(pod *corev1.PodSpec, container *corev1.Container, cfg 
 		sources = append(sources, corev1.VolumeProjection{ConfigMap: &corev1.ConfigMapProjection{LocalObjectReference: corev1.LocalObjectReference{Name: ref.Name}, Optional: ptr.To(true), Items: []corev1.KeyToPath{{Key: ref.Key, Path: "ca.crt"}}}})
 		env = append(env, corev1.EnvVar{Name: "MCV_REGISTRY_CA_FILE", Value: registryPath + "/ca.crt"})
 	}
+	envToAdd, err := registryEnvToAdd(container, env)
+	if err != nil {
+		return err
+	}
 	if len(sources) == 0 {
+		container.Env = append(container.Env, envToAdd...)
 		return nil
 	}
 	volume := corev1.Volume{Name: registryVolume, VolumeSource: corev1.VolumeSource{Projected: &corev1.ProjectedVolumeSource{Sources: sources}}}
@@ -94,23 +103,6 @@ func ApplyCaptureRegistry(pod *corev1.PodSpec, container *corev1.Container, cfg 
 		volumeMountExists = true
 	}
 
-	envToAdd := make([]corev1.EnvVar, 0, len(env))
-	for _, desired := range env {
-		found := false
-		for _, existing := range container.Env {
-			if existing.Name != desired.Name {
-				continue
-			}
-			if !reflect.DeepEqual(existing, desired) {
-				return fmt.Errorf("conflicting environment variable %q", desired.Name)
-			}
-			found = true
-		}
-		if !found {
-			envToAdd = append(envToAdd, desired)
-		}
-	}
-
 	if !volumeExists {
 		pod.Volumes = append(pod.Volumes, volume)
 	}
@@ -119,4 +111,24 @@ func ApplyCaptureRegistry(pod *corev1.PodSpec, container *corev1.Container, cfg 
 	}
 	container.Env = append(container.Env, envToAdd...)
 	return nil
+}
+
+func registryEnvToAdd(container *corev1.Container, env []corev1.EnvVar) ([]corev1.EnvVar, error) {
+	envToAdd := make([]corev1.EnvVar, 0, len(env))
+	for _, desired := range env {
+		found := false
+		for _, existing := range container.Env {
+			if existing.Name != desired.Name {
+				continue
+			}
+			if !reflect.DeepEqual(existing, desired) {
+				return nil, fmt.Errorf("conflicting environment variable %q", desired.Name)
+			}
+			found = true
+		}
+		if !found {
+			envToAdd = append(envToAdd, desired)
+		}
+	}
+	return envToAdd, nil
 }

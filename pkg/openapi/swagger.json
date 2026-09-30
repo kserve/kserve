@@ -4765,6 +4765,10 @@
         "endpoint": {
           "description": "Endpoint is the OCI registry host and optional port.",
           "type": "string"
+        },
+        "insecure": {
+          "description": "Insecure allows MCV to use plain HTTP for registry operations. The default is false.",
+          "type": "boolean"
         }
       }
     },

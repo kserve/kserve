@@ -104,6 +104,7 @@ func TestNewKernelCacheConfigDefaults(t *testing.T) {
 		g.Expect(config.MCVCaptureReadinessTimeoutSeconds).To(gomega.Equal(DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds))
 		g.Expect(config.AbandonedCapturePolicy).To(gomega.Equal(DefaultKernelCacheAbandonedCapturePolicy))
 		g.Expect(config.Registry.Endpoint).To(gomega.BeEmpty())
+		g.Expect(config.Registry.Insecure).To(gomega.BeFalse())
 		g.Expect(config.Registry.CAConfigMapRef).To(gomega.BeNil())
 		g.Expect(config.Registry.Auth.Type).To(gomega.Equal(KernelCacheRegistryAuthTypeNone))
 		g.Expect(config.Registry.Auth.TokenTTLSeconds).To(gomega.Equal(int64(0)))
@@ -141,6 +142,7 @@ func TestNewKernelCacheConfigUsesServiceAccountTokenRegistry(t *testing.T) {
 		KernelCacheConfigName: `{
 			"registry": {
 				"endpoint": "registry.example:5000",
+				"insecure": true,
 				"caConfigMapRef": {"name": "custom-ca", "key": "bundle.pem"},
 				"auth": {
 					"type": "serviceAccountToken",
@@ -154,6 +156,7 @@ func TestNewKernelCacheConfigUsesServiceAccountTokenRegistry(t *testing.T) {
 	config, err := NewKernelCacheConfig(configMap)
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 	g.Expect(config.Registry.Endpoint).To(gomega.Equal("registry.example:5000"))
+	g.Expect(config.Registry.Insecure).To(gomega.BeTrue())
 	g.Expect(config.Registry.CAConfigMapRef).To(gomega.Equal(&KernelCacheConfigMapKeyRef{
 		Name: "custom-ca",
 		Key:  "bundle.pem",
