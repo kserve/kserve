@@ -46,6 +46,13 @@ JSON_HEADERS = [
 ]
 
 
+def _media_type(content_type: str) -> str:
+    """Return the media type of a Content-Type header value, without parameters
+    such as ``charset`` and lowercased, e.g. ``application/json; charset=utf-8``
+    becomes ``application/json``."""
+    return content_type.split(";", 1)[0].strip().lower()
+
+
 class DataPlane:
     """KServe DataPlane"""
 
@@ -351,7 +358,7 @@ class DataPlane:
                 body = self.get_binary_cloudevent(body, headers)
             elif (
                 "content-type" in headers
-                and headers["content-type"] not in JSON_HEADERS
+                and _media_type(headers["content-type"]) not in JSON_HEADERS
             ):
                 return body, attributes
         if type(body) is bytes:
@@ -423,7 +430,10 @@ class DataPlane:
             if has_binary_headers(headers):
                 is_cloudevent = True
                 is_binary_cloudevent = True
-            if headers.get("content-type", "") == "application/cloudevents+json":
+            if (
+                _media_type(headers.get("content-type", ""))
+                == "application/cloudevents+json"
+            ):
                 is_cloudevent = True
         if is_cloudevent:
             response_headers, response = create_response_cloudevent(

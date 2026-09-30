@@ -197,6 +197,43 @@ class TestDataPlaneCloudEvent:
         assert body["type"] == "io.kserve.inference.response"
         assert body["time"] > "2021-01-28T21:04:43.144141+00:00"
 
+    async def test_infer_ce_structured_with_charset(
+        self, dataplane_with_ce_model: DataPlane
+    ):
+        event: CloudEvent = dummy_cloud_event({"instances": [[1, 2]]})
+        headers, body = to_structured(event)
+        headers["content-type"] = "application/cloudevents+json; charset=utf-8"
+        infer_request, req_attributes = dataplane_with_ce_model.decode(body, headers)
+        resp, response_headers = await dataplane_with_ce_model.infer(
+            self.MODEL_NAME, infer_request, headers
+        )
+        resp, res_headers = dataplane_with_ce_model.encode(
+            self.MODEL_NAME, resp, headers, req_attributes
+        )
+        response_headers.update(res_headers)
+        body = json.loads(resp)
+
+        assert response_headers["content-type"] == "application/cloudevents+json"
+        assert body["data"] == {"predictions": [[1, 2]]}
+        assert body["specversion"] == "1.0"
+
+    @pytest.mark.parametrize(
+        "content_type",
+        [
+            "application/json; charset=utf-8",
+            "application/json;charset=UTF-8",
+            "Application/JSON",
+        ],
+    )
+    async def test_decode_json_content_type_with_parameters(
+        self, dataplane_with_ce_model: DataPlane, content_type: str
+    ):
+        body = b'{"instances":[[1,2]]}'
+        infer_request, _ = dataplane_with_ce_model.decode(
+            body, {"content-type": content_type}
+        )
+        assert infer_request == {"instances": [[1, 2]]}
+
     async def test_infer_custom_ce_attributes(self, dataplane_with_ce_model):
         with mock.patch.dict(
             os.environ,
