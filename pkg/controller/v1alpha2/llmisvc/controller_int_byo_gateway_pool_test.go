@@ -74,7 +74,9 @@ var _ = Describe("LLMInferenceService Controller", func() {
 
 			// RouterReady also aggregates the scheduler workload - mark its
 			// deployment ready so the assertions below isolate pool readiness.
-			ensureSchedulerDeploymentReady(ctx, envTest.Client, llmSvc)
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(ensureSchedulerDeploymentReady(ctx, envTest.Client, llmSvc)).To(Succeed())
+			}).WithContext(ctx).Should(Succeed())
 
 			// Simulate the external gateway controller accepting the pool from the
 			// referenced gateway - this is what happens when an externally-managed
