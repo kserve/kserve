@@ -821,9 +821,10 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 		return nil
 	}
 
-	// Resolve gateway identities once for pool parent matching. resolvedGWs already
-	// unions route-derived gateways with spec.router.gateway.refs, so this scope is
-	// populated even in BYO-gateway deployments that have no managed HTTPRoute.
+	// Resolve gateway identities once for pool parent matching. resolvedGWs comes from
+	// the HTTPRoute parentRefs when a route exists, or from spec.router.gateway.refs when
+	// none does, so this scope is populated even in BYO-gateway deployments that have no
+	// managed HTTPRoute.
 	gatewayKeys := resolvedGatewayKeys(resolvedGWs)
 
 	// For referenced pools (external), only check that pool
