@@ -5651,9 +5651,10 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+                maxItems: 8
                 x-kubernetes-validations:
                 - message: imagePullSecrets.name must be non-empty
-                  rule: self.all(s, size(s.name) > 0)
+                  rule: self.all(s, s.name != '')
               modelSize:
                 anyOf:
                 - type: integer
@@ -5811,9 +5812,10 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+                maxItems: 8
                 x-kubernetes-validations:
                 - message: imagePullSecrets.name must be non-empty
-                  rule: self.all(s, size(s.name) > 0)
+                  rule: self.all(s, s.name != '')
               modelSize:
                 anyOf:
                 - type: integer
@@ -6666,6 +6668,7 @@ spec:
           spec:
             properties:
               localModels:
+                maxItems: 256
                 items:
                   properties:
                     imagePullSecrets:
@@ -6680,9 +6683,10 @@ spec:
                       x-kubernetes-list-map-keys:
                       - name
                       x-kubernetes-list-type: map
+                      maxItems: 8
                       x-kubernetes-validations:
                       - message: imagePullSecrets.name must be non-empty
-                        rule: self.all(s, size(s.name) > 0)
+                        rule: self.all(s, s.name != '')
                     modelName:
                       type: string
                     namespace:
