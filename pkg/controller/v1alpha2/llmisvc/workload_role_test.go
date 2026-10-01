@@ -38,17 +38,38 @@ import (
 func TestNonDisaggregatedRole(t *testing.T) {
 	tests := []struct {
 		name        string
+		version     string
+		noRouter    bool
 		currentRole string
 		want        string
+		wantErr     bool
 	}{
-		{name: "new workload gets prefill-decode", currentRole: "", want: constants.LLMDRolePrefillDecode},
-		{name: "existing workload labelled both keeps both", currentRole: constants.LLMDRoleBoth, want: constants.LLMDRoleBoth},
-		{name: "existing workload labelled prefill-decode keeps prefill-decode", currentRole: constants.LLMDRolePrefillDecode, want: constants.LLMDRolePrefillDecode},
+		{name: "v0.11.0 gets prefill-decode", version: "0.11.0", want: constants.LLMDRolePrefillDecode},
+		{name: "newer than v0.11.0 gets prefill-decode", version: "0.12.1", want: constants.LLMDRolePrefillDecode},
+		{name: "v0.10.0 keeps both", version: "0.10.0", want: constants.LLMDRoleBoth},
+		{name: "missing version keeps both", version: "", want: constants.LLMDRoleBoth},
+		{name: "no router keeps both", noRouter: true, want: constants.LLMDRoleBoth},
+		{name: "invalid version is an error", version: "latest", wantErr: true},
+		{name: "existing both workload keeps both with v0.11.0", version: "0.11.0", currentRole: constants.LLMDRoleBoth, want: constants.LLMDRoleBoth},
+		{name: "existing prefill-decode workload keeps prefill-decode without a router", noRouter: true, currentRole: constants.LLMDRolePrefillDecode, want: constants.LLMDRolePrefillDecode},
+		{name: "existing decode workload follows the version", version: "0.11.0", currentRole: constants.LLMDRoleDecode, want: constants.LLMDRolePrefillDecode},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
-			g.Expect(nonDisaggregatedRole(tt.currentRole)).To(Equal(tt.want))
+			svc := roleTestSingleNodeSvc()
+			if !tt.noRouter {
+				withRouterVersion(svc, tt.version)
+			}
+
+			role, err := nonDisaggregatedRole(svc, tt.currentRole)
+
+			if tt.wantErr {
+				g.Expect(err).To(HaveOccurred())
+				return
+			}
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(role).To(Equal(tt.want))
 		})
 	}
 }
@@ -74,6 +95,15 @@ func roleTestSingleNodeSvc() *v1alpha2.LLMInferenceService {
 	}
 }
 
+// withRouterVersion sets the scheduler's app.kubernetes.io/version annotation,
+// as the merged preset does. An empty version leaves the annotation out.
+func withRouterVersion(svc *v1alpha2.LLMInferenceService, version string) {
+	svc.Spec.Router = &v1alpha2.RouterSpec{Scheduler: &v1alpha2.SchedulerSpec{}}
+	if version != "" {
+		svc.Spec.Router.Scheduler.Annotations = map[string]string{"app.kubernetes.io/version": version}
+	}
+}
+
 func TestExpectedSingleNodeMainDeploymentRole(t *testing.T) {
 	existingWithRole := func(role string) *appsv1.Deployment {
 		labels := map[string]string{constants.LLMDRoleLabelKey: role}
@@ -88,19 +118,25 @@ func TestExpectedSingleNodeMainDeploymentRole(t *testing.T) {
 
 	tests := []struct {
 		name     string
+		version  string
 		existing []client.Object
 		prefill  bool
 		want     string
 	}{
-		{name: "new non-P/D deployment uses prefill-decode", want: constants.LLMDRolePrefillDecode},
-		{name: "existing non-P/D deployment labelled both keeps both", existing: []client.Object{existingWithRole(constants.LLMDRoleBoth)}, want: constants.LLMDRoleBoth},
-		{name: "P/D decode deployment uses decode", prefill: true, want: constants.LLMDRoleDecode},
+		{name: "non-P/D deployment with router v0.11.0 uses prefill-decode", version: "0.11.0", want: constants.LLMDRolePrefillDecode},
+		{name: "non-P/D deployment with router v0.10.0 uses both", version: "0.10.0", want: constants.LLMDRoleBoth},
+		{name: "existing both deployment keeps both after upgrade to router v0.11.0", version: "0.11.0", existing: []client.Object{existingWithRole(constants.LLMDRoleBoth)}, want: constants.LLMDRoleBoth},
+		{name: "existing prefill-decode deployment keeps prefill-decode when the scheduler is removed", existing: []client.Object{existingWithRole(constants.LLMDRolePrefillDecode)}, want: constants.LLMDRolePrefillDecode},
+		{name: "P/D decode deployment uses decode", version: "0.11.0", prefill: true, want: constants.LLMDRoleDecode},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewGomegaWithT(t)
 			r := &LLMISVCReconciler{Client: roleTestClient(t, tt.existing...)}
 			svc := roleTestSingleNodeSvc()
+			if tt.version != "" {
+				withRouterVersion(svc, tt.version)
+			}
 			if tt.prefill {
 				svc.Spec.Prefill = &v1alpha2.WorkloadSpec{}
 			}
@@ -129,13 +165,15 @@ func TestExpectedMainMultiNodeLWSRole(t *testing.T) {
 
 	tests := []struct {
 		name     string
+		version  string
 		existing []client.Object
 		prefill  bool
 		want     string
 	}{
-		{name: "new non-P/D LWS leader uses prefill-decode", want: constants.LLMDRolePrefillDecode},
-		{name: "existing non-P/D LWS leader labelled both keeps both", existing: []client.Object{existingBoth}, want: constants.LLMDRoleBoth},
-		{name: "P/D decode LWS leader uses decode", prefill: true, want: constants.LLMDRoleDecode},
+		{name: "non-P/D LWS leader with router v0.11.0 uses prefill-decode", version: "0.11.0", want: constants.LLMDRolePrefillDecode},
+		{name: "non-P/D LWS leader with router v0.10.0 uses both", version: "0.10.0", want: constants.LLMDRoleBoth},
+		{name: "existing both LWS leader keeps both after upgrade to router v0.11.0", version: "0.11.0", existing: []client.Object{existingBoth}, want: constants.LLMDRoleBoth},
+		{name: "P/D decode LWS leader uses decode", version: "0.11.0", prefill: true, want: constants.LLMDRoleDecode},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -143,6 +181,7 @@ func TestExpectedMainMultiNodeLWSRole(t *testing.T) {
 			r := &LLMISVCReconciler{Client: roleTestClient(t, tt.existing...), EventRecorder: record.NewFakeRecorder(10)}
 			config := &Config{CredentialConfig: &credentials.CredentialConfig{}}
 			llmSvc := svc.DeepCopy()
+			withRouterVersion(llmSvc, tt.version)
 			if tt.prefill {
 				llmSvc.Spec.Prefill = &v1alpha2.WorkloadSpec{}
 			}
