@@ -196,16 +196,16 @@ func injectKernelCacheMount(pod *corev1.Pod, kernelCache *v1alpha1.KernelCache, 
 		if containerIndex < 0 {
 			return fmt.Errorf("cache container %q was not found", cachePath.ContainerName)
 		}
-		containerPath, err := kernelcacheutil.ResolveContainerPath(&pod.Spec.Containers[containerIndex], cachePath.ContainerPath)
-		if err != nil {
-			return err
-		}
-		cachePath.ContainerPath = containerPath
 		ociPath, err := kernelcacheutil.ResolveOCIPath(cachePath.OCIPath)
 		if err != nil {
 			return err
 		}
 		cachePath.OCIPath = ociPath
+		containerPath, err := kernelcacheutil.ResolveContainerPath(&pod.Spec.Containers[containerIndex], cachePath.ContainerPath, cachePath.OCIPath)
+		if err != nil {
+			return err
+		}
+		cachePath.ContainerPath = containerPath
 		resolvedCachePaths[index] = cachePath
 		if err := validateCachePath(cachePath); err != nil {
 			return err

@@ -690,16 +690,16 @@ func (r *KernelCacheCaptureReconciler) completeCaptureStatus(ctx context.Context
 		}
 		cachePaths[index].ContainerName = containerName
 		container := findContainer(capturePod.Spec.Containers, containerName)
-		containerPath, err := kernelcacheutil.ResolveContainerPath(container, cachePaths[index].ContainerPath)
-		if err != nil {
-			return err
-		}
-		cachePaths[index].ContainerPath = containerPath
 		ociPath, err := kernelcacheutil.ResolveOCIPath(cachePaths[index].OCIPath)
 		if err != nil {
 			return err
 		}
 		cachePaths[index].OCIPath = ociPath
+		containerPath, err := kernelcacheutil.ResolveContainerPath(container, cachePaths[index].ContainerPath, cachePaths[index].OCIPath)
+		if err != nil {
+			return err
+		}
+		cachePaths[index].ContainerPath = containerPath
 	}
 	runtimeImage, err := runtimeImage(capturePod, cachePaths[0].ContainerName)
 	if err != nil {
