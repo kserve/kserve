@@ -14,7 +14,6 @@
           "description": "Environment variables used to control other aspects of the built-in adapter's behaviour (uncommon)",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvVar"
           }
         },
@@ -79,7 +78,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.ClusterServingRuntime"
           }
         },
@@ -130,7 +128,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.ClusterStorageContainer"
           }
         },
@@ -209,7 +206,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.InferenceGraph"
           },
           "x-kubernetes-list-type": "set"
@@ -252,15 +248,13 @@
           "description": "NodeSelector specifies the node selector for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "nodes": {
           "description": "Map of InferenceGraph router nodes Each node defines the router which can be different routing types",
           "type": "object",
           "additionalProperties": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.InferenceRouter"
           }
         },
@@ -293,7 +287,6 @@
           "description": "Toleration specifies the toleration for the InferenceGraph. https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Toleration"
           }
         }
@@ -307,15 +300,13 @@
           "description": "Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "conditions": {
           "description": "Conditions the latest available observations of a resource's current state.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/knative.Condition"
           },
           "x-kubernetes-patch-merge-key": "type",
@@ -352,7 +343,6 @@
           "description": "Steps defines destinations for the current router node",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.InferenceStep"
           }
         }
@@ -458,7 +448,6 @@
           "description": "CachePaths describes the cache directories represented in the artifact.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.KernelCachePath"
           },
           "x-kubernetes-list-type": "atomic"
@@ -515,7 +504,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.KernelCacheCapture"
           }
         },
@@ -567,7 +555,6 @@
           "description": "CachePaths overrides the cache paths passed to the capture sidecar.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.KernelCachePath"
           },
           "x-kubernetes-list-type": "atomic"
@@ -612,7 +599,6 @@
           "description": "Conditions report whether the capture is ready and why it is not ready.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Condition"
           },
           "x-kubernetes-list-map-keys": [
@@ -634,8 +620,7 @@
           "description": "RuntimeResult contains the raw key-value result reported by the capture sidecar.",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "signing": {
@@ -705,8 +690,7 @@
           "description": "Factors contains the normalized values used to calculate the footprints.",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "footprints": {
@@ -730,7 +714,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.KernelCache"
           }
         },
@@ -874,7 +857,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.KernelCacheNodeGroup"
           }
         },
@@ -899,15 +881,13 @@
           "description": "NodeSelector selects the nodes that belong to this group. A node is a member of the group only when it carries every listed label. At least one label is required.",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "tolerations": {
           "description": "Tolerations are applied to controller-managed workloads that run on the selected nodes (for example, node-local preparation jobs).",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Toleration"
           },
           "x-kubernetes-list-type": "atomic"
@@ -928,7 +908,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.KernelCacheNode"
           }
         },
@@ -950,7 +929,6 @@
           "description": "CacheStatus maps \"namespace/name\" to node-local cache status.",
           "type": "object",
           "additionalProperties": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.KernelCacheNodeCacheInfo"
           }
         },
@@ -1106,7 +1084,6 @@
           "description": "Conditions represent the latest availability observations.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Condition"
           },
           "x-kubernetes-list-map-keys": [
@@ -1146,7 +1123,6 @@
           "description": "Pods lists active consumers. Entries are keyed by PodUID.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.KernelCachePodUsage"
           },
           "x-kubernetes-list-map-keys": [
@@ -1265,7 +1241,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.LLMInferenceServiceConfig"
           }
         },
@@ -1293,7 +1268,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.LLMInferenceService"
           }
         },
@@ -1347,7 +1321,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.LocalModelCache"
           }
         },
@@ -1378,8 +1351,7 @@
           "description": "group of nodes to cache the model on. Todo: support more than 1 node groups",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "serviceAccountName": {
@@ -1436,7 +1408,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.LocalModelNamespaceCache"
           }
         },
@@ -1466,8 +1437,7 @@
           "description": "group of nodes to cache the model on. Selects the legacy node-local caching mode. Mutually exclusive with pvcRef.",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "pvcRef": {
@@ -1551,7 +1521,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.LocalModelNodeGroup"
           }
         },
@@ -1603,7 +1572,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.LocalModelNode"
           }
         },
@@ -1627,7 +1595,6 @@
           "description": "List of model source URI and their names",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.LocalModelInfo"
           }
         }
@@ -1645,8 +1612,7 @@
           "description": "Parameters to override the default storage credentials and config.",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         }
       }
@@ -1727,7 +1693,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.ServingRuntime"
           }
         },
@@ -1755,15 +1720,13 @@
           "description": "Annotations that will be add to the pod. More info: http://kubernetes.io/docs/user-guide/annotations",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "containers": {
           "description": "List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -1777,7 +1740,6 @@
           "description": "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.LocalObjectReference"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -1787,23 +1749,20 @@
           "description": "Labels that will be add to the pod. More info: http://kubernetes.io/docs/user-guide/labels",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "nodeSelector": {
           "description": "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "resourceClaims": {
           "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nDynamic Resource Allocation (DRA) is GA since Kubernetes 1.32 (beta, enabled by default, since 1.31). The cluster must support DRA for these claims to take effect on created Pods.\n\nEach entry may reference an existing ResourceClaim (resourceClaimName) or ResourceClaimTemplate (resourceClaimTemplateName) in the same namespace. KServe does not create these objects; they must exist before the Pod can be scheduled.\n\nNote: the resulting Pod's resourceClaims field is immutable after pod creation per Kubernetes semantics.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodResourceClaim"
           },
           "x-kubernetes-list-map-keys": [
@@ -1821,7 +1780,6 @@
           "description": "If specified, the pod's tolerations.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Toleration"
           }
         },
@@ -1829,7 +1787,6 @@
           "description": "List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Volume"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -1852,8 +1809,7 @@
           "description": "Annotations that will be add to the pod. More info: http://kubernetes.io/docs/user-guide/annotations",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "builtInAdapter": {
@@ -1864,7 +1820,6 @@
           "description": "List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -1894,7 +1849,6 @@
           "description": "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. For example, in the case of docker, only DockerConfig type secrets are honored. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.LocalObjectReference"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -1904,8 +1858,7 @@
           "description": "Labels that will be add to the pod. More info: http://kubernetes.io/docs/user-guide/labels",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "multiModel": {
@@ -1916,16 +1869,14 @@
           "description": "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "protocolVersions": {
           "description": "Supported protocol versions (i.e. v1 or v2 or grpc-v1 or grpc-v2)",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "replicas": {
@@ -1937,7 +1888,6 @@
           "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nDynamic Resource Allocation (DRA) is GA since Kubernetes 1.32 (beta, enabled by default, since 1.31). The cluster must support DRA for these claims to take effect on created Pods.\n\nEach entry may reference an existing ResourceClaim (resourceClaimName) or ResourceClaimTemplate (resourceClaimTemplateName) in the same namespace. KServe does not create these objects; they must exist before the Pod can be scheduled.\n\nNote: the resulting Pod's resourceClaims field is immutable after pod creation per Kubernetes semantics.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodResourceClaim"
           },
           "x-kubernetes-list-map-keys": [
@@ -1959,7 +1909,6 @@
           "description": "Model formats and version supported by this runtime",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.SupportedModelFormat"
           }
         },
@@ -1967,7 +1916,6 @@
           "description": "If specified, the pod's tolerations.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Toleration"
           }
         },
@@ -1975,7 +1923,6 @@
           "description": "List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Volume"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -2008,7 +1955,6 @@
           "description": "List of URI formats that this container supports",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.SupportedUriFormat"
           }
         },
@@ -2103,7 +2049,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha1.TrainedModel"
           },
           "x-kubernetes-list-type": "set"
@@ -2204,7 +2149,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha2.LLMInferenceServiceConfig"
           }
         },
@@ -2232,7 +2176,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1alpha2.LLMInferenceService"
           }
         },
@@ -2258,8 +2201,7 @@
           "description": "Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -2267,8 +2209,7 @@
           "description": "Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -2276,15 +2217,13 @@
           "description": "Inline custom parameter settings for explainer",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "env": {
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvVar"
           },
           "x-kubernetes-list-map-keys": [
@@ -2298,7 +2237,6 @@
           "description": "List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvFromSource"
           },
           "x-kubernetes-list-type": "atomic"
@@ -2328,7 +2266,6 @@
           "description": "List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerPort"
           },
           "x-kubernetes-list-map-keys": [
@@ -2347,7 +2284,6 @@
           "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerResizePolicy"
           },
           "x-kubernetes-list-type": "atomic"
@@ -2365,7 +2301,6 @@
           "description": "Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerRestartRule"
           },
           "x-kubernetes-list-type": "atomic"
@@ -2419,7 +2354,6 @@
           "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeDevice"
           },
           "x-kubernetes-list-map-keys": [
@@ -2433,7 +2367,6 @@
           "description": "Pod volumes to mount into the container's filesystem. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeMount"
           },
           "x-kubernetes-list-map-keys": [
@@ -2474,7 +2407,6 @@
           "description": "metrics is a list of metrics spec to be used for autoscaling",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1beta1.MetricsSpec"
           }
         }
@@ -2573,8 +2505,7 @@
           "description": "Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "autoScaling": {
@@ -2603,8 +2534,7 @@
           "description": "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "logger": {
@@ -2677,7 +2607,6 @@
           "description": "Traffic holds the configured traffic distribution for latest ready revision and previous rolled out revision.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/knative.dev.serving.pkg.apis.serving.v1.TrafficTarget"
           }
         },
@@ -2729,7 +2658,6 @@
           "description": "List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-list-map-keys": [
@@ -2755,8 +2683,20 @@
           "description": "List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EphemeralContainer"
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map",
+          "x-kubernetes-patch-merge-key": "name",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "evictionResponders": {
+          "description": "evictionResponders reference responders that react to Evictions based on EvictionRequests. Responders should observe and communicate through the Eviction Resource API to help with the graceful termination of a pod. The responders are selected sequentially, according to their specified priority.\n\nResponders should periodically report on an eviction progress by updating the .status.responders[].heartbeatTime field of the Eviction object. If this field is not updated within the heartbeat deadline defined by the Eviction API (currently 20 minutes), the eviction is passed over to the next responder with a lower priority. If there is no other responder, the last default imperative-eviction.k8s.io/evictor responder with a priority of 100 will evict the pod using the imperative Eviction API (pods/\u003cname\u003e/eviction subresource).\n\nThe maximum length of the responders list is 10. Responders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set). This field can only be set on creation and is immutable afterwards.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1.EvictionResponder"
           },
           "x-kubernetes-list-map-keys": [
             "name"
@@ -2769,7 +2709,6 @@
           "description": "HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.HostAlias"
           },
           "x-kubernetes-list-map-keys": [
@@ -2800,14 +2739,13 @@
           "type": "string"
         },
         "hostnameOverride": {
-          "description": "HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod. This field only specifies the pod's hostname and does not affect its DNS records. When this field is set to a non-empty string: - It takes precedence over the values set in `hostname` and `subdomain`. - The Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or set to false. - `hostNetwork` must be set to false.\n\nThis field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters. Requires the HostnameOverride feature gate to be enabled.",
+          "description": "HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod. This field only specifies the pod's hostname and does not affect its DNS records. When this field is set to a non-empty string: - It takes precedence over the values set in `hostname` and `subdomain`. - The Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or set to false. - `hostNetwork` must be set to false.\n\nThis field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters.",
           "type": "string"
         },
         "imagePullSecrets": {
           "description": "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.LocalObjectReference"
           },
           "x-kubernetes-list-map-keys": [
@@ -2821,7 +2759,6 @@
           "description": "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-list-map-keys": [
@@ -2839,8 +2776,7 @@
           "description": "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-map-type": "atomic"
         },
@@ -2856,7 +2792,7 @@
           }
         },
         "preemptionPolicy": {
-          "description": "PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.",
+          "description": "PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. When Priority Admission Controller is enabled, it prevents users from setting this field. The admission controller populates this field from PriorityClassName. Defaults to PreemptLowerPriority if unset.",
           "type": "string"
         },
         "priority": {
@@ -2872,7 +2808,6 @@
           "description": "If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodReadinessGate"
           },
           "x-kubernetes-list-type": "atomic"
@@ -2881,7 +2816,6 @@
           "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is a stable field but requires that the DynamicResourceAllocation feature gate is enabled.\n\nThis field is immutable.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodResourceClaim"
           },
           "x-kubernetes-list-map-keys": [
@@ -2911,7 +2845,6 @@
           "description": "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.\n\nSchedulingGates can only be set at pod creation time, and be removed only afterwards.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodSchedulingGate"
           },
           "x-kubernetes-list-map-keys": [
@@ -2958,7 +2891,6 @@
           "description": "If specified, the pod's tolerations.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Toleration"
           },
           "x-kubernetes-list-type": "atomic"
@@ -2967,7 +2899,6 @@
           "description": "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. All topologySpreadConstraints are ANDed.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.TopologySpreadConstraint"
           },
           "x-kubernetes-list-map-keys": [
@@ -2982,7 +2913,6 @@
           "description": "List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Volume"
           },
           "x-kubernetes-list-map-keys": [
@@ -3018,7 +2948,6 @@
           "description": "List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-list-map-keys": [
@@ -3044,8 +2973,20 @@
           "description": "List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EphemeralContainer"
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map",
+          "x-kubernetes-patch-merge-key": "name",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "evictionResponders": {
+          "description": "evictionResponders reference responders that react to Evictions based on EvictionRequests. Responders should observe and communicate through the Eviction Resource API to help with the graceful termination of a pod. The responders are selected sequentially, according to their specified priority.\n\nResponders should periodically report on an eviction progress by updating the .status.responders[].heartbeatTime field of the Eviction object. If this field is not updated within the heartbeat deadline defined by the Eviction API (currently 20 minutes), the eviction is passed over to the next responder with a lower priority. If there is no other responder, the last default imperative-eviction.k8s.io/evictor responder with a priority of 100 will evict the pod using the imperative Eviction API (pods/\u003cname\u003e/eviction subresource).\n\nThe maximum length of the responders list is 10. Responders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set). This field can only be set on creation and is immutable afterwards.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1.EvictionResponder"
           },
           "x-kubernetes-list-map-keys": [
             "name"
@@ -3058,7 +2999,6 @@
           "description": "HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.HostAlias"
           },
           "x-kubernetes-list-map-keys": [
@@ -3089,14 +3029,13 @@
           "type": "string"
         },
         "hostnameOverride": {
-          "description": "HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod. This field only specifies the pod's hostname and does not affect its DNS records. When this field is set to a non-empty string: - It takes precedence over the values set in `hostname` and `subdomain`. - The Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or set to false. - `hostNetwork` must be set to false.\n\nThis field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters. Requires the HostnameOverride feature gate to be enabled.",
+          "description": "HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod. This field only specifies the pod's hostname and does not affect its DNS records. When this field is set to a non-empty string: - It takes precedence over the values set in `hostname` and `subdomain`. - The Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or set to false. - `hostNetwork` must be set to false.\n\nThis field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters.",
           "type": "string"
         },
         "imagePullSecrets": {
           "description": "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.LocalObjectReference"
           },
           "x-kubernetes-list-map-keys": [
@@ -3110,7 +3049,6 @@
           "description": "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-list-map-keys": [
@@ -3128,8 +3066,7 @@
           "description": "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-map-type": "atomic"
         },
@@ -3145,7 +3082,7 @@
           }
         },
         "preemptionPolicy": {
-          "description": "PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.",
+          "description": "PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. When Priority Admission Controller is enabled, it prevents users from setting this field. The admission controller populates this field from PriorityClassName. Defaults to PreemptLowerPriority if unset.",
           "type": "string"
         },
         "priority": {
@@ -3161,7 +3098,6 @@
           "description": "If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodReadinessGate"
           },
           "x-kubernetes-list-type": "atomic"
@@ -3170,7 +3106,6 @@
           "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is a stable field but requires that the DynamicResourceAllocation feature gate is enabled.\n\nThis field is immutable.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodResourceClaim"
           },
           "x-kubernetes-list-map-keys": [
@@ -3200,7 +3135,6 @@
           "description": "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.\n\nSchedulingGates can only be set at pod creation time, and be removed only afterwards.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodSchedulingGate"
           },
           "x-kubernetes-list-map-keys": [
@@ -3247,7 +3181,6 @@
           "description": "If specified, the pod's tolerations.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Toleration"
           },
           "x-kubernetes-list-type": "atomic"
@@ -3256,7 +3189,6 @@
           "description": "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. All topologySpreadConstraints are ANDed.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.TopologySpreadConstraint"
           },
           "x-kubernetes-list-map-keys": [
@@ -3271,7 +3203,6 @@
           "description": "List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Volume"
           },
           "x-kubernetes-list-map-keys": [
@@ -3307,7 +3238,6 @@
           "description": "List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-list-map-keys": [
@@ -3333,8 +3263,20 @@
           "description": "List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EphemeralContainer"
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map",
+          "x-kubernetes-patch-merge-key": "name",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "evictionResponders": {
+          "description": "evictionResponders reference responders that react to Evictions based on EvictionRequests. Responders should observe and communicate through the Eviction Resource API to help with the graceful termination of a pod. The responders are selected sequentially, according to their specified priority.\n\nResponders should periodically report on an eviction progress by updating the .status.responders[].heartbeatTime field of the Eviction object. If this field is not updated within the heartbeat deadline defined by the Eviction API (currently 20 minutes), the eviction is passed over to the next responder with a lower priority. If there is no other responder, the last default imperative-eviction.k8s.io/evictor responder with a priority of 100 will evict the pod using the imperative Eviction API (pods/\u003cname\u003e/eviction subresource).\n\nThe maximum length of the responders list is 10. Responders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set). This field can only be set on creation and is immutable afterwards.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1.EvictionResponder"
           },
           "x-kubernetes-list-map-keys": [
             "name"
@@ -3347,7 +3289,6 @@
           "description": "HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.HostAlias"
           },
           "x-kubernetes-list-map-keys": [
@@ -3378,14 +3319,13 @@
           "type": "string"
         },
         "hostnameOverride": {
-          "description": "HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod. This field only specifies the pod's hostname and does not affect its DNS records. When this field is set to a non-empty string: - It takes precedence over the values set in `hostname` and `subdomain`. - The Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or set to false. - `hostNetwork` must be set to false.\n\nThis field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters. Requires the HostnameOverride feature gate to be enabled.",
+          "description": "HostnameOverride specifies an explicit override for the pod's hostname as perceived by the pod. This field only specifies the pod's hostname and does not affect its DNS records. When this field is set to a non-empty string: - It takes precedence over the values set in `hostname` and `subdomain`. - The Pod's hostname will be set to this value. - `setHostnameAsFQDN` must be nil or set to false. - `hostNetwork` must be set to false.\n\nThis field must be a valid DNS subdomain as defined in RFC 1123 and contain at most 64 characters.",
           "type": "string"
         },
         "imagePullSecrets": {
           "description": "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.LocalObjectReference"
           },
           "x-kubernetes-list-map-keys": [
@@ -3399,7 +3339,6 @@
           "description": "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-list-map-keys": [
@@ -3417,8 +3356,7 @@
           "description": "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-map-type": "atomic"
         },
@@ -3434,7 +3372,7 @@
           }
         },
         "preemptionPolicy": {
-          "description": "PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. Defaults to PreemptLowerPriority if unset.",
+          "description": "PreemptionPolicy is the Policy for preempting pods with lower priority. One of Never, PreemptLowerPriority. When Priority Admission Controller is enabled, it prevents users from setting this field. The admission controller populates this field from PriorityClassName. Defaults to PreemptLowerPriority if unset.",
           "type": "string"
         },
         "priority": {
@@ -3450,7 +3388,6 @@
           "description": "If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodReadinessGate"
           },
           "x-kubernetes-list-type": "atomic"
@@ -3459,7 +3396,6 @@
           "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is a stable field but requires that the DynamicResourceAllocation feature gate is enabled.\n\nThis field is immutable.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodResourceClaim"
           },
           "x-kubernetes-list-map-keys": [
@@ -3489,7 +3425,6 @@
           "description": "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.\n\nSchedulingGates can only be set at pod creation time, and be removed only afterwards.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodSchedulingGate"
           },
           "x-kubernetes-list-map-keys": [
@@ -3536,7 +3471,6 @@
           "description": "If specified, the pod's tolerations.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Toleration"
           },
           "x-kubernetes-list-type": "atomic"
@@ -3545,7 +3479,6 @@
           "description": "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. All topologySpreadConstraints are ANDed.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.TopologySpreadConstraint"
           },
           "x-kubernetes-list-map-keys": [
@@ -3560,7 +3493,6 @@
           "description": "List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Volume"
           },
           "x-kubernetes-list-map-keys": [
@@ -3620,8 +3552,7 @@
           "description": "Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -3629,8 +3560,7 @@
           "description": "Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -3638,15 +3568,13 @@
           "description": "Inline custom parameter settings for explainer",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "env": {
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvVar"
           },
           "x-kubernetes-list-map-keys": [
@@ -3660,7 +3588,6 @@
           "description": "List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvFromSource"
           },
           "x-kubernetes-list-type": "atomic"
@@ -3690,7 +3617,6 @@
           "description": "List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerPort"
           },
           "x-kubernetes-list-map-keys": [
@@ -3709,7 +3635,6 @@
           "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerResizePolicy"
           },
           "x-kubernetes-list-type": "atomic"
@@ -3727,7 +3652,6 @@
           "description": "Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerRestartRule"
           },
           "x-kubernetes-list-type": "atomic"
@@ -3776,7 +3700,6 @@
           "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeDevice"
           },
           "x-kubernetes-list-map-keys": [
@@ -3790,7 +3713,6 @@
           "description": "Pod volumes to mount into the container's filesystem. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeMount"
           },
           "x-kubernetes-list-map-keys": [
@@ -3823,8 +3745,7 @@
           "description": "Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "art": {
@@ -3857,7 +3778,6 @@
           "description": "List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -3883,9 +3803,21 @@
           "description": "List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EphemeralContainer"
           },
+          "x-kubernetes-patch-merge-key": "name",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "evictionResponders": {
+          "description": "EvictionResponders reference responders that react to Evictions based on EvictionRequests. Responders should observe and communicate through the Eviction Resource API to help with the graceful termination of a pod. The responders are selected sequentially, according to their specified priority.\n\nThe maximum length of the responders list is 10. Responders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set). This field can only be set on creation and is immutable afterwards.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1.EvictionResponder"
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map",
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
         },
@@ -3893,7 +3825,6 @@
           "description": "HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.HostAlias"
           },
           "x-kubernetes-patch-merge-key": "ip",
@@ -3927,7 +3858,6 @@
           "description": "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.LocalObjectReference"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -3937,7 +3867,6 @@
           "description": "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -3947,8 +3876,7 @@
           "description": "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "logger": {
@@ -3973,8 +3901,7 @@
           "description": "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-map-type": "atomic"
         },
@@ -4006,7 +3933,6 @@
           "description": "If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodReadinessGate"
           }
         },
@@ -4014,7 +3940,6 @@
           "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodResourceClaim"
           },
           "x-kubernetes-list-map-keys": [
@@ -4057,7 +3982,6 @@
           "description": "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.\n\nSchedulingGates can only be set at pod creation time, and be removed only afterwards.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodSchedulingGate"
           },
           "x-kubernetes-list-map-keys": [
@@ -4095,7 +4019,6 @@
           "description": "Spec for multiple storage uris.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1beta1.StorageUri"
           },
           "x-kubernetes-list-type": "atomic"
@@ -4118,7 +4041,6 @@
           "description": "If specified, the pod's tolerations.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Toleration"
           }
         },
@@ -4126,7 +4048,6 @@
           "description": "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. All topologySpreadConstraints are ANDed.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.TopologySpreadConstraint"
           },
           "x-kubernetes-list-map-keys": [
@@ -4141,7 +4062,6 @@
           "description": "List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Volume"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -4258,8 +4178,7 @@
           "description": "Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -4267,8 +4186,7 @@
           "description": "Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -4280,7 +4198,6 @@
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvVar"
           },
           "x-kubernetes-list-map-keys": [
@@ -4294,7 +4211,6 @@
           "description": "List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvFromSource"
           },
           "x-kubernetes-list-type": "atomic"
@@ -4324,7 +4240,6 @@
           "description": "List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerPort"
           },
           "x-kubernetes-list-map-keys": [
@@ -4347,7 +4262,6 @@
           "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerResizePolicy"
           },
           "x-kubernetes-list-type": "atomic"
@@ -4365,7 +4279,6 @@
           "description": "Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerRestartRule"
           },
           "x-kubernetes-list-type": "atomic"
@@ -4414,7 +4327,6 @@
           "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeDevice"
           },
           "x-kubernetes-list-map-keys": [
@@ -4428,7 +4340,6 @@
           "description": "Pod volumes to mount into the container's filesystem. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeMount"
           },
           "x-kubernetes-list-map-keys": [
@@ -4488,7 +4399,6 @@
         "items": {
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1beta1.InferenceService"
           },
           "x-kubernetes-list-type": "set"
@@ -4514,7 +4424,6 @@
           "description": "Canary defines optional canary deployments for progressive model rollout. Each canary's predictor.name drives the Deployment name: {isvc}-{name}-predictor. To promote a canary without restart, set predictor.name to the canary name and remove the canary entry.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1beta1.CanarySpec"
           },
           "x-kubernetes-list-type": "atomic"
@@ -4550,15 +4459,13 @@
           "description": "Annotations is additional Status fields for the Resource to save some additional State as well as convey more information to the user. This is roughly akin to Annotations on any k8s resource, just the reconciler conveying richer information outwards.",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "canaryStatuses": {
           "description": "CanaryStatuses is the observed state of canary deployments.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1beta1.CanaryStatus"
           },
           "x-kubernetes-list-type": "atomic"
@@ -4571,7 +4478,6 @@
           "description": "Statuses for the components of the InferenceService",
           "type": "object",
           "additionalProperties": {
-            "default": {},
             "$ref": "#/definitions/v1beta1.ComponentStatusSpec"
           }
         },
@@ -4579,7 +4485,6 @@
           "description": "Conditions the latest available observations of a resource's current state.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/knative.Condition"
           },
           "x-kubernetes-patch-merge-key": "type",
@@ -4633,16 +4538,14 @@
           "description": "ServiceAnnotationDisallowedList is a list of annotations that are not allowed to be propagated to Knative revisions",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "serviceLabelDisallowedList": {
           "description": "ServiceLabelDisallowedList is a list of labels that are not allowed to be propagated to Knative revisions",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         }
       }
@@ -4653,8 +4556,7 @@
         "additionalIngressDomains": {
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "disableHTTPRouteTimeout": {
@@ -4748,6 +4650,40 @@
         }
       }
     },
+    "v1beta1.KernelCacheArtifactCertConfig": {
+      "description": "KernelCacheArtifactCertConfig contains certificate signing profile settings.",
+      "type": "object",
+      "properties": {
+        "signingProfileRef": {
+          "type": "string"
+        },
+        "subjectRegexp": {
+          "type": "string"
+        },
+        "trustBundle": {
+          "type": "string"
+        },
+        "trustBundleKey": {
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.KernelCacheArtifactSecurityConfig": {
+      "description": "KernelCacheArtifactSecurityConfig configures signing of completed artifacts.",
+      "type": "object",
+      "properties": {
+        "cert": {
+          "default": {},
+          "$ref": "#/definitions/v1beta1.KernelCacheArtifactCertConfig"
+        },
+        "failurePolicy": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string"
+        }
+      }
+    },
     "v1beta1.KernelCacheConfig": {
       "description": "KernelCacheConfig contains the shared KernelCache configuration loaded from the kernelcache entry in the inferenceservice-config ConfigMap.",
       "type": "object",
@@ -4759,6 +4695,11 @@
       "properties": {
         "abandonedCapturePolicy": {
           "type": "string"
+        },
+        "artifactSecurity": {
+          "description": "ArtifactSecurity controls signing of completed capture artifacts.",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.KernelCacheArtifactSecurityConfig"
         },
         "defaultMountType": {
           "type": "string"
@@ -4795,6 +4736,97 @@
         "reconcileIntervalSeconds": {
           "type": "integer",
           "format": "int64"
+        },
+        "registry": {
+          "description": "Registry configures the OCI registry used by capture and prefetch operations.",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.KernelCacheRegistryConfig"
+        }
+      }
+    },
+    "v1beta1.KernelCacheConfigMapKeyRef": {
+      "description": "KernelCacheConfigMapKeyRef identifies a value in a ConfigMap.",
+      "type": "object",
+      "required": [
+        "name",
+        "key"
+      ],
+      "properties": {
+        "key": {
+          "description": "Key is the data key containing the referenced value.",
+          "type": "string",
+          "default": ""
+        },
+        "name": {
+          "description": "Name is the name of the referenced ConfigMap.",
+          "type": "string",
+          "default": ""
+        }
+      }
+    },
+    "v1beta1.KernelCacheRegistryAuth": {
+      "description": "KernelCacheRegistryAuth defines how KernelCache obtains registry credentials.",
+      "type": "object",
+      "properties": {
+        "pullRoleRef": {
+          "description": "PullRoleRef identifies the Role or ClusterRole bound to the prefetch ServiceAccount used to pull cache images.",
+          "$ref": "#/definitions/v1beta1.KernelCacheRegistryRoleRef"
+        },
+        "pushRoleRef": {
+          "description": "PushRoleRef identifies the Role or ClusterRole bound to the per-capture ServiceAccount used to publish captured images.",
+          "$ref": "#/definitions/v1beta1.KernelCacheRegistryRoleRef"
+        },
+        "tokenTTLSeconds": {
+          "description": "TokenTTLSeconds is the lifetime of a token issued through TokenRequest. The default is 600 seconds when serviceAccountToken is selected.",
+          "type": "integer",
+          "format": "int64"
+        },
+        "type": {
+          "description": "Type selects none or serviceAccountToken authentication. The zero value is treated as none.",
+          "type": "string"
+        }
+      }
+    },
+    "v1beta1.KernelCacheRegistryConfig": {
+      "description": "KernelCacheRegistryConfig defines the registry endpoint, trust bundle, and authentication used by KernelCache capture and prefetch operations.",
+      "type": "object",
+      "properties": {
+        "auth": {
+          "description": "Auth configures how registry credentials are provisioned.",
+          "default": {},
+          "$ref": "#/definitions/v1beta1.KernelCacheRegistryAuth"
+        },
+        "caConfigMapRef": {
+          "description": "CAConfigMapRef optionally references a ConfigMap key containing the registry CA bundle.",
+          "$ref": "#/definitions/v1beta1.KernelCacheConfigMapKeyRef"
+        },
+        "endpoint": {
+          "description": "Endpoint is the OCI registry host and optional port.",
+          "type": "string"
+        },
+        "insecure": {
+          "description": "Insecure allows MCV to use plain HTTP for registry operations. The default is false.",
+          "type": "boolean"
+        }
+      }
+    },
+    "v1beta1.KernelCacheRegistryRoleRef": {
+      "description": "KernelCacheRegistryRoleRef identifies the Kubernetes Role or ClusterRole used to authorize registry access.",
+      "type": "object",
+      "required": [
+        "kind",
+        "name"
+      ],
+      "properties": {
+        "kind": {
+          "description": "Kind is Role or ClusterRole.",
+          "type": "string",
+          "default": ""
+        },
+        "name": {
+          "description": "Name is the name of the referenced Role or ClusterRole.",
+          "type": "string",
+          "default": ""
         }
       }
     },
@@ -4806,8 +4838,7 @@
           "description": "Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -4815,8 +4846,7 @@
           "description": "Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -4828,7 +4858,6 @@
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvVar"
           },
           "x-kubernetes-list-map-keys": [
@@ -4842,7 +4871,6 @@
           "description": "List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvFromSource"
           },
           "x-kubernetes-list-type": "atomic"
@@ -4872,7 +4900,6 @@
           "description": "List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerPort"
           },
           "x-kubernetes-list-map-keys": [
@@ -4895,7 +4922,6 @@
           "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerResizePolicy"
           },
           "x-kubernetes-list-type": "atomic"
@@ -4913,7 +4939,6 @@
           "description": "Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerRestartRule"
           },
           "x-kubernetes-list-type": "atomic"
@@ -4962,7 +4987,6 @@
           "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeDevice"
           },
           "x-kubernetes-list-map-keys": [
@@ -4976,7 +5000,6 @@
           "description": "Pod volumes to mount into the container's filesystem. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeMount"
           },
           "x-kubernetes-list-map-keys": [
@@ -5048,16 +5071,14 @@
           "description": "Matched inference service annotations for propagating to inference logger cloud events.",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "metadataHeaders": {
           "description": "Matched metadata HTTP headers for propagating to inference logger cloud events.",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "mode": {
@@ -5085,8 +5106,7 @@
           "description": "Parameters to override the default storage credentials and config.",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "path": {
@@ -5215,8 +5235,7 @@
           "description": "Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -5224,8 +5243,7 @@
           "description": "Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -5237,7 +5255,6 @@
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvVar"
           },
           "x-kubernetes-list-map-keys": [
@@ -5251,7 +5268,6 @@
           "description": "List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvFromSource"
           },
           "x-kubernetes-list-type": "atomic"
@@ -5286,7 +5302,6 @@
           "description": "List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerPort"
           },
           "x-kubernetes-list-map-keys": [
@@ -5309,7 +5324,6 @@
           "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerResizePolicy"
           },
           "x-kubernetes-list-type": "atomic"
@@ -5327,7 +5341,6 @@
           "description": "Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerRestartRule"
           },
           "x-kubernetes-list-type": "atomic"
@@ -5380,7 +5393,6 @@
           "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeDevice"
           },
           "x-kubernetes-list-map-keys": [
@@ -5394,7 +5406,6 @@
           "description": "Pod volumes to mount into the container's filesystem. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeMount"
           },
           "x-kubernetes-list-map-keys": [
@@ -5446,8 +5457,7 @@
           "description": "Parameters to override the default storage credentials and config.",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "path": {
@@ -5467,8 +5477,7 @@
           "description": "CustomGPUResourceTypeList is a list of custom GPU resource types that are allowed to be used in the ServingRuntime and inferenceService",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         }
       }
@@ -5481,8 +5490,7 @@
           "description": "Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -5490,8 +5498,7 @@
           "description": "Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -5503,7 +5510,6 @@
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvVar"
           },
           "x-kubernetes-list-map-keys": [
@@ -5517,7 +5523,6 @@
           "description": "List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvFromSource"
           },
           "x-kubernetes-list-type": "atomic"
@@ -5547,7 +5552,6 @@
           "description": "List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerPort"
           },
           "x-kubernetes-list-map-keys": [
@@ -5570,7 +5574,6 @@
           "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerResizePolicy"
           },
           "x-kubernetes-list-type": "atomic"
@@ -5588,7 +5591,6 @@
           "description": "Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerRestartRule"
           },
           "x-kubernetes-list-type": "atomic"
@@ -5637,7 +5639,6 @@
           "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeDevice"
           },
           "x-kubernetes-list-map-keys": [
@@ -5651,7 +5652,6 @@
           "description": "Pod volumes to mount into the container's filesystem. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeMount"
           },
           "x-kubernetes-list-map-keys": [
@@ -5693,8 +5693,7 @@
           "description": "Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -5702,8 +5701,7 @@
           "description": "Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -5715,7 +5713,6 @@
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvVar"
           },
           "x-kubernetes-list-map-keys": [
@@ -5729,7 +5726,6 @@
           "description": "List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvFromSource"
           },
           "x-kubernetes-list-type": "atomic"
@@ -5759,7 +5755,6 @@
           "description": "List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerPort"
           },
           "x-kubernetes-list-map-keys": [
@@ -5782,7 +5777,6 @@
           "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerResizePolicy"
           },
           "x-kubernetes-list-type": "atomic"
@@ -5800,7 +5794,6 @@
           "description": "Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerRestartRule"
           },
           "x-kubernetes-list-type": "atomic"
@@ -5849,7 +5842,6 @@
           "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeDevice"
           },
           "x-kubernetes-list-map-keys": [
@@ -5863,7 +5855,6 @@
           "description": "Pod volumes to mount into the container's filesystem. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeMount"
           },
           "x-kubernetes-list-map-keys": [
@@ -5886,8 +5877,7 @@
           "description": "Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -5895,8 +5885,7 @@
           "description": "Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -5908,7 +5897,6 @@
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvVar"
           },
           "x-kubernetes-list-map-keys": [
@@ -5922,7 +5910,6 @@
           "description": "List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvFromSource"
           },
           "x-kubernetes-list-type": "atomic"
@@ -5952,7 +5939,6 @@
           "description": "List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerPort"
           },
           "x-kubernetes-list-map-keys": [
@@ -5975,7 +5961,6 @@
           "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerResizePolicy"
           },
           "x-kubernetes-list-type": "atomic"
@@ -5993,7 +5978,6 @@
           "description": "Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerRestartRule"
           },
           "x-kubernetes-list-type": "atomic"
@@ -6042,7 +6026,6 @@
           "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeDevice"
           },
           "x-kubernetes-list-map-keys": [
@@ -6056,7 +6039,6 @@
           "description": "Pod volumes to mount into the container's filesystem. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeMount"
           },
           "x-kubernetes-list-map-keys": [
@@ -6104,8 +6086,7 @@
           "description": "MetricNames is the list of metric names in the backend.",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "operationOverTime": {
@@ -6143,7 +6124,6 @@
           "description": "List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -6165,9 +6145,21 @@
           "description": "List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EphemeralContainer"
           },
+          "x-kubernetes-patch-merge-key": "name",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "evictionResponders": {
+          "description": "EvictionResponders reference responders that react to Evictions based on EvictionRequests. Responders should observe and communicate through the Eviction Resource API to help with the graceful termination of a pod. The responders are selected sequentially, according to their specified priority.\n\nThe maximum length of the responders list is 10. Responders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set). This field can only be set on creation and is immutable afterwards.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1.EvictionResponder"
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map",
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
         },
@@ -6175,7 +6167,6 @@
           "description": "HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.HostAlias"
           },
           "x-kubernetes-patch-merge-key": "ip",
@@ -6209,7 +6200,6 @@
           "description": "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.LocalObjectReference"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -6219,7 +6209,6 @@
           "description": "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -6233,8 +6222,7 @@
           "description": "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-map-type": "atomic"
         },
@@ -6266,7 +6254,6 @@
           "description": "If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodReadinessGate"
           }
         },
@@ -6274,7 +6261,6 @@
           "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodResourceClaim"
           },
           "x-kubernetes-list-map-keys": [
@@ -6304,7 +6290,6 @@
           "description": "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.\n\nSchedulingGates can only be set at pod creation time, and be removed only afterwards.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodSchedulingGate"
           },
           "x-kubernetes-list-map-keys": [
@@ -6351,7 +6336,6 @@
           "description": "If specified, the pod's tolerations.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Toleration"
           }
         },
@@ -6359,7 +6343,6 @@
           "description": "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. All topologySpreadConstraints are ANDed.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.TopologySpreadConstraint"
           },
           "x-kubernetes-list-map-keys": [
@@ -6374,7 +6357,6 @@
           "description": "List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Volume"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -6390,8 +6372,7 @@
           "description": "Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -6399,8 +6380,7 @@
           "description": "Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -6412,7 +6392,6 @@
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvVar"
           },
           "x-kubernetes-list-map-keys": [
@@ -6426,7 +6405,6 @@
           "description": "List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvFromSource"
           },
           "x-kubernetes-list-type": "atomic"
@@ -6456,7 +6434,6 @@
           "description": "List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerPort"
           },
           "x-kubernetes-list-map-keys": [
@@ -6479,7 +6456,6 @@
           "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerResizePolicy"
           },
           "x-kubernetes-list-type": "atomic"
@@ -6497,7 +6473,6 @@
           "description": "Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerRestartRule"
           },
           "x-kubernetes-list-type": "atomic"
@@ -6546,7 +6521,6 @@
           "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeDevice"
           },
           "x-kubernetes-list-map-keys": [
@@ -6560,7 +6534,6 @@
           "description": "Pod volumes to mount into the container's filesystem. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeMount"
           },
           "x-kubernetes-list-map-keys": [
@@ -6593,8 +6566,7 @@
           "description": "Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "autoScaling": {
@@ -6623,7 +6595,6 @@
           "description": "List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -6649,9 +6620,21 @@
           "description": "List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EphemeralContainer"
           },
+          "x-kubernetes-patch-merge-key": "name",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "evictionResponders": {
+          "description": "EvictionResponders reference responders that react to Evictions based on EvictionRequests. Responders should observe and communicate through the Eviction Resource API to help with the graceful termination of a pod. The responders are selected sequentially, according to their specified priority.\n\nThe maximum length of the responders list is 10. Responders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set). This field can only be set on creation and is immutable afterwards.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1.EvictionResponder"
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map",
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
         },
@@ -6659,7 +6642,6 @@
           "description": "HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.HostAlias"
           },
           "x-kubernetes-patch-merge-key": "ip",
@@ -6697,7 +6679,6 @@
           "description": "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.LocalObjectReference"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -6707,7 +6688,6 @@
           "description": "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -6717,8 +6697,7 @@
           "description": "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "lightgbm": {
@@ -6755,8 +6734,7 @@
           "description": "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-map-type": "atomic"
         },
@@ -6804,7 +6782,6 @@
           "description": "If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodReadinessGate"
           }
         },
@@ -6812,7 +6789,6 @@
           "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodResourceClaim"
           },
           "x-kubernetes-list-map-keys": [
@@ -6855,7 +6831,6 @@
           "description": "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.\n\nSchedulingGates can only be set at pod creation time, and be removed only afterwards.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodSchedulingGate"
           },
           "x-kubernetes-list-map-keys": [
@@ -6901,7 +6876,6 @@
           "description": "Spec for multiple storage uris.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1beta1.StorageUri"
           },
           "x-kubernetes-list-type": "atomic"
@@ -6928,7 +6902,6 @@
           "description": "If specified, the pod's tolerations.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Toleration"
           }
         },
@@ -6936,7 +6909,6 @@
           "description": "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. All topologySpreadConstraints are ANDed.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.TopologySpreadConstraint"
           },
           "x-kubernetes-list-map-keys": [
@@ -6955,7 +6927,6 @@
           "description": "List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Volume"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -7035,8 +7006,7 @@
           "description": "Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -7044,8 +7014,7 @@
           "description": "Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -7057,7 +7026,6 @@
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvVar"
           },
           "x-kubernetes-list-map-keys": [
@@ -7071,7 +7039,6 @@
           "description": "List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvFromSource"
           },
           "x-kubernetes-list-type": "atomic"
@@ -7101,7 +7068,6 @@
           "description": "List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerPort"
           },
           "x-kubernetes-list-map-keys": [
@@ -7124,7 +7090,6 @@
           "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerResizePolicy"
           },
           "x-kubernetes-list-type": "atomic"
@@ -7142,7 +7107,6 @@
           "description": "Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerRestartRule"
           },
           "x-kubernetes-list-type": "atomic"
@@ -7191,7 +7155,6 @@
           "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeDevice"
           },
           "x-kubernetes-list-map-keys": [
@@ -7205,7 +7168,6 @@
           "description": "Pod volumes to mount into the container's filesystem. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeMount"
           },
           "x-kubernetes-list-map-keys": [
@@ -7254,8 +7216,7 @@
           "description": "Parameters to override the default storage credentials and config.",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "path": {
@@ -7289,8 +7250,7 @@
           "description": "Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -7298,8 +7258,7 @@
           "description": "Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -7311,7 +7270,6 @@
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvVar"
           },
           "x-kubernetes-list-map-keys": [
@@ -7325,7 +7283,6 @@
           "description": "List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvFromSource"
           },
           "x-kubernetes-list-type": "atomic"
@@ -7355,7 +7312,6 @@
           "description": "List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerPort"
           },
           "x-kubernetes-list-map-keys": [
@@ -7378,7 +7334,6 @@
           "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerResizePolicy"
           },
           "x-kubernetes-list-type": "atomic"
@@ -7396,7 +7351,6 @@
           "description": "Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerRestartRule"
           },
           "x-kubernetes-list-type": "atomic"
@@ -7445,7 +7399,6 @@
           "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeDevice"
           },
           "x-kubernetes-list-map-keys": [
@@ -7459,7 +7412,6 @@
           "description": "Pod volumes to mount into the container's filesystem. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeMount"
           },
           "x-kubernetes-list-map-keys": [
@@ -7483,8 +7435,7 @@
           "description": "Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -7492,8 +7443,7 @@
           "description": "Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -7505,7 +7455,6 @@
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvVar"
           },
           "x-kubernetes-list-map-keys": [
@@ -7519,7 +7468,6 @@
           "description": "List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvFromSource"
           },
           "x-kubernetes-list-type": "atomic"
@@ -7549,7 +7497,6 @@
           "description": "List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerPort"
           },
           "x-kubernetes-list-map-keys": [
@@ -7572,7 +7519,6 @@
           "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerResizePolicy"
           },
           "x-kubernetes-list-type": "atomic"
@@ -7590,7 +7536,6 @@
           "description": "Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerRestartRule"
           },
           "x-kubernetes-list-type": "atomic"
@@ -7639,7 +7584,6 @@
           "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeDevice"
           },
           "x-kubernetes-list-map-keys": [
@@ -7653,7 +7597,6 @@
           "description": "Pod volumes to mount into the container's filesystem. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeMount"
           },
           "x-kubernetes-list-map-keys": [
@@ -7708,8 +7651,7 @@
           "description": "Annotations that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "autoScaling": {
@@ -7738,7 +7680,6 @@
           "description": "List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -7764,9 +7705,21 @@
           "description": "List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EphemeralContainer"
           },
+          "x-kubernetes-patch-merge-key": "name",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "evictionResponders": {
+          "description": "EvictionResponders reference responders that react to Evictions based on EvictionRequests. Responders should observe and communicate through the Eviction Resource API to help with the graceful termination of a pod. The responders are selected sequentially, according to their specified priority.\n\nThe maximum length of the responders list is 10. Responders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set). This field can only be set on creation and is immutable afterwards.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1.EvictionResponder"
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map",
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
         },
@@ -7774,7 +7727,6 @@
           "description": "HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.HostAlias"
           },
           "x-kubernetes-patch-merge-key": "ip",
@@ -7808,7 +7760,6 @@
           "description": "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.LocalObjectReference"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -7818,7 +7769,6 @@
           "description": "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -7828,8 +7778,7 @@
           "description": "Labels that will be added to the component pod. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           }
         },
         "logger": {
@@ -7854,8 +7803,7 @@
           "description": "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-map-type": "atomic"
         },
@@ -7887,7 +7835,6 @@
           "description": "If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodReadinessGate"
           }
         },
@@ -7895,7 +7842,6 @@
           "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodResourceClaim"
           },
           "x-kubernetes-list-map-keys": [
@@ -7938,7 +7884,6 @@
           "description": "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.\n\nSchedulingGates can only be set at pod creation time, and be removed only afterwards.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodSchedulingGate"
           },
           "x-kubernetes-list-map-keys": [
@@ -7976,7 +7921,6 @@
           "description": "Spec for multiple storage uris.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1beta1.StorageUri"
           },
           "x-kubernetes-list-type": "atomic"
@@ -7999,7 +7943,6 @@
           "description": "If specified, the pod's tolerations.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Toleration"
           }
         },
@@ -8007,7 +7950,6 @@
           "description": "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. All topologySpreadConstraints are ANDed.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.TopologySpreadConstraint"
           },
           "x-kubernetes-list-map-keys": [
@@ -8022,7 +7964,6 @@
           "description": "List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Volume"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -8038,8 +7979,7 @@
           "description": "Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -8047,8 +7987,7 @@
           "description": "Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -8060,7 +7999,6 @@
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvVar"
           },
           "x-kubernetes-list-map-keys": [
@@ -8074,7 +8012,6 @@
           "description": "List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvFromSource"
           },
           "x-kubernetes-list-type": "atomic"
@@ -8104,7 +8041,6 @@
           "description": "List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerPort"
           },
           "x-kubernetes-list-map-keys": [
@@ -8127,7 +8063,6 @@
           "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerResizePolicy"
           },
           "x-kubernetes-list-type": "atomic"
@@ -8145,7 +8080,6 @@
           "description": "Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerRestartRule"
           },
           "x-kubernetes-list-type": "atomic"
@@ -8194,7 +8128,6 @@
           "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeDevice"
           },
           "x-kubernetes-list-map-keys": [
@@ -8208,7 +8141,6 @@
           "description": "Pod volumes to mount into the container's filesystem. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeMount"
           },
           "x-kubernetes-list-map-keys": [
@@ -8244,7 +8176,6 @@
           "description": "List of containers belonging to the pod. Containers cannot currently be added or removed. There must be at least one container in a Pod. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -8266,9 +8197,21 @@
           "description": "List of ephemeral containers run in this pod. Ephemeral containers may be run in an existing pod to perform user-initiated actions such as debugging. This list cannot be specified when creating a pod, and it cannot be modified by updating the pod spec. In order to add an ephemeral container to an existing pod, use the pod's ephemeralcontainers subresource.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EphemeralContainer"
           },
+          "x-kubernetes-patch-merge-key": "name",
+          "x-kubernetes-patch-strategy": "merge"
+        },
+        "evictionResponders": {
+          "description": "EvictionResponders reference responders that react to Evictions based on EvictionRequests. Responders should observe and communicate through the Eviction Resource API to help with the graceful termination of a pod. The responders are selected sequentially, according to their specified priority.\n\nThe maximum length of the responders list is 10. Responders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set). This field can only be set on creation and is immutable afterwards.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1.EvictionResponder"
+          },
+          "x-kubernetes-list-map-keys": [
+            "name"
+          ],
+          "x-kubernetes-list-type": "map",
           "x-kubernetes-patch-merge-key": "name",
           "x-kubernetes-patch-strategy": "merge"
         },
@@ -8276,7 +8219,6 @@
           "description": "HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.HostAlias"
           },
           "x-kubernetes-patch-merge-key": "ip",
@@ -8310,7 +8252,6 @@
           "description": "ImagePullSecrets is an optional list of references to secrets in the same namespace to use for pulling any of the images used by this PodSpec. If specified, these secrets will be passed to individual puller implementations for them to use. More info: https://kubernetes.io/docs/concepts/containers/images#specifying-imagepullsecrets-on-a-pod",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.LocalObjectReference"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -8320,7 +8261,6 @@
           "description": "List of initialization containers belonging to the pod. Init containers are executed in order prior to containers being started. If any init container fails, the pod is considered to have failed and is handled according to its restartPolicy. The name for an init container or normal container must be unique among all containers. Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes. The resourceRequirements of an init container are taken into account during scheduling by finding the highest request/limit for each resource type, and then using the max of that value or the sum of the normal containers. Limits are applied to init containers in a similar fashion. Init containers cannot currently be added or removed. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Container"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -8334,8 +8274,7 @@
           "description": "NodeSelector is a selector which must be true for the pod to fit on a node. Selector which must match a node's labels for the pod to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/",
           "type": "object",
           "additionalProperties": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-map-type": "atomic"
         },
@@ -8372,7 +8311,6 @@
           "description": "If specified, all readiness gates will be evaluated for pod readiness. A pod is ready when all its containers are ready AND all conditions specified in the readiness gates have status equal to \"True\" More info: https://git.k8s.io/enhancements/keps/sig-network/580-pod-readiness-gates",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodReadinessGate"
           }
         },
@@ -8380,7 +8318,6 @@
           "description": "ResourceClaims defines which ResourceClaims must be allocated and reserved before the Pod is allowed to start. The resources will be made available to those containers which consume them by name.\n\nThis is an alpha field and requires enabling the DynamicResourceAllocation feature gate.\n\nThis field is immutable.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodResourceClaim"
           },
           "x-kubernetes-list-map-keys": [
@@ -8410,7 +8347,6 @@
           "description": "SchedulingGates is an opaque list of values that if specified will block scheduling the pod. If schedulingGates is not empty, the pod will stay in the SchedulingGated state and the scheduler will not attempt to schedule the pod.\n\nSchedulingGates can only be set at pod creation time, and be removed only afterwards.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.PodSchedulingGate"
           },
           "x-kubernetes-list-map-keys": [
@@ -8462,7 +8398,6 @@
           "description": "If specified, the pod's tolerations.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Toleration"
           }
         },
@@ -8470,7 +8405,6 @@
           "description": "TopologySpreadConstraints describes how a group of pods ought to spread across topology domains. Scheduler will schedule pods in a way which abides by the constraints. All topologySpreadConstraints are ANDed.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.TopologySpreadConstraint"
           },
           "x-kubernetes-list-map-keys": [
@@ -8485,7 +8419,6 @@
           "description": "List of volumes that can be mounted by containers belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.Volume"
           },
           "x-kubernetes-patch-merge-key": "name",
@@ -8501,8 +8434,7 @@
           "description": "Arguments to the entrypoint. The container image's CMD is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -8510,8 +8442,7 @@
           "description": "Entrypoint array. Not executed within a shell. The container image's ENTRYPOINT is used if this is not provided. Variable references $(VAR_NAME) are expanded using the container's environment. If a variable cannot be resolved, the reference in the input string will be unchanged. Double $$ are reduced to a single $, which allows for escaping the $(VAR_NAME) syntax: i.e. \"$$(VAR_NAME)\" will produce the string literal \"$(VAR_NAME)\". Escaped references will never be expanded, regardless of whether the variable exists or not. Cannot be updated. More info: https://kubernetes.io/docs/tasks/inject-data-application/define-command-argument-container/#running-a-command-in-a-shell",
           "type": "array",
           "items": {
-            "type": "string",
-            "default": ""
+            "type": "string"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -8523,7 +8454,6 @@
           "description": "List of environment variables to set in the container. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvVar"
           },
           "x-kubernetes-list-map-keys": [
@@ -8537,7 +8467,6 @@
           "description": "List of sources to populate environment variables in the container. The keys defined within a source may consist of any printable ASCII characters except '='. When a key exists in multiple sources, the value associated with the last source will take precedence. Values defined by an Env with a duplicate key will take precedence. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.EnvFromSource"
           },
           "x-kubernetes-list-type": "atomic"
@@ -8567,7 +8496,6 @@
           "description": "List of ports to expose from the container. Not specifying a port here DOES NOT prevent that port from being exposed. Any port which is listening on the default \"0.0.0.0\" address inside a container will be accessible from the network. Modifying this array with strategic merge patch may corrupt the data. For more information See https://github.com/kubernetes/kubernetes/issues/108255. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerPort"
           },
           "x-kubernetes-list-map-keys": [
@@ -8590,7 +8518,6 @@
           "description": "Resources resize policy for the container. This field cannot be set on ephemeral containers.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerResizePolicy"
           },
           "x-kubernetes-list-type": "atomic"
@@ -8608,7 +8535,6 @@
           "description": "Represents a list of rules to be checked to determine if the container should be restarted on exit. The rules are evaluated in order. Once a rule matches a container exit condition, the remaining rules are ignored. If no rule matches the container exit condition, the Container-level restart policy determines the whether the container is restarted or not. Constraints on the rules: - At most 20 rules are allowed. - Rules can have the same action. - Identical rules are not forbidden in validations. When rules are specified, container MUST set RestartPolicy explicitly even it if matches the Pod's RestartPolicy.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.ContainerRestartRule"
           },
           "x-kubernetes-list-type": "atomic"
@@ -8657,7 +8583,6 @@
           "description": "volumeDevices is the list of block devices to be used by the container.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeDevice"
           },
           "x-kubernetes-list-map-keys": [
@@ -8671,7 +8596,6 @@
           "description": "Pod volumes to mount into the container's filesystem. Cannot be updated.",
           "type": "array",
           "items": {
-            "default": {},
             "$ref": "#/definitions/v1.VolumeMount"
           },
           "x-kubernetes-list-map-keys": [
