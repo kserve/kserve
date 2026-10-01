@@ -78,6 +78,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
+	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
 	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
 	allErrs = append(allErrs, kservevalidation.ValidateManagedDRAAnnotations(llmSvc.GetAnnotations())...)
@@ -363,6 +364,17 @@ func (l *LLMInferenceServiceValidator) validateWorkloadScaling(basePath *field.P
 	// the scaling rules live in exactly one place.
 	w := convertWorkloadSpecToV1Alpha2(workload)
 	return v1alpha2.ValidateWorkloadScaling(basePath, &w)
+}
+
+func (l *LLMInferenceServiceValidator) validateKVCacheOffloading(llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+	w := convertWorkloadSpecToV1Alpha2(&llmSvc.Spec.WorkloadSpec)
+	allErrs = append(allErrs, v1alpha2.ValidateKVCacheOffloadingSpec(w.KVCacheOffloading, field.NewPath("spec", "kvCacheOffloading"))...)
+	if llmSvc.Spec.Prefill != nil {
+		prefill := convertWorkloadSpecToV1Alpha2(llmSvc.Spec.Prefill)
+		allErrs = append(allErrs, v1alpha2.ValidateKVCacheOffloadingSpec(prefill.KVCacheOffloading, field.NewPath("spec", "prefill", "kvCacheOffloading"))...)
+	}
+	return allErrs
 }
 
 func (l *LLMInferenceServiceValidator) validateRolloutStrategy(llmSvc *LLMInferenceService) field.ErrorList {
