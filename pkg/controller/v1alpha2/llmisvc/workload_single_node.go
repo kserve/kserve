@@ -146,7 +146,9 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 		if err != nil {
 			return nil, err
 		}
-		role = nonDisaggregatedRole(currentRole)
+		if role, err = nonDisaggregatedRole(llmSvc, currentRole); err != nil {
+			return nil, err
+		}
 	}
 
 	labels := r.singleNodeLabels(llmSvc)
