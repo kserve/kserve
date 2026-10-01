@@ -468,6 +468,90 @@ func TestSetLocalModelLabel_LoRAAdapter_NodeGroupNotMatching(t *testing.T) {
 	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelLoRAAnnotationKey)
 }
 
+func sharedPVCNSCacheList(name, sourceURI string, ready bool) *v1alpha1.LocalModelNamespaceCacheList {
+	cache := v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", Generation: 1},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: sourceURI,
+			ModelSize:      resource.MustParse("1Gi"),
+			PVCRef:         ptr.To("shared-pvc"),
+		},
+	}
+	if ready {
+		cache.Status.MarkReady(1)
+	}
+	return &v1alpha1.LocalModelNamespaceCacheList{Items: []v1alpha1.LocalModelNamespaceCache{cache}}
+}
+
+func TestSetLocalModelLabel_SharedPVCReadyBindsBaseModel(t *testing.T) {
+	llmSvc := newLLMSvc("hf://org/model")
+
+	SetLocalModelLabel(llmSvc, nil, sharedPVCNSCacheList("shared-cache", "hf://org/model", true))
+
+	assert.Equal(t, "shared-cache", llmSvc.Labels[constants.LocalModelLabel])
+	assert.Equal(t, "default", llmSvc.Labels[constants.LocalModelNamespaceLabel])
+	assert.Equal(t, "shared-pvc", llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey])
+}
+
+func TestSetLocalModelLabel_SharedPVCNotReadySkipsUnboundBaseModel(t *testing.T) {
+	llmSvc := newLLMSvc("hf://org/model")
+
+	SetLocalModelLabel(llmSvc, nil, sharedPVCNSCacheList("shared-cache", "hf://org/model", false))
+
+	assert.NotContains(t, llmSvc.Labels, constants.LocalModelLabel)
+	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
+}
+
+// The mutating webhook runs on every update. A base model already bound to a shared-PVC
+// cache must keep its binding while the cache reports NotReady, mirroring the
+// InferenceService rule: otherwise an unrelated update rolls pods back to downloading from
+// source and drops the consumer out of the cache's re-import gate.
+func TestSetLocalModelLabel_SharedPVCNotReadyKeepsBoundBaseModel(t *testing.T) {
+	llmSvc := newLLMSvc("hf://org/model")
+	llmSvc.Labels = map[string]string{
+		constants.LocalModelLabel:          "shared-cache",
+		constants.LocalModelNamespaceLabel: "default",
+	}
+
+	SetLocalModelLabel(llmSvc, nil, sharedPVCNSCacheList("shared-cache", "hf://org/model", false))
+
+	assert.Equal(t, "shared-cache", llmSvc.Labels[constants.LocalModelLabel])
+	assert.Equal(t, "default", llmSvc.Labels[constants.LocalModelNamespaceLabel])
+	assert.Equal(t, "shared-pvc", llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey])
+	assert.Equal(t, "hf://org/model", llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey])
+}
+
+func TestSetLocalModelLabel_SharedPVCNotReadySkipsBaseModelBoundElsewhere(t *testing.T) {
+	llmSvc := newLLMSvc("hf://org/model")
+	llmSvc.Labels = map[string]string{constants.LocalModelLabel: "other-cache"}
+
+	SetLocalModelLabel(llmSvc, nil, sharedPVCNSCacheList("shared-cache", "hf://org/model", false))
+
+	assert.NotContains(t, llmSvc.Labels, constants.LocalModelLabel)
+	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
+}
+
+func TestSetLocalModelLabel_SharedPVCNotReadyKeepsBoundLoRAAdapter(t *testing.T) {
+	llmSvc := newLLMSvcWithLoRA("s3://mybucket/remote-base", newLoRAAdapter("hf://org/adapter"))
+	llmSvc.Annotations = map[string]string{
+		constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"shared-adapter-cache","namespace":"default"}}`,
+	}
+
+	SetLocalModelLabel(llmSvc, nil, sharedPVCNSCacheList("shared-adapter-cache", "hf://org/adapter", false))
+
+	entries := parseLoRAAnnotation(t, llmSvc)
+	assert.Equal(t, "shared-adapter-cache", entries["my-adapter"].Cache)
+	assert.Equal(t, "default", entries["my-adapter"].Namespace)
+}
+
+func TestSetLocalModelLabel_SharedPVCNotReadySkipsUnboundLoRAAdapter(t *testing.T) {
+	llmSvc := newLLMSvcWithLoRA("s3://mybucket/remote-base", newLoRAAdapter("hf://org/adapter"))
+
+	SetLocalModelLabel(llmSvc, nil, sharedPVCNSCacheList("shared-adapter-cache", "hf://org/adapter", false))
+
+	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelLoRAAnnotationKey)
+}
+
 func TestDefault_V1Alpha1Object_Disabled_CleansStaleMetadata(t *testing.T) {
 	defaulter := newDefaulterForDefaultTests(t, true)
 	llmSvc := newLLMSvcV1("s3://mybucket/mymodel")
