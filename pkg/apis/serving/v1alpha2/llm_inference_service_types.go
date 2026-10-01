@@ -902,11 +902,15 @@ type WorkloadStatus struct {
 	// Primary is the main inference workload (Deployment or LeaderWorkerSet).
 	// When disaggregated serving is configured, this workload handles
 	// the decode phase; otherwise it handles both prefill and decode.
+	// A service on the DisaggregatedSet backend references its
+	// DisaggregatedSet here, with the ready replicas of the decode role.
 	// +optional
 	Primary *ObservedWorkloadStatus `json:"primary,omitempty"`
 
 	// Prefill is the prefill workload in disaggregated serving mode.
 	// Nil when disaggregated serving is not configured.
+	// A service on the DisaggregatedSet backend references the same
+	// DisaggregatedSet as Primary, with the ready replicas of the prefill role.
 	// +optional
 	Prefill *ObservedWorkloadStatus `json:"prefill,omitempty"`
 

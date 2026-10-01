@@ -40,7 +40,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
-func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, useDisaggregatedSet bool) error {
 	log.FromContext(ctx).Info("Reconciling single-node workload")
 
 	if err := r.reconcileManagedDRA(ctx, llmSvc); err != nil {
@@ -51,18 +51,18 @@ func (r *LLMISVCReconciler) reconcileSingleNodeWorkload(ctx context.Context, llm
 		return fmt.Errorf("failed to reconcile service account: %w", err)
 	}
 
-	if err := r.reconcileSingleNodeMainWorkload(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileSingleNodeMainWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		return fmt.Errorf("failed to reconcile main workload: %w", err)
 	}
 
-	if err := r.reconcileSingleNodePrefill(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileSingleNodePrefill(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		return fmt.Errorf("failed to reconcile prefill workload: %w", err)
 	}
 	return nil
 }
 
-func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Worker != nil {
+func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, useDisaggregatedSet bool) error {
+	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Worker != nil || useDisaggregatedSet {
 		if isStopped {
 			llmSvc.MarkMainWorkloadNotReady("Stopped", "Service is stopped")
 		} else {
@@ -203,8 +203,8 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context
 	return d, nil
 }
 
-func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker != nil {
+func (r *LLMISVCReconciler) reconcileSingleNodePrefill(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, useDisaggregatedSet bool) error {
+	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker != nil || useDisaggregatedSet {
 		if isStopped {
 			llmSvc.MarkPrefillWorkloadNotReady("Stopped", "Service is stopped")
 		} else {
