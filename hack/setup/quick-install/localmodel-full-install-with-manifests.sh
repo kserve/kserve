@@ -5647,11 +5647,11 @@ spec:
                       type: string
                   type: object
                   x-kubernetes-map-type: atomic
+                maxItems: 8
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
-                maxItems: 8
                 x-kubernetes-validations:
                 - message: imagePullSecrets.name must be non-empty
                   rule: self.all(s, s.name != '')
@@ -5808,11 +5808,11 @@ spec:
                       type: string
                   type: object
                   x-kubernetes-map-type: atomic
+                maxItems: 8
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
-                maxItems: 8
                 x-kubernetes-validations:
                 - message: imagePullSecrets.name must be non-empty
                   rule: self.all(s, s.name != '')
@@ -6668,7 +6668,6 @@ spec:
           spec:
             properties:
               localModels:
-                maxItems: 256
                 items:
                   properties:
                     imagePullSecrets:
@@ -6679,11 +6678,11 @@ spec:
                             type: string
                         type: object
                         x-kubernetes-map-type: atomic
+                      maxItems: 8
                       type: array
                       x-kubernetes-list-map-keys:
                       - name
                       x-kubernetes-list-type: map
-                      maxItems: 8
                       x-kubernetes-validations:
                       - message: imagePullSecrets.name must be non-empty
                         rule: self.all(s, s.name != '')
@@ -6710,6 +6709,7 @@ spec:
                   - modelName
                   - sourceModelUri
                   type: object
+                maxItems: 256
                 type: array
             required:
             - localModels
