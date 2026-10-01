@@ -150,6 +150,9 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err != nil {
 		return reconcile.Result{}, errors.Wrapf(err, "fails to get InferenceService config map")
 	}
+	if stop, err := r.reconcilePlatformFinalizer(ctx, graph); err != nil || stop {
+		return reconcile.Result{}, err
+	}
 	routerConfig, err := getRouterConfigs(configMap)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -189,6 +192,10 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	deploymentMode := isvcutils.GetDeploymentMode(graph.Status.DeploymentMode, graph.Annotations, deployConfig)
 	r.Log.Info("Inference graph deployment ", "deployment mode ", deploymentMode)
 	if deploymentMode == constants.Standard {
+		if err := r.reconcileRawPlatformPrerequisites(ctx, graph); err != nil {
+			return reconcile.Result{}, err
+		}
+
 		// Create inference graph resources such as deployment, service, hpa in raw deployment mode
 		deployment, url, err := handleInferenceGraphRawDeployment(ctx, r.Client, r.Clientset, r.Scheme, graph, routerConfig)
 		if err != nil {
@@ -210,6 +217,11 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				return reconcile.Result{Requeue: true}, errors.Wrapf(err,
 					"Failed to find inference graph deployment  %s", graph.Name)
 			}
+		}
+
+		url, err = r.reconcileRawPlatformNetworking(ctx, graph, url)
+		if err != nil {
+			return reconcile.Result{}, err
 		}
 
 		logger.Info("Inference graph raw before propagate status")
@@ -236,6 +248,7 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		knutils.ValidateInitialScaleAnnotation(graph.Annotations, allowZeroInitialScale, r.Log)
 
 		desired := createKnativeService(graph.ObjectMeta, graph, routerConfig)
+		customizeRouterKnativeService(graph, desired)
 
 		err = controllerutil.SetControllerReference(graph, desired, r.Scheme)
 		if err != nil {
@@ -366,6 +379,10 @@ func (r *InferenceGraphReconciler) SetupWithManager(mgr ctrl.Manager, deployConf
 	ctrlBuilder := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.InferenceGraph{}).
 		Owns(&appsv1.Deployment{})
+
+	if err := r.extendControllerSetup(mgr, ctrlBuilder); err != nil {
+		return err
+	}
 
 	if ksvcFound {
 		ctrlBuilder = ctrlBuilder.Owns(&knservingv1.Service{})
