@@ -407,11 +407,11 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 		},
 	}
 
-	if len(localModel.Spec.ImagePullSecrets) > 0 {
-		c.Log.Info("Injecting OCI dockerconfigjson credentials", "secrets", localModel.Spec.ImagePullSecrets)
-		if err := credentials.MountImagePullSecretsAsDockerConfig(localModel.Spec.ImagePullSecrets, container, &volumes); err != nil {
+	if secretName, ok := credentials.FirstNamedImagePullSecret(localModel.Spec.ImagePullSecrets); ok {
+		if err := credentials.FetchAndValidateDockerConfigJSONSecret(ctx, c.Client, localModel.Namespace, secretName); err != nil {
 			return nil, fmt.Errorf("%w: %w", errImportCredentials, err)
 		}
+		credentials.MountImagePullSecretsAsDockerConfig(localModel.Spec.ImagePullSecrets, container, &volumes)
 	}
 
 	if localModel.Spec.ServiceAccountName != "" || localModel.Spec.Storage != nil {
@@ -428,7 +428,9 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 	}
 
 	if storageInitializerConfig != nil && storageInitializerConfig.OciInsecureRegistry {
-		credentials.SetOciInsecureRegistryEnv(container)
+		if _, _, isOci := utils.ParseOciScheme(localModel.Spec.SourceModelUri); isOci {
+			credentials.SetOciInsecureRegistryEnv(container)
+		}
 	}
 
 	var fsGroup *int64
@@ -544,7 +546,7 @@ func importSpecHash(localModel *v1alpha1.LocalModelNamespaceCache) string {
 	payload, err := json.Marshal(struct {
 		ServiceAccountName string                          `json:"serviceAccountName"`
 		Storage            *v1alpha1.LocalModelStorageSpec `json:"storage"`
-		ImagePullSecrets   []corev1.LocalObjectReference   `json:"imagePullSecrets"`
+		ImagePullSecrets   []corev1.LocalObjectReference   `json:"imagePullSecrets,omitempty"`
 	}{
 		ServiceAccountName: localModel.Spec.ServiceAccountName,
 		Storage:            localModel.Spec.Storage,

@@ -171,11 +171,11 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 
 	jobNs := jobNamespace
 
-	if len(modelInfo.ImagePullSecrets) > 0 {
-		c.Log.Info("Injecting OCI dockerconfigjson credentials", "secrets", modelInfo.ImagePullSecrets)
-		if err := credentials.MountImagePullSecretsAsDockerConfig(modelInfo.ImagePullSecrets, container, &volumes); err != nil {
-			c.Log.Error(err, "Failed to inject OCI dockerconfigjson credentials", "model", modelInfo.ModelName)
+	if secretName, ok := credentials.FirstNamedImagePullSecret(modelInfo.ImagePullSecrets); ok {
+		if err := credentials.FetchAndValidateDockerConfigJSONSecret(ctx, c.Client, jobNs, secretName); err != nil {
+			return nil, err
 		}
+		credentials.MountImagePullSecretsAsDockerConfig(modelInfo.ImagePullSecrets, container, &volumes)
 	}
 
 	// Only inject if credentials are explicitly configured in LocalModelCache
@@ -187,7 +187,9 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 	}
 
 	if storageInitializerConfig != nil && storageInitializerConfig.OciInsecureRegistry {
-		credentials.SetOciInsecureRegistryEnv(container)
+		if _, _, isOci := kserveutils.ParseOciScheme(modelInfo.SourceModelUri); isOci {
+			credentials.SetOciInsecureRegistryEnv(container)
+		}
 	}
 
 	// Mount CA bundle ConfigMap as volume if AWS_CA_BUNDLE_CONFIGMAP env was injected

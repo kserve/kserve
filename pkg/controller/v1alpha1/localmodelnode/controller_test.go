@@ -864,6 +864,14 @@ var _ = Describe("LocalModelNode controller", func() {
 			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
 			defer k8sClient.Delete(ctx, node)
 
+			pullSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{Name: "reg-cred-a", Namespace: "kserve-localmodel-jobs"},
+				Type:       corev1.SecretTypeDockerConfigJson,
+				Data:       map[string][]byte{corev1.DockerConfigJsonKey: []byte(`{"auths":{}}`)},
+			}
+			Expect(k8sClient.Create(ctx, pullSecret)).Should(Succeed())
+			defer k8sClient.Delete(ctx, pullSecret)
+
 			localModelNode := &v1alpha1.LocalModelNode{
 				ObjectMeta: metav1.ObjectMeta{Name: nodeName},
 				Spec: v1alpha1.LocalModelNodeSpec{

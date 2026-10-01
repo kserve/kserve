@@ -73,9 +73,7 @@ func ConfigureOciFetchToContainer(
 		podSpec.InitContainers = append(podSpec.InitContainers, *built)
 		initContainer = &podSpec.InitContainers[len(podSpec.InitContainers)-1]
 
-		if err := credentials.MountImagePullSecretsAsDockerConfig(podSpec.ImagePullSecrets, initContainer, &podSpec.Volumes); err != nil {
-			return err
-		}
+		credentials.MountImagePullSecretsAsDockerConfig(podSpec.ImagePullSecrets, initContainer, &podSpec.Volumes)
 		mountCaBundleForFetch(storageConfig, namespace, initContainer, podSpec)
 		if storageConfig.OciInsecureRegistry {
 			credentials.SetOciInsecureRegistryEnv(initContainer)

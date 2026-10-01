@@ -17,18 +17,22 @@ limitations under the License.
 package credentials
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestMountImagePullSecretsAsDockerConfig(t *testing.T) {
 	t.Run("zero secrets is a no-op", func(t *testing.T) {
 		container := &corev1.Container{Name: "storage-initializer"}
 		var volumes []corev1.Volume
-		require.NoError(t, MountImagePullSecretsAsDockerConfig(nil, container, &volumes))
+		MountImagePullSecretsAsDockerConfig(nil, container, &volumes)
 		assert.Empty(t, volumes)
 		assert.Empty(t, container.VolumeMounts)
 		assert.Empty(t, container.Env)
@@ -38,27 +42,70 @@ func TestMountImagePullSecretsAsDockerConfig(t *testing.T) {
 		container := &corev1.Container{Name: "storage-initializer"}
 		var volumes []corev1.Volume
 		secrets := []corev1.LocalObjectReference{{Name: "reg-cred"}}
-		require.NoError(t, MountImagePullSecretsAsDockerConfig(secrets, container, &volumes))
+		MountImagePullSecretsAsDockerConfig(secrets, container, &volumes)
 
 		require.Len(t, volumes, 1)
 		require.NotNil(t, volumes[0].Secret)
 		assert.Equal(t, "reg-cred", volumes[0].Secret.SecretName)
+		require.NotNil(t, volumes[0].Secret.DefaultMode)
+		assert.Equal(t, int32(0o400), *volumes[0].Secret.DefaultMode)
 		require.Len(t, container.VolumeMounts, 1)
 		assert.Equal(t, OciFetchDockerConfigDir, container.VolumeMounts[0].MountPath)
 		require.Len(t, container.Env, 1)
 		assert.Equal(t, OciFetchDockerConfigPathEnvVar, container.Env[0].Name)
 		assert.Equal(t, OciFetchDockerConfigDir+"/config.json", container.Env[0].Value)
-		assert.Nil(t, volumes[0].Secret.DefaultMode, "0400 is unreadable by UID 1000 on root-owned secret files")
 	})
 
-	t.Run("multiple secrets use the first", func(t *testing.T) {
+	t.Run("multiple secrets use the first named secret", func(t *testing.T) {
 		container := &corev1.Container{Name: "storage-initializer"}
 		var volumes []corev1.Volume
-		secrets := []corev1.LocalObjectReference{{Name: "first"}, {Name: "second"}}
-		require.NoError(t, MountImagePullSecretsAsDockerConfig(secrets, container, &volumes))
+		secrets := []corev1.LocalObjectReference{{Name: ""}, {Name: "first"}, {Name: "second"}}
+		MountImagePullSecretsAsDockerConfig(secrets, container, &volumes)
 		require.Len(t, volumes, 1)
 		require.NotNil(t, volumes[0].Secret)
 		assert.Equal(t, "first", volumes[0].Secret.SecretName)
+	})
+}
+
+func TestFetchAndValidateDockerConfigJSONSecret(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+
+	t.Run("missing secret", func(t *testing.T) {
+		cl := fake.NewClientBuilder().WithScheme(scheme).Build()
+		err := FetchAndValidateDockerConfigJSONSecret(context.Background(), cl, "ns", "reg-cred")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("wrong type", func(t *testing.T) {
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "reg-cred", Namespace: "ns"},
+			Type:       corev1.SecretTypeOpaque,
+			Data:       map[string][]byte{corev1.DockerConfigJsonKey: []byte(`{}`)},
+		}).Build()
+		err := FetchAndValidateDockerConfigJSONSecret(context.Background(), cl, "ns", "reg-cred")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "has type")
+	})
+
+	t.Run("missing key", func(t *testing.T) {
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "reg-cred", Namespace: "ns"},
+			Type:       corev1.SecretTypeDockerConfigJson,
+		}).Build()
+		err := FetchAndValidateDockerConfigJSONSecret(context.Background(), cl, "ns", "reg-cred")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "missing key")
+	})
+
+	t.Run("valid secret", func(t *testing.T) {
+		cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "reg-cred", Namespace: "ns"},
+			Type:       corev1.SecretTypeDockerConfigJson,
+			Data:       map[string][]byte{corev1.DockerConfigJsonKey: []byte(`{"auths":{}}`)},
+		}).Build()
+		require.NoError(t, FetchAndValidateDockerConfigJSONSecret(context.Background(), cl, "ns", "reg-cred"))
 	})
 }
 

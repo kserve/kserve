@@ -29,6 +29,18 @@ Secrets and service accounts must exist in the same namespace as the download Jo
 | `LocalModelNamespaceCache` with `nodeGroups` | `localModel.jobNamespace` | job namespace |
 | `LocalModelNamespaceCache` with `pvcRef` | the cache's namespace | cache namespace |
 
+A namespaced cache with `nodeGroups` can name any dockerconfigjson Secret that already
+exists in the shared job namespace. KServe does not copy Secrets from the cache
+namespace. Prefer `pvcRef` when tenants must not share that cluster credential store.
+
+Node-local download Jobs are not replaced when `imagePullSecrets` (or
+`serviceAccountName` / `storage`) change. Delete the failed or pending Job in
+`localModel.jobNamespace` so the agent creates a replacement. Shared-PVC import Jobs
+are replaced automatically when those fields change (`importSpecHash`).
+
+`storageInitializer.ociInsecureRegistry` is applied only to OCI (`oci://` / `oci+*`)
+LocalModel download and import Jobs, not to S3/HF/GCS jobs.
+
 ## Credential Specification Methods
 
 ### Method 1: ServiceAccountName

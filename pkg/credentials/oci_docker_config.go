@@ -17,7 +17,14 @@ limitations under the License.
 package credentials
 
 import (
+	"context"
+	"errors"
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -39,52 +46,79 @@ const (
 	OciInsecureRegistryEnvVar = "KSERVE_OCI_INSECURE_REGISTRY"
 )
 
-// MountImagePullSecretsAsDockerConfig projects the first imagePullSecret into the
+// ociFetchDockerConfigDefaultMode matches the pre-extract InferenceService oci+fetch
+// volume (0400). Changing it here would roll every existing oci+fetch ISVC pod.
+var ociFetchDockerConfigDefaultMode = int32(0o400)
+
+// FirstNamedImagePullSecret returns the first imagePullSecret with a non-empty name.
+func FirstNamedImagePullSecret(imagePullSecrets []corev1.LocalObjectReference) (string, bool) {
+	for _, secret := range imagePullSecrets {
+		if secret.Name != "" {
+			return secret.Name, true
+		}
+	}
+	return "", false
+}
+
+// FetchAndValidateDockerConfigJSONSecret loads a Secret and checks it is a
+// kubernetes.io/dockerconfigjson with a ".dockerconfigjson" key.
+func FetchAndValidateDockerConfigJSONSecret(ctx context.Context, cl client.Client, namespace, name string) error {
+	if name == "" {
+		return errors.New("imagePullSecret name must be non-empty")
+	}
+	secret := &corev1.Secret{}
+	if err := cl.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, secret); err != nil {
+		if apierr.IsNotFound(err) {
+			return fmt.Errorf("imagePullSecret %q not found in namespace %q", name, namespace)
+		}
+		return err
+	}
+	if secret.Type != corev1.SecretTypeDockerConfigJson {
+		return fmt.Errorf("imagePullSecret %q in namespace %q has type %q, want %s", name, namespace, secret.Type, corev1.SecretTypeDockerConfigJson)
+	}
+	if _, ok := secret.Data[corev1.DockerConfigJsonKey]; !ok {
+		return fmt.Errorf("imagePullSecret %q in namespace %q is missing key %q", name, namespace, corev1.DockerConfigJsonKey)
+	}
+	return nil
+}
+
+// MountImagePullSecretsAsDockerConfig projects the first named imagePullSecret into the
 // container as a docker config.json so the Python storage initializer (oras-py) can
 // authenticate to private OCI registries. The Python handler reads this file via
 // OciFetchDockerConfigPathEnvVar (oras-py ignores DOCKER_CONFIG), so we mount it at
 // a UID-agnostic path under /mnt, not /root (UID 1000 cannot traverse /root).
 //
-//   - 0 secrets: no-op. Anonymous pulls succeed for public registries; private registries
-//     fail with a clear authorization error at pull time.
+//   - 0 secrets / only empty names: no-op.
 //   - 1 secret: the secret's ".dockerconfigjson" key is projected to <dir>/config.json.
-//   - >1 secrets: the first secret is used and a warning is logged; multi-secret merging is
-//     not yet supported (users can combine credentials into a single dockerconfigjson secret).
-//
-// The secret is referenced by name only; kubelet projects its contents at pod startup. A
-// kubernetes.io/dockerconfigjson secret is assumed; a legacy kubernetes.io/dockercfg secret
-// lacks the ".dockerconfigjson" key, so the projected file would be absent and the pull would
-// fail with a clear error.
+//   - >1 secrets: the first named secret is used and a warning is logged; merge multiple
+//     registries into one dockerconfigjson secret.
 func MountImagePullSecretsAsDockerConfig(
 	imagePullSecrets []corev1.LocalObjectReference,
 	container *corev1.Container,
 	volumes *[]corev1.Volume,
-) error {
-	if len(imagePullSecrets) == 0 {
-		return nil
+) {
+	secretName, ok := FirstNamedImagePullSecret(imagePullSecrets)
+	if !ok {
+		return
 	}
 	if len(imagePullSecrets) > 1 {
-		log.Info("Multiple imagePullSecrets found for OCI fetch; using the first only "+
+		log.Info("Multiple imagePullSecrets found for OCI fetch; using the first named secret only "+
 			"(multi-secret merging is not yet supported, combine credentials into one dockerconfigjson secret)",
-			"secretCount", len(imagePullSecrets), "selectedSecret", imagePullSecrets[0].Name)
+			"secretCount", len(imagePullSecrets), "selectedSecret", secretName)
 	}
-	secretName := imagePullSecrets[0].Name
 
 	if ociDockerConfigVolumeExists(*volumes) {
 		log.Info("docker config volume already present; skipping duplicate mount",
 			"volume", OciFetchDockerConfigVolumeName)
-		return nil
+		return
 	}
 
-	// Do not set DefaultMode 0400. Secret files are root-owned unless fsGroup is
-	// applied; the storage-initializer runs as UID 1000 and cannot read owner-only
-	// root-owned files. Kubelet's default 0644 is readable by that user. The mount
-	// is still read-only.
 	*volumes = append(*volumes, corev1.Volume{
 		Name: OciFetchDockerConfigVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName: secretName,
+				SecretName:  secretName,
+				DefaultMode: &ociFetchDockerConfigDefaultMode,
 				Items: []corev1.KeyToPath{
 					{Key: corev1.DockerConfigJsonKey, Path: "config.json"},
 				},
@@ -100,7 +134,6 @@ func MountImagePullSecretsAsDockerConfig(
 		Name:  OciFetchDockerConfigPathEnvVar,
 		Value: OciFetchDockerConfigDir + "/config.json",
 	})
-	return nil
 }
 
 // SetOciInsecureRegistryEnv sets KSERVE_OCI_INSECURE_REGISTRY=true on the download

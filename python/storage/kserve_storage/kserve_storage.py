@@ -33,7 +33,7 @@ from typing import List, Optional, TYPE_CHECKING
 import zipfile
 from pathlib import Path
 from typing import Tuple
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 import certifi
@@ -145,15 +145,23 @@ def _oci_auth_backend_for_registry(registry: str, insecure: bool) -> str:
             req = Request(url, method="GET")
             with urlopen(req, timeout=5, context=ctx) as resp:
                 header = resp.headers.get("Www-Authenticate", "")
-                if header:
-                    return _oci_auth_backend_from_www_authenticate(header)
-                return "token"
+                backend = (
+                    _oci_auth_backend_from_www_authenticate(header)
+                    if header
+                    else "token"
+                )
+                logger.info("Selected OCI auth backend %s for %s", backend, registry)
+                return backend
         except HTTPError as err:
             header = err.headers.get("Www-Authenticate", "") if err.headers else ""
             if header:
-                return _oci_auth_backend_from_www_authenticate(header)
-        except (URLError, TimeoutError, OSError, ValueError):
+                backend = _oci_auth_backend_from_www_authenticate(header)
+                logger.info("Selected OCI auth backend %s for %s", backend, registry)
+                return backend
+        except Exception as err:  # noqa: BLE001
+            logger.debug("OCI /v2/ probe failed for %s: %s", url, err)
             continue
+    logger.info("Selected OCI auth backend token for %s (probe fallback)", registry)
     return "token"
 
 
@@ -314,6 +322,13 @@ def _login_from_docker_config(
     try:
         with open(config_path) as f:
             cfg = json.load(f)
+    except PermissionError as err:
+        logger.warning(
+            "Cannot read OCI docker config %s: %s; falling back to anonymous pull",
+            config_path,
+            err,
+        )
+        return
     except (OSError, ValueError):
         return
     if not isinstance(cfg, dict):

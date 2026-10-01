@@ -61,11 +61,17 @@ type LocalModelNamespaceCacheSpec struct {
 	// ImagePullSecrets are kubernetes.io/dockerconfigjson secrets used to authenticate OCI
 	// (oci://) imports. For nodeGroups caches they must exist in the download job namespace
 	// (localModel.jobNamespace); for pvcRef caches they must exist in this cache's namespace,
-	// where the import Job runs. Only the first secret is projected into the download
+	// where the import Job runs. Only the first named secret is projected into the download
 	// container; merge multiple registries into one secret.
+	//
+	// Trust boundary: a namespaced nodeGroups cache can name any dockerconfigjson Secret
+	// already present in the shared job namespace. Secrets are not copied from the cache
+	// namespace. Prefer pvcRef (import Job in the cache namespace) when tenants must not
+	// share the cluster job-namespace credential store.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:XValidation:rule="self.all(s, size(s.name) > 0)",message="imagePullSecrets.name must be non-empty"
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// +optional
 	Storage *LocalModelStorageSpec `json:"storage,omitempty"`

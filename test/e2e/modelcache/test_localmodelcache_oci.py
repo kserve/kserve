@@ -99,16 +99,36 @@ def _node_exec(node: str, command: str) -> subprocess.CompletedProcess:
     )
 
 
+def _dump_download_job_logs(core: client.CoreV1Api, name: str):
+    try:
+        pods = core.list_namespaced_pod(JOB_NAMESPACE, label_selector=f"model={name}")
+    except ApiException as err:
+        print(f"failed to list download pods for {name}: {err}")
+        return
+    for pod in pods.items:
+        try:
+            log = core.read_namespaced_pod_log(pod.metadata.name, JOB_NAMESPACE)
+        except ApiException as err:
+            print(f"failed to read logs for {pod.metadata.name}: {err}")
+            continue
+        print(f"--- logs {JOB_NAMESPACE}/{pod.metadata.name} ---\n{log}")
+
+
 def _wait_cache_downloaded(custom: client.CustomObjectsApi, name: str):
     deadline = time.monotonic() + CACHE_DOWNLOAD_TIMEOUT
     last = None
+    core = client.CoreV1Api()
     while time.monotonic() < deadline:
         obj = custom.get_cluster_custom_object(GROUP, VERSION, "localmodelcaches", name)
         last = obj.get("status") or {}
         node_status = last.get("nodeStatus") or {}
+        if node_status and any(v == "NodeDownloadError" for v in node_status.values()):
+            _dump_download_job_logs(core, name)
+            pytest.fail(f"LocalModelCache {name} reported NodeDownloadError: {last}")
         if node_status and all(v == "NodeDownloaded" for v in node_status.values()):
             return last
         time.sleep(5)
+    _dump_download_job_logs(core, name)
     pytest.fail(f"LocalModelCache {name} did not reach NodeDownloaded: {last}")
 
 
@@ -254,13 +274,18 @@ def test_localmodelcache_public_oci_import_lands_on_pvc_not_image_cache():
 
         repo = OCI_FETCH_TEST_IMAGE.split(":")[0]
         for node in nodes:
-            after = _node_exec(node, "crictl images").stdout
+            after_images = _node_exec(node, "crictl images")
+            assert after_images.returncode == 0, (
+                f"crictl images failed on {node}: {after_images.stderr}"
+            )
+            after = after_images.stdout
             if repo not in crictl_before[node]:
                 assert repo not in after, (
                     f"modelcar image appeared in crictl on {node}: {after}"
                 )
-            after_df = _node_exec(node, "df -k /").stdout
-            assert after_df, f"df failed on {node}"
+            after_df = _node_exec(node, "df -k /")
+            assert after_df.returncode == 0, f"df failed on {node}: {after_df.stderr}"
+            assert after_df.stdout, f"df produced no output on {node}"
     finally:
         kserve_client.delete_local_model_cache(cache_name)
         kserve_client.delete_local_model_node_group(group_name)

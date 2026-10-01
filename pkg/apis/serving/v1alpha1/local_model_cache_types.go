@@ -67,6 +67,7 @@ type LocalModelCacheSpec struct {
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:XValidation:rule="self.all(s, size(s.name) > 0)",message="imagePullSecrets.name must be non-empty"
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// +optional
 	Storage *LocalModelStorageSpec `json:"storage,omitempty"`

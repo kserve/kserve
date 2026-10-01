@@ -249,6 +249,16 @@ def test_oci_auth_backend_probe_basic_401():
         assert _oci_auth_backend_for_registry("registry.local:5000", True) == "basic"
 
 
+def test_oci_auth_backend_probe_http_exception_falls_back():
+    import http.client
+
+    with mock.patch(
+        "kserve_storage.kserve_storage.urlopen",
+        side_effect=http.client.BadStatusLine("broken"),
+    ):
+        assert _oci_auth_backend_for_registry("registry.local:5000", True) == "token"
+
+
 def test_oci_auth_backend_probe_bearer_401():
     err = HTTPError(
         "https://ghcr.io/v2/",

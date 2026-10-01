@@ -5651,6 +5651,9 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: imagePullSecrets.name must be non-empty
+                  rule: self.all(s, size(s.name) > 0)
               modelSize:
                 anyOf:
                 - type: integer
@@ -5808,6 +5811,9 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: imagePullSecrets.name must be non-empty
+                  rule: self.all(s, size(s.name) > 0)
               modelSize:
                 anyOf:
                 - type: integer
@@ -6674,6 +6680,9 @@ spec:
                       x-kubernetes-list-map-keys:
                       - name
                       x-kubernetes-list-type: map
+                      x-kubernetes-validations:
+                      - message: imagePullSecrets.name must be non-empty
+                        rule: self.all(s, size(s.name) > 0)
                     modelName:
                       type: string
                     namespace:
