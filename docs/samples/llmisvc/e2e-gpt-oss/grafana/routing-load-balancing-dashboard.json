@@ -31,7 +31,7 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Request distribution (QPS per instance). Uses llm_d_epp_request_total without a label filter so it works when target_model/target_model_name is missing or named differently. llm-d-router before v0.11.0 also exposes this as llm_d_epp_request_total.",
+      "description": "Request distribution (QPS per instance). Uses llm_d_epp_request_total without a label filter so it works when target_model/target_model_name is missing or named differently. llm-d-router before v0.11.0 used the legacy inference_objective_request_total metric.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
