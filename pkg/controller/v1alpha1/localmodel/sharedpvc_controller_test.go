@@ -766,18 +766,35 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			}
 			Expect(k8sClient.Create(ctx, isvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, isvc)
-			Eventually(func() int {
+			baseModelURI, err := apis.ParseURL(sourceModelUri)
+			Expect(err).NotTo(HaveOccurred())
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "reimport-llm-consumer",
+					Namespace: ns,
+					Labels: map[string]string{
+						constants.LocalModelLabel:          cache.Name,
+						constants.LocalModelNamespaceLabel: ns,
+					},
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{URI: *baseModelURI},
+				},
+			}
+			Expect(k8sClient.Create(ctx, llmSvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, llmSvc)
+			Eventually(func() [2]int {
 				current := &v1alpha1.LocalModelNamespaceCache{}
 				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
-					return -1
+					return [2]int{-1, -1}
 				}
-				return len(current.Status.InferenceServices)
-			}, timeout, interval).Should(Equal(1))
+				return [2]int{len(current.Status.InferenceServices), len(current.Status.LLMInferenceServices)}
+			}, timeout, interval).Should(Equal([2]int{1, 1}), "both consumer kinds are tracked")
 
-			// The retained Job disappears while the consumer still reads the destination.
+			// The retained Job disappears while the consumers still read the destination.
 			Expect(k8sClient.Delete(ctx, originalJob, client.PropagationPolicy(metav1.DeletePropagationBackground))).Should(Succeed())
 
-			Eventually(func() string {
+			blockedReason := func() string {
 				current := &v1alpha1.LocalModelNamespaceCache{}
 				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
 					return ""
@@ -786,19 +803,36 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 					return condition.Reason
 				}
 				return ""
-			}, timeout, interval).Should(Equal(v1alpha1.ReasonReimportBlocked))
-			Consistently(func() int {
+			}
+			importJobCount := func() int {
 				jobs := &batchv1.JobList{}
 				_ = k8sClient.List(ctx, jobs, client.InNamespace(ns))
 				return len(jobs.Items)
-			}, duration, interval).Should(Equal(0), "no replacement Job while a consumer references the cache")
+			}
+			Eventually(blockedReason, timeout, interval).Should(Equal(v1alpha1.ReasonReimportBlocked))
+			Consistently(importJobCount, duration, interval).Should(Equal(0), "no replacement Job while consumers reference the cache")
 			current := &v1alpha1.LocalModelNamespaceCache{}
 			Expect(k8sClient.Get(ctx, cacheKey, current)).Should(Succeed())
 			Expect(current.Status.SharedPVCImport).NotTo(BeNil(), "the import record must survive the blocked state")
-			Expect(current.Status.GetCondition(v1alpha1.LocalModelCacheReady).Message).To(ContainSubstring("1 InferenceService"))
+			Expect(current.Status.GetCondition(v1alpha1.LocalModelCacheReady).Message).To(ContainSubstring("1 InferenceService and 1 LLMInferenceService"))
 
-			// Removing the consumer allows exactly one replacement import.
+			// An LLMInferenceService alone keeps the re-import blocked.
 			Expect(k8sClient.Delete(ctx, isvc)).Should(Succeed())
+			Eventually(func() string {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
+					return ""
+				}
+				if condition := current.Status.GetCondition(v1alpha1.LocalModelCacheReady); condition != nil {
+					return condition.Message
+				}
+				return ""
+			}, timeout, interval).Should(ContainSubstring("0 InferenceService and 1 LLMInferenceService"))
+			Consistently(importJobCount, duration, interval).Should(Equal(0), "no replacement Job while an LLMInferenceService references the cache")
+			Expect(blockedReason()).To(Equal(v1alpha1.ReasonReimportBlocked))
+
+			// Removing the last consumer allows exactly one replacement import.
+			Expect(k8sClient.Delete(ctx, llmSvc)).Should(Succeed())
 			Eventually(func() bool {
 				replacement := &batchv1.Job{}
 				if err := k8sClient.Get(ctx, jobKey, replacement); err != nil {

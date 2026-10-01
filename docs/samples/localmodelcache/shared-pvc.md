@@ -97,8 +97,11 @@ kubectl apply -f shared-pvc.yaml
   LLMInferenceServices still reference the cache, no replacement Job is created: the
   Job writes straight into the destination those workloads read. The cache reports
   `ReimportBlocked` and stays that way until the consumers are removed; then exactly
-  one replacement Job is created. A recreated PVC (new UID) is imported again
-  regardless of consumers, since it holds no data.
+  one replacement Job is created. Consumer removal is normally observed through the
+  InferenceService and LLMInferenceService watches; the blocked cache also re-checks
+  its consumers once a minute, which covers `disableVolumeManagement`, where those
+  watches are not registered. A recreated PVC (new UID) is imported again regardless
+  of consumers, since it holds no data.
 - Consumers are counted by object, not by running Pod. Deleting the last consumer
   unblocks the re-import immediately, so the replacement Job can start writing the
   destination while that consumer's Pods are still terminating. Wait for those Pods
@@ -143,6 +146,13 @@ model onto the **same** PVC conflict (`DestinationConflict`); two caches importi
 An InferenceService, LLMInferenceService base model, or LoRA adapter is routed to the
 shared copy **only after** the cache reaches `Ready: True`. Until then the workload
 falls back to its original `storageUri` as if the cache were absent.
+
+A workload that is already bound to the cache stays bound if the cache later reports
+`Ready: False` (for example `ReimportBlocked` or a spec-generation bump): the data is
+still on the claim, so an unrelated update to the InferenceService or
+LLMInferenceService does not strip the binding or roll its pods back to downloading
+from source. The binding is released only when the workload no longer matches the
+cache's `sourceModelUri`, or when it is deleted.
 
 Once ready, the served model resolves to:
 

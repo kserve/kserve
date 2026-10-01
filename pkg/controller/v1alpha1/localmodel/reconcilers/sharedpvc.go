@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -50,6 +51,12 @@ const (
 	importPVCUIDAnnotation     = "serving.kserve.io/import-pvc-uid"
 	importStorageKeyAnnotation = "serving.kserve.io/import-storage-key"
 	importSpecHashAnnotation   = "serving.kserve.io/import-spec-hash"
+
+	// reimportBlockedRequeueInterval is the fallback poll while a re-import is blocked by
+	// consumers. Consumer removal normally re-enqueues the cache through the
+	// InferenceService/LLMInferenceService watches, but those are not registered under
+	// disableVolumeManagement.
+	reimportBlockedRequeueInterval = time.Minute
 )
 
 var (
@@ -136,13 +143,19 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 	if err != nil {
 		if errors.Is(err, errReimportBlocked) {
 			// Not an error to retry: removing a consumer enqueues this cache via the
-			// InferenceService/LLMInferenceService watches.
+			// InferenceService/LLMInferenceService watches. Those watches are not registered
+			// under disableVolumeManagement, so the blocked state also re-checks on a timer.
 			log.Info("Re-import blocked by active consumers", "message", err.Error())
-			return c.applySharedStatus(ctx, localModel, sharedState{
+			result, statusErr := c.applySharedStatus(ctx, localModel, sharedState{
 				status:  metav1.ConditionFalse,
 				reason:  v1alpha1.ReasonReimportBlocked,
 				message: err.Error(),
 			}, consumers)
+			if statusErr != nil {
+				return ctrl.Result{}, statusErr
+			}
+			result.RequeueAfter = reimportBlockedRequeueInterval
+			return result, nil
 		}
 		if errors.Is(err, errImportJobConflict) {
 			if _, statusErr := c.applySharedStatus(ctx, localModel, sharedState{

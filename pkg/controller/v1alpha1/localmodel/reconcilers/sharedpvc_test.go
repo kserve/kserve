@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
@@ -721,6 +722,12 @@ func sharedConsumer() cacheConsumers {
 	}}}
 }
 
+func sharedLLMConsumer() cacheConsumers {
+	return cacheConsumers{llmSvcs: []v1alpha2.LLMInferenceService{{
+		ObjectMeta: metav1.ObjectMeta{Name: "llm-consumer", Namespace: "ns"},
+	}}}
+}
+
 func listImportJobs(t *testing.T, cl client.Client) []batchv1.Job {
 	t.Helper()
 	jobs := &batchv1.JobList{}
@@ -731,28 +738,45 @@ func listImportJobs(t *testing.T, cl client.Client) []batchv1.Job {
 }
 
 func TestReconcileSharedPVCBlocksReimportWhileConsumersRemain(t *testing.T) {
-	cache := importedSharedCache("pvc-uid")
-	pvc := boundSharedPVC("pvc-uid")
-	cl, scheme := sharedPVCFixture(t, cache, pvc)
-	reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, Scheme: scheme}
+	tests := []struct {
+		name      string
+		consumers cacheConsumers
+		wantCount string
+	}{
+		{name: "InferenceService", consumers: sharedConsumer(), wantCount: "1 InferenceService and 0 LLMInferenceService"},
+		{name: "LLMInferenceService", consumers: sharedLLMConsumer(), wantCount: "0 InferenceService and 1 LLMInferenceService"},
+		{name: "both", consumers: cacheConsumers{isvcs: sharedConsumer().isvcs, llmSvcs: sharedLLMConsumer().llmSvcs}, wantCount: "1 InferenceService and 1 LLMInferenceService"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cache := importedSharedCache("pvc-uid")
+			pvc := boundSharedPVC("pvc-uid")
+			cl, scheme := sharedPVCFixture(t, cache, pvc)
+			reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, Scheme: scheme}
 
-	for i := range 2 {
-		if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, sharedConsumer()); err != nil {
-			t.Fatalf("reconcileSharedPVC() #%d error = %v, want nil: a blocked re-import is a steady state, not a retry", i+1, err)
-		}
-	}
-	if jobs := listImportJobs(t, cl); len(jobs) != 0 {
-		t.Fatalf("expected no replacement import Job while consumers remain, got %d", len(jobs))
-	}
-	condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)
-	if condition == nil || condition.Status != metav1.ConditionFalse || condition.Reason != v1alpha1.ReasonReimportBlocked {
-		t.Fatalf("cache Ready condition = %#v, want False/%s", condition, v1alpha1.ReasonReimportBlocked)
-	}
-	if !strings.Contains(condition.Message, "1 InferenceService") || !strings.Contains(condition.Message, "remove them") {
-		t.Fatalf("condition message %q should count consumers and name the remedy", condition.Message)
-	}
-	if cache.Status.SharedPVCImport == nil || cache.Status.SharedPVCImport.PVCUID != "pvc-uid" {
-		t.Fatalf("import record %#v must survive the blocked state; it is the only evidence of prior success", cache.Status.SharedPVCImport)
+			for i := range 2 {
+				result, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, tt.consumers)
+				if err != nil {
+					t.Fatalf("reconcileSharedPVC() #%d error = %v, want nil: a blocked re-import is a steady state, not a retry", i+1, err)
+				}
+				if result.RequeueAfter != reimportBlockedRequeueInterval {
+					t.Fatalf("reconcileSharedPVC() #%d RequeueAfter = %v, want %v: the blocked state must re-check consumers even when the consumer watches are not registered", i+1, result.RequeueAfter, reimportBlockedRequeueInterval)
+				}
+			}
+			if jobs := listImportJobs(t, cl); len(jobs) != 0 {
+				t.Fatalf("expected no replacement import Job while consumers remain, got %d", len(jobs))
+			}
+			condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+			if condition == nil || condition.Status != metav1.ConditionFalse || condition.Reason != v1alpha1.ReasonReimportBlocked {
+				t.Fatalf("cache Ready condition = %#v, want False/%s", condition, v1alpha1.ReasonReimportBlocked)
+			}
+			if !strings.Contains(condition.Message, tt.wantCount) || !strings.Contains(condition.Message, "remove them") {
+				t.Fatalf("condition message %q should count consumers (%s) and name the remedy", condition.Message, tt.wantCount)
+			}
+			if cache.Status.SharedPVCImport == nil || cache.Status.SharedPVCImport.PVCUID != "pvc-uid" {
+				t.Fatalf("import record %#v must survive the blocked state; it is the only evidence of prior success", cache.Status.SharedPVCImport)
+			}
+		})
 	}
 }
 
