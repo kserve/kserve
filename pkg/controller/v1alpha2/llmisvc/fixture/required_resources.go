@@ -130,6 +130,26 @@ func PatchIngressConfigKey(ctx context.Context, c client.Client, key string, val
 	gomega.Expect(c.Patch(ctx, cm, patch)).To(gomega.Succeed())
 }
 
+// PatchLLMISVCFeatureGates sets the feature gates in the "llmisvc" key of the live
+// inferenceservice-config ConfigMap; nil removes the key, turning every gate off.
+func PatchLLMISVCFeatureGates(ctx context.Context, c client.Client, gates map[string]bool) {
+	ginkgo.GinkgoHelper()
+	cm := &corev1.ConfigMap{}
+	gomega.Expect(c.Get(ctx, types.NamespacedName{
+		Name:      constants.InferenceServiceConfigMapName,
+		Namespace: constants.KServeNamespace,
+	}, cm)).To(gomega.Succeed())
+	patch := client.MergeFrom(cm.DeepCopy())
+	if gates == nil {
+		delete(cm.Data, "llmisvc")
+	} else {
+		raw, err := json.Marshal(map[string]any{"featureGates": gates})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		cm.Data["llmisvc"] = string(raw)
+	}
+	gomega.Expect(c.Patch(ctx, cm, patch)).To(gomega.Succeed())
+}
+
 func InferenceServiceCfgMapWithUrlScheme(ns, urlScheme string) *corev1.ConfigMap {
 	urlSchemeConfig := ""
 	if urlScheme != "" {

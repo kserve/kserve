@@ -146,6 +146,14 @@ const (
 	// Only present when the annotation is configured on the service or on a
 	// parent Gateway of a managed route; absent means not configured.
 	PerModelPathsDropped apis.ConditionType = "PerModelPathsDropped"
+
+	// DisaggregatedSetUsed reports whether a service that opts into the
+	// DisaggregatedSet backend runs on it. False when the service keeps its
+	// current workloads, with reason FeatureGateDisabled, CRDNotInstalled,
+	// NoPrefillWorkload, AutoscalingNotSupported or ReplicasMismatch.
+	// Independent of the Ready rollup - the current workloads keep serving.
+	// Only present when the service opts in; absent means not requested.
+	DisaggregatedSetUsed apis.ConditionType = "DisaggregatedSetUsed"
 )
 
 var llmInferenceServiceCondSet = apis.NewLivingConditionSet(
@@ -370,6 +378,18 @@ func (in *LLMInferenceService) MarkPerModelPathsKept(reason, messageFormat strin
 
 func (in *LLMInferenceService) MarkPerModelPathsDroppedUnset() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(PerModelPathsDropped)
+}
+
+func (in *LLMInferenceService) MarkDisaggregatedSetUsed() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(DisaggregatedSetUsed)
+}
+
+func (in *LLMInferenceService) MarkDisaggregatedSetNotUsed(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(DisaggregatedSetUsed, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkDisaggregatedSetUsedUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(DisaggregatedSetUsed)
 }
 
 func (in *LLMInferenceService) DetermineRouterReadiness() {

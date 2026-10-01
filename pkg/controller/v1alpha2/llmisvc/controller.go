@@ -305,7 +305,11 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 
 	RecordAcceleratorAnnotation(llmSvc)
 
-	if err := r.reconcileWorkload(ctx, llmSvc, config); err != nil {
+	disaggregatedSet := r.decideDisaggregatedSet(llmSvc, config)
+	r.markDisaggregatedSetDecision(llmSvc, disaggregatedSet)
+	useDisaggregatedSet := useDisaggregatedSetWorkload(llmSvc, disaggregatedSet)
+
+	if err := r.reconcileWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		return fmt.Errorf("failed to reconcile workload: %w", err)
 	}
 
@@ -320,7 +324,7 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return err
 	}
 
-	if err := r.observeWorkloadStatus(ctx, llmSvc); err != nil {
+	if err := r.observeWorkloadStatus(ctx, llmSvc, useDisaggregatedSet); err != nil {
 		return fmt.Errorf("failed to observe workload status: %w", err)
 	}
 
@@ -409,7 +413,7 @@ func llmInferenceServiceReadinessFalse(status v1alpha2.LLMInferenceServiceStatus
 // apply while the service keeps serving. They can't be filtered by severity,
 // since every sub-condition outside the Ready condition set gets Info severity,
 // including the ones that do roll up into Ready.
-var readyIndependentConditions = []apis.ConditionType{v1alpha2.GroupReady, v1alpha2.PerModelPathsDropped}
+var readyIndependentConditions = []apis.ConditionType{v1alpha2.GroupReady, v1alpha2.PerModelPathsDropped, v1alpha2.DisaggregatedSetUsed}
 
 // GetFailConditions returns a comma-separated list of sub-condition Types whose Status is False.
 // The top-level apis.ConditionReady is intentionally excluded because it is the aggregate that
