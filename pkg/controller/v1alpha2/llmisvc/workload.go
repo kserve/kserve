@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	disaggregatedsetv1 "sigs.k8s.io/lws/api/disaggregatedset/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -52,7 +53,7 @@ var sidecarSSRFProtectionRules = []rbacv1.PolicyRule{
 
 // reconcileWorkload manages the Deployments and Services for the LLM.
 // It handles standard, multi-node, and disaggregated (prefill/decode) deployment patterns.
-func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, useDisaggregatedSet bool) error {
 	logger := log.FromContext(ctx).WithName("reconcileWorkload")
 	ctx = log.IntoContext(ctx, logger)
 
@@ -65,9 +66,12 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		llmSvc.MarkMainWorkloadNotReady("Stopped", "Service is stopped")
 	}
 
-	if err := r.reconcileWorkloadRevision(ctx, llmSvc, config); err != nil {
-		llmSvc.MarkMainWorkloadNotReady("ComputeWorkloadRevisionError", err.Error())
-		return fmt.Errorf("failed to compute workload revision: %w", err)
+	// A DisaggregatedSet computes its revision from its own roles.
+	if !useDisaggregatedSet {
+		if err := r.reconcileWorkloadRevision(ctx, llmSvc, config); err != nil {
+			llmSvc.MarkMainWorkloadNotReady("ComputeWorkloadRevisionError", err.Error())
+			return fmt.Errorf("failed to compute workload revision: %w", err)
+		}
 	}
 
 	// Set up TLS certificates for secure communication
@@ -84,18 +88,41 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	}
 
 	// We need to always reconcile every type of workload to handle transitions from P/D to another topology (meaning
-	// finalizing superfluous workloads).
+	// finalizing superfluous workloads). Switching to and from a DisaggregatedSet creates the new workloads and deletes
+	// the old ones in the same reconcile without waiting for the new pods to become ready, so the service has no ready
+	// endpoints until the new pods finish loading the model.
+
+	// Handle disaggregated (P/D) deployments using a DisaggregatedSet
+	var disaggregatedSet *disaggregatedsetv1.DisaggregatedSet
+	if useDisaggregatedSet {
+		var err error
+		if disaggregatedSet, err = r.reconcileDisaggregatedSet(ctx, llmSvc, config); err != nil {
+			llmSvc.MarkMainWorkloadNotReady("ReconcileDisaggregatedSetError", err.Error())
+			return fmt.Errorf("failed to reconcile disaggregated set: %w", err)
+		}
+	}
 
 	// Handle multi-node deployments using LeaderWorkerSets
-	if err := r.reconcileMultiNodeWorkload(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileMultiNodeWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		llmSvc.MarkWorkerWorkloadNotReady("ReconcileMultiNodeWorkloadError", err.Error())
 		return fmt.Errorf("failed to reconcile multi node workload: %w", err)
 	}
 
 	// Handle single-node deployments using standard Deployments
-	if err := r.reconcileSingleNodeWorkload(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileSingleNodeWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileSingleNodeWorkloadError", err.Error())
 		return fmt.Errorf("failed to reconcile single node workload: %w", err)
+	}
+
+	if useDisaggregatedSet {
+		// After the other workloads, which clear the conditions of the workloads they delete.
+		propagateDisaggregatedSetStatus(llmSvc, disaggregatedSet)
+	} else if r.DisaggregatedSetAvailable {
+		// Without the CRD there is no DisaggregatedSet to delete.
+		if err := r.deleteDisaggregatedSet(ctx, llmSvc); err != nil {
+			llmSvc.MarkMainWorkloadNotReady("ReconcileDisaggregatedSetError", err.Error())
+			return fmt.Errorf("failed to delete disaggregated set: %w", err)
+		}
 	}
 
 	// Create Service to expose workload pods

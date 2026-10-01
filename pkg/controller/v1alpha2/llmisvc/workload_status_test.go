@@ -250,7 +250,7 @@ func TestObserveWorkloadStatus(t *testing.T) {
 					},
 				}
 				// Call once before the main test invocation to pre-populate.
-				_ = (&LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build()}).observeWorkloadStatus(context.Background(), svc)
+				_ = (&LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build()}).observeWorkloadStatus(context.Background(), svc, false)
 			},
 			expectedWorkloads: &v1alpha2.WorkloadStatus{
 				Primary: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
@@ -298,7 +298,7 @@ func TestObserveWorkloadStatus(t *testing.T) {
 
 			tc.modify(svc)
 
-			_ = (&LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build()}).observeWorkloadStatus(context.Background(), svc)
+			_ = (&LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build()}).observeWorkloadStatus(context.Background(), svc, false)
 
 			assert.Equal(t, tc.expectedWorkloads, svc.Status.Workloads)
 		})
