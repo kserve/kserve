@@ -116,3 +116,24 @@ Safe namespace replacement - only replaces exact "namespace: kserve" pattern
 {{- $replacement := printf "namespace: %s\n" $namespace -}}
 {{- $content | replace $pattern $replacement -}}
 {{- end -}}
+{{/*
+Resolve an optional-resource "enabled" toggle against a fallback.
+
+Helm's `default` treats boolean false as empty, so `X.enabled | default Y`
+cannot distinguish `enabled: false` from an unset value and silently falls
+through to Y. Only a genuinely unset value -- nil, or the chart default of
+"" -- may fall back here; an explicit true/false is honoured.
+
+Usage:
+  {{- if eq (include "kserve-common.optionalResourceEnabled" (dict
+        "value" .Values.kserve.certManager.enabled
+        "default" .Values.kserve.createSharedResources)) "true" }}
+*/}}
+{{- define "kserve-common.optionalResourceEnabled" -}}
+{{- $value := .value -}}
+{{- if or (kindIs "invalid" $value) (and (kindIs "string" $value) (eq $value "")) -}}
+{{- .default -}}
+{{- else -}}
+{{- $value -}}
+{{- end -}}
+{{- end -}}
