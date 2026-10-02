@@ -33,6 +33,20 @@ from ..protocol.grpc.grpc_predict_v2_pb2 import (
 from ..utils.numpy_codec import to_np_dtype, from_np_dtype
 
 
+def _as_bytes_compatible_array(tensor: np.ndarray) -> np.ndarray:
+    """
+    Converts a tensor the codec maps to BYTES into a dtype the BYTES serializers
+    accept. Unicode and datetime64 arrays become object arrays of utf-8 encoded
+    bytes, datetime64 through its ISO 8601 representation. Object and bytes
+    arrays are returned unchanged.
+    """
+    if np.issubdtype(tensor.dtype, np.datetime64):
+        tensor = tensor.astype(str)
+    if tensor.dtype.type == np.str_:
+        return np.char.encode(tensor, "utf-8").astype(np.object_)
+    return tensor
+
+
 def serialize_byte_tensor(input_tensor: np.ndarray) -> np.ndarray:
     """
     Serializes a bytes tensor into a flat numpy array of length prepended
@@ -49,6 +63,8 @@ def serialize_byte_tensor(input_tensor: np.ndarray) -> np.ndarray:
     Raises:
         InferenceError If unable to serialize the given tensor.
     """
+
+    input_tensor = _as_bytes_compatible_array(input_tensor)
 
     if input_tensor.size == 0:
         return np.empty([0], dtype=np.object_)
@@ -274,6 +290,8 @@ class InferInput:
             raise InferenceError("input_tensor must be a numpy array")
 
         dtype = from_np_dtype(input_tensor.dtype)
+        if dtype == "BYTES":
+            input_tensor = _as_bytes_compatible_array(input_tensor)
         if self._datatype != dtype:
             raise InferenceError(
                 "got unexpected datatype {} from numpy array, expected {}".format(
@@ -1055,8 +1073,8 @@ class InferOutput:
             raise InferenceError("input_tensor must be a numpy array")
 
         dtype = from_np_dtype(output_tensor.dtype)
-        if np.issubdtype(output_tensor.dtype, np.datetime64):
-            output_tensor = output_tensor.astype(np.object_)
+        if dtype == "BYTES":
+            output_tensor = _as_bytes_compatible_array(output_tensor)
         if self._datatype != dtype:
             raise InferenceError(
                 "got unexpected datatype {} from numpy array, expected {}".format(
