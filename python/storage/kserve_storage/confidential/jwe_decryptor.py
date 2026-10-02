@@ -444,6 +444,10 @@ class JWEDecryptor:
         root = Path(dir_path)
         decrypted: list[Path] = []
 
+        for stale in root.rglob(".jwe-decrypt.*.tmp"):
+            logger.info("Removing stale decrypt temp file %s", stale)
+            stale.unlink(missing_ok=True)
+
         for dirpath, _, filenames in os.walk(root):
             for filename in filenames:
                 file_path = Path(dirpath) / filename
