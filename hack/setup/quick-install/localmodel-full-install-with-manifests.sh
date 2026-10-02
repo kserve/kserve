@@ -5759,6 +5759,16 @@ spec:
                   - NodeDownloadError
                   type: string
                 type: object
+              sharedPVCImport:
+                properties:
+                  completionTime:
+                    format: date-time
+                    type: string
+                  pvcUID:
+                    type: string
+                required:
+                - pvcUID
+                type: object
             type: object
         type: object
     served: true
@@ -5917,6 +5927,16 @@ spec:
                   - NodeDownloaded
                   - NodeDownloadError
                   type: string
+                type: object
+              sharedPVCImport:
+                properties:
+                  completionTime:
+                    format: date-time
+                    type: string
+                  pvcUID:
+                    type: string
+                required:
+                - pvcUID
                 type: object
             type: object
         type: object
