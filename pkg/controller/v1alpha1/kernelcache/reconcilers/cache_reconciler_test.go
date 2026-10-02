@@ -30,7 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	securityfixture "github.com/kserve/kserve/pkg/kernelcache/security/fixture"
+	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
 )
 
 func TestKernelCacheReconcilerCreatesPrefetchJobAndAggregatesStatus(t *testing.T) {
@@ -101,6 +104,94 @@ func TestKernelCacheReconcilerCreatesPrefetchJobAndAggregatesStatus(t *testing.T
 	}
 	if jobs.Items[0].Spec.Template.Spec.ServiceAccountName != kernelCachePrefetchServiceAccount {
 		t.Fatalf("unexpected Job ServiceAccountName: %q", jobs.Items[0].Spec.Template.Spec.ServiceAccountName)
+	}
+}
+
+func TestReconcileArtifactVerificationBlocksUnavailableTrustBundle(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	cache := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "team"},
+		Spec: v1alpha1.KernelCacheSpec{Artifact: v1alpha1.KernelCacheArtifact{
+			ImageReference: "registry.example.com/cache@sha256:" + strings.Repeat("a", 64),
+		}},
+	}
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cache).WithStatusSubresource(cache).Build()
+	reconciler := &KernelCacheReconciler{Client: k8sClient}
+	config := &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{
+		Mode:          string(kernelcachetypes.ModeCert),
+		FailurePolicy: string(kernelcachetypes.FailurePolicyReject),
+		Cert: v1beta1.KernelCacheArtifactCertConfig{
+			TrustBundle:   "kserve/kernel-cache-ca",
+			SubjectRegexp: "kernel-cache-signer",
+		},
+	}}
+
+	verified, err := reconciler.reconcileArtifactVerification(t.Context(), cache, config)
+	if err == nil || verified {
+		t.Fatal("expected unavailable trust bundle to block verification")
+	}
+	updated := &v1alpha1.KernelCache{}
+	if err := k8sClient.Get(t.Context(), client.ObjectKeyFromObject(cache), updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.Status.Verification == nil || updated.Status.Verification.State != v1alpha1.KernelCacheArtifactSecurityStateFailed {
+		t.Fatalf("expected failed verification status, got %#v", updated.Status.Verification)
+	}
+}
+
+func TestReconcileArtifactVerificationClearsStaleSuccessWhenRegistryIsUnavailable(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	ca := securityfixture.NewCA(t)
+	cache := &v1alpha1.KernelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "team"},
+		Spec: v1alpha1.KernelCacheSpec{Artifact: v1alpha1.KernelCacheArtifact{
+			ImageReference: "registry.example.com/cache@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		}},
+		Status: v1alpha1.KernelCacheStatus{Verification: &v1alpha1.KernelCacheVerificationStatus{
+			Mode:     string(kernelcachetypes.ModeCert),
+			State:    v1alpha1.KernelCacheArtifactSecurityStateSucceeded,
+			Verified: true,
+		}},
+	}
+	trustBundle := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "kernel-cache-ca", Namespace: "kserve"},
+		Data:       map[string][]byte{"ca.crt": ca.CertPEM},
+	}
+	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(cache, trustBundle).WithStatusSubresource(cache).Build()
+	reconciler := &KernelCacheReconciler{Client: k8sClient}
+	config := &v1beta1.KernelCacheConfig{
+		ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{
+			Mode:          string(kernelcachetypes.ModeCert),
+			FailurePolicy: string(kernelcachetypes.FailurePolicyReject),
+			Cert: v1beta1.KernelCacheArtifactCertConfig{
+				TrustBundle:   "kserve/kernel-cache-ca",
+				SubjectRegexp: "kernel-cache-signer",
+			},
+		},
+		Registry: v1beta1.KernelCacheRegistryConfig{
+			CAConfigMapRef: &v1beta1.KernelCacheConfigMapKeyRef{Name: "missing-registry-ca", Key: "ca.crt"},
+		},
+	}
+
+	verified, err := reconciler.reconcileArtifactVerification(t.Context(), cache, config)
+	if err == nil || verified {
+		t.Fatal("expected unavailable registry access to block verification")
+	}
+	updated := &v1alpha1.KernelCache{}
+	if err := k8sClient.Get(t.Context(), client.ObjectKeyFromObject(cache), updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.Status.Verification == nil || updated.Status.Verification.State != v1alpha1.KernelCacheArtifactSecurityStateFailed || updated.Status.Verification.Reason != "RegistryUnavailable" {
+		t.Fatalf("expected registry failure status, got %#v", updated.Status.Verification)
 	}
 }
 

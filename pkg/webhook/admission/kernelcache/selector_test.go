@@ -28,8 +28,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
+	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
 )
 
 // Selects a workload-specific cache before a compatibility-only cache.
@@ -56,7 +58,7 @@ func TestSelectKernelCacheWorkloadMatch(t *testing.T) {
 	node.Status.CacheStatus[compatibleCache.Namespace+"/"+compatibleCache.Name] = kernelCacheNodeInfo(compatibleCache, v1alpha1.KernelCacheNodePreparationStateReady)
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &compatibleCache, &workloadCache).Build()}
 
-	selection, found, err := mutator.findKernelCacheSelection(context.Background(), pod)
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, workloadCache.Name, selection.cache.Name)
@@ -66,7 +68,7 @@ func TestSelectKernelCacheSkipsPodWithoutModelSource(t *testing.T) {
 	pod := selectionPod("registry.example/vllm@sha256:" + strings.Repeat("b", 64))
 	mutator := &PodMutator{Client: fake.NewClientBuilder().Build()}
 
-	selection, found, err := mutator.findKernelCacheSelection(context.Background(), pod)
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.False(t, found)
 	require.Nil(t, selection)
@@ -141,7 +143,45 @@ func TestSelectKernelCacheUsesReadyNode(t *testing.T) {
 	preparingNode := kernelCacheNode("node-b", cache, v1alpha1.KernelCacheNodePreparationStatePending)
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&readyNode, &preparingNode, &cache).Build()}
 
-	selection, found, err := mutator.findKernelCacheSelection(context.Background(), pod)
+	config := &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}}
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, config)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, cache.Name, selection.cache.Name)
+}
+
+func TestSelectKernelCacheRequiresSuccessfulArtifactVerification(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1alpha1.AddToScheme(scheme))
+	pod := selectionPod("registry.example/vllm@sha256:" + strings.Repeat("b", 64))
+	pod.Annotations = map[string]string{
+		constants.StorageInitializerSourceUriInternalAnnotationKey: "hf://Qwen/Qwen3-0.6B",
+	}
+	requested, err := identityForPod(pod, pod.Annotations[constants.StorageInitializerSourceUriInternalAnnotationKey])
+	require.NoError(t, err)
+	cache := readyCache("verified", requested)
+	node := kernelCacheNode("node-a", cache, v1alpha1.KernelCacheNodePreparationStateReady)
+	config := &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{
+		Mode: string(kernelcachetypes.ModeCert),
+	}}
+
+	cache.Status.Verification = &v1alpha1.KernelCacheVerificationStatus{
+		Mode:  string(kernelcachetypes.ModeCert),
+		State: v1alpha1.KernelCacheArtifactSecurityStateFailed,
+	}
+	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &cache).Build()}
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, config)
+	require.NoError(t, err)
+	require.False(t, found)
+	require.Nil(t, selection)
+
+	cache.Status.Verification = &v1alpha1.KernelCacheVerificationStatus{
+		Mode:     string(kernelcachetypes.ModeCert),
+		State:    v1alpha1.KernelCacheArtifactSecurityStateSucceeded,
+		Verified: true,
+	}
+	mutator = &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &cache).Build()}
+	selection, found, err = mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, config)
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, cache.Name, selection.cache.Name)
@@ -191,7 +231,7 @@ func TestSelectKernelCacheRequiresExactCompatibility(t *testing.T) {
 			node := kernelCacheNode("node-a", candidate, v1alpha1.KernelCacheNodePreparationStateReady)
 			mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &candidate).Build()}
 
-			selection, found, err := mutator.findKernelCacheSelection(context.Background(), pod)
+			selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 			require.NoError(t, err)
 			require.False(t, found)
 			require.Nil(t, selection)
@@ -217,7 +257,7 @@ func TestSelectKernelCacheUsesCompatibilityMatchAcrossWorkloads(t *testing.T) {
 	node := kernelCacheNode("node-a", candidate, v1alpha1.KernelCacheNodePreparationStateReady)
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &candidate).Build()}
 
-	selection, found, err := mutator.findKernelCacheSelection(context.Background(), pod)
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, candidate.Name, selection.cache.Name)
@@ -237,7 +277,7 @@ func TestSelectKernelCacheIgnoresUnreadyNode(t *testing.T) {
 	node := kernelCacheNode("node-a", cache, v1alpha1.KernelCacheNodePreparationStatePending)
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &cache).Build()}
 
-	selection, found, err := mutator.findKernelCacheSelection(context.Background(), pod)
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.False(t, found)
 	require.Nil(t, selection)
@@ -256,7 +296,7 @@ func TestSelectKernelCacheUsesCompatibilityForVersionTag(t *testing.T) {
 	node := kernelCacheNode("node-a", cache, v1alpha1.KernelCacheNodePreparationStateReady)
 	mutator := &PodMutator{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(&node, &cache).Build()}
 
-	selection, found, err := mutator.findKernelCacheSelection(context.Background(), pod)
+	selection, found, err := mutator.findKernelCacheSelectionWithConfig(context.Background(), pod, &v1beta1.KernelCacheConfig{ArtifactSecurity: v1beta1.KernelCacheArtifactSecurityConfig{Mode: "none"}})
 	require.NoError(t, err)
 	require.True(t, found)
 	require.Equal(t, cache.Name, selection.cache.Name)

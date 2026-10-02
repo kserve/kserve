@@ -115,6 +115,11 @@ func (r *KernelCacheCaptureControllerReconciler) Reconcile(ctx context.Context, 
 		}
 	}
 	if !captureEnabled {
+		if !cfg.Enabled || cfg.Registry.Auth.Type != v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken {
+			if err := r.cleanupControllerRegistryBindings(ctx, ns); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
 		bindings := map[string]string{
 			reporter.TokenRequesterRole: reporter.TokenRequesterManagedLabel,
 		}
@@ -133,6 +138,13 @@ func (r *KernelCacheCaptureControllerReconciler) Reconcile(ctx context.Context, 
 			}
 		}
 		return ctrl.Result{}, nil
+	}
+	if cfg.Registry.Auth.Type == v1beta1.KernelCacheRegistryAuthTypeServiceAccountToken {
+		if err := r.ensureControllerRegistryBindings(ctx, ns, cfg.Registry); err != nil {
+			return ctrl.Result{}, err
+		}
+	} else if err := r.cleanupControllerRegistryBindings(ctx, ns); err != nil {
+		return ctrl.Result{}, err
 	}
 	if isCapturePod {
 		captureAvailable, err := r.ensureCaptureForPod(ctx, capturePod, inferenceService, cfg)
@@ -550,7 +562,14 @@ func (r *KernelCacheCaptureControllerReconciler) SetupWithManager(mgr ctrl.Manag
 		For(&v1beta1.InferenceService{}).
 		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(r.captureConfigRequests), builder.WithPredicates(predicate.NewPredicateFuncs(isInferenceServiceConfigMap))).
 		Watches(&rbacv1.RoleBinding{}, handler.EnqueueRequestsFromMapFunc(r.tokenRequesterBindingRequests), builder.WithPredicates(predicate.NewPredicateFuncs(func(obj client.Object) bool {
-			return obj.GetName() == reporter.TokenRequesterRole
+			switch obj.GetName() {
+			case reporter.TokenRequesterRole,
+				registryauth.ControllerPushRoleBindingName,
+				registryauth.ControllerPullRoleBindingName:
+				return true
+			default:
+				return false
+			}
 		}))).
 		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(func(_ context.Context, obj client.Object) []reconcile.Request {
 			pod, ok := obj.(*corev1.Pod)

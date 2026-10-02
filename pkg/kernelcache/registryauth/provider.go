@@ -33,11 +33,13 @@ import (
 )
 
 const (
-	TokenRequesterRole     = "kserve-kernelcache-token-requester" // #nosec G101 -- this is an RBAC role name, not a credential
-	ManagedLabel           = "internal.serving.kserve.io/kernelcache-registry"
-	AccessSecretAnnotation = "internal.serving.kserve.io/kernelcache-access-secret"
-	AccessNamePrefix       = "mcv-registry-"
-	AccessKey              = "access.json"
+	TokenRequesterRole            = "kserve-kernelcache-token-requester" // #nosec G101 -- this is an RBAC role name, not a credential
+	ManagedLabel                  = "internal.serving.kserve.io/kernelcache-registry"
+	AccessSecretAnnotation        = "internal.serving.kserve.io/kernelcache-access-secret"
+	AccessNamePrefix              = "mcv-registry-"
+	AccessKey                     = "access.json"
+	ControllerPushRoleBindingName = "kernel-cache-controller-registry-push"
+	ControllerPullRoleBindingName = "kernel-cache-controller-registry-pull"
 )
 
 const (

@@ -18,6 +18,7 @@ package reconcilers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -50,6 +51,7 @@ const (
 	reasonNoReadyNodes            = "NoReadyNodes"
 	reasonConfigError             = "ConfigError"
 	reasonFeatureDisabled         = "FeatureDisabled"
+	reasonVerificationFailed      = "VerificationFailed"
 	reasonStorageError            = "StorageError"
 	reasonWaitingForPreparation   = "WaitingForPreparation"
 	reasonPreparing               = "Preparing"
@@ -96,6 +98,16 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	if !config.Enabled {
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStatePending, 0, reasonFeatureDisabled, "kernel cache is disabled in inferenceservice-config", mountType)
+	}
+	verified, err := r.reconcileArtifactVerification(ctx, kernelCache, config)
+	if err != nil {
+		if statusErr := r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, 0, reasonVerificationFailed, err.Error(), mountType); statusErr != nil {
+			return ctrl.Result{}, errors.Join(statusErr, err)
+		}
+		return ctrl.Result{}, err
+	}
+	if !verified {
+		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, 0, reasonVerificationFailed, "kernel cache artifact verification failed", mountType)
 	}
 
 	if err := r.reconcileKernelCacheUsage(ctx, kernelCache); err != nil {

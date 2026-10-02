@@ -47,6 +47,7 @@ import (
 	kernelcacheutil "github.com/kserve/kserve/pkg/kernelcache"
 	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
 	cacheidentity "github.com/kserve/kserve/pkg/kernelcache/identity"
+	"github.com/kserve/kserve/pkg/kernelcache/registry"
 	"github.com/kserve/kserve/pkg/kernelcache/registryauth"
 	"github.com/kserve/kserve/pkg/kernelcache/reporter"
 	kernelcachesecurity "github.com/kserve/kserve/pkg/kernelcache/security"
@@ -557,7 +558,7 @@ func (r *KernelCacheCaptureReconciler) reconcileArtifactSigning(
 	if reader == nil {
 		reader = r.Client
 	}
-	signer, err := kernelcachesecurity.NewSigner(ctx, config.ArtifactSecurity.ToSecurityConfig(), kernelcachesecurity.NewKubernetesSecretSource(reader))
+	signer, err := kernelcachesecurity.NewSigner(ctx, captureSigningSecurityConfig(config), kernelcachesecurity.NewKubernetesSecretSource(reader))
 	if err != nil {
 		return r.updateCaptureSigningStatus(ctx, capture, v1alpha1.KernelCacheSigningStatus{
 			Mode:    mode,
@@ -571,10 +572,26 @@ func (r *KernelCacheCaptureReconciler) reconcileArtifactSigning(
 	if capture.Spec.Signing != nil && capture.Spec.Signing.ProfileRef != nil {
 		profileRef = capture.Namespace + "/" + capture.Spec.Signing.ProfileRef.Name
 	}
-	result, err := signer.Sign(ctx, kernelcachetypes.SignRequest{
-		ImageRef:   capture.Status.Artifact.ImageReference,
-		ProfileRef: profileRef,
-	})
+	request := kernelcachetypes.SignRequest{
+		ImageRef:         capture.Status.Artifact.ImageReference,
+		ProfileRef:       profileRef,
+		RegistryInsecure: config.Registry.Insecure,
+	}
+	if config.ArtifactSecurity.Mode == string(kernelcachetypes.ModeCert) {
+		registryAccess, registryAccessErr := registry.NewControllerRegistryAccess(ctx, reader, capture.Namespace, config.Registry, request.ImageRef)
+		if registryAccessErr != nil {
+			return r.updateCaptureSigningStatus(ctx, capture, v1alpha1.KernelCacheSigningStatus{
+				Mode:    mode,
+				State:   v1alpha1.KernelCacheArtifactSecurityStateFailed,
+				Reason:  "RegistryUnavailable",
+				Message: registryAccessErr.Error(),
+			})
+		}
+		request.RegistryTransport = registryAccess.Transport
+		request.RegistryAuthenticator = registryAccess.Authenticator
+		request.RegistryInsecure = registryAccess.Insecure
+	}
+	result, err := signer.Sign(ctx, request)
 	if err != nil {
 		statusErr := r.updateCaptureSigningStatus(ctx, capture, v1alpha1.KernelCacheSigningStatus{
 			Mode:    mode,
@@ -624,6 +641,14 @@ func (r *KernelCacheCaptureReconciler) reconcileArtifactSigning(
 		Message:  "artifact signing completed",
 		SignedAt: &now,
 	})
+}
+
+func captureSigningSecurityConfig(config *v1beta1.KernelCacheConfig) kernelcachetypes.SecurityConfig {
+	securityConfig := config.ArtifactSecurity.ToSecurityConfig()
+	if securityConfig.Mode == kernelcachetypes.ModeCert && config.ArtifactSecurity.Cert.SigningProfileRef != "" {
+		securityConfig.Cert.SigningSecret = constants.KServeNamespace + "/" + config.ArtifactSecurity.Cert.SigningProfileRef
+	}
+	return securityConfig
 }
 
 func captureSigningMode(mode kernelcachetypes.Mode) string {
