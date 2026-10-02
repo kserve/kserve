@@ -13,8 +13,9 @@
 # limitations under the License.
 
 import os
-from typing import Dict, Optional
+from typing import Dict, Iterator, Optional
 
+from .logging import logger
 from .model import BaseKServeModel
 
 MODEL_MOUNT_DIRS = "/mnt/models"
@@ -53,6 +54,42 @@ class ModelRepository:
         if not model:
             return False
         return await model.healthy()
+
+    def _server_health_models(self) -> Iterator[BaseKServeModel]:
+        """Yield opted-in models once even when registered under aliases."""
+        seen: set[int] = set()
+        for model in self.models.values():
+            model_id = id(model)
+            if model_id in seen or not getattr(
+                model, "server_health_check_enabled", False
+            ):
+                continue
+            seen.add(model_id)
+            yield model
+
+    async def is_server_live(self) -> bool:
+        for model in self._server_health_models():
+            try:
+                if not await model.is_live():
+                    return False
+            except Exception:
+                logger.exception(
+                    "Server liveness check failed for model %s", model.name
+                )
+                return False
+        return True
+
+    async def is_server_ready(self) -> bool:
+        for model in self._server_health_models():
+            try:
+                if not await model.healthy():
+                    return False
+            except Exception:
+                logger.exception(
+                    "Server readiness check failed for model %s", model.name
+                )
+                return False
+        return True
 
     def update(self, model: BaseKServeModel, name: Optional[str] = None):
         """
