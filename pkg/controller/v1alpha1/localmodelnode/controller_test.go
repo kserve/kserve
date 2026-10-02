@@ -938,6 +938,87 @@ var _ = Describe("LocalModelNode controller", func() {
 			Expect(insecureEnv.Value).To(Equal("true"))
 		})
 
+		It("Should mark ModelDownloadError when imagePullSecret is missing and still update status", func() {
+			ctx, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			fsMock.clear()
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: map[string]string{
+					"localModel": `{
+						"jobNamespace": "kserve-localmodel-jobs",
+						"defaultJobImage": "kserve/storage-initializer:latest"
+					}`,
+					"storageInitializer": `{
+						"image": "kserve/storage-initializer:latest",
+						"cpuRequest": "100m",
+						"cpuLimit": "1",
+						"memoryRequest": "200Mi",
+						"memoryLimit": "1Gi"
+					}`,
+				},
+			}
+			Expect(k8sClient.Create(ctx, configMap)).NotTo(HaveOccurred())
+			defer k8sClient.Delete(ctx, configMap)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{Name: "gpu"},
+				Spec:       localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			nodeName = "worker-oci-missing-secret"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: corev1.NodeStatus{
+					Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+				Spec: v1alpha1.LocalModelNodeSpec{
+					LocalModels: []v1alpha1.LocalModelInfo{
+						{
+							SourceModelUri: "oci://ghcr.io/example/missing-secret:v1",
+							ModelName:      "oci-missing-secret",
+							ImagePullSecrets: []corev1.LocalObjectReference{
+								{Name: "does-not-exist"},
+							},
+						},
+					},
+				},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			Eventually(func() v1alpha1.ModelStatus {
+				updated := &v1alpha1.LocalModelNode{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeName}, updated); err != nil {
+					return ""
+				}
+				return updated.Status.ModelStatus["oci-missing-secret"]
+			}, timeout, interval).Should(Equal(v1alpha1.ModelDownloadError))
+
+			jobs := &batchv1.JobList{}
+			Expect(k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels{
+				"model": "oci-missing-secret",
+				"node":  nodeName,
+			})).Should(Succeed())
+			Expect(jobs.Items).To(BeEmpty())
+		})
+
 		It("Should not mount docker config for public oci:// without imagePullSecrets", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			DeferCleanup(cancel)

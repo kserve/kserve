@@ -34,7 +34,7 @@ spec:
                       type: string
                   type: object
                   x-kubernetes-map-type: atomic
-                maxItems: 8
+                maxItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
                 - name

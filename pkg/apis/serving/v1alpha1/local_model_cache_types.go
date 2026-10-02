@@ -62,12 +62,11 @@ type LocalModelCacheSpec struct {
 	// ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job
 	// namespace used to authenticate OCI (oci://) imports. Only the first secret is
 	// projected into the download container; merge multiple registries into one secret.
-	// Do not use serviceAccountName for dockerconfigjson — the shared credential
-	// dispatcher has no OCI/oras branch.
+	// Credentials from serviceAccountName and storage are not used for oci:// sources.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
-	// +kubebuilder:validation:MaxItems=8
+	// +kubebuilder:validation:MaxItems=1
 	// +kubebuilder:validation:XValidation:rule="self.all(s, s.name != '')",message="imagePullSecrets.name must be non-empty"
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// +optional

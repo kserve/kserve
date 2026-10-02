@@ -168,7 +168,7 @@ spec:
     - name: reg-cred
 ```
 
-Only the first secret is used. Combine credentials for multiple registries into a single dockerconfigjson secret. For HTTP or self-signed registries, set `storageInitializer.ociInsecureRegistry` in `inferenceservice-config`.
+Only the first secret is used. Combine credentials for multiple registries into a single dockerconfigjson secret. For plain-HTTP registries, set `storageInitializer.ociInsecureRegistry` in `inferenceservice-config` - it is cluster-wide and switches every OCI import to `http://`.
 
 ### Method 4: Inline Parameters
 

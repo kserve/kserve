@@ -408,7 +408,11 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 	}
 
 	if secretName, ok := credentials.FirstNamedImagePullSecret(localModel.Spec.ImagePullSecrets); ok {
-		if err := credentials.FetchAndValidateDockerConfigJSONSecret(ctx, c.Client, localModel.Namespace, secretName); err != nil {
+		reader := c.APIReader
+		if reader == nil {
+			reader = c.Client
+		}
+		if err := credentials.FetchAndValidateDockerConfigJSONSecret(ctx, reader, localModel.Namespace, secretName); err != nil {
 			return nil, fmt.Errorf("%w: %w", errImportCredentials, err)
 		}
 		credentials.MountImagePullSecretsAsDockerConfig(localModel.Spec.ImagePullSecrets, container, &volumes)

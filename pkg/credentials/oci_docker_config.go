@@ -62,12 +62,14 @@ func FirstNamedImagePullSecret(imagePullSecrets []corev1.LocalObjectReference) (
 
 // FetchAndValidateDockerConfigJSONSecret loads a Secret and checks it is a
 // kubernetes.io/dockerconfigjson with a ".dockerconfigjson" key.
-func FetchAndValidateDockerConfigJSONSecret(ctx context.Context, cl client.Client, namespace, name string) error {
+// Use an uncached Reader (mgr.GetAPIReader() or equivalent) so validating a
+// Secret does not start a cluster-wide Secret informer on the manager cache.
+func FetchAndValidateDockerConfigJSONSecret(ctx context.Context, reader client.Reader, namespace, name string) error {
 	if name == "" {
 		return errors.New("imagePullSecret name must be non-empty")
 	}
 	secret := &corev1.Secret{}
-	if err := cl.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, secret); err != nil {
+	if err := reader.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, secret); err != nil {
 		if apierr.IsNotFound(err) {
 			return fmt.Errorf("imagePullSecret %q not found in namespace %q", name, namespace)
 		}
