@@ -113030,7 +113030,7 @@ data:
          "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
          # registry defines the OCI registry used by capture and prefetch.
          "registry": {
-           # endpoint is required for serviceAccountToken authentication.
+           # endpoint is required to identify the registry used by capture and prefetch operations.
            # insecure defaults to false. Set it to true only for an HTTP registry.
            # caConfigMapRef optionally references a ConfigMap key containing the registry CA.
            "auth": {
@@ -113043,8 +113043,13 @@ data:
          },
          # artifactSecurity controls signing after capture and verification before preparation.
          "artifactSecurity": {
-           "mode": "none",
-           "failurePolicy": "reject"
+           "mode": "cert",
+           "failurePolicy": "reject",
+           "cert": {
+             "signingProfileRef": "kernelcache-signer",
+             "trustBundle": "kserve/kernelcache-root-ca",
+             "subjectRegexp": "spiffe://kserve/kernelcache-signer"
+           }
          },
          # abandonedCapturePolicy controls generated captures whose producer Pod disappears
          # before completion. Supported values are retain and delete.
@@ -113151,8 +113156,13 @@ data:
         }
       },
       "artifactSecurity": {
-        "mode": "none",
-        "failurePolicy": "reject"
+        "mode": "cert",
+        "failurePolicy": "reject",
+        "cert": {
+          "signingProfileRef": "kernelcache-signer",
+          "trustBundle": "kserve/kernelcache-root-ca",
+          "subjectRegexp": "spiffe://kserve/kernelcache-signer"
+        }
       },
       "abandonedCapturePolicy": "retain",
       "jobTTLSecondsAfterFinished": 600,

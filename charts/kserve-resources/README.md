@@ -84,12 +84,12 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.inferenceservice.resources.requests.cpu | string | `"1"` |  |
 | kserve.inferenceservice.resources.requests.memory | string | `"2Gi"` |  |
 | kserve.kernelcache.abandonedCapturePolicy | string | `"retain"` |  |
-| kserve.kernelcache.artifactSecurity.cert.signingProfileRef | string | `""` |  |
-| kserve.kernelcache.artifactSecurity.cert.subjectRegexp | string | `""` |  |
-| kserve.kernelcache.artifactSecurity.cert.trustBundle | string | `""` |  |
+| kserve.kernelcache.artifactSecurity.cert.signingProfileRef | string | `"kernelcache-signer"` |  |
+| kserve.kernelcache.artifactSecurity.cert.subjectRegexp | string | `"spiffe://kserve/kernelcache-signer"` |  |
+| kserve.kernelcache.artifactSecurity.cert.trustBundle | string | `"kserve/kernelcache-root-ca"` |  |
 | kserve.kernelcache.artifactSecurity.cert.trustBundleKey | string | `""` |  |
 | kserve.kernelcache.artifactSecurity.failurePolicy | string | `"reject"` |  |
-| kserve.kernelcache.artifactSecurity.mode | string | `"none"` |  |
+| kserve.kernelcache.artifactSecurity.mode | string | `"cert"` |  |
 | kserve.kernelcache.defaultMountType | string | `"oci"` |  |
 | kserve.kernelcache.defaultNodeGroup | string | `""` |  |
 | kserve.kernelcache.defaultSidecarInjection | bool | `true` |  |

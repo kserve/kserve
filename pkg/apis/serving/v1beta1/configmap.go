@@ -189,8 +189,12 @@ const (
 	DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds int64 = 600
 	// DefaultKernelCacheRegistryTokenTTLSeconds is the default lifetime of a
 	// registry ServiceAccount token issued for KernelCache access.
-	DefaultKernelCacheRegistryTokenTTLSeconds int64 = 600
-	DefaultKernelCacheAbandonedCapturePolicy        = "retain"
+	DefaultKernelCacheRegistryTokenTTLSeconds   int64 = 600
+	DefaultKernelCacheAbandonedCapturePolicy          = "retain"
+	DefaultKernelCacheArtifactSecurityMode            = "cert"
+	DefaultKernelCacheArtifactSigningProfileRef       = "kernelcache-signer"
+	DefaultKernelCacheArtifactTrustBundle             = "kserve/kernelcache-root-ca"
+	DefaultKernelCacheArtifactSubjectRegexp           = "spiffe://kserve/kernelcache-signer"
 	// KernelCacheRegistryAuthTypeNone disables registry credential provisioning.
 	KernelCacheRegistryAuthTypeNone = "none"
 	// KernelCacheRegistryAuthTypeServiceAccountToken uses the Kubernetes
@@ -655,8 +659,13 @@ func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, 
 			Auth:     KernelCacheRegistryAuth{Type: KernelCacheRegistryAuthTypeNone},
 		},
 		ArtifactSecurity: KernelCacheArtifactSecurityConfig{
-			Mode:          "none",
+			Mode:          DefaultKernelCacheArtifactSecurityMode,
 			FailurePolicy: string(kernelcachetypes.FailurePolicyReject),
+			Cert: KernelCacheArtifactCertConfig{
+				SigningProfileRef: DefaultKernelCacheArtifactSigningProfileRef,
+				TrustBundle:       DefaultKernelCacheArtifactTrustBundle,
+				SubjectRegexp:     DefaultKernelCacheArtifactSubjectRegexp,
+			},
 		},
 	}
 	if kernelCache, ok := isvcConfigMap.Data[KernelCacheConfigName]; ok {
@@ -704,7 +713,18 @@ func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, 
 		return nil, err
 	}
 	if kernelCacheConfig.ArtifactSecurity.Mode == "" {
-		kernelCacheConfig.ArtifactSecurity.Mode = "none"
+		kernelCacheConfig.ArtifactSecurity.Mode = DefaultKernelCacheArtifactSecurityMode
+	}
+	if kernelCacheConfig.ArtifactSecurity.Mode == DefaultKernelCacheArtifactSecurityMode {
+		if kernelCacheConfig.ArtifactSecurity.Cert.SigningProfileRef == "" {
+			kernelCacheConfig.ArtifactSecurity.Cert.SigningProfileRef = DefaultKernelCacheArtifactSigningProfileRef
+		}
+		if kernelCacheConfig.ArtifactSecurity.Cert.TrustBundle == "" {
+			kernelCacheConfig.ArtifactSecurity.Cert.TrustBundle = DefaultKernelCacheArtifactTrustBundle
+		}
+		if kernelCacheConfig.ArtifactSecurity.Cert.SubjectRegexp == "" {
+			kernelCacheConfig.ArtifactSecurity.Cert.SubjectRegexp = DefaultKernelCacheArtifactSubjectRegexp
+		}
 	}
 	if kernelCacheConfig.ArtifactSecurity.FailurePolicy == "" {
 		kernelCacheConfig.ArtifactSecurity.FailurePolicy = string(kernelcachetypes.FailurePolicyReject)

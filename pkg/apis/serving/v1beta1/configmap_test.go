@@ -27,6 +27,7 @@ import (
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/kserve/kserve/pkg/constants"
+	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
 )
 
 var (
@@ -110,11 +111,56 @@ func TestNewKernelCacheConfigDefaults(t *testing.T) {
 		g.Expect(config.Registry.Auth.TokenTTLSeconds).To(gomega.Equal(int64(0)))
 		g.Expect(config.Registry.Auth.PushRoleRef).To(gomega.BeNil())
 		g.Expect(config.Registry.Auth.PullRoleRef).To(gomega.BeNil())
+		g.Expect(config.ArtifactSecurity.Mode).To(gomega.Equal(DefaultKernelCacheArtifactSecurityMode))
+		g.Expect(config.ArtifactSecurity.FailurePolicy).To(gomega.Equal(string(kernelcachetypes.FailurePolicyReject)))
+		g.Expect(config.ArtifactSecurity.Cert).To(gomega.Equal(KernelCacheArtifactCertConfig{
+			SigningProfileRef: DefaultKernelCacheArtifactSigningProfileRef,
+			TrustBundle:       DefaultKernelCacheArtifactTrustBundle,
+			SubjectRegexp:     DefaultKernelCacheArtifactSubjectRegexp,
+		}))
 		g.Expect(config.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
 		g.Expect(*config.JobTTLSecondsAfterFinished).To(gomega.Equal(DefaultKernelCacheJobTTLSeconds))
 		g.Expect(config.ReconcileIntervalSeconds).ToNot(gomega.BeNil())
 		g.Expect(*config.ReconcileIntervalSeconds).To(gomega.Equal(DefaultKernelCacheReconcileIntervalSeconds))
 	}
+}
+
+func TestNewKernelCacheConfigAcceptsCertificateArtifactSecurity(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{
+			"artifactSecurity": {
+				"mode": "cert",
+				"failurePolicy": "reject",
+				"cert": {
+					"signingProfileRef": "kernelcache-signer",
+					"trustBundle": "kserve/kernelcache-root-ca",
+					"subjectRegexp": "spiffe://kserve/kernelcache-signer"
+				}
+			}
+		}`,
+	}}
+
+	config, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(config.ArtifactSecurity.Mode).To(gomega.Equal("cert"))
+	g.Expect(config.ArtifactSecurity.FailurePolicy).To(gomega.Equal(string(kernelcachetypes.FailurePolicyReject)))
+	g.Expect(config.ArtifactSecurity.Cert).To(gomega.Equal(KernelCacheArtifactCertConfig{
+		SigningProfileRef: "kernelcache-signer",
+		TrustBundle:       "kserve/kernelcache-root-ca",
+		SubjectRegexp:     "spiffe://kserve/kernelcache-signer",
+	}))
+}
+
+func TestNewKernelCacheConfigAllowsDisabledArtifactSecurity(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{"artifactSecurity":{"mode":"none"}}`,
+	}}
+
+	config, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(config.ArtifactSecurity.Mode).To(gomega.Equal("none"))
 }
 
 func TestKernelCacheRegistryConfigRejectsIncompleteCAConfigMapRef(t *testing.T) {
