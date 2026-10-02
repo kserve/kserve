@@ -16082,6 +16082,8 @@ spec:
                               type: string
                             batchSize:
                               type: integer
+                            logAllResponses:
+                              type: boolean
                             marshallerUrl:
                               type: string
                             metadataAnnotations:
@@ -31217,6 +31219,8 @@ spec:
                         type: string
                       batchSize:
                         type: integer
+                      logAllResponses:
+                        type: boolean
                       marshallerUrl:
                         type: string
                       metadataAnnotations:
@@ -36227,6 +36231,8 @@ spec:
                         type: string
                       batchSize:
                         type: integer
+                      logAllResponses:
+                        type: boolean
                       marshallerUrl:
                         type: string
                       metadataAnnotations:
@@ -50510,6 +50516,8 @@ spec:
                         type: string
                       batchSize:
                         type: integer
+                      logAllResponses:
+                        type: boolean
                       marshallerUrl:
                         type: string
                       metadataAnnotations:
