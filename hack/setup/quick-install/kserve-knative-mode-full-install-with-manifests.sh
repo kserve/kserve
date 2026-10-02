@@ -2131,7 +2131,7 @@ metadata:
 spec:
   annotations:
     prometheus.kserve.io/path: /metrics
-    prometheus.kserve.io/port: "8080"
+    prometheus.kserve.io/port: "8082"
   containers:
   - env:
     - name: MLSERVER_MODEL_IMPLEMENTATION
@@ -2140,6 +2140,8 @@ spec:
       value: "8080"
     - name: MLSERVER_GRPC_PORT
       value: "9000"
+    - name: MLSERVER_METRICS_PORT
+      value: "8082"
     image: docker.io/seldonio/mlserver:1.7.1
     name: kserve-container
     resources:
