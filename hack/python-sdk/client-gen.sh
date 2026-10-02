@@ -42,8 +42,9 @@ find ${SDK_OUTPUT_PATH}/test -name '*.py' -exec \
     sed -i'.bak' -E 's|kserve\.models\.(v[0-9a-z]+)/([a-z_]+)\.\1\.([A-Za-z]+)\(|kserve.models.\1_\2.\u\1\3(|g' {} + && \
     find ${SDK_OUTPUT_PATH}/test -name '*.py.bak' -delete
 
-# Update kubernetes docs link.
-K8S_IMPORT_LIST=$(cat hack/python-sdk/swagger_config.json|grep "V1" | awk -F"\"" '{print $2}')
+# Update kubernetes docs link. Only the types imported from the kubernetes client are
+# documented upstream, so match on the import statement rather than on the type name.
+K8S_IMPORT_LIST=$(cat hack/python-sdk/swagger_config.json|grep "kubernetes.client" | awk -F"\"" '{print $2}')
 K8S_DOC_LINK="https://github.com/kubernetes-client/python/blob/master/kubernetes/docs"
 for item in $K8S_IMPORT_LIST; do
     sed -i'.bak' -e "s@($item.md)@($K8S_DOC_LINK/$item.md)@g" python/kserve/docs/*

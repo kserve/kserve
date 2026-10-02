@@ -48,37 +48,47 @@ class V1beta1MetricsSpec(object):
     """
     openapi_types = {
         'external': 'V1beta1ExternalMetricSource',
+        'name': 'str',
         'podmetric': 'V1beta1PodMetricSource',
         'resource': 'V1beta1ResourceMetricSource',
-        'type': 'str'
+        'type': 'str',
+        'use_cached_metrics': 'bool'
     }
 
     attribute_map = {
         'external': 'external',
+        'name': 'name',
         'podmetric': 'podmetric',
         'resource': 'resource',
-        'type': 'type'
+        'type': 'type',
+        'use_cached_metrics': 'useCachedMetrics'
     }
 
-    def __init__(self, external=None, podmetric=None, resource=None, type='', local_vars_configuration=None):  # noqa: E501
+    def __init__(self, external=None, name=None, podmetric=None, resource=None, type='', use_cached_metrics=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1MetricsSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._external = None
+        self._name = None
         self._podmetric = None
         self._resource = None
         self._type = None
+        self._use_cached_metrics = None
         self.discriminator = None
 
         if external is not None:
             self.external = external
+        if name is not None:
+            self.name = name
         if podmetric is not None:
             self.podmetric = podmetric
         if resource is not None:
             self.resource = resource
         self.type = type
+        if use_cached_metrics is not None:
+            self.use_cached_metrics = use_cached_metrics
 
     @property
     def external(self):
@@ -100,6 +110,29 @@ class V1beta1MetricsSpec(object):
         """
 
         self._external = external
+
+    @property
+    def name(self):
+        """Gets the name of this V1beta1MetricsSpec.  # noqa: E501
+
+        Name is the name of the trigger. Must be unique within the ScaledObject. Used by KEDA to identify triggers.  # noqa: E501
+
+        :return: The name of this V1beta1MetricsSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._name
+
+    @name.setter
+    def name(self, name):
+        """Sets the name of this V1beta1MetricsSpec.
+
+        Name is the name of the trigger. Must be unique within the ScaledObject. Used by KEDA to identify triggers.  # noqa: E501
+
+        :param name: The name of this V1beta1MetricsSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._name = name
 
     @property
     def podmetric(self):
@@ -167,6 +200,29 @@ class V1beta1MetricsSpec(object):
             raise ValueError("Invalid value for `type`, must not be `None`")  # noqa: E501
 
         self._type = type
+
+    @property
+    def use_cached_metrics(self):
+        """Gets the use_cached_metrics of this V1beta1MetricsSpec.  # noqa: E501
+
+        UseCachedMetrics determines whether KEDA should use cached metrics. Not supported for cpu, memory, or cron scalers.  # noqa: E501
+
+        :return: The use_cached_metrics of this V1beta1MetricsSpec.  # noqa: E501
+        :rtype: bool
+        """
+        return self._use_cached_metrics
+
+    @use_cached_metrics.setter
+    def use_cached_metrics(self, use_cached_metrics):
+        """Sets the use_cached_metrics of this V1beta1MetricsSpec.
+
+        UseCachedMetrics determines whether KEDA should use cached metrics. Not supported for cpu, memory, or cron scalers.  # noqa: E501
+
+        :param use_cached_metrics: The use_cached_metrics of this V1beta1MetricsSpec.  # noqa: E501
+        :type: bool
+        """
+
+        self._use_cached_metrics = use_cached_metrics
 
     def to_dict(self):
         """Returns the model properties as a dict"""
