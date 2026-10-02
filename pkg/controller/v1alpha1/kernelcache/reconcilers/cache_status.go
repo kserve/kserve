@@ -66,8 +66,10 @@ func (r *KernelCacheReconciler) reconcileArtifactVerification(
 	}
 
 	request := kernelcachetypes.VerifyRequest{
-		ImageRef:         kernelCache.Spec.Artifact.ImageReference,
-		RegistryInsecure: config.Registry.Insecure,
+		ImageRef: kernelCache.Spec.Artifact.ImageReference,
+		RegistrySettings: kernelcachetypes.RegistrySettings{
+			RegistryInsecure: config.Registry.Insecure,
+		},
 	}
 	if config.ArtifactSecurity.Mode == string(kernelcachetypes.ModeCert) {
 		registryAccess, registryAccessErr := registry.NewControllerRegistryAccess(ctx, reader, kernelCache.Namespace, config.Registry, request.ImageRef)
@@ -83,9 +85,11 @@ func (r *KernelCacheReconciler) reconcileArtifactVerification(
 			}
 			return false, registryAccessErr
 		}
-		request.RegistryTransport = registryAccess.Transport
-		request.RegistryAuthenticator = registryAccess.Authenticator
-		request.RegistryInsecure = registryAccess.Insecure
+		request.RegistrySettings = kernelcachetypes.RegistrySettings{
+			RegistryTransport:     registryAccess.Transport,
+			RegistryAuthenticator: registryAccess.Authenticator,
+			RegistryInsecure:      registryAccess.Insecure,
+		}
 	}
 	result, err := verifier.Verify(ctx, request)
 	if err != nil {

@@ -16,12 +16,6 @@ limitations under the License.
 
 package types
 
-import (
-	"net/http"
-
-	"github.com/google/go-containerregistry/pkg/authn"
-)
-
 // VerifyRequest carries the inputs for a verification. It is a struct rather
 // than a bare image reference so new inputs (for example, delegated-mode
 // annotations) can be added without changing the security.Verifier interface.
@@ -34,17 +28,7 @@ type VerifyRequest struct {
 	// ignore it.
 	Annotations map[string]string
 
-	// RegistryTransport supplies the configured registry TLS transport. Nil uses
-	// the default transport.
-	RegistryTransport http.RoundTripper
-
-	// RegistryAuthenticator supplies registry credentials for the image reference. Nil
-	// uses the ambient keychain.
-	RegistryAuthenticator authn.Authenticator
-
-	// RegistryInsecure allows plain HTTP registry references for an explicit
-	// registry.insecure configuration.
-	RegistryInsecure bool
+	RegistrySettings
 }
 
 // VerifyResult is the outcome of a completed verification attempt. Digest is

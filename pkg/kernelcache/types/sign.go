@@ -16,12 +16,6 @@ limitations under the License.
 
 package types
 
-import (
-	"net/http"
-
-	"github.com/google/go-containerregistry/pkg/authn"
-)
-
 // SignRequest describes the image to sign.
 type SignRequest struct {
 	// ImageRef is the image to sign, by tag or digest.
@@ -30,17 +24,7 @@ type SignRequest struct {
 	// ProfileRef identifies the namespace-scoped signing profile as namespace/name.
 	ProfileRef string
 
-	// RegistryTransport supplies the configured registry TLS transport. Nil uses
-	// the default transport.
-	RegistryTransport http.RoundTripper
-
-	// RegistryAuthenticator supplies registry credentials for the image reference. Nil
-	// uses the ambient keychain.
-	RegistryAuthenticator authn.Authenticator
-
-	// RegistryInsecure allows plain HTTP registry references for an explicit
-	// registry.insecure configuration.
-	RegistryInsecure bool
+	RegistrySettings
 }
 
 // SignResult reports the outcome of a signing operation.
