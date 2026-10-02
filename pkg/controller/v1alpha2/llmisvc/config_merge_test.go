@@ -3246,6 +3246,55 @@ spec:
               - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
 `
 
+const tlsProfileSchedulerFixture = `apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: test
+spec:
+  router:
+    scheduler:
+      template:
+        containers:
+          - name: main
+            args:
+              - '{{ if .GlobalConfig.EnableTLS }}--secure-serving=true{{- end }}'
+              - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
+              - '{{ if .GlobalConfig.TLSMinVersion }}--tls-min-version={{ .GlobalConfig.TLSMinVersion }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
+              - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
+`
+
+const tlsProfileVLLMFixture = `apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceServiceConfig
+metadata:
+  name: test
+spec:
+  template:
+    containers:
+      - name: main
+        command:
+          - /bin/bash
+          - "-c"
+          - |-
+            VLLM_VERSION=$(vllm --version 2>/dev/null | tail -1 | awk '{print $NF}')
+            {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}TLS_CIPHER_ARGS=""
+            # --ssl-ciphers was added in vLLM 0.15.0; keep the probe for product builds with differing flags.
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+              TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+              case "${TLS_CIPHER_HELP}" in
+                *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+                *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+              esac
+            else
+              echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+            fi
+            {{ end }}
+            exec vllm serve /mnt/models \
+              {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+              {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
+              $@
+          - "--"
+`
+
 func TestReplaceVariables_TLSConditional(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -3360,32 +3409,144 @@ spec:
 	}
 }
 
+func TestReplaceVariables_TLSProfileScheduler(t *testing.T) {
+	tests := []struct {
+		name            string
+		tlsMinVersion   string
+		tlsCipherSuites string
+		enableTLS       bool
+		wantArgs        []string
+	}{
+		{
+			name:            "TLS profile fields populated",
+			enableTLS:       true,
+			tlsMinVersion:   "VersionTLS12",
+			tlsCipherSuites: "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+			wantArgs: []string{
+				"--secure-serving=true",
+				"--cert-path=/var/run/kserve/tls",
+				"--tls-min-version=VersionTLS12",
+				"--tls-cipher-suites=TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+			},
+		},
+		{
+			name:      "TLS profile fields empty - flags omitted",
+			enableTLS: true,
+			wantArgs: []string{
+				"--secure-serving=true",
+				"--cert-path=/var/run/kserve/tls",
+			},
+		},
+		{
+			name:            "TLS disabled - profile flags still render independently",
+			enableTLS:       false,
+			tlsMinVersion:   "VersionTLS13",
+			tlsCipherSuites: "TLS_AES_128_GCM_SHA256",
+			wantArgs: []string{
+				"",
+				"",
+				"--tls-min-version=VersionTLS13",
+				"--tls-cipher-suites=TLS_AES_128_GCM_SHA256",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			preset := &v1alpha2.LLMInferenceServiceConfig{}
+			if err := yaml.Unmarshal([]byte(tlsProfileSchedulerFixture), preset); err != nil {
+				t.Fatalf("failed to unmarshal fixture: %v", err)
+			}
+
+			cfg := &llmisvc.Config{
+				EnableTLS:       tt.enableTLS,
+				TLSMinVersion:   tt.tlsMinVersion,
+				TLSCipherSuites: tt.tlsCipherSuites,
+			}
+
+			got, err := llmisvc.ReplaceVariables(&v1alpha2.LLMInferenceService{}, preset, cfg)
+			if err != nil {
+				t.Fatalf("ReplaceVariables() error = %v", err)
+			}
+
+			args := got.Spec.Router.Scheduler.Template.Containers[0].Args
+			if len(args) != len(tt.wantArgs) {
+				t.Fatalf("got %d args, want %d: %q", len(args), len(tt.wantArgs), args)
+			}
+			for i, want := range tt.wantArgs {
+				if args[i] != want {
+					t.Errorf("arg[%d] = %q, want %q", i, args[i], want)
+				}
+			}
+		})
+	}
+}
+
+func TestReplaceVariables_TLSProfileVLLM(t *testing.T) {
+	tests := []struct {
+		name            string
+		tlsCipherSuites string
+		enableTLS       bool
+		wantContains    string
+		wantNotContains string
+	}{
+		{
+			name:            "cipher suites rendered in vllm command",
+			enableTLS:       true,
+			tlsCipherSuites: "ECDHE+AESGCM:ECDHE+CHACHA20",
+			wantContains:    "--ssl-ciphers ECDHE+AESGCM:ECDHE+CHACHA20",
+		},
+		{
+			name:            "cipher suites are version gated and probed",
+			enableTLS:       true,
+			tlsCipherSuites: "ECDHE+AESGCM:ECDHE+CHACHA20",
+			wantContains:    "[ \"$(printf '%s\\n%s\\n' \"0.15.0\" \"${VLLM_VERSION}\" | sort -V | head -1)\" = \"0.15.0\" ]",
+		},
+		{
+			name:            "empty cipher suites - flag omitted",
+			enableTLS:       true,
+			wantNotContains: "--ssl-ciphers",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			preset := &v1alpha2.LLMInferenceServiceConfig{}
+			if err := yaml.Unmarshal([]byte(tlsProfileVLLMFixture), preset); err != nil {
+				t.Fatalf("failed to unmarshal fixture: %v", err)
+			}
+
+			cfg := &llmisvc.Config{
+				EnableTLS:              tt.enableTLS,
+				TLSCipherSuitesOpenSSL: tt.tlsCipherSuites,
+			}
+
+			got, err := llmisvc.ReplaceVariables(&v1alpha2.LLMInferenceService{}, preset, cfg)
+			if err != nil {
+				t.Fatalf("ReplaceVariables() error = %v", err)
+			}
+
+			cmd := got.Spec.Template.Containers[0].Command[2]
+			if tt.wantContains != "" && !strings.Contains(cmd, tt.wantContains) {
+				t.Errorf("command should contain %q, got:\n%s", tt.wantContains, cmd)
+			}
+			if tt.wantNotContains != "" && strings.Contains(cmd, tt.wantNotContains) {
+				t.Errorf("command should not contain %q, got:\n%s", tt.wantNotContains, cmd)
+			}
+		})
+	}
+}
+
 func TestSelectSingleNodeTemplateName(t *testing.T) {
 	tests := []struct {
 		name    string
 		runtime *string
 		want    string
 	}{
-		{
-			name:    "nil runtime defaults to vllm template",
-			runtime: nil,
-			want:    "kserve-config-llm-template",
-		},
-		{
-			name:    "empty runtime defaults to vllm template",
-			runtime: ptr.To(""),
-			want:    "kserve-config-llm-template",
-		},
-		{
-			name:    "unknown runtime name defaults to vllm template",
-			runtime: ptr.To("some-other-runtime"),
-			want:    "kserve-config-llm-template",
-		},
-		{
-			name:    "kserve-llm-sglang runtime selects sglang template",
-			runtime: ptr.To(llmisvc.SGLangServingRuntimeName),
-			want:    "kserve-config-sglang-template",
-		},
+		{name: "nil runtime defaults to vllm template", runtime: nil, want: "kserve-config-llm-template"},
+		{name: "empty runtime defaults to vllm template", runtime: ptr.To(""), want: "kserve-config-llm-template"},
+		{name: "unknown runtime name defaults to vllm template", runtime: ptr.To("some-other-runtime"), want: "kserve-config-llm-template"},
+		{name: "kserve-llm-sglang runtime selects sglang template", runtime: ptr.To(llmisvc.SGLangServingRuntimeName), want: "kserve-config-sglang-template"},
 	}
 
 	for _, tt := range tests {
