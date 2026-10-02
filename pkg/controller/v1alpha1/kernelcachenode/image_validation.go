@@ -55,7 +55,7 @@ func (r *KernelCacheNodeReconciler) runImageValidation(ctx context.Context) {
 			r.Log.Error(getErr, "unable to get KernelCacheNode for image validation event", "node", r.NodeName)
 			return
 		}
-		r.recordErrorEvent(kernelCacheNode, "ImageValidationError", err)
+		r.recordErrorEvent(kernelCacheNode, "ImageValidation", "ImageValidationError", err)
 	}
 }
 

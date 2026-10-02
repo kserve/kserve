@@ -50,6 +50,7 @@ func TestReconcileRecordsConfigErrorEvent(t *testing.T) {
 		WithObjects(&v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}).
 		Build()
 	recorder := events.NewFakeRecorder(1)
+	recorder.Verbose = true
 	reconciler := &KernelCacheNodeReconciler{
 		Client:   client,
 		NodeName: nodeName,
@@ -62,11 +63,42 @@ func TestReconcileRecordsConfigErrorEvent(t *testing.T) {
 
 	select {
 	case event := <-recorder.Events:
-		if !strings.Contains(event, "Warning ConfigError") {
+		if !strings.Contains(event, "Warning ConfigError Reconcile") {
 			t.Fatalf("expected a ConfigError warning event, got %q", event)
 		}
 	default:
 		t.Fatal("expected a ConfigError warning event")
+	}
+}
+
+func TestRunImageValidationRecordsImageValidationEvent(t *testing.T) {
+	const nodeName = "gpu-node-1"
+
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(&v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}).
+		Build()
+	recorder := events.NewFakeRecorder(1)
+	recorder.Verbose = true
+	reconciler := &KernelCacheNodeReconciler{
+		Client:   client,
+		NodeName: nodeName,
+		Recorder: recorder,
+	}
+
+	reconciler.runImageValidation(t.Context())
+
+	select {
+	case event := <-recorder.Events:
+		if !strings.Contains(event, "Warning ImageValidationError ImageValidation") {
+			t.Fatalf("expected an ImageValidation warning event, got %q", event)
+		}
+	default:
+		t.Fatal("expected an ImageValidation warning event")
 	}
 }
 

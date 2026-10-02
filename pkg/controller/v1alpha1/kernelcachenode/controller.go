@@ -82,7 +82,7 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	config, err := kernelcacheconfig.Load(ctx, r.Client)
 	if err != nil {
-		r.recordErrorEvent(kernelCacheNode, "ConfigError", err)
+		r.recordErrorEvent(kernelCacheNode, "Reconcile", "ConfigError", err)
 		return ctrl.Result{}, fmt.Errorf("load KernelCache configuration: %w", err)
 	}
 	if !config.Enabled {
@@ -91,7 +91,7 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	if err := r.reconcileStatus(ctx, config, false); err != nil {
 		if !apierrors.IsNotFound(err) {
-			r.recordErrorEvent(kernelCacheNode, "ReconcileError", err)
+			r.recordErrorEvent(kernelCacheNode, "Reconcile", "ReconcileError", err)
 		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
@@ -100,9 +100,9 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	return ctrl.Result{RequeueAfter: interval}, nil
 }
 
-func (r *KernelCacheNodeReconciler) recordErrorEvent(node client.Object, reason string, err error) {
+func (r *KernelCacheNodeReconciler) recordErrorEvent(node client.Object, action, reason string, err error) {
 	if r.Recorder == nil {
 		return
 	}
-	r.Recorder.Eventf(node, nil, corev1.EventTypeWarning, reason, "Reconcile", "%v", err)
+	r.Recorder.Eventf(node, nil, corev1.EventTypeWarning, reason, action, "%v", err)
 }
