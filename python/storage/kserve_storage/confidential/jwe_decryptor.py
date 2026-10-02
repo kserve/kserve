@@ -17,6 +17,7 @@ import binascii
 import json
 import logging
 import os
+import shutil
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -147,7 +148,7 @@ def _parse_compact_jwe(path: Path) -> _CompactJWE:
 
     try:
         header = json.loads(_b64url_decode(protected_b64))
-    except json.JSONDecodeError as exc:
+    except ValueError as exc:
         raise jwe.InvalidJWEData(f"{path} has an invalid JWE protected header") from exc
     if not isinstance(header, dict):
         raise jwe.InvalidJWEData(f"{path} has an invalid JWE protected header")
@@ -169,13 +170,18 @@ def _oct_key_bytes(symmetric_key: jwk.JWK) -> bytes:
         raise ValueError(
             "Only symmetric oct JWKs are supported for streaming JWE decryption"
         )
-    return _b64url_decode(exported["k"].encode("ascii"))
+    try:
+        return _b64url_decode(exported["k"].encode("ascii"))
+    except jwe.InvalidJWEData as exc:
+        raise ValueError("JWK 'k' value contains invalid base64url") from exc
 
 
-def _unwrap_cek(alg: str, enc: str, kek: bytes, encrypted_key: bytes) -> bytes:
+def _unwrap_cek(
+    alg: str, enc: str, kek: bytes, encrypted_key: bytes, path: Path
+) -> bytes:
     if enc not in _GCM_KEY_LEN:
         raise jwe.InvalidJWEData(
-            f"Unsupported JWE enc algorithm {enc!r}. "
+            f"{path}: unsupported JWE enc algorithm {enc!r}. "
             "Streaming decryption supports A128GCM, A192GCM, and A256GCM."
         )
     expected_cek = _GCM_KEY_LEN[enc]
@@ -183,33 +189,33 @@ def _unwrap_cek(alg: str, enc: str, kek: bytes, encrypted_key: bytes) -> bytes:
     if alg == "dir":
         if encrypted_key:
             raise jwe.InvalidJWEData(
-                "Direct ('dir') JWE must have an empty encrypted key"
+                f"{path}: direct ('dir') JWE must have an empty encrypted key"
             )
         if len(kek) != expected_cek:
             raise jwe.InvalidJWEData(
-                f"Direct key length {len(kek)} does not match {enc}"
+                f"{path}: direct key length {len(kek)} does not match {enc}"
             )
         return kek
 
     if alg in _KW_KEY_LEN:
         if len(kek) != _KW_KEY_LEN[alg]:
             raise jwe.InvalidJWEData(
-                f"Key wrap key length {len(kek)} does not match {alg}"
+                f"{path}: key wrap key length {len(kek)} does not match {alg}"
             )
         try:
             cek = aes_key_unwrap(kek, encrypted_key)
         except InvalidUnwrap as exc:
             raise jwe.InvalidJWEData(
-                "Failed to unwrap JWE content encryption key"
+                f"{path}: failed to unwrap JWE content encryption key"
             ) from exc
         if len(cek) != expected_cek:
             raise jwe.InvalidJWEData(
-                f"Unwrapped CEK length {len(cek)} does not match {enc}"
+                f"{path}: unwrapped CEK length {len(cek)} does not match {enc}"
             )
         return cek
 
     raise jwe.InvalidJWEData(
-        f"Unsupported JWE alg {alg!r}. "
+        f"{path}: unsupported JWE alg {alg!r}. "
         "Streaming decryption supports dir, A128KW, A192KW, and A256KW."
     )
 
@@ -258,7 +264,7 @@ def _stream_aes_gcm_decrypt(
             final = decryptor.finalize()
         except InvalidTag as exc:
             raise jwe.InvalidJWEData(
-                "JWE authentication tag verification failed"
+                f"{path}: JWE authentication tag verification failed"
             ) from exc
         if final:
             out.write(final)
@@ -352,18 +358,21 @@ class JWEDecryptor:
         header = compact.header
         if header.get("zip"):
             raise jwe.InvalidJWEData(
-                "JWE compression (zip) is not supported for streaming decryption"
+                f"{path}: JWE compression (zip) is not supported"
+                " for streaming decryption"
             )
         if header.get("crit"):
-            raise jwe.InvalidJWEData("JWE crit headers are not supported")
+            raise jwe.InvalidJWEData(f"{path}: JWE crit headers are not supported")
 
         alg = header.get("alg")
         enc = header.get("enc")
-        if not alg or not enc:
-            raise jwe.InvalidJWEData("JWE protected header must include alg and enc")
+        if not isinstance(alg, str) or not isinstance(enc, str) or not alg or not enc:
+            raise jwe.InvalidJWEData(
+                f"{path}: JWE protected header must include alg and enc as strings"
+            )
 
         kek = _oct_key_bytes(symmetric_key)
-        cek = _unwrap_cek(alg, enc, kek, compact.encrypted_key)
+        cek = _unwrap_cek(alg, enc, kek, compact.encrypted_key, path)
 
         if path.suffix.lower() == _JWE_EXTENSION:
             output_path = path.with_suffix("")
@@ -387,6 +396,7 @@ class JWEDecryptor:
                 output_path,
             )
             _stream_aes_gcm_decrypt(path, compact, cek, tmp_path)
+            shutil.copymode(path, tmp_path)
             os.replace(tmp_path, output_path)
             tmp_path = None
         finally:
