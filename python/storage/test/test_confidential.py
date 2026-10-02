@@ -328,6 +328,30 @@ class TestJWEDecryptorRoundTrip:
         output = decryptor.decrypt_file(encrypted_file)
         assert output.read_bytes() == plaintext
 
+    def test_decrypt_file_wrapped_ciphertext(self, tmp_path, monkeypatch):
+        """76-column wrapped ciphertext exercises whitespace strip and carry."""
+        import textwrap
+
+        from kserve_storage.confidential import jwe_decryptor as decryptor_mod
+
+        plaintext = os.urandom(4096)
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(plaintext, key_bytes)
+        parts = token.split(".")
+        parts[3] = "\r\n".join(textwrap.wrap(parts[3], 76))
+        wrapped = ".".join(parts)
+
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(wrapped)
+
+        monkeypatch.setattr(decryptor_mod, "_STREAM_CHUNK_SIZE", 1000)
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        output = decryptor.decrypt_file(encrypted_file)
+        assert output.read_bytes() == plaintext
+
     def test_decrypt_file_large_payload_does_not_slurp(self, tmp_path, monkeypatch):
         """Ciphertext must be streamed; jwcrypto deserialize loads the whole token."""
         from pathlib import Path as PathlibPath
@@ -465,3 +489,21 @@ class TestJWEDecryptorDirectory:
         decryptor = JWEDecryptor(resolver, resource_id="kbs:///repo/type/tag")
         decrypted = decryptor.decrypt_directory(tmp_path)
         assert decrypted == []
+
+    def test_decrypt_directory_sweeps_stale_temp_files(self, tmp_path):
+        """Stale .jwe-decrypt.*.tmp left by SIGKILL are removed before decrypt."""
+        key_bytes = os.urandom(32)
+        (tmp_path / "model.bin.jwe").write_text(_encrypt_jwe(b"real model", key_bytes))
+
+        subdir = tmp_path / "subdir"
+        subdir.mkdir()
+        (tmp_path / ".jwe-decrypt.abc123.tmp").write_bytes(b"stale root")
+        (subdir / ".jwe-decrypt.def456.tmp").write_bytes(b"stale nested")
+
+        resolver = StubSecretResolver(key_bytes)
+        decryptor = JWEDecryptor(resolver, resource_id="kbs:///repo/type/tag")
+        decrypted = decryptor.decrypt_directory(tmp_path)
+
+        assert len(decrypted) == 1
+        assert (tmp_path / "model.bin").read_bytes() == b"real model"
+        assert list(tmp_path.rglob(".jwe-decrypt.*.tmp")) == []
