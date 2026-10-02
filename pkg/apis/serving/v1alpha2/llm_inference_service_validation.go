@@ -104,6 +104,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
 	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
 	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
+	allErrs = append(allErrs, l.validateModelExpress(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAModelRoutingStrategyAnnotation(llmSvc)...)
 	allErrs = append(allErrs, l.validateDisaggregatedSetAnnotation(llmSvc)...)
 
@@ -757,6 +758,18 @@ func immutableField(path *field.Path, value interface{}, detail string) *field.E
 // serving.kserve.io/exp-dra-* annotations to catch user mistakes early.
 func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLMInferenceService) field.ErrorList {
 	return kservevalidation.ValidateManagedDRAAnnotations(llmSvc.GetAnnotations())
+}
+
+// validateModelExpress validates the serving.kserve.io/exp-modelexpress-* annotations and,
+// when the model URI is set on the service itself, that the mode can load it.
+func (l *LLMInferenceServiceValidator) validateModelExpress(llmSvc *LLMInferenceService) field.ErrorList {
+	var loraURIs []string
+	if llmSvc.Spec.Model.LoRA != nil {
+		for _, a := range llmSvc.Spec.Model.LoRA.Adapters {
+			loraURIs = append(loraURIs, a.URI.String())
+		}
+	}
+	return kservevalidation.ValidateModelExpress(llmSvc.GetAnnotations(), llmSvc.Spec.Model.URI.String(), loraURIs)
 }
 
 // validateKVCacheOffloading validates KVCacheOffloading secondary tier specs.

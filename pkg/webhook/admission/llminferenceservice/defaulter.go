@@ -31,6 +31,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/localmodelcache"
+	kservevalidation "github.com/kserve/kserve/pkg/validation"
 )
 
 var defaulterLogger = logf.Log.WithName("llminferenceservice-defaulter")
@@ -165,7 +166,10 @@ func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.L
 	isvcNodeGroup, isvcNodeGroupExists := llmSvc.Annotations[constants.NodeGroupAnnotationKey]
 
 	modelUri := llmSvc.Spec.Model.URI.String()
-	if match := localmodelcache.MatchCacheForURI(modelUri, isvcNodeGroup, isvcNodeGroupExists, models, nsModels); match != nil {
+	mode, _ := llmSvc.ModelExpressMode()
+	if mode == kservevalidation.ModelExpressModeNative {
+		clearBaseLocalModelMetadata(llmSvc)
+	} else if match := localmodelcache.MatchCacheForURI(modelUri, isvcNodeGroup, isvcNodeGroupExists, models, nsModels); match != nil {
 		applyBaseLocalModelCache(llmSvc, match)
 	} else {
 		clearBaseLocalModelMetadata(llmSvc)

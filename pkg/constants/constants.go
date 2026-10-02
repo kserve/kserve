@@ -149,6 +149,14 @@ var (
 	ManagedDRACelSelectorAnnotationKey   = KServeAPIGroupName + "/exp-dra-cel-selector"
 	ManagedDRADeviceCountAnnotationKey   = KServeAPIGroupName + "/exp-dra-device-count"
 	ManagedDRAContainerNameAnnotationKey = KServeAPIGroupName + "/exp-dra-container-name"
+	// ModelExpress Experimental Annotations
+	// The mode annotation enables ModelExpress weight loading for an LLMInferenceService:
+	// "layered" keeps KServe's model delivery and adds peer-to-peer transfer, "native"
+	// hands weight loading to ModelExpress.
+	ModelExpressModeAnnotationKey          = KServeAPIGroupName + "/exp-modelexpress-mode"
+	ModelExpressAddressAnnotationKey       = KServeAPIGroupName + "/exp-modelexpress-address"
+	ModelExpressTokenAudienceAnnotationKey = KServeAPIGroupName + "/exp-modelexpress-token-audience"
+	ModelExpressRevisionAnnotationKey      = KServeAPIGroupName + "/exp-modelexpress-revision"
 )
 
 // ServingRuntime Server Type Annotations

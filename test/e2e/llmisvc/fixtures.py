@@ -363,6 +363,49 @@ if not 1 <= LORA_ADAPTER_COUNT <= LORA_REALISTIC_FIXTURE_SIZE:
     )
 LORA_REALISTIC_ADAPTER_NAMES = _LORA_REALISTIC_FIXTURE_NAMES[:LORA_ADAPTER_COUNT]
 
+# ModelExpress: the server installed by test/scripts/gh-actions/setup-modelexpress.sh,
+# and a vLLM image with the modelexpress client for GPU tests.
+MODELEXPRESS_ADDRESS = os.environ.get(
+    "MODELEXPRESS_ADDRESS", "modelexpress.modelexpress.svc:8001"
+)
+MODELEXPRESS_VLLM_CUDA_IMAGE = os.environ.get("MODELEXPRESS_VLLM_CUDA_IMAGE", "")
+# A safetensors model seeded by test/scripts/gh-actions/seed-s3-model.sh.
+MODELEXPRESS_MODEL_URI = os.environ.get(
+    "MODELEXPRESS_MODEL_URI", "s3://example-models/Qwen/Qwen2.5-0.5B-Instruct"
+)
+MODELEXPRESS_MODEL_NAME = os.environ.get(
+    "MODELEXPRESS_MODEL_NAME", "Qwen/Qwen2.5-0.5B-Instruct"
+)
+# Extended resource that attaches an RDMA NIC to the pod, e.g. "rdma/ib".
+MODELEXPRESS_RDMA_RESOURCE = os.environ.get("MODELEXPRESS_RDMA_RESOURCE", "")
+
+
+def _modelexpress_gpu_workload():
+    limits = {"nvidia.com/gpu": "1"}
+    if MODELEXPRESS_RDMA_RESOURCE:
+        limits[MODELEXPRESS_RDMA_RESOURCE] = "1"
+    return {
+        "template": {
+            "containers": [
+                {
+                    "name": "main",
+                    "image": MODELEXPRESS_VLLM_CUDA_IMAGE,
+                    "resources": {
+                        "limits": dict(limits),
+                        "requests": {**limits, "cpu": "4", "memory": "32Gi"},
+                    },
+                    "securityContext": {
+                        "allowPrivilegeEscalation": False,
+                        "runAsNonRoot": True,
+                        "capabilities": {"add": ["IPC_LOCK"], "drop": ["ALL"]},
+                        "seccompProfile": {"type": "RuntimeDefault"},
+                    },
+                }
+            ],
+        },
+    }
+
+
 LLMINFERENCESERVICE_CONFIGS = {
     "workload-single-cpu": {
         "template": {
@@ -460,6 +503,10 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     "model-fb-opt-125m": {
         "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
+    },
+    "workload-single-gpu-modelexpress": _modelexpress_gpu_workload(),
+    "model-modelexpress": {
+        "model": {"uri": MODELEXPRESS_MODEL_URI, "name": MODELEXPRESS_MODEL_NAME},
     },
     "model-fb-opt-125m-oci": {
         "model": {"uri": OPT_125M_OCI_MODEL_URI, "name": "facebook/opt-125m"},

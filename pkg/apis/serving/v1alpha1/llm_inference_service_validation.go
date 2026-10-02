@@ -82,6 +82,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
 	allErrs = append(allErrs, kservevalidation.ValidateManagedDRAAnnotations(llmSvc.GetAnnotations())...)
+	allErrs = append(allErrs, l.validateModelExpress(llmSvc)...)
 	allErrs = append(allErrs, v1alpha2.ValidateLoRAModelRoutingStrategyAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
 	allErrs = append(allErrs, kservevalidation.ValidateDisaggregatedSetAnnotation(llmSvc.GetAnnotations())...)
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
@@ -391,6 +392,18 @@ func (l *LLMInferenceServiceValidator) validateRolloutStrategy(llmSvc *LLMInfere
 	}
 
 	return allErrs
+}
+
+// validateModelExpress validates the serving.kserve.io/exp-modelexpress-* annotations and,
+// when the model URI is set on the service itself, that the mode can load it.
+func (l *LLMInferenceServiceValidator) validateModelExpress(llmSvc *LLMInferenceService) field.ErrorList {
+	var loraURIs []string
+	if llmSvc.Spec.Model.LoRA != nil {
+		for _, a := range llmSvc.Spec.Model.LoRA.Adapters {
+			loraURIs = append(loraURIs, a.URI.String())
+		}
+	}
+	return kservevalidation.ValidateModelExpress(llmSvc.GetAnnotations(), llmSvc.Spec.Model.URI.String(), loraURIs)
 }
 
 func (l *LLMInferenceServiceValidator) validateLoRAAdapters(llmSvc *LLMInferenceService) field.ErrorList {

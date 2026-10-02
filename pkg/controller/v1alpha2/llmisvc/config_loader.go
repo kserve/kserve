@@ -183,6 +183,10 @@ type Config struct {
 	// share a single consistent result.
 	ResolvedLoRAAdapters []resolvedLoRAAdapter `json:"-"`
 
+	// ModelExpress is the ModelExpress setup resolved for this reconcile, or nil
+	// when the service does not use ModelExpress.
+	ModelExpress *modelExpressConfig `json:"-"`
+
 	// WorkloadRevision is the generated compatibility boundary shared by all
 	// prefill and decode Pod templates. It is populated per reconciliation.
 	WorkloadRevision string `json:"-"`
