@@ -47,13 +47,16 @@ class FailingSecretResolver(SecretResolver):
         raise SecretResolutionError("resolver failure")
 
 
-def _encrypt_jwe(plaintext: bytes, key_bytes: bytes) -> str:
-    """Create a JWE Compact Serialization token using A256KW + A256GCM."""
+def _encrypt_jwe(
+    plaintext: bytes,
+    key_bytes: bytes,
+    protected: dict | None = None,
+) -> str:
+    """Create a JWE Compact Serialization token."""
+    if protected is None:
+        protected = {"alg": "A256KW", "enc": "A256GCM"}
     symmetric_key = jwk.JWK(kty="oct", k=jwk.base64url_encode(key_bytes))
-    token = jwe.JWE(
-        plaintext,
-        protected={"alg": "A256KW", "enc": "A256GCM"},
-    )
+    token = jwe.JWE(plaintext, protected=protected)
     token.add_recipient(symmetric_key)
     return token.serialize(compact=True)
 
@@ -231,19 +234,28 @@ class TestJWEDecryptorRoundTrip:
         assert output.read_bytes() == plaintext
         assert not encrypted_file.exists()
 
-    def test_decrypt_file_direct_algorithm(self, tmp_path):
-        """dir + A256GCM uses the resolved key as the CEK."""
-        plaintext = b"direct alg model bytes"
-        key_bytes = os.urandom(32)
-        symmetric_key = jwk.JWK(kty="oct", k=jwk.base64url_encode(key_bytes))
-        token = jwe.JWE(
-            plaintext,
-            protected={"alg": "dir", "enc": "A256GCM"},
-        )
-        token.add_recipient(symmetric_key)
+    @pytest.mark.parametrize(
+        "alg, enc, key_len",
+        [
+            ("A128KW", "A128GCM", 16),
+            ("A128KW", "A256GCM", 16),
+            ("A192KW", "A192GCM", 24),
+            ("A256KW", "A128GCM", 32),
+            ("A256KW", "A256GCM", 32),
+            ("dir", "A128GCM", 16),
+            ("dir", "A256GCM", 32),
+        ],
+        ids=lambda v: str(v) if isinstance(v, str) else "",
+    )
+    def test_decrypt_file_alg_enc_combos(self, tmp_path, alg, enc, key_len):
+        """Round-trip every supported alg+enc combination."""
+        plaintext = b"round-trip all combos"
+        key_bytes = os.urandom(key_len)
 
         encrypted_file = tmp_path / "model.bin.jwe"
-        encrypted_file.write_text(token.serialize(compact=True))
+        encrypted_file.write_text(
+            _encrypt_jwe(plaintext, key_bytes, {"alg": alg, "enc": enc})
+        )
 
         decryptor = JWEDecryptor(
             StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
