@@ -13,9 +13,13 @@
 # limitations under the License.
 
 import asyncio
+import base64
 import os
+import socket
+import ssl
 
 import pytest
+import portforward
 from kubernetes import client
 from kubernetes.client import (
     V1ResourceRequirements,
@@ -39,8 +43,41 @@ from kserve.models.v1beta1_inference_service_spec import V1beta1InferenceService
 from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
 from kserve.models.v1beta1_model_spec import V1beta1ModelSpec
 from kserve.models.v1beta1_model_format import V1beta1ModelFormat
-from ..common.utils import assert_answers_four, generate
+from ..common.utils import (
+    KSERVE_NAMESPACE,
+    assert_answers_four,
+    generate,
+)
 from . import assert_pv_deleted, assert_pvc_deleted
+
+
+@pytest.mark.modelcache
+def test_localmodelnode_agent_serves_tls():
+    core_api = client.CoreV1Api()
+    pods = core_api.list_namespaced_pod(
+        KSERVE_NAMESPACE,
+        label_selector="control-plane=kserve-localmodelnode-agent",
+    ).items
+    assert pods, "expected at least one LocalModelNode agent pod"
+
+    secret = core_api.read_namespaced_secret(
+        "localmodel-webhook-server-cert", KSERVE_NAMESPACE
+    )
+    tls_context = ssl.create_default_context(
+        cadata=base64.b64decode(secret.data["tls.crt"]).decode()
+    )
+    tls_context.minimum_version = ssl.TLSVersion.TLSv1_3
+    tls_hostname = f"localmodel-webhook-server-service.{KSERVE_NAMESPACE}.svc"
+
+    for pod in pods:
+        with portforward.forward(
+            KSERVE_NAMESPACE, pod.metadata.name, 9443, 9443, waiting=5
+        ):
+            with socket.create_connection(("localhost", 9443), timeout=10) as conn:
+                with tls_context.wrap_socket(
+                    conn, server_hostname=tls_hostname
+                ) as tls_conn:
+                    assert tls_conn.version() == "TLSv1.3"
 
 
 @pytest.mark.modelcache

@@ -144,6 +144,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	// The webhook server is lazily registered with the manager. The LocalModelNode
+	// agent does not register admission webhooks, but it still serves the TLS
+	// endpoint on 9443.
+	mgr.GetWebhookServer()
+
 	setupLog.Info("Registering Components.")
 
 	setupLog.Info("Setting up controller schemes")
