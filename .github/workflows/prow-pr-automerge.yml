@@ -104,6 +104,11 @@ jobs:
             });
             debug(`Found ${prs.length} open issues/PRs with the lgtm label`);
 
+            // PRs that passed every gate but the merge call rejected. The loop keeps
+            // going so one bad PR does not hold up the rest, and the run fails at the
+            // end: a green run must mean nothing ready was left behind.
+            const failedMerges = [];
+
             for (const issue of prs) {
               if (!issue.pull_request) continue;
               if (issue.labels.some(l => l.name === 'hold')) continue;
@@ -171,6 +176,12 @@ jobs:
                 });
                 core.info(`Merged PR #${issue.number}`);
               } catch (e) {
+                // 409 is the head pin above doing its job. The next run vets the new head.
+                if (e.status === 409) {
+                  core.info(`PR #${issue.number} head moved past ${pr.head.sha} before the merge, skipping`);
+                  continue;
+                }
+
                 const responseData = e.response?.data;
                 const errorDetails = [
                   `status=${e.status ?? 'unknown'}`,
@@ -195,6 +206,11 @@ jobs:
                   }
                 }
 
-                core.warning(`Could not merge PR #${issue.number}: ${errorDetails.join(', ')}`);
+                core.error(`Could not merge PR #${issue.number}: ${errorDetails.join(', ')}`);
+                failedMerges.push(issue.number);
               }
+            }
+
+            if (failedMerges.length > 0) {
+              core.setFailed(`Could not merge ${failedMerges.length} ready PR(s): ${failedMerges.map(n => `#${n}`).join(', ')}`);
             }
