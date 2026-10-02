@@ -1,0 +1,156 @@
+apiVersion: v1
+entries:
+  kserve-crd:
+  - apiVersion: v2
+    appVersion: v0.21.0-rc1
+    created: "2026-10-02T17:30:00Z"
+    description: KServe core CRDs
+    keywords:
+    - kserve
+    - crd
+    name: kserve-crd
+    sources:
+    - https://github.com/kserve/kserve
+    urls:
+    - https://github.com/kserve/kserve/releases/download/v0.21.0/helm-chart-kserve-crd-v0.21.0-rc1.tgz
+    version: v0.21.0-rc1
+
+  kserve-crd-minimal:
+  - apiVersion: v2
+    appVersion: v0.21.0-rc1
+    created: "2026-10-02T17:30:00Z"
+    description: KServe minimal CRDs (only InferenceService)
+    keywords:
+    - kserve
+    - crd
+    name: kserve-crd-minimal
+    sources:
+    - https://github.com/kserve/kserve
+    urls:
+    - https://github.com/kserve/kserve/releases/download/v0.21.0/helm-chart-kserve-crd-minimal-v0.21.0-rc1.tgz
+    version: v0.21.0-rc1
+
+  kserve-llmisvc-crd:
+  - apiVersion: v2
+    appVersion: v0.21.0-rc1
+    created: "2026-10-02T17:30:00Z"
+    description: KServe LLMInferenceService CRDs
+    keywords:
+    - kserve
+    - llmisvc
+    - crd
+    name: kserve-llmisvc-crd
+    sources:
+    - https://github.com/kserve/kserve
+    urls:
+    - https://github.com/kserve/kserve/releases/download/v0.21.0/helm-chart-kserve-llmisvc-crd-v0.21.0-rc1.tgz
+    version: v0.21.0-rc1
+
+  kserve-llmisvc-crd-minimal:
+  - apiVersion: v2
+    appVersion: v0.21.0-rc1
+    created: "2026-10-02T17:30:00Z"
+    description: KServe LLMInferenceService minimal CRDs
+    keywords:
+    - kserve
+    - llmisvc
+    - crd
+    name: kserve-llmisvc-crd-minimal
+    sources:
+    - https://github.com/kserve/kserve
+    urls:
+    - https://github.com/kserve/kserve/releases/download/v0.21.0/helm-chart-kserve-llmisvc-crd-minimal-v0.21.0-rc1.tgz
+    version: v0.21.0-rc1
+
+  kserve-llmisvc-resources:
+  - apiVersion: v2
+    appVersion: v0.21.0-rc1
+    created: "2026-10-02T17:30:00Z"
+    description: KServe LLMInferenceService controller resources
+    keywords:
+    - kserve
+    - llmisvc
+    name: kserve-llmisvc-resources
+    sources:
+    - https://github.com/kserve/kserve
+    urls:
+    - https://github.com/kserve/kserve/releases/download/v0.21.0/helm-chart-kserve-llmisvc-resources-v0.21.0-rc1.tgz
+    version: v0.21.0-rc1
+
+  kserve-localmodel-crd:
+  - apiVersion: v2
+    appVersion: v0.21.0-rc1
+    created: "2026-10-02T17:30:00Z"
+    description: KServe LocalModel CRDs
+    keywords:
+    - kserve
+    - localmodel
+    - crd
+    name: kserve-localmodel-crd
+    sources:
+    - https://github.com/kserve/kserve
+    urls:
+    - https://github.com/kserve/kserve/releases/download/v0.21.0/helm-chart-kserve-localmodel-crd-v0.21.0-rc1.tgz
+    version: v0.21.0-rc1
+
+  kserve-localmodel-crd-minimal:
+  - apiVersion: v2
+    appVersion: v0.21.0-rc1
+    created: "2026-10-02T17:30:00Z"
+    description: KServe LocalModel minimal CRDs
+    keywords:
+    - kserve
+    - localmodel
+    - crd
+    name: kserve-localmodel-crd-minimal
+    sources:
+    - https://github.com/kserve/kserve
+    urls:
+    - https://github.com/kserve/kserve/releases/download/v0.21.0/helm-chart-kserve-localmodel-crd-minimal-v0.21.0-rc1.tgz
+    version: v0.21.0-rc1
+
+  kserve-localmodel-resources:
+  - apiVersion: v2
+    appVersion: v0.21.0-rc1
+    created: "2026-10-02T17:30:00Z"
+    description: KServe LocalModel controller & agent resources
+    keywords:
+    - kserve
+    - localmodel
+    name: kserve-localmodel-resources
+    sources:
+    - https://github.com/kserve/kserve
+    urls:
+    - https://github.com/kserve/kserve/releases/download/v0.21.0/helm-chart-kserve-localmodel-resources-v0.21.0-rc1.tgz
+    version: v0.21.0-rc1
+
+  kserve-resources:
+  - apiVersion: v2
+    appVersion: v0.21.0-rc1
+    created: "2026-10-02T17:30:00Z"
+    description: KServe main controller & webhook resources
+    keywords:
+    - kserve
+    name: kserve-resources
+    sources:
+    - https://github.com/kserve/kserve
+    urls:
+    - https://github.com/kserve/kserve/releases/download/v0.21.0/helm-chart-kserve-resources-v0.21.0-rc1.tgz
+    version: v0.21.0-rc1
+
+  kserve-runtime-configs:
+  - apiVersion: v2
+    appVersion: v0.21.0-rc1
+    created: "2026-10-02T17:30:00Z"
+    description: KServe default ServingRuntime configmaps
+    keywords:
+    - kserve
+    - runtime
+    name: kserve-runtime-configs
+    sources:
+    - https://github.com/kserve/kserve
+    urls:
+    - https://github.com/kserve/kserve/releases/download/v0.21.0/helm-chart-kserve-runtime-configs-v0.21.0-rc1.tgz
+    version: v0.21.0-rc1
+
+generated: "2026-10-02T17:30:00Z"
