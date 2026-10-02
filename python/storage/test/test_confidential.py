@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
+import json
 import os
+import stat
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -211,8 +214,6 @@ class TestJWEDecryptorRoundTrip:
         encrypted_file.write_text(token)
 
         # Create a JWK with additional metadata (as KBS might store it)
-        import json
-
         jwk_dict = {
             "alg": "A256GCM",
             "k": jwk.base64url_encode(key_bytes),
@@ -268,6 +269,40 @@ class TestJWEDecryptorRoundTrip:
             StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
         )
         with pytest.raises(jwe.InvalidJWEData, match="JSON serialization"):
+            decryptor.decrypt_file(encrypted_file)
+
+    @pytest.mark.parametrize(
+        "header_override, match",
+        [
+            ({"zip": "DEF"}, "zip"),
+            ({"crit": ["exp"]}, "crit"),
+            ({"alg": "RSA-OAEP"}, "unsupported JWE alg"),
+            ({"enc": "A128CBC-HS256"}, "unsupported JWE enc"),
+        ],
+        ids=["zip", "crit", "unsupported-alg", "unsupported-enc"],
+    )
+    def test_decrypt_file_rejects_unsupported_headers(
+        self, tmp_path, header_override, match
+    ):
+        key_bytes = os.urandom(32)
+        token = _encrypt_jwe(b"test data", key_bytes)
+        parts = token.split(".")
+        orig_header = json.loads(base64.urlsafe_b64decode(parts[0] + "=="))
+        orig_header.update(header_override)
+        parts[0] = (
+            base64.urlsafe_b64encode(json.dumps(orig_header).encode())
+            .rstrip(b"=")
+            .decode()
+        )
+        modified = ".".join(parts)
+
+        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file.write_text(modified)
+
+        decryptor = JWEDecryptor(
+            StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
+        )
+        with pytest.raises(jwe.InvalidJWEData, match=match):
             decryptor.decrypt_file(encrypted_file)
 
     def test_decrypt_file_empty_plaintext(self, tmp_path):
@@ -335,29 +370,30 @@ class TestJWEDecryptorRoundTrip:
         assert output.read_bytes() == plaintext
         assert not encrypted_file.exists()
 
-    def test_decrypt_file_tampered_ciphertext_leaves_original(self, tmp_path):
+    @pytest.mark.parametrize("filename", ["model.bin.jwe", "model.bin"])
+    def test_decrypt_file_tampered_ciphertext_leaves_original(self, tmp_path, filename):
         plaintext = b"authenticated model bytes"
         key_bytes = os.urandom(32)
         token = _encrypt_jwe(plaintext, key_bytes)
-        # Flip a byte in the ciphertext segment (4th compact part).
         parts = token.split(".")
-        ct = bytearray(parts[3].encode("ascii"))
-        ct[0] = ct[0] ^ 0x01
-        parts[3] = ct.decode("ascii")
+        first_char = parts[3][0]
+        replacement = "B" if first_char != "B" else "C"
+        parts[3] = replacement + parts[3][1:]
         tampered = ".".join(parts)
 
-        encrypted_file = tmp_path / "model.bin.jwe"
+        encrypted_file = tmp_path / filename
         encrypted_file.write_text(tampered)
 
         decryptor = JWEDecryptor(
             StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
         )
-        with pytest.raises(jwe.InvalidJWEData):
+        with pytest.raises(jwe.InvalidJWEData, match="tag verification"):
             decryptor.decrypt_file(encrypted_file)
 
         assert encrypted_file.exists()
         assert encrypted_file.read_text() == tampered
-        assert not (tmp_path / "model.bin").exists()
+        if filename.endswith(".jwe"):
+            assert not (tmp_path / filename.removesuffix(".jwe")).exists()
         assert list(tmp_path.glob(".jwe-decrypt.*")) == []
 
     def test_decrypt_file_wrong_key_leaves_original(self, tmp_path):
@@ -376,28 +412,22 @@ class TestJWEDecryptorRoundTrip:
         assert encrypted_file.read_text() == token
         assert list(tmp_path.glob(".jwe-decrypt.*")) == []
 
-    def test_decrypt_file_in_place_tamper_leaves_original(self, tmp_path):
-        plaintext = b"in-place model"
+    @pytest.mark.parametrize("filename", ["model.bin.jwe", "model.bin"])
+    def test_decrypt_preserves_source_file_mode(self, tmp_path, filename):
+        plaintext = b"mode preservation test"
         key_bytes = os.urandom(32)
-        token = _encrypt_jwe(plaintext, key_bytes)
-        parts = token.split(".")
-        # Flip a high-order ciphertext character so unused base64 padding bits
-        # cannot leave the decoded ciphertext unchanged.
-        ct = bytearray(parts[3].encode("ascii"))
-        ct[0] = ct[0] ^ 0x01
-        parts[3] = ct.decode("ascii")
-        tampered = ".".join(parts)
 
-        encrypted_file = tmp_path / "model.bin"
-        encrypted_file.write_text(tampered)
+        encrypted_file = tmp_path / filename
+        encrypted_file.write_text(_encrypt_jwe(plaintext, key_bytes))
+        encrypted_file.chmod(0o644)
 
         decryptor = JWEDecryptor(
             StubSecretResolver(key_bytes), resource_id="kbs:///repo/type/tag"
         )
-        with pytest.raises(jwe.InvalidJWEData):
-            decryptor.decrypt_file(encrypted_file)
+        output = decryptor.decrypt_file(encrypted_file)
 
-        assert encrypted_file.read_text() == tampered
+        assert output.read_bytes() == plaintext
+        assert stat.S_IMODE(output.stat().st_mode) == 0o644
 
 
 class TestJWEDecryptorDirectory:
