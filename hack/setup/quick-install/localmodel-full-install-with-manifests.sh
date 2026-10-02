@@ -7473,6 +7473,7 @@ metadata:
   namespace: kserve
 spec:
   commonName: kernelcache-root-ca
+  duration: 8760h
   isCA: true
   issuerRef:
     group: cert-manager.io

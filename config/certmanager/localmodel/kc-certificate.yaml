@@ -5,6 +5,7 @@ metadata:
   namespace: kserve
 spec:
   isCA: true
+  duration: 8760h
   commonName: kernelcache-root-ca
   secretName: kernelcache-root-ca
   issuerRef:
