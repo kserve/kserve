@@ -518,6 +518,9 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 		if err := schedulerTransform(ctx, d, llmSvc, reconcilerCfg.EnableTLS); err != nil {
 			return d, fmt.Errorf("failed to apply scheduler migrations: %w", err)
 		}
+		if err := r.checkRoleFiltersOnLegacyBothWorkload(ctx, d, llmSvc); err != nil {
+			return d, err
+		}
 	}
 
 	log.FromContext(ctx).V(2).Info("Expected router scheduler deployment", "deployment", d)
@@ -1360,6 +1363,122 @@ func hasWritableConfigText(d *appsv1.Deployment) bool {
 	return false
 }
 
+// schedulerConfigUsedPluginTypes returns the plugin types from pluginTypes that
+// the scheduler's inline config (--config-text) actually runs.
+//
+// Declaring a plugin is not enough for it to run. When the config has
+// schedulingProfiles, only the plugins a profile references by pluginRef run.
+// When it has none, the router builds a default profile with the declared
+// filters, scorers, and pickers; role filters therefore run.
+func schedulerConfigUsedPluginTypes(d *appsv1.Deployment, pluginTypes ...string) []string {
+	c := utils.GetContainerWithName(&d.Spec.Template.Spec, "main")
+	if c == nil {
+		return nil
+	}
+	used := map[string]bool{}
+	for i := range len(c.Args) - 1 {
+		if _, ok := inlineConfigTextFlags[c.Args[i]]; !ok {
+			continue
+		}
+		u := unstructured.Unstructured{}
+		if err := yaml.Unmarshal([]byte(c.Args[i+1]), &u); err != nil {
+			continue
+		}
+
+		// Map each plugin name to its type. The router uses the type as the
+		// name when no name is set.
+		typeByName := map[string]string{}
+		plugins, _, _ := unstructured.NestedSlice(u.Object, "plugins")
+		for _, plugin := range plugins {
+			pluginMap, ok := plugin.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			pluginType, _ := pluginMap["type"].(string)
+			name, _ := pluginMap["name"].(string)
+			if name == "" {
+				name = pluginType
+			}
+			typeByName[name] = pluginType
+		}
+
+		profiles, _, _ := unstructured.NestedSlice(u.Object, "schedulingProfiles")
+		if len(profiles) == 0 {
+			for _, pluginType := range typeByName {
+				used[pluginType] = true
+			}
+			continue
+		}
+		for _, profile := range profiles {
+			profileMap, ok := profile.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			refs, _, _ := unstructured.NestedSlice(profileMap, "plugins")
+			for _, ref := range refs {
+				if refMap, ok := ref.(map[string]interface{}); ok {
+					if name, ok := refMap["pluginRef"].(string); ok && typeByName[name] != "" {
+						used[typeByName[name]] = true
+					}
+				}
+			}
+		}
+	}
+	var found []string
+	for _, pluginType := range pluginTypes {
+		if used[pluginType] {
+			found = append(found, pluginType)
+		}
+	}
+	return found
+}
+
+// checkRoleFiltersOnLegacyBothWorkload emits a Warning event and returns an
+// error, which stops the scheduler rollout, when EPPConfig uses
+// decode-filter or prefill-filter while pods are labelled llm-d.ai/role=both
+// The user must remove those filters from EPPConfig before the rollout can continue.
+//
+// From llm-d-router v0.11.0 on, these filters reject "both", so they would drop
+// every pod and no request could be routed.
+func (r *LLMISVCReconciler) checkRoleFiltersOnLegacyBothWorkload(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService) error {
+	// Fast exit if the scheduler is going to be deleted (service stopped or using an external pool): an error here would block the deletion.
+	if llmSvc.Spec.Prefill != nil || utils.GetForceStopRuntime(llmSvc) ||
+		(llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Pool.HasRef()) {
+		return nil
+	}
+	version := d.Spec.Template.Annotations["app.kubernetes.io/version"]
+	if version == "" {
+		return nil
+	}
+	v, err := semver.NewVersion(version)
+	if err != nil {
+		return fmt.Errorf("failed to parse version %q: %w", version, err)
+	}
+	if v.Compare(*semver.New("0.11.0")) < 0 {
+		return nil
+	}
+
+	// Find which role filters (they check the llm-d.ai/role label) the scheduler
+	// config runs. None means nothing to check.
+	filters := schedulerConfigUsedPluginTypes(d, "decode-filter", "prefill-filter")
+	if len(filters) == 0 {
+		return nil
+	}
+	role, err := r.currentMainWorkloadRole(ctx, llmSvc)
+	if err != nil {
+		return err
+	}
+	if role != constants.LLMDRoleBoth {
+		return nil
+	}
+
+	names := strings.Join(filters, ", ")
+	err = fmt.Errorf("EPPConfig uses %s, which does not work with %s=%s pods since llm-d-router version %s: remove %s from the EPPConfig",
+		names, constants.LLMDRoleLabelKey, constants.LLMDRoleBoth, v, names)
+	r.Eventf(llmSvc, corev1.EventTypeWarning, "UnsupportedSchedulerPlugin", "%s", err.Error())
+	return err
+}
+
 // deprecatedMetricFlagNames is the set of CLI flag names (without leading
 // dashes) that GIE v1.4.0 hard-rejects at startup.
 var deprecatedMetricFlagNames = map[string]bool{
@@ -1438,6 +1557,10 @@ func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
 //  8. WithRemovePlugin – strip disagg-headers-handler, prefill-header-handler,
 //     and pd-profile-handler (v0.11.0+, disagg-headers-handler removed from
 //     llm-d-router; the other two are legacy names from prior renames)
+//  9. withMigrateSaturationDetector, withMigrateParser, withMigratePeerDiscovery –
+//     relocate saturationDetector and parser (removed from EndpointPickerConfig
+//     in v0.11.0) and dataLayer.peerDiscovery (only deprecated in v0.11.0, not
+//     removed) to the fields that replaced them
 func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService, enableTLS bool) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
@@ -1534,11 +1657,25 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 	// - prefill-header-handler  (pre-v0.7.0 name, renamed to disagg-headers-handler) to support upgrade from pre-v0.7 to 0.11
 	// - pd-profile-handler      (pre-v0.7.0 name, renamed to disagg-headers-handler) to support upgrade from pre-v0.7 to 0.11
 	// - disagg-headers-handler  (v0.7.0 name, no longer recognised by router after 0.11.0)
+	//
+	// It also drops two EndpointPickerConfig fields that were deprecated in
+	// v0.9.0 and removed in v0.11.0. The EPP decodes its config with a strict
+	// serializer, so a config carrying any of them stops the binary from
+	// starting; each is relocated to the field that replaced it.
+	//
+	// dataLayer.peerDiscovery is different: v0.11.0 only starts its deprecation
+	// in favour of dataLayer.discovery.peers, it is not a hard cut. The router
+	// still accepts the old field and migrates it itself. Since the replacement
+	// is already accepted from v0.11.0, relocate it here too so configs are on
+	// the new field before the old one is eventually removed.
 	if v.Compare(*semver.New("0.11.0")) >= 0 {
 		opts = append(opts,
 			WithRemovePlugin("prefill-header-handler"),
 			WithRemovePlugin("disagg-headers-handler"),
 			WithRemovePlugin("pd-profile-handler"),
+			withMigrateSaturationDetector,
+			withMigrateParser,
+			withMigratePeerDiscovery,
 		)
 	}
 
@@ -1552,6 +1689,64 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 // disagg-headers-handler (v0.7.0 rename).
 func withMigrateDisaggHeadersHandler(ctx context.Context, u *unstructured.Unstructured) error {
 	return WithRenamePlugin("prefill-header-handler", "disagg-headers-handler")(ctx, u)
+}
+
+// moveLegacyConfigField relocates a deprecated EndpointPickerConfig field to
+// the path that replaced it. The legacy field is always removed, because the
+// EPP decodes its configuration with a strict serializer and would refuse to
+// start while it is present. The value is only written to the new path when
+// that path is still empty, matching the router's own "if both are set, the
+// new field is used" rule for the deprecation window. wrap, when non-nil,
+// adapts the legacy value to the shape of the replacement field.
+func moveLegacyConfigField(u *unstructured.Unstructured, from, to []string, wrap func(interface{}) interface{}) error {
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, from...)
+	if err != nil || !found {
+		return err
+	}
+	unstructured.RemoveNestedField(u.Object, from...)
+
+	if _, exists, err := unstructured.NestedFieldNoCopy(u.Object, to...); err != nil {
+		return err
+	} else if exists {
+		return nil
+	}
+
+	if wrap != nil {
+		val = wrap(val)
+	}
+	return unstructured.SetNestedField(u.Object, val, to...)
+}
+
+// withMigrateSaturationDetector moves the top-level saturationDetector into
+// flowControl.saturationDetector. llm-d-router deprecated the old field in
+// v0.9.0 and removed it in v0.11.0.
+func withMigrateSaturationDetector(_ context.Context, u *unstructured.Unstructured) error {
+	return moveLegacyConfigField(u,
+		[]string{"saturationDetector"},
+		[]string{"flowControl", "saturationDetector"},
+		nil)
+}
+
+// withMigrateParser moves the top-level parser into requestHandler.parsers.
+// llm-d-router deprecated the old field in v0.9.0 and removed it in v0.11.0.
+// The replacement is a list, so the single legacy entry becomes its only
+// element.
+func withMigrateParser(_ context.Context, u *unstructured.Unstructured) error {
+	return moveLegacyConfigField(u,
+		[]string{"parser"},
+		[]string{"requestHandler", "parsers"},
+		func(val interface{}) interface{} { return []interface{}{val} })
+}
+
+// withMigratePeerDiscovery moves dataLayer.peerDiscovery under
+// dataLayer.discovery.peers. llm-d-router v0.11.0 introduced the new field and
+// started deprecating the old one; the old field is still accepted there, so
+// this migration is ahead of its removal rather than required by v0.11.0.
+func withMigratePeerDiscovery(_ context.Context, u *unstructured.Unstructured) error {
+	return moveLegacyConfigField(u,
+		[]string{"dataLayer", "peerDiscovery"},
+		[]string{"dataLayer", "discovery", "peers"},
+		nil)
 }
 
 // withMigrateLLMDAPIVersion rewrites the deprecated EndpointPickerConfig
