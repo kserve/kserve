@@ -20,6 +20,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -235,4 +238,44 @@ func TestAdjustStableMinReplicasForCanaries(t *testing.T) {
 			assert.Equal(t, tt.expectedStable, *componentExt.MinReplicas)
 		})
 	}
+}
+
+// TestWorkerSpecNilReturnsErrorInsteadOfPanicking covers the case where an
+// InferenceService sets predictor.workerSpec but the selected ServingRuntime has
+// no workerSpec. Both entry points dereferenced sRuntime.WorkerSpec before the
+// nil check that is meant to catch this, so the controller panicked instead of
+// surfacing the intended error.
+func TestWorkerSpecNilReturnsErrorInsteadOfPanicking(t *testing.T) {
+	const wantMsg = "you cannot set WorkerSpec in the InferenceService if the ServingRuntime does not have a WorkerSpec"
+
+	newISVC := func() *v1beta1.InferenceService {
+		return &v1beta1.InferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "isvc", Namespace: "default"},
+			Spec: v1beta1.InferenceServiceSpec{
+				Predictor: v1beta1.PredictorSpec{
+					WorkerSpec: &v1beta1.WorkerSpec{},
+				},
+			},
+		}
+	}
+
+	// ServingRuntime deliberately has no WorkerSpec.
+	sRuntime := v1alpha1.ServingRuntimeSpec{}
+
+	t.Run("multiNodeProcess", func(t *testing.T) {
+		isvc := newISVC()
+		podSpec, err := multiNodeProcess(sRuntime, isvc, &corev1.PodSpec{}, map[string]string{}, "1")
+		require.Error(t, err)
+		assert.Equal(t, wantMsg, err.Error())
+		assert.Nil(t, podSpec)
+	})
+
+	t.Run("reconcileWorker", func(t *testing.T) {
+		isvc := newISVC()
+		p := &Predictor{}
+		_, podSpec, err := p.reconcileWorker(sRuntime, isvc, &corev1.PodSpec{}, map[string]string{}, map[string]string{}, "1")
+		require.Error(t, err)
+		assert.Equal(t, wantMsg, err.Error())
+		assert.Nil(t, podSpec)
+	})
 }
