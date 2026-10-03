@@ -48212,6 +48212,8 @@ spec:
                         type: string
                     type: object
                 type: object
+              suspend:
+                type: boolean
               tracing:
                 properties:
                   exporter:
