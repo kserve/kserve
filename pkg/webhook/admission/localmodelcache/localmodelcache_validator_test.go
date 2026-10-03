@@ -287,7 +287,19 @@ func TestValidateUpdate_LocalModelCacheWithUniqueStorageURI(t *testing.T) {
 	if err != nil {
 		t.Errorf("unable to add scheme : %v", err)
 	}
-	fakeClient := fake.NewClientBuilder().WithObjects(&existingLmc).WithScheme(s).Build()
+	nodeGroup := v1alpha1.LocalModelNodeGroup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "gpu1",
+		},
+		Spec: v1alpha1.LocalModelNodeGroupSpec{
+			StorageLimit: resource.MustParse("10Gi"),
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithObjects(&existingLmc, &nodeGroup).
+		WithScheme(s).
+		Build()
 	validator := LocalModelCacheValidator{fakeClient}
 	// newLmc has a unique StorageURI
 	newLmc := makeTestLocalModelCacheWithDifferentStorageURI()
