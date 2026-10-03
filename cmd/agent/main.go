@@ -70,6 +70,7 @@ var (
 	logMarshallerPort   = flag.Int("log-marshaller-port", 9083, "Port for the embedded log marshaller HTTP server")
 	logBatchSize        = flag.Int("log-batch-size", 1, "Number of log records per batch for blob storage")
 	logBatchInterval    = flag.Duration("log-batch-interval", 0, "Max time to wait before flushing a partial batch")
+	logClientTimeout    = flag.Duration("log-client-timeout", kfslogger.DefaultHTTPClientTimeout, "Timeout for the HTTP client used to deliver log events to the log-url")
 	inferenceService    = flag.String("inference-service", "", "The InferenceService name to add as header to log events")
 	namespace           = flag.String("namespace", "", "The namespace to add as header to log events")
 	endpoint            = flag.String("endpoint", "", "The endpoint name to add as header to log events")
@@ -361,7 +362,7 @@ func startLogger(workers int, logStorePath *string, marshallerUrl string, marsha
 	}
 
 	log.Info("Starting the log dispatcher")
-	kfslogger.StartDispatcher(workers, store, batchStrategy, log)
+	kfslogger.StartDispatcher(workers, store, batchStrategy, log, kfslogger.WithLogClientTimeout(*logClientTimeout))
 	return &loggerArgs{
 		loggerType:       loggingMode,
 		logUrl:           logUrlParsed,
