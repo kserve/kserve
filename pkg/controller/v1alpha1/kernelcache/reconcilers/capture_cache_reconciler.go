@@ -325,29 +325,3 @@ func (r *KernelCacheReconciler) enqueueKCForCompletedKCC(_ context.Context, obj 
 	name := generatedKernelCacheName(capture.Name, capture.Status.Artifact.ImageReference)
 	return []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: capture.Namespace, Name: name}}}
 }
-
-// enqueueKCsOnInferenceServiceChange finds completed KCCs whose source is the changed ISVC.
-// Requeuing their KCs gives completed captures another chance to materialize or refresh their KC.
-// The handler enqueues the returned requests; this function does not run KC reconciliation.
-func (r *KernelCacheReconciler) enqueueKCsOnInferenceServiceChange(ctx context.Context, obj client.Object) []reconcile.Request {
-	inferenceService, ok := obj.(*v1beta1.InferenceService)
-	if !ok {
-		return nil
-	}
-
-	captures := &v1alpha1.KernelCacheCaptureList{}
-	if err := r.List(ctx, captures, client.InNamespace(inferenceService.Namespace)); err != nil {
-		return nil
-	}
-
-	requests := make([]reconcile.Request, 0, len(captures.Items))
-	for index := range captures.Items {
-		capture := &captures.Items[index]
-		if !isCaptureComplete(capture) || !captureReferencesInferenceService(capture, inferenceService) {
-			continue
-		}
-		name := generatedKernelCacheName(capture.Name, capture.Status.Artifact.ImageReference)
-		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: capture.Namespace, Name: name}})
-	}
-	return requests
-}

@@ -289,33 +289,6 @@ func envVarExists(envs []corev1.EnvVar, name string) bool {
 	return false
 }
 
-// Fetches container spec for model download container, use the default KServe image if not found
-// This function is kept for backward compatibility with ClusterStorageContainer
-func (c *LocalModelNodeReconciler) getContainerSpecForStorageUri(ctx context.Context, storageUri string) (*corev1.Container, error) {
-	storageContainers := &v1alpha1.ClusterStorageContainerList{}
-	if err := c.List(ctx, storageContainers); err != nil {
-		return nil, err
-	}
-
-	for _, sc := range storageContainers.Items {
-		if sc.IsDisabled() {
-			continue
-		}
-		if sc.Spec.WorkloadType != v1alpha1.LocalModelDownloadJob {
-			continue
-		}
-		supported, err := sc.Spec.IsStorageUriSupported(storageUri)
-		if err != nil {
-			return nil, fmt.Errorf("error checking storage container %s: %w", sc.Name, err)
-		}
-		if supported {
-			return &sc.Spec.Container, nil
-		}
-	}
-
-	return nil, nil
-}
-
 func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelInfo v1alpha1.LocalModelInfo, nodeName string) (*batchv1.Job, int, error) {
 	jobList := &batchv1.JobList{}
 	labelSelector := map[string]string{

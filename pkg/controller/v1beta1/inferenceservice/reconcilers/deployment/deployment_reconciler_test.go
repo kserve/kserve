@@ -860,9 +860,6 @@ func TestCreateDefaultDeployment(t *testing.T) {
 }
 
 func TestCheckDeploymentExist(t *testing.T) {
-	type fields struct {
-		client kclient.Client
-	}
 	type args struct {
 		deployment *appsv1.Deployment
 		existing   *appsv1.Deployment
@@ -1383,10 +1380,6 @@ func TestSetDefaultDeploymentSpec(t *testing.T) {
 				"Test: %s - %s", tt.name, tt.description)
 		})
 	}
-}
-
-func stringPtr(s string) *string {
-	return &s
 }
 
 // mockClientForCheckDeploymentExist is a minimal mock for kclient.Client for checkDeploymentExist

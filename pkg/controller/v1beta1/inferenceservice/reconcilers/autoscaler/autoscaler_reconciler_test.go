@@ -26,7 +26,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -92,13 +91,6 @@ func TestGetAutoscalerClass(t *testing.T) {
 }
 
 func TestCreateAutoscaler(t *testing.T) {
-	type args struct {
-		client        client.Client
-		scheme        *runtime.Scheme
-		componentMeta metav1.ObjectMeta
-		componentExt  *v1beta1.ComponentExtensionSpec
-		configMap     *corev1.ConfigMap
-	}
 	serviceName := "my-model"
 	namespace := "test"
 	baseMeta := metav1.ObjectMeta{
