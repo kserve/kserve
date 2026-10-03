@@ -19,9 +19,12 @@ package v1alpha2
 import (
 	"testing"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -144,6 +147,20 @@ func TestEPPServiceName(t *testing.T) {
 				t.Errorf("EPPServiceName() = %q, want %q", got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestValidateWorkloadScalingDirectKEDA(t *testing.T) {
+	workload := &WorkloadSpec{Scaling: &ScalingSpec{MinReplicas: ptr.To(int32(1)), MaxReplicas: 4, KEDA: &DirectKEDAScalingSpec{Triggers: []kedav1alpha1.ScaleTriggers{{Type: "cpu"}}}}}
+	if errs := ValidateWorkloadScaling(field.NewPath("spec"), workload); len(errs) != 0 {
+		t.Fatalf("unexpected validation errors: %v", errs)
+	}
+}
+
+func TestValidateWorkloadScalingRequiresKEDA(t *testing.T) {
+	workload := &WorkloadSpec{Scaling: &ScalingSpec{MaxReplicas: 4}}
+	if errs := ValidateWorkloadScaling(field.NewPath("spec"), workload); len(errs) == 0 {
+		t.Fatal("expected missing KEDA validation error")
 	}
 }
 
@@ -574,6 +591,18 @@ func TestDetermineWorkloadReadiness_ScalingConditions(t *testing.T) {
 		assert.Equal(t, "False", getConditionStatus(svc, WorkloadReady))
 		cond := svc.GetStatus().GetCondition(WorkloadReady)
 		assert.Equal(t, "FailedGetExternalMetric", cond.Reason)
+	})
+
+	t.Run("unsupported WVA scaling does not block WorkloadsReady", func(t *testing.T) {
+		svc := newTestLLMISVC()
+		svc.MarkMainWorkloadReady()
+		svc.MarkScalingNotReady("WVAUnsupported", "WVA autoscaling is no longer supported")
+
+		svc.DetermineWorkloadReadiness()
+
+		assert.Equal(t, "False", getConditionStatus(svc, ScalingReady))
+		assert.Equal(t, "WVAUnsupported", svc.GetStatus().GetCondition(ScalingReady).Reason)
+		assert.Equal(t, "True", getConditionStatus(svc, WorkloadReady))
 	})
 
 	t.Run("PrefillScalingReady=False blocks WorkloadsReady", func(t *testing.T) {

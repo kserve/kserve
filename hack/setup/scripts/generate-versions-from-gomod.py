@@ -328,7 +328,6 @@ def main():
         f"GATEWAY_API_VERSION={versions['GATEWAY_API_VERSION']}\n",
         f"GIE_VERSION={versions['GIE_VERSION']}\n",
         f"LLMD_ROUTER_VERSION={llmd_router_version}\n",
-        f"WVA_VERSION={existing_versions.get('WVA_VERSION', 'v0.8.0')}\n",
         "# END\n",
     ]
 
