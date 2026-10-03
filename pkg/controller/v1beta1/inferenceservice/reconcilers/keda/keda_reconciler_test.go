@@ -90,6 +90,7 @@ func TestGetKedaMetrics_ExternalMetricSourceType(t *testing.T) {
 	assert.Equal(t, "http://prometheus-server", triggers[0].Metadata["serverAddress"])
 	assert.Equal(t, "http_requests_total", triggers[0].Metadata["query"])
 	assert.Equal(t, "100.9", triggers[0].Metadata["threshold"])
+	assert.Empty(t, triggers[0].MetricType)
 }
 
 func TestGetKedaMetrics_PodMetricSourceType(t *testing.T) {
@@ -108,6 +109,96 @@ func TestGetKedaMetrics_PodMetricSourceType(t *testing.T) {
 	// The metricQuery should now include namespace and deployment selectors
 	assert.Equal(t, "sum(otel_query{namespace=\"test-namespace\", deployment=\"test-component\"})", triggers[0].Metadata["metricQuery"])
 	assert.Equal(t, "200", triggers[0].Metadata["targetValue"])
+	assert.Empty(t, triggers[0].MetricType)
+}
+
+func TestGetKedaMetrics_ExternalAndPodMetricTargetTypes(t *testing.T) {
+	tests := []struct {
+		name          string
+		metricType    v1beta1.MetricSourceType
+		target        v1beta1.MetricTarget
+		expectedType  autoscalingv2.MetricTargetType
+		metadataKey   string
+		expectedValue string
+	}{
+		{
+			name:       "external Value",
+			metricType: v1beta1.ExternalMetricSourceType,
+			target: v1beta1.MetricTarget{
+				Type:  v1beta1.ValueMetricType,
+				Value: v1beta1.NewMetricQuantity("10"),
+			},
+			expectedType:  autoscalingv2.ValueMetricType,
+			metadataKey:   "threshold",
+			expectedValue: "10",
+		},
+		{
+			name:       "external AverageValue",
+			metricType: v1beta1.ExternalMetricSourceType,
+			target: v1beta1.MetricTarget{
+				Type:         v1beta1.AverageValueMetricType,
+				AverageValue: v1beta1.NewMetricQuantity("20"),
+			},
+			expectedType:  autoscalingv2.AverageValueMetricType,
+			metadataKey:   "threshold",
+			expectedValue: "20",
+		},
+		{
+			name:       "pod metric Value",
+			metricType: v1beta1.PodMetricSourceType,
+			target: v1beta1.MetricTarget{
+				Type:  v1beta1.ValueMetricType,
+				Value: v1beta1.NewMetricQuantity("30"),
+			},
+			expectedType:  autoscalingv2.ValueMetricType,
+			metadataKey:   "targetValue",
+			expectedValue: "30",
+		},
+		{
+			name:       "pod metric AverageValue",
+			metricType: v1beta1.PodMetricSourceType,
+			target: v1beta1.MetricTarget{
+				Type:         v1beta1.AverageValueMetricType,
+				AverageValue: v1beta1.NewMetricQuantity("40"),
+			},
+			expectedType:  autoscalingv2.AverageValueMetricType,
+			metadataKey:   "targetValue",
+			expectedValue: "40",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			componentExt := &v1beta1.ComponentExtensionSpec{
+				AutoScaling: &v1beta1.AutoScalingSpec{
+					Metrics: []v1beta1.MetricsSpec{{Type: tt.metricType}},
+				},
+			}
+			metric := &componentExt.AutoScaling.Metrics[0]
+			switch tt.metricType {
+			case v1beta1.ExternalMetricSourceType:
+				metric.External = &v1beta1.ExternalMetricSource{
+					Metric: v1beta1.ExternalMetrics{Backend: v1beta1.PrometheusBackend},
+					Target: tt.target,
+				}
+			case v1beta1.PodMetricSourceType:
+				metric.PodMetric = &v1beta1.PodMetricSource{
+					Metric: v1beta1.PodMetrics{Backend: v1beta1.OpenTelemetryBackend},
+					Target: tt.target,
+				}
+			}
+
+			triggers, err := getKedaMetrics(
+				metav1.ObjectMeta{Name: "test-component", Namespace: "test-namespace"},
+				componentExt,
+				&corev1.ConfigMap{},
+			)
+			require.NoError(t, err)
+			require.Len(t, triggers, 1)
+			assert.Equal(t, tt.expectedType, triggers[0].MetricType)
+			assert.Equal(t, tt.expectedValue, triggers[0].Metadata[tt.metadataKey])
+		})
+	}
 }
 
 func TestCreateKedaScaledObject(t *testing.T) {
