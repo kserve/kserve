@@ -985,6 +985,34 @@ func TestStringToInt32(t *testing.T) {
 	}
 }
 
+func TestParsePort(t *testing.T) {
+	tests := []struct {
+		name     string
+		value    string
+		expected int32
+		valid    bool
+	}{
+		{name: "minimum port", value: "1", expected: 1, valid: true},
+		{name: "maximum port", value: "65535", expected: 65535, valid: true},
+		{name: "zero", value: "0"},
+		{name: "negative", value: "-1"},
+		{name: "above maximum", value: "65536"},
+		{name: "outside int32 range", value: "2147483648"},
+		{name: "malformed", value: "not-a-port"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			port, ok := ParsePort(tt.value)
+			if ok != tt.valid {
+				t.Errorf("ParsePort(%q) validity = %t, want %t", tt.value, ok, tt.valid)
+			}
+			if port != tt.expected {
+				t.Errorf("ParsePort(%q) = %d, want %d", tt.value, port, tt.expected)
+			}
+		})
+	}
+}
+
 func TestUpdateGPUResourceTypeListByAnnotation(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 

@@ -41,3 +41,13 @@ func StringToInt32(number string) (int32, error) {
 	}
 	return int32(converted), err
 }
+
+// ParsePort parses a numeric TCP port and reports whether it is in the valid
+// Kubernetes port range.
+func ParsePort(value string) (int32, bool) {
+	port, err := StringToInt32(value)
+	if err != nil || port < 1 || port > 65535 {
+		return 0, false
+	}
+	return port, true
+}
