@@ -92,7 +92,7 @@ class V1alpha1LocalModelCacheSpec(object):
     def image_pull_secrets(self):
         """Gets the image_pull_secrets of this V1alpha1LocalModelCacheSpec.  # noqa: E501
 
-        ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job namespace used to authenticate OCI (oci://) imports. Only the first secret is projected into the download container; merge multiple registries into one secret. Do not use serviceAccountName for dockerconfigjson — the shared credential dispatcher has no OCI/oras branch.  # noqa: E501
+        ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job namespace used to authenticate OCI (oci://) imports. Only the first secret is projected into the download container; merge multiple registries into one secret. Credentials from serviceAccountName and storage are not used for oci:// sources.  # noqa: E501
 
         :return: The image_pull_secrets of this V1alpha1LocalModelCacheSpec.  # noqa: E501
         :rtype: list[V1LocalObjectReference]
@@ -103,7 +103,7 @@ class V1alpha1LocalModelCacheSpec(object):
     def image_pull_secrets(self, image_pull_secrets):
         """Sets the image_pull_secrets of this V1alpha1LocalModelCacheSpec.
 
-        ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job namespace used to authenticate OCI (oci://) imports. Only the first secret is projected into the download container; merge multiple registries into one secret. Do not use serviceAccountName for dockerconfigjson — the shared credential dispatcher has no OCI/oras branch.  # noqa: E501
+        ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job namespace used to authenticate OCI (oci://) imports. Only the first secret is projected into the download container; merge multiple registries into one secret. Credentials from serviceAccountName and storage are not used for oci:// sources.  # noqa: E501
 
         :param image_pull_secrets: The image_pull_secrets of this V1alpha1LocalModelCacheSpec.  # noqa: E501
         :type: list[V1LocalObjectReference]

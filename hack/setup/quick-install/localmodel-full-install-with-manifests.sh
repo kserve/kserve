@@ -5647,7 +5647,7 @@ spec:
                       type: string
                   type: object
                   x-kubernetes-map-type: atomic
-                maxItems: 8
+                maxItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
@@ -5808,7 +5808,7 @@ spec:
                       type: string
                   type: object
                   x-kubernetes-map-type: atomic
-                maxItems: 8
+                maxItems: 1
                 type: array
                 x-kubernetes-list-map-keys:
                 - name
@@ -6678,14 +6678,10 @@ spec:
                             type: string
                         type: object
                         x-kubernetes-map-type: atomic
-                      maxItems: 8
                       type: array
                       x-kubernetes-list-map-keys:
                       - name
                       x-kubernetes-list-type: map
-                      x-kubernetes-validations:
-                      - message: imagePullSecrets.name must be non-empty
-                        rule: self.all(s, s.name != '')
                     modelName:
                       type: string
                     namespace:
@@ -6709,7 +6705,6 @@ spec:
                   - modelName
                   - sourceModelUri
                   type: object
-                maxItems: 256
                 type: array
             required:
             - localModels
