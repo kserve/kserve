@@ -43,6 +43,13 @@ The referenced PVC and the imported model data are **user-owned**. KServe never
 mutates or deletes the PVC or its contents. Deleting the cache removes only the owned
 import Job (via garbage collection); the PVC and the model data are retained.
 
+## Credentials
+
+`serviceAccountName`, `storage`, and `imagePullSecrets` are resolved in the cache
+CR's namespace, because that is where the import Job runs. They are not looked up
+in `localModel.jobNamespace`. For `oci://` imports, put the dockerconfigjson secret
+in the same namespace as the `LocalModelNamespaceCache`.
+
 ## Example
 
 `shared-pvc.yaml` in this directory contains a complete example:

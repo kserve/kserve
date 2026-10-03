@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -409,6 +410,17 @@ func TestImportSpecHash(t *testing.T) {
 	if importSpecHash(withStorage) == importSpecHash(base) {
 		t.Fatalf("importSpecHash() must change when storage changes")
 	}
+	withPullSecret := base.DeepCopy()
+	withPullSecret.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "reg-cred"}}
+	if importSpecHash(withPullSecret) == importSpecHash(base) {
+		t.Fatalf("importSpecHash() must change when imagePullSecrets changes")
+	}
+	// Pin the empty-spec hash so adding a field without omitempty cannot sneak in
+	// and rewrite every existing Job annotation.
+	const emptyImportSpecHash = "ab0e10bb1d654a08e44021f12f02ca83d0dd7b30e5f80a3d636ee163d43998d3"
+	if got := importSpecHash(base); got != emptyImportSpecHash {
+		t.Fatalf("empty importSpecHash() = %s, want %s", got, emptyImportSpecHash)
+	}
 }
 
 func TestValidateExistingImportJobWaitsForTerminatingMatchingJob(t *testing.T) {
@@ -642,5 +654,132 @@ func TestReconcileSharedPVCSurfacesCredentialErrorWithoutCreatingJob(t *testing.
 	}
 	if len(jobs.Items) != 0 {
 		t.Fatalf("expected no import Job to be created on credential error, got %d", len(jobs.Items))
+	}
+}
+
+func TestReconcileSharedPVCMountsImagePullSecretFromCacheNamespace(t *testing.T) {
+	cache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "cache",
+			Namespace:  "ns",
+			Finalizers: []string{NamespaceCacheFinalizerName},
+		},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri:   "oci://registry.local/models/llm:v1",
+			ModelSize:        resource.MustParse("1Gi"),
+			PVCRef:           ptrTo("pvc"),
+			ImagePullSecrets: []corev1.LocalObjectReference{{Name: "reg-cred"}},
+		},
+	}
+	pvc := pvcWith(fsMode(), []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, "2Gi", corev1.ClaimBound, "")
+	pvc.Name = "pvc"
+	pvc.Namespace = "ns"
+
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add KServe scheme: %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add core scheme: %v", err)
+	}
+	if err := batchv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add batch scheme: %v", err)
+	}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "reg-cred", Namespace: "ns"},
+		Type:       corev1.SecretTypeDockerConfigJson,
+		Data:       map[string][]byte{corev1.DockerConfigJsonKey: []byte(`{"auths":{}}`)},
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1alpha1.LocalModelNamespaceCache{}).
+		WithObjects(cache, pvc, secret).
+		Build()
+	reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, Scheme: scheme}
+
+	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, cacheConsumers{}); err != nil {
+		t.Fatalf("reconcileSharedPVC() error = %v", err)
+	}
+	job := &batchv1.Job{}
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: importJobName("cache"), Namespace: "ns"}, job); err != nil {
+		t.Fatalf("import Job must be created in the cache namespace: %v", err)
+	}
+	var vol *corev1.Volume
+	for i := range job.Spec.Template.Spec.Volumes {
+		if job.Spec.Template.Spec.Volumes[i].Name == credentials.OciFetchDockerConfigVolumeName {
+			vol = &job.Spec.Template.Spec.Volumes[i]
+		}
+	}
+	if vol == nil || vol.Secret == nil || vol.Secret.SecretName != "reg-cred" {
+		t.Fatalf("docker config volume = %#v, want Secret volume for reg-cred", vol)
+	}
+	c := job.Spec.Template.Spec.Containers[0]
+	// ParseOciScheme keeps the oci:// prefix; the Python handler requires it.
+	if len(c.Args) == 0 || c.Args[0] != "oci://registry.local/models/llm:v1" {
+		t.Fatalf("normalized OCI args should keep oci://, got %v", c.Args)
+	}
+	found := false
+	for _, e := range c.Env {
+		if e.Name == credentials.OciFetchDockerConfigPathEnvVar {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("container should set %s", credentials.OciFetchDockerConfigPathEnvVar)
+	}
+}
+
+func TestReconcileSharedPVCMissingImagePullSecretSurfacesCredentialError(t *testing.T) {
+	cache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "cache",
+			Namespace:  "ns",
+			Finalizers: []string{NamespaceCacheFinalizerName},
+		},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri:   "oci://registry.local/models/llm:v1",
+			ModelSize:        resource.MustParse("1Gi"),
+			PVCRef:           ptrTo("pvc"),
+			ImagePullSecrets: []corev1.LocalObjectReference{{Name: "missing-cred"}},
+		},
+	}
+	pvc := pvcWith(fsMode(), []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, "2Gi", corev1.ClaimBound, "")
+	pvc.Name = "pvc"
+	pvc.Namespace = "ns"
+
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add KServe scheme: %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add core scheme: %v", err)
+	}
+	if err := batchv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add batch scheme: %v", err)
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1alpha1.LocalModelNamespaceCache{}).
+		WithObjects(cache, pvc).
+		Build()
+	reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, Scheme: scheme}
+
+	_, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, cacheConsumers{})
+	if !errors.Is(err, errImportCredentials) {
+		t.Fatalf("reconcileSharedPVC() error = %v, want errImportCredentials", err)
+	}
+	condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+	if condition == nil || condition.Reason != v1alpha1.ReasonImportCredentialError {
+		t.Fatalf("cache Ready condition = %#v, want %s", condition, v1alpha1.ReasonImportCredentialError)
+	}
+	if !strings.Contains(condition.Message, "missing-cred") {
+		t.Fatalf("condition message %q should name the missing imagePullSecret", condition.Message)
+	}
+	jobs := &batchv1.JobList{}
+	if err := cl.List(context.Background(), jobs, client.InNamespace("ns")); err != nil {
+		t.Fatalf("list jobs: %v", err)
+	}
+	if len(jobs.Items) != 0 {
+		t.Fatalf("expected no import Job when imagePullSecret is missing, got %d", len(jobs.Items))
 	}
 }

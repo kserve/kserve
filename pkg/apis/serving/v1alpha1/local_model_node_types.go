@@ -16,7 +16,10 @@ limitations under the License.
 
 package v1alpha1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 type LocalModelInfo struct {
 	// Original StorageUri
@@ -34,6 +37,13 @@ type LocalModelInfo struct {
 	// ServiceAccountName specifies the service account to use for credential lookup.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job
+	// namespace used to authenticate OCI (oci://) imports. Copied from LocalModelCache
+	// / LocalModelNamespaceCache. Only the first secret is used.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// +optional
 	Storage *LocalModelStorageSpec `json:"storage,omitempty"`
 }

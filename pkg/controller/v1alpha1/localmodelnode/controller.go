@@ -31,6 +31,7 @@ package localmodelnode
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"os"
@@ -40,7 +41,7 @@ import (
 	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -60,7 +61,13 @@ import (
 	"github.com/kserve/kserve/pkg/credentials"
 	"github.com/kserve/kserve/pkg/credentials/s3"
 	pkgtypes "github.com/kserve/kserve/pkg/types"
+	kserveutils "github.com/kserve/kserve/pkg/utils"
 )
+
+// errImagePullSecret is returned by launchJob when imagePullSecrets cannot be
+// validated. downloadModels maps it to ModelDownloadError and continues so
+// Status().Update still runs for other models on the node.
+var errImagePullSecret = errors.New("image pull secret validation failed")
 
 type ensureModelRootFolderResult struct {
 	Result   ctrl.Result
@@ -69,6 +76,7 @@ type ensureModelRootFolderResult struct {
 
 type LocalModelNodeReconciler struct {
 	client.Client
+	APIReader         client.Reader
 	Clientset         *kubernetes.Clientset
 	Log               logr.Logger
 	Scheme            *runtime.Scheme
@@ -145,7 +153,11 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 
 	// Use hash-based folder path for storage deduplication
 	storageKey := v1alpha1.GetStorageKey(modelInfo.SourceModelUri)
-	container.Args = []string{modelInfo.SourceModelUri, MountPath}
+	storageUri := modelInfo.SourceModelUri
+	if _, normalized, isOci := kserveutils.ParseOciScheme(storageUri); isOci {
+		storageUri = normalized
+	}
+	container.Args = []string{storageUri, MountPath}
 	container.VolumeMounts = []corev1.VolumeMount{
 		{
 			MountPath: MountPath,
@@ -168,11 +180,28 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 
 	jobNs := jobNamespace
 
+	if secretName, ok := credentials.FirstNamedImagePullSecret(modelInfo.ImagePullSecrets); ok {
+		reader := c.APIReader
+		if reader == nil {
+			reader = c.Client
+		}
+		if err := credentials.FetchAndValidateDockerConfigJSONSecret(ctx, reader, jobNs, secretName); err != nil {
+			return nil, fmt.Errorf("%w: %w", errImagePullSecret, err)
+		}
+		credentials.MountImagePullSecretsAsDockerConfig(modelInfo.ImagePullSecrets, container, &volumes)
+	}
+
 	// Only inject if credentials are explicitly configured in LocalModelCache
 	if modelInfo.ServiceAccountName != "" || modelInfo.Storage != nil {
 		if err := jobs.InjectCredentials(ctx, c.CredentialBuilder, c.Log, container, &volumes, modelInfo.ServiceAccountName, modelInfo.Storage, jobNs); err != nil {
 			c.Log.Error(err, "Failed to inject credentials", "model", modelInfo.ModelName)
 			// Don't fail the job creation, continue with whatever credentials were injected
+		}
+	}
+
+	if storageInitializerConfig != nil && storageInitializerConfig.OciInsecureRegistry {
+		if _, _, isOci := kserveutils.ParseOciScheme(modelInfo.SourceModelUri); isOci {
+			credentials.SetOciInsecureRegistryEnv(container)
 		}
 	}
 
@@ -328,7 +357,7 @@ func (c *LocalModelNodeReconciler) getLatestJob(ctx context.Context, modelInfo v
 	}
 
 	if err := c.List(ctx, jobList, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector)); err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			c.Log.Info("Job not found", "model", modelInfo.ModelName, "namespace", modelInfo.Namespace)
 			return nil, 0, nil
 		}
@@ -408,6 +437,11 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
 				if err != nil {
 					c.Log.Error(err, "Failed to create Job", "model", modelInfo.ModelName, "node", nodeName)
+					if errors.Is(err, errImagePullSecret) {
+						newStatus[statusKey] = v1alpha1.ModelDownloadError
+						processedStorageKeys[storageKey] = v1alpha1.ModelDownloadError
+						continue
+					}
 					return err
 				}
 			}
@@ -435,6 +469,11 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
 				if err != nil {
 					c.Log.Error(err, "Failed to create job", "model", modelInfo.ModelName, "node", nodeName)
+					if errors.Is(err, errImagePullSecret) {
+						newStatus[statusKey] = v1alpha1.ModelDownloadError
+						processedStorageKeys[storageKey] = v1alpha1.ModelDownloadError
+						continue
+					}
 					return err
 				}
 			}
@@ -622,6 +661,9 @@ func (c *LocalModelNodeReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 }
 
 func (c *LocalModelNodeReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if c.APIReader == nil {
+		c.APIReader = mgr.GetAPIReader()
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		// Do not reconcile on status change, when a job is created and the status is updated, the next reconcile is triggered immediately and
 		// there is a chance that the job is not returned when we list jobs, causing the same job to be created twice.

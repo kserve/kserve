@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -52,8 +53,28 @@ type LocalModelNamespaceCacheSpec struct {
 	// +optional
 	PVCRef *string `json:"pvcRef,omitempty"`
 	// ServiceAccountName specifies the service account to use for credential lookup.
+	// For nodeGroups caches it must exist in the download job namespace
+	// (localModel.jobNamespace); for pvcRef caches it must exist in this cache's namespace,
+	// where the import Job runs.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// ImagePullSecrets are kubernetes.io/dockerconfigjson secrets used to authenticate OCI
+	// (oci://) imports. For nodeGroups caches they must exist in the download job namespace
+	// (localModel.jobNamespace); for pvcRef caches they must exist in this cache's namespace,
+	// where the import Job runs. Only the first named secret is projected into the download
+	// container; merge multiple registries into one secret. Credentials from
+	// serviceAccountName and storage are not used for oci:// sources.
+	//
+	// Trust boundary: a namespaced nodeGroups cache can name any dockerconfigjson Secret
+	// already present in the shared job namespace. Secrets are not copied from the cache
+	// namespace. Prefer pvcRef (import Job in the cache namespace) when tenants must not
+	// share the cluster job-namespace credential store.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=1
+	// +kubebuilder:validation:XValidation:rule="self.all(s, s.name != '')",message="imagePullSecrets.name must be non-empty"
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// +optional
 	Storage *LocalModelStorageSpec `json:"storage,omitempty"`
 }
