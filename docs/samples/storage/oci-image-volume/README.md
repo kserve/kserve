@@ -11,8 +11,12 @@ the `oci+native://` storageUri scheme (KServe issue [#4083](https://github.com/k
 | Kubernetes | 1.35+ (ImageVolume beta defaults-on; full support including subPath) |
 | Kubernetes (with manual gate, full support) | 1.33–1.34 + `--feature-gates=ImageVolume=true` on apiserver and kubelet |
 | Kubernetes (with manual gate, subPath unavailable) | 1.31–1.32 + `--feature-gates=ImageVolume=true` — subPath on ImageVolume VolumeMounts is forbidden; KServe surfaces an `OciImageVolumeCompatible` advisory condition |
-| Container runtime | containerd ≥ 2.0 or CRI-O ≥ 1.31 |
+| Container runtime (including `subPath: models`) | containerd ≥ 2.2.0 or CRI-O ≥ 1.33 |
 | KServe | this branch or later |
+
+The runtime must support ImageVolume **subpaths** on every node that can run the
+Pod. containerd 2.1's initial ImageVolume support is insufficient for this sample;
+subpath support was added in [containerd 2.2.0](https://github.com/containerd/containerd/releases/tag/v2.2.0).
 
 ## OCI image layout convention
 

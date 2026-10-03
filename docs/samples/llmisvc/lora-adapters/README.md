@@ -12,29 +12,84 @@ LoRA adapters allow you to serve a base model with task-specific or domain-speci
 
 - **Storage Efficiency**: Adapters are typically 1-100 MB vs. multi-GB base models
 - **Multi-Tenancy**: Serve multiple adapted versions of a model from a single deployment
-- **Fast Switching**: Load and unload adapters dynamically without restarting the service
+- **Request-Level Selection**: Select among adapters already loaded by the service
 - **Task Specialization**: Different adapters for translation, summarization, coding, etc.
 
 ## Prerequisites
 
 - Kubernetes cluster with GPU nodes
-- Base model accessible via HuggingFace, S3, or PVC
+- Base model accessible via HuggingFace, S3, OCI, or PVC
 - LoRA adapter weights accessible via supported URI schemes
 - vLLM-compatible runtime (default for LLMInferenceService)
+- For OCI LoRA adapters: meet the [Kubernetes and container runtime requirements](#oci-lora-runtime-requirements) below and configure a registry `imagePullSecret` when required
+
+### OCI LoRA runtime requirements
+
+OCI LoRA adapters use read-only ImageVolumes with `subPath: models`. Both Kubernetes
+and the container runtime on every node that can run the inference Pod must support
+ImageVolume subpaths:
+
+| Component | Requirement for OCI LoRA adapters |
+|-----------|----------------------------------|
+| Kubernetes 1.33–1.34 | Enable `ImageVolume=true` in `--feature-gates` on the kube-apiserver and kubelets. |
+| Kubernetes 1.35 | ImageVolume is beta and enabled by default; it must not be explicitly disabled. |
+| Kubernetes 1.36+ | ImageVolume is stable and enabled by default. |
+| containerd | **2.2.0+**, which adds ImageVolume `subPath` support. containerd 2.1's initial ImageVolume support is insufficient for this mount layout. |
+| Other CRI runtimes | Must support ImageVolume with `subPath`, for example CRI-O 1.33+. |
+
+Kubernetes 1.31–1.32 cannot run this configuration even with `ImageVolume=true`,
+because ImageVolume subpaths require Kubernetes 1.33+. The image must contain the
+adapter files under `/models/`. Private registry credentials must be available to
+the kubelet through node credentials or ServiceAccount/Pod `imagePullSecrets`.
+
+These are feature requirements; also use a Kubernetes/runtime combination supported
+by your distribution. See the [Kubernetes ImageVolume documentation](https://kubernetes.io/docs/concepts/storage/volumes/#image),
+the [Kubernetes 1.33 ImageVolume announcement](https://kubernetes.io/blog/2025/04/29/kubernetes-v1-33-image-volume-beta/),
+and the [containerd 2.2.0 release notes](https://github.com/containerd/containerd/releases/tag/v2.2.0).
 
 ## Supported URI Schemes
 
-The controller supports three URI schemes for LoRA adapters:
+The controller supports the following URI schemes for LoRA adapters:
 
 | Scheme    | Description                          | Example                                      | Use Case                        |
 |-----------|--------------------------------------|----------------------------------------------|---------------------------------|
 | `hf://`   | HuggingFace Hub                      | `hf://my-org/my-lora-adapter`                | Public or authenticated HF repo |
 | `s3://`   | S3-compatible object storage         | `s3://my-bucket/adapters/lora-v1`            | Private storage, large adapters |
 | `pvc://`  | Kubernetes PersistentVolumeClaim     | `pvc://my-pvc/path/to/adapter`               | Pre-downloaded or shared PVC    |
+| `oci://`  | OCI image mounted as an ImageVolume  | `oci://registry.example.com/lora@sha256:...` | Immutable registry artifact    |
+| `oci+native://` | Explicit native OCI ImageVolume | `oci+native://registry.example.com/lora@sha256:...` | Immutable registry artifact |
 
-**Note**: `oci://` is not supported for LoRA adapters. OCI models run as sidecar containers with shared process namespaces, but only one OCI sidecar per pod is currently supported. Workaround: package adapters in a PVC and use `pvc://`.
+For `oci://` and `oci+native://` LoRA adapters, the controller creates one read-only ImageVolume per adapter and mounts its `/models` directory at `/mnt/lora/<adapter-name>`. Both schemes always use ImageVolumes for adapters, regardless of the base model's OCI mode. An immutable SHA-256 digest reference is required; tag-only references are rejected to keep adapter contents consistent across replicas and rollouts. The cluster runtime must support Kubernetes ImageVolume, and private registries require a suitable `imagePullSecret`.
 
-For the base model itself, KServe also supports `oci+native://` which mounts the model container image as a Kubernetes-native [ImageVolume](https://kubernetes.io/docs/concepts/storage/volumes/#image) (no sidecar, requires K8s ≥ 1.31 with the ImageVolume feature gate). See [docs/samples/storage/oci-image-volume/](../../storage/oci-image-volume/README.md) for details.
+For the base model itself, KServe also supports `oci+native://` which mounts the model container image as a Kubernetes-native [ImageVolume](https://kubernetes.io/docs/concepts/storage/volumes/#image) (no sidecar, requires a runtime with ImageVolume support; K8s ≥ 1.33 is required when using the `models` subPath). See [docs/samples/storage/oci-image-volume/](../../storage/oci-image-volume/README.md) for details.
+
+### OCI LoRA Adapter
+
+Before applying this example, verify the [runtime requirements](#oci-lora-runtime-requirements)
+on all nodes eligible to run the inference Pod.
+
+The OCI adapter image must use the KServe ModelCar layout:
+
+```text
+/models/
+├── adapter_config.json
+└── adapter_model.safetensors
+```
+
+Example configuration:
+
+```yaml
+spec:
+  model:
+    uri: hf://Qwen/Qwen2.5-7B-Instruct
+    name: Qwen/Qwen2.5-7B-Instruct
+    lora:
+      adapters:
+        - name: finance
+          uri: oci+native://harbor.example.com/lora/finance@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+```
+
+The adapter is mounted read-only at `/mnt/lora/finance`; vLLM receives the normal generated LoRA module configuration. Updating the adapter reference changes the Pod template and takes effect after a rollout.
 
 ## Examples
 
@@ -227,10 +282,15 @@ When you specify `spec.model.lora.adapters`, the controller automatically:
    - Mounts to `/mnt/lora/<adapter-name>`
    - Read-only to prevent accidental modification
 
-3. **Configures vLLM Runtime**:
+3. **Mounts OCI Adapters** (for `oci://` and `oci+native://`):
+   - Creates one read-only ImageVolume per adapter
+   - Mounts the image's `/models` directory to `/mnt/lora/<adapter-name>`
+   - Does not create a LoRA storage-initializer or sidecar
+
+4. **Configures vLLM Runtime**:
    - Appends `--enable-lora` to vLLM CLI arguments
    - Sets `--max-lora-rank`, `--max-loras`, `--max-cpu-loras` only when explicitly set in `spec.model.lora`; vLLM's own defaults apply otherwise
-   - Passes `--lora-modules adapter-name=/mnt/lora/adapter-name` for each adapter
+   - Passes JSON `--lora-modules` entries for each adapter, preserving both `adapter-name` and `publishers/<namespace>/models/<adapter-name>` aliases
 
 ### Adapter Path Sanitization
 
@@ -378,8 +438,8 @@ Expected output:
 
 ### Unsupported Features
 
-- **OCI adapters** (`oci://`): Not supported due to single-modelcar-per-pod limitation
-  - Workaround: Download OCI image contents to PVC, use `pvc://`
+- **Runtime LoRA loading/unloading**: Adapter changes require a Pod rollout
+- **OCI adapters on unsupported clusters**: ImageVolume support is required; use `hf://`, `s3://`, or `pvc://` when the cluster does not provide it
 
 ### Storage Initializer Dependency
 
