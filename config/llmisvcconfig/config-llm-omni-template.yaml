@@ -1,0 +1,96 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-omni-template
+spec:
+  annotations:
+    serving.kserve.io/model-based-routing-enabled: "true"
+  template:
+    containers:
+      # image is intentionally omitted — the ClusterServingRuntime (or ServingRuntime)
+      # named by spec.runtime supplies it, so operators pin the vLLM-Omni version in one
+      # place. spec.template.containers[].image on the LLMInferenceService still
+      # wins if the user sets one explicitly.
+      - imagePullPolicy: IfNotPresent
+        name: main
+        ports:
+          - containerPort: 8000
+            protocol: TCP
+        command:
+          - "/bin/bash"
+          - "-c"
+          - |-
+            args=(
+              vllm serve /mnt/models
+              --omni
+              --served-model-name "{{ .Spec.Model.Name }}"
+              --port 8000
+              --host 0.0.0.0
+              {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }}
+              --disable-access-log-for-endpoints=/health,/metrics,/v1/models
+              --log-stats
+            )
+            exec "${args[@]}" "$@"
+          # "--" ends bash options; subsequent args become positional params ($@) forwarded to vllm
+          - "--"
+        env:
+          - name: HOME
+            value: /home
+          - name: HF_HUB_CACHE
+            value: /models
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: FallbackToLogsOnError
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 60
+        # Diffusion weights (e.g. Qwen-Image ~57GB) pull and compile slowly;
+        # allow up to ~60m like the llm-d diffusion-serving guides.
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTP
+          failureThreshold: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+        volumeMounts:
+          - mountPath: /home
+            name: home
+          - mountPath: /tmp
+            name: tmp-dir
+          - mountPath: /dev/shm
+            name: dshm
+          - mountPath: /models
+            name: model-cache
+    volumes:
+      - emptyDir: { }
+        name: home
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 1Gi
+        name: dshm
+      - emptyDir: { }
+        name: model-cache
+      - emptyDir: { }
+        name: tmp-dir
