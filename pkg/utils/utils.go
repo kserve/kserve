@@ -146,7 +146,13 @@ func MergeEnvs(baseEnvs []corev1.EnvVar, overrideEnvs []corev1.EnvVar) []corev1.
 		for i, base := range baseEnvs {
 			if override.Name == base.Name {
 				inBase = true
-				baseEnvs[i].Value = override.Value
+				// Replace the whole entry rather than only Value. An EnvVar carries
+				// either Value or ValueFrom, so copying one field across leaves the
+				// other half of the base entry behind: a ValueFrom override would be
+				// dropped, and a Value override would sit next to the base's
+				// ValueFrom, which the API server rejects with "valueFrom: may not
+				// be specified when `value` is not empty".
+				baseEnvs[i] = override
 				break
 			}
 		}
