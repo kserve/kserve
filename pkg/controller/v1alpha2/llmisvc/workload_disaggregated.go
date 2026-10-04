@@ -396,8 +396,11 @@ func disaggregatedRoleConditionMarkers(llmSvc *v1alpha2.LLMInferenceService, rol
 	return llmSvc.MarkMainWorkloadReady, llmSvc.MarkMainWorkloadNotReady
 }
 
-// disaggregatedRoleReadiness reports whether a role has all its desired replicas ready
-// and updated to the latest revision of the DisaggregatedSet.
+// disaggregatedRoleReadiness reports whether a role has finished rolling out: exactly
+// its desired replicas exist, are ready and run the latest revision of the
+// DisaggregatedSet. The status counts replicas of every revision in Replicas and
+// ReadyReplicas, so ready old replicas could otherwise stand in for unready new ones.
+// This matches the check the DisaggregatedSet controller uses for its own status.
 func disaggregatedRoleReadiness(ds *disaggregatedsetv1.DisaggregatedSet, role string) (reason, message string, ready bool) {
 	if ds == nil || ds.Status.ObservedGeneration < ds.Generation {
 		return "Progressing", "DisaggregatedSet is progressing", false
@@ -409,11 +412,11 @@ func disaggregatedRoleReadiness(ds *disaggregatedsetv1.DisaggregatedSet, role st
 	desired := ptr.Deref(spec.Spec.Replicas, 1)
 
 	status := disaggregatedRoleStatus(ds, role)
-	if status.ReadyReplicas >= desired && status.UpdatedReplicas >= desired {
+	if status.Replicas == desired && status.ReadyReplicas == desired && status.UpdatedReplicas == desired {
 		return "", "", true
 	}
 
-	reason, message = "Progressing", fmt.Sprintf("%s role has %d/%d replicas ready and %d updated", role, status.ReadyReplicas, desired, status.UpdatedReplicas)
+	reason, message = "Progressing", fmt.Sprintf("%s role has %d/%d replicas ready, %d updated and %d in total", role, status.ReadyReplicas, desired, status.UpdatedReplicas, status.Replicas)
 	if available := meta.FindStatusCondition(ds.Status.Conditions, string(disaggregatedsetv1.DisaggregatedSetAvailable)); available != nil &&
 		available.Status == metav1.ConditionFalse && available.Reason != "" {
 		reason = available.Reason

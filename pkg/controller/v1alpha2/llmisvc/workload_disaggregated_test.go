@@ -652,9 +652,23 @@ func TestDisaggregatedRoleReadiness(t *testing.T) {
 		wantMessage string
 	}{
 		{name: "no DisaggregatedSet", ds: nil, wantReason: "Progressing"},
-		{name: "generation not observed", ds: dsWith(2, 1, []disaggregatedsetv1.RoleStatus{{Name: constants.LLMDRoleDecode, ReadyReplicas: 2, UpdatedReplicas: 2}}), wantReason: "Progressing"},
-		{name: "all replicas ready and updated", ds: dsWith(1, 1, []disaggregatedsetv1.RoleStatus{{Name: constants.LLMDRoleDecode, ReadyReplicas: 2, UpdatedReplicas: 2}}), wantReady: true},
-		{name: "replicas not updated", ds: dsWith(1, 1, []disaggregatedsetv1.RoleStatus{{Name: constants.LLMDRoleDecode, ReadyReplicas: 2, UpdatedReplicas: 1}}), wantReason: "Progressing", wantMessage: "2/2 replicas ready and 1 updated"},
+		{name: "generation not observed", ds: dsWith(2, 1, []disaggregatedsetv1.RoleStatus{{Name: constants.LLMDRoleDecode, Replicas: 2, ReadyReplicas: 2, UpdatedReplicas: 2}}), wantReason: "Progressing"},
+		{name: "all replicas ready and updated", ds: dsWith(1, 1, []disaggregatedsetv1.RoleStatus{{Name: constants.LLMDRoleDecode, Replicas: 2, ReadyReplicas: 2, UpdatedReplicas: 2}}), wantReady: true},
+		{name: "replicas not updated", ds: dsWith(1, 1, []disaggregatedsetv1.RoleStatus{{Name: constants.LLMDRoleDecode, Replicas: 2, ReadyReplicas: 2, UpdatedReplicas: 1}}), wantReason: "Progressing", wantMessage: "2/2 replicas ready, 1 updated and 2 in total"},
+		{
+			// One old replica and one new replica are ready while the other new replica
+			// starts: the ready old replica must not stand in for the unready new one.
+			name:        "ready old replicas count towards ready during a rollout",
+			ds:          dsWith(1, 1, []disaggregatedsetv1.RoleStatus{{Name: constants.LLMDRoleDecode, Replicas: 3, ReadyReplicas: 2, UpdatedReplicas: 2}}),
+			wantReason:  "Progressing",
+			wantMessage: "2/2 replicas ready, 2 updated and 3 in total",
+		},
+		{
+			name:        "old replicas not yet removed",
+			ds:          dsWith(1, 1, []disaggregatedsetv1.RoleStatus{{Name: constants.LLMDRoleDecode, Replicas: 3, ReadyReplicas: 3, UpdatedReplicas: 2}}),
+			wantReason:  "Progressing",
+			wantMessage: "3/2 replicas ready, 2 updated and 3 in total",
+		},
 		{name: "unavailable reason is surfaced", ds: dsWith(1, 1, nil, unavailable), wantReason: "RolloutInProgress", wantMessage: "rolling out"},
 	}
 
