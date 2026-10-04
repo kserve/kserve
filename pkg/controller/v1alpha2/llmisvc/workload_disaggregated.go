@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	disaggregatedsetv1 "sigs.k8s.io/lws/api/disaggregatedset/v1"
@@ -243,8 +244,8 @@ func (r *LLMISVCReconciler) expectedDisaggregatedSet(ctx context.Context, llmSvc
 		},
 		Spec: disaggregatedsetv1.DisaggregatedSetSpec{
 			Roles: []disaggregatedsetv1.DisaggregatedRoleSpec{
-				disaggregatedRoleSpec(constants.LLMDRoleDecode, decode, llmSvc.Spec.Replicas, rollingUpdateConfigFromWorkloadSpec(&llmSvc.Spec.WorkloadSpec)),
-				disaggregatedRoleSpec(constants.LLMDRolePrefill, prefill, llmSvc.Spec.Prefill.Replicas, rollingUpdateConfigFromPrefill(llmSvc.Spec.Prefill)),
+				disaggregatedRoleSpec(constants.LLMDRoleDecode, decode, llmSvc.Spec.Replicas, disaggregatedRollingUpdateConfig(&llmSvc.Spec.WorkloadSpec)),
+				disaggregatedRoleSpec(constants.LLMDRolePrefill, prefill, llmSvc.Spec.Prefill.Replicas, disaggregatedRollingUpdateConfig(llmSvc.Spec.Prefill)),
 			},
 		},
 	}
@@ -266,6 +267,30 @@ func (r *LLMISVCReconciler) expectedDisaggregatedPrefillRole(ctx context.Context
 		return r.disaggregatedMultiNodePrefillTemplate(ctx, llmSvc, config, deployed)
 	}
 	return r.disaggregatedSingleNodePrefillTemplate(ctx, llmSvc, config, deployed)
+}
+
+// disaggregatedRollingUpdateConfig returns the rolling update settings of a role. A
+// multi-node role keeps the LeaderWorkerSet defaults it would get as a LeaderWorkerSet.
+// A single-node role would otherwise run as a Deployment, so the settings it leaves out
+// take the Deployment defaults: the LeaderWorkerSet default maxSurge of 0 would make
+// maxUnavailable: 0 invalid and remove a lone replica before its replacement is ready.
+func disaggregatedRollingUpdateConfig(workload *v1alpha2.WorkloadSpec) *lwsapi.RollingUpdateConfiguration {
+	if workload.Worker != nil {
+		return rollingUpdateConfigFromWorkloadSpec(workload)
+	}
+	config := &lwsapi.RollingUpdateConfiguration{
+		MaxUnavailable: intstr.FromString("25%"),
+		MaxSurge:       intstr.FromString("25%"),
+	}
+	if rs := workload.RolloutStrategy; rs != nil {
+		if rs.MaxUnavailable != nil {
+			config.MaxUnavailable = *rs.MaxUnavailable
+		}
+		if rs.MaxSurge != nil {
+			config.MaxSurge = *rs.MaxSurge
+		}
+	}
+	return config
 }
 
 func disaggregatedRoleSpec(name string, role *disaggregatedRoleTemplate, replicas *int32, rollingUpdate *lwsapi.RollingUpdateConfiguration) disaggregatedsetv1.DisaggregatedRoleSpec {

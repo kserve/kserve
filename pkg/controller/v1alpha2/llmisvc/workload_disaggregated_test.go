@@ -432,6 +432,7 @@ func TestExpectedDisaggregatedSet(t *testing.T) {
 	svc := disaggTestService(t)
 	svc.Spec.Replicas = ptr.To[int32](4)
 	svc.Spec.RolloutStrategy = &v1alpha2.RolloutStrategy{MaxSurge: ptr.To(intstr.FromInt32(2))}
+	svc.Spec.Prefill.RolloutStrategy = &v1alpha2.RolloutStrategy{MaxUnavailable: ptr.To(intstr.FromInt32(0))}
 
 	ds, err := disaggTestReconciler(t).expectedDisaggregatedSet(context.Background(), svc, disaggTestConfig(), nil)
 	require.NoError(t, err)
@@ -452,11 +453,85 @@ func TestExpectedDisaggregatedSet(t *testing.T) {
 		assert.Equal(t, lwsapi.LeaderCreatedStartupPolicy, role.StartupPolicy)
 		assert.Equal(t, lwsapi.RecreateGroupOnPodRestart, role.LeaderWorkerTemplate.RestartPolicy)
 	}
-	require.NotNil(t, decode.RolloutStrategy.RollingUpdateConfiguration)
-	assert.Equal(t, int32(2), decode.RolloutStrategy.RollingUpdateConfiguration.MaxSurge.IntVal)
-	assert.Nil(t, prefill.RolloutStrategy.RollingUpdateConfiguration)
+	assert.Equal(t, &lwsapi.RollingUpdateConfiguration{
+		MaxUnavailable: intstr.FromString("25%"),
+		MaxSurge:       intstr.FromInt32(2),
+	}, decode.RolloutStrategy.RollingUpdateConfiguration)
+	assert.Equal(t, &lwsapi.RollingUpdateConfiguration{
+		MaxUnavailable: intstr.FromInt32(0),
+		MaxSurge:       intstr.FromString("25%"),
+	}, prefill.RolloutStrategy.RollingUpdateConfiguration, "maxUnavailable: 0 must not leave maxSurge at 0, which the DisaggregatedSet rejects")
 	assert.Nil(t, ds.Spec.Slices)
 	assert.Nil(t, ds.Spec.PlacementPolicy)
+}
+
+func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
+	deploymentDefaults := &lwsapi.RollingUpdateConfiguration{
+		MaxUnavailable: intstr.FromString("25%"),
+		MaxSurge:       intstr.FromString("25%"),
+	}
+	tests := []struct {
+		name     string
+		workload *v1alpha2.WorkloadSpec
+		want     *lwsapi.RollingUpdateConfiguration
+	}{
+		{
+			name:     "single-node without a rollout strategy uses the Deployment defaults",
+			workload: &v1alpha2.WorkloadSpec{Template: disaggTestPod()},
+			want:     deploymentDefaults,
+		},
+		{
+			name:     "single-node with an empty rollout strategy uses the Deployment defaults",
+			workload: &v1alpha2.WorkloadSpec{Template: disaggTestPod(), RolloutStrategy: &v1alpha2.RolloutStrategy{}},
+			want:     deploymentDefaults,
+		},
+		{
+			name: "single-node with only maxUnavailable surges by the Deployment default",
+			workload: &v1alpha2.WorkloadSpec{
+				Template:        disaggTestPod(),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxUnavailable: ptr.To(intstr.FromInt32(0))},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(0), MaxSurge: intstr.FromString("25%")},
+		},
+		{
+			name: "single-node with only maxSurge keeps the Deployment default for maxUnavailable",
+			workload: &v1alpha2.WorkloadSpec{
+				Template:        disaggTestPod(),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxSurge: ptr.To(intstr.FromInt32(2))},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromString("25%"), MaxSurge: intstr.FromInt32(2)},
+		},
+		{
+			name: "single-node with both values uses them as set",
+			workload: &v1alpha2.WorkloadSpec{
+				Template: disaggTestPod(),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{
+					MaxUnavailable: ptr.To(intstr.FromInt32(1)),
+					MaxSurge:       ptr.To(intstr.FromString("50%")),
+				},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromString("50%")},
+		},
+		{
+			name:     "multi-node without a rollout strategy leaves the LeaderWorkerSet defaults",
+			workload: &v1alpha2.WorkloadSpec{Template: disaggTestPod(), Worker: disaggTestPod()},
+			want:     nil,
+		},
+		{
+			name: "multi-node with only maxUnavailable keeps the LeaderWorkerSet default for maxSurge",
+			workload: &v1alpha2.WorkloadSpec{
+				Template:        disaggTestPod(),
+				Worker:          disaggTestPod(),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxUnavailable: ptr.To(intstr.FromInt32(2))},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(2), MaxSurge: intstr.FromInt32(0)},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, disaggregatedRollingUpdateConfig(tt.workload))
+		})
+	}
 }
 
 func TestExpectedDisaggregatedSetKeepsDeployedStorageInitializer(t *testing.T) {
