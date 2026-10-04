@@ -285,6 +285,12 @@ func TestDisaggregatedSetName(t *testing.T) {
 	assert.True(t, strings.HasSuffix(name, disaggregatedSetNameSuffix))
 	assert.Equal(t, name, disaggregatedSetName(long), "names must be deterministic")
 
+	// The longest name the DisaggregatedSet derives is the StatefulSet label of a worker
+	// pod: <ds>-<slice>-<revision:8>-<role>-<group>-<hash:10>. It must stay within 63
+	// characters for up to 10,000 groups per role.
+	workerLabel := strings.Join([]string{name, "0", "abcdef12", constants.LLMDRolePrefill, "9999", "0123456789"}, "-")
+	assert.LessOrEqual(t, len(workerLabel), 63, workerLabel)
+
 	other := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "a-very-long-inference-service-other"}}
 	assert.NotEqual(t, name, disaggregatedSetName(other), "distinct services must get distinct names")
 }

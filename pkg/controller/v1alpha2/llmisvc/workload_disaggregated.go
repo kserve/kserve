@@ -49,8 +49,8 @@ const (
 	// the 63-character limit its webhook enforces. A role's LeaderWorkerSet is named
 	// <ds>-<slice>-<revision:8>-<role> and its worker pods carry the StatefulSet label
 	// <lws>-<group>-<hash:10>. With one slice, the longest role name ("prefill") and up
-	// to 1000 groups per role, that leaves 63-34 characters for the DisaggregatedSet.
-	disaggregatedSetNameMaxLength = 29
+	// to 10,000 groups per role, that leaves 63-35 characters for the DisaggregatedSet.
+	disaggregatedSetNameMaxLength = 28
 
 	// disaggregatedSetNotUsedReason is the event reason emitted when a service asks for
 	// the DisaggregatedSet backend but keeps its current workloads.
