@@ -99,7 +99,7 @@ kserve:
     jobNamespace: 'kserve-kernelcache-jobs'
     mcvImage: 'kserve/kserve-mcv'
     mcvTag: ''
-    prefetchImage: 'registry.access.redhat.com/ubi9/ubi-minimal:latest'
+    prefetchImage: 'registry.access.redhat.com/ubi9/ubi-minimal:9.8'
     prefetchTag: ''
     registry:
       endpoint: ''

@@ -113027,7 +113027,7 @@ data:
          # mcvImage is the MCV container image used by cache capture and preparation flows.
          "mcvImage": "kserve/kserve-mcv:latest-minimal",
          # prefetchImage is the lightweight image used by OCI prefetch Jobs.
-         "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+         "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:9.8",
          # registry defines the OCI registry used by capture and prefetch.
          "registry": {
            # endpoint is required to identify the registry used by capture and prefetch operations.
@@ -113149,7 +113149,7 @@ data:
       "defaultNodeGroup": "",
       "jobNamespace": "kserve-kernelcache-jobs",
       "mcvImage": "kserve/kserve-mcv:latest-minimal",
-      "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+      "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:9.8",
       "registry": {
         "auth": {
           "type": "none"

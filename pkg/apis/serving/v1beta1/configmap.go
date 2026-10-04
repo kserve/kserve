@@ -181,7 +181,7 @@ type LocalModelConfig struct {
 
 const (
 	DefaultKernelCacheMCVImage                                = "kserve/kserve-mcv:latest-minimal"
-	DefaultKernelCachePrefetchImage                           = "registry.access.redhat.com/ubi9/ubi-minimal:latest"
+	DefaultKernelCachePrefetchImage                           = "registry.access.redhat.com/ubi9/ubi-minimal:9.8"
 	DefaultKernelCacheMountType                               = "oci"
 	DefaultKernelCacheJobNamespace                            = "kserve-kernelcache-jobs"
 	DefaultKernelCacheJobTTLSeconds                     int32 = 600
