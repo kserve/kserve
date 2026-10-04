@@ -55,7 +55,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.kernelcache.mcvCaptureReadinessTimeoutSeconds | int | `600` |  |
 | kserve.kernelcache.mcvImage | string | `"kserve/kserve-mcv"` |  |
 | kserve.kernelcache.mcvTag | string | `""` |  |
-| kserve.kernelcache.prefetchImage | string | `"registry.access.redhat.com/ubi9/ubi-minimal:latest"` |  |
+| kserve.kernelcache.prefetchImage | string | `"registry.access.redhat.com/ubi9/ubi-minimal:9.8"` |  |
 | kserve.kernelcache.prefetchTag | string | `""` |  |
 | kserve.kernelcache.reconcileIntervalSeconds | int | `300` |  |
 | kserve.kernelcache.registry.auth.pullRoleRef.kind | string | `""` |  |
