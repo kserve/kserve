@@ -120,24 +120,25 @@ func (r *LLMISVCReconciler) decideDisaggregatedSet(llmSvc *v1alpha2.LLMInference
 
 // markDisaggregatedSetDecision records the decision in the DisaggregatedSetUsed
 // condition and warns when the service changes backend or cannot get the one it asked
-// for.
+// for. It decides from the decision and the workloads that exist, never from the
+// service's previous status, which can be stale or lost.
 //
-// A running service that moves onto or off a DisaggregatedSet gets a migration warning:
-// the switch deletes the old workloads without waiting for the new pods, so the service
-// is unavailable until they are ready. Moving off carries the reason, so it is the only
-// warning for that change.
+// A running service that moves onto or off a DisaggregatedSet gets a migration warning
+// on the reconcile that replaces its workloads: the switch deletes the old workloads
+// without waiting for the new pods, so the service is unavailable until they are ready.
+// Moving off carries the reason, so it is the only warning for that change. Stopping a
+// service deletes its workloads too, but is not a migration.
 //
-// Otherwise, a service that asked for the backend in its own spec gets a warning when it
-// newly falls back to its current workloads or falls back for a different reason, not
-// on every reconcile. A service that only takes the default from its presets falls back
+// Otherwise, a service that asked for the backend in its own spec gets a warning on
+// every reconcile while it falls back; the event recorder folds the repeats into one
+// event with a count. A service that only takes the default from its presets falls back
 // quietly: it did nothing to act on, and with the feature gate off by default every P/D
 // service would otherwise warn.
 func (r *LLMISVCReconciler) markDisaggregatedSetDecision(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, decision disaggregatedSetDecision) {
-	prev := llmSvc.Status.GetCondition(v1alpha2.DisaggregatedSetUsed)
-	wasUsed := prev != nil && prev.IsTrue()
+	running := !utils.GetForceStopRuntime(llmSvc)
 
 	if decision.Use {
-		if !wasUsed && r.hasNonDisaggregatedWorkloads(ctx, llmSvc) {
+		if running && r.hasNonDisaggregatedWorkloads(ctx, llmSvc) {
 			r.Eventf(llmSvc, corev1.EventTypeWarning, disaggregatedSetMigratingToReason,
 				"moving the prefill and decode workloads from Deployments or LeaderWorkerSets to DisaggregatedSet %s; "+
 					"the old workloads are deleted without waiting for the new pods, so the service is unavailable until they are ready",
@@ -148,7 +149,7 @@ func (r *LLMISVCReconciler) markDisaggregatedSetDecision(ctx context.Context, ll
 	}
 
 	switch {
-	case wasUsed:
+	case running && r.hasDisaggregatedSet(ctx, llmSvc):
 		why := decision.Message
 		if !decision.Requested {
 			why = constants.LLMDisaggregatedSetAnnotationKey + " is no longer \"true\""
@@ -157,7 +158,7 @@ func (r *LLMISVCReconciler) markDisaggregatedSetDecision(ctx context.Context, ll
 			"moving the prefill and decode workloads from DisaggregatedSet %s to Deployments or LeaderWorkerSets because %s; "+
 				"the DisaggregatedSet is deleted without waiting for the new pods, so the service is unavailable until they are ready",
 			disaggregatedSetName(llmSvc), why)
-	case decision.Requested && decision.Explicit && (prev == nil || !prev.IsFalse() || prev.Reason != decision.Reason):
+	case decision.Requested && decision.Explicit:
 		r.Eventf(llmSvc, corev1.EventTypeWarning, disaggregatedSetNotUsedReason,
 			"%s is set but the service keeps its current workloads: %s", constants.LLMDisaggregatedSetAnnotationKey, decision.Message)
 	}
@@ -170,25 +171,38 @@ func (r *LLMISVCReconciler) markDisaggregatedSetDecision(ctx context.Context, ll
 }
 
 // hasNonDisaggregatedWorkloads reports whether the service still runs Deployments or
-// LeaderWorkerSets, which moving onto a DisaggregatedSet replaces. It reads the cache
-// and only runs when the service is about to start using a DisaggregatedSet. A failed
-// read counts as no workloads: it only decides whether to emit an event.
+// LeaderWorkerSets, which moving onto a DisaggregatedSet replaces.
 func (r *LLMISVCReconciler) hasNonDisaggregatedWorkloads(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) bool {
-	logger := log.FromContext(ctx)
-	candidates := []client.Object{
+	return r.anyExists(ctx,
 		&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: mainDeploymentName(llmSvc), Namespace: llmSvc.GetNamespace()}},
 		&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: prefillDeploymentName(llmSvc), Namespace: llmSvc.GetNamespace()}},
 		&lwsapi.LeaderWorkerSet{ObjectMeta: metav1.ObjectMeta{Name: mainLWSName(llmSvc), Namespace: llmSvc.GetNamespace()}},
 		&lwsapi.LeaderWorkerSet{ObjectMeta: metav1.ObjectMeta{Name: prefillLWSName(llmSvc), Namespace: llmSvc.GetNamespace()}},
+	)
+}
+
+// hasDisaggregatedSet reports whether the service still runs a DisaggregatedSet, which
+// moving off it deletes. Without the CRD there is none to look for.
+func (r *LLMISVCReconciler) hasDisaggregatedSet(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) bool {
+	if !r.DisaggregatedSetAvailable {
+		return false
 	}
-	for _, obj := range candidates {
+	return r.anyExists(ctx,
+		&disaggregatedsetv1.DisaggregatedSet{ObjectMeta: metav1.ObjectMeta{Name: disaggregatedSetName(llmSvc), Namespace: llmSvc.GetNamespace()}},
+	)
+}
+
+// anyExists reports whether any of the objects exists, reading the cache. It only
+// decides whether to emit an event, so a failed read is logged and counts as missing.
+func (r *LLMISVCReconciler) anyExists(ctx context.Context, objs ...client.Object) bool {
+	for _, obj := range objs {
 		err := r.Get(ctx, client.ObjectKeyFromObject(obj), obj)
 		switch {
 		case err == nil:
 			return true
 		case apierrors.IsNotFound(err) || meta.IsNoMatchError(err):
 		default:
-			logger.Error(err, "Failed to check for workloads replaced by the DisaggregatedSet", "name", obj.GetName())
+			log.FromContext(ctx).Error(err, "Failed to check whether a workload exists", "kind", fmt.Sprintf("%T", obj), "name", obj.GetName())
 		}
 	}
 	return false
@@ -299,6 +313,15 @@ func (r *LLMISVCReconciler) expectedDisaggregatedSet(ctx context.Context, llmSvc
 		applyLeaderWorkerSetWorkloadRevision(&prefill.Template, revisionConfig)
 	}
 
+	decodeRollout, err := disaggregatedRollingUpdateConfig(&llmSvc.Spec.WorkloadSpec)
+	if err != nil {
+		return nil, fmt.Errorf("invalid rollout strategy for the %s role: %w", constants.LLMDRoleDecode, err)
+	}
+	prefillRollout, err := disaggregatedRollingUpdateConfig(llmSvc.Spec.Prefill)
+	if err != nil {
+		return nil, fmt.Errorf("invalid rollout strategy for the %s role: %w", constants.LLMDRolePrefill, err)
+	}
+
 	ds := &disaggregatedsetv1.DisaggregatedSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      disaggregatedSetName(llmSvc),
@@ -314,8 +337,8 @@ func (r *LLMISVCReconciler) expectedDisaggregatedSet(ctx context.Context, llmSvc
 		},
 		Spec: disaggregatedsetv1.DisaggregatedSetSpec{
 			Roles: []disaggregatedsetv1.DisaggregatedRoleSpec{
-				disaggregatedRoleSpec(constants.LLMDRoleDecode, decode, llmSvc.Spec.Replicas, disaggregatedRollingUpdateConfig(&llmSvc.Spec.WorkloadSpec)),
-				disaggregatedRoleSpec(constants.LLMDRolePrefill, prefill, llmSvc.Spec.Prefill.Replicas, disaggregatedRollingUpdateConfig(llmSvc.Spec.Prefill)),
+				disaggregatedRoleSpec(constants.LLMDRoleDecode, decode, llmSvc.Spec.Replicas, decodeRollout),
+				disaggregatedRoleSpec(constants.LLMDRolePrefill, prefill, llmSvc.Spec.Prefill.Replicas, prefillRollout),
 			},
 		},
 	}
@@ -344,9 +367,16 @@ func (r *LLMISVCReconciler) expectedDisaggregatedPrefillRole(ctx context.Context
 // A single-node role would otherwise run as a Deployment, so the settings it leaves out
 // take the Deployment defaults: the LeaderWorkerSet default maxSurge of 0 would make
 // maxUnavailable: 0 invalid and remove a lone replica before its replacement is ready.
-func disaggregatedRollingUpdateConfig(workload *v1alpha2.WorkloadSpec) *lwsapi.RollingUpdateConfiguration {
+//
+// A single-node role also resolves the values the way the Deployment controller does
+// (ResolveFenceposts): when both round down to zero for the role's replicas, for
+// example maxSurge: 0 with the default maxUnavailable of 25% on three replicas or
+// fewer, it removes one replica at a time. A Deployment accepts such values, but a
+// DisaggregatedSet rejects them. A multi-node role keeps them, as a LeaderWorkerSet
+// rejects them too.
+func disaggregatedRollingUpdateConfig(workload *v1alpha2.WorkloadSpec) (*lwsapi.RollingUpdateConfiguration, error) {
 	if workload.Worker != nil {
-		return rollingUpdateConfigFromWorkloadSpec(workload)
+		return rollingUpdateConfigFromWorkloadSpec(workload), nil
 	}
 	config := &lwsapi.RollingUpdateConfiguration{
 		MaxUnavailable: intstr.FromString("25%"),
@@ -360,7 +390,24 @@ func disaggregatedRollingUpdateConfig(workload *v1alpha2.WorkloadSpec) *lwsapi.R
 			config.MaxSurge = *rs.MaxSurge
 		}
 	}
-	return config
+
+	// A DisaggregatedSet does not check a role scaled to zero.
+	replicas := int(disaggregatedRoleReplicas(workload.Replicas))
+	if replicas == 0 {
+		return config, nil
+	}
+	surge, err := intstr.GetScaledValueFromIntOrPercent(&config.MaxSurge, replicas, true)
+	if err != nil {
+		return nil, fmt.Errorf("invalid maxSurge: %w", err)
+	}
+	unavailable, err := intstr.GetScaledValueFromIntOrPercent(&config.MaxUnavailable, replicas, false)
+	if err != nil {
+		return nil, fmt.Errorf("invalid maxUnavailable: %w", err)
+	}
+	if surge == 0 && unavailable == 0 {
+		config.MaxUnavailable = intstr.FromInt32(1)
+	}
+	return config, nil
 }
 
 func disaggregatedRoleSpec(name string, role *disaggregatedRoleTemplate, replicas *int32, rollingUpdate *lwsapi.RollingUpdateConfiguration) disaggregatedsetv1.DisaggregatedRoleSpec {

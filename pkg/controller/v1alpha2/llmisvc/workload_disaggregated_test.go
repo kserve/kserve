@@ -244,123 +244,167 @@ func TestDecideDisaggregatedSet(t *testing.T) {
 	}
 }
 
+// TestMarkDisaggregatedSetDecision covers the condition and the warnings a decision
+// produces. They depend only on the decision and on the workloads that exist, never on
+// the service's previous status, which can be stale or lost: several cases start from a
+// misleading status to check it is ignored.
 func TestMarkDisaggregatedSetDecision(t *testing.T) {
-	recorder := record.NewFakeRecorder(10)
-	r := disaggTestReconciler(t)
-	r.EventRecorder = recorder
-	svc := disaggTestService(t)
-	gateOff := disaggregatedSetDecision{Requested: true, Explicit: true, Reason: reasonFeatureGateDisabled, Message: "gate off"}
-	noCRD := disaggregatedSetDecision{Requested: true, Explicit: true, Reason: reasonCRDNotInstalled, Message: "no CRD"}
-
-	steps := []struct {
-		name       string
-		decision   disaggregatedSetDecision
-		wantStatus corev1.ConditionStatus
-		wantReason string
-		wantEvent  string
-	}{
-		{name: "first fallback emits an event", decision: gateOff, wantStatus: corev1.ConditionFalse, wantReason: reasonFeatureGateDisabled, wantEvent: disaggregatedSetNotUsedReason},
-		{name: "same fallback is quiet", decision: gateOff, wantStatus: corev1.ConditionFalse, wantReason: reasonFeatureGateDisabled},
-		{name: "new fallback reason emits an event", decision: noCRD, wantStatus: corev1.ConditionFalse, wantReason: reasonCRDNotInstalled, wantEvent: disaggregatedSetNotUsedReason},
-		{name: "used", decision: disaggregatedSetDecision{Requested: true, Explicit: true, Use: true}, wantStatus: corev1.ConditionTrue},
-		// Leaving the backend is reported once, as a migration that carries the reason.
-		{name: "fallback after use reports the migration", decision: noCRD, wantStatus: corev1.ConditionFalse, wantReason: reasonCRDNotInstalled, wantEvent: disaggregatedSetMigratingFromReason},
-		{name: "not requested clears the condition", decision: disaggregatedSetDecision{}},
-	}
-	for _, step := range steps {
-		r.markDisaggregatedSetDecision(context.Background(), svc, step.decision)
-
-		cond := svc.Status.GetCondition(v1alpha2.DisaggregatedSetUsed)
-		if step.wantStatus == "" {
-			assert.Nil(t, cond, step.name)
-		} else if assert.NotNil(t, cond, step.name) {
-			assert.Equal(t, step.wantStatus, cond.Status, step.name)
-			assert.Equal(t, step.wantReason, cond.Reason, step.name)
-		}
-		assertEvents(t, recorder, step.name, step.wantEvent)
-	}
-}
-
-// TestDisaggregatedSetMigrationEvents covers the warning a running service gets when it
-// moves onto or off a DisaggregatedSet, which replaces its workloads without waiting for
-// the new pods to become ready.
-func TestDisaggregatedSetMigrationEvents(t *testing.T) {
 	use := disaggregatedSetDecision{Requested: true, Use: true}
-	deployment := func(name string) client.Object {
-		return &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: disaggTestNamespace}}
+	explicitFallback := disaggregatedSetDecision{Requested: true, Explicit: true, Reason: reasonAutoscalingNotSupported, Message: "autoscaling is not supported"}
+	presetFallback := disaggregatedSetDecision{Requested: true, Reason: reasonFeatureGateDisabled, Message: "gate off"}
+
+	deployments := func(svc *v1alpha2.LLMInferenceService) []client.Object {
+		return []client.Object{
+			&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: mainDeploymentName(svc), Namespace: disaggTestNamespace}},
+			&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: prefillDeploymentName(svc), Namespace: disaggTestNamespace}},
+		}
 	}
-	lws := func(name string) client.Object {
-		return &lwsapi.LeaderWorkerSet{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: disaggTestNamespace}}
+	leaderWorkerSets := func(svc *v1alpha2.LLMInferenceService) []client.Object {
+		return []client.Object{
+			&lwsapi.LeaderWorkerSet{ObjectMeta: metav1.ObjectMeta{Name: mainLWSName(svc), Namespace: disaggTestNamespace}},
+			&lwsapi.LeaderWorkerSet{ObjectMeta: metav1.ObjectMeta{Name: prefillLWSName(svc), Namespace: disaggTestNamespace}},
+		}
+	}
+	disaggregatedSet := func(svc *v1alpha2.LLMInferenceService) []client.Object {
+		return []client.Object{
+			&disaggregatedsetv1.DisaggregatedSet{ObjectMeta: metav1.ObjectMeta{Name: disaggregatedSetName(svc), Namespace: disaggTestNamespace}},
+		}
+	}
+	staleUsed := func(svc *v1alpha2.LLMInferenceService) { svc.MarkDisaggregatedSetUsed() }
+	staleNotUsed := func(svc *v1alpha2.LLMInferenceService) {
+		svc.MarkDisaggregatedSetNotUsed(explicitFallback.Reason, "%s", explicitFallback.Message)
 	}
 
 	tests := []struct {
 		name          string
-		prev          func(svc *v1alpha2.LLMInferenceService)
+		status        func(svc *v1alpha2.LLMInferenceService)
 		existing      func(svc *v1alpha2.LLMInferenceService) []client.Object
+		stopped       bool
+		crdMissing    bool
 		decision      disaggregatedSetDecision
+		wantStatus    corev1.ConditionStatus
+		wantReason    string
 		wantEvent     string
 		wantInMessage string
 	}{
 		{
-			name:     "a new service starts on the DisaggregatedSet without a warning",
-			decision: use,
+			name:       "a new service starts on the DisaggregatedSet without a warning",
+			decision:   use,
+			wantStatus: corev1.ConditionTrue,
 		},
 		{
-			name: "a service on Deployments moves onto the DisaggregatedSet",
-			existing: func(svc *v1alpha2.LLMInferenceService) []client.Object {
-				return []client.Object{deployment(mainDeploymentName(svc)), deployment(prefillDeploymentName(svc))}
-			},
+			name:          "a service on Deployments moves onto the DisaggregatedSet",
+			existing:      deployments,
 			decision:      use,
+			wantStatus:    corev1.ConditionTrue,
 			wantEvent:     disaggregatedSetMigratingToReason,
 			wantInMessage: "unavailable",
 		},
 		{
-			name: "a service on LeaderWorkerSets moves onto the DisaggregatedSet",
-			existing: func(svc *v1alpha2.LLMInferenceService) []client.Object {
-				return []client.Object{lws(mainLWSName(svc)), lws(prefillLWSName(svc))}
-			},
-			decision:  use,
-			wantEvent: disaggregatedSetMigratingToReason,
+			name:       "a service on LeaderWorkerSets moves onto the DisaggregatedSet",
+			existing:   leaderWorkerSets,
+			decision:   use,
+			wantStatus: corev1.ConditionTrue,
+			wantEvent:  disaggregatedSetMigratingToReason,
 		},
 		{
-			name: "a service that fell back moves onto the DisaggregatedSet once it can",
-			prev: func(svc *v1alpha2.LLMInferenceService) {
-				svc.MarkDisaggregatedSetNotUsed(reasonFeatureGateDisabled, "gate off")
-			},
-			existing: func(svc *v1alpha2.LLMInferenceService) []client.Object {
-				return []client.Object{deployment(mainDeploymentName(svc))}
-			},
-			decision:  use,
-			wantEvent: disaggregatedSetMigratingToReason,
+			name:       "a service on Deployments moves even if its status says it already uses the DisaggregatedSet",
+			status:     staleUsed,
+			existing:   deployments,
+			decision:   use,
+			wantStatus: corev1.ConditionTrue,
+			wantEvent:  disaggregatedSetMigratingToReason,
 		},
 		{
-			name:     "a service already on the DisaggregatedSet stays quiet",
-			prev:     func(svc *v1alpha2.LLMInferenceService) { svc.MarkDisaggregatedSetUsed() },
-			decision: use,
+			name:       "a service already on the DisaggregatedSet stays quiet",
+			existing:   disaggregatedSet,
+			decision:   use,
+			wantStatus: corev1.ConditionTrue,
 		},
 		{
 			name:          "opting out moves the service off the DisaggregatedSet",
-			prev:          func(svc *v1alpha2.LLMInferenceService) { svc.MarkDisaggregatedSetUsed() },
+			existing:      disaggregatedSet,
 			decision:      disaggregatedSetDecision{},
 			wantEvent:     disaggregatedSetMigratingFromReason,
 			wantInMessage: constants.LLMDisaggregatedSetAnnotationKey,
 		},
 		{
-			name: "falling back moves the service off the DisaggregatedSet and says why",
-			prev: func(svc *v1alpha2.LLMInferenceService) { svc.MarkDisaggregatedSetUsed() },
-			decision: disaggregatedSetDecision{
-				Requested: true, Reason: reasonAutoscalingNotSupported, Message: "autoscaling is not supported",
-			},
+			name:     "opting out without a DisaggregatedSet is quiet even if the status says it was used",
+			status:   staleUsed,
+			decision: disaggregatedSetDecision{},
+		},
+		{
+			// Leaving the backend is reported once, as a migration that carries the reason.
+			name:          "falling back moves the service off the DisaggregatedSet and says why",
+			existing:      disaggregatedSet,
+			decision:      explicitFallback,
+			wantStatus:    corev1.ConditionFalse,
+			wantReason:    reasonAutoscalingNotSupported,
 			wantEvent:     disaggregatedSetMigratingFromReason,
 			wantInMessage: "autoscaling is not supported",
+		},
+		{
+			name:       "a preset default that falls back off a DisaggregatedSet still reports the migration",
+			existing:   disaggregatedSet,
+			decision:   presetFallback,
+			wantStatus: corev1.ConditionFalse,
+			wantReason: reasonFeatureGateDisabled,
+			wantEvent:  disaggregatedSetMigratingFromReason,
+		},
+		{
+			name:          "an explicit request that falls back warns",
+			decision:      explicitFallback,
+			wantStatus:    corev1.ConditionFalse,
+			wantReason:    reasonAutoscalingNotSupported,
+			wantEvent:     disaggregatedSetNotUsedReason,
+			wantInMessage: "autoscaling is not supported",
+		},
+		{
+			// The recorder aggregates repeats of the same event, so the warning is
+			// emitted on every reconcile instead of being deduplicated through status.
+			name:       "an explicit request that falls back warns again on the next reconcile",
+			status:     staleNotUsed,
+			decision:   explicitFallback,
+			wantStatus: corev1.ConditionFalse,
+			wantReason: reasonAutoscalingNotSupported,
+			wantEvent:  disaggregatedSetNotUsedReason,
+		},
+		{
+			name:       "a preset default that falls back is quiet",
+			decision:   presetFallback,
+			wantStatus: corev1.ConditionFalse,
+			wantReason: reasonFeatureGateDisabled,
+		},
+		{
+			name:       "falling back without the CRD does not look for a DisaggregatedSet",
+			crdMissing: true,
+			decision:   disaggregatedSetDecision{Requested: true, Reason: reasonCRDNotInstalled, Message: "no CRD"},
+			wantStatus: corev1.ConditionFalse,
+			wantReason: reasonCRDNotInstalled,
+		},
+		{
+			name:       "stopping a service on Deployments is not a migration",
+			existing:   deployments,
+			stopped:    true,
+			decision:   use,
+			wantStatus: corev1.ConditionTrue,
+		},
+		{
+			name:     "stopping a service on a DisaggregatedSet is not a migration",
+			existing: disaggregatedSet,
+			stopped:  true,
+			decision: disaggregatedSetDecision{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := disaggTestService(t)
-			if tt.prev != nil {
-				tt.prev(svc)
+			if tt.status != nil {
+				tt.status(svc)
+			}
+			if tt.stopped {
+				svc.Annotations[constants.StopAnnotationKey] = "true"
 			}
 			r := disaggTestReconciler(t)
 			if tt.existing != nil {
@@ -368,10 +412,19 @@ func TestDisaggregatedSetMigrationEvents(t *testing.T) {
 					require.NoError(t, r.Create(context.Background(), obj))
 				}
 			}
+			r.DisaggregatedSetAvailable = !tt.crdMissing
 			recorder := record.NewFakeRecorder(10)
 			r.EventRecorder = recorder
 
 			r.markDisaggregatedSetDecision(context.Background(), svc, tt.decision)
+
+			cond := svc.Status.GetCondition(v1alpha2.DisaggregatedSetUsed)
+			if tt.wantStatus == "" {
+				assert.Nil(t, cond)
+			} else if assert.NotNil(t, cond) {
+				assert.Equal(t, tt.wantStatus, cond.Status)
+				assert.Equal(t, tt.wantReason, cond.Reason)
+			}
 
 			if tt.wantEvent == "" {
 				assert.Empty(t, recorder.Events)
@@ -382,19 +435,6 @@ func TestDisaggregatedSetMigrationEvents(t *testing.T) {
 			assert.True(t, strings.HasPrefix(event, corev1.EventTypeWarning+" "+tt.wantEvent+" "), event)
 			assert.Contains(t, event, tt.wantInMessage)
 		})
-	}
-}
-
-// assertEvents checks that the recorder holds exactly the wanted event reason, or none
-// when want is empty, and drains it.
-func assertEvents(t *testing.T, recorder *record.FakeRecorder, step, want string) {
-	t.Helper()
-	if want == "" {
-		assert.Empty(t, recorder.Events, step)
-		return
-	}
-	if assert.Len(t, recorder.Events, 1, step) {
-		assert.Contains(t, <-recorder.Events, " "+want+" ", step)
 	}
 }
 
@@ -626,6 +666,31 @@ func TestExpectedDisaggregatedSet(t *testing.T) {
 	assert.Nil(t, ds.Spec.PlacementPolicy)
 }
 
+// TestExpectedDisaggregatedSetResolvesZeroRollout checks that both roles of a
+// DisaggregatedSet get a rollout the DisaggregatedSet accepts when the values they set
+// round down to zero for both fields, and that a malformed value fails the build.
+func TestExpectedDisaggregatedSetResolvesZeroRollout(t *testing.T) {
+	svc := disaggTestService(t)
+	svc.Spec.Replicas = ptr.To[int32](2)
+	svc.Spec.RolloutStrategy = &v1alpha2.RolloutStrategy{MaxSurge: ptr.To(intstr.FromInt32(0))}
+	svc.Spec.Prefill.Replicas = ptr.To[int32](3)
+	svc.Spec.Prefill.RolloutStrategy = &v1alpha2.RolloutStrategy{
+		MaxUnavailable: ptr.To(intstr.FromString("10%")),
+		MaxSurge:       ptr.To(intstr.FromInt32(0)),
+	}
+
+	ds, err := disaggTestReconciler(t).expectedDisaggregatedSet(context.Background(), svc, disaggTestConfig(), nil)
+	require.NoError(t, err)
+
+	want := &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)}
+	assert.Equal(t, want, ds.Spec.Roles[0].Spec.RolloutStrategy.RollingUpdateConfiguration, "decode")
+	assert.Equal(t, want, ds.Spec.Roles[1].Spec.RolloutStrategy.RollingUpdateConfiguration, "prefill")
+
+	svc.Spec.Prefill.RolloutStrategy.MaxSurge = ptr.To(intstr.FromString("lots"))
+	_, err = disaggTestReconciler(t).expectedDisaggregatedSet(context.Background(), svc, disaggTestConfig(), nil)
+	require.ErrorContains(t, err, "prefill")
+}
+
 func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 	deploymentDefaults := &lwsapi.RollingUpdateConfiguration{
 		MaxUnavailable: intstr.FromString("25%"),
@@ -635,6 +700,7 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 		name     string
 		workload *v1alpha2.WorkloadSpec
 		want     *lwsapi.RollingUpdateConfiguration
+		wantErr  bool
 	}{
 		{
 			name:     "single-node without a rollout strategy uses the Deployment defaults",
@@ -673,10 +739,74 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 			},
 			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromString("50%")},
 		},
+		// A Deployment accepts values that round down to zero for both fields and
+		// resolves them to maxUnavailable: 1 (ResolveFenceposts), while a
+		// DisaggregatedSet rejects them, so a single-node role resolves them the same way.
+		{
+			name: "single-node with only maxSurge: 0 on few replicas removes one replica at a time",
+			workload: &v1alpha2.WorkloadSpec{
+				Template:        disaggTestPod(),
+				Replicas:        ptr.To[int32](2),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxSurge: ptr.To(intstr.FromInt32(0))},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)},
+		},
+		{
+			name: "single-node with percentages that round down to zero removes one replica at a time",
+			workload: &v1alpha2.WorkloadSpec{
+				Template: disaggTestPod(),
+				Replicas: ptr.To[int32](3),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{
+					MaxUnavailable: ptr.To(intstr.FromString("10%")),
+					MaxSurge:       ptr.To(intstr.FromInt32(0)),
+				},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)},
+		},
+		{
+			name: "single-node with only maxSurge: 0 on enough replicas keeps the Deployment default",
+			workload: &v1alpha2.WorkloadSpec{
+				Template:        disaggTestPod(),
+				Replicas:        ptr.To[int32](4),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxSurge: ptr.To(intstr.FromInt32(0))},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromString("25%"), MaxSurge: intstr.FromInt32(0)},
+		},
+		{
+			name: "single-node scaled to zero is left as set",
+			workload: &v1alpha2.WorkloadSpec{
+				Template:        disaggTestPod(),
+				Replicas:        ptr.To[int32](0),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxSurge: ptr.To(intstr.FromInt32(0))},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromString("25%"), MaxSurge: intstr.FromInt32(0)},
+		},
+		{
+			name: "single-node with a malformed value is an error",
+			workload: &v1alpha2.WorkloadSpec{
+				Template:        disaggTestPod(),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxSurge: ptr.To(intstr.FromString("lots"))},
+			},
+			wantErr: true,
+		},
 		{
 			name:     "multi-node without a rollout strategy leaves the LeaderWorkerSet defaults",
 			workload: &v1alpha2.WorkloadSpec{Template: disaggTestPod(), Worker: disaggTestPod()},
 			want:     nil,
+		},
+		{
+			// A LeaderWorkerSet rejects these too, so a multi-node role keeps them as set.
+			name: "multi-node with percentages that round down to zero is left as set",
+			workload: &v1alpha2.WorkloadSpec{
+				Template: disaggTestPod(),
+				Worker:   disaggTestPod(),
+				Replicas: ptr.To[int32](3),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{
+					MaxUnavailable: ptr.To(intstr.FromString("10%")),
+					MaxSurge:       ptr.To(intstr.FromInt32(0)),
+				},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromString("10%"), MaxSurge: intstr.FromInt32(0)},
 		},
 		{
 			name: "multi-node with only maxUnavailable keeps the LeaderWorkerSet default for maxSurge",
@@ -690,7 +820,13 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, disaggregatedRollingUpdateConfig(tt.workload))
+			got, err := disaggregatedRollingUpdateConfig(tt.workload)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
