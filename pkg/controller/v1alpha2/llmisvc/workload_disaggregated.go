@@ -492,7 +492,7 @@ func podSpecsEqual(expected, curr *lwsapi.LeaderWorkerTemplate) bool {
 func propagateDisaggregatedSetStatus(llmSvc *v1alpha2.LLMInferenceService, ds *disaggregatedsetv1.DisaggregatedSet) {
 	for _, role := range disaggregatedSetRoles {
 		ready, notReady := disaggregatedRoleConditionMarkers(llmSvc, role)
-		reason, message, isReady := disaggregatedRoleReadiness(ds, role)
+		reason, message, isReady := disaggregatedRoleReadiness(ds, role, disaggregatedRoleIsMultiNode(llmSvc, role))
 		if isReady {
 			ready()
 		} else {
@@ -514,12 +514,29 @@ func disaggregatedRoleConditionMarkers(llmSvc *v1alpha2.LLMInferenceService, rol
 	return llmSvc.MarkMainWorkloadReady, llmSvc.MarkMainWorkloadNotReady
 }
 
-// disaggregatedRoleReadiness reports whether a role has finished rolling out: exactly
-// its desired replicas exist, are ready and run the latest revision of the
-// DisaggregatedSet. The status counts replicas of every revision in Replicas and
-// ReadyReplicas, so ready old replicas could otherwise stand in for unready new ones.
-// This matches the check the DisaggregatedSet controller uses for its own status.
-func disaggregatedRoleReadiness(ds *disaggregatedsetv1.DisaggregatedSet, role string) (reason, message string, ready bool) {
+// disaggregatedRoleIsMultiNode reports whether a role runs leader/worker groups.
+func disaggregatedRoleIsMultiNode(llmSvc *v1alpha2.LLMInferenceService, role string) bool {
+	if role == constants.LLMDRolePrefill {
+		return llmSvc.Spec.Prefill.Worker != nil
+	}
+	return llmSvc.Spec.Worker != nil
+}
+
+// disaggregatedRoleReadiness reports whether a role is ready the way the workload it
+// replaces would be.
+//
+// A single-node role replaces a Deployment, which is available while its ready
+// replicas cover desired - maxUnavailable, so the service stays ready through rollouts
+// and scaling. It counts ReadyReplicas, which spans every revision the way a
+// Deployment's available replicas span its ReplicaSets, against the role's
+// maxUnavailable resolved for its replicas and rounded down as a Deployment does.
+//
+// A multi-node role replaces a LeaderWorkerSet, which is available only once every
+// desired replica is ready and updated. It requires exactly its desired replicas to
+// exist, be ready and run the latest revision, the check the DisaggregatedSet
+// controller uses for its own status; ReadyReplicas alone would let ready old replicas
+// stand in for unready new ones.
+func disaggregatedRoleReadiness(ds *disaggregatedsetv1.DisaggregatedSet, role string, multiNode bool) (reason, message string, ready bool) {
 	if ds == nil || ds.Status.ObservedGeneration < ds.Generation {
 		return "Progressing", "DisaggregatedSet is progressing", false
 	}
@@ -528,13 +545,22 @@ func disaggregatedRoleReadiness(ds *disaggregatedsetv1.DisaggregatedSet, role st
 		return "Progressing", fmt.Sprintf("DisaggregatedSet has no %s role yet", role), false
 	}
 	desired := ptr.Deref(spec.Spec.Replicas, 1)
-
 	status := disaggregatedRoleStatus(ds, role)
-	if status.Replicas == desired && status.ReadyReplicas == desired && status.UpdatedReplicas == desired {
-		return "", "", true
+
+	if multiNode {
+		if status.Replicas == desired && status.ReadyReplicas == desired && status.UpdatedReplicas == desired {
+			return "", "", true
+		}
+		message = fmt.Sprintf("%s role has %d/%d replicas ready, %d updated and %d in total", role, status.ReadyReplicas, desired, status.UpdatedReplicas, status.Replicas)
+	} else {
+		minReady := int(desired) - disaggregatedRoleMaxUnavailable(spec, desired)
+		if int(status.ReadyReplicas) >= minReady {
+			return "", "", true
+		}
+		message = fmt.Sprintf("%s role has %d ready replicas, needs at least %d of %d", role, status.ReadyReplicas, minReady, desired)
 	}
 
-	reason, message = "Progressing", fmt.Sprintf("%s role has %d/%d replicas ready, %d updated and %d in total", role, status.ReadyReplicas, desired, status.UpdatedReplicas, status.Replicas)
+	reason = "Progressing"
 	if available := meta.FindStatusCondition(ds.Status.Conditions, string(disaggregatedsetv1.DisaggregatedSetAvailable)); available != nil &&
 		available.Status == metav1.ConditionFalse && available.Reason != "" {
 		reason = available.Reason
@@ -543,6 +569,21 @@ func disaggregatedRoleReadiness(ds *disaggregatedsetv1.DisaggregatedSet, role st
 		}
 	}
 	return reason, message, false
+}
+
+// disaggregatedRoleMaxUnavailable returns how many of a role's desired replicas may be
+// unavailable, resolving its maxUnavailable for those replicas and rounding down. A role
+// without a rolling update configuration, or with one that does not resolve, allows none.
+func disaggregatedRoleMaxUnavailable(spec *disaggregatedsetv1.DisaggregatedRoleSpec, desired int32) int {
+	config := spec.Spec.RolloutStrategy.RollingUpdateConfiguration
+	if config == nil {
+		return 0
+	}
+	maxUnavailable, err := intstr.GetScaledValueFromIntOrPercent(&config.MaxUnavailable, int(desired), false)
+	if err != nil {
+		return 0
+	}
+	return maxUnavailable
 }
 
 func observedDisaggregatedSet(name string) *v1alpha2.ObservedWorkloadStatus {

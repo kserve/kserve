@@ -943,14 +943,25 @@ func TestExpectedDisaggregatedSetRevision(t *testing.T) {
 }
 
 func TestDisaggregatedRoleReadiness(t *testing.T) {
-	dsWith := func(generation, observed int64, statuses []disaggregatedsetv1.RoleStatus, conditions ...metav1.Condition) *disaggregatedsetv1.DisaggregatedSet {
+	type role struct {
+		replicas       int32
+		maxUnavailable *intstr.IntOrString
+	}
+	dsWith := func(generation, observed int64, r role, statuses []disaggregatedsetv1.RoleStatus, conditions ...metav1.Condition) *disaggregatedsetv1.DisaggregatedSet {
+		spec := lwsapi.LeaderWorkerSetSpec{Replicas: ptr.To(r.replicas)}
+		if r.maxUnavailable != nil {
+			spec.RolloutStrategy.RollingUpdateConfiguration = &lwsapi.RollingUpdateConfiguration{MaxUnavailable: *r.maxUnavailable, MaxSurge: intstr.FromString("25%")}
+		}
 		return &disaggregatedsetv1.DisaggregatedSet{
 			ObjectMeta: metav1.ObjectMeta{Generation: generation},
 			Spec: disaggregatedsetv1.DisaggregatedSetSpec{Roles: []disaggregatedsetv1.DisaggregatedRoleSpec{
-				{Name: constants.LLMDRoleDecode, LeaderWorkerSetTemplateSpec: lwsapi.LeaderWorkerSetTemplateSpec{Spec: lwsapi.LeaderWorkerSetSpec{Replicas: ptr.To[int32](2)}}},
+				{Name: constants.LLMDRoleDecode, LeaderWorkerSetTemplateSpec: lwsapi.LeaderWorkerSetTemplateSpec{Spec: spec}},
 			}},
 			Status: disaggregatedsetv1.DisaggregatedSetStatus{ObservedGeneration: observed, RoleStatuses: statuses, Conditions: conditions},
 		}
+	}
+	status := func(replicas, ready, updated int32) []disaggregatedsetv1.RoleStatus {
+		return []disaggregatedsetv1.RoleStatus{{Name: constants.LLMDRoleDecode, Replicas: replicas, ReadyReplicas: ready, UpdatedReplicas: updated}}
 	}
 	unavailable := metav1.Condition{
 		Type:    string(disaggregatedsetv1.DisaggregatedSetAvailable),
@@ -958,38 +969,73 @@ func TestDisaggregatedRoleReadiness(t *testing.T) {
 		Reason:  "RolloutInProgress",
 		Message: "rolling out",
 	}
+	two := role{replicas: 2}
+	// Four replicas with the Deployment default maxUnavailable of 25% need three ready.
+	four := role{replicas: 4, maxUnavailable: ptr.To(intstr.FromString("25%"))}
 
 	tests := []struct {
 		name        string
+		multiNode   bool
 		ds          *disaggregatedsetv1.DisaggregatedSet
 		wantReady   bool
 		wantReason  string
 		wantMessage string
 	}{
 		{name: "no DisaggregatedSet", ds: nil, wantReason: "Progressing"},
-		{name: "generation not observed", ds: dsWith(2, 1, []disaggregatedsetv1.RoleStatus{{Name: constants.LLMDRoleDecode, Replicas: 2, ReadyReplicas: 2, UpdatedReplicas: 2}}), wantReason: "Progressing"},
-		{name: "all replicas ready and updated", ds: dsWith(1, 1, []disaggregatedsetv1.RoleStatus{{Name: constants.LLMDRoleDecode, Replicas: 2, ReadyReplicas: 2, UpdatedReplicas: 2}}), wantReady: true},
-		{name: "replicas not updated", ds: dsWith(1, 1, []disaggregatedsetv1.RoleStatus{{Name: constants.LLMDRoleDecode, Replicas: 2, ReadyReplicas: 2, UpdatedReplicas: 1}}), wantReason: "Progressing", wantMessage: "2/2 replicas ready, 1 updated and 2 in total"},
+		{name: "generation not observed", ds: dsWith(2, 1, four, status(4, 4, 4)), wantReason: "Progressing"},
+		{name: "unavailable reason is surfaced", ds: dsWith(1, 1, four, nil, unavailable), wantReason: "RolloutInProgress", wantMessage: "rolling out"},
+
+		// Single-node roles replace Deployments, so they are ready like a Deployment is
+		// available: while ready replicas of any revision cover desired - maxUnavailable.
+		{name: "single-node with all replicas ready and updated", ds: dsWith(1, 1, four, status(4, 4, 4)), wantReady: true},
+		{name: "single-node starting a rollout", ds: dsWith(1, 1, four, status(5, 4, 1)), wantReady: true},
+		{
+			// Two old and two of four new replicas are ready: enough are serving.
+			name:      "single-node mid-rollout with enough replicas serving",
+			ds:        dsWith(1, 1, four, status(6, 4, 4)),
+			wantReady: true,
+		},
+		{name: "single-node with exactly desired - maxUnavailable ready", ds: dsWith(1, 1, four, status(4, 3, 4)), wantReady: true},
+		{
+			name:        "single-node with too few replicas serving",
+			ds:          dsWith(1, 1, four, status(4, 2, 4)),
+			wantReason:  "Progressing",
+			wantMessage: "decode role has 2 ready replicas, needs at least 3 of 4",
+		},
+		{
+			// Scaling 4 -> 2: the extra replicas are still counted until they are gone.
+			name:      "single-node scaling down",
+			ds:        dsWith(1, 1, role{replicas: 2, maxUnavailable: ptr.To(intstr.FromString("25%"))}, status(4, 4, 4)),
+			wantReady: true,
+		},
+		{
+			// maxUnavailable: 1 is what a single-node role gets when its values round to 0/0.
+			name:      "single-node allowed one replica down",
+			ds:        dsWith(1, 1, role{replicas: 2, maxUnavailable: ptr.To(intstr.FromInt32(1))}, status(2, 1, 2)),
+			wantReady: true,
+		},
+		{name: "single-node scaled to zero", ds: dsWith(1, 1, role{replicas: 0, maxUnavailable: ptr.To(intstr.FromString("25%"))}, status(0, 0, 0)), wantReady: true},
+
+		// Multi-node roles replace LeaderWorkerSets, which are ready only once every
+		// desired replica is ready and updated.
+		{name: "multi-node with all replicas ready and updated", multiNode: true, ds: dsWith(1, 1, two, status(2, 2, 2)), wantReady: true},
+		{name: "multi-node with replicas not updated", multiNode: true, ds: dsWith(1, 1, two, status(2, 2, 1)), wantReason: "Progressing", wantMessage: "2/2 replicas ready, 1 updated and 2 in total"},
 		{
 			// One old replica and one new replica are ready while the other new replica
 			// starts: the ready old replica must not stand in for the unready new one.
-			name:        "ready old replicas count towards ready during a rollout",
-			ds:          dsWith(1, 1, []disaggregatedsetv1.RoleStatus{{Name: constants.LLMDRoleDecode, Replicas: 3, ReadyReplicas: 2, UpdatedReplicas: 2}}),
+			name:        "multi-node mid-rollout does not count ready old replicas",
+			multiNode:   true,
+			ds:          dsWith(1, 1, two, status(3, 2, 2)),
 			wantReason:  "Progressing",
 			wantMessage: "2/2 replicas ready, 2 updated and 3 in total",
 		},
-		{
-			name:        "old replicas not yet removed",
-			ds:          dsWith(1, 1, []disaggregatedsetv1.RoleStatus{{Name: constants.LLMDRoleDecode, Replicas: 3, ReadyReplicas: 3, UpdatedReplicas: 2}}),
-			wantReason:  "Progressing",
-			wantMessage: "3/2 replicas ready, 2 updated and 3 in total",
-		},
-		{name: "unavailable reason is surfaced", ds: dsWith(1, 1, nil, unavailable), wantReason: "RolloutInProgress", wantMessage: "rolling out"},
+		{name: "multi-node with old replicas not yet removed", multiNode: true, ds: dsWith(1, 1, two, status(3, 3, 2)), wantReason: "Progressing", wantMessage: "3/2 replicas ready, 2 updated and 3 in total"},
+		{name: "multi-node mid-rollout with enough replicas serving is not ready", multiNode: true, ds: dsWith(1, 1, four, status(6, 4, 4)), wantReason: "Progressing"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reason, message, ready := disaggregatedRoleReadiness(tt.ds, constants.LLMDRoleDecode)
+			reason, message, ready := disaggregatedRoleReadiness(tt.ds, constants.LLMDRoleDecode, tt.multiNode)
 			assert.Equal(t, tt.wantReady, ready)
 			assert.Equal(t, tt.wantReason, reason)
 			assert.Contains(t, message, tt.wantMessage)
