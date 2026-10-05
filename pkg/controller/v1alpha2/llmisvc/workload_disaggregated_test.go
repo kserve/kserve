@@ -26,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -280,7 +281,6 @@ func TestMarkDisaggregatedSetDecision(t *testing.T) {
 		status        func(svc *v1alpha2.LLMInferenceService)
 		existing      func(svc *v1alpha2.LLMInferenceService) []client.Object
 		stopped       bool
-		crdMissing    bool
 		decision      disaggregatedSetDecision
 		wantStatus    corev1.ConditionStatus
 		wantReason    string
@@ -376,13 +376,6 @@ func TestMarkDisaggregatedSetDecision(t *testing.T) {
 			wantReason: reasonFeatureGateDisabled,
 		},
 		{
-			name:       "falling back without the CRD does not look for a DisaggregatedSet",
-			crdMissing: true,
-			decision:   disaggregatedSetDecision{Requested: true, Reason: reasonCRDNotInstalled, Message: "no CRD"},
-			wantStatus: corev1.ConditionFalse,
-			wantReason: reasonCRDNotInstalled,
-		},
-		{
 			name:       "stopping a service on Deployments is not a migration",
 			existing:   deployments,
 			stopped:    true,
@@ -412,7 +405,6 @@ func TestMarkDisaggregatedSetDecision(t *testing.T) {
 					require.NoError(t, r.Create(context.Background(), obj))
 				}
 			}
-			r.DisaggregatedSetAvailable = !tt.crdMissing
 			recorder := record.NewFakeRecorder(10)
 			r.EventRecorder = recorder
 
@@ -468,6 +460,32 @@ func TestMarkDisaggregatedSetDecisionFromPreset(t *testing.T) {
 		}
 		assert.Empty(t, recorder.Events, step.name)
 	}
+}
+
+// TestReconcileDisaggregatedSetDeletesWhenNotUsed checks that reconcileDisaggregatedSet
+// owns both directions, like the other workload reconcilers: a service that does not
+// use the backend has its DisaggregatedSet deleted, and one without a DisaggregatedSet
+// reconciles without error.
+func TestReconcileDisaggregatedSetDeletesWhenNotUsed(t *testing.T) {
+	ctx := context.Background()
+	svc := disaggTestService(t)
+	r := disaggTestReconciler(t)
+	r.EventRecorder = record.NewFakeRecorder(10)
+	require.NoError(t, r.Create(ctx, &disaggregatedsetv1.DisaggregatedSet{ObjectMeta: metav1.ObjectMeta{
+		Name:            disaggregatedSetName(svc),
+		Namespace:       svc.Namespace,
+		OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(svc, v1alpha2.LLMInferenceServiceGVK)},
+	}}))
+
+	ds, err := r.reconcileDisaggregatedSet(ctx, svc, disaggTestConfig(), false)
+	require.NoError(t, err)
+	assert.Nil(t, ds)
+	err = r.Get(ctx, client.ObjectKey{Name: disaggregatedSetName(svc), Namespace: svc.Namespace}, &disaggregatedsetv1.DisaggregatedSet{})
+	assert.True(t, apierrors.IsNotFound(err), "the DisaggregatedSet should be deleted, got %v", err)
+
+	ds, err = r.reconcileDisaggregatedSet(ctx, svc, disaggTestConfig(), false)
+	require.NoError(t, err, "nothing to delete is not an error")
+	assert.Nil(t, ds)
 }
 
 func TestDisaggregatedSetName(t *testing.T) {

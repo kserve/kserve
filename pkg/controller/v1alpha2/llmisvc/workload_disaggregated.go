@@ -182,11 +182,8 @@ func (r *LLMISVCReconciler) hasNonDisaggregatedWorkloads(ctx context.Context, ll
 }
 
 // hasDisaggregatedSet reports whether the service still runs a DisaggregatedSet, which
-// moving off it deletes. Without the CRD there is none to look for.
+// moving off it deletes.
 func (r *LLMISVCReconciler) hasDisaggregatedSet(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) bool {
-	if !r.DisaggregatedSetAvailable {
-		return false
-	}
 	return r.anyExists(ctx,
 		&disaggregatedsetv1.DisaggregatedSet{ObjectMeta: metav1.ObjectMeta{Name: disaggregatedSetName(llmSvc), Namespace: llmSvc.GetNamespace()}},
 	)
@@ -233,7 +230,11 @@ func boundedChildName(parent, suffix string, maxLength int) string {
 
 // reconcileDisaggregatedSet creates or updates the DisaggregatedSet of a service that
 // runs on the DisaggregatedSet backend, and returns it as the API server returned it.
-func (r *LLMISVCReconciler) reconcileDisaggregatedSet(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*disaggregatedsetv1.DisaggregatedSet, error) {
+func (r *LLMISVCReconciler) reconcileDisaggregatedSet(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, useDisaggregatedSet bool) (*disaggregatedsetv1.DisaggregatedSet, error) {
+	if !useDisaggregatedSet {
+		return nil, r.deleteDisaggregatedSet(ctx, llmSvc)
+	}
+
 	current, err := r.currentDisaggregatedSet(ctx, llmSvc)
 	if err != nil {
 		return nil, err

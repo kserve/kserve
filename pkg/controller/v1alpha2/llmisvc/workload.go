@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-	disaggregatedsetv1 "sigs.k8s.io/lws/api/disaggregatedset/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -94,13 +93,10 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	// MigratingToDisaggregatedSet or MigratingFromDisaggregatedSet event.
 
 	// Handle disaggregated (P/D) deployments using a DisaggregatedSet
-	var disaggregatedSet *disaggregatedsetv1.DisaggregatedSet
-	if useDisaggregatedSet {
-		var err error
-		if disaggregatedSet, err = r.reconcileDisaggregatedSet(ctx, llmSvc, config); err != nil {
-			llmSvc.MarkMainWorkloadNotReady("ReconcileDisaggregatedSetError", err.Error())
-			return fmt.Errorf("failed to reconcile disaggregated set: %w", err)
-		}
+	disaggregatedSet, err := r.reconcileDisaggregatedSet(ctx, llmSvc, config, useDisaggregatedSet)
+	if err != nil {
+		llmSvc.MarkMainWorkloadNotReady("ReconcileDisaggregatedSetError", err.Error())
+		return fmt.Errorf("failed to reconcile disaggregated set: %w", err)
 	}
 
 	// Handle multi-node deployments using LeaderWorkerSets
@@ -118,12 +114,6 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	if useDisaggregatedSet {
 		// After the other workloads, which clear the conditions of the workloads they delete.
 		propagateDisaggregatedSetStatus(llmSvc, disaggregatedSet)
-	} else if r.DisaggregatedSetAvailable {
-		// Without the CRD there is no DisaggregatedSet to delete.
-		if err := r.deleteDisaggregatedSet(ctx, llmSvc); err != nil {
-			llmSvc.MarkMainWorkloadNotReady("ReconcileDisaggregatedSetError", err.Error())
-			return fmt.Errorf("failed to delete disaggregated set: %w", err)
-		}
 	}
 
 	// Create Service to expose workload pods
