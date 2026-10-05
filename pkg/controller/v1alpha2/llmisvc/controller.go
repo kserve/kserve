@@ -299,8 +299,9 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	}
 
 	logger.V(2).Info("Reconciling with combined base configurations", "combined.spec", baseCfg.Spec, "original.spec", llmSvc.Spec)
-	// Read before the merge: the presets turn DisaggregatedSet on by default, so only the
-	// service's own spec says whether it asked for it.
+	// Records whether the service itself requests the DisaggregatedSet backend, as
+	// opposed to inheriting the request from its presets. The merged spec cannot make
+	// this distinction; it is used only to warn on fallback for explicit requests.
 	disaggregatedSetExplicit := llmSvc.DisaggregatedSetRequested()
 	// Replace the spec with the merged configuration for reconciliation
 	// We are only writing to status, so we can safely use the original object.
