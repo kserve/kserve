@@ -27,7 +27,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -207,25 +206,14 @@ func deploymentSelectorLabels(identity, workloadLabels map[string]string) map[st
 var prefillDecodeRoleMinVersion = semver.New("0.11.0")
 
 // nonDisaggregatedRole returns the llm-d.ai/role label for the pods of a
-// service without prefill. currentRole is the label on the existing workload,
-// or "" if the workload is not created yet.
-//
-// An existing workload labelled "both" or "prefill-decode" keeps its label.
-// The label is part of a Deployment's selector, which cannot be changed, and
-// changing it on an LWS restarts the pods. Without this, a KServe upgrade that
-// moves the preset to router v0.11.0 would break every running Deployment.
-//
-// Otherwise the role depends on the llm-d-router version in the scheduler's
-// app.kubernetes.io/version annotation:
+// service without prefill. The role depends on the llm-d-router version in the
+// scheduler's app.kubernetes.io/version annotation:
 //   - "prefill-decode" for v0.11.0 or later,
 //   - "both" for older versions, or when the annotation is missing, the same
 //     way schedulerTransform treats a missing version as an old router.
 //
 // It returns an error if the annotation is not a valid version.
-func nonDisaggregatedRole(llmSvc *v1alpha2.LLMInferenceService, currentRole string) (string, error) {
-	if currentRole == constants.LLMDRoleBoth || currentRole == constants.LLMDRolePrefillDecode {
-		return currentRole, nil
-	}
+func nonDisaggregatedRole(llmSvc *v1alpha2.LLMInferenceService) (string, error) {
 	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
 		return constants.LLMDRoleBoth, nil
 	}
@@ -241,37 +229,6 @@ func nonDisaggregatedRole(llmSvc *v1alpha2.LLMInferenceService, currentRole stri
 		return constants.LLMDRoleBoth, nil
 	}
 	return constants.LLMDRolePrefillDecode, nil
-}
-
-// currentMainWorkloadRole returns the llm-d.ai/role label of the existing main
-// workload. For a multi-node service it reads the label of the LWS leader pods,
-// for a single-node service the label of the Deployment pods. It returns "" if
-// the workload does not exist.
-func (r *LLMISVCReconciler) currentMainWorkloadRole(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (string, error) {
-	if llmSvc.Spec.Worker != nil {
-		lws := &lwsapi.LeaderWorkerSet{}
-		key := types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: mainLWSName(llmSvc)}
-		if err := r.Get(ctx, key, lws); err != nil {
-			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
-				return "", nil
-			}
-			return "", fmt.Errorf("failed to get current leader worker set %s: %w", key, err)
-		}
-		if lws.Spec.LeaderWorkerTemplate.LeaderTemplate == nil {
-			return "", nil
-		}
-		return lws.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels[constants.LLMDRoleLabelKey], nil
-	}
-
-	d := &appsv1.Deployment{}
-	key := types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: mainDeploymentName(llmSvc)}
-	if err := r.Get(ctx, key, d); err != nil {
-		if apierrors.IsNotFound(err) {
-			return "", nil
-		}
-		return "", fmt.Errorf("failed to get current deployment %s: %w", key, err)
-	}
-	return d.Spec.Template.Labels[constants.LLMDRoleLabelKey], nil
 }
 
 func (r *LLMISVCReconciler) propagateInferencePoolRefLabelSelector(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, labels map[string]string) error {

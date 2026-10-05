@@ -89,11 +89,8 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainWorkload(ctx context.Context,
 func (r *LLMISVCReconciler) expectedSingleNodeMainDeployment(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (*appsv1.Deployment, error) {
 	role := constants.LLMDRoleDecode
 	if llmSvc.Spec.Prefill == nil {
-		currentRole, err := r.currentMainWorkloadRole(ctx, llmSvc)
-		if err != nil {
-			return nil, err
-		}
-		if role, err = nonDisaggregatedRole(llmSvc, currentRole); err != nil {
+		var err error
+		if role, err = nonDisaggregatedRole(llmSvc); err != nil {
 			return nil, err
 		}
 	}

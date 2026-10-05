@@ -154,11 +154,8 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 	}
 	role := constants.LLMDRoleDecode
 	if llmSvc.Spec.Prefill == nil {
-		currentRole, err := r.currentMainWorkloadRole(ctx, llmSvc)
-		if err != nil {
-			return nil, err
-		}
-		if role, err = nonDisaggregatedRole(llmSvc, currentRole); err != nil {
+		var err error
+		if role, err = nonDisaggregatedRole(llmSvc); err != nil {
 			return nil, err
 		}
 	}
