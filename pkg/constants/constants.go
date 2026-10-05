@@ -441,8 +441,8 @@ const (
 	LLMDRoleLabelKey = "llm-d.ai/role"
 	LLMDRoleDecode   = "decode"
 	LLMDRolePrefill  = "prefill"
-	// llm-d-router v0.11.0 no longer accepts "both"; it only remains on workloads created in old version
-	// use LLMDRolePrefillDecode to replace for newer version
+	// LLMDRoleBoth is the role of non-P/D pods for llm-d-router older than v0.11.0.
+	// From v0.11.0 on, LLMDRolePrefillDecode replaces it.
 	LLMDRoleBoth          = "both"
 	LLMDRolePrefillDecode = "prefill-decode"
 )
