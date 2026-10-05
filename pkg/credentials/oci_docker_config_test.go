@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -116,6 +116,19 @@ func TestSetOciInsecureRegistryEnv(t *testing.T) {
 		SetOciInsecureRegistryEnv(container)
 		require.Len(t, container.Env, 1)
 		assert.Equal(t, OciInsecureRegistryEnvVar, container.Env[0].Name)
+		assert.Equal(t, "true", container.Env[0].Value)
+	})
+
+	t.Run("overwrites existing false value", func(t *testing.T) {
+		container := &corev1.Container{
+			Name: "storage-initializer",
+			Env: []corev1.EnvVar{{
+				Name:  OciInsecureRegistryEnvVar,
+				Value: "false",
+			}},
+		}
+		SetOciInsecureRegistryEnv(container)
+		require.Len(t, container.Env, 1)
 		assert.Equal(t, "true", container.Env[0].Value)
 	})
 }

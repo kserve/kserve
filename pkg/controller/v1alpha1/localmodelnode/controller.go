@@ -62,10 +62,11 @@ import (
 	kserveutils "github.com/kserve/kserve/pkg/utils"
 )
 
-// errImagePullSecret is returned by launchJob when imagePullSecrets cannot be
-// validated. downloadModels maps it to ModelDownloadError and continues so
-// Status().Update still runs for other models on the node.
-var errImagePullSecret = errors.New("image pull secret validation failed")
+// errInvalidImagePullSecret is returned by launchJob when the named
+// imagePullSecret is missing or not a usable dockerconfigjson. downloadModels
+// maps it to ModelDownloadError and continues so Status().Update still runs
+// for other models on the node.
+var errInvalidImagePullSecret = errors.New("invalid image pull secret")
 
 type ensureModelRootFolderResult struct {
 	Result   ctrl.Result
@@ -184,7 +185,7 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 			reader = c.Client
 		}
 		if err := credentials.FetchAndValidateDockerConfigJSONSecret(ctx, reader, jobNs, secretName); err != nil {
-			return nil, fmt.Errorf("%w: %w", errImagePullSecret, err)
+			return nil, fmt.Errorf("%w: %w", errInvalidImagePullSecret, err)
 		}
 		credentials.MountImagePullSecretsAsDockerConfig(modelInfo.ImagePullSecrets, container, &volumes)
 	}
@@ -435,7 +436,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
 				if err != nil {
 					c.Log.Error(err, "Failed to create Job", "model", modelInfo.ModelName, "node", nodeName)
-					if errors.Is(err, errImagePullSecret) {
+					if errors.Is(err, errInvalidImagePullSecret) {
 						newStatus[statusKey] = v1alpha1.ModelDownloadError
 						processedStorageKeys[storageKey] = v1alpha1.ModelDownloadError
 						continue
@@ -467,7 +468,7 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
 				if err != nil {
 					c.Log.Error(err, "Failed to create job", "model", modelInfo.ModelName, "node", nodeName)
-					if errors.Is(err, errImagePullSecret) {
+					if errors.Is(err, errInvalidImagePullSecret) {
 						newStatus[statusKey] = v1alpha1.ModelDownloadError
 						processedStorageKeys[storageKey] = v1alpha1.ModelDownloadError
 						continue

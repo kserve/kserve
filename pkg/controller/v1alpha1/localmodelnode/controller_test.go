@@ -881,7 +881,6 @@ var _ = Describe("LocalModelNode controller", func() {
 							ModelName:      "oci-private",
 							ImagePullSecrets: []corev1.LocalObjectReference{
 								{Name: "reg-cred-a"},
-								{Name: "reg-cred-b"},
 							},
 						},
 					},

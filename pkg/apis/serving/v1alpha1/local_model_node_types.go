@@ -37,12 +37,15 @@ type LocalModelInfo struct {
 	// ServiceAccountName specifies the service account to use for credential lookup.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
-	// ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job
-	// namespace used to authenticate OCI (oci://) imports. Copied from LocalModelCache
-	// / LocalModelNamespaceCache. Only the first secret is used.
+	// ImagePullSecrets is a single kubernetes.io/dockerconfigjson secret in the
+	// download job namespace used to authenticate OCI (oci://) imports. Copied from
+	// LocalModelCache / LocalModelNamespaceCache (which already enforce MaxItems=1).
+	// The list shape matches those APIs. Combine credentials for multiple registries
+	// into one secret.
 	// +optional
 	// +listType=map
 	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=1
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// +optional
 	Storage *LocalModelStorageSpec `json:"storage,omitempty"`

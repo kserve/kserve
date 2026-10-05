@@ -19,7 +19,7 @@ Now you can specify credentials directly in the `LocalModelCache` CRD using the 
 - `serviceAccountName`: Reference a service account with attached secrets
 - `storage.key`: Reference a specific key in the storage-config secret
 - `storage.parameters`: Inline parameters for storage configuration
-- `imagePullSecrets`: `kubernetes.io/dockerconfigjson` secrets for `oci://` imports (projected as `config.json` + `KSERVE_OCI_DOCKER_CONFIG`; first secret only)
+- `imagePullSecrets`: a single `kubernetes.io/dockerconfigjson` secret for `oci://` imports (projected as `config.json` + `KSERVE_OCI_DOCKER_CONFIG`; list of at most one, matching PodSpec)
 
 Secrets and service accounts must exist in the same namespace as the download Job. They are **not** copied from the user namespace.
 
@@ -30,8 +30,10 @@ Secrets and service accounts must exist in the same namespace as the download Jo
 | `LocalModelNamespaceCache` with `pvcRef` | the cache's namespace | cache namespace |
 
 A namespaced cache with `nodeGroups` can name any dockerconfigjson Secret that already
-exists in the shared job namespace. KServe does not copy Secrets from the cache
-namespace. Prefer `pvcRef` when tenants must not share that cluster credential store.
+exists in the shared job namespace by that Secret's `metadata.name` (for example
+`reg-cred` in `localModel.jobNamespace`, typically `kserve-localmodel-jobs`). There is
+no extra ownership check. KServe does not copy Secrets from the cache namespace.
+Prefer `pvcRef` when tenants must not share that cluster credential store.
 
 Node-local download Jobs are not replaced when `imagePullSecrets` (or
 `serviceAccountName` / `storage`) change. Delete the failed or pending Job in
@@ -168,7 +170,7 @@ spec:
     - name: reg-cred
 ```
 
-Only the first secret is used. Combine credentials for multiple registries into a single dockerconfigjson secret. For plain-HTTP registries, set `storageInitializer.ociInsecureRegistry` in `inferenceservice-config` - it is cluster-wide and switches every OCI import to `http://`.
+At most one secret is admitted. Combine credentials for multiple registries into a single dockerconfigjson secret. For plain-HTTP registries, set `storageInitializer.ociInsecureRegistry` in `inferenceservice-config` - it is cluster-wide and switches every OCI import to `http://`.
 
 ### Method 4: Inline Parameters
 
@@ -221,7 +223,7 @@ storageInitializer: |-
 | `nodeGroups` | []string | Required. Node groups to cache the model on |
 | `serviceAccountName` | string | Optional. Service account for credential lookup |
 | `storage` | LocalModelStorageSpec | Optional. Storage configuration for credentials |
-| `imagePullSecrets` | []LocalObjectReference | Optional. dockerconfigjson secrets for `oci://` imports (first secret only; same namespace as the download Job) |
+| `imagePullSecrets` | []LocalObjectReference | Optional. At most one dockerconfigjson secret for `oci://` imports (same namespace as the download Job) |
 
 ### LocalModelStorageSpec
 

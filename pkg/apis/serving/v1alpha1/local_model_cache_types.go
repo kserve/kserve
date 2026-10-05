@@ -59,9 +59,10 @@ type LocalModelCacheSpec struct {
 	// The service account must exist in the download job namespace (localModel.jobNamespace).
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
-	// ImagePullSecrets are kubernetes.io/dockerconfigjson secrets in the download job
-	// namespace used to authenticate OCI (oci://) imports. Only the first secret is
-	// projected into the download container; merge multiple registries into one secret.
+	// ImagePullSecrets is a single kubernetes.io/dockerconfigjson secret in the download
+	// job namespace used to authenticate OCI (oci://) imports. The list shape matches
+	// PodSpec.imagePullSecrets; MaxItems=1 because credential merging is not supported.
+	// Combine credentials for multiple registries into one secret.
 	// Credentials from serviceAccountName and storage are not used for oci:// sources.
 	// +optional
 	// +listType=map

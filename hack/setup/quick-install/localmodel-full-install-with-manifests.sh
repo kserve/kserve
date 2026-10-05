@@ -6679,6 +6679,7 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                       type: array
+                      maxItems: 1
                       x-kubernetes-list-map-keys:
                       - name
                       x-kubernetes-list-type: map

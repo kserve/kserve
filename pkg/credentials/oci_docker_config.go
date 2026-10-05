@@ -1,5 +1,5 @@
 /*
-Copyright 2025 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -50,7 +50,10 @@ const (
 // volume (0400). Changing it here would roll every existing oci+fetch ISVC pod.
 var ociFetchDockerConfigDefaultMode = int32(0o400)
 
-// FirstNamedImagePullSecret returns the first imagePullSecret with a non-empty name.
+// FirstNamedImagePullSecret returns the first imagePullSecret with a non-empty
+// name. LocalModel cache CRs admit at most one named secret; InferenceService
+// PodSpecs can still list several, and this helper keeps that path selecting
+// a usable name.
 func FirstNamedImagePullSecret(imagePullSecrets []corev1.LocalObjectReference) (string, bool) {
 	for _, secret := range imagePullSecrets {
 		if secret.Name != "" {
@@ -90,10 +93,9 @@ func FetchAndValidateDockerConfigJSONSecret(ctx context.Context, reader client.R
 // OciFetchDockerConfigPathEnvVar (oras-py ignores DOCKER_CONFIG), so we mount it at
 // a UID-agnostic path under /mnt, not /root (UID 1000 cannot traverse /root).
 //
-//   - 0 secrets / only empty names: no-op.
-//   - 1 secret: the secret's ".dockerconfigjson" key is projected to <dir>/config.json.
-//   - >1 secrets: the first named secret is used and a warning is logged; merge multiple
-//     registries into one dockerconfigjson secret.
+// LocalModel cache CRs admit at most one named secret. InferenceService PodSpecs
+// can still list several; extra names are ignored and a warning is logged. Combine
+// credentials for multiple registries into one dockerconfigjson secret.
 func MountImagePullSecretsAsDockerConfig(
 	imagePullSecrets []corev1.LocalObjectReference,
 	container *corev1.Container,
@@ -139,13 +141,15 @@ func MountImagePullSecretsAsDockerConfig(
 }
 
 // SetOciInsecureRegistryEnv sets KSERVE_OCI_INSECURE_REGISTRY=true on the download
-// container when storageInitializer.ociInsecureRegistry is enabled. Idempotent.
+// container when storageInitializer.ociInsecureRegistry is enabled. Overwrites an
+// existing value of the same name.
 func SetOciInsecureRegistryEnv(container *corev1.Container) {
 	if container == nil {
 		return
 	}
-	for _, env := range container.Env {
-		if env.Name == OciInsecureRegistryEnvVar {
+	for i := range container.Env {
+		if container.Env[i].Name == OciInsecureRegistryEnvVar {
+			container.Env[i].Value = "true"
 			return
 		}
 	}
