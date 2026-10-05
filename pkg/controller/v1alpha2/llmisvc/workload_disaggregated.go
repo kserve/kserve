@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	disaggregatedsetv1 "sigs.k8s.io/lws/api/disaggregatedset/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
@@ -55,6 +57,12 @@ const (
 	// disaggregatedSetNotUsedReason is the event reason emitted when a service asks for
 	// the DisaggregatedSet backend but keeps its current workloads.
 	disaggregatedSetNotUsedReason = "DisaggregatedSetNotUsed"
+
+	// disaggregatedSetMigratingToReason and disaggregatedSetMigratingFromReason are the
+	// event reasons emitted when a running service moves onto or off a DisaggregatedSet.
+	// Both replace the workloads without waiting for the new pods to become ready.
+	disaggregatedSetMigratingToReason   = "MigratingToDisaggregatedSet"
+	disaggregatedSetMigratingFromReason = "MigratingFromDisaggregatedSet"
 )
 
 // Reasons for a False DisaggregatedSetUsed condition. They are part of the API.
@@ -71,10 +79,12 @@ const (
 var disaggregatedSetRoles = []string{constants.LLMDRoleDecode, constants.LLMDRolePrefill}
 
 // disaggregatedSetDecision reports whether a service runs on the DisaggregatedSet
-// backend. The zero value means the service did not ask for it. Reason and Message say
-// why a service that asked for it cannot use it.
+// backend. The zero value means the service did not ask for it. Explicit says the
+// request came from the service's own spec rather than from its presets. Reason and
+// Message say why a service that asked for it cannot use it.
 type disaggregatedSetDecision struct {
 	Requested bool
+	Explicit  bool
 	Use       bool
 	Reason    string
 	Message   string
@@ -82,14 +92,16 @@ type disaggregatedSetDecision struct {
 
 // decideDisaggregatedSet decides whether a service runs on the DisaggregatedSet
 // backend. It takes the spec after base configurations are merged, which is why these
-// checks live here rather than in admission.
-func (r *LLMISVCReconciler) decideDisaggregatedSet(llmSvc *v1alpha2.LLMInferenceService, config *Config) disaggregatedSetDecision {
+// checks live here rather than in admission. explicit reports whether the service asked
+// for the backend in its own spec, before the presets that turn it on by default were
+// merged in.
+func (r *LLMISVCReconciler) decideDisaggregatedSet(llmSvc *v1alpha2.LLMInferenceService, config *Config, explicit bool) disaggregatedSetDecision {
 	if !llmSvc.DisaggregatedSetRequested() {
 		return disaggregatedSetDecision{}
 	}
 
 	notUsed := func(reason, message string) disaggregatedSetDecision {
-		return disaggregatedSetDecision{Requested: true, Reason: reason, Message: message}
+		return disaggregatedSetDecision{Requested: true, Explicit: explicit, Reason: reason, Message: message}
 	}
 	switch {
 	case !config.FeatureGates.DisaggregatedSet:
@@ -103,25 +115,83 @@ func (r *LLMISVCReconciler) decideDisaggregatedSet(llmSvc *v1alpha2.LLMInference
 	case (disaggregatedRoleReplicas(llmSvc.Spec.Replicas) == 0) != (disaggregatedRoleReplicas(llmSvc.Spec.Prefill.Replicas) == 0):
 		return notUsed(reasonReplicasMismatch, "a DisaggregatedSet requires decode and prefill replicas to be both zero or both non-zero")
 	}
-	return disaggregatedSetDecision{Requested: true, Use: true}
+	return disaggregatedSetDecision{Requested: true, Explicit: explicit, Use: true}
 }
 
 // markDisaggregatedSetDecision records the decision in the DisaggregatedSetUsed
-// condition. The warning event is emitted only when the service newly falls back to its
-// current workloads or falls back for a different reason, not on every reconcile.
-func (r *LLMISVCReconciler) markDisaggregatedSetDecision(llmSvc *v1alpha2.LLMInferenceService, decision disaggregatedSetDecision) {
-	switch {
-	case !decision.Requested:
-		llmSvc.MarkDisaggregatedSetUsedUnset()
-	case decision.Use:
-		llmSvc.MarkDisaggregatedSetUsed()
-	default:
-		if prev := llmSvc.Status.GetCondition(v1alpha2.DisaggregatedSetUsed); prev == nil || !prev.IsFalse() || prev.Reason != decision.Reason {
-			r.Eventf(llmSvc, corev1.EventTypeWarning, disaggregatedSetNotUsedReason,
-				"%s is set but the service keeps its current workloads: %s", constants.LLMDisaggregatedSetAnnotationKey, decision.Message)
+// condition and warns when the service changes backend or cannot get the one it asked
+// for.
+//
+// A running service that moves onto or off a DisaggregatedSet gets a migration warning:
+// the switch deletes the old workloads without waiting for the new pods, so the service
+// is unavailable until they are ready. Moving off carries the reason, so it is the only
+// warning for that change.
+//
+// Otherwise, a service that asked for the backend in its own spec gets a warning when it
+// newly falls back to its current workloads or falls back for a different reason, not
+// on every reconcile. A service that only takes the default from its presets falls back
+// quietly: it did nothing to act on, and with the feature gate off by default every P/D
+// service would otherwise warn.
+func (r *LLMISVCReconciler) markDisaggregatedSetDecision(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, decision disaggregatedSetDecision) {
+	prev := llmSvc.Status.GetCondition(v1alpha2.DisaggregatedSetUsed)
+	wasUsed := prev != nil && prev.IsTrue()
+
+	if decision.Use {
+		if !wasUsed && r.hasNonDisaggregatedWorkloads(ctx, llmSvc) {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, disaggregatedSetMigratingToReason,
+				"moving the prefill and decode workloads from Deployments or LeaderWorkerSets to DisaggregatedSet %s; "+
+					"the old workloads are deleted without waiting for the new pods, so the service is unavailable until they are ready",
+				disaggregatedSetName(llmSvc))
 		}
-		llmSvc.MarkDisaggregatedSetNotUsed(decision.Reason, "%s", decision.Message)
+		llmSvc.MarkDisaggregatedSetUsed()
+		return
 	}
+
+	switch {
+	case wasUsed:
+		why := decision.Message
+		if !decision.Requested {
+			why = constants.LLMDisaggregatedSetAnnotationKey + " is no longer \"true\""
+		}
+		r.Eventf(llmSvc, corev1.EventTypeWarning, disaggregatedSetMigratingFromReason,
+			"moving the prefill and decode workloads from DisaggregatedSet %s to Deployments or LeaderWorkerSets because %s; "+
+				"the DisaggregatedSet is deleted without waiting for the new pods, so the service is unavailable until they are ready",
+			disaggregatedSetName(llmSvc), why)
+	case decision.Requested && decision.Explicit && (prev == nil || !prev.IsFalse() || prev.Reason != decision.Reason):
+		r.Eventf(llmSvc, corev1.EventTypeWarning, disaggregatedSetNotUsedReason,
+			"%s is set but the service keeps its current workloads: %s", constants.LLMDisaggregatedSetAnnotationKey, decision.Message)
+	}
+
+	if decision.Requested {
+		llmSvc.MarkDisaggregatedSetNotUsed(decision.Reason, "%s", decision.Message)
+	} else {
+		llmSvc.MarkDisaggregatedSetUsedUnset()
+	}
+}
+
+// hasNonDisaggregatedWorkloads reports whether the service still runs Deployments or
+// LeaderWorkerSets, which moving onto a DisaggregatedSet replaces. It reads the cache
+// and only runs when the service is about to start using a DisaggregatedSet. A failed
+// read counts as no workloads: it only decides whether to emit an event.
+func (r *LLMISVCReconciler) hasNonDisaggregatedWorkloads(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) bool {
+	logger := log.FromContext(ctx)
+	candidates := []client.Object{
+		&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: mainDeploymentName(llmSvc), Namespace: llmSvc.GetNamespace()}},
+		&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: prefillDeploymentName(llmSvc), Namespace: llmSvc.GetNamespace()}},
+		&lwsapi.LeaderWorkerSet{ObjectMeta: metav1.ObjectMeta{Name: mainLWSName(llmSvc), Namespace: llmSvc.GetNamespace()}},
+		&lwsapi.LeaderWorkerSet{ObjectMeta: metav1.ObjectMeta{Name: prefillLWSName(llmSvc), Namespace: llmSvc.GetNamespace()}},
+	}
+	for _, obj := range candidates {
+		err := r.Get(ctx, client.ObjectKeyFromObject(obj), obj)
+		switch {
+		case err == nil:
+			return true
+		case apierrors.IsNotFound(err) || meta.IsNoMatchError(err):
+		default:
+			logger.Error(err, "Failed to check for workloads replaced by the DisaggregatedSet", "name", obj.GetName())
+		}
+	}
+	return false
 }
 
 // disaggregatedRoleReplicas returns the replicas of a role. A DisaggregatedSet rejects

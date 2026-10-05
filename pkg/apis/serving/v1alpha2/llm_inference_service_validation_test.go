@@ -2100,10 +2100,11 @@ func TestValidateRolloutStrategy(t *testing.T) {
 func TestValidateDisaggregatedSetAnnotation(t *testing.T) {
 	validator := &LLMInferenceServiceValidator{}
 	for _, tt := range []struct {
-		name    string
-		value   *string
-		scaling bool
-		wantErr bool
+		name       string
+		value      *string
+		inMetadata bool
+		scaling    bool
+		wantErr    bool
 	}{
 		{name: "absent is valid", value: nil},
 		{name: "opted out is valid", value: ptr.To("false")},
@@ -2119,11 +2120,18 @@ func TestValidateDisaggregatedSetAnnotation(t *testing.T) {
 		{name: "unrecognised value is rejected", value: ptr.To("yes"), wantErr: true},
 		{name: "empty value is rejected", value: ptr.To(""), wantErr: true},
 		{name: "ParseBool shorthand is rejected", value: ptr.To("1"), wantErr: true},
+		// The key is read from spec.annotations only, so a value in metadata is ignored.
+		{name: "metadata annotation is not validated", value: ptr.To("yes"), inMetadata: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := newBaseLLMInferenceServiceV1Alpha2()
 			if tt.value != nil {
-				svc.Annotations = map[string]string{constants.LLMDisaggregatedSetAnnotationKey: *tt.value}
+				annotations := map[string]string{constants.LLMDisaggregatedSetAnnotationKey: *tt.value}
+				if tt.inMetadata {
+					svc.Annotations = annotations
+				} else {
+					svc.Spec.Annotations = annotations
+				}
 			}
 			if tt.scaling {
 				svc.Spec.Scaling = &ScalingSpec{}
@@ -2138,7 +2146,7 @@ func TestValidateDisaggregatedSetAnnotation(t *testing.T) {
 			}
 			require.Len(t, errs, 1)
 			assert.Equal(t, field.ErrorTypeNotSupported, errs[0].Type)
-			assert.Contains(t, errs[0].Field, constants.LLMDisaggregatedSetAnnotationKey)
+			assert.Equal(t, "spec.annotations["+constants.LLMDisaggregatedSetAnnotationKey+"]", errs[0].Field)
 		})
 	}
 }

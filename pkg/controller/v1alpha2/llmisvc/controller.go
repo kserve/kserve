@@ -299,14 +299,17 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	}
 
 	logger.V(2).Info("Reconciling with combined base configurations", "combined.spec", baseCfg.Spec, "original.spec", llmSvc.Spec)
+	// Read before the merge: the presets turn DisaggregatedSet on by default, so only the
+	// service's own spec says whether it asked for it.
+	disaggregatedSetExplicit := llmSvc.DisaggregatedSetRequested()
 	// Replace the spec with the merged configuration for reconciliation
 	// We are only writing to status, so we can safely use the original object.
 	llmSvc.Spec = baseCfg.Spec
 
 	RecordAcceleratorAnnotation(llmSvc)
 
-	disaggregatedSet := r.decideDisaggregatedSet(llmSvc, config)
-	r.markDisaggregatedSetDecision(llmSvc, disaggregatedSet)
+	disaggregatedSet := r.decideDisaggregatedSet(llmSvc, config, disaggregatedSetExplicit)
+	r.markDisaggregatedSetDecision(ctx, llmSvc, disaggregatedSet)
 	useDisaggregatedSet := useDisaggregatedSetWorkload(llmSvc, disaggregatedSet)
 
 	if err := r.reconcileWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {

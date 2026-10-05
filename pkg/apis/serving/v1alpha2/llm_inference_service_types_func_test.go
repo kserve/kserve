@@ -884,35 +884,36 @@ func TestManagedDRAContainerName(t *testing.T) {
 
 func TestDisaggregatedSetRequested(t *testing.T) {
 	tests := []struct {
-		name        string
-		llmSvc      *LLMInferenceService
-		annotations map[string]string
-		want        bool
+		name                string
+		llmSvc              *LLMInferenceService
+		specAnnotations     map[string]string
+		metadataAnnotations map[string]string
+		want                bool
 	}{
 		{name: "nil receiver", llmSvc: nil, want: false},
-		{name: "no annotations", annotations: nil, want: false},
-		{name: "unrelated annotation", annotations: map[string]string{"foo": "bar"}, want: false},
+		{name: "no annotations", specAnnotations: nil, want: false},
+		{name: "unrelated annotation", specAnnotations: map[string]string{"foo": "bar"}, want: false},
 		{
-			name:        "opted in",
-			annotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "true"},
-			want:        true,
+			name:            "opted in",
+			specAnnotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "true"},
+			want:            true,
 		},
 		{
-			name:        "opted out",
-			annotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "false"},
-			want:        false,
+			name:            "opted out",
+			specAnnotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "false"},
+			want:            false,
 		},
 		{
-			// Read from metadata, not spec.annotations, since spec.annotations are
-			// propagated onto pods.
-			name:        "spec annotations are not consulted",
-			annotations: nil,
-			want:        false,
+			// Read from spec.annotations, where the presets that turn it on by default
+			// can set it; presets cannot set the service's metadata.
+			name:                "metadata annotations are not consulted",
+			metadataAnnotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "true"},
+			want:                false,
 		},
 		{
-			name:        "malformed value is not opt-in",
-			annotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "yes"},
-			want:        false,
+			name:            "malformed value is not opt-in",
+			specAnnotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "yes"},
+			want:            false,
 		},
 	}
 
@@ -920,7 +921,10 @@ func TestDisaggregatedSetRequested(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := tt.llmSvc
 			if svc == nil && tt.name != "nil receiver" {
-				svc = &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Annotations: tt.annotations}}
+				svc = &LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{Annotations: tt.metadataAnnotations},
+					Spec:       LLMInferenceServiceSpec{WorkloadSpec: WorkloadSpec{Annotations: tt.specAnnotations}},
+				}
 			}
 			if got := svc.DisaggregatedSetRequested(); got != tt.want {
 				t.Errorf("DisaggregatedSetRequested() = %v, want %v", got, tt.want)

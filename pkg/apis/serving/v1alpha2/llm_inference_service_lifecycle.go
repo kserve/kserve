@@ -147,12 +147,13 @@ const (
 	// parent Gateway of a managed route; absent means not configured.
 	PerModelPathsDropped apis.ConditionType = "PerModelPathsDropped"
 
-	// DisaggregatedSetUsed reports whether a service that opts into the
-	// DisaggregatedSet backend runs on it. False when the service keeps its
-	// current workloads, with reason FeatureGateDisabled, CRDNotInstalled,
+	// DisaggregatedSetUsed reports whether a service that requests the
+	// DisaggregatedSet backend, by default through its P/D presets or in its own
+	// spec.annotations, runs on it. False when the service keeps its current
+	// workloads, with reason FeatureGateDisabled, CRDNotInstalled,
 	// NoPrefillWorkload, AutoscalingNotSupported or ReplicasMismatch.
 	// Independent of the Ready rollup - the current workloads keep serving.
-	// Only present when the service opts in; absent means not requested.
+	// Only present when the backend is requested; absent means not requested.
 	DisaggregatedSetUsed apis.ConditionType = "DisaggregatedSetUsed"
 )
 

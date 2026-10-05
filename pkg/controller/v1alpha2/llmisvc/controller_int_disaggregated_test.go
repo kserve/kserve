@@ -49,7 +49,8 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 		})
 	}
 
-	optIn := WithAnnotations(map[string]string{constants.LLMDisaggregatedSetAnnotationKey: "true"})
+	optIn := WithSpecAnnotations(map[string]string{constants.LLMDisaggregatedSetAnnotationKey: "true"})
+	optOut := WithSpecAnnotations(map[string]string{constants.LLMDisaggregatedSetAnnotationKey: "false"})
 
 	singleNodePD := func(name, namespace string, opts ...LLMInferenceServiceOption) *v1alpha2.LLMInferenceService {
 		return LLMInferenceService(name, append([]LLMInferenceServiceOption{
@@ -147,23 +148,44 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 
+		It("runs a P/D service on a DisaggregatedSet by default", func(ctx SpecContext) {
+			// given
+			enableDisaggregatedSetGate(ctx)
+			testNs := NewTestNamespace(ctx, envTest)
+			llmSvc := singleNodePD("ds-default", testNs.Name)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer testNs.DeleteAndWait(ctx, llmSvc)
+
+			// then
+			Expect(getDisaggregatedSet(ctx, llmSvc)).To(BeOwnedBy(llmSvc))
+			expectNotFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve", llmSvc.Namespace)
+			expectNotFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve-prefill", llmSvc.Namespace)
+			Consistently(func(ctx context.Context) *corev1.Event {
+				return findEvent(ctx, envTest.Client, llmSvc, "MigratingToDisaggregatedSet")
+			}).WithContext(ctx).WithTimeout(3*time.Second).Should(BeNil(), "a new service has nothing to migrate")
+		})
+
 		It("moves a running service onto a DisaggregatedSet and back", func(ctx SpecContext) {
 			// given
 			enableDisaggregatedSetGate(ctx)
 			testNs := NewTestNamespace(ctx, envTest)
-			llmSvc := singleNodePD("ds-migrate", testNs.Name)
+			llmSvc := singleNodePD("ds-migrate", testNs.Name, optOut)
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer testNs.DeleteAndWait(ctx, llmSvc)
 			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve", llmSvc.Namespace)
 			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve-prefill", llmSvc.Namespace)
+			expectNotFound(ctx, &disaggregatedsetv1.DisaggregatedSet{}, llmSvc.Name+"-kserve-pd", llmSvc.Namespace)
 
-			// when
-			setDisaggregatedSetAnnotation(ctx, llmSvc, "true")
+			// when the service drops its opt-out, it takes the preset default
+			removeDisaggregatedSetAnnotation(ctx, llmSvc)
 
 			// then
 			getDisaggregatedSet(ctx, llmSvc)
 			expectNotFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve", llmSvc.Namespace)
 			expectNotFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve-prefill", llmSvc.Namespace)
+			expectEvent(ctx, llmSvc, "MigratingToDisaggregatedSet")
 
 			// when
 			setDisaggregatedSetAnnotation(ctx, llmSvc, "false")
@@ -172,6 +194,7 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve", llmSvc.Namespace)
 			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve-prefill", llmSvc.Namespace)
 			expectNotFound(ctx, &disaggregatedsetv1.DisaggregatedSet{}, llmSvc.Name+"-kserve-pd", llmSvc.Namespace)
+			expectEvent(ctx, llmSvc, "MigratingFromDisaggregatedSet")
 		})
 
 		It("runs a multi-node P/D service on one DisaggregatedSet", func(ctx SpecContext) {
@@ -216,6 +239,23 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			expectNotFound(ctx, &disaggregatedsetv1.DisaggregatedSet{}, llmSvc.Name+"-kserve-pd", llmSvc.Namespace)
 		})
 
+		It("keeps the current workloads quietly when autoscaling meets the preset default", func(ctx SpecContext) {
+			// given
+			enableDisaggregatedSetGate(ctx)
+			testNs := NewTestNamespace(ctx, envTest)
+			llmSvc := singleNodePD("ds-scaling-default", testNs.Name, WithScaling(HPAScaling(1, 2)))
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer testNs.DeleteAndWait(ctx, llmSvc)
+
+			// then
+			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve", llmSvc.Namespace)
+			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve-prefill", llmSvc.Namespace)
+			expectNotUsedQuietly(ctx, llmSvc, "AutoscalingNotSupported")
+			expectNotFound(ctx, &disaggregatedsetv1.DisaggregatedSet{}, llmSvc.Name+"-kserve-pd", llmSvc.Namespace)
+		})
+
 		It("deletes the DisaggregatedSet when the service is stopped", func(ctx SpecContext) {
 			// given
 			enableDisaggregatedSetGate(ctx)
@@ -228,6 +268,9 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			// when
 			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
 				_, err := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					if llmSvc.Annotations == nil {
+						llmSvc.Annotations = map[string]string{}
+					}
 					llmSvc.Annotations[constants.StopAnnotationKey] = "true"
 					return nil
 				})
@@ -286,6 +329,22 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			expectNotUsed(ctx, llmSvc, "FeatureGateDisabled")
 			expectNotFound(ctx, &disaggregatedsetv1.DisaggregatedSet{}, llmSvc.Name+"-kserve-pd", llmSvc.Namespace)
 		})
+
+		It("keeps the current workloads quietly when only the preset asks for it", func(ctx SpecContext) {
+			// given
+			testNs := NewTestNamespace(ctx, envTest)
+			llmSvc := singleNodePD("ds-gate-off-default", testNs.Name)
+
+			// when
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer testNs.DeleteAndWait(ctx, llmSvc)
+
+			// then
+			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve", llmSvc.Namespace)
+			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve-prefill", llmSvc.Namespace)
+			expectNotUsedQuietly(ctx, llmSvc, "FeatureGateDisabled")
+			expectNotFound(ctx, &disaggregatedsetv1.DisaggregatedSet{}, llmSvc.Name+"-kserve-pd", llmSvc.Namespace)
+		})
 	})
 })
 
@@ -322,10 +381,21 @@ func setDisaggregatedSetAnnotation(ctx context.Context, llmSvc *v1alpha2.LLMInfe
 	GinkgoHelper()
 	Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		_, err := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
-			if llmSvc.Annotations == nil {
-				llmSvc.Annotations = map[string]string{}
+			if llmSvc.Spec.Annotations == nil {
+				llmSvc.Spec.Annotations = map[string]string{}
 			}
-			llmSvc.Annotations[constants.LLMDisaggregatedSetAnnotationKey] = value
+			llmSvc.Spec.Annotations[constants.LLMDisaggregatedSetAnnotationKey] = value
+			return nil
+		})
+		return err
+	})).To(Succeed())
+}
+
+func removeDisaggregatedSetAnnotation(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) {
+	GinkgoHelper()
+	Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		_, err := ctrl.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+			delete(llmSvc.Spec.Annotations, constants.LLMDisaggregatedSetAnnotationKey)
 			return nil
 		})
 		return err
@@ -350,6 +420,34 @@ func expectNotFound(ctx context.Context, obj client.Object, name, namespace stri
 // in the DisaggregatedSetUsed condition and in a warning event.
 func expectNotUsed(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reason string) {
 	GinkgoHelper()
+	expectNotUsedCondition(ctx, llmSvc, reason)
+	Eventually(func(ctx context.Context) *corev1.Event {
+		return findEvent(ctx, envTest.Client, llmSvc, "DisaggregatedSetNotUsed")
+	}).WithContext(ctx).ShouldNot(BeNil())
+}
+
+// expectNotUsedQuietly checks that the service records why it keeps its current
+// workloads in the DisaggregatedSetUsed condition without a warning event, as it does
+// when the request comes from its presets rather than from the service itself.
+func expectNotUsedQuietly(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reason string) {
+	GinkgoHelper()
+	expectNotUsedCondition(ctx, llmSvc, reason)
+	Consistently(func(ctx context.Context) *corev1.Event {
+		return findEvent(ctx, envTest.Client, llmSvc, "DisaggregatedSetNotUsed")
+	}).WithContext(ctx).WithTimeout(3 * time.Second).Should(BeNil())
+}
+
+func expectEvent(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reason string) {
+	GinkgoHelper()
+	Eventually(func(g Gomega, ctx context.Context) {
+		event := findEvent(ctx, envTest.Client, llmSvc, reason)
+		g.Expect(event).NotTo(BeNil())
+		g.Expect(event.Type).To(Equal(corev1.EventTypeWarning))
+	}).WithContext(ctx).Should(Succeed())
+}
+
+func expectNotUsedCondition(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reason string) {
+	GinkgoHelper()
 	Eventually(func(g Gomega, ctx context.Context) {
 		current := &v1alpha2.LLMInferenceService{}
 		g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
@@ -358,9 +456,6 @@ func expectNotUsed(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, re
 		g.Expect(cond.Status).To(Equal(corev1.ConditionFalse))
 		g.Expect(cond.Reason).To(Equal(reason))
 	}).WithContext(ctx).Should(Succeed())
-	Eventually(func(ctx context.Context) *corev1.Event {
-		return findEvent(ctx, envTest.Client, llmSvc, "DisaggregatedSetNotUsed")
-	}).WithContext(ctx).ShouldNot(BeNil())
 }
 
 func setStorageInitializerImage(spec *corev1.PodSpec, image string) {

@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -67,7 +68,6 @@ func disaggTestService(t *testing.T) *v1alpha2.LLMInferenceService {
 				"unapproved-label":                          "dropped",
 			},
 			Annotations: map[string]string{
-				constants.LLMDisaggregatedSetAnnotationKey:       "true",
 				"prometheus.io/scrape":                           "true",
 				"k8s.v1.cni.cncf.io/networks":                    "net",
 				"leaderworkerset.sigs.k8s.io/exclusive-topology": "rack",
@@ -77,9 +77,13 @@ func disaggTestService(t *testing.T) *v1alpha2.LLMInferenceService {
 		Spec: v1alpha2.LLMInferenceServiceSpec{
 			Model: v1alpha2.LLMModelSpec{URI: *modelURL},
 			WorkloadSpec: v1alpha2.WorkloadSpec{
-				Template:    disaggTestPod(),
-				Labels:      map[string]string{"decode-label": "d"},
-				Annotations: map[string]string{"decode-annotation": "d", AnnotationModelBasedRoutingEnabled: "true"},
+				Template: disaggTestPod(),
+				Labels:   map[string]string{"decode-label": "d"},
+				Annotations: map[string]string{
+					"decode-annotation":                        "d",
+					AnnotationModelBasedRoutingEnabled:         "true",
+					constants.LLMDisaggregatedSetAnnotationKey: "true",
+				},
 			},
 			Prefill: &v1alpha2.WorkloadSpec{
 				Template:    disaggTestPod(),
@@ -160,14 +164,14 @@ func TestDecideDisaggregatedSet(t *testing.T) {
 		{
 			name: "not requested",
 			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, _ *LLMISVCReconciler) {
-				delete(svc.Annotations, constants.LLMDisaggregatedSetAnnotationKey)
+				delete(svc.Spec.Annotations, constants.LLMDisaggregatedSetAnnotationKey)
 			},
 			wantNoReason: true,
 		},
 		{
 			name: "explicitly disabled",
 			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, _ *LLMISVCReconciler) {
-				svc.Annotations[constants.LLMDisaggregatedSetAnnotationKey] = "false"
+				svc.Spec.Annotations[constants.LLMDisaggregatedSetAnnotationKey] = "false"
 			},
 			wantNoReason: true,
 		},
@@ -222,44 +226,49 @@ func TestDecideDisaggregatedSet(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, config, r := disaggTestService(t), disaggTestConfig(), &LLMISVCReconciler{DisaggregatedSetAvailable: true}
-			tt.mutate(svc, config, r)
+		for _, explicit := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/explicit=%t", tt.name, explicit), func(t *testing.T) {
+				svc, config, r := disaggTestService(t), disaggTestConfig(), &LLMISVCReconciler{DisaggregatedSetAvailable: true}
+				tt.mutate(svc, config, r)
 
-			got := r.decideDisaggregatedSet(svc, config)
-			assert.Equal(t, tt.wantUse, got.Use)
-			assert.Equal(t, !tt.wantNoReason, got.Requested)
-			assert.Equal(t, tt.wantReason, got.Reason)
-			if tt.wantReason != "" {
-				assert.NotEmpty(t, got.Message)
-			}
-		})
+				got := r.decideDisaggregatedSet(svc, config, explicit)
+				assert.Equal(t, tt.wantUse, got.Use)
+				assert.Equal(t, !tt.wantNoReason, got.Requested)
+				assert.Equal(t, explicit && got.Requested, got.Explicit, "only a request records who made it")
+				assert.Equal(t, tt.wantReason, got.Reason)
+				if tt.wantReason != "" {
+					assert.NotEmpty(t, got.Message)
+				}
+			})
+		}
 	}
 }
 
 func TestMarkDisaggregatedSetDecision(t *testing.T) {
 	recorder := record.NewFakeRecorder(10)
-	r := &LLMISVCReconciler{EventRecorder: recorder}
+	r := disaggTestReconciler(t)
+	r.EventRecorder = recorder
 	svc := disaggTestService(t)
-	gateOff := disaggregatedSetDecision{Requested: true, Reason: reasonFeatureGateDisabled, Message: "gate off"}
-	noCRD := disaggregatedSetDecision{Requested: true, Reason: reasonCRDNotInstalled, Message: "no CRD"}
+	gateOff := disaggregatedSetDecision{Requested: true, Explicit: true, Reason: reasonFeatureGateDisabled, Message: "gate off"}
+	noCRD := disaggregatedSetDecision{Requested: true, Explicit: true, Reason: reasonCRDNotInstalled, Message: "no CRD"}
 
 	steps := []struct {
 		name       string
 		decision   disaggregatedSetDecision
 		wantStatus corev1.ConditionStatus
 		wantReason string
-		wantEvent  bool
+		wantEvent  string
 	}{
-		{name: "first fallback emits an event", decision: gateOff, wantStatus: corev1.ConditionFalse, wantReason: reasonFeatureGateDisabled, wantEvent: true},
+		{name: "first fallback emits an event", decision: gateOff, wantStatus: corev1.ConditionFalse, wantReason: reasonFeatureGateDisabled, wantEvent: disaggregatedSetNotUsedReason},
 		{name: "same fallback is quiet", decision: gateOff, wantStatus: corev1.ConditionFalse, wantReason: reasonFeatureGateDisabled},
-		{name: "new fallback reason emits an event", decision: noCRD, wantStatus: corev1.ConditionFalse, wantReason: reasonCRDNotInstalled, wantEvent: true},
-		{name: "used", decision: disaggregatedSetDecision{Requested: true, Use: true}, wantStatus: corev1.ConditionTrue},
-		{name: "fallback after use emits an event", decision: noCRD, wantStatus: corev1.ConditionFalse, wantReason: reasonCRDNotInstalled, wantEvent: true},
+		{name: "new fallback reason emits an event", decision: noCRD, wantStatus: corev1.ConditionFalse, wantReason: reasonCRDNotInstalled, wantEvent: disaggregatedSetNotUsedReason},
+		{name: "used", decision: disaggregatedSetDecision{Requested: true, Explicit: true, Use: true}, wantStatus: corev1.ConditionTrue},
+		// Leaving the backend is reported once, as a migration that carries the reason.
+		{name: "fallback after use reports the migration", decision: noCRD, wantStatus: corev1.ConditionFalse, wantReason: reasonCRDNotInstalled, wantEvent: disaggregatedSetMigratingFromReason},
 		{name: "not requested clears the condition", decision: disaggregatedSetDecision{}},
 	}
 	for _, step := range steps {
-		r.markDisaggregatedSetDecision(svc, step.decision)
+		r.markDisaggregatedSetDecision(context.Background(), svc, step.decision)
 
 		cond := svc.Status.GetCondition(v1alpha2.DisaggregatedSetUsed)
 		if step.wantStatus == "" {
@@ -268,10 +277,156 @@ func TestMarkDisaggregatedSetDecision(t *testing.T) {
 			assert.Equal(t, step.wantStatus, cond.Status, step.name)
 			assert.Equal(t, step.wantReason, cond.Reason, step.name)
 		}
-		assert.Equal(t, step.wantEvent, len(recorder.Events) == 1, step.name)
-		if len(recorder.Events) > 0 {
-			assert.Contains(t, <-recorder.Events, disaggregatedSetNotUsedReason, step.name)
+		assertEvents(t, recorder, step.name, step.wantEvent)
+	}
+}
+
+// TestDisaggregatedSetMigrationEvents covers the warning a running service gets when it
+// moves onto or off a DisaggregatedSet, which replaces its workloads without waiting for
+// the new pods to become ready.
+func TestDisaggregatedSetMigrationEvents(t *testing.T) {
+	use := disaggregatedSetDecision{Requested: true, Use: true}
+	deployment := func(name string) client.Object {
+		return &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: disaggTestNamespace}}
+	}
+	lws := func(name string) client.Object {
+		return &lwsapi.LeaderWorkerSet{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: disaggTestNamespace}}
+	}
+
+	tests := []struct {
+		name          string
+		prev          func(svc *v1alpha2.LLMInferenceService)
+		existing      func(svc *v1alpha2.LLMInferenceService) []client.Object
+		decision      disaggregatedSetDecision
+		wantEvent     string
+		wantInMessage string
+	}{
+		{
+			name:     "a new service starts on the DisaggregatedSet without a warning",
+			decision: use,
+		},
+		{
+			name: "a service on Deployments moves onto the DisaggregatedSet",
+			existing: func(svc *v1alpha2.LLMInferenceService) []client.Object {
+				return []client.Object{deployment(mainDeploymentName(svc)), deployment(prefillDeploymentName(svc))}
+			},
+			decision:      use,
+			wantEvent:     disaggregatedSetMigratingToReason,
+			wantInMessage: "unavailable",
+		},
+		{
+			name: "a service on LeaderWorkerSets moves onto the DisaggregatedSet",
+			existing: func(svc *v1alpha2.LLMInferenceService) []client.Object {
+				return []client.Object{lws(mainLWSName(svc)), lws(prefillLWSName(svc))}
+			},
+			decision:  use,
+			wantEvent: disaggregatedSetMigratingToReason,
+		},
+		{
+			name: "a service that fell back moves onto the DisaggregatedSet once it can",
+			prev: func(svc *v1alpha2.LLMInferenceService) {
+				svc.MarkDisaggregatedSetNotUsed(reasonFeatureGateDisabled, "gate off")
+			},
+			existing: func(svc *v1alpha2.LLMInferenceService) []client.Object {
+				return []client.Object{deployment(mainDeploymentName(svc))}
+			},
+			decision:  use,
+			wantEvent: disaggregatedSetMigratingToReason,
+		},
+		{
+			name:     "a service already on the DisaggregatedSet stays quiet",
+			prev:     func(svc *v1alpha2.LLMInferenceService) { svc.MarkDisaggregatedSetUsed() },
+			decision: use,
+		},
+		{
+			name:          "opting out moves the service off the DisaggregatedSet",
+			prev:          func(svc *v1alpha2.LLMInferenceService) { svc.MarkDisaggregatedSetUsed() },
+			decision:      disaggregatedSetDecision{},
+			wantEvent:     disaggregatedSetMigratingFromReason,
+			wantInMessage: constants.LLMDisaggregatedSetAnnotationKey,
+		},
+		{
+			name: "falling back moves the service off the DisaggregatedSet and says why",
+			prev: func(svc *v1alpha2.LLMInferenceService) { svc.MarkDisaggregatedSetUsed() },
+			decision: disaggregatedSetDecision{
+				Requested: true, Reason: reasonAutoscalingNotSupported, Message: "autoscaling is not supported",
+			},
+			wantEvent:     disaggregatedSetMigratingFromReason,
+			wantInMessage: "autoscaling is not supported",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := disaggTestService(t)
+			if tt.prev != nil {
+				tt.prev(svc)
+			}
+			r := disaggTestReconciler(t)
+			if tt.existing != nil {
+				for _, obj := range tt.existing(svc) {
+					require.NoError(t, r.Create(context.Background(), obj))
+				}
+			}
+			recorder := record.NewFakeRecorder(10)
+			r.EventRecorder = recorder
+
+			r.markDisaggregatedSetDecision(context.Background(), svc, tt.decision)
+
+			if tt.wantEvent == "" {
+				assert.Empty(t, recorder.Events)
+				return
+			}
+			require.Len(t, recorder.Events, 1)
+			event := <-recorder.Events
+			assert.True(t, strings.HasPrefix(event, corev1.EventTypeWarning+" "+tt.wantEvent+" "), event)
+			assert.Contains(t, event, tt.wantInMessage)
+		})
+	}
+}
+
+// assertEvents checks that the recorder holds exactly the wanted event reason, or none
+// when want is empty, and drains it.
+func assertEvents(t *testing.T, recorder *record.FakeRecorder, step, want string) {
+	t.Helper()
+	if want == "" {
+		assert.Empty(t, recorder.Events, step)
+		return
+	}
+	if assert.Len(t, recorder.Events, 1, step) {
+		assert.Contains(t, <-recorder.Events, " "+want+" ", step)
+	}
+}
+
+// TestMarkDisaggregatedSetDecisionFromPreset covers a service that takes the
+// DisaggregatedSet default from its presets rather than asking for it. Falling back is
+// recorded in the condition, but the service did nothing to act on, so no warning is
+// emitted.
+func TestMarkDisaggregatedSetDecisionFromPreset(t *testing.T) {
+	recorder := record.NewFakeRecorder(10)
+	r := disaggTestReconciler(t)
+	r.EventRecorder = recorder
+	svc := disaggTestService(t)
+
+	steps := []struct {
+		name       string
+		decision   disaggregatedSetDecision
+		wantStatus corev1.ConditionStatus
+		wantReason string
+	}{
+		{name: "fallback", decision: disaggregatedSetDecision{Requested: true, Reason: reasonFeatureGateDisabled, Message: "gate off"}, wantStatus: corev1.ConditionFalse, wantReason: reasonFeatureGateDisabled},
+		{name: "new fallback reason", decision: disaggregatedSetDecision{Requested: true, Reason: reasonAutoscalingNotSupported, Message: "scaling"}, wantStatus: corev1.ConditionFalse, wantReason: reasonAutoscalingNotSupported},
+		{name: "used", decision: disaggregatedSetDecision{Requested: true, Use: true}, wantStatus: corev1.ConditionTrue},
+	}
+	for _, step := range steps {
+		r.markDisaggregatedSetDecision(context.Background(), svc, step.decision)
+
+		cond := svc.Status.GetCondition(v1alpha2.DisaggregatedSetUsed)
+		if assert.NotNil(t, cond, step.name) {
+			assert.Equal(t, step.wantStatus, cond.Status, step.name)
+			assert.Equal(t, step.wantReason, cond.Reason, step.name)
 		}
+		assert.Empty(t, recorder.Events, step.name)
 	}
 }
 

@@ -98,9 +98,13 @@ type FeatureGates struct {
 	// (prefill/decode) services, which upgrades both roles as one coordinated unit
 	// instead of letting them roll independently.
 	//
-	// This gate alone changes nothing. A service opts in individually with the
-	// serving.kserve.io/enable-disaggregated-set annotation, and the LWS
-	// DisaggregatedSet CRD must be installed on the cluster.
+	// The P/D presets set serving.kserve.io/enable-disaggregated-set to "true" in
+	// spec.annotations, so turning the gate on moves every P/D service that does not set
+	// it to "false" onto a DisaggregatedSet, provided the LWS DisaggregatedSet CRD is
+	// installed. A running service that moves is unavailable until its new pods are
+	// ready, and gets a MigratingToDisaggregatedSet warning event. Services pinned to
+	// presets from an earlier release (see LLM_INFERENCE_SERVICE_CONFIG_PREFIX) do not
+	// carry the default and keep their workloads unless they set the annotation.
 	DisaggregatedSet bool `json:"disaggregatedSet,omitempty"`
 }
 

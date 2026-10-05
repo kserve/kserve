@@ -90,7 +90,8 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	// We need to always reconcile every type of workload to handle transitions from P/D to another topology (meaning
 	// finalizing superfluous workloads). Switching to and from a DisaggregatedSet creates the new workloads and deletes
 	// the old ones in the same reconcile without waiting for the new pods to become ready, so the service has no ready
-	// endpoints until the new pods finish loading the model.
+	// endpoints until the new pods finish loading the model. markDisaggregatedSetDecision warns about it with a
+	// MigratingToDisaggregatedSet or MigratingFromDisaggregatedSet event.
 
 	// Handle disaggregated (P/D) deployments using a DisaggregatedSet
 	var disaggregatedSet *disaggregatedsetv1.DisaggregatedSet
