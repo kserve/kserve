@@ -37,7 +37,8 @@ func (s *SchedulerSpec) InferencePoolName(llmSvc *LLMInferenceService) string {
 func (r *RouterSpec) EPPServiceName(llmSvc *LLMInferenceService) string {
 	if r != nil && r.Scheduler != nil && r.Scheduler.Pool != nil &&
 		!r.Scheduler.Pool.HasRef() &&
-		r.Scheduler.Pool.Spec != nil && r.Scheduler.Pool.Spec.EndpointPickerRef.Name != "" {
+		r.Scheduler.Pool.Spec != nil && r.Scheduler.Pool.Spec.EndpointPickerRef != nil &&
+		r.Scheduler.Pool.Spec.EndpointPickerRef.Name != "" {
 		return string(r.Scheduler.Pool.Spec.EndpointPickerRef.Name)
 	}
 	return kmeta.ChildName(llmSvc.GetName(), "-epp-service")

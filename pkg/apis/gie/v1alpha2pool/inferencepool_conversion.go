@@ -50,7 +50,7 @@ func (src *InferencePool) ConvertTo(dst *v1.InferencePool) error {
 	dst.TypeMeta = meta
 	src.ObjectMeta.DeepCopyInto(&dst.ObjectMeta)
 	dst.Spec.TargetPorts = []v1.Port{{Number: v1.PortNumber(src.Spec.TargetPortNumber)}}
-	dst.Spec.EndpointPickerRef = endpointPickRef
+	dst.Spec.EndpointPickerRef = &endpointPickRef
 	dst.Status = *v1Status
 
 	if src.Spec.Selector != nil {
@@ -67,9 +67,13 @@ func (dst *InferencePool) ConvertFrom(src *v1.InferencePool) error {
 	if src == nil {
 		return errors.New("src cannot be nil")
 	}
-	extensionRef, err := convertEndpointPickerRefFromV1(&src.Spec.EndpointPickerRef)
-	if err != nil {
-		return err
+	extensionRef := Extension{}
+	if src.Spec.EndpointPickerRef != nil {
+		converted, err := convertEndpointPickerRefFromV1(src.Spec.EndpointPickerRef)
+		if err != nil {
+			return err
+		}
+		extensionRef = converted
 	}
 	status, err := convertStatusFromV1(&src.Status)
 	if err != nil {

@@ -92,7 +92,7 @@ func TestConvertFrom_RoundTrip(t *testing.T) {
 				},
 			},
 			TargetPorts: []v1.Port{{Number: 8000}},
-			EndpointPickerRef: v1.EndpointPickerRef{
+			EndpointPickerRef: &v1.EndpointPickerRef{
 				Group:       ptr.To(v1.Group("")),
 				Kind:        v1.Kind("Service"),
 				Name:        "my-epp",

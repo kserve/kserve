@@ -26,19 +26,30 @@ package v1alpha2pool
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	upstream "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 )
 
-// Re-export shared types from upstream (still present in v1.5.0).
-// LabelKey and LabelValue are defined as concrete types (not aliases) because
-// controller-gen cannot resolve type aliases for map keys in CRD generation.
+// +kubebuilder:validation:MaxLength=253
+// +kubebuilder:validation:Pattern=`^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
 type (
-	Group      = upstream.Group
-	Kind       = upstream.Kind
-	ObjectName = upstream.ObjectName
-	Namespace  = upstream.Namespace
-	PortNumber = upstream.PortNumber
+	Group string
+
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$`
+	Kind string
+
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	ObjectName string
+
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
+	Namespace string
+
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
+	PortNumber int32
 )
 
 // +kubebuilder:validation:MinLength=1

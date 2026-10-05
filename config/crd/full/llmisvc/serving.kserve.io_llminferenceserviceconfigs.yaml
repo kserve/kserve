@@ -9690,7 +9690,6 @@ spec:
                                         - FailClose
                                       type: string
                                     group:
-                                      maxLength: 253
                                       type: string
                                     kind:
                                       maxLength: 63
@@ -35474,7 +35473,6 @@ spec:
                                   type: array
                                   x-kubernetes-list-type: atomic
                               required:
-                                - endpointPickerRef
                                 - selector
                                 - targetPorts
                               type: object

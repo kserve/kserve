@@ -2289,7 +2289,7 @@ schedulingProfiles:
 				Scheduler: &v1alpha2.SchedulerSpec{
 					Pool: &v1alpha2.InferencePoolSpec{
 						Spec: &igwapi.InferencePoolSpec{
-							EndpointPickerRef: igwapi.EndpointPickerRef{
+							EndpointPickerRef: &igwapi.EndpointPickerRef{
 								Kind:        "Service",
 								Name:        igwapi.ObjectName(kmeta.ChildName(svcName, "-epp-service")),
 								Port:        ptr.To(igwapi.Port{Number: 8080}),
