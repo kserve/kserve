@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	ctrlconfig "sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
@@ -81,32 +82,34 @@ func init() {
 }
 
 type Options struct {
-	metricsAddr           string
-	webhookPort           int
-	enableLeaderElection  bool
-	enableHTTP2           bool
-	probeAddr             string
-	metricsSecure         bool
-	metricsCertPath       string
-	migrationTimeout      time.Duration
-	migrationPollInterval time.Duration
-	tlsMinVersion         string
-	tlsCipherSuites       string
-	zapOpts               zap.Options
-	logFormat             oteljson.Format
+	metricsAddr             string
+	webhookPort             int
+	enableLeaderElection    bool
+	enableHTTP2             bool
+	probeAddr               string
+	metricsSecure           bool
+	metricsCertPath         string
+	migrationTimeout        time.Duration
+	migrationPollInterval   time.Duration
+	maxConcurrentReconciles int
+	tlsMinVersion           string
+	tlsCipherSuites         string
+	zapOpts                 zap.Options
+	logFormat               oteljson.Format
 }
 
 func DefaultOptions() Options {
 	return Options{
-		metricsAddr:           ":8443",
-		webhookPort:           9443,
-		enableLeaderElection:  false,
-		probeAddr:             ":8081",
-		metricsSecure:         true,
-		migrationTimeout:      1 * time.Hour,
-		migrationPollInterval: 30 * time.Second,
-		zapOpts:               zap.Options{},
-		logFormat:             oteljson.FormatZap,
+		metricsAddr:             ":8443",
+		webhookPort:             9443,
+		enableLeaderElection:    false,
+		probeAddr:               ":8081",
+		metricsSecure:           true,
+		migrationTimeout:        1 * time.Hour,
+		migrationPollInterval:   30 * time.Second,
+		maxConcurrentReconciles: 1,
+		zapOpts:                 zap.Options{},
+		logFormat:               oteljson.FormatZap,
 	}
 }
 
@@ -126,6 +129,7 @@ func GetOptions() Options {
 	flag.StringVar(&opts.tlsCipherSuites, "tls-cipher-suites", opts.tlsCipherSuites, "Comma-separated list of TLS cipher suites (Go names). If empty, Go defaults are used.")
 	flag.DurationVar(&opts.migrationTimeout, "storage-migration-timeout", opts.migrationTimeout, "Total retry budget for storage version migration.")
 	flag.DurationVar(&opts.migrationPollInterval, "storage-migration-poll-interval", opts.migrationPollInterval, "Polling interval for storage version migration retries after initial backoff.")
+	flag.IntVar(&opts.maxConcurrentReconciles, "max-concurrent-reconciles", opts.maxConcurrentReconciles, "Maximum number of objects each controller reconciles concurrently.")
 	opts.zapOpts.BindFlags(flag.CommandLine)
 	oteljson.BindFlags(flag.CommandLine, &opts.logFormat)
 	flag.Parse()
@@ -150,6 +154,11 @@ func main() {
 		setupLog.Info("--storage-migration-poll-interval must be positive, using default",
 			"invalid", options.migrationPollInterval, "default", defaults.migrationPollInterval)
 		options.migrationPollInterval = defaults.migrationPollInterval
+	}
+	if options.maxConcurrentReconciles <= 0 {
+		setupLog.Info("--max-concurrent-reconciles must be positive, using default",
+			"invalid", options.maxConcurrentReconciles, "default", defaults.maxConcurrentReconciles)
+		options.maxConcurrentReconciles = defaults.maxConcurrentReconciles
 	}
 
 	// Get a config to talk to the apiserver
@@ -218,6 +227,7 @@ func main() {
 		HealthProbeBindAddress: options.probeAddr,
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       "llminferenceservice-kserve-controller-manager",
+		Controller:             ctrlconfig.Controller{MaxConcurrentReconciles: options.maxConcurrentReconciles},
 		Cache: cache.Options{
 			ByObject: map[client.Object]cache.ByObject{
 				&corev1.Secret{}: {
