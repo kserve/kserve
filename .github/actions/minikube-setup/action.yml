@@ -18,6 +18,14 @@ inputs:
     description: 'Comma-separated minikube addons to enable (e.g. metallb,ingress,registry)'
     required: false
     default: ''
+  kubernetes_version:
+    description: 'Kubernetes version to use (default: v1.34.4)'
+    required: false
+    default: 'v1.34.4'
+  minikube_version:
+    description: 'Minikube version to use (default: 1.38.1)'
+    required: false
+    default: '1.38.1'
 
 runs:
   using: "composite"
@@ -25,7 +33,7 @@ runs:
     - name: Install kubectl
       uses: azure/setup-kubectl@v4.0.0
       with:
-        version: 'v1.34.4'
+        version: 'v1.37.0'
 
     # medyagh/setup-minikube chmods /etc/cni/net.d before creating it on some
     # runners; ensure the directory exists so minikube setup does not flake.
@@ -36,8 +44,8 @@ runs:
     - name: Setup Minikube
       uses: medyagh/setup-minikube@latest
       with:
-        minikube-version: '1.38.1'
-        kubernetes-version: 'v1.34.4'
+        minikube-version: ${{ inputs.minikube_version }}
+        kubernetes-version: ${{ inputs.kubernetes_version }}
         driver: ${{ inputs.driver }}
         addons: ${{ inputs.addons }}
         wait: 'all'
