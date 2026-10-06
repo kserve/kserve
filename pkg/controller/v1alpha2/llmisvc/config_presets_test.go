@@ -1028,6 +1028,106 @@ func TestDataParallelPresetsWithoutParallelism(t *testing.T) {
 	}
 }
 
+// TestDataParallelLeaderOmitsStartRank pins the launch flags that keep a multi-node
+// data-parallel group in vLLM's internal load-balancing mode. Since vLLM 0.28
+// (vllm-project/vllm#47692) any explicit --data-parallel-start-rank on a process that
+// runs API servers, rank 0 included, selects hybrid or external load balancing, and
+// both refuse the headless workers these presets start.
+func TestDataParallelLeaderOmitsStartRank(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	parallelism := func() *v1alpha2.ParallelismSpec {
+		return &v1alpha2.ParallelismSpec{Data: ptr.To[int32](4), DataLocal: ptr.To[int32](2)}
+	}
+
+	tests := []struct {
+		file   string
+		llmSvc *v1alpha2.LLMInferenceService
+		pods   func(*v1alpha2.LLMInferenceServiceConfig) (leader, worker *corev1.PodSpec)
+	}{
+		{
+			file: "config-llm-worker-data-parallel.yaml",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model:        v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+					WorkloadSpec: v1alpha2.WorkloadSpec{Parallelism: parallelism()},
+				},
+			},
+			pods: func(c *v1alpha2.LLMInferenceServiceConfig) (*corev1.PodSpec, *corev1.PodSpec) {
+				return c.Spec.Template, c.Spec.Worker
+			},
+		},
+		{
+			file: "config-llm-decode-worker-data-parallel.yaml",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model:        v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+					WorkloadSpec: v1alpha2.WorkloadSpec{Parallelism: parallelism()},
+				},
+			},
+			pods: func(c *v1alpha2.LLMInferenceServiceConfig) (*corev1.PodSpec, *corev1.PodSpec) {
+				return c.Spec.Template, c.Spec.Worker
+			},
+		},
+		{
+			file: "config-llm-prefill-worker-data-parallel.yaml",
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model:   v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+					Prefill: &v1alpha2.WorkloadSpec{Parallelism: parallelism()},
+				},
+			},
+			pods: func(c *v1alpha2.LLMInferenceServiceConfig) (*corev1.PodSpec, *corev1.PodSpec) {
+				if c.Spec.Prefill == nil {
+					return nil, nil
+				}
+				return c.Spec.Prefill.Template, c.Spec.Prefill.Worker
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.file, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Clean(filepath.Join(presetsDir, tt.file)))
+			if err != nil {
+				t.Fatalf("read %s: %v", tt.file, err)
+			}
+
+			// when
+			got, err := llmisvc.ReplaceVariables(tt.llmSvc, loadConfig(t, data, tt.file), &llmisvc.Config{})
+			if err != nil {
+				t.Fatalf("ReplaceVariables: %v", err)
+			}
+
+			// then
+			leader, worker := tt.pods(got)
+			if leader == nil || len(leader.Containers) == 0 || worker == nil || len(worker.Containers) == 0 {
+				t.Fatal("expected a leader and a worker container")
+			}
+			leaderCmd := strings.Join(leader.Containers[0].Command, " ")
+			workerCmd := strings.Join(worker.Containers[0].Command, " ")
+
+			for _, want := range []string{"exec vllm serve", "--data-parallel-size 4", "--data-parallel-size-local 2"} {
+				if !strings.Contains(leaderCmd, want) {
+					t.Errorf("leader command does not contain %q", want)
+				}
+			}
+			for _, unwanted := range []string{"--data-parallel-start-rank", "--headless"} {
+				if strings.Contains(leaderCmd, unwanted) {
+					t.Errorf("leader command should not contain %q", unwanted)
+				}
+			}
+			for _, want := range []string{"--data-parallel-start-rank $START_RANK", "--headless"} {
+				if !strings.Contains(workerCmd, want) {
+					t.Errorf("worker command does not contain %q", want)
+				}
+			}
+		})
+	}
+}
+
 // TestPresetRenderingIsIndifferentToEmptyParallelism pins the invariant behind the
 // nil-safe parallelism guards: for every shipped preset, an unset parallelism block
 // must render exactly what an empty one renders.
