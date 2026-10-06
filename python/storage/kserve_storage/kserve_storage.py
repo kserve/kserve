@@ -308,6 +308,42 @@ def _setup_oci_tls() -> None:
         os.environ["REQUESTS_CA_BUNDLE"] = ca_cert
 
 
+# Hostnames that all refer to Docker Hub. docker CLI / kubectl create secret
+# docker-registry typically store Hub credentials under https://index.docker.io/v1/
+# rather than "docker.io", so URI hosts and config.json keys often disagree.
+_DOCKER_HUB_HOSTS = frozenset({"docker.io", "index.docker.io", "registry-1.docker.io"})
+_DOCKER_HUB_AUTH_KEYS = (
+    "https://index.docker.io/v1/",
+    "https://index.docker.io/v2/",
+    "index.docker.io",
+    "https://index.docker.io",
+    "registry-1.docker.io",
+    "https://registry-1.docker.io",
+    "docker.io",
+    "https://docker.io",
+)
+
+
+def _docker_config_auth_keys(registry: str) -> list[str]:
+    """Candidate auths[] keys for a registry hostname (with optional :port).
+
+    Always tries the literal registry, https://<registry>, and the hostname
+    without port. For Docker Hub, also tries the index.docker.io forms that
+    `docker login` writes into config.json.
+    """
+    host = registry.split(":", 1)[0]
+    keys = [registry, f"https://{registry}", host]
+    if host in _DOCKER_HUB_HOSTS:
+        keys.extend(_DOCKER_HUB_AUTH_KEYS)
+    seen: set[str] = set()
+    out: list[str] = []
+    for key in keys:
+        if key not in seen:
+            seen.add(key)
+            out.append(key)
+    return out
+
+
 def _login_from_docker_config(
     client: "oras.client.OrasClient",
     target: str,
@@ -338,9 +374,8 @@ def _login_from_docker_config(
         return
     # Resolve the target's registry hostname (first path segment)
     registry = target.split("/", 1)[0]
-    # Try multiple lookup keys docker config can use
     entry = None
-    for key in (registry, f"https://{registry}", registry.split(":", 1)[0]):
+    for key in _docker_config_auth_keys(registry):
         entry = auths.get(key)
         if entry:
             break

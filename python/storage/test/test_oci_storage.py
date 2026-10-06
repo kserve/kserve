@@ -28,6 +28,7 @@ from kserve_storage.kserve_storage import (
     _OCI_DOCKER_CONFIG_PATH_ENV,
     _OCI_INSECURE_REGISTRY_ENV,
     _detect_goarch,
+    _docker_config_auth_keys,
     _login_from_docker_config,
     _oci_auth_backend_from_www_authenticate,
     _oci_auth_backend_for_registry,
@@ -600,6 +601,31 @@ def test_oci_login_from_docker_config(tmp_path):
     client.login.assert_called_once_with(
         username="alice", password="s3cret", hostname="registry.io"
     )
+
+
+def test_oci_login_docker_hub_index_key(tmp_path):
+    """CLI-generated secrets key Hub creds as https://index.docker.io/v1/ while
+    oci:// URIs use docker.io — login must still succeed."""
+    cfg = tmp_path / "config.json"
+    token = base64.b64encode(b"alice:s3cret").decode("utf-8")
+    cfg.write_text(
+        json.dumps({"auths": {"https://index.docker.io/v1/": {"auth": token}}})
+    )
+
+    client = mock.MagicMock()
+    _login_from_docker_config(client, "docker.io/ns/model:v1", str(cfg))
+
+    client.login.assert_called_once_with(
+        username="alice", password="s3cret", hostname="docker.io"
+    )
+
+
+def test_docker_config_auth_keys_hub_aliases():
+    keys = _docker_config_auth_keys("docker.io")
+    assert "https://index.docker.io/v1/" in keys
+    assert "https://index.docker.io/v2/" in keys
+    # Non-Hub registries must not pick up Hub-only aliases.
+    assert "https://index.docker.io/v1/" not in _docker_config_auth_keys("quay.io")
 
 
 def test_oci_login_insecure_skips_tls_verify(tmp_path, monkeypatch):
