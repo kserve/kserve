@@ -58,6 +58,37 @@ const AnnotationInferencePoolMigrated = "serving.kserve.io/inference-pool-migrat
 
 const AnnotationModelBasedRoutingEnabled = "serving.kserve.io/model-based-routing-enabled"
 
+// AnnotationModelBasedRoutingOnly leaves model-based routing as the only way a
+// managed HTTPRoute reaches the model: the per-model path matches
+// (/{namespace}/{name}/... and /publishers/{namespace}/models/{model}/...) are
+// dropped. Externally referenced routes are never changed. It is read from two
+// places:
+//   - the service's spec.annotations, where a true or false value decides for
+//     that service, so a preset or the service owner can opt in alone or opt
+//     out of a Gateway-wide setting;
+//   - the parent Gateways' metadata.annotations, consulted otherwise: every
+//     parent Gateway of the route has to set it to true, because the route is
+//     shared and one Gateway's setting would otherwise break path URLs on the
+//     others.
+//
+// Values are read with strconv.ParseBool, unlike the exact "true" that
+// AnnotationModelBasedRoutingEnabled requires; an empty value counts as unset.
+//
+// It needs model-based routing to be active for the service: the workload
+// preset has to set AnnotationModelBasedRoutingEnabled, which marks a runtime
+// that serves the publisher-qualified model name. Otherwise the model-routing
+// matches are stripped first, and a route without model-routing matches keeps
+// its paths, so a route never loses both. The PerModelPathsDropped condition
+// reports the outcome.
+const AnnotationModelBasedRoutingOnly = "serving.kserve.io/model-based-routing-only"
+
+// routingSpecAnnotations are spec.annotations keys the router reads that are
+// kept off the workload Service and pod templates, where changing them would
+// roll the pods. A key can only join before it ships: dropping one that pod
+// templates already carry changes their hash and rolls every workload that has
+// it on upgrade.
+var routingSpecAnnotations = []string{AnnotationModelBasedRoutingEnabled, AnnotationModelBasedRoutingOnly, AnnotationLoRAModelRoutingStrategy}
+
 // AnnotationLoRAModelRoutingStrategy pins the LoRA routing strategy for one
 // service, overriding the cluster-wide loraModelRoutingStrategy. Read from
 // spec.annotations like AnnotationModelBasedRoutingEnabled, so a preset can
@@ -118,8 +149,10 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 			// The strategy the ConfigMap names cannot be applied to this spec.
 			// Retrying re-renders the same inputs, so stop until one of them changes:
 			// the spec and ConfigMap watches re-enqueue the service, and the terminal
-			// error still surfaces through the reconcile log and event.
-			llmSvc.MarkHTTPRoutesNotReady("RoutingPreconditionNotMet", "%s", err.Error())
+			// error still surfaces through the reconcile log and event. The render
+			// failed before any write, so a route from an earlier reconcile still
+			// routes as before; a new service has none.
+			llmSvc.MarkHTTPRoutesNotReady("RoutingPreconditionNotMet", "%s; any existing HTTPRoute keeps its previous matches", err.Error())
 			return reconcile.TerminalError(fmt.Errorf("failed to reconcile HTTP routes: %w", err))
 		}
 		if apierrors.IsInvalid(err) {
@@ -164,6 +197,7 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 
 	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Route == nil {
 		llmSvc.MarkGroupReadyUnset()
+		llmSvc.MarkPerModelPathsDroppedUnset()
 		if _, err := r.updateRoutingStatus(ctx, llmSvc); err != nil {
 			return nil, err
 		}
@@ -179,6 +213,17 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 	// may run against an incomplete spec.
 	if renderErr != nil {
 		return nil, fmt.Errorf("failed to render HTTPRoute: %w", renderErr)
+	}
+
+	// Before group injection: it keeps a rule on the service's own backend when
+	// any of its matches is a per-model path, so stripping afterwards would
+	// change which rules get the weighted group backends.
+	var perModelPaths perModelPathsDecision
+	if llmSvc.Spec.Router.Route.HTTP.HasSpec() {
+		var err error
+		if perModelPaths, err = r.applyModelBasedRoutingOnly(ctx, llmSvc, cfg, expectedHTTPRoute); err != nil {
+			return nil, fmt.Errorf("failed to render HTTPRoute: %w", err)
+		}
 	}
 
 	// Inject group members' backendRefs for traffic splitting.
@@ -240,6 +285,11 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 		}
 		referencedRoutes = append(referencedRoutes, expectedHTTPRoute)
 	}
+
+	// After the route write, so the condition describes the stored route; any
+	// earlier return leaves the previous value, as the stored route is
+	// unchanged. The zero value clears it for externally referenced routes.
+	perModelPaths.markOn(llmSvc)
 
 	// Apply group status after the route write so status reflects committed state.
 	if groupMatching != nil {

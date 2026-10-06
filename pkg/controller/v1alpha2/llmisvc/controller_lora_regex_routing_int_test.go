@@ -264,11 +264,17 @@ var _ = Describe("LoRA model routing strategy", func() {
 			// failure, and a route the API server rejects (the pattern past the
 			// 4096-character header limit).
 			reason := "InvalidHTTPRoute"
+			message := ContainSubstring("HTTPRoute")
 			update(ctx, svc, func(current *v1alpha2.LLMInferenceService) {
 				current.Spec.Replicas = ptr.To[int32](2)
 				switch failure {
 				case "unrecognized-model-match":
 					reason = "RoutingPreconditionNotMet"
+					// The reader may not have chosen regex: the message names the
+					// per-service way back and that routing is unchanged.
+					message = SatisfyAll(message,
+						ContainSubstring(`set spec.annotations[`+llmisvc.AnnotationLoRAModelRoutingStrategy+`] to "exact"`),
+						ContainSubstring("any existing HTTPRoute keeps its previous matches"))
 					current.Spec.Router.Route.HTTP = unrecognizedModelMatchRoute(ns.Name)
 				case "oversized-pattern":
 					for i := range 9 {
@@ -284,7 +290,7 @@ var _ = Describe("LoRA model routing strategy", func() {
 				g.Expect(condition).NotTo(BeNil())
 				g.Expect(condition.IsFalse()).To(BeTrue())
 				g.Expect(condition.Reason).To(Equal(reason))
-				g.Expect(condition.Message).To(ContainSubstring("HTTPRoute"))
+				g.Expect(condition.Message).To(message)
 				deployment := &appsv1.Deployment{}
 				g.Expect(envTest.Get(ctx, client.ObjectKey{Namespace: ns.Name, Name: svc.Name + "-kserve"}, deployment)).To(Succeed())
 				g.Expect(ptr.Deref(deployment.Spec.Replicas, 0)).To(Equal(int32(2)))
@@ -341,6 +347,14 @@ var _ = Describe("LoRA model routing strategy", func() {
 		eventuallyManagedRoute(ctx, inherited, func(g Gomega, route *gwapiv1.HTTPRoute) {
 			g.Expect(route).To(HaveHeaderMatch(headerName, loraRegexPattern(ns.Name, "adapter")))
 		})
+
+		// The strategy only shapes the route, so it stays off the pod template
+		// and changing it never rolls the workload.
+		deployment := &appsv1.Deployment{}
+		Eventually(func(g Gomega, ctx context.Context) {
+			g.Expect(envTest.Get(ctx, types.NamespacedName{Name: pinned.Name + "-kserve", Namespace: ns.Name}, deployment)).To(Succeed())
+		}).WithContext(ctx).Should(Succeed())
+		Expect(deployment.Spec.Template.Annotations).NotTo(HaveKey(llmisvc.AnnotationLoRAModelRoutingStrategy))
 	})
 
 	It("should not rewrite the route when adapters are reordered", func(ctx SpecContext) {

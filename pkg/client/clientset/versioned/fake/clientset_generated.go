@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -75,7 +75,7 @@ type Clientset struct {
 	tracker   testing.ObjectTracker
 }
 
-func (c *Clientset) Discovery() discovery.DiscoveryInterface {
+func (c *Clientset) Discovery() discovery.DiscoveryInterfaces {
 	return c.discovery
 }
 

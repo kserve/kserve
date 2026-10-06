@@ -180,6 +180,18 @@ func (s *LLMInferenceService) HasManagedDRA() bool {
 	return kservevalidation.HasManagedDRA(s.Annotations)
 }
 
+// DisaggregatedSetRequested reports whether this service asks for the DisaggregatedSet
+// workload backend via annotation.
+//
+// A request is not sufficient on its own: the DisaggregatedSet feature gate must be on
+// and the DisaggregatedSet CRD must be installed. The controller combines all three.
+func (s *LLMInferenceService) DisaggregatedSetRequested() bool {
+	if s == nil {
+		return false
+	}
+	return kservevalidation.DisaggregatedSetEnabled(s.Annotations)
+}
+
 // ManagedDRADeviceClass returns the trimmed device-class annotation value and
 // whether it is set.
 func (s *LLMInferenceService) ManagedDRADeviceClass() (string, bool) {

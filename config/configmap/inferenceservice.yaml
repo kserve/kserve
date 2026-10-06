@@ -559,7 +559,7 @@ data:
              "propagate": [
                 "Authorization",
                 "Test-Header-*",
-                "*Trace-Id*"
+                ".*Trace-Id.*"
              ]
            }
 
@@ -666,10 +666,10 @@ data:
          "enabled": false,
          # defaultSidecarInjection controls MCV injection when a workload does not override it.
          "defaultSidecarInjection": true,
-         # defaultMountType is used when KernelCache does not specify a mount type.
+         # defaultMountType is used when KernelCache does not specify a mount type.(Currently, only OCI is supported)
          "defaultMountType": "oci",
-         # defaultNodeGroup selects the KernelCacheNodeGroup for automatically created KernelCaches.
-         # Set it to an empty value when every workload must select a node group explicitly.
+         #defaultNodeGroup specifies the NodeGroup to use when no NodeGroup matches the workload.
+         # If empty and no NodeGroup matches, the KernelCache is not created.
          "defaultNodeGroup": "",
          # jobNamespace is the pre-created namespace where kernel cache preparation Jobs are created.
          "jobNamespace": "kserve-kernelcache-jobs",
@@ -677,12 +677,35 @@ data:
          "mcvImage": "kserve/kserve-mcv:latest-minimal",
          # prefetchImage is the lightweight image used by OCI prefetch Jobs.
          "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+         # registry defines the OCI registry used by capture and prefetch.
+         "registry": {
+           # endpoint is required to identify the registry used by capture and prefetch operations.
+           # insecure defaults to false. Set it to true only for an HTTP registry.
+           # caConfigMapRef optionally references a ConfigMap key containing the registry CA.
+           "auth": {
+             # type is none or serviceAccountToken. The default is none.
+             # none does not provision registry credentials.
+             # serviceAccountToken uses the Kubernetes TokenRequest API for short-lived credentials.
+             "type": "none"
+             # tokenTTLSeconds, pushRoleRef, and pullRoleRef are used with serviceAccountToken.
+           }
+         },
+         # artifactSecurity controls signing after capture and verification before preparation.
+         "artifactSecurity": {
+           "mode": "cert",
+           "failurePolicy": "reject",
+           "cert": {
+             "signingProfileRef": "kernelcache-signer",
+             "trustBundle": "kserve/kernelcache-root-ca",
+             "subjectRegexp": "spiffe://kserve/kernelcache-signer"
+           }
+         },
          # abandonedCapturePolicy controls generated captures whose producer Pod disappears
          # before completion. Supported values are retain and delete.
          "abandonedCapturePolicy": "retain",
-         # jobTTLSecondsAfterFinished controls how long completed preparation Jobs are retained.
+         # jobTTLSecondsAfterFinished controls how long completed preparation Jobs(Downloading OCI image to the node) are retained.
          "jobTTLSecondsAfterFinished": 600,
-         # mcvCaptureReadinessTimeoutSeconds limits how long the MCV capture sidecar waits for workload readiness.
+         # mcvCaptureReadinessTimeoutSeconds limits how long MCV waits for runtime readiness before capture. Larger models may require a longer timeout.
          "mcvCaptureReadinessTimeoutSeconds": 600,
          # reconcileIntervalSeconds controls KCN status reconciliation.
          # Periodic Node image validation uses the node agent's internal interval.
@@ -709,7 +732,8 @@ data:
         "enableModelcar": true,
         "cpuModelcar": "10m",
         "memoryModelcar": "15Mi",
-        "uidModelcar": 1010
+        "uidModelcar": 1010,
+        "modelVolumeSource": null
     }
 
   credentials: |-
@@ -821,6 +845,20 @@ data:
       "jobNamespace": "kserve-kernelcache-jobs",
       "mcvImage": "kserve/kserve-mcv:latest-minimal",
       "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+      "registry": {
+        "auth": {
+          "type": "none"
+        }
+      },
+      "artifactSecurity": {
+        "mode": "cert",
+        "failurePolicy": "reject",
+        "cert": {
+          "signingProfileRef": "kernelcache-signer",
+          "trustBundle": "kserve/kernelcache-root-ca",
+          "subjectRegexp": "spiffe://kserve/kernelcache-signer"
+        }
+      },
       "abandonedCapturePolicy": "retain",
       "jobTTLSecondsAfterFinished": 600,
       "mcvCaptureReadinessTimeoutSeconds": 600,

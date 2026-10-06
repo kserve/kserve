@@ -2096,3 +2096,49 @@ func TestValidateRolloutStrategy(t *testing.T) {
 		assert.Contains(t, errs[0].Field, "maxUnavailable")
 	})
 }
+
+func TestValidateDisaggregatedSetAnnotation(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	for _, tt := range []struct {
+		name    string
+		value   *string
+		scaling bool
+		wantErr bool
+	}{
+		{name: "absent is valid", value: nil},
+		{name: "opted out is valid", value: ptr.To("false")},
+		{name: "opted in is valid", value: ptr.To("true")},
+		{name: "case-insensitive", value: ptr.To("True")},
+		{name: "trimmed value is valid", value: ptr.To("  true  ")},
+		// Admission checks the annotation's shape only. It cannot read the feature
+		// gate, and presets merged after admission can still add spec.scaling, so
+		// opting in alongside scaling must be admitted here and constrained by the
+		// reconciler instead.
+		{name: "opted in with scaling is admitted", value: ptr.To("true"), scaling: true},
+		// The contract is exactly true/false, narrower than strconv.ParseBool.
+		{name: "unrecognised value is rejected", value: ptr.To("yes"), wantErr: true},
+		{name: "empty value is rejected", value: ptr.To(""), wantErr: true},
+		{name: "ParseBool shorthand is rejected", value: ptr.To("1"), wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceServiceV1Alpha2()
+			if tt.value != nil {
+				svc.Annotations = map[string]string{constants.LLMDisaggregatedSetAnnotationKey: *tt.value}
+			}
+			if tt.scaling {
+				svc.Spec.Scaling = &ScalingSpec{}
+				svc.Spec.Prefill = &WorkloadSpec{Scaling: &ScalingSpec{}}
+			}
+
+			errs := validator.validateDisaggregatedSetAnnotation(svc)
+
+			if !tt.wantErr {
+				require.Empty(t, errs)
+				return
+			}
+			require.Len(t, errs, 1)
+			assert.Equal(t, field.ErrorTypeNotSupported, errs[0].Type)
+			assert.Contains(t, errs[0].Field, constants.LLMDisaggregatedSetAnnotationKey)
+		})
+	}
+}

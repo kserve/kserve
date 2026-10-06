@@ -33,11 +33,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
+	kernelcachecontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/kernelcache"
 	localmodelcontroller "github.com/kserve/kserve/pkg/controller/v1alpha1/localmodel"
+	kservemetrics "github.com/kserve/kserve/pkg/metrics"
 	"github.com/kserve/kserve/pkg/oteljson"
 	kservescheme "github.com/kserve/kserve/pkg/scheme"
+	kernelcachewebhook "github.com/kserve/kserve/pkg/webhook/admission/kernelcache"
 	localmodelwebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelcache"
 	localmodelnamespacecachewebhook "github.com/kserve/kserve/pkg/webhook/admission/localmodelnamespacecache"
 )
@@ -54,6 +59,8 @@ type Options struct {
 	webhookPort          int
 	enableLeaderElection bool
 	probeAddr            string
+	metricsSecure        bool
+	metricsCertPath      string
 	tlsMinVersion        string
 	tlsCipherSuites      string
 	zapOpts              zap.Options
@@ -81,6 +88,8 @@ func GetOptions() Options {
 		"Enable leader election for kserve controller manager. "+
 			"Enabling this will ensure there is only one active kserve controller manager.")
 	flag.StringVar(&opts.probeAddr, "health-probe-addr", opts.probeAddr, "The address the probe endpoint binds to.")
+	flag.BoolVar(&opts.metricsSecure, "metrics-secure", opts.metricsSecure, "Serve metrics over HTTPS with Kubernetes authentication and authorization.")
+	flag.StringVar(&opts.metricsCertPath, "metrics-cert-path", opts.metricsCertPath, "Directory containing tls.crt and tls.key for the metrics server. If empty, self-signed certificates are generated.")
 	flag.StringVar(&opts.tlsMinVersion, "tls-min-version", opts.tlsMinVersion, "Minimum TLS version (VersionTLS12, VersionTLS13). Defaults to VersionTLS12.")
 	flag.StringVar(&opts.tlsCipherSuites, "tls-cipher-suites", opts.tlsCipherSuites, "Comma-separated list of TLS cipher suites (Go names). If empty, Go defaults are used.")
 	opts.zapOpts.BindFlags(flag.CommandLine)
@@ -119,11 +128,19 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	setupLog.Info("Setting up manager")
+	metricsServerOptions, err := kservemetrics.ConfigureServerOptions(metricsserver.Options{
+		BindAddress:   options.metricsAddr,
+		SecureServing: options.metricsSecure,
+		CertDir:       options.metricsCertPath,
+		TLSOpts:       tlsOpts,
+	})
+	if err != nil {
+		setupLog.Error(err, "unable to configure metrics server")
+		os.Exit(1)
+	}
+
 	mgr, err := manager.New(cfg, manager.Options{
-		Metrics: metricsserver.Options{
-			BindAddress: options.metricsAddr,
-			TLSOpts:     tlsOpts,
-		},
+		Metrics: metricsServerOptions,
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port:    options.webhookPort,
 			TLSOpts: tlsOpts,
@@ -171,6 +188,48 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Setup KernelCache capture identity and status controllers.
+	setupLog.Info("Setting up v1alpha1 KernelCache capture controller")
+	if err = (&kernelcachecontroller.KernelCacheCaptureControllerReconciler{
+		Client:                 mgr.GetClient(),
+		Clientset:              clientSet,
+		Reader:                 mgr.GetAPIReader(),
+		OperatorNamespace:      constants.KServeNamespace,
+		OperatorServiceAccount: "kserve-localmodel-controller-manager",
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCacheCapture")
+		os.Exit(1)
+	}
+	if err = (&kernelcachecontroller.KernelCacheCaptureReconciler{
+		Client: mgr.GetClient(),
+		Reader: mgr.GetAPIReader(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCacheCapture")
+		os.Exit(1)
+	}
+
+	// Setup KernelCacheNode lifecycle controller.
+	setupLog.Info("Setting up v1alpha1 KernelCacheNode controller")
+	if err = (&kernelcachecontroller.KernelCacheNodeReconciler{
+		Client: mgr.GetClient(),
+		Reader: mgr.GetAPIReader(),
+		Log:    ctrl.Log.WithName("v1alpha1Controllers").WithName("KernelCacheNode"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCacheNode")
+		os.Exit(1)
+	}
+
+	// Setup KernelCache preparation and aggregation controller.
+	setupLog.Info("Setting up v1alpha1 KernelCache controller")
+	if err = (&kernelcachecontroller.KernelCacheReconciler{
+		Client: mgr.GetClient(),
+		Reader: mgr.GetAPIReader(),
+		Log:    ctrl.Log.WithName("v1alpha1Controllers").WithName("KernelCache"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "v1alpha1Controllers", "KernelCache")
+		os.Exit(1)
+	}
+
 	// Setup webhook
 	setupLog.Info("setting up webhook server")
 	if err = ctrl.NewWebhookManagedBy(mgr, &v1alpha1.LocalModelCache{}).
@@ -186,6 +245,21 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "LocalModelNamespaceCache")
 		os.Exit(1)
 	}
+
+	setupLog.Info("registering KernelCache pod mutating webhook")
+	mgr.GetWebhookServer().Register("/mutate-kernelcache-pods", &webhook.Admission{
+		Handler: &kernelcachewebhook.PodMutator{
+			Client:    mgr.GetClient(),
+			Reader:    mgr.GetAPIReader(),
+			Clientset: clientSet,
+			Decoder:   admission.NewDecoder(mgr.GetScheme()),
+		},
+	})
+	mgr.GetWebhookServer().Register("/validate-kernelcachecapture-status", &webhook.Admission{
+		Handler: &kernelcachewebhook.CaptureStatusValidator{
+			Decoder: admission.NewDecoder(mgr.GetScheme()),
+		},
+	})
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

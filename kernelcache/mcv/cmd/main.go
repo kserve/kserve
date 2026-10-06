@@ -34,6 +34,7 @@ import (
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/imgbuild"
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/logformat"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/registryauth"
 	cachesnapshot "github.com/kserve/kserve/kernelcache/mcv/pkg/snapshot"
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/utils"
 )
@@ -242,7 +243,7 @@ func validateFlagCombinations(createFlag, extractFlag, snapshotFlag, gpuInfoFlag
 
 	// Validate imageName against imageNameRegex
 	if imageName != "" {
-		_, err := name.ParseReference(imageName, name.StrictValidation)
+		_, err := name.ParseReference(imageName, registryauth.ReferenceOptions(true)...)
 		if err != nil {
 			return fmt.Errorf("error validating image name: %w", err)
 		}

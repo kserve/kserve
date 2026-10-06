@@ -31,7 +31,6 @@ from kubernetes.client import V1ContainerPort
 import pytest
 from ..common.utils import is_model_ready, predict_isvc
 from ..common.utils import (
-    KSERVE_TEST_NAMESPACE,
     INFERENCESERVICE_CONTAINER,
     TRANSFORMER_CONTAINER,
     STORAGE_URI_ENV,
@@ -40,7 +39,7 @@ from ..common.utils import (
 
 @pytest.mark.collocation
 @pytest.mark.asyncio(scope="session")
-async def test_transformer_collocation(rest_v1_client, network_layer):
+async def test_transformer_collocation(rest_v1_client, network_layer, test_namespace):
     service_name = "custom-model-transformer-collocation"
     model_name = "mnist"
     predictor = V1beta1PredictorSpec(
@@ -94,9 +93,7 @@ async def test_transformer_collocation(rest_v1_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -105,25 +102,30 @@ async def test_transformer_collocation(rest_v1_client, network_layer):
     )
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     except RuntimeError as e:
         print(
             kserve_client.api_instance.get_namespaced_custom_object(
                 "serving.knative.dev",
                 "v1",
-                KSERVE_TEST_NAMESPACE,
+                test_namespace,
                 "services",
                 service_name + "-predictor",
             )
         )
         pods = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
             print(pod)
         raise e
-    is_ready = await is_model_ready(rest_v1_client, service_name, model_name) is True
+    is_ready = (
+        await is_model_ready(
+            rest_v1_client, service_name, model_name, namespace=test_namespace
+        )
+        is True
+    )
     assert is_ready is True
     res = await predict_isvc(
         rest_v1_client,
@@ -131,14 +133,16 @@ async def test_transformer_collocation(rest_v1_client, network_layer):
         "./data/transformer.json",
         model_name=model_name,
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"][0] == 2
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.collocation
 @pytest.mark.asyncio(scope="session")
-async def test_transformer_collocation_runtime(rest_v1_client, network_layer):
+async def test_transformer_collocation_runtime(
+    rest_v1_client, network_layer, test_namespace
+):
     service_name = "custom-model-trans-collocation-runtime"
     model_name = "mnist"
     predictor = V1beta1PredictorSpec(
@@ -182,9 +186,7 @@ async def test_transformer_collocation_runtime(rest_v1_client, network_layer):
     isvc = V1beta1InferenceService(
         api_version=constants.KSERVE_V1BETA1,
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
-        metadata=client.V1ObjectMeta(
-            name=service_name, namespace=KSERVE_TEST_NAMESPACE
-        ),
+        metadata=client.V1ObjectMeta(name=service_name, namespace=test_namespace),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
     )
 
@@ -193,25 +195,30 @@ async def test_transformer_collocation_runtime(rest_v1_client, network_layer):
     )
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     except RuntimeError as e:
         print(
             kserve_client.api_instance.get_namespaced_custom_object(
                 "serving.knative.dev",
                 "v1",
-                KSERVE_TEST_NAMESPACE,
+                test_namespace,
                 "services",
                 service_name + "-predictor",
             )
         )
         pods = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
             print(pod)
         raise e
-    is_ready = await is_model_ready(rest_v1_client, service_name, model_name) is True
+    is_ready = (
+        await is_model_ready(
+            rest_v1_client, service_name, model_name, namespace=test_namespace
+        )
+        is True
+    )
     assert is_ready is True
     res = await predict_isvc(
         rest_v1_client,
@@ -219,14 +226,16 @@ async def test_transformer_collocation_runtime(rest_v1_client, network_layer):
         "./data/transformer.json",
         model_name=model_name,
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"][0] == 2
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_raw_transformer_collocation(rest_v1_client, network_layer):
+async def test_raw_transformer_collocation(
+    rest_v1_client, network_layer, test_namespace
+):
     suffix = str(uuid.uuid4())[1:6]
     service_name = "raw-custom-model-collocation-" + suffix
     model_name = "mnist"
@@ -281,7 +290,7 @@ async def test_raw_transformer_collocation(rest_v1_client, network_layer):
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=test_namespace,
             annotations={"serving.kserve.io/deploymentMode": "Standard"},
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
@@ -292,19 +301,19 @@ async def test_raw_transformer_collocation(rest_v1_client, network_layer):
     )
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     except RuntimeError as e:
         print(
             kserve_client.api_instance.get_namespaced_custom_object(
                 "serving.knative.dev",
                 "v1",
-                KSERVE_TEST_NAMESPACE,
+                test_namespace,
                 "services",
                 service_name + "-predictor",
             )
         )
         pods = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
@@ -312,7 +321,11 @@ async def test_raw_transformer_collocation(rest_v1_client, network_layer):
         raise e
     is_ready = (
         await is_model_ready(
-            rest_v1_client, service_name, model_name, network_layer=network_layer
+            rest_v1_client,
+            service_name,
+            model_name,
+            network_layer=network_layer,
+            namespace=test_namespace,
         )
         is True
     )
@@ -323,14 +336,16 @@ async def test_raw_transformer_collocation(rest_v1_client, network_layer):
         "./data/transformer.json",
         model_name=model_name,
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"][0] == 2
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
 
 
 @pytest.mark.raw
 @pytest.mark.asyncio(scope="session")
-async def test_raw_transformer_collocation_runtime(rest_v1_client, network_layer):
+async def test_raw_transformer_collocation_runtime(
+    rest_v1_client, network_layer, test_namespace
+):
     suffix = str(uuid.uuid4())[1:5]
     service_name = "raw-custom-pred-collocation-" + suffix
     model_name = "mnist"
@@ -377,7 +392,7 @@ async def test_raw_transformer_collocation_runtime(rest_v1_client, network_layer
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
+            namespace=test_namespace,
             annotations={"serving.kserve.io/deploymentMode": "Standard"},
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
@@ -388,19 +403,19 @@ async def test_raw_transformer_collocation_runtime(rest_v1_client, network_layer
     )
     kserve_client.create(isvc)
     try:
-        kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
+        kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
     except RuntimeError as e:
         print(
             kserve_client.api_instance.get_namespaced_custom_object(
                 "serving.knative.dev",
                 "v1",
-                KSERVE_TEST_NAMESPACE,
+                test_namespace,
                 "services",
                 service_name + "-predictor",
             )
         )
         pods = kserve_client.core_api.list_namespaced_pod(
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
         )
         for pod in pods.items:
@@ -408,7 +423,11 @@ async def test_raw_transformer_collocation_runtime(rest_v1_client, network_layer
         raise e
     is_ready = (
         await is_model_ready(
-            rest_v1_client, service_name, model_name, network_layer=network_layer
+            rest_v1_client,
+            service_name,
+            model_name,
+            network_layer=network_layer,
+            namespace=test_namespace,
         )
         is True
     )
@@ -419,6 +438,6 @@ async def test_raw_transformer_collocation_runtime(rest_v1_client, network_layer
         "./data/transformer.json",
         model_name=model_name,
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res["predictions"][0] == 2
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)

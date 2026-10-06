@@ -65,6 +65,11 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		llmSvc.MarkMainWorkloadNotReady("Stopped", "Service is stopped")
 	}
 
+	if err := r.reconcileWorkloadRevision(ctx, llmSvc, config); err != nil {
+		llmSvc.MarkMainWorkloadNotReady("ComputeWorkloadRevisionError", err.Error())
+		return fmt.Errorf("failed to compute workload revision: %w", err)
+	}
+
 	// Set up TLS certificates for secure communication
 	if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc, config.SchedulerConfig); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileCertsError", err.Error())
@@ -160,7 +165,7 @@ func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc
 	}
 
 	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Labels)
-	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Annotations, AnnotationModelBasedRoutingEnabled)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Annotations, routingSpecAnnotations...)
 
 	if utils.GetForceStopRuntime(llmSvc) {
 		return Delete(ctx, r, llmSvc, expected)

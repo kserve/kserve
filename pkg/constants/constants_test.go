@@ -17,6 +17,7 @@ limitations under the License.
 package constants
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -71,4 +72,17 @@ func TestParseDeploymentMode(t *testing.T) {
 			assert.Equal(t, tc.expected, result)
 		})
 	}
+}
+
+func TestKernelCacheCaptureRevisionName(t *testing.T) {
+	assert.Equal(t, "qwen-kcc-669889f77f", KernelCacheCaptureRevisionName("qwen", "669889f77f"))
+
+	name := KernelCacheCaptureRevisionName(strings.Repeat("q", 60), "669889f77f")
+	assert.Len(t, name, 63)
+	assert.True(t, strings.HasSuffix(name, "-kcc-669889f77f"))
+	assert.NotEqual(t, name, KernelCacheCaptureRevisionName(strings.Repeat("q", 59)+"x", "669889f77f"))
+}
+
+func TestKernelCacheTargetImage(t *testing.T) {
+	assert.Equal(t, "registry.example:5000/test/kernel-cache-qwen:capture-id", KernelCacheTargetImage("registry.example:5000/", "test", "qwen", "capture-id"))
 }

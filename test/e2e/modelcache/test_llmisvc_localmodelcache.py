@@ -33,7 +33,6 @@ from kserve.models.v1alpha1_local_model_node_group_spec import (
 )
 from kserve.models.v1alpha1_local_model_cache import V1alpha1LocalModelCache
 from kserve.models.v1alpha1_local_model_cache_spec import V1alpha1LocalModelCacheSpec
-from ..common.utils import KSERVE_TEST_NAMESPACE
 
 
 KSERVE_V1ALPHA2_VERSION = "v1alpha2"
@@ -42,7 +41,7 @@ LLMISVC_PLURAL = "llminferenceservices"
 
 @pytest.mark.modelcache
 @pytest.mark.asyncio(scope="session")
-async def test_llmisvc_localmodelcache_labels():
+async def test_llmisvc_localmodelcache_labels(test_namespace):
     """Test that LLMInferenceService gets local model labels when a matching cache exists."""
     storage_uri = "hf://test-org/test-model-for-cache"
     nodes = ["minikube-m02", "minikube-m03"]
@@ -103,7 +102,7 @@ async def test_llmisvc_localmodelcache_labels():
         "kind": "LLMInferenceService",
         "metadata": {
             "name": "llmisvc-cache-test",
-            "namespace": KSERVE_TEST_NAMESPACE,
+            "namespace": test_namespace,
         },
         "spec": {
             "model": {
@@ -126,7 +125,7 @@ async def test_llmisvc_localmodelcache_labels():
         k8s_client.create_namespaced_custom_object(
             constants.KSERVE_GROUP,
             KSERVE_V1ALPHA2_VERSION,
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             LLMISVC_PLURAL,
             llmisvc,
         )
@@ -138,7 +137,7 @@ async def test_llmisvc_localmodelcache_labels():
         llmisvc_result = k8s_client.get_namespaced_custom_object(
             constants.KSERVE_GROUP,
             KSERVE_V1ALPHA2_VERSION,
-            KSERVE_TEST_NAMESPACE,
+            test_namespace,
             LLMISVC_PLURAL,
             "llmisvc-cache-test",
         )
@@ -169,7 +168,7 @@ async def test_llmisvc_localmodelcache_labels():
             llm_svcs = cache_result.get("status", {}).get("llmInferenceServices", [])
             if len(llm_svcs) == 1:
                 assert llm_svcs[0]["name"] == "llmisvc-cache-test"
-                assert llm_svcs[0]["namespace"] == KSERVE_TEST_NAMESPACE
+                assert llm_svcs[0]["namespace"] == test_namespace
                 break
             time.sleep(2)
         else:
@@ -179,17 +178,7 @@ async def test_llmisvc_localmodelcache_labels():
             )
 
     finally:
-        # Cleanup in reverse order
-        try:
-            k8s_client.delete_namespaced_custom_object(
-                constants.KSERVE_GROUP,
-                KSERVE_V1ALPHA2_VERSION,
-                KSERVE_TEST_NAMESPACE,
-                LLMISVC_PLURAL,
-                "llmisvc-cache-test",
-            )
-        except Exception:
-            pass
+        # Cleanup cluster-scoped resources (namespace-scoped ones are cleaned by namespace deletion)
         time.sleep(30)
         try:
             kserve_client.delete_local_model_cache("llmisvc-test-cache")

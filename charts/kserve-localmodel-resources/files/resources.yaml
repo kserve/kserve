@@ -3,6 +3,15 @@ kind: ServiceAccount
 metadata:
   labels:
     app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-kernelcachenode-agent
+  namespace: kserve
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
     app.kubernetes.io/instance: kserve-localmodel-controller-manager
     app.kubernetes.io/managed-by: kserve-localmodel-controller-manager
     app.kubernetes.io/name: kserve
@@ -19,6 +28,202 @@ metadata:
     app.kubernetes.io/name: kserve
   name: kserve-localmodelnode-agent
   namespace: kserve
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-kernelcache-nodegroup-manager
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - nodes
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - apps
+  resourceNames:
+  - kserve-kernelcachenode-agent
+  resources:
+  - daemonsets
+  verbs:
+  - get
+  - patch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - replicasets
+  verbs:
+  - get
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - kserve-kernelcache-token-requester
+  resources:
+  - clusterroles
+  verbs:
+  - bind
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachecaptures
+  - kernelcachenodes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachecaptures/status
+  - kernelcaches/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachenodegroups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcaches
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-kernelcache-token-requester
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts/token
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-kernelcachenode-agent-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - nodes
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachenodegroups
+  - kernelcachenodes
+  - kernelcaches
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachenodes/status
+  verbs:
+  - get
+  - patch
+  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -64,6 +269,18 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
 - apiGroups:
   - batch
   resources:
@@ -156,6 +373,18 @@ rules:
   - get
   - watch
 - apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
   - batch
   resources:
   - jobs
@@ -218,6 +447,38 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: kserve-localmodel-controller-manager
+  namespace: kserve
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-kernelcache-nodegroup-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kserve-kernelcache-nodegroup-manager
+subjects:
+- kind: ServiceAccount
+  name: kserve-localmodel-controller-manager
+  namespace: kserve
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-kernelcachenode-agent-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kserve-kernelcachenode-agent-role
+subjects:
+- kind: ServiceAccount
+  name: kserve-kernelcachenode-agent
   namespace: kserve
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -358,6 +619,76 @@ metadata:
   labels:
     app.kubernetes.io/component: localmodel
     app.kubernetes.io/name: kserve
+    control-plane: kserve-kernelcachenode-agent
+  name: kserve-kernelcachenode-agent
+  namespace: kserve
+spec:
+  selector:
+    matchLabels:
+      control-plane: kserve-kernelcachenode-agent
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        app.kubernetes.io/name: kserve-kernelcachenode-agent
+        control-plane: kserve-kernelcachenode-agent
+    spec:
+      containers:
+      - command:
+        - /manager
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        image: kserve/kserve-kernelcachenode-agent:latest
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        name: manager
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: 100m
+            memory: 356Mi
+          requests:
+            cpu: 10m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: kserve-kernelcachenode-agent
+      terminationGracePeriodSeconds: 10
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
     control-plane: kserve-localmodelnode-agent
     controller-tools.k8s.io: "1.0"
   name: kserve-localmodelnode-agent
@@ -428,6 +759,45 @@ metadata:
   labels:
     app.kubernetes.io/component: localmodel
     app.kubernetes.io/name: kserve
+  name: kernelcache-root-ca
+  namespace: kserve
+spec:
+  commonName: kernelcache-root-ca
+  duration: 8760h
+  isCA: true
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: kernelcache-root-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcache-signer
+  namespace: kserve
+spec:
+  commonName: kernelcache-signer
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: kernelcache-ca
+  secretName: kernelcache-signer
+  uris:
+  - spiffe://kserve/kernelcache-signer
+  usages:
+  - digital signature
+  - code signing
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
   name: localmodel-serving-cert
   namespace: kserve
 spec:
@@ -438,6 +808,89 @@ spec:
     kind: Issuer
     name: selfsigned-issuer
   secretName: localmodel-webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcache-ca
+  namespace: kserve
+spec:
+  ca:
+    secretName: kernelcache-root-ca
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kserve/localmodel-serving-cert
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcache.serving.kserve.io
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: localmodel-webhook-server-service
+      namespace: kserve
+      path: /mutate-kernelcache-pods
+  failurePolicy: Fail
+  matchConditions:
+  - expression: has(object.metadata.labels) && 'serving.kserve.io/inferenceservice'
+      in object.metadata.labels
+    name: inferenceservice-workload
+  name: kernelcache.kserve-webhook-server.pod-mutator
+  namespaceSelector:
+    matchExpressions:
+    - key: control-plane
+      operator: DoesNotExist
+  reinvocationPolicy: IfNeeded
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kserve/localmodel-serving-cert
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcachecapture.serving.kserve.io
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: localmodel-webhook-server-service
+      namespace: kserve
+      path: /validate-kernelcachecapture-status
+  failurePolicy: Fail
+  name: kernelcachecapture.kserve-webhook-server.status-validator
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - UPDATE
+    resources:
+    - kernelcachecaptures/status
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration

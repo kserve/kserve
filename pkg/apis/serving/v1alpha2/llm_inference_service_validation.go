@@ -105,6 +105,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
 	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAModelRoutingStrategyAnnotation(llmSvc)...)
+	allErrs = append(allErrs, l.validateDisaggregatedSetAnnotation(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
@@ -761,15 +762,15 @@ func (l *LLMInferenceServiceValidator) validateManagedDRAAnnotations(llmSvc *LLM
 // validateKVCacheOffloading validates KVCacheOffloading secondary tier specs.
 func (l *LLMInferenceServiceValidator) validateKVCacheOffloading(llmSvc *LLMInferenceService) field.ErrorList {
 	var allErrs field.ErrorList
-	allErrs = append(allErrs, validateKVCacheOffloadingSpec(llmSvc.Spec.KVCacheOffloading, field.NewPath("spec", "kvCacheOffloading"))...)
+	allErrs = append(allErrs, ValidateKVCacheOffloadingSpec(llmSvc.Spec.KVCacheOffloading, field.NewPath("spec", "kvCacheOffloading"))...)
 	if llmSvc.Spec.Prefill != nil {
-		allErrs = append(allErrs, validateKVCacheOffloadingSpec(llmSvc.Spec.Prefill.KVCacheOffloading, field.NewPath("spec", "prefill", "kvCacheOffloading"))...)
+		allErrs = append(allErrs, ValidateKVCacheOffloadingSpec(llmSvc.Spec.Prefill.KVCacheOffloading, field.NewPath("spec", "prefill", "kvCacheOffloading"))...)
 	}
 	return allErrs
 }
 
 // validateKVCacheOffloadingSpec validates one kvCacheOffloading block.
-func validateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Path) field.ErrorList {
+func ValidateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Path) field.ErrorList {
 	if kv == nil {
 		return nil
 	}
@@ -1002,6 +1003,16 @@ func validatePositiveIntOrPercent(fldPath *field.Path, val intstr.IntOrString) f
 // Trimmed and case-insensitive, matching the consumer.
 func (l *LLMInferenceServiceValidator) validateLoRAModelRoutingStrategyAnnotation(llmSvc *LLMInferenceService) field.ErrorList {
 	return ValidateLoRAModelRoutingStrategyAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))
+}
+
+// validateDisaggregatedSetAnnotation checks that the DisaggregatedSet opt-in annotation
+// is well formed. The annotation is read from the object's metadata rather than
+// spec.annotations, which propagate to pods.
+//
+// Feature-level constraints are enforced by the reconciler, not here; see
+// ValidateDisaggregatedSetAnnotation for why.
+func (l *LLMInferenceServiceValidator) validateDisaggregatedSetAnnotation(llmSvc *LLMInferenceService) field.ErrorList {
+	return kservevalidation.ValidateDisaggregatedSetAnnotation(llmSvc.GetAnnotations())
 }
 
 // ValidateLoRAModelRoutingStrategyAnnotation is shared with the v1alpha1

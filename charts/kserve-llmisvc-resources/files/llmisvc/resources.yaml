@@ -1205,7 +1205,6 @@ rules:
 - apiGroups:
   - authentication.k8s.io
   resources:
-  - subjectaccessreviews
   - tokenreviews
   verbs:
   - create
@@ -1231,6 +1230,18 @@ rules:
   - coordination.k8s.io
   resources:
   - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - disaggregatedset.x-k8s.io
+  resources:
+  - disaggregatedsets
   verbs:
   - create
   - delete

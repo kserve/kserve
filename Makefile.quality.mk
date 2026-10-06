@@ -60,12 +60,15 @@ SHELLCHECK_EXCLUDES := ':(exclude)install/**' ':(exclude)hack/setup/quick-instal
 # `warning` is a bounded follow-up (mostly SC2155/SC2206/SC2034); run
 # `make sh-lint SHELLCHECK_SEVERITY=warning` to see that backlog.
 SHELLCHECK_SEVERITY ?= error
+# ShellCheck is CPU-bound per script; keep parallelism bounded for laptops and CI.
+SHELLCHECK_JOBS ?= 4
+SHELLCHECK_BATCH_SIZE ?= 8
 
 .PHONY: sh-lint
 sh-lint: $(SHELLCHECK)
 	@echo "Shell-linting scripts (severity: $(SHELLCHECK_SEVERITY))"
 	@git ls-files -z --cached --others --exclude-standard -- '*.sh' $(SHELLCHECK_EXCLUDES) \
-		| xargs -0 -r $(SHELLCHECK) --severity=$(SHELLCHECK_SEVERITY)
+		| xargs -0 -r -n $(SHELLCHECK_BATCH_SIZE) -P $(SHELLCHECK_JOBS) $(SHELLCHECK) --severity=$(SHELLCHECK_SEVERITY)
 
 # Verify e2e test files parse and collect without errors (catches import errors, syntax errors, fixture issues).
 e2e-collect: $(PYTEST)

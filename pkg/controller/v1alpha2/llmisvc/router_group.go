@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -145,13 +146,14 @@ func (r *LLMISVCReconciler) resolveGroupMembers(
 
 // resolvedModelNames returns the deduplicated, sorted set of model names
 // served by a member. Prefers status.Addresses (which reflects baseRef merges)
-// over raw spec.
+// over raw spec. Names are compared as declared, without the publisher prefix,
+// so a member without path URLs (AnnotationModelBasedRoutingOnly) compares
+// equal to peers serving the same models.
 func resolvedModelNames(m *v1alpha2.LLMInferenceService) []string {
+	publisherPrefix := fullyQualifiedModelName(m.Namespace, "")
 	var names []string
 	for _, addr := range m.Status.Addresses {
-		for _, model := range addr.Models {
-			names = append(names, model.Name)
-		}
+		names = append(names, declaredModelNames(addr, publisherPrefix)...)
 	}
 
 	if len(names) > 0 {
@@ -169,6 +171,43 @@ func resolvedModelNames(m *v1alpha2.LLMInferenceService) []string {
 	}
 	slices.Sort(names)
 	return slices.Compact(names)
+}
+
+// declaredModelNames recovers the model names as declared in the spec from the
+// names an address lists. A model-routing address lists each model only by its
+// publisher-qualified name, so the prefix is trimmed once. A path-based address
+// lists each model under both names. Count occurrences because a qualified
+// alias may also be another model's declared name. Consume shorter names first,
+// pairing each with one qualified occurrence, independently of list order.
+func declaredModelNames(addr v1alpha2.SourcedAddress, publisherPrefix string) []string {
+	names := make([]string, 0, len(addr.Models))
+	if addr.URL != nil && IsModelRoutingURL(addr.URL) {
+		for _, model := range addr.Models {
+			names = append(names, strings.TrimPrefix(model.Name, publisherPrefix))
+		}
+		return names
+	}
+
+	counts := make(map[string]int, len(addr.Models))
+	var candidates []string
+	for _, model := range addr.Models {
+		if counts[model.Name] == 0 {
+			candidates = append(candidates, model.Name)
+		}
+		counts[model.Name]++
+	}
+	slices.SortFunc(candidates, func(a, b string) int {
+		return cmp.Compare(len(a), len(b))
+	})
+	for _, declared := range candidates {
+		qualified := publisherPrefix + declared
+		for counts[declared] > 0 && counts[qualified] > 0 {
+			names = append(names, declared)
+			counts[declared]--
+			counts[qualified]--
+		}
+	}
+	return names
 }
 
 // resolveMemberBackendRef reads the member's backend from its status or spec.

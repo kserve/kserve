@@ -27,7 +27,9 @@ manifests: controller-gen kustomize yq
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths={./pkg/controller/v1alpha1/inferencegraph,./pkg/controller/v1alpha1/trainedmodel,./pkg/controller/v1beta1/inferenceservice} output:rbac:artifacts:config=config/rbac
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-llmisvc-manager-role paths=./pkg/controller/v1alpha2/llmisvc output:rbac:artifacts:config=config/rbac/llmisvc
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodel-manager-role paths=./pkg/controller/v1alpha1/localmodel output:rbac:artifacts:config=config/rbac/localmodel
+	@$(CONTROLLER_GEN) rbac:roleName=kserve-kernelcache-nodegroup-manager paths=./pkg/controller/v1alpha1/kernelcache output:rbac:artifacts:config=config/rbac/kernelcache
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-localmodelnode-agent-role paths=./pkg/controller/v1alpha1/localmodelnode output:rbac:artifacts:config=config/rbac/localmodelnode
+	@$(CONTROLLER_GEN) rbac:roleName=kserve-kernelcachenode-agent-role paths=./pkg/controller/v1alpha1/kernelcachenode output:rbac:artifacts:config=config/rbac/kernelcachenode
 	# Hook for distro-specific manifest generation (override via Makefile.overrides.mk).
 	@$(MAKE) manifests-distro
 
@@ -128,9 +130,9 @@ manifests: controller-gen kustomize yq
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	#With v1 and newer kubernetes protocol requires default
-	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_inferenceservices.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
-	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_clusterservingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_clusterservingruntimes.yaml
-	@$(YQ) '.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | path' config/crd/full/serving.kserve.io_servingruntimes.yaml -o j | jq -r '. | map(select(numbers)="["+tostring+"]") | join(".")' | awk '{print "."$$0".protocol.default"}' | xargs -n1 -I{} $(YQ) '{} = "TCP"' -i config/crd/full/serving.kserve.io_servingruntimes.yaml
+	@$(YQ) '(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | .protocol.default) = "TCP"' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	@$(YQ) '(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | .protocol.default) = "TCP"' -i config/crd/full/serving.kserve.io_clusterservingruntimes.yaml
+	@$(YQ) '(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | .protocol.default) = "TCP"' -i config/crd/full/serving.kserve.io_servingruntimes.yaml
 	
 	# Copy kserve crd (with conversion webhook patches applied via kustomize)
 	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "inferenceservices.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_inferenceservices.yaml
@@ -141,6 +143,7 @@ manifests: controller-gen kustomize yq
 	cp config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/files/
 	cp config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-llmisvc-crd/files/
 	cp -f config/crd/full/localmodel/*.yaml charts/kserve-localmodel-crd/templates/
+	cp -f config/crd/full/kernelcache/*.yaml charts/kserve-localmodel-crd/templates/
 	rm charts/kserve-localmodel-crd/templates/kustomization.yaml
 	
 	# Copy llmisvc crd (with conversion webhook patches applied via kustomize)
@@ -168,6 +171,7 @@ manifests: controller-gen kustomize yq
 	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "servingruntimes.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_servingruntimes.yaml
 	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "inferencegraphs.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_inferencegraphs.yaml
 	cp -f config/crd/minimal/localmodel/*.yaml charts/kserve-localmodel-crd-minimal/templates/
+	cp -f config/crd/minimal/kernelcache/*.yaml charts/kserve-localmodel-crd-minimal/templates/
 	cp -f config/crd/minimal/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd-minimal/files/
 	cp -f config/crd/minimal/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-llmisvc-crd-minimal/files/
 	rm charts/kserve-localmodel-crd-minimal/templates/kustomization.yaml
@@ -188,11 +192,8 @@ generate: controller-gen helm-docs
 		sort -u > /tmp/copyright_years_cache
 	hack/update-codegen.sh
 	hack/update-openapigen.sh
-	hack/python-sdk/client-gen.sh
-	@while read -r line; do \
-		f=$$(echo "$$line" | cut -f1); year=$$(echo "$$line" | cut -f2); \
-		if [ -f "$$f" ]; then sed -i "s/Copyright [0-9]\{4\} The KServe Authors/Copyright $$year The KServe Authors/" "$$f"; fi; \
-	done < /tmp/copyright_years_cache
+	COPYRIGHT_YEARS_CACHE=/tmp/copyright_years_cache hack/python-sdk/client-gen.sh
+	@python3 hack/setup/preserve-copyright-years.py /tmp/copyright_years_cache
 	@rm -f /tmp/copyright_years_cache
 	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
 

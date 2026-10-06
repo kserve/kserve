@@ -63,7 +63,7 @@ popd
 if [[ $ENABLE_LLMISVC == "false" || $ENABLE_KSERVE_WITH_LLMISVC == "true" ]]; then
   if [[ $INSTALL_METHOD == "helm" ]]; then
     export KSERVE_EXTRA_ARGS="--set kserve.controller.imagePullPolicy=IfNotPresent" 
-    export LOCALMODEL_EXTRA_ARGS="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent" 
+    export LOCALMODEL_EXTRA_ARGS="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent --set kserve.kernelcachenode.controller.imagePullPolicy=IfNotPresent" 
     export ENABLE_LOCALMODEL=true
     if [[ $ENABLE_LLMISVC == "true" ]]; then
       export LLMISVC_EXTRA_ARGS="--set kserve.llmisvc.controller.imagePullPolicy=IfNotPresent"
