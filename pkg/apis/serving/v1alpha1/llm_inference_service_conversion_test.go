@@ -545,6 +545,51 @@ func TestLLMInferenceServiceConversion_ScalingSpecWithDirectKEDA(t *testing.T) {
 	assert.Equal(t, "memory", restored.Spec.Scaling.KEDA.Triggers[1].Type)
 }
 
+func TestLLMInferenceServiceConversion_ScalingSpecWithWVA(t *testing.T) {
+	modelName := "test-model"
+	pollingInterval := int32(30)
+
+	src := &LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-llm-isvc-scaling-wva",
+			Namespace: "default",
+		},
+		Spec: LLMInferenceServiceSpec{
+			Model: LLMModelSpec{
+				URI:  apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"},
+				Name: &modelName,
+			},
+			WorkloadSpec: WorkloadSpec{
+				Scaling: &ScalingSpec{
+					MinReplicas: ptr.To(int32(1)),
+					MaxReplicas: 2,
+					WVA: &WVASpec{
+						VariantCost: "15.0",
+						ActuatorSpec: ActuatorSpec{
+							KEDA: &KEDAScalingSpec{
+								PollingInterval: &pollingInterval,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	dst := &v1alpha2.LLMInferenceService{}
+	require.NoError(t, src.ConvertTo(dst))
+
+	restored := &LLMInferenceService{}
+	require.NoError(t, restored.ConvertFrom(dst))
+
+	require.NotNil(t, restored.Spec.Scaling)
+	require.NotNil(t, restored.Spec.Scaling.WVA)
+	assert.Equal(t, "15.0", restored.Spec.Scaling.WVA.VariantCost)
+	require.NotNil(t, restored.Spec.Scaling.WVA.KEDA)
+	require.NotNil(t, restored.Spec.Scaling.WVA.KEDA.PollingInterval)
+	assert.Equal(t, pollingInterval, *restored.Spec.Scaling.WVA.KEDA.PollingInterval)
+}
+
 func TestLLMInferenceServiceConversion_NilScalingSpec(t *testing.T) {
 	modelName := "test-model"
 
