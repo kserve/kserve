@@ -69,6 +69,8 @@ const (
 	RouterHeadersPropagateEnvVar = "PROPAGATE_HEADERS"
 	InferenceGraphLabel          = "serving.kserve.io/inferencegraph"
 	RouterReadinessEndpoint      = "/readyz"
+	RouterV2HealthLiveEndpoint   = "/v2/health/live"
+	RouterV2HealthReadyEndpoint  = "/v2/health/ready"
 	RouterPort                   = 8080
 	RouterTimeoutsServerRead     = 60
 	RouterTimeoutServerWrite     = 60
