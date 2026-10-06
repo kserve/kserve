@@ -16,6 +16,7 @@ import base64
 import io
 import json
 import os
+import ssl
 import tarfile
 import unittest.mock as mock
 from urllib.error import HTTPError
@@ -32,6 +33,7 @@ from kserve_storage.kserve_storage import (
     _login_from_docker_config,
     _oci_auth_backend_from_www_authenticate,
     _oci_auth_backend_for_registry,
+    _oci_ssl_context_for_probe,
     _pick_platform,
     _rewrite_with_digest,
     _setup_oci_tls,
@@ -274,6 +276,48 @@ def test_oci_auth_backend_probe_bearer_401():
     )
     with mock.patch("kserve_storage.kserve_storage.urlopen", side_effect=err):
         assert _oci_auth_backend_for_registry("ghcr.io", False) == "token"
+
+
+def test_oci_ssl_context_for_probe_uses_requests_ca_bundle(monkeypatch):
+    import certifi
+
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", certifi.where())
+
+    ctx = _oci_ssl_context_for_probe("https://registry.local:5000/v2/", insecure=False)
+    assert ctx is not None
+    assert ctx.check_hostname is True
+    assert ctx.verify_mode == ssl.CERT_REQUIRED
+
+
+def test_oci_ssl_context_for_probe_insecure_skips_verify():
+    ctx = _oci_ssl_context_for_probe("https://registry.local:5000/v2/", insecure=True)
+    assert ctx is not None
+    assert ctx.verify_mode == ssl.CERT_NONE
+
+
+def test_oci_auth_backend_probe_passes_ca_context(monkeypatch):
+    """Custom CA must be wired into urlopen or Basic-only HTTPS registries
+    never surface Www-Authenticate and we fall back to token incorrectly."""
+    import certifi
+
+    monkeypatch.setenv("REQUESTS_CA_BUNDLE", certifi.where())
+
+    err = HTTPError(
+        "https://registry.local:5000/v2/",
+        401,
+        "Unauthorized",
+        {"Www-Authenticate": 'Basic realm="Registry Realm"'},
+        io.BytesIO(),
+    )
+    with mock.patch(
+        "kserve_storage.kserve_storage.urlopen", side_effect=err
+    ) as urlopen_mock:
+        assert _oci_auth_backend_for_registry("registry.local:5000", False) == "basic"
+
+    _, kwargs = urlopen_mock.call_args
+    ctx = kwargs.get("context")
+    assert ctx is not None
+    assert ctx.verify_mode == ssl.CERT_REQUIRED
 
 
 def test_oci_with_config_uses_bearer_backend(tmp_path):

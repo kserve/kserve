@@ -127,11 +127,31 @@ def _oci_auth_backend_from_www_authenticate(header: str) -> str:
     return "token"
 
 
+def _oci_ssl_context_for_probe(url: str, insecure: bool) -> Optional[ssl.SSLContext]:
+    """SSL context for the urllib /v2/ auth probe.
+
+    urllib ignores REQUESTS_CA_BUNDLE (used by oras/requests after
+    _setup_oci_tls), so custom-CA registries need an explicit context
+    here or the probe fails TLS before seeing Www-Authenticate and we
+    incorrectly fall back to token for Basic-only registries.
+    """
+    if not url.startswith("https://"):
+        return None
+    if insecure:
+        return ssl._create_unverified_context()
+    ca_bundle = os.environ.get("REQUESTS_CA_BUNDLE", "").strip()
+    if ca_bundle and os.path.exists(ca_bundle):
+        return ssl.create_default_context(cafile=ca_bundle)
+    return None
+
+
 def _oci_auth_backend_for_registry(registry: str, insecure: bool) -> str:
     """Probe GET /v2/ and select basic vs token from the 401 challenge.
 
     Probe failure defaults to token so imagePullSecrets against bearer
-    registries do not break if /v2/ is unreachable.
+    registries do not break if /v2/ is unreachable. Call after
+    _setup_oci_tls() so a mounted custom CA is visible via
+    REQUESTS_CA_BUNDLE.
     """
     urls = []
     if insecure:
@@ -139,9 +159,7 @@ def _oci_auth_backend_for_registry(registry: str, insecure: bool) -> str:
     urls.append("https://%s/v2/" % registry)
     for url in urls:
         try:
-            ctx = None
-            if url.startswith("https://") and insecure:
-                ctx = ssl._create_unverified_context()
+            ctx = _oci_ssl_context_for_probe(url, insecure)
             req = Request(url, method="GET")
             with urlopen(req, timeout=5, context=ctx) as resp:
                 header = resp.headers.get("Www-Authenticate", "")
