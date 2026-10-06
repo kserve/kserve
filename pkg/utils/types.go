@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 func Convert[T any](obj runtime.Object) (T, error) {
@@ -46,7 +47,7 @@ func StringToInt32(number string) (int32, error) {
 // Kubernetes port range.
 func ParsePort(value string) (int32, bool) {
 	port, err := StringToInt32(value)
-	if err != nil || port < 1 || port > 65535 {
+	if err != nil || validation.IsValidPortNum(int(port)) != nil {
 		return 0, false
 	}
 	return port, true
