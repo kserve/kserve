@@ -37,6 +37,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -114,6 +115,54 @@ func TestMergeSpecs(t *testing.T) {
 							},
 						},
 					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "probe handler override replaces inherited handler",
+			cfgs: []v1alpha2.LLMInferenceServiceSpec{
+				{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{Containers: []corev1.Container{{
+							Name: "main",
+							StartupProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
+									Path: "/health",
+									Port: intstr.FromInt(8000),
+								}},
+								PeriodSeconds:    10,
+								FailureThreshold: 60,
+							},
+						}}},
+					},
+				},
+				{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{Containers: []corev1.Container{{
+							Name: "main",
+							StartupProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{Exec: &corev1.ExecAction{
+									Command: []string{"python3", "-c", "warmup()"},
+								}},
+								FailureThreshold: 1,
+							},
+						}}},
+					},
+				},
+			},
+			want: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{Containers: []corev1.Container{{
+						Name: "main",
+						StartupProbe: &corev1.Probe{
+							ProbeHandler: corev1.ProbeHandler{Exec: &corev1.ExecAction{
+								Command: []string{"python3", "-c", "warmup()"},
+							}},
+							PeriodSeconds:    10,
+							FailureThreshold: 1,
+						},
+					}}},
 				},
 			},
 			wantErr: false,

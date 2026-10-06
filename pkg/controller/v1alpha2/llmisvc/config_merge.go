@@ -1203,6 +1203,9 @@ func MergeSpecs(ctx context.Context, cfgs ...v1alpha2.LLMInferenceServiceSpec) (
 // mergeSpecs performs a strategic merge by creating a clean patch from the override
 // object and applying it to the base object.
 func mergeSpecs(ctx context.Context, base, override v1alpha2.LLMInferenceServiceSpec) (v1alpha2.LLMInferenceServiceSpec, error) {
+	base = *base.DeepCopy()
+	clearOverriddenProbeHandlers(&base, override)
+
 	baseJSON, err := json.Marshal(base)
 	if err != nil {
 		return v1alpha2.LLMInferenceServiceSpec{}, fmt.Errorf("could not marshal base spec: %w", err)
@@ -1250,6 +1253,42 @@ func mergeSpecs(ctx context.Context, base, override v1alpha2.LLMInferenceService
 		return v1alpha2.LLMInferenceServiceSpec{}, fmt.Errorf("could not unmarshal merged spec: %w", err)
 	}
 	return finalSpec, nil
+}
+
+// clearOverriddenProbeHandlers preserves inherited probe timing while replacing an inherited
+// handler with the one explicitly supplied by an overriding container. Kubernetes permits one
+// handler per probe, but strategic merge otherwise combines the handler's independent fields.
+func clearOverriddenProbeHandlers(base *v1alpha2.LLMInferenceServiceSpec, override v1alpha2.LLMInferenceServiceSpec) {
+	if base.Template == nil || override.Template == nil {
+		return
+	}
+
+	baseContainers := make(map[string]*corev1.Container, len(base.Template.Containers))
+	for index := range base.Template.Containers {
+		container := &base.Template.Containers[index]
+		baseContainers[container.Name] = container
+	}
+
+	for index := range override.Template.Containers {
+		overrideContainer := &override.Template.Containers[index]
+		baseContainer, ok := baseContainers[overrideContainer.Name]
+		if !ok {
+			continue
+		}
+
+		clearProbeHandler(baseContainer.LivenessProbe, overrideContainer.LivenessProbe)
+		clearProbeHandler(baseContainer.ReadinessProbe, overrideContainer.ReadinessProbe)
+		clearProbeHandler(baseContainer.StartupProbe, overrideContainer.StartupProbe)
+	}
+}
+
+func clearProbeHandler(base, override *corev1.Probe) {
+	if base == nil || override == nil {
+		return
+	}
+	if override.Exec != nil || override.HTTPGet != nil || override.TCPSocket != nil || override.GRPC != nil {
+		base.ProbeHandler = corev1.ProbeHandler{}
+	}
 }
 
 func isDefaultBackendRef(llmSvc *v1alpha2.LLMInferenceService, ref gwapiv1.BackendRef) bool {
