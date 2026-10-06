@@ -21,6 +21,10 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
+// WVAUnsupportedReason identifies the non-blocking condition reported for
+// existing resources that still contain deprecated WVA configuration.
+const WVAUnsupportedReason = "WVAUnsupported"
+
 // Top-level conditions. Ready aggregates PresetsCombined, WorkloadsReady and
 // RouterReady via the Knative LivingConditionSet.
 const (
@@ -245,7 +249,7 @@ func (in *LLMInferenceService) DetermineWorkloadReadiness() {
 		}
 		// Existing WVA resources remain operational with autoscaling disabled. Keep
 		// the persistent warning visible without making the workload NotReady.
-		if (cond.Type == ScalingReady || cond.Type == PrefillScalingReady) && cond.Reason == "WVAUnsupported" {
+		if (cond.Type == ScalingReady || cond.Type == PrefillScalingReady) && cond.Reason == WVAUnsupportedReason {
 			continue
 		}
 		if cond.IsFalse() {

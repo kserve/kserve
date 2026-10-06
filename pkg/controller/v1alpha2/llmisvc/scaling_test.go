@@ -94,7 +94,7 @@ func TestPropagateScalingStatusWVAUnsupported(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, readyCalled)
 	assert.False(t, unsetCalled)
-	assert.Equal(t, "WVAUnsupported", gotReason)
+	assert.Equal(t, v1alpha2.WVAUnsupportedReason, gotReason)
 	assert.Contains(t, gotMessage, "WVA autoscaling is no longer supported")
 }
 
