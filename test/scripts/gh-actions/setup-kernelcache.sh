@@ -104,17 +104,23 @@ KERNELCACHE_CONFIG=$(cat <<EOF
 }
 EOF
 )
+
+PATCH=$(jq -n \
+  --arg config "${KERNELCACHE_CONFIG}" \
+  '[{
+    "op": "replace",
+    "path": "/data/kernelcache",
+    "value": $config
+  }]'
+)
+
 kubectl patch configmap inferenceservice-config \
   -n "${KSERVE_NAMESPACE}" \
-  --type='json' \
-  -p="[{\"op\": \"replace\", \"path\": \"/data/kernelcache\", \"value\": $(echo "${KERNELCACHE_CONFIG}" | jq -c -s '.[0] | tojson')}]"
+  --type=json \
+  -p "${PATCH}"
 
-# ── Step 4: Apply cert-manager resources for artifact signing ──────────────
-log_info "Applying KernelCache cert-manager resources ..."
-kubectl apply -f "${REPO_ROOT}/config/certmanager/localmodel/kc-certificate.yaml"
-
-# ── Step 5: Wait for certificates to be issued ────────────────────────────
-log_info "Waiting for KernelCache certificates to be issued ..."
+# ── Step 4: Verify certificates have been issued ────────────────────────────
+log_info "Verify KernelCache certificates have been issued ..."
 kubectl wait \
   --for=condition=Ready \
   certificate/kernelcache-root-ca \
@@ -122,12 +128,12 @@ kubectl wait \
   -n "${KSERVE_NAMESPACE}" \
   --timeout=120s
 
-# ── Step 6: Restart localmodel controller and wait for rollout ────────────
+# ── Step 5: Restart localmodel controller and wait for rollout ────────────
 # The localmodel controller's webhook server needs a TLS certificate from
 # cert-manager (localmodel-webhook-server-cert). That cert is created during
 # initial cluster setup, but cert-manager may not have issued it before the
 # controller pod first started — causing a crash loop. Now that the KernelCache
-# certs are ready (step 5), cert-manager has been running long enough to have
+# certs are ready (step 4), cert-manager has been running long enough to have
 # issued all TLS certs. Restart the controller so it gets a fresh start with
 # all secrets already mounted.
 log_info "Restarting kserve-localmodel-controller-manager to pick up TLS certificates ..."
