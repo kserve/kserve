@@ -99,6 +99,11 @@ kubectl apply -f shared-pvc.yaml
   occur.
 - The Job records the referenced PVC UID and storage key. Recreating the PVC under
   the same name invalidates the old import and creates a replacement Job.
+- The Job does not request a Pod `fsGroup` by default, so namespace admission (for
+  example an OpenShift SCC) can assign one. The global `localModel.fsGroup` applies only
+  to per-node download Jobs. If the RWX driver honors `fsGroup` and provisions
+  root-owned volumes, set `localModel.sharedPVCImportFSGroup` in the
+  `inferenceservice-config` ConfigMap so the storage-initializer (UID 1000) can write.
 - A Job with the deterministic name that is not owned by the cache is never adopted
   or deleted; the cache reports `ImportJobConflict` until the collision is removed.
 

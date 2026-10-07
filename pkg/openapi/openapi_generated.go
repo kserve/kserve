@@ -9153,6 +9153,13 @@ func schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref common.ReferenceCallba
 							Format: "int64",
 						},
 					},
+					"sharedPVCImportFSGroup": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SharedPVCImportFSGroup is applied to shared-PVC import Jobs, which run in the cache's own namespace. It is independent of FSGroup, which applies only to per-node download Jobs in JobNamespace. Leave it unset to let namespace admission assign the group.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
 					"jobTTLSecondsAfterFinished": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"integer"},
