@@ -107,7 +107,7 @@ func DefaultOptions() Options {
 		metricsSecure:           true,
 		migrationTimeout:        1 * time.Hour,
 		migrationPollInterval:   30 * time.Second,
-		maxConcurrentReconciles: 1,
+		maxConcurrentReconciles: llmisvc.DefaultMaxConcurrentReconciles,
 		zapOpts:                 zap.Options{},
 		logFormat:               oteljson.FormatZap,
 	}

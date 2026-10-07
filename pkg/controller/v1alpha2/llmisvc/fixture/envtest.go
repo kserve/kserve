@@ -151,10 +151,10 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 	envTest := pkgtest.NewEnvTest(append([]pkgtest.Option{webhookManifests}, additionalEnvTestOptions()...)...).
 		WithWebhooks(webhooks).
 		WithControllers(llmCtrlFunc, llmConfigCtrlFunc).
-		// Reconcile several objects at once, as --max-concurrent-reconciles allows in production,
-		// so the suite catches reconciles of different objects interfering with each other.
+		// Reconcile with the production worker count, so the suite catches reconciles of
+		// different objects interfering with each other.
 		WithManagerOptions(func(opts *ctrl.Options) {
-			opts.Controller.MaxConcurrentReconciles = 4
+			opts.Controller.MaxConcurrentReconciles = llmisvc.DefaultMaxConcurrentReconciles
 		}).
 		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background()) //nolint:contextcheck // intentional: manager context must not be tied to BeforeSuite

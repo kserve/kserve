@@ -134,6 +134,10 @@ const (
 	LLMInferenceServiceNotReadyState LLMInferenceServiceState = "LLMInferenceServiceNotReady"
 )
 
+// DefaultMaxConcurrentReconciles is how many objects each llmisvc controller reconciles at once
+// unless --max-concurrent-reconciles says otherwise.
+const DefaultMaxConcurrentReconciles = 8
+
 // LLMISVCReconciler reconciles an LLMInferenceService object.
 // It orchestrates the reconciliation of child resources based on the spec.
 type LLMISVCReconciler struct {
