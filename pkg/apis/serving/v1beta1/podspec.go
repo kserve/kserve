@@ -359,4 +359,20 @@ type PodSpec struct {
 	// +featureGate=GenericWorkload
 	// +optional
 	SchedulingGroup *corev1.PodSchedulingGroup `json:"schedulingGroup,omitempty" protobuf:"bytes,43,opt,name=schedulingGroup"`
+	// EvictionResponders reference responders that react to Evictions based on EvictionRequests.
+	// Responders should observe and communicate through the Eviction Resource API to help with
+	// the graceful termination of a pod. The responders are selected sequentially, according to
+	// their specified priority.
+	//
+	// The maximum length of the responders list is 10.
+	// Responders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set).
+	// This field can only be set on creation and is immutable afterwards.
+	//
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	// +listType=map
+	// +listMapKey=name
+	// +featureGate=EvictionRequestAPI
+	// +optional
+	EvictionResponders []corev1.EvictionResponder `json:"evictionResponders,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,44,rep,name=evictionResponders"`
 }

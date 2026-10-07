@@ -46,7 +46,7 @@ func (r *KernelCacheNodeReconciler) reconcileStatus(
 		}
 
 		oldStatus := kernelCacheNode.Status.DeepCopy()
-		podsUsing, needsImageValidation, err := r.discoverCaches(ctx, kernelCacheNode)
+		podsUsing, needsImageValidation, err := r.discoverCaches(ctx, kernelCacheNode, config.DefaultNodeGroup)
 		if err != nil {
 			return fmt.Errorf("discover KernelCaches for node %q: %w", r.NodeName, err)
 		}
@@ -105,7 +105,7 @@ func (r *KernelCacheNodeReconciler) logStatusChanges(
 	}
 }
 
-func (r *KernelCacheNodeReconciler) discoverCaches(ctx context.Context, kernelCacheNode *v1alpha1.KernelCacheNode) (int, bool, error) {
+func (r *KernelCacheNodeReconciler) discoverCaches(ctx context.Context, kernelCacheNode *v1alpha1.KernelCacheNode, defaultNodeGroup string) (int, bool, error) {
 	caches := &v1alpha1.KernelCacheList{}
 	if err := r.List(ctx, caches); err != nil {
 		return 0, false, fmt.Errorf("list KernelCaches: %w", err)
@@ -118,13 +118,13 @@ func (r *KernelCacheNodeReconciler) discoverCaches(ctx context.Context, kernelCa
 	activeCaches := make(map[string]struct{}, len(caches.Items))
 	podsUsing := make(map[types.UID]struct{})
 	needsImageValidation := false
-	matchingGroupNames, err := r.matchingNodeGroups(ctx, caches.Items)
+	matchingGroupNames, err := r.matchingNodeGroups(ctx, caches.Items, defaultNodeGroup)
 	if err != nil {
 		return 0, false, err
 	}
 	for i := range caches.Items {
 		kernelCache := &caches.Items[i]
-		if !matchesNodeGroup(kernelCache, matchingGroupNames) {
+		if !matchesNodeGroup(kernelCache, matchingGroupNames, defaultNodeGroup) {
 			continue
 		}
 		if usage := kernelCache.Status.Usage; usage != nil {
@@ -176,6 +176,7 @@ func (r *KernelCacheNodeReconciler) discoverCaches(ctx context.Context, kernelCa
 func (r *KernelCacheNodeReconciler) matchingNodeGroups(
 	ctx context.Context,
 	caches []v1alpha1.KernelCache,
+	defaultNodeGroup string,
 ) (map[string]struct{}, error) {
 	matchingGroups := make(map[string]struct{})
 	if len(caches) == 0 {
@@ -199,8 +200,8 @@ func (r *KernelCacheNodeReconciler) matchingNodeGroups(
 	}
 	referencedGroups := make(map[string]struct{})
 	for i := range caches {
-		if ref := caches[i].Spec.NodeGroupRef; ref != nil && ref.Name != "" {
-			referencedGroups[ref.Name] = struct{}{}
+		if name := nodegroup.ResolveKernelCacheNodeGroupName(&caches[i], defaultNodeGroup); name != "" {
+			referencedGroups[name] = struct{}{}
 		}
 	}
 	for i := range nodeGroups.Items {
@@ -218,11 +219,12 @@ func (r *KernelCacheNodeReconciler) matchingNodeGroups(
 	return matchingGroups, nil
 }
 
-func matchesNodeGroup(kernelCache *v1alpha1.KernelCache, matchingGroups map[string]struct{}) bool {
-	if kernelCache.Spec.NodeGroupRef == nil || kernelCache.Spec.NodeGroupRef.Name == "" {
+func matchesNodeGroup(kernelCache *v1alpha1.KernelCache, matchingGroups map[string]struct{}, defaultNodeGroup string) bool {
+	name := nodegroup.ResolveKernelCacheNodeGroupName(kernelCache, defaultNodeGroup)
+	if name == "" {
 		return false
 	}
-	_, matched := matchingGroups[kernelCache.Spec.NodeGroupRef.Name]
+	_, matched := matchingGroups[name]
 	return matched
 }
 

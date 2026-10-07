@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -171,7 +172,7 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings;clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch
-//+kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews;subjectaccessreviews,verbs=create
+//+kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
 //+kubebuilder:rbac:urls=/metrics,verbs=get
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch
@@ -312,6 +313,13 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
 
+	// There is no upstream status condition for platform resources. A hook that
+	// wants its failure visible in status marks its own condition before returning
+	// the error; otherwise the failure only surfaces as a warning event.
+	if err := r.reconcilePlatformResources(ctx, llmSvc, config); err != nil {
+		return err
+	}
+
 	if err := r.observeWorkloadStatus(ctx, llmSvc); err != nil {
 		return fmt.Errorf("failed to observe workload status: %w", err)
 	}
@@ -329,6 +337,13 @@ func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMIn
 	}
 	if !done {
 		return false, nil
+	}
+
+	// Status is not persisted when finalization fails, so conditions set by the
+	// hook are dropped. A failure here keeps the finalizer in place and only
+	// surfaces in the controller logs.
+	if err := r.finalizePlatformResources(ctx, llmSvc); err != nil {
+		return false, err
 	}
 
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
@@ -390,14 +405,20 @@ func llmInferenceServiceReadinessFalse(status v1alpha2.LLMInferenceServiceStatus
 	return readyCondition != nil && readyCondition.Status == corev1.ConditionFalse
 }
 
+// readyIndependentConditions are informational: False says a feature did not
+// apply while the service keeps serving. They can't be filtered by severity,
+// since every sub-condition outside the Ready condition set gets Info severity,
+// including the ones that do roll up into Ready.
+var readyIndependentConditions = []apis.ConditionType{v1alpha2.GroupReady, v1alpha2.PerModelPathsDropped}
+
 // GetFailConditions returns a comma-separated list of sub-condition Types whose Status is False.
 // The top-level apis.ConditionReady is intentionally excluded because it is the aggregate that
 // is being reported on; including it would be self-referential ("Ready is no longer Ready
-// because of: Ready, ...").
+// because of: Ready, ..."). So are readyIndependentConditions, which never cause it.
 func GetFailConditions(svc *v1alpha2.LLMInferenceService) string {
 	msg := ""
 	for _, cond := range svc.Status.Conditions {
-		if cond.Type == apis.ConditionReady {
+		if cond.Type == apis.ConditionReady || slices.Contains(readyIndependentConditions, cond.Type) {
 			continue
 		}
 		if cond.Status == corev1.ConditionFalse {

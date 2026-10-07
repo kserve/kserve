@@ -10,6 +10,8 @@ metadata:
     internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
 spec:
   prefill:
+    labels:
+      serving.kserve.io/llmisvc-revision: placeholder
     annotations:
       serving.kserve.io/model-based-routing-enabled: "true"
     template:

@@ -30,6 +30,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
+	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
 )
 
 // Preparation status is derived from Jobs, Pods, and node image inventory.
@@ -95,8 +96,8 @@ func (r *KernelCacheNodeReconciler) getPreparationJob(
 	if err := r.List(ctx, jobs,
 		client.InNamespace(jobNamespace),
 		client.MatchingLabels{
-			kernelCacheNameLabel:      kernelCache.Name,
-			kernelCacheNamespaceLabel: kernelCache.Namespace,
+			kernelCacheNameLabel:      kernelcachelabels.Value(kernelCache.Name),
+			kernelCacheNamespaceLabel: kernelcachelabels.Value(kernelCache.Namespace),
 		},
 	); err != nil {
 		return nil, fmt.Errorf("list preparation Jobs in namespace %q for KernelCache %s/%s: %w", jobNamespace, kernelCache.Namespace, kernelCache.Name, err)
@@ -116,7 +117,7 @@ func (r *KernelCacheNodeReconciler) getPreparationJob(
 		if staleArtifact {
 			continue
 		}
-		if nodeName, ok := job.Labels[kernelCacheNodeLabel]; !ok || nodeName != r.NodeName {
+		if nodeName, ok := job.Labels[kernelCacheNodeLabel]; !ok || nodeName != kernelcachelabels.Value(r.NodeName) {
 			continue
 		}
 		if latest == nil || job.CreationTimestamp.After(latest.CreationTimestamp.Time) {

@@ -817,9 +817,11 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
 		"Test-Header-1": {"Test-Header-1"},
 		"Test-Header-2": {"Test-Header-2"},
 		"Test-Header-3": {"Test-Header-3"},
+		"X-Request-Id":  {"12345"},
+		"X-B3-Trace-Id": {"67890"},
 	}
 	// Propagating multiple headers "Test-Header-Key"
-	headersToPropagate := []string{"Test-Header-*", "Auth*"}
+	headersToPropagate := []string{"Test-Header-*", "Auth*", ".*Trace-Id.*"}
 	compiledHeaderPatterns, err = compilePatterns(headersToPropagate)
 	require.NoError(t, err)
 
@@ -838,6 +840,7 @@ func TestCallServiceWhenMultipleHeadersToPropagateUsingPatterns(t *testing.T) {
 		"Test-Header-2": "Test-Header-2",
 		"Test-Header-3": "Test-Header-3",
 		"Authorization": "Bearer Token",
+		"X-B3-Trace-Id": "67890",
 	}
 	t.Logf("final response:%v", response)
 	require.Equal(t, expectedResponse, response)

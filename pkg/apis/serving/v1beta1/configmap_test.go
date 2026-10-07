@@ -27,6 +27,7 @@ import (
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
 
 	"github.com/kserve/kserve/pkg/constants"
+	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
 )
 
 var (
@@ -103,10 +104,261 @@ func TestNewKernelCacheConfigDefaults(t *testing.T) {
 		g.Expect(config.PrefetchImage).To(gomega.Equal(DefaultKernelCachePrefetchImage))
 		g.Expect(config.MCVCaptureReadinessTimeoutSeconds).To(gomega.Equal(DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds))
 		g.Expect(config.AbandonedCapturePolicy).To(gomega.Equal(DefaultKernelCacheAbandonedCapturePolicy))
+		g.Expect(config.Registry.Endpoint).To(gomega.BeEmpty())
+		g.Expect(config.Registry.Insecure).To(gomega.BeFalse())
+		g.Expect(config.Registry.CAConfigMapRef).To(gomega.BeNil())
+		g.Expect(config.Registry.Auth.Type).To(gomega.Equal(KernelCacheRegistryAuthTypeNone))
+		g.Expect(config.Registry.Auth.TokenTTLSeconds).To(gomega.Equal(int64(0)))
+		g.Expect(config.Registry.Auth.PushRoleRef).To(gomega.BeNil())
+		g.Expect(config.Registry.Auth.PullRoleRef).To(gomega.BeNil())
+		g.Expect(config.ArtifactSecurity.Mode).To(gomega.Equal(DefaultKernelCacheArtifactSecurityMode))
+		g.Expect(config.ArtifactSecurity.FailurePolicy).To(gomega.Equal(string(kernelcachetypes.FailurePolicyReject)))
+		g.Expect(config.ArtifactSecurity.Cert).To(gomega.Equal(KernelCacheArtifactCertConfig{
+			SigningProfileRef: DefaultKernelCacheArtifactSigningProfileRef,
+			TrustBundle:       DefaultKernelCacheArtifactTrustBundle,
+			SubjectRegexp:     DefaultKernelCacheArtifactSubjectRegexp,
+		}))
 		g.Expect(config.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
 		g.Expect(*config.JobTTLSecondsAfterFinished).To(gomega.Equal(DefaultKernelCacheJobTTLSeconds))
 		g.Expect(config.ReconcileIntervalSeconds).ToNot(gomega.BeNil())
 		g.Expect(*config.ReconcileIntervalSeconds).To(gomega.Equal(DefaultKernelCacheReconcileIntervalSeconds))
+	}
+}
+
+func TestNewKernelCacheConfigAcceptsCertificateArtifactSecurity(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{
+			"artifactSecurity": {
+				"mode": "cert",
+				"failurePolicy": "reject",
+				"cert": {
+					"signingProfileRef": "kernelcache-signer",
+					"trustBundle": "kserve/kernelcache-root-ca",
+					"subjectRegexp": "spiffe://kserve/kernelcache-signer"
+				}
+			}
+		}`,
+	}}
+
+	config, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(config.ArtifactSecurity.Mode).To(gomega.Equal("cert"))
+	g.Expect(config.ArtifactSecurity.FailurePolicy).To(gomega.Equal(string(kernelcachetypes.FailurePolicyReject)))
+	g.Expect(config.ArtifactSecurity.Cert).To(gomega.Equal(KernelCacheArtifactCertConfig{
+		SigningProfileRef: "kernelcache-signer",
+		TrustBundle:       "kserve/kernelcache-root-ca",
+		SubjectRegexp:     "spiffe://kserve/kernelcache-signer",
+	}))
+}
+
+func TestNewKernelCacheConfigAllowsDisabledArtifactSecurity(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{"artifactSecurity":{"mode":"none"}}`,
+	}}
+
+	config, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(config.ArtifactSecurity.Mode).To(gomega.Equal("none"))
+}
+
+func TestKernelCacheRegistryConfigRejectsIncompleteCAConfigMapRef(t *testing.T) {
+	tests := []struct {
+		name string
+		ref  *KernelCacheConfigMapKeyRef
+	}{
+		{name: "missing name", ref: &KernelCacheConfigMapKeyRef{Key: "bundle.pem"}},
+		{name: "missing key", ref: &KernelCacheConfigMapKeyRef{Name: "registry-ca"}},
+		{name: "missing name and key", ref: &KernelCacheConfigMapKeyRef{}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			config := KernelCacheRegistryConfig{CAConfigMapRef: test.ref}
+			g.Expect(config.Validate()).To(gomega.MatchError("registry.caConfigMapRef requires name and key"))
+		})
+	}
+}
+
+func TestKernelCacheRegistryConfigRejectsInsecureWithCAConfigMapRef(t *testing.T) {
+	g := gomega.NewWithT(t)
+	config := KernelCacheRegistryConfig{
+		Insecure: true,
+		CAConfigMapRef: &KernelCacheConfigMapKeyRef{
+			Name: "registry-ca",
+			Key:  "ca.crt",
+		},
+	}
+
+	g.Expect(config.Validate()).To(gomega.MatchError("registry.insecure cannot be used with registry.caConfigMapRef"))
+}
+
+func TestNewKernelCacheConfigUsesServiceAccountTokenRegistry(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{
+			"registry": {
+				"endpoint": "registry.example:5000",
+				"caConfigMapRef": {"name": "custom-ca", "key": "bundle.pem"},
+				"auth": {
+					"type": "serviceAccountToken",
+					"pushRoleRef": {"kind": "ClusterRole", "name": "registry-pusher"},
+					"pullRoleRef": {"kind": "ClusterRole", "name": "registry-puller"}
+				}
+			}
+		}`,
+	}}
+
+	config, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+	g.Expect(config.Registry.Endpoint).To(gomega.Equal("registry.example:5000"))
+	g.Expect(config.Registry.Insecure).To(gomega.BeFalse())
+	g.Expect(config.Registry.CAConfigMapRef).To(gomega.Equal(&KernelCacheConfigMapKeyRef{
+		Name: "custom-ca",
+		Key:  "bundle.pem",
+	}))
+	g.Expect(config.Registry.Auth.Type).To(gomega.Equal(KernelCacheRegistryAuthTypeServiceAccountToken))
+	g.Expect(config.Registry.Auth.TokenTTLSeconds).To(gomega.Equal(DefaultKernelCacheRegistryTokenTTLSeconds))
+	g.Expect(config.Registry.Auth.PushRoleRef).To(gomega.Equal(&KernelCacheRegistryRoleRef{
+		Kind: "ClusterRole",
+		Name: "registry-pusher",
+	}))
+	g.Expect(config.Registry.Auth.PullRoleRef).To(gomega.Equal(&KernelCacheRegistryRoleRef{
+		Kind: "ClusterRole",
+		Name: "registry-puller",
+	}))
+}
+
+func TestNewKernelCacheConfigRejectsInsecureServiceAccountTokenRegistry(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{
+			"registry": {
+				"endpoint": "registry.example:5000",
+				"insecure": true,
+				"auth": {
+					"type": "serviceAccountToken",
+					"pushRoleRef": {"kind": "ClusterRole", "name": "registry-pusher"},
+					"pullRoleRef": {"kind": "ClusterRole", "name": "registry-puller"}
+				}
+			}
+		}`,
+	}}
+
+	_, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).To(gomega.MatchError("registry.insecure cannot be used with registry.auth.type serviceAccountToken"))
+}
+
+func TestNewKernelCacheConfigRejectsUnsupportedRegistryAuthType(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	configMap := &corev1.ConfigMap{Data: map[string]string{
+		KernelCacheConfigName: `{"registry":{"auth":{"type":"unsupported"}}}`,
+	}}
+
+	_, err := NewKernelCacheConfig(configMap)
+	g.Expect(err).To(gomega.MatchError(`unsupported registry.auth.type "unsupported"`))
+}
+
+func TestKernelCacheRegistryConfigRejectsInvalidServiceAccountTokenSettings(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      KernelCacheRegistryConfig
+		expectedErr string
+	}{
+		{
+			name: "missing endpoint",
+			config: KernelCacheRegistryConfig{
+				Auth: KernelCacheRegistryAuth{
+					Type: KernelCacheRegistryAuthTypeServiceAccountToken,
+				},
+			},
+			expectedErr: "registry.endpoint must be a registry host with optional port",
+		},
+		{
+			name: "missing role reference",
+			config: KernelCacheRegistryConfig{
+				Endpoint: "registry.example:5000",
+				Auth: KernelCacheRegistryAuth{
+					Type: KernelCacheRegistryAuthTypeServiceAccountToken,
+				},
+			},
+			expectedErr: "registry.auth.pushRoleRef requires kind and name",
+		},
+		{
+			name: "missing pull role reference",
+			config: KernelCacheRegistryConfig{
+				Endpoint: "registry.example:5000",
+				Auth: KernelCacheRegistryAuth{
+					Type:        KernelCacheRegistryAuthTypeServiceAccountToken,
+					PushRoleRef: &KernelCacheRegistryRoleRef{Kind: "Role", Name: "pusher"},
+				},
+			},
+			expectedErr: "registry.auth.pullRoleRef requires kind and name",
+		},
+		{
+			name: "invalid role reference kind",
+			config: KernelCacheRegistryConfig{
+				Endpoint: "registry.example:5000",
+				Auth: KernelCacheRegistryAuth{
+					Type:        KernelCacheRegistryAuthTypeServiceAccountToken,
+					PushRoleRef: &KernelCacheRegistryRoleRef{Kind: "ServiceAccount", Name: "pusher"},
+					PullRoleRef: &KernelCacheRegistryRoleRef{Kind: "Role", Name: "puller"},
+				},
+			},
+			expectedErr: "registry.auth.pushRoleRef.kind must be Role or ClusterRole",
+		},
+		{
+			name: "endpoint contains path",
+			config: KernelCacheRegistryConfig{
+				Endpoint: "registry.example:5000/lib",
+				Auth: KernelCacheRegistryAuth{
+					Type:        KernelCacheRegistryAuthTypeServiceAccountToken,
+					PushRoleRef: &KernelCacheRegistryRoleRef{Kind: "Role", Name: "pusher"},
+					PullRoleRef: &KernelCacheRegistryRoleRef{Kind: "Role", Name: "puller"},
+				},
+			},
+			expectedErr: "registry.endpoint must be a registry host with optional port",
+		},
+		{
+			name: "invalid token ttl",
+			config: KernelCacheRegistryConfig{
+				Endpoint: "registry.example:5000",
+				Auth: KernelCacheRegistryAuth{
+					Type:            KernelCacheRegistryAuthTypeServiceAccountToken,
+					TokenTTLSeconds: 300,
+					PushRoleRef:     &KernelCacheRegistryRoleRef{Kind: "Role", Name: "pusher"},
+					PullRoleRef:     &KernelCacheRegistryRoleRef{Kind: "Role", Name: "puller"},
+				},
+			},
+			expectedErr: "registry.auth.tokenTTLSeconds must be between 600 and 3600",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			g.Expect(test.config.Validate()).To(gomega.MatchError(test.expectedErr))
+		})
+	}
+}
+
+func TestKernelCacheRegistryConfigAcceptsTokenTTLBoundaries(t *testing.T) {
+	for _, ttl := range []int64{DefaultKernelCacheRegistryTokenTTLSeconds, 3600} {
+		t.Run(fmt.Sprintf("ttl_%d", ttl), func(t *testing.T) {
+			g := gomega.NewWithT(t)
+			config := KernelCacheRegistryConfig{
+				Endpoint: "registry.example:5000",
+				Auth: KernelCacheRegistryAuth{
+					Type:            KernelCacheRegistryAuthTypeServiceAccountToken,
+					TokenTTLSeconds: ttl,
+					PushRoleRef:     &KernelCacheRegistryRoleRef{Kind: "Role", Name: "pusher"},
+					PullRoleRef:     &KernelCacheRegistryRoleRef{Kind: "Role", Name: "puller"},
+				},
+			}
+			g.Expect(config.Validate()).To(gomega.Succeed())
+		})
 	}
 }
 

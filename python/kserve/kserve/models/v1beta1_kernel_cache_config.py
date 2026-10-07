@@ -48,6 +48,7 @@ class V1beta1KernelCacheConfig(object):
     """
     openapi_types = {
         'abandoned_capture_policy': 'str',
+        'artifact_security': 'V1beta1KernelCacheArtifactSecurityConfig',
         'default_mount_type': 'str',
         'default_node_group': 'str',
         'default_sidecar_injection': 'bool',
@@ -57,11 +58,13 @@ class V1beta1KernelCacheConfig(object):
         'mcv_capture_readiness_timeout_seconds': 'int',
         'mcv_image': 'str',
         'prefetch_image': 'str',
-        'reconcile_interval_seconds': 'int'
+        'reconcile_interval_seconds': 'int',
+        'registry': 'V1beta1KernelCacheRegistryConfig'
     }
 
     attribute_map = {
         'abandoned_capture_policy': 'abandonedCapturePolicy',
+        'artifact_security': 'artifactSecurity',
         'default_mount_type': 'defaultMountType',
         'default_node_group': 'defaultNodeGroup',
         'default_sidecar_injection': 'defaultSidecarInjection',
@@ -71,16 +74,18 @@ class V1beta1KernelCacheConfig(object):
         'mcv_capture_readiness_timeout_seconds': 'mcvCaptureReadinessTimeoutSeconds',
         'mcv_image': 'mcvImage',
         'prefetch_image': 'prefetchImage',
-        'reconcile_interval_seconds': 'reconcileIntervalSeconds'
+        'reconcile_interval_seconds': 'reconcileIntervalSeconds',
+        'registry': 'registry'
     }
 
-    def __init__(self, abandoned_capture_policy=None, default_mount_type=None, default_node_group=None, default_sidecar_injection=False, enabled=False, job_namespace='', job_ttl_seconds_after_finished=None, mcv_capture_readiness_timeout_seconds=None, mcv_image=None, prefetch_image=None, reconcile_interval_seconds=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, abandoned_capture_policy=None, artifact_security=None, default_mount_type=None, default_node_group=None, default_sidecar_injection=False, enabled=False, job_namespace='', job_ttl_seconds_after_finished=None, mcv_capture_readiness_timeout_seconds=None, mcv_image=None, prefetch_image=None, reconcile_interval_seconds=None, registry=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1KernelCacheConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
         self._abandoned_capture_policy = None
+        self._artifact_security = None
         self._default_mount_type = None
         self._default_node_group = None
         self._default_sidecar_injection = None
@@ -91,10 +96,13 @@ class V1beta1KernelCacheConfig(object):
         self._mcv_image = None
         self._prefetch_image = None
         self._reconcile_interval_seconds = None
+        self._registry = None
         self.discriminator = None
 
         if abandoned_capture_policy is not None:
             self.abandoned_capture_policy = abandoned_capture_policy
+        if artifact_security is not None:
+            self.artifact_security = artifact_security
         if default_mount_type is not None:
             self.default_mount_type = default_mount_type
         if default_node_group is not None:
@@ -112,6 +120,8 @@ class V1beta1KernelCacheConfig(object):
             self.prefetch_image = prefetch_image
         if reconcile_interval_seconds is not None:
             self.reconcile_interval_seconds = reconcile_interval_seconds
+        if registry is not None:
+            self.registry = registry
 
     @property
     def abandoned_capture_policy(self):
@@ -133,6 +143,27 @@ class V1beta1KernelCacheConfig(object):
         """
 
         self._abandoned_capture_policy = abandoned_capture_policy
+
+    @property
+    def artifact_security(self):
+        """Gets the artifact_security of this V1beta1KernelCacheConfig.  # noqa: E501
+
+
+        :return: The artifact_security of this V1beta1KernelCacheConfig.  # noqa: E501
+        :rtype: V1beta1KernelCacheArtifactSecurityConfig
+        """
+        return self._artifact_security
+
+    @artifact_security.setter
+    def artifact_security(self, artifact_security):
+        """Sets the artifact_security of this V1beta1KernelCacheConfig.
+
+
+        :param artifact_security: The artifact_security of this V1beta1KernelCacheConfig.  # noqa: E501
+        :type: V1beta1KernelCacheArtifactSecurityConfig
+        """
+
+        self._artifact_security = artifact_security
 
     @property
     def default_mount_type(self):
@@ -349,6 +380,27 @@ class V1beta1KernelCacheConfig(object):
         """
 
         self._reconcile_interval_seconds = reconcile_interval_seconds
+
+    @property
+    def registry(self):
+        """Gets the registry of this V1beta1KernelCacheConfig.  # noqa: E501
+
+
+        :return: The registry of this V1beta1KernelCacheConfig.  # noqa: E501
+        :rtype: V1beta1KernelCacheRegistryConfig
+        """
+        return self._registry
+
+    @registry.setter
+    def registry(self, registry):
+        """Sets the registry of this V1beta1KernelCacheConfig.
+
+
+        :param registry: The registry of this V1beta1KernelCacheConfig.  # noqa: E501
+        :type: V1beta1KernelCacheRegistryConfig
+        """
+
+        self._registry = registry
 
     def to_dict(self):
         """Returns the model properties as a dict"""

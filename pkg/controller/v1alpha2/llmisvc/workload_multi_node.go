@@ -274,10 +274,10 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 
 	if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
 		utils.PropagateMap(llmSvc.Spec.Labels, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels)
-		utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations, AnnotationModelBasedRoutingEnabled)
+		utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations, routingSpecAnnotations...)
 	}
 	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels)
-	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations, AnnotationModelBasedRoutingEnabled)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations, routingSpecAnnotations...)
 
 	// Inject tracing instrumentation when spec.tracing is set
 	if llmSvc.Spec.Tracing != nil {
@@ -286,6 +286,8 @@ func (r *LLMISVCReconciler) expectedMainMultiNodeLWS(ctx context.Context, llmSvc
 		}
 		injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-decode", &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec)
 	}
+
+	applyLeaderWorkerSetWorkloadRevision(&expected.Spec.LeaderWorkerTemplate, config)
 
 	log.FromContext(ctx).V(2).Info("Expected main LWS", "leaderworkerset", expected)
 
@@ -416,11 +418,13 @@ func (r *LLMISVCReconciler) expectedPrefillMultiNodeLWS(ctx context.Context, llm
 	if llmSvc.Spec.Prefill != nil {
 		if expected.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
 			utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels)
-			utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations, AnnotationModelBasedRoutingEnabled)
+			utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &expected.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations, routingSpecAnnotations...)
 		}
 		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Labels)
-		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations, AnnotationModelBasedRoutingEnabled)
+		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &expected.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations, routingSpecAnnotations...)
 	}
+
+	applyLeaderWorkerSetWorkloadRevision(&expected.Spec.LeaderWorkerTemplate, config)
 
 	log.FromContext(ctx).V(2).Info("Expected prefill LWS", "leaderworkerset", expected)
 

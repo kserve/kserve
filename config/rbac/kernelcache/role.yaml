@@ -9,9 +9,36 @@ rules:
   resources:
   - configmaps
   - nodes
+  - pods
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
   - watch
 - apiGroups:
   - apps
@@ -23,6 +50,71 @@ rules:
   - get
   - patch
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  - replicasets
+  verbs:
+  - get
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - kserve-kernelcache-token-requester
+  resources:
+  - clusterroles
+  verbs:
+  - bind
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachecaptures
+  - kernelcachenodes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachecaptures/status
+  - kernelcaches/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - serving.kserve.io
   resources:
   - kernelcachenodegroups
@@ -33,10 +125,9 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
-  - kernelcachenodes
+  - kernelcaches
   verbs:
   - create
-  - delete
   - get
   - list
   - watch

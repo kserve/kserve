@@ -50,5 +50,9 @@ for item in $K8S_IMPORT_LIST; do
     rm -rf python/kserve/docs/*.bak
 done
 
-hack/boilerplate.sh
+if [ -n "${COPYRIGHT_YEARS_CACHE:-}" ]; then
+    hack/boilerplate.sh --year-cache "${COPYRIGHT_YEARS_CACHE}"
+else
+    hack/boilerplate.sh
+fi
 echo "KServe Python SDK is generated successfully to folder ${SDK_OUTPUT_PATH}/."

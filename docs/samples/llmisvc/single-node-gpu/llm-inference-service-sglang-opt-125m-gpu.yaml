@@ -15,6 +15,11 @@ spec:
   template:
     containers:
       - name: main
+        # To execute custom code bundled with a model, uncomment the args below.
+        # This executes arbitrary code from the model source; enable it only for
+        # models from sources you trust.
+        # args:
+        #   - --trust-remote-code
         resources:
           limits:
             cpu: '4'

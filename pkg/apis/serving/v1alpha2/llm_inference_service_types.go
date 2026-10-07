@@ -102,13 +102,6 @@ type LLMInferenceServiceSpec struct {
 	// +optional
 	Runtime *string `json:"runtime,omitempty"`
 
-	// TrustRemoteCode allows the inference runtime to execute custom model code bundled
-	// with model weights (e.g. HuggingFace models with custom architectures).
-	// Enable only when loading models from trusted sources — this executes arbitrary Python
-	// at model load time.
-	// +optional
-	TrustRemoteCode bool `json:"trustRemoteCode,omitempty"`
-
 	// StorageInitializer configuration for model artifact fetching.
 	// +optional
 	StorageInitializer *StorageInitializerSpec `json:"storageInitializer,omitempty"`

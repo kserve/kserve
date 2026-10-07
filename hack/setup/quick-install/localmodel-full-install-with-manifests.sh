@@ -653,11 +653,11 @@ KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
 JAEGER_VERSION=4.7.0
-KSERVE_VERSION=v0.21.0-rc1
+KSERVE_VERSION=v0.21.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.20.2
 OPENTELEMETRY_OPERATOR_VERSION=0.114.1
-LWS_VERSION=v0.10.0
+LWS_VERSION=v0.11.0
 GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.5.0
 LLMD_ROUTER_VERSION=v0.10.0
@@ -2116,6 +2116,7 @@ spec:
   annotations:
     prometheus.kserve.io/path: /metrics
     prometheus.kserve.io/port: "8080"
+    serving.kserve.io/kernelcache-supported: "true"
   containers:
   - args:
     - --port=8080
@@ -2235,6 +2236,8 @@ metadata:
 spec:
   annotations:
     serving.kserve.io/model-based-routing-enabled: "true"
+  labels:
+    serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
     - command:
@@ -2576,6 +2579,8 @@ metadata:
 spec:
   annotations:
     serving.kserve.io/model-based-routing-enabled: "true"
+  labels:
+    serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
     - command:
@@ -3236,6 +3241,8 @@ spec:
   prefill:
     annotations:
       serving.kserve.io/model-based-routing-enabled: "true"
+    labels:
+      serving.kserve.io/llmisvc-revision: placeholder
     template:
       containers:
       - command:
@@ -3518,6 +3525,8 @@ spec:
   prefill:
     annotations:
       serving.kserve.io/model-based-routing-enabled: "true"
+    labels:
+      serving.kserve.io/llmisvc-revision: placeholder
     template:
       containers:
       - command:
@@ -4877,6 +4886,7 @@ spec:
             - -c
             - |-
               exec vllm launch render /mnt/models/base \
+                --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" /mnt/models/base \
                 --port=8000 \
                 {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh \
                 --ssl-certfile /var/run/kserve/tls/tls.crt \
@@ -5530,7 +5540,6 @@ spec:
           --port 8000
           --host 0.0.0.0
           {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tp {{ .Spec.Parallelism.Tensor }}{{- end }}
-          {{- if .Spec.TrustRemoteCode }} --trust-remote-code{{- end }}
         )
         exec "${args[@]}" "$@"
       - --
@@ -6777,9 +6786,36 @@ rules:
   resources:
   - configmaps
   - nodes
+  - pods
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
   - watch
 - apiGroups:
   - apps
@@ -6791,6 +6827,71 @@ rules:
   - get
   - patch
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  - replicasets
+  verbs:
+  - get
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - kserve-kernelcache-token-requester
+  resources:
+  - clusterroles
+  verbs:
+  - bind
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachecaptures
+  - kernelcachenodes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachecaptures/status
+  - kernelcaches/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - serving.kserve.io
   resources:
   - kernelcachenodegroups
@@ -6801,13 +6902,27 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
-  - kernelcachenodes
+  - kernelcaches
   verbs:
   - create
-  - delete
   - get
   - list
   - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-kernelcache-token-requester
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts/token
+  verbs:
+  - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -6899,6 +7014,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
   - batch
   resources:
   - jobs
@@ -6989,6 +7116,18 @@ rules:
   verbs:
   - get
   - watch
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
 - apiGroups:
   - batch
   resources:
@@ -7375,6 +7514,45 @@ metadata:
   labels:
     app.kubernetes.io/component: localmodel
     app.kubernetes.io/name: kserve
+  name: kernelcache-root-ca
+  namespace: kserve
+spec:
+  commonName: kernelcache-root-ca
+  duration: 8760h
+  isCA: true
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: kernelcache-root-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcache-signer
+  namespace: kserve
+spec:
+  commonName: kernelcache-signer
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: kernelcache-ca
+  secretName: kernelcache-signer
+  uris:
+  - spiffe://kserve/kernelcache-signer
+  usages:
+  - digital signature
+  - code signing
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
   name: localmodel-serving-cert
   namespace: kserve
 spec:
@@ -7385,6 +7563,89 @@ spec:
     kind: Issuer
     name: selfsigned-issuer
   secretName: localmodel-webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcache-ca
+  namespace: kserve
+spec:
+  ca:
+    secretName: kernelcache-root-ca
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kserve/localmodel-serving-cert
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcache.serving.kserve.io
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: localmodel-webhook-server-service
+      namespace: kserve
+      path: /mutate-kernelcache-pods
+  failurePolicy: Fail
+  matchConditions:
+  - expression: has(object.metadata.labels) && 'serving.kserve.io/inferenceservice'
+      in object.metadata.labels
+    name: inferenceservice-workload
+  name: kernelcache.kserve-webhook-server.pod-mutator
+  namespaceSelector:
+    matchExpressions:
+    - key: control-plane
+      operator: DoesNotExist
+  reinvocationPolicy: IfNeeded
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kserve/localmodel-serving-cert
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcachecapture.serving.kserve.io
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: localmodel-webhook-server-service
+      namespace: kserve
+      path: /validate-kernelcachecapture-status
+  failurePolicy: Fail
+  name: kernelcachecapture.kserve-webhook-server.status-validator
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - UPDATE
+    resources:
+    - kernelcachecaptures/status
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration

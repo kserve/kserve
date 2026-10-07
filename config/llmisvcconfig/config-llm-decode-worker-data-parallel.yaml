@@ -9,6 +9,8 @@ metadata:
     # new preset, so nothing already running moves until it is re-pinned.
     internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
 spec:
+  labels:
+    serving.kserve.io/llmisvc-revision: placeholder
   annotations:
     serving.kserve.io/model-based-routing-enabled: "true"
   template:

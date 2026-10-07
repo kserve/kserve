@@ -43,8 +43,7 @@ from kserve import (
 from kserve.logging import logger
 from kubernetes.client import V1ResourceRequirements
 
-from ..common.utils import KSERVE_TEST_NAMESPACE, get_cluster_ip
-from ..common.utils import predict_isvc
+from ..common.utils import get_cluster_ip, predict_isvc, wait_model_ready_with_retry
 
 
 ENABLE_METRIC_AGG = "serving.kserve.io/enable-metric-aggregation"
@@ -53,8 +52,7 @@ METRICS_PATH = "metrics"
 
 
 @pytest.mark.asyncio(scope="session")
-async def test_qpext_kserve(rest_v2_client, network_layer):
-    # test the qpext using the sklearn predictor
+async def test_qpext_kserve(rest_v2_client, network_layer, test_namespace):
     service_name = "sklearn-v2-metrics"
     protocol_version = "v2"
     predictor = V1beta1PredictorSpec(
@@ -80,8 +78,7 @@ async def test_qpext_kserve(rest_v2_client, network_layer):
         kind=constants.KSERVE_KIND_INFERENCESERVICE,
         metadata=client.V1ObjectMeta(
             name=service_name,
-            namespace=KSERVE_TEST_NAMESPACE,
-            # set the metric aggregation annotation to true
+            namespace=test_namespace,
             annotations={ENABLE_METRIC_AGG: "true"},
         ),
         spec=V1beta1InferenceServiceSpec(predictor=predictor),
@@ -91,11 +88,12 @@ async def test_qpext_kserve(rest_v2_client, network_layer):
         config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
     )
     kserve_client.create(isvc)
-    kserve_client.wait_isvc_ready(service_name, namespace=KSERVE_TEST_NAMESPACE)
-    kserve_client.wait_model_ready(
+    kserve_client.wait_isvc_ready(service_name, namespace=test_namespace)
+    wait_model_ready_with_retry(
+        kserve_client,
         service_name,
         model_name=service_name,
-        isvc_namespace=KSERVE_TEST_NAMESPACE,
+        isvc_namespace=test_namespace,
         isvc_version=constants.KSERVE_V1BETA1_VERSION,
         protocol_version=protocol_version,
         cluster_ip=get_cluster_ip(),
@@ -106,28 +104,27 @@ async def test_qpext_kserve(rest_v2_client, network_layer):
         service_name,
         "./data/iris_input_v2.json",
         network_layer=network_layer,
+        namespace=test_namespace,
     )
     assert res.outputs[0].data == [1, 1]
 
-    await send_metrics_request(kserve_client, service_name)
-    kserve_client.delete(service_name, KSERVE_TEST_NAMESPACE)
+    await send_metrics_request(kserve_client, service_name, test_namespace)
 
 
-async def send_metrics_request(kserve_client, service_name):
+async def send_metrics_request(kserve_client, service_name, namespace):
     await asyncio.sleep(10)
     pods = kserve_client.core_api.list_namespaced_pod(
-        KSERVE_TEST_NAMESPACE,
+        namespace,
         label_selector="serving.kserve.io/inferenceservice={}".format(service_name),
     )
     pod_name = ""
     for pod in pods.items:
-        # get a pod name
         pod_name = pod.metadata.name
         break
 
     url = f"http://localhost:{METRICS_AGG_PORT}/{METRICS_PATH}"
     port_forwarder = AsyncPortForwarder(
-        KSERVE_TEST_NAMESPACE, pod_name, METRICS_AGG_PORT, METRICS_AGG_PORT
+        namespace, pod_name, METRICS_AGG_PORT, METRICS_AGG_PORT
     )
     await port_forwarder.forward()
     logger.info(f"metrics request url: {url}")

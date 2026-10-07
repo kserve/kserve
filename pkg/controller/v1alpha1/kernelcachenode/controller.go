@@ -31,19 +31,22 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	kernelcacheconfig "github.com/kserve/kserve/pkg/kernelcache/config"
+	kernelcachelabels "github.com/kserve/kserve/pkg/kernelcache/labels"
 )
 
 const (
 	// Labels identify KernelCache prefetch Jobs and their target node.
-	kernelCacheNameLabel      = "serving.kserve.io/kernel-cache-name"
-	kernelCacheNamespaceLabel = "serving.kserve.io/kernel-cache-namespace"
-	kernelCacheNodeLabel      = "serving.kserve.io/kernel-cache-node"
+	kernelCacheNameLabel      = kernelcachelabels.KernelCacheNameLabel
+	kernelCacheNamespaceLabel = kernelcachelabels.KernelCacheNamespaceLabel
+	kernelCacheNodeLabel      = kernelcachelabels.KernelCacheNodeLabel
 
 	// Reconciliation and image validation intervals.
 	defaultReconcileInterval = 5 * time.Minute
@@ -57,6 +60,7 @@ type KernelCacheNodeReconciler struct {
 	Reader   client.Reader // Reads prefetch Pods outside the filtered manager cache.
 	NodeName string
 	Log      logr.Logger
+	Recorder events.EventRecorder
 }
 
 // Main reconciliation loop.
@@ -78,6 +82,7 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	config, err := kernelcacheconfig.Load(ctx, r.Client)
 	if err != nil {
+		r.recordErrorEvent(kernelCacheNode, "Reconcile", "ConfigError", err)
 		return ctrl.Result{}, fmt.Errorf("load KernelCache configuration: %w", err)
 	}
 	if !config.Enabled {
@@ -85,9 +90,19 @@ func (r *KernelCacheNodeReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	if err := r.reconcileStatus(ctx, config, false); err != nil {
+		if !apierrors.IsNotFound(err) {
+			r.recordErrorEvent(kernelCacheNode, "Reconcile", "ReconcileError", err)
+		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	interval := time.Duration(*config.ReconcileIntervalSeconds) * time.Second
 	return ctrl.Result{RequeueAfter: interval}, nil
+}
+
+func (r *KernelCacheNodeReconciler) recordErrorEvent(node client.Object, action, reason string, err error) {
+	if r.Recorder == nil {
+		return
+	}
+	r.Recorder.Eventf(node, nil, corev1.EventTypeWarning, reason, action, "%v", err)
 }

@@ -570,6 +570,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 			}
+			customizeRouterKnativeService(ig, expectedKnService)
 			// Set ResourceVersion which is required for update operation.
 			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
 
@@ -708,6 +709,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 			}
+			customizeRouterKnativeService(ig, expectedKnService)
 			// Set ResourceVersion which is required for update operation.
 			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
 
@@ -883,6 +885,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 			}
+			customizeRouterKnativeService(ig, expectedKnService)
 			// Set ResourceVersion which is required for update operation.
 			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
 
@@ -1623,6 +1626,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 			}
+			customizeRouterKnativeService(ig, expectedKnService)
 			// Set ResourceVersion which is required for update operation.
 			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
 
