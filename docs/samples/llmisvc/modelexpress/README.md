@@ -1,30 +1,30 @@
 # ModelExpress Examples
 
 This directory contains example configurations that load model weights for an
-`LLMInferenceService` through [ModelExpress](https://github.com/ai-dynamo/modelexpress) (MX).
+`LLMInferenceService` through [ModelExpress](https://github.com/ai-dynamo/modelexpress).
 
 ## Overview
 
-MX is a vLLM model loader. A replica loading a model first asks the MX server for a peer that
+ModelExpress is a vLLM model loader. A replica loading a model first asks the ModelExpress server for a peer that
 already holds the same weights, and pulls them GPU to GPU over RDMA. When no peer exists it
-falls back to streaming the weights from object storage or from the MX server's cache. Every
+falls back to streaming the weights from object storage or from the ModelExpress server's cache. Every
 replica that finishes loading becomes a source for the next one, so scaling out a model stops
 paying for a full download per pod.
 
-KServe's MX support is **experimental** and driven by `serving.kserve.io/exp-modelexpress-*`
+KServe's ModelExpress support is **experimental** and driven by `serving.kserve.io/exp-modelexpress-*`
 annotations. It has two modes:
 
 - **layered** keeps KServe's model delivery (storage initializer, PVC, OCI, LocalModelCache)
-  and adds MX on top. Replicas still receive the model on disk; MX adds peer transfer.
-- **native** hands weight loading to MX. KServe downloads only what vLLM needs besides the
-  weights, and MX loads the weights from a peer, from object storage, or from its server cache.
+  and adds ModelExpress on top. Replicas still receive the model on disk; ModelExpress adds peer transfer.
+- **native** hands weight loading to ModelExpress. KServe downloads only what vLLM needs besides the
+  weights, and ModelExpress loads the weights from a peer, from object storage, or from its server cache.
 
 ## Prerequisites
 
-- NVIDIA (CUDA) or Intel (XPU) accelerators. The MX loader does not run on CPU.
+- NVIDIA (CUDA) or Intel (XPU) accelerators. The ModelExpress loader does not run on CPU.
 - A vLLM image with the `modelexpress` Python package installed. vLLM 0.23.0 and newer
   recognize `--load-format modelexpress`; older versions need `VLLM_PLUGINS=modelexpress`.
-- A running MX server. [`setup-modelexpress.sh`](../../../../test/scripts/gh-actions/setup-modelexpress.sh)
+- A running ModelExpress server. [`setup-modelexpress.sh`](../../../../test/scripts/gh-actions/setup-modelexpress.sh)
   installs one with the upstream chart and the Kubernetes metadata backend.
 - For peer transfer over RDMA: an RDMA device resource on the engine pods and the `IPC_LOCK`
   capability, as in the native `s3://` example. KServe adds neither.
@@ -38,12 +38,12 @@ The second replica loads from the first over RDMA. The model must be in safetens
 
 ### 2. Native, Hugging Face model ([llm-inference-service-modelexpress-native-hf.yaml](llm-inference-service-modelexpress-native-hf.yaml))
 
-The MX server downloads the model from the Hub once and streams it to each worker. Engine pods
+The ModelExpress server downloads the model from the Hub once and streams it to each worker. Engine pods
 need no Hub access and no `HF_TOKEN`; the server's credentials are used instead.
 
 ### 3. Layered ([llm-inference-service-modelexpress-layered.yaml](llm-inference-service-modelexpress-layered.yaml))
 
-The model is mounted from a PVC as usual, and MX adds peer transfer. Layered mode accepts every
+The model is mounted from a PVC as usual, and ModelExpress adds peer transfer. Layered mode accepts every
 model URI scheme KServe supports.
 
 ## How It Works
@@ -52,9 +52,9 @@ model URI scheme KServe supports.
 
 | Annotation | Required | Purpose |
 |---|---|---|
-| `exp-modelexpress-mode` | yes | `native` or `layered`. Enables MX. |
-| `exp-modelexpress-address` | yes | MX server as `host:port`, `http://host:port` or `https://host:port`. The client enables TLS for `https://` only. |
-| `exp-modelexpress-token-audience` | no | Projects a ServiceAccount token with this audience for MX server authentication. |
+| `exp-modelexpress-mode` | yes | `native` or `layered`. Enables ModelExpress. |
+| `exp-modelexpress-address` | yes | ModelExpress server as `host:port`, `http://host:port` or `https://host:port`. The client enables TLS for `https://` only. |
+| `exp-modelexpress-token-audience` | no | Projects a ServiceAccount token with this audience for ModelExpress server authentication. |
 | `exp-modelexpress-revision` | no | Overrides the revision in the P2P identity. Defaults to a hash of `spec.model.uri`. |
 
 The admission webhook rejects an unknown mode, an address it cannot parse, empty values, and
@@ -65,28 +65,28 @@ the controller after merging and reported on `ModelExpressReady`.
 ### Weight delivery
 
 ```
-native s3://                                 native hf://
-                                             
-storage initializer                          (no download)
-  downloads everything except weights          |
-  (*.safetensors, *.bin, *.pt, ...)            |
-  to /mnt/models                               |
-        |                                      |
-vllm serve /mnt/models                       vllm serve <owner/model>
-  --load-format modelexpress                   --load-format modelexpress
-        |                                      |
-MX: peer over RDMA?  -- yes --> done         MX: peer over RDMA?  -- yes --> done
-        | no                                   | no
-MX: ModelStreamer from MX_MODEL_URI          MX: server cache streams files
-    (s3://...) into GPU memory                   into the Hugging Face cache
+native s3://                                      native hf://
+
+storage initializer                               (no download)
+  downloads everything except weights               |
+  (*.safetensors, *.bin, *.pt, ...)                 |
+  to /mnt/models                                    |
+        |                                           |
+vllm serve /mnt/models                            vllm serve <owner/model>
+  --load-format modelexpress                        --load-format modelexpress
+        |                                           |
+ModelExpress: peer over RDMA?  -- yes --> done    ModelExpress: peer over RDMA?  -- yes --> done
+        | no                                        | no
+ModelExpress: ModelStreamer from MX_MODEL_URI     ModelExpress: server cache streams files
+    (s3://...) into GPU memory                      into the Hugging Face cache
 ```
 
 | Model URI | layered | native |
 |---|---|---|
-| `s3://` | Storage initializer downloads the model. MX adds peer transfer. | Storage initializer skips weight files. ModelStreamer streams the weights. S3 credentials and CA bundle are shared with the engine container. |
-| `hf://` | Storage initializer downloads the model. MX adds peer transfer. | No download. vLLM gets the repo id and loads through the MX server cache. |
-| `pvc://`, LocalModelCache | Mounted as usual. MX adds peer transfer. | Rejected. |
-| `oci://`, `oci+native://` | Modelcar or image volume as usual. MX adds peer transfer. | Rejected. |
+| `s3://` | Storage initializer downloads the model. ModelExpress adds peer transfer. | Storage initializer skips weight files. ModelStreamer streams the weights. S3 credentials and CA bundle are shared with the engine container. |
+| `hf://` | Storage initializer downloads the model. ModelExpress adds peer transfer. | No download. vLLM gets the repo id and loads through the ModelExpress server cache. |
+| `pvc://`, LocalModelCache | Mounted as usual. ModelExpress adds peer transfer. | Rejected. |
+| `oci://`, `oci+native://` | Modelcar or image volume as usual. ModelExpress adds peer transfer. | Rejected. |
 
 In native mode the base model never uses a LocalModelCache; LoRA adapters still can.
 
@@ -106,7 +106,7 @@ container:
 | `MODEL_EXPRESS_NO_SHARED_STORAGE`, `MODEL_EXPRESS_CACHE_DIRECTORY`, `HF_HUB_OFFLINE` | Native `hf://` only |
 
 Environment variables the workload already sets are kept. Single-node main and prefill pods
-share the `<name>-kserve` ServiceAccount, so the MX server's allowlist can name one identity.
+share the `<name>-kserve` ServiceAccount, so the ModelExpress server's allowlist can name one identity.
 
 ### The model argument
 
@@ -118,15 +118,15 @@ value for it in a service spec is rejected.
 
 ### Status
 
-The `ModelExpressReady` condition reports whether MX is configured. It does not affect `Ready`.
+The `ModelExpressReady` condition reports whether ModelExpress is configured. It does not affect `Ready`.
 
 | Situation | native | layered |
 |---|---|---|
 | Server resolved, model source supported | `True` | `True` |
-| No usable server address (`ServerNotResolved`) | `False`; the workload is not rendered | `False`; the workload renders without MX |
+| No usable server address (`ServerNotResolved`) | `False`; the workload is not rendered | `False`; the workload renders without ModelExpress |
 | Unsupported model source or workload | `False`; the workload is not rendered | not applicable |
 
-A stopped service ignores MX configuration, so stopping always works.
+A stopped service ignores ModelExpress configuration, so stopping always works.
 
 ## Limitations
 
@@ -158,7 +158,7 @@ load with `rdma`.
 
 ### `ModelExpressReady=False` with reason `ServerNotResolved`
 
-Set `serving.kserve.io/exp-modelexpress-address` to the MX server's gRPC endpoint.
+Set `serving.kserve.io/exp-modelexpress-address` to the ModelExpress server's gRPC endpoint.
 
 ### Every strategy fails and the engine exits with `No loading strategy succeeded`
 
@@ -166,7 +166,7 @@ For native `s3://`, check that the bucket holds `.safetensors` files and that th
 ServiceAccount carries S3 credentials. The engine container receives the same credentials as the
 storage initializer.
 
-### The MX server pod fails with `container has runAsNonRoot and image will run as root`
+### The ModelExpress server pod fails with `container has runAsNonRoot and image will run as root`
 
 The upstream chart sets `runAsNonRoot` while its image runs as root. Set
 `securityContext.runAsUser` and `podSecurityContext.fsGroup`, as `setup-modelexpress.sh` does.
@@ -178,12 +178,12 @@ The upstream chart sets `runAsNonRoot` while its image runs as root. Set
 - `llmisvc_modelexpress and cluster_cpu` covers admission and the rendered engine pods. It runs
   in the LLMInferenceService CI workflow.
 - `llmisvc_modelexpress and cluster_nvidia` serves a native `s3://` model and checks that a second
-  replica loads from its peer over RDMA. It needs an MX-enabled vLLM image
+  replica loads from its peer over RDMA. It needs a ModelExpress-enabled vLLM image
   (`MODELEXPRESS_VLLM_CUDA_IMAGE`, see [`images/`](../../../../test/e2e/llmisvc/images)) and,
   for RDMA, `MODELEXPRESS_RDMA_RESOURCE`.
 
 To run the GPU tier, install KServe with LLMInferenceService the way the CI workflow does, then
-install an MX server and seed a safetensors model into the test bucket:
+install a ModelExpress server and seed a safetensors model into the test bucket:
 
 ```bash
 export MODELEXPRESS_ADDRESS="$(test/scripts/gh-actions/setup-modelexpress.sh)"
