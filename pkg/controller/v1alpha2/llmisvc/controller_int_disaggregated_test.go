@@ -340,8 +340,14 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			defer testNs.DeleteAndWait(ctx, llmSvc)
 
 			// then
-			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve", llmSvc.Namespace)
-			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve-prefill", llmSvc.Namespace)
+			for _, name := range []string{llmSvc.Name + "-kserve", llmSvc.Name + "-kserve-prefill"} {
+				deployment := &appsv1.Deployment{}
+				expectFound(ctx, deployment, name, llmSvc.Namespace)
+				// The presets carry the annotation, but it must stay off the pod
+				// templates: otherwise adding it to the presets would roll every
+				// P/D service on upgrade, even with the gate off.
+				Expect(deployment.Spec.Template.Annotations).NotTo(HaveKey(constants.LLMDisaggregatedSetAnnotationKey), name)
+			}
 			expectNotUsed(ctx, llmSvc, "FeatureGateDisabled")
 			expectNotFound(ctx, &disaggregatedsetv1.DisaggregatedSet{}, llmSvc.Name+"-kserve-pd", llmSvc.Namespace)
 		})

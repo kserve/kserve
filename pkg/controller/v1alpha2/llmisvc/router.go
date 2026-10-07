@@ -82,12 +82,13 @@ const AnnotationModelBasedRoutingEnabled = "serving.kserve.io/model-based-routin
 // reports the outcome.
 const AnnotationModelBasedRoutingOnly = "serving.kserve.io/model-based-routing-only"
 
-// routingSpecAnnotations are spec.annotations keys the router reads that are
+// routingSpecAnnotations are spec.annotations keys the controller reads that are
 // kept off the workload Service and pod templates, where changing them would
-// roll the pods. A key can only join before it ships: dropping one that pod
-// templates already carry changes their hash and rolls every workload that has
-// it on upgrade.
-var routingSpecAnnotations = []string{AnnotationModelBasedRoutingEnabled, AnnotationModelBasedRoutingOnly, AnnotationLoRAModelRoutingStrategy}
+// roll the pods. Besides the router's keys, this includes the DisaggregatedSet
+// request that the P/D presets set. A key can only join before it ships:
+// dropping one that pod templates already carry changes their hash and rolls
+// every workload that has it on upgrade.
+var routingSpecAnnotations = []string{AnnotationModelBasedRoutingEnabled, AnnotationModelBasedRoutingOnly, AnnotationLoRAModelRoutingStrategy, constants.LLMDisaggregatedSetAnnotationKey}
 
 // AnnotationLoRAModelRoutingStrategy pins the LoRA routing strategy for one
 // service, overriding the cluster-wide loraModelRoutingStrategy. Read from

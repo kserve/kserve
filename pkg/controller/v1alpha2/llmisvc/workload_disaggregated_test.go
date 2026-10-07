@@ -434,6 +434,45 @@ func TestReconcileDisaggregatedSetDeletesWhenNotUsed(t *testing.T) {
 	assert.Nil(t, ds)
 }
 
+// TestDisaggregatedSetAnnotationStaysOffPodTemplates checks that the annotation that
+// requests the DisaggregatedSet backend, which the P/D presets set, never reaches a pod
+// template. A pod template that gains it changes, so adding it to the presets would roll
+// every existing P/D service on upgrade, whichever backend it runs on.
+func TestDisaggregatedSetAnnotationStaysOffPodTemplates(t *testing.T) {
+	ctx := context.Background()
+	key := constants.LLMDisaggregatedSetAnnotationKey
+	r := disaggTestReconciler(t)
+
+	singleNode := disaggTestService(t)
+	require.Equal(t, "true", singleNode.Spec.Annotations[key], "the service under test requests the backend")
+
+	decode, err := r.expectedSingleNodeMainDeployment(ctx, singleNode.DeepCopy(), disaggTestConfig())
+	require.NoError(t, err)
+	assert.NotContains(t, decode.Spec.Template.Annotations, key, "decode Deployment")
+
+	multiNode := disaggTestService(t)
+	multiNode.Spec.Worker = disaggTestPod()
+	multiNode.Spec.Parallelism = disaggTestParallelism()
+	lws, err := r.expectedMainMultiNodeLWS(ctx, multiNode.DeepCopy(), disaggTestConfig())
+	require.NoError(t, err)
+	assert.NotContains(t, lws.Spec.LeaderWorkerTemplate.WorkerTemplate.Annotations, key, "decode LeaderWorkerSet worker")
+	if lws.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+		assert.NotContains(t, lws.Spec.LeaderWorkerTemplate.LeaderTemplate.Annotations, key, "decode LeaderWorkerSet leader")
+	}
+
+	for _, svc := range []*v1alpha2.LLMInferenceService{singleNode, multiNode} {
+		ds, err := r.expectedDisaggregatedSet(ctx, svc.DeepCopy(), disaggTestConfig(), nil)
+		require.NoError(t, err)
+		for _, role := range ds.Spec.Roles {
+			group := role.Spec.LeaderWorkerTemplate
+			assert.NotContains(t, group.WorkerTemplate.Annotations, key, "%s role worker", role.Name)
+			if group.LeaderTemplate != nil {
+				assert.NotContains(t, group.LeaderTemplate.Annotations, key, "%s role leader", role.Name)
+			}
+		}
+	}
+}
+
 func TestDisaggregatedSetName(t *testing.T) {
 	short := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llama"}}
 	assert.Equal(t, "llama-kserve-pd", disaggregatedSetName(short))
