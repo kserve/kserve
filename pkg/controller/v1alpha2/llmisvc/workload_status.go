@@ -59,11 +59,15 @@ func observedLWS(name string) *v1alpha2.ObservedWorkloadStatus {
 // This function must only be called after reconcileWorkload and
 // reconcileRouter return without error, which guarantees the named
 // resources exist on the API server.
-func (r *LLMISVCReconciler) observeWorkloadStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, disaggregatedSet bool) error {
+func (r *LLMISVCReconciler) observeWorkloadStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
 	if utils.GetForceStopRuntime(llmSvc) {
 		llmSvc.Status.Workloads = nil
 		return nil
 	}
+
+	// Recomputed from the merged spec and the configuration, as reconcileWorkload
+	// decides it, rather than read back from status.
+	disaggregatedSet := useDisaggregatedSetWorkload(llmSvc, r.decideDisaggregatedSet(llmSvc, config))
 
 	ws := &v1alpha2.WorkloadStatus{}
 

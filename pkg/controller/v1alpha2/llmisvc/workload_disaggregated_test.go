@@ -18,7 +18,6 @@ package llmisvc
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 
@@ -227,21 +226,18 @@ func TestDecideDisaggregatedSet(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		for _, explicit := range []bool{false, true} {
-			t.Run(fmt.Sprintf("%s/explicit=%t", tt.name, explicit), func(t *testing.T) {
-				svc, config, r := disaggTestService(t), disaggTestConfig(), &LLMISVCReconciler{DisaggregatedSetAvailable: true}
-				tt.mutate(svc, config, r)
+		t.Run(tt.name, func(t *testing.T) {
+			svc, config, r := disaggTestService(t), disaggTestConfig(), &LLMISVCReconciler{DisaggregatedSetAvailable: true}
+			tt.mutate(svc, config, r)
 
-				got := r.decideDisaggregatedSet(svc, config, explicit)
-				assert.Equal(t, tt.wantUse, got.Use)
-				assert.Equal(t, !tt.wantNoReason, got.Requested)
-				assert.Equal(t, explicit && got.Requested, got.Explicit, "only a request records who made it")
-				assert.Equal(t, tt.wantReason, got.Reason)
-				if tt.wantReason != "" {
-					assert.NotEmpty(t, got.Message)
-				}
-			})
-		}
+			got := r.decideDisaggregatedSet(svc, config)
+			assert.Equal(t, tt.wantUse, got.Use)
+			assert.Equal(t, !tt.wantNoReason, got.Requested)
+			assert.Equal(t, tt.wantReason, got.Reason)
+			if tt.wantReason != "" {
+				assert.NotEmpty(t, got.Message)
+			}
+		})
 	}
 }
 
@@ -251,8 +247,7 @@ func TestDecideDisaggregatedSet(t *testing.T) {
 // misleading status to check it is ignored.
 func TestMarkDisaggregatedSetDecision(t *testing.T) {
 	use := disaggregatedSetDecision{Requested: true, Use: true}
-	explicitFallback := disaggregatedSetDecision{Requested: true, Explicit: true, Reason: reasonAutoscalingNotSupported, Message: "autoscaling is not supported"}
-	presetFallback := disaggregatedSetDecision{Requested: true, Reason: reasonFeatureGateDisabled, Message: "gate off"}
+	fallback := disaggregatedSetDecision{Requested: true, Reason: reasonAutoscalingNotSupported, Message: "autoscaling is not supported"}
 
 	deployments := func(svc *v1alpha2.LLMInferenceService) []client.Object {
 		return []client.Object{
@@ -273,7 +268,7 @@ func TestMarkDisaggregatedSetDecision(t *testing.T) {
 	}
 	staleUsed := func(svc *v1alpha2.LLMInferenceService) { svc.MarkDisaggregatedSetUsed() }
 	staleNotUsed := func(svc *v1alpha2.LLMInferenceService) {
-		svc.MarkDisaggregatedSetNotUsed(explicitFallback.Reason, "%s", explicitFallback.Message)
+		svc.MarkDisaggregatedSetNotUsed(fallback.Reason, "%s", fallback.Message)
 	}
 
 	tests := []struct {
@@ -337,43 +332,26 @@ func TestMarkDisaggregatedSetDecision(t *testing.T) {
 			// Leaving the backend is reported once, as a migration that carries the reason.
 			name:          "falling back moves the service off the DisaggregatedSet and says why",
 			existing:      disaggregatedSet,
-			decision:      explicitFallback,
+			decision:      fallback,
 			wantStatus:    corev1.ConditionFalse,
 			wantReason:    reasonAutoscalingNotSupported,
 			wantEvent:     disaggregatedSetMigratingFromReason,
 			wantInMessage: "autoscaling is not supported",
 		},
 		{
-			name:       "a preset default that falls back off a DisaggregatedSet still reports the migration",
-			existing:   disaggregatedSet,
-			decision:   presetFallback,
-			wantStatus: corev1.ConditionFalse,
-			wantReason: reasonFeatureGateDisabled,
-			wantEvent:  disaggregatedSetMigratingFromReason,
-		},
-		{
-			name:          "an explicit request that falls back warns",
-			decision:      explicitFallback,
-			wantStatus:    corev1.ConditionFalse,
-			wantReason:    reasonAutoscalingNotSupported,
-			wantEvent:     disaggregatedSetNotUsedReason,
-			wantInMessage: "autoscaling is not supported",
-		},
-		{
-			// The recorder aggregates repeats of the same event, so the warning is
-			// emitted on every reconcile instead of being deduplicated through status.
-			name:       "an explicit request that falls back warns again on the next reconcile",
-			status:     staleNotUsed,
-			decision:   explicitFallback,
+			// The condition says why; only a migration, which replaces running
+			// workloads, warns.
+			name:       "falling back without a DisaggregatedSet only records why",
+			decision:   fallback,
 			wantStatus: corev1.ConditionFalse,
 			wantReason: reasonAutoscalingNotSupported,
-			wantEvent:  disaggregatedSetNotUsedReason,
 		},
 		{
-			name:       "a preset default that falls back is quiet",
-			decision:   presetFallback,
+			name:       "falling back again only records why",
+			status:     staleNotUsed,
+			decision:   fallback,
 			wantStatus: corev1.ConditionFalse,
-			wantReason: reasonFeatureGateDisabled,
+			wantReason: reasonAutoscalingNotSupported,
 		},
 		{
 			name:       "stopping a service on Deployments is not a migration",
@@ -427,38 +405,6 @@ func TestMarkDisaggregatedSetDecision(t *testing.T) {
 			assert.True(t, strings.HasPrefix(event, corev1.EventTypeWarning+" "+tt.wantEvent+" "), event)
 			assert.Contains(t, event, tt.wantInMessage)
 		})
-	}
-}
-
-// TestMarkDisaggregatedSetDecisionFromPreset covers a service that takes the
-// DisaggregatedSet default from its presets rather than asking for it. Falling back is
-// recorded in the condition, but the service did nothing to act on, so no warning is
-// emitted.
-func TestMarkDisaggregatedSetDecisionFromPreset(t *testing.T) {
-	recorder := record.NewFakeRecorder(10)
-	r := disaggTestReconciler(t)
-	r.EventRecorder = recorder
-	svc := disaggTestService(t)
-
-	steps := []struct {
-		name       string
-		decision   disaggregatedSetDecision
-		wantStatus corev1.ConditionStatus
-		wantReason string
-	}{
-		{name: "fallback", decision: disaggregatedSetDecision{Requested: true, Reason: reasonFeatureGateDisabled, Message: "gate off"}, wantStatus: corev1.ConditionFalse, wantReason: reasonFeatureGateDisabled},
-		{name: "new fallback reason", decision: disaggregatedSetDecision{Requested: true, Reason: reasonAutoscalingNotSupported, Message: "scaling"}, wantStatus: corev1.ConditionFalse, wantReason: reasonAutoscalingNotSupported},
-		{name: "used", decision: disaggregatedSetDecision{Requested: true, Use: true}, wantStatus: corev1.ConditionTrue},
-	}
-	for _, step := range steps {
-		r.markDisaggregatedSetDecision(context.Background(), svc, step.decision)
-
-		cond := svc.Status.GetCondition(v1alpha2.DisaggregatedSetUsed)
-		if assert.NotNil(t, cond, step.name) {
-			assert.Equal(t, step.wantStatus, cond.Status, step.name)
-			assert.Equal(t, step.wantReason, cond.Reason, step.name)
-		}
-		assert.Empty(t, recorder.Events, step.name)
 	}
 }
 

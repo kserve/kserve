@@ -299,21 +299,13 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	}
 
 	logger.V(2).Info("Reconciling with combined base configurations", "combined.spec", baseCfg.Spec, "original.spec", llmSvc.Spec)
-	// Records whether the service itself requests the DisaggregatedSet backend, as
-	// opposed to inheriting the request from its presets. The merged spec cannot make
-	// this distinction; it is used only to warn on fallback for explicit requests.
-	disaggregatedSetExplicit := llmSvc.DisaggregatedSetRequested()
 	// Replace the spec with the merged configuration for reconciliation
 	// We are only writing to status, so we can safely use the original object.
 	llmSvc.Spec = baseCfg.Spec
 
 	RecordAcceleratorAnnotation(llmSvc)
 
-	disaggregatedSet := r.decideDisaggregatedSet(llmSvc, config, disaggregatedSetExplicit)
-	r.markDisaggregatedSetDecision(ctx, llmSvc, disaggregatedSet)
-	useDisaggregatedSet := useDisaggregatedSetWorkload(llmSvc, disaggregatedSet)
-
-	if err := r.reconcileWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
+	if err := r.reconcileWorkload(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile workload: %w", err)
 	}
 
@@ -328,7 +320,7 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return err
 	}
 
-	if err := r.observeWorkloadStatus(ctx, llmSvc, useDisaggregatedSet); err != nil {
+	if err := r.observeWorkloadStatus(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to observe workload status: %w", err)
 	}
 

@@ -52,7 +52,7 @@ var sidecarSSRFProtectionRules = []rbacv1.PolicyRule{
 
 // reconcileWorkload manages the Deployments and Services for the LLM.
 // It handles standard, multi-node, and disaggregated (prefill/decode) deployment patterns.
-func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, useDisaggregatedSet bool) error {
+func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
 	logger := log.FromContext(ctx).WithName("reconcileWorkload")
 	ctx = log.IntoContext(ctx, logger)
 
@@ -64,6 +64,10 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	if utils.GetForceStopRuntime(llmSvc) {
 		llmSvc.MarkMainWorkloadNotReady("Stopped", "Service is stopped")
 	}
+
+	disaggregatedSetDecision := r.decideDisaggregatedSet(llmSvc, config)
+	r.markDisaggregatedSetDecision(ctx, llmSvc, disaggregatedSetDecision)
+	useDisaggregatedSet := useDisaggregatedSetWorkload(llmSvc, disaggregatedSetDecision)
 
 	// A DisaggregatedSet computes its revision from its own roles.
 	if !useDisaggregatedSet {

@@ -54,10 +54,6 @@ const (
 	// to 10,000 groups per role, that leaves 63-35 characters for the DisaggregatedSet.
 	disaggregatedSetNameMaxLength = 28
 
-	// disaggregatedSetNotUsedReason is the event reason emitted when a service asks for
-	// the DisaggregatedSet backend but keeps its current workloads.
-	disaggregatedSetNotUsedReason = "DisaggregatedSetNotUsed"
-
 	// disaggregatedSetMigratingToReason and disaggregatedSetMigratingFromReason are the
 	// event reasons emitted when a running service moves onto or off a DisaggregatedSet.
 	// Both replace the workloads without waiting for the new pods to become ready.
@@ -79,12 +75,10 @@ const (
 var disaggregatedSetRoles = []string{constants.LLMDRoleDecode, constants.LLMDRolePrefill}
 
 // disaggregatedSetDecision reports whether a service runs on the DisaggregatedSet
-// backend. The zero value means the service did not ask for it. Explicit says the
-// request came from the service's own spec rather than from its presets. Reason and
-// Message say why a service that asked for it cannot use it.
+// backend. The zero value means the service did not ask for it. Reason and Message say
+// why a service that asked for it cannot use it.
 type disaggregatedSetDecision struct {
 	Requested bool
-	Explicit  bool
 	Use       bool
 	Reason    string
 	Message   string
@@ -92,16 +86,14 @@ type disaggregatedSetDecision struct {
 
 // decideDisaggregatedSet decides whether a service runs on the DisaggregatedSet
 // backend. It takes the spec after base configurations are merged, which is why these
-// checks live here rather than in admission. explicit reports whether the service asked
-// for the backend in its own spec, before the presets that turn it on by default were
-// merged in.
-func (r *LLMISVCReconciler) decideDisaggregatedSet(llmSvc *v1alpha2.LLMInferenceService, config *Config, explicit bool) disaggregatedSetDecision {
+// checks live here rather than in admission.
+func (r *LLMISVCReconciler) decideDisaggregatedSet(llmSvc *v1alpha2.LLMInferenceService, config *Config) disaggregatedSetDecision {
 	if !llmSvc.DisaggregatedSetRequested() {
 		return disaggregatedSetDecision{}
 	}
 
 	notUsed := func(reason, message string) disaggregatedSetDecision {
-		return disaggregatedSetDecision{Requested: true, Explicit: explicit, Reason: reason, Message: message}
+		return disaggregatedSetDecision{Requested: true, Reason: reason, Message: message}
 	}
 	switch {
 	case !config.FeatureGates.DisaggregatedSet:
@@ -115,25 +107,18 @@ func (r *LLMISVCReconciler) decideDisaggregatedSet(llmSvc *v1alpha2.LLMInference
 	case (disaggregatedRoleReplicas(llmSvc.Spec.Replicas) == 0) != (disaggregatedRoleReplicas(llmSvc.Spec.Prefill.Replicas) == 0):
 		return notUsed(reasonReplicasMismatch, "a DisaggregatedSet requires decode and prefill replicas to be both zero or both non-zero")
 	}
-	return disaggregatedSetDecision{Requested: true, Explicit: explicit, Use: true}
+	return disaggregatedSetDecision{Requested: true, Use: true}
 }
 
 // markDisaggregatedSetDecision records the decision in the DisaggregatedSetUsed
-// condition and warns when the service changes backend or cannot get the one it asked
-// for. It decides from the decision and the workloads that exist, never from the
-// service's previous status, which can be stale or lost.
+// condition, whose reason and message say why a service that requests the backend keeps
+// its current workloads. It decides from the decision and the workloads that exist,
+// never from the service's previous status, which can be stale or lost.
 //
-// A running service that moves onto or off a DisaggregatedSet gets a migration warning
-// on the reconcile that replaces its workloads: the switch deletes the old workloads
-// without waiting for the new pods, so the service is unavailable until they are ready.
-// Moving off carries the reason, so it is the only warning for that change. Stopping a
-// service deletes its workloads too, but is not a migration.
-//
-// Otherwise, a service that asked for the backend in its own spec gets a warning on
-// every reconcile while it falls back; the event recorder folds the repeats into one
-// event with a count. A service that only takes the default from its presets falls back
-// quietly: it did nothing to act on, and with the feature gate off by default every P/D
-// service would otherwise warn.
+// A running service that moves onto or off a DisaggregatedSet also gets a migration
+// warning on the reconcile that replaces its workloads: the switch deletes the old
+// workloads without waiting for the new pods, so the service is unavailable until they
+// are ready. Stopping a service deletes its workloads too, but is not a migration.
 func (r *LLMISVCReconciler) markDisaggregatedSetDecision(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, decision disaggregatedSetDecision) {
 	running := !utils.GetForceStopRuntime(llmSvc)
 
@@ -148,8 +133,7 @@ func (r *LLMISVCReconciler) markDisaggregatedSetDecision(ctx context.Context, ll
 		return
 	}
 
-	switch {
-	case running && r.hasDisaggregatedSet(ctx, llmSvc):
+	if running && r.hasDisaggregatedSet(ctx, llmSvc) {
 		why := decision.Message
 		if !decision.Requested {
 			why = constants.LLMDisaggregatedSetAnnotationKey + " is no longer \"true\""
@@ -158,9 +142,6 @@ func (r *LLMISVCReconciler) markDisaggregatedSetDecision(ctx context.Context, ll
 			"moving the prefill and decode workloads from DisaggregatedSet %s to Deployments or LeaderWorkerSets because %s; "+
 				"the DisaggregatedSet is deleted without waiting for the new pods, so the service is unavailable until they are ready",
 			disaggregatedSetName(llmSvc), why)
-	case decision.Requested && decision.Explicit:
-		r.Eventf(llmSvc, corev1.EventTypeWarning, disaggregatedSetNotUsedReason,
-			"%s is set but the service keeps its current workloads: %s", constants.LLMDisaggregatedSetAnnotationKey, decision.Message)
 	}
 
 	if decision.Requested {

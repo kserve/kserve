@@ -32,6 +32,18 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 )
 
+// observeWorkloadStatusForTest observes the workloads of svc with the DisaggregatedSet
+// feature gate on and its CRD installed. Reading replica counts fails on the empty
+// client, which these tests ignore: they check the workload references only.
+func observeWorkloadStatusForTest(svc *v1alpha2.LLMInferenceService) {
+	r := &LLMISVCReconciler{
+		Client:                    fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build(),
+		DisaggregatedSetAvailable: true,
+	}
+	config := &Config{FeatureGates: FeatureGates{DisaggregatedSet: true}}
+	_ = r.observeWorkloadStatus(context.Background(), svc, config)
+}
+
 func TestObserveWorkloadStatus(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -238,6 +250,32 @@ func TestObserveWorkloadStatus(t *testing.T) {
 			expectedWorkloads: nil,
 		},
 		{
+			// The decision is recomputed from the merged spec and the configuration,
+			// as reconcileWorkload makes it, instead of being passed in or read back
+			// from status.
+			name: "disaggregated P/D on a DisaggregatedSet",
+			modify: func(svc *v1alpha2.LLMInferenceService) {
+				svc.Spec.Annotations = map[string]string{constants.LLMDisaggregatedSetAnnotationKey: "true"}
+				svc.Spec.Prefill = &v1alpha2.WorkloadSpec{}
+			},
+			expectedWorkloads: &v1alpha2.WorkloadStatus{
+				Primary: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
+					APIGroup: ptr.To("disaggregatedset.x-k8s.io"),
+					Kind:     "DisaggregatedSet",
+					Name:     "test-svc-kserve-pd",
+				}},
+				Prefill: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
+					APIGroup: ptr.To("disaggregatedset.x-k8s.io"),
+					Kind:     "DisaggregatedSet",
+					Name:     "test-svc-kserve-pd",
+				}},
+				Service: &corev1.TypedLocalObjectReference{
+					Kind: "Service",
+					Name: "test-svc-kserve-workload-svc",
+				},
+			},
+		},
+		{
 			name: "idempotency - calling twice produces identical results",
 			modify: func(svc *v1alpha2.LLMInferenceService) {
 				svc.Spec.Worker = &corev1.PodSpec{}
@@ -250,7 +288,7 @@ func TestObserveWorkloadStatus(t *testing.T) {
 					},
 				}
 				// Call once before the main test invocation to pre-populate.
-				_ = (&LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build()}).observeWorkloadStatus(context.Background(), svc, false)
+				observeWorkloadStatusForTest(svc)
 			},
 			expectedWorkloads: &v1alpha2.WorkloadStatus{
 				Primary: &v1alpha2.ObservedWorkloadStatus{TypedLocalObjectReference: corev1.TypedLocalObjectReference{
@@ -298,7 +336,7 @@ func TestObserveWorkloadStatus(t *testing.T) {
 
 			tc.modify(svc)
 
-			_ = (&LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(runtime.NewScheme()).Build()}).observeWorkloadStatus(context.Background(), svc, false)
+			observeWorkloadStatusForTest(svc)
 
 			assert.Equal(t, tc.expectedWorkloads, svc.Status.Workloads)
 		})

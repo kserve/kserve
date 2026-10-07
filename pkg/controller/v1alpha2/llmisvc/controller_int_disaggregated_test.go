@@ -239,7 +239,7 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			expectNotFound(ctx, &disaggregatedsetv1.DisaggregatedSet{}, llmSvc.Name+"-kserve-pd", llmSvc.Namespace)
 		})
 
-		It("keeps the current workloads quietly when autoscaling meets the preset default", func(ctx SpecContext) {
+		It("keeps the current workloads when autoscaling meets the preset default", func(ctx SpecContext) {
 			// given
 			enableDisaggregatedSetGate(ctx)
 			testNs := NewTestNamespace(ctx, envTest)
@@ -252,7 +252,7 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			// then
 			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve", llmSvc.Namespace)
 			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve-prefill", llmSvc.Namespace)
-			expectNotUsedQuietly(ctx, llmSvc, "AutoscalingNotSupported")
+			expectNotUsed(ctx, llmSvc, "AutoscalingNotSupported")
 			expectNotFound(ctx, &disaggregatedsetv1.DisaggregatedSet{}, llmSvc.Name+"-kserve-pd", llmSvc.Namespace)
 		})
 
@@ -330,7 +330,7 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			expectNotFound(ctx, &disaggregatedsetv1.DisaggregatedSet{}, llmSvc.Name+"-kserve-pd", llmSvc.Namespace)
 		})
 
-		It("keeps the current workloads quietly when only the preset asks for it", func(ctx SpecContext) {
+		It("keeps the current workloads when only the preset asks for it", func(ctx SpecContext) {
 			// given
 			testNs := NewTestNamespace(ctx, envTest)
 			llmSvc := singleNodePD("ds-gate-off-default", testNs.Name)
@@ -342,7 +342,7 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			// then
 			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve", llmSvc.Namespace)
 			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve-prefill", llmSvc.Namespace)
-			expectNotUsedQuietly(ctx, llmSvc, "FeatureGateDisabled")
+			expectNotUsed(ctx, llmSvc, "FeatureGateDisabled")
 			expectNotFound(ctx, &disaggregatedsetv1.DisaggregatedSet{}, llmSvc.Name+"-kserve-pd", llmSvc.Namespace)
 		})
 	})
@@ -416,20 +416,9 @@ func expectNotFound(ctx context.Context, obj client.Object, name, namespace stri
 	}).WithContext(ctx).Should(BeTrue(), "%s/%s should not exist", namespace, name)
 }
 
-// expectNotUsed checks that the service says why it keeps its current workloads, both
-// in the DisaggregatedSetUsed condition and in a warning event.
+// expectNotUsed checks that the service says why it keeps its current workloads in
+// the DisaggregatedSetUsed condition, without a warning event: only a migration warns.
 func expectNotUsed(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reason string) {
-	GinkgoHelper()
-	expectNotUsedCondition(ctx, llmSvc, reason)
-	Eventually(func(ctx context.Context) *corev1.Event {
-		return findEvent(ctx, envTest.Client, llmSvc, "DisaggregatedSetNotUsed")
-	}).WithContext(ctx).ShouldNot(BeNil())
-}
-
-// expectNotUsedQuietly checks that the service records why it keeps its current
-// workloads in the DisaggregatedSetUsed condition without a warning event, as it does
-// when the request comes from its presets rather than from the service itself.
-func expectNotUsedQuietly(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, reason string) {
 	GinkgoHelper()
 	expectNotUsedCondition(ctx, llmSvc, reason)
 	Consistently(func(ctx context.Context) *corev1.Event {
