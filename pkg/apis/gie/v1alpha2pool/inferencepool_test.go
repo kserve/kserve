@@ -122,6 +122,21 @@ func TestConvertFrom_RoundTrip(t *testing.T) {
 	assert.Equal(t, original.Spec.EndpointPickerRef.FailureMode, roundTripped.Spec.EndpointPickerRef.FailureMode)
 }
 
+func TestConvertFrom_NilEndpointPickerRef(t *testing.T) {
+	original := &v1.InferencePool{
+		Spec: v1.InferencePoolSpec{
+			TargetPorts: []v1.Port{{Number: 8000}},
+		},
+	}
+
+	converted := &InferencePool{}
+	err := converted.ConvertFrom(original)
+
+	require.NoError(t, err)
+	assert.Equal(t, int32(8000), converted.Spec.TargetPortNumber)
+	assert.Equal(t, Extension{}, converted.Spec.ExtensionRef)
+}
+
 func TestSchemeRegistration(t *testing.T) {
 	scheme := runtime.NewScheme()
 	err := Install(scheme)
