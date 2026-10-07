@@ -19,15 +19,34 @@ import pytest
 from kubernetes import client
 from kubernetes.client.exceptions import ApiException
 
+from kserve import KServeClient
 from kserve.constants.constants import (
     KSERVE_GROUP,
     KSERVE_V1ALPHA1_VERSION,
     KSERVE_PLURAL_KERNELCACHENODEGROUP,
 )
 
-from ..common.namespace import skip_resource_deletion
+from ..common.namespace import (
+    create_namespace,
+    delete_namespace,
+    provision_secrets,
+    skip_resource_deletion,
+)
 
-from .utils import _load_k8s_config, wait_for_resource_deleted
+from .utils import (
+    _load_k8s_config,
+    make_producer_isvc,
+    wait_for_capture_complete,
+    wait_for_kcc_created,
+    wait_for_kernelcache_verified,
+    wait_for_mcv_sidecar,
+    wait_for_resource_deleted,
+)
+
+_STORAGE_URI: str = os.environ.get(
+    "KERNELCACHE_MODEL_URI",
+    "s3://example-models/facebook/opt-125m",
+)
 
 _KC_NODE_GROUP_NAME = os.environ.get("KERNELCACHE_NODE_GROUP", "kc-test-group")
 _KC_NODE_LABEL_KEY = os.environ.get(
@@ -312,3 +331,70 @@ def kc_test_runtime(kc_config):
     except ApiException as e:
         if e.status != 404:
             raise
+
+
+@pytest.fixture(scope="session")
+def kc_session_namespace(kc_node_group, kc_test_runtime):
+    """Create a fixed namespace for the shared session KC; torn down at session end.
+
+    Depends on kc_node_group and kc_test_runtime so the KCNG and
+    ClusterServingRuntime are ready before any session-level capture begins.
+    """
+    _load_k8s_config()
+    core = client.CoreV1Api()
+    ns_name = "kc-e2e-session"
+
+    # create_namespace copies Istio-injection and pod-security labels from the
+    # seed namespace — without them the Istio proxy is not injected and MCV
+    # cannot reach the KCC controller over mTLS, leaving the phase stuck empty.
+    create_namespace(core, ns_name)
+    # provision_secrets copies S3/seaweedfs credentials so the storage
+    # initializer can pull the model from the in-cluster S3 store.
+    provision_secrets(core, ns_name)
+
+    yield ns_name
+    if skip_resource_deletion():
+        return
+    delete_namespace(core, ns_name)
+
+
+@pytest.fixture(scope="session")
+def kc_session(kc_session_namespace):
+    """Perform the full KC capture once for the entire test session.
+
+    Creates a producer ISVC, waits for MCV sidecar injection, capture
+    completion, and KC verification. All downstream tests that need an
+    already-verified KernelCache (injection, deletion) depend on this
+    fixture instead of repeating the expensive capture themselves.
+
+    Yields a dict:
+      namespace    – the session namespace (kc-e2e-session)
+      isvc_name    – producer ISVC name
+      kcc_name     – KernelCacheCapture name
+      kc           – KernelCache CR dict (status.verification.verified == True)
+      kc_name      – KernelCache CR name
+      kc_namespace – KernelCache CR namespace
+    """
+    namespace = kc_session_namespace
+    isvc_name = "kc-session-producer"
+
+    kserve = KServeClient()
+    isvc = make_producer_isvc(isvc_name, namespace, _STORAGE_URI)
+    kserve.create(isvc)
+
+    kcc = wait_for_kcc_created(namespace, isvc_name, timeout=120)
+    kcc_name = kcc["metadata"]["name"]
+
+    wait_for_mcv_sidecar(namespace, isvc_name, timeout=120)
+    wait_for_capture_complete(namespace, kcc_name)  # uses 600s default
+    kc = wait_for_kernelcache_verified(namespace, kcc_name, timeout=300)
+
+    yield {
+        "namespace": namespace,
+        "isvc_name": isvc_name,
+        "kcc_name": kcc_name,
+        "kc": kc,
+        "kc_name": kc["metadata"]["name"],
+        "kc_namespace": kc["metadata"]["namespace"],
+    }
+    # kc_session_namespace teardown deletes the namespace, cleaning up all resources.

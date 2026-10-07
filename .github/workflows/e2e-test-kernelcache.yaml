@@ -328,6 +328,9 @@ jobs:
       - name: Run E2E tests
         timeout-minutes: 25
         run: |
+          # Pull the model from in-cluster SeaweedFS (seeded by setup-kserve.sh)
+          # instead of HuggingFace to avoid slow external downloads.
+          export KERNELCACHE_MODEL_URI="s3://example-models/facebook/opt-125m"
           # Set MCV image to the CI-built version for test fixtures
           export KERNELCACHE_MCV_IMAGE="${KO_DOCKER_REPO}/${MCV_IMG}:${TAG}-minimal"
           ./test/scripts/gh-actions/run-e2e-tests.sh "kernelcache" "1"
