@@ -122,6 +122,11 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			Expect(*job.Spec.BackoffLimit).To(Equal(int32(2)))
 			Expect(job.Spec.TTLSecondsAfterFinished).To(BeNil())
 			Expect(job.Spec.Template.Spec.NodeSelector).To(BeEmpty())
+			var fsGroup *int64
+			if securityContext := job.Spec.Template.Spec.SecurityContext; securityContext != nil {
+				fsGroup = securityContext.FSGroup
+			}
+			Expect(fsGroup).To(BeNil(), "namespace import Job must not request a fixed fsGroup")
 			Expect(job.OwnerReferences).To(HaveLen(1))
 			Expect(job.OwnerReferences[0].Name).To(Equal("shared-iris"))
 

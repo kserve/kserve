@@ -438,11 +438,6 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 		credentials.MountOciCaBundle(storageInitializerConfig, localModel.Namespace, container, &volumes)
 	}
 
-	var fsGroup *int64
-	if localModelConfig, cfgErr := v1beta1.NewLocalModelConfig(isvcConfigMap); cfgErr == nil {
-		fsGroup = localModelConfig.FSGroup
-	}
-
 	parallelism := int32(1)
 	completions := int32(1)
 	backoffLimit := int32(2)
@@ -473,9 +468,6 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 					Containers:    []corev1.Container{*container},
 					RestartPolicy: corev1.RestartPolicyNever,
 					Volumes:       volumes,
-					SecurityContext: &corev1.PodSecurityContext{
-						FSGroup: fsGroup,
-					},
 				},
 			},
 		},
