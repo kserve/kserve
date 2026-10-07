@@ -198,10 +198,11 @@ func (c *LocalModelNodeReconciler) launchJob(ctx context.Context, localModelNode
 		}
 	}
 
-	if storageInitializerConfig != nil && storageInitializerConfig.OciInsecureRegistry {
-		if _, _, isOci := kserveutils.ParseOciScheme(modelInfo.SourceModelUri); isOci {
+	if _, _, isOci := kserveutils.ParseOciScheme(modelInfo.SourceModelUri); isOci {
+		if storageInitializerConfig != nil && storageInitializerConfig.OciInsecureRegistry {
 			credentials.SetOciInsecureRegistryEnv(container)
 		}
+		credentials.MountOciCaBundle(storageInitializerConfig, jobNs, container, &volumes)
 	}
 
 	// Mount CA bundle ConfigMap as volume if AWS_CA_BUNDLE_CONFIGMAP env was injected

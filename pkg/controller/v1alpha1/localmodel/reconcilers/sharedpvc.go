@@ -431,10 +431,11 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 		}
 	}
 
-	if storageInitializerConfig != nil && storageInitializerConfig.OciInsecureRegistry {
-		if _, _, isOci := utils.ParseOciScheme(localModel.Spec.SourceModelUri); isOci {
+	if _, _, isOci := utils.ParseOciScheme(localModel.Spec.SourceModelUri); isOci {
+		if storageInitializerConfig != nil && storageInitializerConfig.OciInsecureRegistry {
 			credentials.SetOciInsecureRegistryEnv(container)
 		}
+		credentials.MountOciCaBundle(storageInitializerConfig, localModel.Namespace, container, &volumes)
 	}
 
 	var fsGroup *int64

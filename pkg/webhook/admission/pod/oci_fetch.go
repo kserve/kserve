@@ -74,7 +74,7 @@ func ConfigureOciFetchToContainer(
 		initContainer = &podSpec.InitContainers[len(podSpec.InitContainers)-1]
 
 		credentials.MountImagePullSecretsAsDockerConfig(podSpec.ImagePullSecrets, initContainer, &podSpec.Volumes)
-		mountCaBundleForFetch(storageConfig, namespace, initContainer, podSpec)
+		credentials.MountOciCaBundle(storageConfig, namespace, initContainer, &podSpec.Volumes)
 		if storageConfig.OciInsecureRegistry {
 			credentials.SetOciInsecureRegistryEnv(initContainer)
 		}
@@ -100,51 +100,6 @@ func ConfigureOciFetchToContainer(
 	return utils.AddModelMount(mountParams, targetContainerName, podSpec)
 }
 
-// mountCaBundleForFetch mounts a custom CA bundle configmap into the fetch init container
-// for private-registry TLS, mirroring the CA bundle handling in CommonStorageInitialization.
-// It is a no-op when no CA bundle is configured.
-func mountCaBundleForFetch(
-	storageConfig *types.StorageInitializerConfig,
-	namespace string,
-	initContainer *corev1.Container,
-	podSpec *corev1.PodSpec,
-) {
-	if storageConfig.CaBundleConfigMapName == "" {
-		return
-	}
-	if volumeExists(podSpec.Volumes, CaBundleVolumeName) {
-		// Already mounted (idempotent call); nothing to do.
-		return
-	}
-	caBundleConfigMapName := storageConfig.CaBundleConfigMapName
-	// Outside the KServe namespace the bundle is mirrored to a per-namespace configmap.
-	if namespace != constants.KServeNamespace {
-		caBundleConfigMapName = constants.DefaultGlobalCaBundleConfigMapName
-	}
-	caBundleVolumeMountPath := storageConfig.CaBundleVolumeMountPath
-	if caBundleVolumeMountPath == "" {
-		caBundleVolumeMountPath = constants.DefaultCaBundleVolumeMountPath
-	}
-
-	initContainer.Env = append(initContainer.Env,
-		corev1.EnvVar{Name: constants.CaBundleConfigMapNameEnvVarKey, Value: caBundleConfigMapName},
-		corev1.EnvVar{Name: constants.CaBundleVolumeMountPathEnvVarKey, Value: caBundleVolumeMountPath},
-	)
-	podSpec.Volumes = append(podSpec.Volumes, corev1.Volume{
-		Name: CaBundleVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{Name: caBundleConfigMapName},
-			},
-		},
-	})
-	initContainer.VolumeMounts = append(initContainer.VolumeMounts, corev1.VolumeMount{
-		Name:      CaBundleVolumeName,
-		MountPath: caBundleVolumeMountPath,
-		ReadOnly:  true,
-	})
-}
-
 // getStorageInitializerInitContainer returns a pointer to the storage-initializer init
 // container, or nil if absent. utils.GetContainerWithName only searches regular
 // containers, not init containers.
@@ -163,17 +118,6 @@ func getStorageInitializerInitContainer(podSpec *corev1.PodSpec) *corev1.Contain
 func initContainerArgsContainPair(args []string, uri, path string) bool {
 	for i := 0; i+1 < len(args); i += 2 {
 		if args[i] == uri && args[i+1] == path {
-			return true
-		}
-	}
-	return false
-}
-
-// volumeExists reports whether podSpec.Volumes already has a volume with the given name.
-// Callers should skip adding a duplicate to avoid Kubernetes rejecting the pod on admission.
-func volumeExists(volumes []corev1.Volume, name string) bool {
-	for _, v := range volumes {
-		if v.Name == name {
 			return true
 		}
 	}

@@ -26,6 +26,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/kserve/kserve/pkg/constants"
+	pkgtypes "github.com/kserve/kserve/pkg/types"
 )
 
 func TestMountImagePullSecretsAsDockerConfig(t *testing.T) {
@@ -106,6 +109,56 @@ func TestFetchAndValidateDockerConfigJSONSecret(t *testing.T) {
 			Data:       map[string][]byte{corev1.DockerConfigJsonKey: []byte(`{"auths":{}}`)},
 		}).Build()
 		require.NoError(t, FetchAndValidateDockerConfigJSONSecret(context.Background(), cl, "ns", "reg-cred"))
+	})
+}
+
+func TestMountOciCaBundle(t *testing.T) {
+	t.Run("no-op when config unset", func(t *testing.T) {
+		container := &corev1.Container{Name: "storage-initializer"}
+		var volumes []corev1.Volume
+		MountOciCaBundle(nil, "user-ns", container, &volumes)
+		MountOciCaBundle(&pkgtypes.StorageInitializerConfig{}, "user-ns", container, &volumes)
+		assert.Empty(t, volumes)
+		assert.Empty(t, container.Env)
+	})
+
+	t.Run("in kserve namespace keeps configured configmap name", func(t *testing.T) {
+		container := &corev1.Container{Name: "storage-initializer"}
+		var volumes []corev1.Volume
+		cfg := &pkgtypes.StorageInitializerConfig{CaBundleConfigMapName: "my-ca-bundle"}
+		MountOciCaBundle(cfg, constants.KServeNamespace, container, &volumes)
+
+		require.Len(t, volumes, 1)
+		assert.Equal(t, OciCaBundleVolumeName, volumes[0].Name)
+		require.NotNil(t, volumes[0].ConfigMap)
+		assert.Equal(t, "my-ca-bundle", volumes[0].ConfigMap.Name)
+		require.Len(t, container.VolumeMounts, 1)
+		assert.Equal(t, constants.DefaultCaBundleVolumeMountPath, container.VolumeMounts[0].MountPath)
+
+		env := map[string]string{}
+		for _, e := range container.Env {
+			env[e.Name] = e.Value
+		}
+		assert.Equal(t, "my-ca-bundle", env[constants.CaBundleConfigMapNameEnvVarKey])
+		assert.Equal(t, constants.DefaultCaBundleVolumeMountPath, env[constants.CaBundleVolumeMountPathEnvVarKey])
+	})
+
+	t.Run("outside kserve namespace uses global-ca-bundle", func(t *testing.T) {
+		container := &corev1.Container{Name: "storage-initializer"}
+		var volumes []corev1.Volume
+		cfg := &pkgtypes.StorageInitializerConfig{CaBundleConfigMapName: "my-ca-bundle"}
+		MountOciCaBundle(cfg, "kserve-localmodel-jobs", container, &volumes)
+		require.NotNil(t, volumes[0].ConfigMap)
+		assert.Equal(t, constants.DefaultGlobalCaBundleConfigMapName, volumes[0].ConfigMap.Name)
+	})
+
+	t.Run("idempotent when volume already present", func(t *testing.T) {
+		container := &corev1.Container{Name: "storage-initializer"}
+		volumes := []corev1.Volume{{Name: OciCaBundleVolumeName}}
+		cfg := &pkgtypes.StorageInitializerConfig{CaBundleConfigMapName: "my-ca-bundle"}
+		MountOciCaBundle(cfg, "user-ns", container, &volumes)
+		assert.Len(t, volumes, 1)
+		assert.Empty(t, container.VolumeMounts)
 	})
 }
 

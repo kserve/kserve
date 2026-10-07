@@ -25,9 +25,16 @@ import (
 	apierr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/kserve/kserve/pkg/constants"
+	pkgtypes "github.com/kserve/kserve/pkg/types"
 )
 
 const (
+	// OciCaBundleVolumeName is the ConfigMap volume that carries a custom CA
+	// bundle for private-registry TLS. Shared with the storage-initializer
+	// webhook / LocalModel S3 CA mount path so the same volume is not mounted twice.
+	OciCaBundleVolumeName = "cabundle-cert"
 	// OciFetchDockerConfigVolumeName is the projected-secret volume that carries the
 	// registry credentials (docker config.json) into the storage-initializer container.
 	OciFetchDockerConfigVolumeName = "kserve-oci-fetch-docker-config"
@@ -159,9 +166,83 @@ func SetOciInsecureRegistryEnv(container *corev1.Container) {
 	})
 }
 
+// MountOciCaBundle mounts storageInitializer.caBundleConfigMapName for OCI
+// private-registry TLS. Mirrors the InferenceService oci+fetch webhook path so
+// the Python handler can read cabundle.crt via CA_BUNDLE_VOLUME_MOUNT_POINT.
+// No-op when caBundleConfigMapName is unset or the cabundle volume is already present.
+//
+// Outside the KServe system namespace the mirrored per-namespace ConfigMap
+// (global-ca-bundle) is mounted, matching CommonStorageInitialization.
+func MountOciCaBundle(
+	storageConfig *pkgtypes.StorageInitializerConfig,
+	namespace string,
+	container *corev1.Container,
+	volumes *[]corev1.Volume,
+) {
+	if storageConfig == nil || storageConfig.CaBundleConfigMapName == "" || container == nil || volumes == nil {
+		return
+	}
+	if ociCaBundleVolumeExists(*volumes) {
+		return
+	}
+
+	caBundleConfigMapName := storageConfig.CaBundleConfigMapName
+	if namespace != constants.KServeNamespace {
+		caBundleConfigMapName = constants.DefaultGlobalCaBundleConfigMapName
+	}
+	caBundleVolumeMountPath := storageConfig.CaBundleVolumeMountPath
+	if caBundleVolumeMountPath == "" {
+		caBundleVolumeMountPath = constants.DefaultCaBundleVolumeMountPath
+	}
+
+	*volumes = append(*volumes, corev1.Volume{
+		Name: OciCaBundleVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{Name: caBundleConfigMapName},
+			},
+		},
+	})
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      OciCaBundleVolumeName,
+		MountPath: caBundleVolumeMountPath,
+		ReadOnly:  true,
+	})
+	if !ociEnvExists(container.Env, constants.CaBundleConfigMapNameEnvVarKey) {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  constants.CaBundleConfigMapNameEnvVarKey,
+			Value: caBundleConfigMapName,
+		})
+	}
+	if !ociEnvExists(container.Env, constants.CaBundleVolumeMountPathEnvVarKey) {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  constants.CaBundleVolumeMountPathEnvVarKey,
+			Value: caBundleVolumeMountPath,
+		})
+	}
+}
+
 func ociDockerConfigVolumeExists(volumes []corev1.Volume) bool {
 	for _, v := range volumes {
 		if v.Name == OciFetchDockerConfigVolumeName {
+			return true
+		}
+	}
+	return false
+}
+
+func ociCaBundleVolumeExists(volumes []corev1.Volume) bool {
+	for _, v := range volumes {
+		if v.Name == OciCaBundleVolumeName {
+			return true
+		}
+	}
+	return false
+}
+
+func ociEnvExists(envs []corev1.EnvVar, name string) bool {
+	for _, e := range envs {
+		if e.Name == name {
 			return true
 		}
 	}

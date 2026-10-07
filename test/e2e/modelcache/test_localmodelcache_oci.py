@@ -20,7 +20,9 @@ import json
 import os
 import socket
 import subprocess
+import tempfile
 import time
+from pathlib import Path
 
 import pytest
 from kubernetes import client
@@ -51,6 +53,8 @@ GROUP = "serving.kserve.io"
 VERSION = "v1alpha1"
 CACHE_DOWNLOAD_TIMEOUT = 600
 REGISTRY_NAME = "oci-auth-registry"
+TLS_REGISTRY_NAME = "oci-tls-registry"
+GLOBAL_CA_BUNDLE_NAME = "global-ca-bundle"
 
 
 def _storage_key(uri: str) -> str:
@@ -143,17 +147,36 @@ def _ensure_job_namespace(core: client.CoreV1Api):
         )
 
 
-def _patch_oci_insecure(core: client.CoreV1Api, enabled: bool) -> str:
-    """Set ociInsecureRegistry. Returns the original storageInitializer JSON."""
+def _patch_storage_initializer(
+    core: client.CoreV1Api,
+    *,
+    oci_insecure: bool | None = None,
+    ca_bundle_config_map_name: str | None = None,
+) -> str:
+    """Patch storageInitializer fields. Returns the original JSON for restore."""
     cm = core.read_namespaced_config_map("inferenceservice-config", KSERVE_NAMESPACE)
     original = cm.data.get("storageInitializer", "{}")
     cfg = json.loads(original)
-    if bool(cfg.get("ociInsecureRegistry")) == enabled:
-        return original
-    cfg["ociInsecureRegistry"] = enabled
-    cm.data["storageInitializer"] = json.dumps(cfg)
-    core.patch_namespaced_config_map("inferenceservice-config", KSERVE_NAMESPACE, cm)
+    changed = False
+    if oci_insecure is not None and bool(cfg.get("ociInsecureRegistry")) != oci_insecure:
+        cfg["ociInsecureRegistry"] = oci_insecure
+        changed = True
+    if ca_bundle_config_map_name is not None and cfg.get(
+        "caBundleConfigMapName"
+    ) != ca_bundle_config_map_name:
+        cfg["caBundleConfigMapName"] = ca_bundle_config_map_name
+        changed = True
+    if changed:
+        cm.data["storageInitializer"] = json.dumps(cfg)
+        core.patch_namespaced_config_map(
+            "inferenceservice-config", KSERVE_NAMESPACE, cm
+        )
     return original
+
+
+def _patch_oci_insecure(core: client.CoreV1Api, enabled: bool) -> str:
+    """Set ociInsecureRegistry. Returns the original storageInitializer JSON."""
+    return _patch_storage_initializer(core, oci_insecure=enabled)
 
 
 def _restore_storage_initializer(core: client.CoreV1Api, original: str):
@@ -373,6 +396,129 @@ def test_localmodelcache_private_oci_import_with_pull_secret():
         _restore_storage_initializer(core, original_storage_init)
 
 
+@pytest.mark.modelcache
+def test_localmodelcache_private_oci_https_with_custom_ca():
+    """Private HTTPS registry with a custom CA succeeds without ociInsecureRegistry.
+
+    Covers the /v2/ auth-probe + REQUESTS_CA_BUNDLE path that the HTTP+insecure
+    private e2e does not exercise.
+    """
+    kserve_client = KServeClient(
+        config_file=os.environ.get("KUBECONFIG", "~/.kube/config")
+    )
+    core = kserve_client.core_api
+    apps = client.AppsV1Api()
+    custom = client.CustomObjectsApi()
+    _ensure_job_namespace(core)
+
+    registry_host = f"{TLS_REGISTRY_NAME}.{JOB_NAMESPACE}.svc.cluster.local"
+    original_storage_init = _patch_storage_initializer(
+        core,
+        oci_insecure=False,
+        # Non-empty enables MountOciCaBundle; jobs outside kserve ns mount global-ca-bundle.
+        ca_bundle_config_map_name="kserve-ci-ca-bundle",
+    )
+    try:
+        nodes = _worker_node_names(core)
+        assert nodes
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cert_dir = Path(tmp)
+            ca_pem, tls_crt, tls_key = _generate_registry_tls(cert_dir, registry_host)
+
+            _create_or_replace_config_map(
+                core,
+                client.V1ConfigMap(
+                    metadata=client.V1ObjectMeta(
+                        name=GLOBAL_CA_BUNDLE_NAME, namespace=JOB_NAMESPACE
+                    ),
+                    data={"cabundle.crt": ca_pem},
+                ),
+            )
+            _create_or_replace_secret(
+                core,
+                client.V1Secret(
+                    metadata=client.V1ObjectMeta(
+                        name="oci-tls-registry-certs", namespace=JOB_NAMESPACE
+                    ),
+                    type="kubernetes.io/tls",
+                    data={
+                        "tls.crt": base64.b64encode(tls_crt.encode()).decode(),
+                        "tls.key": base64.b64encode(tls_key.encode()).decode(),
+                    },
+                ),
+            )
+
+            user, password = "ociuser", "ocipass"
+            _create_or_replace_secret(
+                core,
+                client.V1Secret(
+                    metadata=client.V1ObjectMeta(
+                        name="oci-tls-registry-htpasswd", namespace=JOB_NAMESPACE
+                    ),
+                    string_data={"htpasswd": _htpasswd_line(user, password)},
+                ),
+            )
+            _ensure_tls_auth_registry(core, apps)
+            _wait_deployment_ready(apps, JOB_NAMESPACE, TLS_REGISTRY_NAME)
+            _push_fixture_via_port_forward_https(
+                user, password, ca_pem_path=cert_dir / "ca.crt"
+            )
+
+            dockerconfig = {
+                "auths": {
+                    f"{registry_host}:5000": {
+                        "username": user,
+                        "password": password,
+                        "auth": base64.b64encode(
+                            f"{user}:{password}".encode()
+                        ).decode(),
+                    }
+                }
+            }
+            _create_or_replace_secret(
+                core,
+                client.V1Secret(
+                    metadata=client.V1ObjectMeta(
+                        name="oci-tls-reg-cred", namespace=JOB_NAMESPACE
+                    ),
+                    type="kubernetes.io/dockerconfigjson",
+                    data={
+                        ".dockerconfigjson": base64.b64encode(
+                            json.dumps(dockerconfig).encode()
+                        ).decode()
+                    },
+                ),
+            )
+
+            group_name = "oci-tls-nodegroup"
+            cache_name = "oci-tls-fixture"
+            storage_uri = f"oci://{registry_host}:5000/oci-tls-fixture:v1"
+            node_group = _node_group(group_name, nodes)
+            model_cache = V1alpha1LocalModelCache(
+                api_version=constants.KSERVE_V1ALPHA1,
+                kind=constants.KSERVE_KIND_LOCALMODELCACHE,
+                metadata=client.V1ObjectMeta(name=cache_name),
+                spec=V1alpha1LocalModelCacheSpec(
+                    model_size="50Mi",
+                    node_groups=[group_name],
+                    source_model_uri=storage_uri,
+                    image_pull_secrets=[
+                        client.V1LocalObjectReference(name="oci-tls-reg-cred")
+                    ],
+                ),
+            )
+            _create_or_get_node_group(kserve_client, node_group)
+            _create_or_get_cache(kserve_client, model_cache)
+            try:
+                _wait_cache_downloaded(custom, cache_name)
+            finally:
+                kserve_client.delete_local_model_cache(cache_name)
+                kserve_client.delete_local_model_node_group(group_name)
+    finally:
+        _restore_storage_initializer(core, original_storage_init)
+
+
 def _htpasswd_line(user: str, password: str) -> str:
     try:
         out = subprocess.check_output(["htpasswd", "-Bbn", user, password], text=True)
@@ -525,6 +671,281 @@ def _push_fixture_via_port_forward(user: str, password: str):
             ]
         )
         subprocess.check_call(["docker", "push", "localhost:15000/oci-test-fixture:v1"])
+    finally:
+        pf.terminate()
+        pf.wait(timeout=10)
+
+
+def _create_or_replace_secret(core: client.CoreV1Api, secret: client.V1Secret):
+    name = secret.metadata.name
+    ns = secret.metadata.namespace
+    try:
+        core.create_namespaced_secret(ns, secret)
+    except ApiException as e:
+        if e.status != 409:
+            raise
+        core.replace_namespaced_secret(name, ns, secret)
+
+
+def _create_or_replace_config_map(core: client.CoreV1Api, cm: client.V1ConfigMap):
+    name = cm.metadata.name
+    ns = cm.metadata.namespace
+    try:
+        core.create_namespaced_config_map(ns, cm)
+    except ApiException as e:
+        if e.status != 409:
+            raise
+        core.replace_namespaced_config_map(name, ns, cm)
+
+
+def _generate_registry_tls(cert_dir: Path, dns_name: str) -> tuple[str, str, str]:
+    """Return (ca_pem, tls_crt, tls_key) for an HTTPS registry."""
+    ca_key = cert_dir / "ca.key"
+    ca_crt = cert_dir / "ca.crt"
+    tls_key = cert_dir / "tls.key"
+    tls_csr = cert_dir / "tls.csr"
+    tls_crt = cert_dir / "tls.crt"
+    ext = cert_dir / "san.ext"
+    ext.write_text(
+        f"subjectAltName=DNS:{dns_name},DNS:localhost,IP:127.0.0.1\n"
+        "extendedKeyUsage=serverAuth\n"
+    )
+    subprocess.check_call(
+        [
+            "openssl",
+            "req",
+            "-x509",
+            "-newkey",
+            "rsa:2048",
+            "-nodes",
+            "-keyout",
+            str(ca_key),
+            "-out",
+            str(ca_crt),
+            "-days",
+            "1",
+            "-subj",
+            "/CN=kserve-oci-e2e-ca",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    subprocess.check_call(
+        [
+            "openssl",
+            "req",
+            "-newkey",
+            "rsa:2048",
+            "-nodes",
+            "-keyout",
+            str(tls_key),
+            "-out",
+            str(tls_csr),
+            "-subj",
+            f"/CN={dns_name}",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    subprocess.check_call(
+        [
+            "openssl",
+            "x509",
+            "-req",
+            "-in",
+            str(tls_csr),
+            "-CA",
+            str(ca_crt),
+            "-CAkey",
+            str(ca_key),
+            "-CAcreateserial",
+            "-out",
+            str(tls_crt),
+            "-days",
+            "1",
+            "-extfile",
+            str(ext),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return ca_crt.read_text(), tls_crt.read_text(), tls_key.read_text()
+
+
+def _ensure_tls_auth_registry(core: client.CoreV1Api, apps: client.AppsV1Api):
+    try:
+        apps.read_namespaced_deployment(TLS_REGISTRY_NAME, JOB_NAMESPACE)
+    except ApiException as e:
+        if e.status != 404:
+            raise
+        apps.create_namespaced_deployment(
+            JOB_NAMESPACE,
+            client.V1Deployment(
+                metadata=client.V1ObjectMeta(name=TLS_REGISTRY_NAME),
+                spec=client.V1DeploymentSpec(
+                    replicas=1,
+                    selector=client.V1LabelSelector(
+                        match_labels={"app": TLS_REGISTRY_NAME}
+                    ),
+                    template=client.V1PodTemplateSpec(
+                        metadata=client.V1ObjectMeta(
+                            labels={"app": TLS_REGISTRY_NAME}
+                        ),
+                        spec=client.V1PodSpec(
+                            containers=[
+                                client.V1Container(
+                                    name="registry",
+                                    image="registry:2",
+                                    env=[
+                                        client.V1EnvVar(
+                                            name="REGISTRY_AUTH", value="htpasswd"
+                                        ),
+                                        client.V1EnvVar(
+                                            name="REGISTRY_AUTH_HTPASSWD_REALM",
+                                            value="Registry Realm",
+                                        ),
+                                        client.V1EnvVar(
+                                            name="REGISTRY_AUTH_HTPASSWD_PATH",
+                                            value="/auth/htpasswd",
+                                        ),
+                                        client.V1EnvVar(
+                                            name="REGISTRY_HTTP_TLS_CERTIFICATE",
+                                            value="/certs/tls.crt",
+                                        ),
+                                        client.V1EnvVar(
+                                            name="REGISTRY_HTTP_TLS_KEY",
+                                            value="/certs/tls.key",
+                                        ),
+                                    ],
+                                    ports=[client.V1ContainerPort(container_port=5000)],
+                                    volume_mounts=[
+                                        client.V1VolumeMount(
+                                            name="auth",
+                                            mount_path="/auth",
+                                            read_only=True,
+                                        ),
+                                        client.V1VolumeMount(
+                                            name="certs",
+                                            mount_path="/certs",
+                                            read_only=True,
+                                        ),
+                                    ],
+                                )
+                            ],
+                            volumes=[
+                                client.V1Volume(
+                                    name="auth",
+                                    secret=client.V1SecretVolumeSource(
+                                        secret_name="oci-tls-registry-htpasswd"
+                                    ),
+                                ),
+                                client.V1Volume(
+                                    name="certs",
+                                    secret=client.V1SecretVolumeSource(
+                                        secret_name="oci-tls-registry-certs"
+                                    ),
+                                ),
+                            ],
+                        ),
+                    ),
+                ),
+            ),
+        )
+    try:
+        core.create_namespaced_service(
+            JOB_NAMESPACE,
+            client.V1Service(
+                metadata=client.V1ObjectMeta(
+                    name=TLS_REGISTRY_NAME, namespace=JOB_NAMESPACE
+                ),
+                spec=client.V1ServiceSpec(
+                    selector={"app": TLS_REGISTRY_NAME},
+                    ports=[client.V1ServicePort(port=5000, target_port=5000)],
+                ),
+            ),
+        )
+    except ApiException as e:
+        if e.status != 409:
+            raise
+
+
+def _crane(args: list[str], *, env: dict | None = None, ca_pem_path: Path | None = None):
+    """Run crane locally or via a container (CI may not ship crane on PATH)."""
+    full_env = os.environ.copy()
+    if env:
+        full_env.update(env)
+    if ca_pem_path is not None:
+        full_env["SSL_CERT_FILE"] = str(ca_pem_path)
+    try:
+        subprocess.check_call(["crane", *args], env=full_env)
+        return
+    except FileNotFoundError:
+        pass
+    docker_args = ["docker", "run", "--rm", "--network=host"]
+    if ca_pem_path is not None:
+        docker_args.extend(
+            [
+                "-v",
+                f"{ca_pem_path}:/ca.crt:ro",
+                "-e",
+                "SSL_CERT_FILE=/ca.crt",
+            ]
+        )
+    docker_config = (env or {}).get("DOCKER_CONFIG")
+    if docker_config:
+        docker_args.extend(
+            [
+                "-v",
+                f"{docker_config}:/docker-config",
+                "-e",
+                "DOCKER_CONFIG=/docker-config",
+            ]
+        )
+    docker_args.extend(["gcr.io/go-containerregistry/crane:debug", *args])
+    subprocess.check_call(docker_args)
+
+
+def _push_fixture_via_port_forward_https(user: str, password: str, *, ca_pem_path: Path):
+    """Push the fixture into the TLS registry through kubectl port-forward."""
+    pf = subprocess.Popen(
+        [
+            "kubectl",
+            "port-forward",
+            "-n",
+            JOB_NAMESPACE,
+            f"svc/{TLS_REGISTRY_NAME}",
+            "15001:5000",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        _wait_tcp("127.0.0.1", 15001)
+        # Login + copy with SSL_CERT_FILE so crane trusts the e2e CA.
+        cfg_dir = ca_pem_path.parent / "crane-docker"
+        cfg_dir.mkdir(exist_ok=True)
+        _crane(
+            [
+                "auth",
+                "login",
+                "localhost:15001",
+                "-u",
+                user,
+                "-p",
+                password,
+            ],
+            env={"DOCKER_CONFIG": str(cfg_dir)},
+            ca_pem_path=ca_pem_path,
+        )
+        _crane(
+            [
+                "copy",
+                OCI_FETCH_TEST_IMAGE,
+                "localhost:15001/oci-tls-fixture:v1",
+            ],
+            env={"DOCKER_CONFIG": str(cfg_dir)},
+            ca_pem_path=ca_pem_path,
+        )
     finally:
         pf.terminate()
         pf.wait(timeout=10)
