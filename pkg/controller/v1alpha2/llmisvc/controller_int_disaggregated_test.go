@@ -148,6 +148,38 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 
+		It("reports readiness from the stored DisaggregatedSet when a field it does not set was added", func(ctx SpecContext) {
+			// given
+			enableDisaggregatedSetGate(ctx)
+			testNs := NewTestNamespace(ctx, envTest)
+			llmSvc := singleNodePD("ds-hand-edited", testNs.Name)
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer testNs.DeleteAndWait(ctx, llmSvc)
+			getDisaggregatedSet(ctx, llmSvc)
+
+			// when a field the controller does not set is added by hand. The controller
+			// keeps it, but a dry-run update with its own spec would drop it and so
+			// reports the next generation, which the DisaggregatedSet never observes.
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				ds := getDisaggregatedSet(ctx, llmSvc)
+				ds.Spec.PlacementPolicy = &disaggregatedsetv1.PlacementPolicy{
+					Type:     disaggregatedsetv1.PlacementExclusiveTopology,
+					Topology: "topology.kubernetes.io/zone",
+				}
+				return envTest.Update(ctx, ds)
+			})).To(Succeed())
+			setDisaggregatedSetStatus(ctx, llmSvc, 1, 1)
+
+			// then
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.MainWorkloadReady), "True"))
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PrefillWorkloadReady), "True"))
+			}).WithContext(ctx).Should(Succeed())
+			Expect(getDisaggregatedSet(ctx, llmSvc).Spec.PlacementPolicy).NotTo(BeNil(), "the hand-added field is kept")
+		})
+
 		It("runs a P/D service on a DisaggregatedSet by default", func(ctx SpecContext) {
 			// given
 			enableDisaggregatedSetGate(ctx)

@@ -234,9 +234,11 @@ func (r *LLMISVCReconciler) reconcileDisaggregatedSet(ctx context.Context, llmSv
 	if err != nil {
 		return nil, err
 	}
-	// Create, Update and the dry-run Update that Update makes when nothing changed all
-	// fill expected from the API server response, status and generation included.
-	return expected, nil
+	// Read the stored object back, as the Deployment and LeaderWorkerSet paths do, rather
+	// than returning expected: when nothing changed, Update leaves expected holding its
+	// dry-run response, whose generation is ahead of the stored one if the stored object
+	// has a field the controller does not set, so readiness would never catch up.
+	return r.currentDisaggregatedSet(ctx, llmSvc)
 }
 
 // deleteDisaggregatedSet removes the DisaggregatedSet of a service that does not run on
