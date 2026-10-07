@@ -227,7 +227,10 @@ func singleNodeRoleTemplate(llmSvc *v1alpha2.LLMInferenceService, identityLabels
 		Template: lwsapi.LeaderWorkerTemplate{
 			Size:           ptr.To[int32](1),
 			WorkerTemplate: template,
-			RestartPolicy:  lwsapi.RecreateGroupOnPodRestart,
+			// Restart a failed container in place, as the Deployment does. Recreating
+			// the group would replace the pod and run its init containers, such as
+			// the model download, again.
+			RestartPolicy: lwsapi.NoneRestartPolicy,
 		},
 		Labels:      roleLabels,
 		Annotations: roleAnnotations,

@@ -620,6 +620,9 @@ func assertRoleMatchesDeployment(t *testing.T, role disaggregatedsetv1.Disaggreg
 	group := role.Spec.LeaderWorkerTemplate
 	assert.Nil(t, group.LeaderTemplate)
 	assert.Equal(t, ptr.To[int32](1), group.Size)
+	// A Deployment restarts a failed container in place; recreating the group would
+	// replace the pod and run its init containers, such as the model download, again.
+	assert.Equal(t, lwsapi.NoneRestartPolicy, group.RestartPolicy, "restart policy of role %s", role.Name)
 	assert.Equal(t, d.Spec.Template, group.WorkerTemplate, "pod template of role %s", role.Name)
 	assert.Equal(t, d.Labels, role.Labels, "metadata labels of role %s", role.Name)
 	assert.Equal(t, d.Annotations, role.Annotations, "metadata annotations of role %s", role.Name)
@@ -655,7 +658,7 @@ func TestExpectedDisaggregatedSet(t *testing.T) {
 	for _, role := range []lwsapi.LeaderWorkerSetSpec{decode, prefill} {
 		assert.Equal(t, lwsapi.RollingUpdateStrategyType, role.RolloutStrategy.Type)
 		assert.Equal(t, lwsapi.LeaderCreatedStartupPolicy, role.StartupPolicy)
-		assert.Equal(t, lwsapi.RecreateGroupOnPodRestart, role.LeaderWorkerTemplate.RestartPolicy)
+		assert.Equal(t, lwsapi.NoneRestartPolicy, role.LeaderWorkerTemplate.RestartPolicy, "single-node roles restart containers in place")
 	}
 	assert.Equal(t, &lwsapi.RollingUpdateConfiguration{
 		MaxUnavailable: intstr.FromString("25%"),
