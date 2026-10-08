@@ -39,7 +39,7 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
-func (r *LLMISVCReconciler) reconcileMultiNodeWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+func (r *LLMISVCReconciler) reconcileMultiNodeWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, useDisaggregatedSet bool) error {
 	log.FromContext(ctx).Info("Reconciling multi-node workload")
 
 	if err := r.reconcileManagedDRA(ctx, llmSvc); err != nil {
@@ -52,17 +52,17 @@ func (r *LLMISVCReconciler) reconcileMultiNodeWorkload(ctx context.Context, llmS
 	if err := r.reconcileMultiNodePrefillServiceAccount(ctx, llmSvc); err != nil {
 		return fmt.Errorf("failed to reconcile multi-node service account: %w", err)
 	}
-	if err := r.reconcileMultiNodeMainWorkload(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileMultiNodeMainWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		return fmt.Errorf("failed to reconcile multi-node main workload: %w", err)
 	}
-	if err := r.reconcileMultiNodePrefillWorkload(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileMultiNodePrefillWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		return fmt.Errorf("failed to reconcile multi-node prefill workload: %w", err)
 	}
 	return nil
 }
 
-func (r *LLMISVCReconciler) reconcileMultiNodeMainWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Worker == nil {
+func (r *LLMISVCReconciler) reconcileMultiNodeMainWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, useDisaggregatedSet bool) error {
+	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Worker == nil || useDisaggregatedSet {
 		if isStopped {
 			llmSvc.MarkWorkerWorkloadNotReady("Stopped", "Service is stopped")
 		} else {
@@ -86,8 +86,8 @@ func (r *LLMISVCReconciler) reconcileMultiNodeMainWorkload(ctx context.Context, 
 	return r.propagateLeaderWorkerSetStatus(ctx, expected, llmSvc.MarkWorkerWorkloadReady, llmSvc.MarkWorkerWorkloadNotReady)
 }
 
-func (r *LLMISVCReconciler) reconcileMultiNodePrefillWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker == nil {
+func (r *LLMISVCReconciler) reconcileMultiNodePrefillWorkload(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, useDisaggregatedSet bool) error {
+	if isStopped := utils.GetForceStopRuntime(llmSvc); isStopped || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker == nil || useDisaggregatedSet {
 		if isStopped {
 			llmSvc.MarkPrefillWorkerWorkloadNotReady("Stopped", "Service is stopped")
 		} else {

@@ -1005,14 +1005,14 @@ func (l *LLMInferenceServiceValidator) validateLoRAModelRoutingStrategyAnnotatio
 	return ValidateLoRAModelRoutingStrategyAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))
 }
 
-// validateDisaggregatedSetAnnotation checks that the DisaggregatedSet opt-in annotation
-// is well formed. The annotation is read from the object's metadata rather than
-// spec.annotations, which propagate to pods.
+// validateDisaggregatedSetAnnotation checks that the DisaggregatedSet annotation in
+// spec.annotations is well formed. It lives in spec.annotations rather than the
+// object's metadata so the presets that turn it on by default can set it.
 //
 // Feature-level constraints are enforced by the reconciler, not here; see
 // ValidateDisaggregatedSetAnnotation for why.
 func (l *LLMInferenceServiceValidator) validateDisaggregatedSetAnnotation(llmSvc *LLMInferenceService) field.ErrorList {
-	return kservevalidation.ValidateDisaggregatedSetAnnotation(llmSvc.GetAnnotations())
+	return kservevalidation.ValidateDisaggregatedSetAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))
 }
 
 // ValidateLoRAModelRoutingStrategyAnnotation is shared with the v1alpha1

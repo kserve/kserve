@@ -65,9 +65,16 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		llmSvc.MarkMainWorkloadNotReady("Stopped", "Service is stopped")
 	}
 
-	if err := r.reconcileWorkloadRevision(ctx, llmSvc, config); err != nil {
-		llmSvc.MarkMainWorkloadNotReady("ComputeWorkloadRevisionError", err.Error())
-		return fmt.Errorf("failed to compute workload revision: %w", err)
+	disaggregatedSetDecision := r.decideDisaggregatedSet(llmSvc, config)
+	r.markDisaggregatedSetDecision(ctx, llmSvc, disaggregatedSetDecision)
+	useDisaggregatedSet := useDisaggregatedSetWorkload(llmSvc, disaggregatedSetDecision)
+
+	// A DisaggregatedSet computes its revision from its own roles.
+	if !useDisaggregatedSet {
+		if err := r.reconcileWorkloadRevision(ctx, llmSvc, config); err != nil {
+			llmSvc.MarkMainWorkloadNotReady("ComputeWorkloadRevisionError", err.Error())
+			return fmt.Errorf("failed to compute workload revision: %w", err)
+		}
 	}
 
 	// Set up TLS certificates for secure communication
@@ -84,18 +91,33 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	}
 
 	// We need to always reconcile every type of workload to handle transitions from P/D to another topology (meaning
-	// finalizing superfluous workloads).
+	// finalizing superfluous workloads). Switching to and from a DisaggregatedSet creates the new workloads and deletes
+	// the old ones in the same reconcile without waiting for the new pods to become ready, so the service has no ready
+	// endpoints until the new pods finish loading the model. markDisaggregatedSetDecision warns about it with a
+	// MigratingToDisaggregatedSet or MigratingFromDisaggregatedSet event.
+
+	// Handle disaggregated (P/D) deployments using a DisaggregatedSet
+	disaggregatedSet, err := r.reconcileDisaggregatedSet(ctx, llmSvc, config, useDisaggregatedSet)
+	if err != nil {
+		llmSvc.MarkMainWorkloadNotReady("ReconcileDisaggregatedSetError", err.Error())
+		return fmt.Errorf("failed to reconcile disaggregated set: %w", err)
+	}
 
 	// Handle multi-node deployments using LeaderWorkerSets
-	if err := r.reconcileMultiNodeWorkload(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileMultiNodeWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		llmSvc.MarkWorkerWorkloadNotReady("ReconcileMultiNodeWorkloadError", err.Error())
 		return fmt.Errorf("failed to reconcile multi node workload: %w", err)
 	}
 
 	// Handle single-node deployments using standard Deployments
-	if err := r.reconcileSingleNodeWorkload(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileSingleNodeWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileSingleNodeWorkloadError", err.Error())
 		return fmt.Errorf("failed to reconcile single node workload: %w", err)
+	}
+
+	if useDisaggregatedSet {
+		// After the other workloads, which clear the conditions of the workloads they delete.
+		propagateDisaggregatedSetStatus(llmSvc, disaggregatedSet)
 	}
 
 	// Create Service to expose workload pods

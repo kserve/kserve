@@ -1290,7 +1290,7 @@ func TestValidateCreateDisaggregatedSetAnnotation(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := newBaseLLMInferenceService()
-			svc.Annotations = map[string]string{constants.LLMDisaggregatedSetAnnotationKey: tt.value}
+			svc.Spec.Annotations = map[string]string{constants.LLMDisaggregatedSetAnnotationKey: tt.value}
 			if tt.scaling {
 				svc.Spec.Scaling = validDisaggScalingSpec()
 				svc.Spec.Prefill = &WorkloadSpec{Scaling: validDisaggScalingSpec()}
@@ -1302,7 +1302,7 @@ func TestValidateCreateDisaggregatedSetAnnotation(t *testing.T) {
 				require.NoError(t, err)
 				return
 			}
-			require.ErrorContains(t, err, constants.LLMDisaggregatedSetAnnotationKey)
+			require.ErrorContains(t, err, "spec.annotations["+constants.LLMDisaggregatedSetAnnotationKey+"]")
 		})
 	}
 }

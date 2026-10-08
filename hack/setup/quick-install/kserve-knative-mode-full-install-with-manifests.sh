@@ -2653,6 +2653,7 @@ metadata:
   namespace: kserve
 spec:
   annotations:
+    serving.kserve.io/enable-disaggregated-set: "true"
     serving.kserve.io/model-based-routing-enabled: "true"
   labels:
     serving.kserve.io/llmisvc-revision: placeholder
@@ -2996,6 +2997,7 @@ metadata:
   namespace: kserve
 spec:
   annotations:
+    serving.kserve.io/enable-disaggregated-set: "true"
     serving.kserve.io/model-based-routing-enabled: "true"
   labels:
     serving.kserve.io/llmisvc-revision: placeholder
