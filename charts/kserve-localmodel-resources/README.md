@@ -99,6 +99,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.localmodel.jobNamespace | string | `"kserve-localmodel-jobs"` |  |
 | kserve.localmodel.jobTTLSecondsAfterFinished | int | `3600` |  |
 | kserve.localmodel.securityContext.fsGroup | int | `1000` |  |
+| kserve.localmodel.sharedPVCImportFSGroup | int | `nil` | fsGroup applied to shared-PVC import Jobs in the cache namespace. Unset by default so namespace admission assigns the group; set when the RWX driver needs a fixed group. |
 | kserve.localmodelnode.controller.affinity | object | `{}` |  |
 | kserve.localmodelnode.controller.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
 | kserve.localmodelnode.controller.imagePullPolicy | string | `"IfNotPresent"` |  |

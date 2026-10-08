@@ -87,8 +87,7 @@ kserve:
     defaultJobTag: ''
     securityContext:
       fsGroup: 1000
-    # fsGroup applied to shared-PVC import Jobs in the cache namespace. Unset by default so
-    # namespace admission assigns the group; set when the RWX driver needs a fixed group.
+    # -- (int) fsGroup applied to shared-PVC import Jobs in the cache namespace. Unset by default so namespace admission assigns the group; set when the RWX driver needs a fixed group.
     sharedPVCImportFSGroup: null
     disableVolumeManagement: false
     agent:
