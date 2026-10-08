@@ -158,12 +158,16 @@ def _patch_storage_initializer(
     original = cm.data.get("storageInitializer", "{}")
     cfg = json.loads(original)
     changed = False
-    if oci_insecure is not None and bool(cfg.get("ociInsecureRegistry")) != oci_insecure:
+    if (
+        oci_insecure is not None
+        and bool(cfg.get("ociInsecureRegistry")) != oci_insecure
+    ):
         cfg["ociInsecureRegistry"] = oci_insecure
         changed = True
-    if ca_bundle_config_map_name is not None and cfg.get(
-        "caBundleConfigMapName"
-    ) != ca_bundle_config_map_name:
+    if (
+        ca_bundle_config_map_name is not None
+        and cfg.get("caBundleConfigMapName") != ca_bundle_config_map_name
+    ):
         cfg["caBundleConfigMapName"] = ca_bundle_config_map_name
         changed = True
     if changed:
@@ -788,9 +792,7 @@ def _ensure_tls_auth_registry(core: client.CoreV1Api, apps: client.AppsV1Api):
                         match_labels={"app": TLS_REGISTRY_NAME}
                     ),
                     template=client.V1PodTemplateSpec(
-                        metadata=client.V1ObjectMeta(
-                            labels={"app": TLS_REGISTRY_NAME}
-                        ),
+                        metadata=client.V1ObjectMeta(labels={"app": TLS_REGISTRY_NAME}),
                         spec=client.V1PodSpec(
                             containers=[
                                 client.V1Container(
@@ -869,7 +871,9 @@ def _ensure_tls_auth_registry(core: client.CoreV1Api, apps: client.AppsV1Api):
             raise
 
 
-def _crane(args: list[str], *, env: dict | None = None, ca_pem_path: Path | None = None):
+def _crane(
+    args: list[str], *, env: dict | None = None, ca_pem_path: Path | None = None
+):
     """Run crane locally or via a container (CI may not ship crane on PATH)."""
     full_env = os.environ.copy()
     if env:
@@ -905,7 +909,9 @@ def _crane(args: list[str], *, env: dict | None = None, ca_pem_path: Path | None
     subprocess.check_call(docker_args)
 
 
-def _push_fixture_via_port_forward_https(user: str, password: str, *, ca_pem_path: Path):
+def _push_fixture_via_port_forward_https(
+    user: str, password: str, *, ca_pem_path: Path
+):
     """Push the fixture into the TLS registry through kubectl port-forward."""
     pf = subprocess.Popen(
         [
