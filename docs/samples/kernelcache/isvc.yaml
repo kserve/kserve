@@ -1,0 +1,23 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: opt-125m-no-cache
+spec:
+  predictor:
+    automountServiceAccountToken: false
+    model:
+      modelFormat:
+        name: vLLM
+      name: ""
+      protocolVersion: v2
+      resources:
+        limits:
+          cpu: "2"
+          memory: 4Gi
+          nvidia.com/gpu: "1"
+        requests:
+          cpu: "1"
+          memory: 2Gi
+          nvidia.com/gpu: "1"
+      runtime: kserve-vllmserver
+      storageUri: hf://facebook/opt-125m
