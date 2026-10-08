@@ -38,12 +38,12 @@ from .utils import (
 
 # storageUri for the test ISVC. The storage initializer init container must
 # succeed before MCV (injected as a regular sidecar) and kserve-container start.
-# In CI set KERNELCACHE_MODEL_URI to an oci+native:// reference already loaded
-# into the cluster registry (fast local pull). For local development the default
-# downloads a tiny public HuggingFace model (~250 MB).
+# Defaults to s3://example-models/facebook/opt-125m which setup-kserve.sh pre-seeds
+# into the in-cluster SeaweedFS, avoiding slow HuggingFace downloads in CI. For
+# local runs override with KERNELCACHE_MODEL_URI if SeaweedFS is not available.
 _STORAGE_URI: str = os.environ.get(
     "KERNELCACHE_MODEL_URI",
-    "hf://facebook/opt-125m",
+    "s3://example-models/facebook/opt-125m",
 )
 
 _NODE_LABEL_KEY: str = os.environ.get(
@@ -59,10 +59,10 @@ def test_kernelcache_basic(
     kserve_client: KServeClient,
     test_namespace: str,
 ):
-    """Core KernelCache lifecycle: node readiness → capture → verification.
+    """Core KernelCache lifecycle: node creation → capture → verification.
 
-    Phase 1 — Node readiness:
-      [TEST VERIFIES] Controller creates one KernelCacheNode per worker node.
+    Phase 1 — KernelCacheNode creation:
+      [TEST VERIFIES] Controller creates one KernelCacheNode CR per worker node.
 
     Phase 2 — Cache capture:
       [TEST CREATES] ISVC using kernelcache-test-runtime (producer pod).
@@ -71,20 +71,21 @@ def test_kernelcache_basic(
       [TEST VERIFIES] KernelCacheCapture.status.phase reaches 'Complete'.
       [TEST VERIFIES] KernelCache CR exists with verification.state=Succeeded.
     """
-    # ── Phase 1: node readiness ───────────────────────────────────────────────
+    # ── Phase 1: KernelCacheNode creation ─────────────────────────────────────
     _load_k8s_config()
     core = k8s_client.CoreV1Api()
     label_selector = f"{_NODE_LABEL_KEY}={_NODE_LABEL_VALUE}"
     worker_nodes = core.list_node(label_selector=label_selector).items
-    expected_node_count = len(worker_nodes)
-    assert expected_node_count > 0, (
+    assert len(worker_nodes) > 0, (
         f"No worker nodes labelled {label_selector}. "
-        "Run setup-kernelcache.sh before the test."
+        "Ensure worker nodes are labelled (e.g. via setup-kernelcache.sh in CI)."
     )
 
-    # Controller creates one KernelCacheNode per matching node after the
+    # Controller creates one KernelCacheNode CR per matching node after the
     # KernelCacheNodeGroup (created by the kc_node_group fixture) is reconciled.
-    wait_for_kernelcache_nodes(expected_node_count, timeout=120)
+    # This test verifies that each worker node has a corresponding KCN (by name).
+    worker_node_names = [node.metadata.name for node in worker_nodes]
+    wait_for_kernelcache_nodes(worker_node_names, timeout=120)
 
     # ── Phase 2: cache capture ────────────────────────────────────────────────
     isvc_name = "kc-basic-test"

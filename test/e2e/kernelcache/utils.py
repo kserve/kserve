@@ -15,6 +15,7 @@
 import logging
 import os
 import time
+from typing import Any, Callable
 
 from kubernetes import client, config as k8s_config
 from kubernetes.client.exceptions import ApiException
@@ -49,29 +50,85 @@ def _core_api() -> client.CoreV1Api:
     return client.CoreV1Api()
 
 
-def wait_for_kernelcache_nodes(expected_count: int, timeout: int = 120) -> list:
-    """Poll until at least expected_count KernelCacheNode CRs exist (cluster-scoped)."""
-    deadline = time.monotonic() + timeout
+def wait_for(
+    assertion_fn: Callable[[], Any], timeout: float = 120.0, interval: float = 5.0
+) -> Any:
+    """Generic polling helper: repeatedly call assertion_fn until it succeeds or times out.
+
+    The assertion function should raise AssertionError when the condition is not yet met.
+    Follows the pattern established in test/e2e/llmisvc/test_llm_inference_service.py.
+
+    Args:
+        assertion_fn: Callable that checks a condition and raises AssertionError if not met
+        timeout: Maximum time to wait in seconds
+        interval: Polling interval in seconds
+
+    Returns:
+        Whatever assertion_fn returns on success
+
+    Raises:
+        AssertionError: If timeout is reached before assertion_fn succeeds
+    """
+    deadline = time.time() + timeout
+    last_msg = None
+    while True:
+        try:
+            return assertion_fn()
+        except AssertionError as e:
+            msg = str(e)
+            if time.time() >= deadline:
+                _logger.error("Timed out waiting: %s", e)
+                raise
+            if msg != last_msg:
+                _logger.info("Waiting: %s", msg)
+                last_msg = msg
+            time.sleep(interval)
+
+
+def wait_for_kernelcache_nodes(
+    expected_node_names: list[str], timeout: int = 120
+) -> list:
+    """Poll until a KernelCacheNode exists for each expected node name.
+
+    Verifies that each node name in expected_node_names has a corresponding
+    KernelCacheNode CR (matching by name), preventing false passes from stale
+    KCNs left over from previous tests.
+
+    Args:
+        expected_node_names: List of Kubernetes node names that should have KCNs
+        timeout: Maximum time to wait in seconds
+
+    Returns:
+        List of KernelCacheNode CRs that match the expected node names
+    """
     api = _custom_api()
-    while time.monotonic() < deadline:
+
+    def check_nodes():
         try:
             items = api.list_cluster_custom_object(
                 KSERVE_GROUP, KSERVE_V1ALPHA1_VERSION, KSERVE_PLURAL_KERNELCACHENODE
             ).get("items", [])
-            _logger.info("KernelCacheNode count: %d / %d", len(items), expected_count)
-            if len(items) >= expected_count:
-                return items
         except ApiException as e:
-            if e.status != 404:
+            if e.status == 404:
+                items = []
+            else:
                 raise
-        time.sleep(5)
-    raise TimeoutError(
-        f"Expected {expected_count} KernelCacheNode CRs within {timeout}s"
-    )
+
+        kcn_names = {item["metadata"]["name"] for item in items}
+        missing = [name for name in expected_node_names if name not in kcn_names]
+        assert not missing, (
+            f"KernelCacheNode missing for nodes: {missing} "
+            f"(have: {sorted(kcn_names)}, expect: {sorted(expected_node_names)})"
+        )
+        return [
+            item for item in items if item["metadata"]["name"] in expected_node_names
+        ]
+
+    return wait_for(check_nodes, timeout=timeout, interval=5.0)
 
 
 def get_kcc_for_isvc(namespace: str, isvc_name: str) -> dict | None:
-    """Return the KernelCacheCapture owned by the ISVC, or None if not yet created."""
+    """Return the KernelCacheCapture for the ISVC, or None if not yet created."""
     api = _custom_api()
     items = api.list_namespaced_custom_object(
         KSERVE_GROUP,
@@ -91,30 +148,32 @@ def get_kcc_for_isvc(namespace: str, isvc_name: str) -> dict | None:
 
 def wait_for_kcc_created(namespace: str, isvc_name: str, timeout: int = 120) -> dict:
     """Poll until a KernelCacheCapture for the ISVC is created by the controller."""
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
+
+    def check_kcc():
         kcc = get_kcc_for_isvc(namespace, isvc_name)
-        if kcc is not None:
-            _logger.info(
-                "KernelCacheCapture %s created for ISVC %s/%s",
-                kcc["metadata"]["name"],
-                namespace,
-                isvc_name,
-            )
-            return kcc
-        time.sleep(5)
-    raise TimeoutError(
-        f"KernelCacheCapture for ISVC {namespace}/{isvc_name} not created within {timeout}s"
-    )
+        assert kcc is not None, (
+            f"KernelCacheCapture for ISVC {namespace}/{isvc_name} not yet created"
+        )
+        return kcc
+
+    return wait_for(check_kcc, timeout=timeout, interval=5.0)
 
 
 def wait_for_capture_complete(
     namespace: str, kcc_name: str, timeout: int = 600
 ) -> dict:
-    """Poll until KernelCacheCapture.status.phase == 'Complete'."""
-    deadline = time.monotonic() + timeout
+    """Poll until KernelCacheCapture.status.phase == 'Complete'.
+
+    Assumes the KCC exists when called (e.g. via wait_for_kcc_created). Fails
+    immediately (rather than waiting for timeout) if:
+      - The KCC is deleted (404)
+      - Phase reaches "Failed"
+      - Phase reaches "Unchanged" (this test always writes a new file, so
+        Unchanged indicates MCV didn't detect it — a test setup problem)
+    """
     api = _custom_api()
-    while time.monotonic() < deadline:
+
+    def check_phase():
         try:
             kcc = api.get_namespaced_custom_object(
                 KSERVE_GROUP,
@@ -123,23 +182,30 @@ def wait_for_capture_complete(
                 KSERVE_PLURAL_KERNELCACHECAPTURE,
                 kcc_name,
             )
-            phase = kcc.get("status", {}).get("phase", "")
-            _logger.info(
-                "KernelCacheCapture %s/%s phase: %s", namespace, kcc_name, phase
-            )
-            if phase == "Complete":
-                return kcc
-            if phase == "Failed":
-                raise AssertionError(
-                    f"KernelCacheCapture {namespace}/{kcc_name} reached Failed phase"
-                )
         except ApiException as e:
-            if e.status != 404:
-                raise
-        time.sleep(10)
-    raise TimeoutError(
-        f"KernelCacheCapture {namespace}/{kcc_name} did not reach Complete within {timeout}s"
-    )
+            if e.status == 404:
+                raise AssertionError(
+                    f"KernelCacheCapture {namespace}/{kcc_name} was deleted unexpectedly"
+                ) from e
+            raise
+
+        phase = kcc.get("status", {}).get("phase", "")
+        if phase == "Failed":
+            raise AssertionError(
+                f"KernelCacheCapture {namespace}/{kcc_name} reached Failed phase"
+            )
+        if phase == "Unchanged":
+            raise AssertionError(
+                f"KernelCacheCapture {namespace}/{kcc_name} reached Unchanged phase. "
+                "This test always writes a new dummy cache file, so Unchanged means "
+                "MCV did not detect the file (wrong timing, file not written, etc.)"
+            )
+        assert phase == "Complete", (
+            f"KernelCacheCapture {namespace}/{kcc_name} phase: {phase or '(empty)'}"
+        )
+        return kcc
+
+    return wait_for(check_phase, timeout=timeout, interval=10.0)
 
 
 def wait_for_kernelcache_verified(
@@ -147,12 +213,16 @@ def wait_for_kernelcache_verified(
 ) -> dict:
     """Poll until the KernelCache for kcc_name has verification.state == 'Succeeded'.
 
+    Called after wait_for_capture_complete, so assumes the KCC exists and has
+    phase=Complete (meaning the KC was created). If either resource disappears
+    during polling (404), fails immediately rather than waiting for timeout.
+
     Reads kc_name from KCC.status.kernelCacheRef — the controller sets this
     together with phase=Complete, so no separate wait is needed.
     """
-    deadline = time.monotonic() + timeout
     api = _custom_api()
-    while time.monotonic() < deadline:
+
+    def check_verification():
         try:
             kcc = api.get_namespaced_custom_object(
                 KSERVE_GROUP,
@@ -161,18 +231,21 @@ def wait_for_kernelcache_verified(
                 KSERVE_PLURAL_KERNELCACHECAPTURE,
                 kcc_name,
             )
-            kc_ref = kcc.get("status", {}).get("kernelCacheRef", {})
-            kc_name = kc_ref.get("name", "")
-            kc_namespace = kc_ref.get("namespace", namespace)
-            if not kc_name:
-                _logger.info(
-                    "KernelCacheCapture %s/%s: waiting for kernelCacheRef",
-                    namespace,
-                    kcc_name,
-                )
-                time.sleep(5)
-                continue
+        except ApiException as e:
+            if e.status == 404:
+                raise AssertionError(
+                    f"KernelCacheCapture {namespace}/{kcc_name} was deleted unexpectedly"
+                ) from e
+            raise
 
+        kc_ref = kcc.get("status", {}).get("kernelCacheRef", {})
+        kc_name = kc_ref.get("name", "")
+        kc_namespace = kc_ref.get("namespace", namespace)
+        assert kc_name, (
+            f"KernelCacheCapture {namespace}/{kcc_name}: waiting for kernelCacheRef"
+        )
+
+        try:
             kc = api.get_namespaced_custom_object(
                 KSERVE_GROUP,
                 KSERVE_V1ALPHA1_VERSION,
@@ -180,30 +253,27 @@ def wait_for_kernelcache_verified(
                 KSERVE_PLURAL_KERNELCACHE,
                 kc_name,
             )
-            verification = kc.get("status", {}).get("verification", {})
-            state = verification.get("state", "")
-            verified = verification.get("verified", False)
-            _logger.info(
-                "KernelCache %s/%s verification state=%s verified=%s",
-                kc_namespace,
-                kc_name,
-                state,
-                verified,
-            )
-            if state == "Succeeded" and verified:
-                return kc
-            if state == "Failed":
-                raise AssertionError(
-                    f"KernelCache {kc_namespace}/{kc_name} verification Failed: "
-                    f"{verification.get('message', '')}"
-                )
         except ApiException as e:
-            if e.status != 404:
-                raise
-        time.sleep(5)
-    raise TimeoutError(
-        f"KernelCache for KCC {namespace}/{kcc_name} did not verify within {timeout}s"
-    )
+            if e.status == 404:
+                raise AssertionError(
+                    f"KernelCache {kc_namespace}/{kc_name} was deleted unexpectedly"
+                ) from e
+            raise
+
+        verification = kc.get("status", {}).get("verification", {})
+        state = verification.get("state", "")
+        verified = verification.get("verified", False)
+        if state == "Failed":
+            raise AssertionError(
+                f"KernelCache {kc_namespace}/{kc_name} verification Failed: "
+                f"{verification.get('message', '')}"
+            )
+        assert state == "Succeeded" and verified, (
+            f"KernelCache {kc_namespace}/{kc_name} verification state={state} verified={verified}"
+        )
+        return kc
+
+    return wait_for(check_verification, timeout=timeout, interval=5.0)
 
 
 def pod_has_mcv_sidecar(namespace: str, isvc_name: str) -> bool:
@@ -222,12 +292,10 @@ def pod_has_mcv_sidecar(namespace: str, isvc_name: str) -> bool:
 
 def wait_for_mcv_sidecar(namespace: str, isvc_name: str, timeout: int = 120) -> None:
     """Poll until at least one pod for the ISVC has the 'mcv' sidecar container."""
-    deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline:
-        if pod_has_mcv_sidecar(namespace, isvc_name):
-            _logger.info("MCV sidecar found in ISVC %s/%s pod", namespace, isvc_name)
-            return
-        time.sleep(5)
-    raise AssertionError(
-        f"No pod for ISVC {namespace}/{isvc_name} had 'mcv' sidecar within {timeout}s"
-    )
+
+    def check_mcv():
+        assert pod_has_mcv_sidecar(namespace, isvc_name), (
+            f"No pod for ISVC {namespace}/{isvc_name} has 'mcv' sidecar yet"
+        )
+
+    wait_for(check_mcv, timeout=timeout, interval=5.0)

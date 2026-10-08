@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import os
 
 import pytest
@@ -33,6 +34,8 @@ _KC_NODE_LABEL_KEY = os.environ.get(
     "KERNELCACHE_NODE_LABEL_KEY", "kernelcache.example.com/group"
 )
 _KC_NODE_LABEL_VALUE = os.environ.get("KERNELCACHE_NODE_LABEL_VALUE", "workers")
+_KC_JOBS_NS = os.environ.get("KERNELCACHE_JOBS_NS", "kserve-kernelcache-jobs")
+_KSERVE_NAMESPACE = os.environ.get("KSERVE_NAMESPACE", "kserve")
 
 KC_TEST_RUNTIME_NAME = "kernelcache-test-runtime"
 
@@ -43,10 +46,114 @@ def kc_node_label_selector() -> str:
 
 
 @pytest.fixture(scope="session")
-def kc_node_group():
-    """Create a KernelCacheNodeGroup for the session; delete at teardown."""
+def kernelcache_registry_url() -> str:
+    """Read the KernelCache OCI registry endpoint from env.
+
+    In CI this is set to the in-cluster registry (e.g. Minikube registry addon
+    at registry.kube-system.svc.cluster.local:80). For local runs it can be
+    overridden to point to a local registry like localhost:5000.
+    """
+    registry = os.environ.get("KERNELCACHE_REGISTRY_ENDPOINT")
+    if not registry:
+        pytest.fail(
+            "KERNELCACHE_REGISTRY_ENDPOINT must be set (e.g. 'localhost:5000' or "
+            "'registry.kube-system.svc.cluster.local:80')"
+        )
+    return registry
+
+
+@pytest.fixture(scope="session")
+def kc_config(kernelcache_registry_url):
+    """Patch inferenceservice-config ConfigMap with KernelCache settings.
+
+    Re-applies the config on every test session to guard against stale values
+    from prior local runs. The settings match what setup-kernelcache.sh applies
+    in CI but read the registry endpoint and MCV image from the environment.
+    """
+    _load_k8s_config()
+    core = client.CoreV1Api()
+
+    # MCV image: in CI this is built and loaded locally, read from env.
+    # For local runs it can be overridden or fall back to a public image.
+    mcv_image = os.environ.get(
+        "KERNELCACHE_MCV_IMAGE",
+        "kserve/kserve-mcv:latest-minimal",  # fallback for local dev
+    )
+
+    config_data = {
+        "enabled": True,
+        "defaultSidecarInjection": True,
+        "defaultMountType": "oci",
+        "defaultNodeGroup": _KC_NODE_GROUP_NAME,
+        "jobNamespace": _KC_JOBS_NS,
+        "mcvImage": mcv_image,
+        "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+        "registry": {
+            "endpoint": kernelcache_registry_url,
+            "insecure": True,
+            "auth": {"type": "none"},
+        },
+        "artifactSecurity": {
+            "mode": "cert",
+            "failurePolicy": "reject",
+            "cert": {
+                "signingProfileRef": "kernelcache-signer",
+                "trustBundle": "kserve/kernelcache-root-ca",
+                "subjectRegexp": "spiffe://kserve/kernelcache-signer",
+            },
+        },
+        "abandonedCapturePolicy": "retain",
+        "jobTTLSecondsAfterFinished": 600,
+        "mcvCaptureReadinessTimeoutSeconds": 600,
+        "reconcileIntervalSeconds": 300,
+    }
+
+    # Patch the ConfigMap with the KernelCache config JSON.
+    patch = [
+        {
+            "op": "replace",
+            "path": "/data/kernelcache",
+            "value": json.dumps(config_data),
+        }
+    ]
+
+    try:
+        core.patch_namespaced_config_map(
+            name="inferenceservice-config",
+            namespace=_KSERVE_NAMESPACE,
+            body=patch,
+            _content_type="application/json-patch+json",
+        )
+    except ApiException as e:
+        pytest.fail(
+            f"Failed to patch inferenceservice-config ConfigMap: {e.status} {e.reason}"
+        )
+
+    yield config_data
+
+
+@pytest.fixture(scope="session")
+def kc_node_group(kc_config):
+    """Create a KernelCacheNodeGroup for the session; delete at teardown.
+
+    Deletes any existing node group with the same name before creating to ensure
+    fresh state (handles interrupted prior runs and avoids testing against stale specs).
+    """
     _load_k8s_config()
     api = client.CustomObjectsApi()
+
+    # Delete any existing node group to ensure fresh state.
+    try:
+        api.delete_cluster_custom_object(
+            KSERVE_GROUP,
+            KSERVE_V1ALPHA1_VERSION,
+            KSERVE_PLURAL_KERNELCACHENODEGROUP,
+            _KC_NODE_GROUP_NAME,
+        )
+    except ApiException as e:
+        if e.status != 404:
+            raise
+
     body = {
         "apiVersion": f"{KSERVE_GROUP}/{KSERVE_V1ALPHA1_VERSION}",
         "kind": "KernelCacheNodeGroup",
@@ -55,16 +162,12 @@ def kc_node_group():
             "nodeSelector": {_KC_NODE_LABEL_KEY: _KC_NODE_LABEL_VALUE},
         },
     }
-    try:
-        api.create_cluster_custom_object(
-            KSERVE_GROUP,
-            KSERVE_V1ALPHA1_VERSION,
-            KSERVE_PLURAL_KERNELCACHENODEGROUP,
-            body,
-        )
-    except ApiException as e:
-        if e.status != 409:
-            raise
+    api.create_cluster_custom_object(
+        KSERVE_GROUP,
+        KSERVE_V1ALPHA1_VERSION,
+        KSERVE_PLURAL_KERNELCACHENODEGROUP,
+        body,
+    )
 
     yield _KC_NODE_GROUP_NAME
 
@@ -83,8 +186,11 @@ def kc_node_group():
 
 
 @pytest.fixture(scope="session")
-def kc_test_runtime():
+def kc_test_runtime(kc_config):
     """Create the kernelcache-test-runtime ClusterServingRuntime; delete at teardown.
+
+    Deletes any existing runtime with the same name before creating to ensure
+    fresh state (handles interrupted prior runs and avoids testing against stale specs).
 
     The container writes a file that DetectVLLMCache recognises (path containing
     'inductor_cache') and runs a minimal HTTP server so the readiness probe
@@ -92,6 +198,19 @@ def kc_test_runtime():
     """
     _load_k8s_config()
     api = client.CustomObjectsApi()
+
+    # Delete any existing runtime to ensure fresh state.
+    try:
+        api.delete_cluster_custom_object(
+            KSERVE_GROUP,
+            KSERVE_V1ALPHA1_VERSION,
+            "clusterservingruntimes",
+            KC_TEST_RUNTIME_NAME,
+        )
+    except ApiException as e:
+        if e.status != 404:
+            raise
+
     body = {
         "apiVersion": f"{KSERVE_GROUP}/{KSERVE_V1ALPHA1_VERSION}",
         "kind": "ClusterServingRuntime",
@@ -117,15 +236,19 @@ def kc_test_runtime():
             "containers": [
                 {
                     "name": "kserve-container",
-                    # python:3.11-slim provides sh, dd, mkdir, and python3 for the
-                    # HTTP server needed by the MCV sidecar injection webhook.
+                    # python:3.11-slim provides Unix tools (sh, dd, mkdir) for creating
+                    # dummy cache files and python3 for running a simple HTTP server.
+                    # The HTTP server satisfies the MCV webhook's requirement that pods
+                    # have a readiness probe — without one, the webhook skips injection.
                     "image": "python:3.11-slim",
                     "command": ["/bin/sh", "-c"],
                     "args": [
                         # Ordering matters for MCV capture:
-                        # 1. Sleep so MCV starts and takes an empty baseline. 30s
-                        #    provides enough margin for MCV image-layer unpacking
-                        #    on cold (fresh-cluster) starts.
+                        # 1. Sleep so MCV starts and takes an empty baseline snapshot
+                        #    before we write the cache files. 30s is a conservative
+                        #    buffer for MCV image pull + container start on cold clusters.
+                        #    This could likely be reduced after testing, but erring on the
+                        #    side of reliability for now.
                         # 2. Write the dummy cache file (now in the delta, not baseline).
                         # 3. Start the HTTP server last — readiness probe passes only
                         #    after the file exists, so MCV captures it immediately.
@@ -150,16 +273,12 @@ def kc_test_runtime():
             ],
         },
     }
-    try:
-        api.create_cluster_custom_object(
-            KSERVE_GROUP,
-            KSERVE_V1ALPHA1_VERSION,
-            "clusterservingruntimes",
-            body,
-        )
-    except ApiException as e:
-        if e.status != 409:
-            raise
+    api.create_cluster_custom_object(
+        KSERVE_GROUP,
+        KSERVE_V1ALPHA1_VERSION,
+        "clusterservingruntimes",
+        body,
+    )
 
     yield KC_TEST_RUNTIME_NAME
 
