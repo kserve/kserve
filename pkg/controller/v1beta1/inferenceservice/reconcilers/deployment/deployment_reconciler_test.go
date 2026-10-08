@@ -1804,6 +1804,41 @@ func TestGetArgValue(t *testing.T) {
 			wantVal: "5000",
 			wantOk:  true,
 		},
+		{
+			name:   "flag followed by another flag has no value",
+			args:   []string{"--http_port", "--model_name", "foo"},
+			flag:   "--http_port",
+			wantOk: false,
+		},
+		{
+			name:   "flag followed by another flag at end has no value",
+			args:   []string{"--model_name", "foo", "--http_port", "--enable_docs_url"},
+			flag:   "--http_port",
+			wantOk: false,
+		},
+		{
+			// getArgValue only tokenizes: "-1" is this flag's value rather than a
+			// separate flag. It is rejected as a port later, by utils.ParsePort.
+			name:    "negative number is a value, not a flag",
+			args:    []string{"--http_port", "-1"},
+			flag:    "--http_port",
+			wantVal: "-1",
+			wantOk:  true,
+		},
+		{
+			name:    "lone dash is a value, not a flag",
+			args:    []string{"--http_port", "-"},
+			flag:    "--http_port",
+			wantVal: "-",
+			wantOk:  true,
+		},
+		{
+			name:    "valueless occurrence does not mask an earlier value",
+			args:    []string{"--http_port", "9090", "--http_port", "--model_name", "foo"},
+			flag:    "--http_port",
+			wantVal: "9090",
+			wantOk:  true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1873,6 +1908,41 @@ func TestSetArgValue(t *testing.T) {
 			value:    "8443",
 			expected: []string{"--http_port=8443", "--http_port", "8443"},
 		},
+		{
+			name:     "insert value when flag is followed by another flag",
+			args:     []string{"--http_port", "--model_name", "foo"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443", "--model_name", "foo"},
+		},
+		{
+			name:     "insert value when flag is followed by another flag mid-slice",
+			args:     []string{"--model_name", "foo", "--http_port", "--enable_docs_url"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--model_name", "foo", "--http_port", "8443", "--enable_docs_url"},
+		},
+		{
+			name:     "replace negative value rather than inserting",
+			args:     []string{"--http_port", "-1", "--model_name", "foo"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443", "--model_name", "foo"},
+		},
+		{
+			name:     "insert and replace across duplicate occurrences",
+			args:     []string{"--http_port", "--model_name", "foo", "--http_port", "9000"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443", "--model_name", "foo", "--http_port", "8443"},
+		},
+		{
+			name:     "insert does not corrupt caller slice with spare capacity",
+			args:     append(make([]string, 0, 8), "--http_port", "--model_name", "foo"),
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443", "--model_name", "foo"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1924,6 +1994,21 @@ func TestSetDefaultPodSpec_ReadinessProbeRespectsHttpPort(t *testing.T) {
 			ports:        []corev1.ContainerPort{{ContainerPort: 9090}},
 			args:         []string{"--http_port", "-1"},
 			expectedPort: 9090,
+		},
+		{
+			name:         "negative --http_port falls back to default",
+			args:         []string{"--http_port", "-1"},
+			expectedPort: 8080,
+		},
+		{
+			name:         "negative --http_port= falls back to default",
+			args:         []string{"--http_port=-1"},
+			expectedPort: 8080,
+		},
+		{
+			name:         "large negative --http_port falls back to default",
+			args:         []string{"--http_port", "-65535"},
+			expectedPort: 8080,
 		},
 		{
 			name:         "oversized --http_port falls back to default",

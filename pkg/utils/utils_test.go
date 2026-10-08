@@ -990,21 +990,24 @@ func TestParsePort(t *testing.T) {
 		name     string
 		value    string
 		expected int32
-		valid    bool
+		wantErr  bool
 	}{
-		{name: "minimum port", value: "1", expected: 1, valid: true},
-		{name: "maximum port", value: "65535", expected: 65535, valid: true},
-		{name: "zero", value: "0"},
-		{name: "negative", value: "-1"},
-		{name: "above maximum", value: "65536"},
-		{name: "outside int32 range", value: "2147483648"},
-		{name: "malformed", value: "not-a-port"},
+		{name: "minimum port", value: "1", expected: 1},
+		{name: "maximum port", value: "65535", expected: 65535},
+		{name: "zero", value: "0", wantErr: true},
+		{name: "negative", value: "-1", wantErr: true},
+		{name: "negative zero", value: "-0", wantErr: true},
+		{name: "large negative", value: "-65535", wantErr: true},
+		{name: "below int32 range", value: "-2147483649", wantErr: true},
+		{name: "above maximum", value: "65536", wantErr: true},
+		{name: "outside int32 range", value: "2147483648", wantErr: true},
+		{name: "malformed", value: "not-a-port", wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			port, ok := ParsePort(tt.value)
-			if ok != tt.valid {
-				t.Errorf("ParsePort(%q) validity = %t, want %t", tt.value, ok, tt.valid)
+			port, err := ParsePort(tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParsePort(%q) error = %v, wantErr %t", tt.value, err, tt.wantErr)
 			}
 			if port != tt.expected {
 				t.Errorf("ParsePort(%q) = %d, want %d", tt.value, port, tt.expected)

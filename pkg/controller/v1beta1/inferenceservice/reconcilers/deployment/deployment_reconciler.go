@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -313,8 +315,11 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 				// If --http_port is set in args, use that port for the probe so the
 				// readiness check targets the port the server actually listens on.
 				if argPort, ok := getArgValue(container.Args, constants.ArgumentHttpPort); ok {
-					if parsed, ok := utils.ParsePort(argPort); ok {
+					if parsed, err := utils.ParsePort(argPort); err == nil {
 						probePort = parsed
+					} else {
+						log.Info("Ignoring invalid readiness probe port, using default",
+							"container", container.Name, "probePort", probePort, "err", err)
 					}
 				}
 				container.ReadinessProbe = &corev1.Probe{
@@ -337,36 +342,53 @@ func setDefaultPodSpec(podSpec *corev1.PodSpec) {
 
 // getArgValue extracts the value for a CLI flag from an args slice.
 // It handles both "--flag value" (two elements) and "--flag=value" (single element) forms.
+// A flag that is last in the slice, or immediately followed by another flag, has no value.
 func getArgValue(args []string, flag string) (string, bool) {
 	var lastVal string
 	found := false
 	for i, arg := range args {
-		if arg == flag && i+1 < len(args) {
+		if arg == flag && i+1 < len(args) && !isFlag(args[i+1]) {
 			lastVal = args[i+1]
 			found = true
 		}
-		if strings.HasPrefix(arg, flag+"=") {
-			lastVal = strings.TrimPrefix(arg, flag+"=")
+		if after, ok := strings.CutPrefix(arg, flag+"="); ok {
+			lastVal = after
 			found = true
 		}
 	}
 	return lastVal, found
 }
 
+// isFlag reports whether an arg is a flag rather than a value. A lone "-" and
+// negative numbers are values, not flags.
+func isFlag(arg string) bool {
+	if !strings.HasPrefix(arg, "-") || arg == "-" {
+		return false
+	}
+	_, err := strconv.ParseFloat(arg, 64)
+	return err != nil
+}
+
 // setArgValue replaces every occurrence of a flag in an args slice, or appends
-// it if absent. It handles both two-element and "=" forms.
+// it if absent. It handles both two-element and "=" forms. A flag with no value
+// - last in the slice, or immediately followed by another flag - has the value
+// inserted after it rather than overwriting the next element.
 func setArgValue(args []string, flag, value string) []string {
 	found := false
-	for i, arg := range args {
-		if arg == flag {
-			if i+1 < len(args) {
+	// Indexed rather than range: inserting may reallocate, and range would keep
+	// iterating the original backing array.
+	for i := 0; i < len(args); i++ {
+		if args[i] == flag {
+			if i+1 < len(args) && !isFlag(args[i+1]) {
 				args[i+1] = value
 			} else {
-				args = append(args, value)
+				args = slices.Insert(args, i+1, value)
 			}
+			i++ // skip the value we just wrote
 			found = true
+			continue
 		}
-		if strings.HasPrefix(arg, flag+"=") {
+		if strings.HasPrefix(args[i], flag+"=") {
 			args[i] = flag + "=" + value
 			found = true
 		}
