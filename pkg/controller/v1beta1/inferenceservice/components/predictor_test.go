@@ -146,6 +146,45 @@ func TestBuildPredictorResourcesUnsupportedStorageURIWritesInvalidSpec(t *testin
 	}
 }
 
+func TestReconcileCanaryDeploymentsUnsupportedStorageURIWritesInvalidSpec(t *testing.T) {
+	// buildPredictorResources runs on a copy of the isvc for canaries, so the
+	// InvalidSpec status it records must be copied back to the real isvc.
+	s := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(s); err != nil {
+		t.Fatalf("failed to add v1alpha1 to scheme: %v", err)
+	}
+	p := &Predictor{
+		client:                 fake.NewClientBuilder().WithScheme(s).Build(),
+		inferenceServiceConfig: &v1beta1.InferenceServicesConfig{},
+	}
+
+	storageURI := "ftp://example.com/model"
+	isvc := &v1beta1.InferenceService{
+		Spec: v1beta1.InferenceServiceSpec{
+			Predictor: v1beta1.PredictorSpec{
+				Model: &v1beta1.ModelSpec{ModelFormat: v1beta1.ModelFormat{Name: "sklearn"}},
+			},
+			Canary: []v1beta1.CanarySpec{{
+				TrafficPercent: 20,
+				Predictor: v1beta1.PredictorSpec{
+					Name: "v2",
+					Model: &v1beta1.ModelSpec{
+						PredictorExtensionSpec: v1beta1.PredictorExtensionSpec{StorageURI: &storageURI},
+					},
+				},
+			}},
+		},
+	}
+	isvc.Status.ModelStatus.TransitionStatus = v1beta1.InProgress
+
+	_, err := p.reconcileCanaryDeployments(context.Background(), isvc)
+	assert.Error(t, err, "unsupported canary storageUri scheme must fail")
+	assert.Equal(t, v1beta1.InvalidSpec, isvc.Status.ModelStatus.TransitionStatus)
+	if assert.NotNil(t, isvc.Status.ModelStatus.LastFailureInfo) {
+		assert.Equal(t, v1beta1.InvalidPredictorSpec, isvc.Status.ModelStatus.LastFailureInfo.Reason)
+	}
+}
+
 func ptrInt32(v int32) *int32 { return &v }
 
 func TestAdjustStableMinReplicasForCanaries(t *testing.T) {

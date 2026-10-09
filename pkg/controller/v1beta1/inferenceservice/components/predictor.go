@@ -968,6 +968,8 @@ func (p *Predictor) reconcileCanaryDeployments(ctx context.Context, isvc *v1beta
 		canaryISVC.Spec.Predictor = canaryPredictor
 		res, err := p.buildPredictorResources(ctx, canaryISVC, false)
 		if err != nil {
+			// canaryISVC is a copy; carry any recorded failure back to the real isvc.
+			canaryISVC.Status.ModelStatus.DeepCopyInto(&isvc.Status.ModelStatus)
 			return nil, errors.Wrapf(err, "fails to build resources for canary %s", canary.Predictor.Name)
 		}
 
