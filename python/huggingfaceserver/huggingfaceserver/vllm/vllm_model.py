@@ -142,12 +142,29 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
             )
             await self.openai_serving_models.init_static_loras()
 
-            from vllm.entrypoints.serve.render.serving import OpenAIServingRender
+            # vLLM 0.25.0 replaced ``OpenAIServingRender``
+            # (``vllm.entrypoints.serve.render.serving``) with ``OnlineRenderer``
+            # (``vllm.renderers.online_renderer``), dropped its ``model_registry``
+            # argument, and renamed the keyword that ``OpenAIServingChat`` and
+            # ``OpenAIServingCompletion`` expect to ``online_renderer``.
+            try:
+                from vllm.renderers.online_renderer import OnlineRenderer
 
-            openai_serving_render = OpenAIServingRender(
+                renderer_cls = OnlineRenderer
+                renderer_kwarg = "online_renderer"
+                extra_renderer_args = {}
+            except ImportError:  # vLLM < 0.25.0
+                from vllm.entrypoints.serve.render.serving import OpenAIServingRender
+
+                renderer_cls = OpenAIServingRender
+                renderer_kwarg = "openai_serving_render"
+                extra_renderer_args = {
+                    "model_registry": self.openai_serving_models.registry,
+                }
+
+            serving_renderer = renderer_cls(
                 model_config=vllm_config.model_config,
                 renderer=self.engine_client.renderer,
-                model_registry=self.openai_serving_models.registry,
                 request_logger=self.request_logger,
                 chat_template=resolved_chat_template,
                 chat_template_content_format=self.args.chat_template_content_format,
@@ -157,14 +174,16 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
                 tool_parser=self.args.tool_call_parser,
                 reasoning_parser=self.args.structured_outputs_config.reasoning_parser,
                 log_error_stack=self.args.log_error_stack,
+                **extra_renderer_args,
             )
+            renderer_kwargs = {renderer_kwarg: serving_renderer}
 
             self.openai_serving_chat = (
                 OpenAIServingChat(
                     self.engine_client,
                     self.openai_serving_models,
                     self.args.response_role,
-                    openai_serving_render=openai_serving_render,
+                    **renderer_kwargs,
                     request_logger=self.request_logger,
                     chat_template=resolved_chat_template,
                     chat_template_content_format=self.args.chat_template_content_format,
@@ -186,7 +205,7 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
                 OpenAIServingCompletion(
                     self.engine_client,
                     self.openai_serving_models,
-                    openai_serving_render=openai_serving_render,
+                    **renderer_kwargs,
                     request_logger=self.request_logger,
                     return_tokens_as_token_ids=self.args.return_tokens_as_token_ids,
                     enable_prompt_tokens_details=self.args.enable_prompt_tokens_details,
