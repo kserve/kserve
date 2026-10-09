@@ -55,7 +55,7 @@ model URI scheme KServe supports.
 | `exp-modelexpress-mode` | yes | `native` or `layered`. Enables ModelExpress. |
 | `exp-modelexpress-address` | yes | ModelExpress server as `host:port`, `http://host:port` or `https://host:port`. The client enables TLS for `https://` only. |
 | `exp-modelexpress-token-audience` | no | Projects a ServiceAccount token with this audience for ModelExpress server authentication. |
-| `exp-modelexpress-revision` | no | Overrides the revision in the P2P identity. Defaults to a hash of `spec.model.uri`. |
+| `exp-modelexpress-revision` | no | Overrides the revision in the P2P identity. Defaults to a hash of `spec.model.uri` and the image, command, args and env of every engine role's `main` container, so changing any engine setting starts a new peer pool. |
 
 The admission webhook rejects an unknown mode, an address it cannot parse, empty values, and
 the other annotations without a mode. When the service sets `spec.model.uri` itself, the webhook
@@ -99,7 +99,7 @@ container:
 |---|---|
 | `--load-format` | `modelexpress`, unless the workload already sets a load format |
 | `MX_SERVER_ADDRESS`, `MODEL_EXPRESS_URL` | The server address |
-| `MX_MODEL_REVISION` | The revision annotation, or a hash of `spec.model.uri` |
+| `MX_MODEL_REVISION` | The revision annotation, or a hash of `spec.model.uri` and the engine containers |
 | `POD_NAME`, `POD_NAMESPACE`, `POD_UID`, `MX_WORKER_HOST` | Downward API |
 | `MX_AUTH_TOKEN_PATH` and a projected token volume | Only with a token audience |
 | `MX_MODEL_URI` | Native `s3://` only |

@@ -23,6 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
@@ -486,14 +487,134 @@ func TestAttachModelExpressObjectStore(t *testing.T) {
 func TestModelExpressRevision(t *testing.T) {
 	t.Parallel()
 
-	annotated := mxService(t, "s3://bucket/llama", map[string]string{constants.ModelExpressRevisionAnnotationKey: " 2026-09-01 "})
-	assert.Equal(t, "2026-09-01", modelExpressRevision(annotated))
+	engine := func() *corev1.PodSpec {
+		return &corev1.PodSpec{Containers: []corev1.Container{{
+			Name:    mainContainerName,
+			Image:   "vllm:v1",
+			Command: []string{"/bin/sh", "-c"},
+			Args:    []string{"vllm serve /mnt/models --kv-cache-dtype fp8"},
+			Env:     []corev1.EnvVar{{Name: "VLLM_LOGGING_LEVEL", Value: "INFO"}},
+		}}}
+	}
+	service := func(t *testing.T) *v1alpha2.LLMInferenceService {
+		svc := mxService(t, "s3://bucket/llama", nil)
+		svc.Spec.Template = engine()
+		svc.Spec.Worker = engine()
+		svc.Spec.Prefill = &v1alpha2.WorkloadSpec{Template: engine(), Worker: engine()}
+		return svc
+	}
+	revision := func(t *testing.T, svc *v1alpha2.LLMInferenceService) string {
+		t.Helper()
+		rev, err := modelExpressRevision(svc)
+		require.NoError(t, err)
+		return rev
+	}
+	base := revision(t, service(t))
 
-	a := modelExpressRevision(mxService(t, "s3://bucket/llama", nil))
-	b := modelExpressRevision(mxService(t, "s3://bucket/mistral", nil))
-	assert.Regexp(t, `^uri-[0-9a-f]{16}$`, a)
-	assert.Equal(t, a, modelExpressRevision(mxService(t, "s3://bucket/llama", nil)))
-	assert.NotEqual(t, a, b)
+	t.Run("is a stable digest", func(t *testing.T) {
+		t.Parallel()
+		assert.Regexp(t, `^spec-[0-9a-f]{16}$`, base)
+		assert.Equal(t, base, revision(t, service(t)))
+	})
+
+	t.Run("the annotation overrides the digest", func(t *testing.T) {
+		t.Parallel()
+		svc := service(t)
+		svc.Annotations = map[string]string{constants.ModelExpressRevisionAnnotationKey: " 2026-09-01 "}
+		assert.Equal(t, "2026-09-01", revision(t, svc))
+	})
+
+	t.Run("a blank annotation keeps the digest", func(t *testing.T) {
+		t.Parallel()
+		svc := service(t)
+		svc.Annotations = map[string]string{constants.ModelExpressRevisionAnnotationKey: "  "}
+		assert.Equal(t, base, revision(t, svc))
+	})
+
+	t.Run("changes with the model URI", func(t *testing.T) {
+		t.Parallel()
+		svc := service(t)
+		u, err := apis.ParseURL("s3://bucket/mistral")
+		require.NoError(t, err)
+		svc.Spec.Model.URI = *u
+		assert.NotEqual(t, base, revision(t, svc))
+	})
+
+	roles := map[string]func(*v1alpha2.LLMInferenceService) *corev1.PodSpec{
+		"template":         func(s *v1alpha2.LLMInferenceService) *corev1.PodSpec { return s.Spec.Template },
+		"worker":           func(s *v1alpha2.LLMInferenceService) *corev1.PodSpec { return s.Spec.Worker },
+		"prefill template": func(s *v1alpha2.LLMInferenceService) *corev1.PodSpec { return s.Spec.Prefill.Template },
+		"prefill worker":   func(s *v1alpha2.LLMInferenceService) *corev1.PodSpec { return s.Spec.Prefill.Worker },
+	}
+	changes := map[string]func(*corev1.Container){
+		"image":   func(c *corev1.Container) { c.Image = "vllm:v2" },
+		"command": func(c *corev1.Container) { c.Command = []string{"/bin/bash", "-c"} },
+		"args":    func(c *corev1.Container) { c.Args = []string{"vllm serve /mnt/models --kv-cache-dtype auto"} },
+		"env value": func(c *corev1.Container) {
+			c.Env = []corev1.EnvVar{{Name: "VLLM_LOGGING_LEVEL", Value: "DEBUG"}}
+		},
+		"env added": func(c *corev1.Container) {
+			c.Env = append(c.Env, corev1.EnvVar{Name: "VLLM_USE_DEEP_GEMM", Value: "1"})
+		},
+		"env from secret": func(c *corev1.Container) {
+			c.Env = append(c.Env, corev1.EnvVar{Name: "HF_TOKEN", ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "hf"}, Key: "token"},
+			}})
+		},
+	}
+	for role, podSpec := range roles {
+		for field, change := range changes {
+			t.Run("changes with the "+role+" main container "+field, func(t *testing.T) {
+				t.Parallel()
+				svc := service(t)
+				change(&podSpec(svc).Containers[0])
+				assert.NotEqual(t, base, revision(t, svc))
+			})
+		}
+	}
+
+	t.Run("moving the same container to another role changes it", func(t *testing.T) {
+		t.Parallel()
+		svc := service(t)
+		svc.Spec.Prefill = nil
+		withoutPrefill := revision(t, svc)
+		assert.NotEqual(t, base, withoutPrefill)
+
+		svc.Spec.Worker = nil
+		assert.NotEqual(t, withoutPrefill, revision(t, svc))
+	})
+
+	ignored := map[string]func(*v1alpha2.LLMInferenceService){
+		"replicas": func(s *v1alpha2.LLMInferenceService) { s.Spec.Replicas = ptr.To(int32(4)) },
+		"labels":   func(s *v1alpha2.LLMInferenceService) { s.Spec.Labels = map[string]string{"team": "a"} },
+		"annotations": func(s *v1alpha2.LLMInferenceService) {
+			s.Annotations = map[string]string{"example.com/note": "x"}
+		},
+		"sidecars": func(s *v1alpha2.LLMInferenceService) {
+			s.Spec.Template.Containers = append(s.Spec.Template.Containers, corev1.Container{Name: "proxy", Image: "proxy:v1"})
+		},
+		"main container resources": func(s *v1alpha2.LLMInferenceService) {
+			s.Spec.Template.Containers[0].Resources.Limits = corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("64Gi")}
+		},
+		"node selector": func(s *v1alpha2.LLMInferenceService) {
+			s.Spec.Template.NodeSelector = map[string]string{"gpu": "h100"}
+		},
+	}
+	for name, change := range ignored {
+		t.Run("ignores "+name, func(t *testing.T) {
+			t.Parallel()
+			svc := service(t)
+			change(svc)
+			assert.Equal(t, base, revision(t, svc))
+		})
+	}
+
+	t.Run("a service without engine templates hashes the model URI", func(t *testing.T) {
+		t.Parallel()
+		a := revision(t, mxService(t, "s3://bucket/llama", nil))
+		assert.Regexp(t, `^spec-[0-9a-f]{16}$`, a)
+		assert.NotEqual(t, a, revision(t, mxService(t, "s3://bucket/mistral", nil)))
+	})
 }
 
 func TestModelExpressServerFromAnnotations(t *testing.T) {
