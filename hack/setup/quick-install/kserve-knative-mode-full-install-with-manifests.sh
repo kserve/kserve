@@ -18517,6 +18517,13 @@ spec:
                           type: object
                         logger:
                           properties:
+                            agent:
+                              properties:
+                                workers:
+                                  format: int32
+                                  minimum: 1
+                                  type: integer
+                              type: object
                             batchInterval:
                               type: string
                             batchSize:
@@ -33657,6 +33664,13 @@ spec:
                     type: object
                   logger:
                     properties:
+                      agent:
+                        properties:
+                          workers:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
                       batchInterval:
                         type: string
                       batchSize:
@@ -38672,6 +38686,13 @@ spec:
                     type: object
                   logger:
                     properties:
+                      agent:
+                        properties:
+                          workers:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
                       batchInterval:
                         type: string
                       batchSize:
@@ -52960,6 +52981,13 @@ spec:
                     type: object
                   logger:
                     properties:
+                      agent:
+                        properties:
+                          workers:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
                       batchInterval:
                         type: string
                       batchSize:

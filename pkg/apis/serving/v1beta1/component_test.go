@@ -172,6 +172,40 @@ func TestComponentExtensionSpec_validateLogger(t *testing.T) {
 			logger:  nil,
 			matcher: gomega.BeNil(),
 		},
+		"LoggerAgentWorkersNil": {
+			logger: &LoggerSpec{
+				Mode:  LogAll,
+				Agent: &LoggerAgentSpec{},
+			},
+			matcher: gomega.BeNil(),
+		},
+		"LoggerAgentWorkersValid": {
+			logger: &LoggerSpec{
+				Mode: LogAll,
+				Agent: &LoggerAgentSpec{
+					Workers: ptr.To(int32(5)),
+				},
+			},
+			matcher: gomega.BeNil(),
+		},
+		"LoggerAgentWorkersZero": {
+			logger: &LoggerSpec{
+				Mode: LogAll,
+				Agent: &LoggerAgentSpec{
+					Workers: ptr.To(int32(0)),
+				},
+			},
+			matcher: gomega.MatchError(errors.New(InvalidLoggerAgentWorkersLowerBoundError)),
+		},
+		"LoggerAgentWorkersNegative": {
+			logger: &LoggerSpec{
+				Mode: LogAll,
+				Agent: &LoggerAgentSpec{
+					Workers: ptr.To(int32(-1)),
+				},
+			},
+			matcher: gomega.MatchError(errors.New(InvalidLoggerAgentWorkersLowerBoundError)),
+		},
 		"StorageConfigNilValues": {
 			logger: &LoggerSpec{
 				Mode: LogAll,
