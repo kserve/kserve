@@ -161,7 +161,7 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.localmodel.jobNamespace | string | `"kserve-localmodel-jobs"` |  |
 | kserve.localmodel.jobTTLSecondsAfterFinished | int | `3600` |  |
 | kserve.localmodel.securityContext.fsGroup | int | `1000` |  |
-| kserve.localmodel.sharedPVCImportFSGroup | int | `nil` | fsGroup applied to shared-PVC import Jobs in the cache namespace. Unset by default so namespace admission assigns the group; set when the RWX driver needs a fixed group. |
+| kserve.localmodel.sharedPVCImportFSGroup | int | `1000` | fsGroup for shared-PVC import Jobs, which run in the cache's namespace. Independent of securityContext.fsGroup (per-node download Jobs). Set to null to omit it and let namespace admission (e.g. an OpenShift SCC) assign the group. |
 | kserve.metricsaggregator.enableMetricAggregation | string | `"false"` |  |
 | kserve.metricsaggregator.enablePrometheusScraping | string | `"false"` |  |
 | kserve.opentelemetryCollector.metricReceiverEndpoint | string | `"keda-otel-scaler.keda.svc:4317"` |  |

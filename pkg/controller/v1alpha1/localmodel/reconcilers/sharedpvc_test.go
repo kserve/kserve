@@ -816,8 +816,16 @@ func TestBuildImportJobFSGroup(t *testing.T) {
 		wantFSGroup *int64
 	}{
 		{
+			name:       "neither key leaves fsGroup unset",
+			localModel: `{"jobNamespace": "jobs"}`,
+		},
+		{
 			name:       "global fsGroup alone is not applied",
 			localModel: `{"jobNamespace": "jobs", "fsGroup": 1000}`,
+		},
+		{
+			name:       "explicit null import key is treated as unset",
+			localModel: `{"jobNamespace": "jobs", "fsGroup": 1000, "sharedPVCImportFSGroup": null}`,
 		},
 		{
 			name:        "sharedPVCImportFSGroup is applied",
