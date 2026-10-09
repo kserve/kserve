@@ -457,7 +457,7 @@ class Model(InferenceModel):
 
     async def explain(self, payload: Dict, headers: Dict[str, str] = None) -> Dict:
         """`explain` handler can be overridden to implement the model explanation.
-        The default implementation makes call to the explainer if ``explainer_host`` is specified.
+        The default implementation calls ``explainer_host`` using the predictor's TLS configuration.
 
         Args:
             payload: Explainer model inputs passed from preprocess handler.
@@ -471,13 +471,16 @@ class Model(InferenceModel):
         """
         if self.explainer_host is None:
             raise NotImplementedError("Could not find explainer_host.")
+        predictor_config: Optional[PredictorConfig] = self.predictor_config
+        if predictor_config is None:
+            raise NotImplementedError("Could not find PredictorConfig.")
 
         base = {"content-type": "application/json"}
         if headers is not None and "content-type" in headers:
             base["content-type"] = headers["content-type"]
         explain_headers = append_forwardable_headers(headers, base)
 
-        protocol = "https" if self.use_ssl else "http"
+        protocol = "https" if predictor_config.use_ssl else "http"
         # Currently explainer only supports the kserve v1 endpoints
         explain_base_url = EXPLAINER_BASE_URL_FORMAT.format(
             protocol, self.explainer_host
