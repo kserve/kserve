@@ -52,6 +52,7 @@ const (
 	DisallowedMultipleContainersInWorkerSpecError    = "the InferenceService %q is invalid: setting multiple containers in workerSpec is not allowed"
 	DisallowedWorkerSpecPipelineParallelSizeEnvError = "the InferenceService %q is invalid: setting PIPELINE_PARALLEL_SIZE in environment variables is not allowed"
 	DisallowedWorkerSpecTensorParallelSizeEnvError   = "the InferenceService %q is invalid: setting TENSOR_PARALLEL_SIZE in environment variables is not allowed"
+	InvalidLoggerAgentWorkersLowerBoundError         = "LoggerAgentSpec.Workers cannot be less than 1"
 )
 
 // SupportedStorageSpecURIPrefixList Constants
@@ -406,6 +407,9 @@ func validateLogger(logger *LoggerSpec) error {
 			if logger.Storage.Path == nil || logger.Storage.Parameters == nil || logger.Storage.StorageKey == nil {
 				return errors.New(InvalidLoggerStorageConfigError)
 			}
+		}
+		if logger.Agent != nil && logger.Agent.Workers != nil && *logger.Agent.Workers <= 0 {
+			return errors.New(InvalidLoggerAgentWorkersLowerBoundError)
 		}
 	}
 

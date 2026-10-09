@@ -145,6 +145,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheRegistryRoleRef":        schema_pkg_apis_serving_v1beta1_KernelCacheRegistryRoleRef(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LightGBMSpec":                      schema_pkg_apis_serving_v1beta1_LightGBMSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LocalModelConfig":                  schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerAgentSpec":                   schema_pkg_apis_serving_v1beta1_LoggerAgentSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerSpec":                        schema_pkg_apis_serving_v1beta1_LoggerSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerStorageSpec":                 schema_pkg_apis_serving_v1beta1_LoggerStorageSpec(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.MetricTarget":                      schema_pkg_apis_serving_v1beta1_MetricTarget(ref),
@@ -9129,6 +9130,26 @@ func schema_pkg_apis_serving_v1beta1_LocalModelConfig(ref common.ReferenceCallba
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_LoggerAgentSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LoggerAgentSpec configures the logger agent sidecar.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"workers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Number of workers used by the logger agent.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -9205,11 +9226,17 @@ func schema_pkg_apis_serving_v1beta1_LoggerSpec(ref common.ReferenceCallback) co
 							Format:      "",
 						},
 					},
+					"agent": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Configuration for the logger agent sidecar.",
+							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerAgentSpec"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerStorageSpec"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerAgentSpec", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.LoggerStorageSpec"},
 	}
 }
 
