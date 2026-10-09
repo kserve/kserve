@@ -71,8 +71,10 @@ func (r *LLMISVCConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	finalizerName := constants.KServeAPIGroupName + "/llmisvcconfig-finalizer"
 
 	if original.DeletionTimestamp.IsZero() {
-		if controllerutil.AddFinalizer(original, finalizerName) {
-			if err := r.Update(ctx, original); err != nil {
+		if !controllerutil.ContainsFinalizer(original, finalizerName) {
+			base := original.DeepCopy()
+			controllerutil.AddFinalizer(original, finalizerName)
+			if err := r.patchFinalizers(ctx, original, base); err != nil {
 				return ctrl.Result{}, err
 			}
 			return ctrl.Result{}, nil
@@ -148,12 +150,20 @@ func (r *LLMISVCConfigReconciler) reconcileDelete(ctx context.Context, config *v
 	}
 
 	logger.Info("LLMInferenceServiceConfig is no longer referenced, allowing deletion")
+	base := config.DeepCopy()
 	controllerutil.RemoveFinalizer(config, finalizerName)
-	if err := r.Update(ctx, config); err != nil {
+	if err := r.patchFinalizers(ctx, config, base); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// patchFinalizers persists a finalizer change as a merge patch against base, so the controller
+// writes only metadata.finalizers and never takes ownership of fields applied by other managers.
+// The optimistic lock turns a concurrent change into a conflict instead of overwriting it.
+func (r *LLMISVCConfigReconciler) patchFinalizers(ctx context.Context, config, base *v1alpha2.LLMInferenceServiceConfig) error {
+	return r.Patch(ctx, config, client.MergeFromWithOptions(base, client.MergeFromWithOptimisticLock{}))
 }
 
 // updateStatus updates the status of the LLMInferenceServiceConfig with retry on conflict.
