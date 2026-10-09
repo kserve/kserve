@@ -1556,6 +1556,14 @@
         "storageLimit": {
           "description": "Max storage size per node in this node group",
           "$ref": "#/definitions/resource.Quantity"
+        },
+        "tolerations": {
+          "description": "Used to specify tolerations for download jobs and for the localmodelnode agent DaemonSet, so both can be scheduled onto the tainted nodes of this node group",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/v1.Toleration"
+          },
+          "x-kubernetes-list-type": "atomic"
         }
       }
     },
