@@ -109,6 +109,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	// The suite manager/webhook must outlive BeforeSuite node context.
 	envTest := pkgtest.NewEnvTest().
 		WithControllers(ctrlFunc).
+		WithManagerOptions(func(opts *ctrl.Options) {
+			opts.Cache = NewCacheOptions()
+			opts.Client = NewClientOptions()
+		}).
 		Start(context.Background())
 
 	cfg = envTest.Config

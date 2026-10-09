@@ -24,6 +24,7 @@ import (
 
 	istio_networking "istio.io/api/networking/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -146,6 +147,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Cache policies resolve custom resource types while the manager is created.
+	scheme := runtime.NewScheme()
+	if err := kservescheme.AddAll(scheme); err != nil {
+		setupLog.Error(err, "unable to register API schemes")
+		os.Exit(1)
+	}
 	metricsServerOptions, err := kservemetrics.ConfigureServerOptions(metricsserver.Options{
 		BindAddress:   options.metricsAddr,
 		SecureServing: options.metricsSecure,
@@ -158,6 +165,7 @@ func main() {
 	}
 
 	mgr, err := manager.New(cfg, manager.Options{
+		Scheme:  scheme,
 		Metrics: metricsServerOptions,
 		WebhookServer: webhook.NewServer(webhook.Options{
 			Port:    options.webhookPort,
@@ -167,6 +175,7 @@ func main() {
 		LeaderElectionID:       LeaderLockName,
 		HealthProbeBindAddress: options.probeAddr,
 		Cache:                  cacheOpts,
+		Client:                 v1beta1controller.NewClientOptions(),
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to set up overall controller manager")
@@ -174,12 +183,6 @@ func main() {
 	}
 
 	setupLog.Info("Registering Components.")
-
-	setupLog.Info("Setting up controller schemes")
-	if err := kservescheme.AddAll(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to register API schemes")
-		os.Exit(1)
-	}
 
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(context.Background(), clientSet)
 	if err != nil {
