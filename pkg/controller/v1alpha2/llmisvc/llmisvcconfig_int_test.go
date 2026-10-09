@@ -18,11 +18,15 @@ package llmisvc_test
 
 import (
 	"context"
+	"encoding/json"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -65,6 +69,65 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 
 				g.Expect(current.Status.ReferencedBy).To(BeEmpty(), "expected no ReferencedBy when not referenced")
 			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should not take ownership of server-side applied spec fields when adding the finalizer", func(ctx SpecContext) {
+			// given - a config applied by another field manager, with a CPU quantity sent as a JSON number
+			testNs := NewTestNamespace(ctx, envTest)
+			applied := ssaConfigWithCPU("ssa-add-config", testNs.Name)
+			Expect(envTest.Apply(ctx, client.ApplyConfigurationFromUnstructured(applied.DeepCopy()), client.FieldOwner(ssaFieldOwner))).To(Succeed())
+
+			// when - the controller adds its finalizer
+			key := client.ObjectKeyFromObject(applied)
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceServiceConfig{}
+				g.Expect(envTest.Get(ctx, key, current)).To(Succeed())
+				g.Expect(controllerutil.ContainsFinalizer(current, configFinalizerName)).To(BeTrue())
+			}).WithContext(ctx).Should(Succeed())
+
+			// then - the field manager can re-apply the unchanged object without conflicts
+			Expect(envTest.Apply(ctx, client.ApplyConfigurationFromUnstructured(applied.DeepCopy()), client.FieldOwner(ssaFieldOwner))).To(Succeed())
+
+			current := &v1alpha2.LLMInferenceServiceConfig{}
+			Expect(envTest.Get(ctx, key, current)).To(Succeed())
+			expectOnlyOwnerManagesSpec(current)
+		})
+
+		It("should not take ownership of server-side applied spec fields when removing the finalizer", func(ctx SpecContext) {
+			// given - a server-side applied config carrying a test-owned finalizer that keeps it
+			// around after the controller releases its own
+			testNs := NewTestNamespace(ctx, envTest)
+			applied := ssaConfigWithCPU("ssa-remove-config", testNs.Name)
+			applied.SetFinalizers([]string{testKeepFinalizer})
+			Expect(envTest.Apply(ctx, client.ApplyConfigurationFromUnstructured(applied.DeepCopy()), client.FieldOwner(ssaFieldOwner))).To(Succeed())
+
+			key := client.ObjectKeyFromObject(applied)
+			defer func() {
+				current := &v1alpha2.LLMInferenceServiceConfig{}
+				if err := envTest.Get(ctx, key, current); err != nil {
+					return
+				}
+				Expect(envTest.Patch(ctx, current, client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":null}}`)))).To(Succeed())
+			}()
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceServiceConfig{}
+				g.Expect(envTest.Get(ctx, key, current)).To(Succeed())
+				g.Expect(controllerutil.ContainsFinalizer(current, configFinalizerName)).To(BeTrue())
+			}).WithContext(ctx).Should(Succeed())
+
+			// when - the unreferenced config is deleted
+			Expect(envTest.Delete(ctx, &v1alpha2.LLMInferenceServiceConfig{ObjectMeta: metav1.ObjectMeta{Name: key.Name, Namespace: key.Namespace}})).To(Succeed())
+
+			// then - the controller releases its finalizer without touching spec ownership
+			current := &v1alpha2.LLMInferenceServiceConfig{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, key, current)).To(Succeed())
+				g.Expect(current.DeletionTimestamp).ToNot(BeNil())
+				g.Expect(current.Finalizers).To(ConsistOf(testKeepFinalizer))
+			}).WithContext(ctx).Should(Succeed())
+
+			expectOnlyOwnerManagesSpec(current)
 		})
 	})
 
@@ -264,3 +327,48 @@ var _ = Describe("LLMInferenceServiceConfig Controller", func() {
 		})
 	})
 })
+
+const (
+	ssaFieldOwner     = "helm"
+	testKeepFinalizer = "test.kserve.io/keep"
+)
+
+// ssaConfigWithCPU returns a config as an installer would server-side apply it, with the
+// CPU quantity as a JSON number. The controller's typed client re-encodes it as a string,
+// so any full-object write from the controller changes the value and takes ownership of it.
+func ssaConfigWithCPU(name, namespace string) *unstructured.Unstructured {
+	u := &unstructured.Unstructured{Object: map[string]any{
+		"spec": map[string]any{
+			"template": map[string]any{
+				"containers": []any{
+					map[string]any{
+						"name":  "main",
+						"image": "vllm/vllm-openai:latest",
+						"resources": map[string]any{
+							"limits":   map[string]any{"cpu": int64(6)},
+							"requests": map[string]any{"cpu": int64(6)},
+						},
+					},
+				},
+			},
+		},
+	}}
+	u.SetGroupVersionKind(v1alpha2.LLMInferenceServiceConfigGVK)
+	u.SetName(name)
+	u.SetNamespace(namespace)
+	return u
+}
+
+// expectOnlyOwnerManagesSpec asserts that no field manager other than ssaFieldOwner owns any spec field.
+func expectOnlyOwnerManagesSpec(config *v1alpha2.LLMInferenceServiceConfig) {
+	GinkgoHelper()
+	for _, entry := range config.ManagedFields {
+		if entry.Manager == ssaFieldOwner || entry.Subresource != "" || entry.FieldsV1 == nil {
+			continue
+		}
+		fields := map[string]any{}
+		Expect(json.Unmarshal(entry.FieldsV1.Raw, &fields)).To(Succeed())
+		Expect(fields).ToNot(HaveKey("f:spec"),
+			"field manager %q (%s) unexpectedly owns spec fields: %s", entry.Manager, entry.Operation, entry.FieldsV1.Raw)
+	}
+}
