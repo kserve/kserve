@@ -385,11 +385,24 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 		}
 	} else {
 		// Adjust USER_PORT when queueProxy is available
+		userPort := ""
 		for i, envVar := range queueProxyEnvs {
 			if envVar.Name == "USER_PORT" {
 				klog.Infof("Adjusting USER_PORT to %s for pod %s/%s", constants.InferenceServiceDefaultAgentPortStr, pod.Namespace, pod.Name)
+				userPort = envVar.Value
 				envVar.Value = constants.InferenceServiceDefaultAgentPortStr
 				queueProxyEnvs[i] = envVar // Update the environment variable in the list
+			}
+		}
+		// Probe the agent as well, so queue-proxy is not ready before the port it forwards to is.
+		// The agent keeps the original probe (copied above) and checks the user container itself.
+		for i, envVar := range queueProxyEnvs {
+			if envVar.Name == "SERVING_READINESS_PROBE" && userPort != "" {
+				if probeJSON, ok := retargetReadinessProbe(envVar.Value, userPort); ok {
+					klog.Infof("Adjusting SERVING_READINESS_PROBE port to %s for pod %s/%s", constants.InferenceServiceDefaultAgentPortStr, pod.Namespace, pod.Name)
+					envVar.Value = probeJSON
+					queueProxyEnvs[i] = envVar
+				}
 			}
 		}
 	}
@@ -509,6 +522,53 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 	}
 
 	return nil
+}
+
+// retargetReadinessProbe points the httpGet/tcpSocket probes on userPort at the agent port.
+// value is a single probe or, with multi-container probes enabled, a list of probes.
+func retargetReadinessProbe(value string, userPort string) (string, bool) {
+	var probes []*corev1.Probe
+	multi := strings.HasPrefix(strings.TrimSpace(value), "[")
+	if multi {
+		if err := json.Unmarshal([]byte(value), &probes); err != nil {
+			return "", false
+		}
+	} else {
+		probe := &corev1.Probe{}
+		if err := json.Unmarshal([]byte(value), probe); err != nil {
+			return "", false
+		}
+		probes = append(probes, probe)
+	}
+
+	agentPort := intstr.FromInt(constants.InferenceServiceDefaultAgentPort)
+	changed := false
+	for _, probe := range probes {
+		switch {
+		case probe == nil:
+		case probe.HTTPGet != nil && probe.HTTPGet.Port.String() == userPort:
+			probe.HTTPGet.Port = agentPort
+			changed = true
+		case probe.TCPSocket != nil && probe.TCPSocket.Port.String() == userPort:
+			probe.TCPSocket.Port = agentPort
+			changed = true
+		}
+	}
+	if !changed {
+		return "", false
+	}
+
+	var out []byte
+	var err error
+	if multi {
+		out, err = json.Marshal(probes)
+	} else {
+		out, err = json.Marshal(probes[0])
+	}
+	if err != nil {
+		return "", false
+	}
+	return string(out), true
 }
 
 func mountModelDir(pod *corev1.Pod) error {
