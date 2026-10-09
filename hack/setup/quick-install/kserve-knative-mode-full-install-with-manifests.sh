@@ -12441,6 +12441,11 @@ spec:
                                             type: string
                                           authenticationRef:
                                             properties:
+                                              kind:
+                                                enum:
+                                                - TriggerAuthentication
+                                                - ClusterTriggerAuthentication
+                                                type: string
                                               name:
                                                 type: string
                                             required:
@@ -29878,6 +29883,11 @@ spec:
                                       type: string
                                     authenticationRef:
                                       properties:
+                                        kind:
+                                          enum:
+                                          - TriggerAuthentication
+                                          - ClusterTriggerAuthentication
+                                          type: string
                                         name:
                                           type: string
                                       required:
@@ -33360,6 +33370,11 @@ spec:
                                       type: string
                                     authenticationRef:
                                       properties:
+                                        kind:
+                                          enum:
+                                          - TriggerAuthentication
+                                          - ClusterTriggerAuthentication
+                                          type: string
                                         name:
                                           type: string
                                       required:
@@ -49171,6 +49186,11 @@ spec:
                                       type: string
                                     authenticationRef:
                                       properties:
+                                        kind:
+                                          enum:
+                                          - TriggerAuthentication
+                                          - ClusterTriggerAuthentication
+                                          type: string
                                         name:
                                           type: string
                                       required:
