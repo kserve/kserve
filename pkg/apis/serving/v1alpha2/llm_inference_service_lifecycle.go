@@ -157,6 +157,15 @@ const (
 	DisaggregatedSetUsed apis.ConditionType = "DisaggregatedSetUsed"
 )
 
+const (
+	// ModelExpressReady is True when ModelExpress is configured into the engine
+	// pods. False in native mode means the workload is not rendered; False in
+	// layered mode means the workload renders without ModelExpress.
+	// Independent of the Ready rollup.
+	// Only present when serving.kserve.io/exp-modelexpress-mode is set.
+	ModelExpressReady apis.ConditionType = "ModelExpressReady"
+)
+
 var llmInferenceServiceCondSet = apis.NewLivingConditionSet(
 	PresetsCombined,
 	WorkloadReady,
@@ -217,6 +226,18 @@ func (in *LLMInferenceService) MarkPrefillWorkerWorkloadNotReady(reason, message
 
 func (in *LLMInferenceService) MarkPrefillWorkerWorkloadUnset() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(PrefillWorkerWorkloadReady)
+}
+
+func (in *LLMInferenceService) MarkModelExpressReady() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(ModelExpressReady)
+}
+
+func (in *LLMInferenceService) MarkModelExpressNotReady(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(ModelExpressReady, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkModelExpressUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(ModelExpressReady)
 }
 
 func (in *LLMInferenceService) MarkScalingReady() {

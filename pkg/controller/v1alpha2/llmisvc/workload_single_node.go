@@ -179,22 +179,23 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 		template.Spec = *llmSvc.Spec.Template.DeepCopy()
 
 		var serviceAccount *corev1.ServiceAccount = nil
-		if hasRoutingSidecar(template.Spec) {
-			log.FromContext(ctx).Info("Main container has a routing sidecar")
-
+		if hasRoutingSidecar(template.Spec) || config.ModelExpress != nil {
 			var err error
 			serviceAccount, _, err = r.expectedSingleNodeMainServiceAccount(ctx, llmSvc)
 			if err != nil {
 				return nil, fmt.Errorf("failed to created expected single node service account: %w", err)
 			}
 			template.Spec.ServiceAccountName = serviceAccount.GetName()
-			s := routingSidecar(&template.Spec)
-			if llmSvc.Spec.Router != nil {
-				s.Env = append(s.Env, corev1.EnvVar{
-					Name:      "INFERENCE_POOL_NAME",
-					Value:     llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc),
-					ValueFrom: nil,
-				})
+			if hasRoutingSidecar(template.Spec) {
+				log.FromContext(ctx).Info("Main container has a routing sidecar")
+				s := routingSidecar(&template.Spec)
+				if llmSvc.Spec.Router != nil {
+					s.Env = append(s.Env, corev1.EnvVar{
+						Name:      "INFERENCE_POOL_NAME",
+						Value:     llmSvc.Spec.Router.Scheduler.InferencePoolName(llmSvc),
+						ValueFrom: nil,
+					})
+				}
 			}
 		} else if llmSvc.Spec.Template.ServiceAccountName != "" {
 			serviceAccount = &corev1.ServiceAccount{}
@@ -209,6 +210,9 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
 			attachKVCacheSecondaryTiers(&template.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+		}
+		if err := attachModelExpress(llmSvc, &template.Spec, config.ModelExpress); err != nil {
+			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
 		}
 	}
 
@@ -334,6 +338,13 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch existing single node prefill service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Prefill.Template.ServiceAccountName, err)
 			}
+		} else if config.ModelExpress != nil {
+			var err error
+			existingServiceAccount, _, err = r.expectedSingleNodeMainServiceAccount(ctx, llmSvc)
+			if err != nil {
+				return nil, fmt.Errorf("failed to created expected single node service account: %w", err)
+			}
+			template.Spec.ServiceAccountName = existingServiceAccount.GetName()
 		}
 
 		if err := r.attachModelArtifacts(ctx, existingServiceAccount, llmSvc, deployed, &template.Spec, config, "main", constants.DefaultModelLocalMountPath, len(config.ResolvedLoRAAdapters) > 0); err != nil {
@@ -341,6 +352,9 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 		}
 		if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.KVCacheOffloading != nil {
 			attachKVCacheSecondaryTiers(&template.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+		}
+		if err := attachModelExpress(llmSvc, &template.Spec, config.ModelExpress); err != nil {
+			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
 		}
 	}
 
@@ -458,7 +472,7 @@ func (r *LLMISVCReconciler) reconcileSingleNodeMainServiceAccount(ctx context.Co
 	}
 
 	if !useExistingServiceAccount {
-		if utils.GetForceStopRuntime(llmSvc) || !hasRoutingSidecar(expectedDeployment.Spec.Template.Spec) {
+		if utils.GetForceStopRuntime(llmSvc) || (!hasRoutingSidecar(expectedDeployment.Spec.Template.Spec) && config.ModelExpress == nil) {
 			return Delete(ctx, r, llmSvc, serviceAccount)
 		}
 
