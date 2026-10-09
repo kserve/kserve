@@ -562,6 +562,24 @@ func schedulerConfigText(llmSvc *v1alpha2.LLMInferenceService) string {
 	}
 
 	switch {
+	case isOmniRuntime(llmSvc.Spec.Runtime):
+		// Omni TTS/TTI on routers too old for presets: load-only profile.
+		// queue-scorer is used instead of active-request-scorer so the text
+		// matches what routers of this era already run.
+		return fmt.Sprintf(`
+apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: single-profile-handler
+- type: queue-scorer
+- type: max-score-picker
+%sschedulingProfiles:
+- name: default
+  plugins:
+%s  - pluginRef: queue-scorer
+    weight: 2
+  - pluginRef: max-score-picker
+`, loraPlugin, loraProfileEntry)
 	case llmSvc.Spec.Prefill != nil:
 		return fmt.Sprintf(`
 apiVersion: llm-d.ai/v1alpha1

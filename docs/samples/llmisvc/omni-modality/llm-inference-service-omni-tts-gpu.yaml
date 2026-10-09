@@ -1,0 +1,29 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: omni-tts-single
+spec:
+  # Selects the vLLM-Omni workload template and the load-only EPP profile for
+  # audio/image endpoints. The container image comes from the kserve-llm-omni
+  # ClusterServingRuntime.
+  runtime: kserve-llm-omni
+  model:
+    uri: hf://Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+    name: Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice
+  replicas: 3
+  router:
+    scheduler: {}
+    route: {}
+    gateway: {}
+  template:
+    containers:
+      - name: main
+        resources:
+          limits:
+            cpu: '16'
+            memory: 128Gi
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: '8'
+            memory: 96Gi
+            nvidia.com/gpu: "1"
