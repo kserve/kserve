@@ -21,11 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
-	ctrl "sigs.k8s.io/controller-runtime"
 )
-
-var log = ctrl.Log.WithName("tls")
 
 var tlsVersionMap = map[string]uint16{
 	"VersionTLS12": tls.VersionTLS12,

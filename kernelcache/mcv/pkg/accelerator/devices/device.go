@@ -192,6 +192,7 @@ func (r *Registry) GetAllDeviceTypes() []string {
 	return slices.Collect(maps.Keys(r.Registry))
 }
 
+//nolint:unparam // accType keys the Registry, and every device registered today is a GPU
 func addDeviceInterface(registry *Registry, dtype DeviceType, accType string, deviceStartup deviceStartupFunc) error {
 	switch accType {
 	case config.GPU:

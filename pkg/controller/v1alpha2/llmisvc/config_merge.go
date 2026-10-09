@@ -123,10 +123,6 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configTracingName,
 )
 
-const (
-	precisePrefixCacheScorerName = "precise-prefix-cache-scorer"
-)
-
 // routerPresetMinVersion is the minimum llm-d-router version that supports the
 // preset-based EPPConfig plugins. Services running older router images fall
 // back to the hardcoded schedulerConfigText().
@@ -154,13 +150,6 @@ func selectSingleNodeTemplateName(runtime *string) string {
 		return configSGLangTemplateName
 	}
 	return configTemplateName
-}
-
-// CombineOption is a functional option for combineBaseRefsConfig
-type CombineOption func(*combineOptions)
-
-type combineOptions struct {
-	skipClearSchedulerConfigRef bool
 }
 
 // presetAnnotationPrefix marks annotations a config contributes to the controller

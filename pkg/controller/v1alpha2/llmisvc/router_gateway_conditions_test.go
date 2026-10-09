@@ -796,16 +796,6 @@ func assertRouterReady(routerCondition, gatewayCondition *apis.Condition) assert
 	}
 }
 
-// assertRouterNotReady returns a function that verifies both router and gateway conditions are set but not ready
-func assertRouterNotReady(routerCondition, gatewayCondition *apis.Condition) assertConditionsFunc {
-	return func(g *WithT) {
-		g.Expect(routerCondition).ToNot(BeNil(), "Router condition should be set")
-		g.Expect(routerCondition.IsFalse()).To(BeTrue(), "Router should not be ready")
-		g.Expect(gatewayCondition).ToNot(BeNil(), "Gateway condition should be set")
-		g.Expect(gatewayCondition.IsFalse()).To(BeTrue(), "Gateways should not be ready")
-	}
-}
-
 // assertRouterNotReadyWithReason returns a function that verifies conditions are not ready and checks the reason
 func assertRouterNotReadyWithReason(routerCondition, gatewayCondition *apis.Condition, expectedReason string) assertConditionsFunc {
 	return func(g *WithT) {
