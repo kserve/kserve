@@ -3149,7 +3149,9 @@ spec:
           fi
         fi
 
-        START_RANK=0
+        # The leader leaves its DP start rank unset (it defaults to 0). Since vLLM 0.28.0
+        # (vllm-project/vllm#47692) any explicit start rank makes the leader infer hybrid
+        # or external DP load balancing, which rejects the headless workers.
 
         # --disable-access-log-for-endpoints landed in vLLM 0.16.0 (vllm-project/vllm#30011).
         # Older versions still need the blanket --disable-uvicorn-access-log.
@@ -3205,7 +3207,6 @@ spec:
           --data-parallel-size-local {{ or (and .Spec.Parallelism .Spec.Parallelism.DataLocal) 1 }} \
           --data-parallel-address ${DP_ADDRESS} \
           --data-parallel-rpc-port {{ if and .Spec.Parallelism .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
-          --data-parallel-start-rank $START_RANK \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
           ${KV_TRANSFER_ARGS} \
@@ -4095,7 +4096,9 @@ spec:
             fi
           fi
 
-          START_RANK=0
+          # The leader leaves its DP start rank unset (it defaults to 0). Since vLLM 0.28.0
+          # (vllm-project/vllm#47692) any explicit start rank makes the leader infer hybrid
+          # or external DP load balancing, which rejects the headless workers.
 
           # --disable-access-log-for-endpoints landed in vLLM 0.16.0 (vllm-project/vllm#30011).
           # Older versions still need the blanket --disable-uvicorn-access-log.
@@ -4151,7 +4154,6 @@ spec:
             --data-parallel-size-local {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.DataLocal) 1 }} \
             --data-parallel-address ${DP_ADDRESS} \
             --data-parallel-rpc-port {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
-            --data-parallel-start-rank $START_RANK \
             ${ACCESS_LOG_ARGS} \
             ${SHUTDOWN_TIMEOUT_ARGS} \
             ${KV_TRANSFER_ARGS} \
@@ -5537,7 +5539,9 @@ spec:
           fi
         fi
 
-        START_RANK=0
+        # The leader leaves its DP start rank unset (it defaults to 0). Since vLLM 0.28.0
+        # (vllm-project/vllm#47692) any explicit start rank makes the leader infer hybrid
+        # or external DP load balancing, which rejects the headless workers.
 
         # --disable-access-log-for-endpoints landed in vLLM 0.16.0 (vllm-project/vllm#30011).
         # Older versions still need the blanket --disable-uvicorn-access-log.
@@ -5580,7 +5584,6 @@ spec:
           --data-parallel-size-local {{ or (and .Spec.Parallelism .Spec.Parallelism.DataLocal) 1 }} \
           --data-parallel-address ${DP_ADDRESS} \
           --data-parallel-rpc-port {{ if and .Spec.Parallelism .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
-          --data-parallel-start-rank $START_RANK \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
           ${KV_TRANSFER_ARGS} \
