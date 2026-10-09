@@ -338,10 +338,18 @@ func (r *LLMISVCReconciler) collectIPAddresses(ctx context.Context, llmSvc *v1al
 	}
 
 	ips := sets.NewString("127.0.0.1") // P/D sidecar sends requests for decode over local host
+	// Keep only addresses a certificate can hold, in the form ShouldRecreateCertificate reads back
+	// from it. Pods without an IP yet report "" and headless Services report "None"; expecting
+	// those would recreate the certificate on every reconcile.
+	insertIP := func(ip string) {
+		if parsed := net.ParseIP(ip); parsed != nil {
+			ips.Insert(parsed.String())
+		}
+	}
 	for _, pod := range pods.Items {
-		ips.Insert(pod.Status.PodIP)
+		insertIP(pod.Status.PodIP)
 		for _, ip := range pod.Status.PodIPs {
-			ips.Insert(ip.IP)
+			insertIP(ip.IP)
 		}
 	}
 
@@ -351,9 +359,9 @@ func (r *LLMISVCReconciler) collectIPAddresses(ctx context.Context, llmSvc *v1al
 	}
 
 	for _, svc := range services.Items {
-		ips.Insert(svc.Spec.ClusterIP)
+		insertIP(svc.Spec.ClusterIP)
 		for _, ip := range svc.Spec.ClusterIPs {
-			ips.Insert(ip)
+			insertIP(ip)
 		}
 	}
 
