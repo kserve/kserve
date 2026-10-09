@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path"
@@ -94,13 +95,34 @@ func modelExpressServerFromAnnotations(llmSvc *v1alpha2.LLMInferenceService) (*m
 	}, nil
 }
 
-// modelExpressRevision returns the revision annotation, or a digest of the model URI.
-func modelExpressRevision(llmSvc *v1alpha2.LLMInferenceService) string {
+// modelExpressRevision returns the revision annotation, or a digest of the
+// model URI and the image, command, args and env of every engine role's main
+// container.
+func modelExpressRevision(llmSvc *v1alpha2.LLMInferenceService) (string, error) {
 	if rev := strings.TrimSpace(llmSvc.Annotations[constants.ModelExpressRevisionAnnotationKey]); rev != "" {
-		return rev
+		return rev, nil
 	}
-	sum := sha256.Sum256([]byte(llmSvc.Spec.Model.URI.String()))
-	return "uri-" + hex.EncodeToString(sum[:8])
+	type engine struct {
+		Image   string          `json:"image"`
+		Command []string        `json:"command"`
+		Args    []string        `json:"args"`
+		Env     []corev1.EnvVar `json:"env"`
+	}
+	engines := map[string]engine{}
+	for role, podSpec := range engineTemplates(llmSvc.Spec) {
+		if c := utils.GetContainerWithName(podSpec, mainContainerName); c != nil {
+			engines[role] = engine{Image: c.Image, Command: c.Command, Args: c.Args, Env: c.Env}
+		}
+	}
+	data, err := json.Marshal(struct {
+		ModelURI string            `json:"modelURI"`
+		Engines  map[string]engine `json:"engines"`
+	}{ModelURI: llmSvc.Spec.Model.URI.String(), Engines: engines})
+	if err != nil {
+		return "", fmt.Errorf("failed to encode the ModelExpress revision inputs: %w", err)
+	}
+	sum := sha256.Sum256(data)
+	return "spec-" + hex.EncodeToString(sum[:8]), nil
 }
 
 // reconcileModelExpress resolves config.ModelExpress from the merged spec and
@@ -153,10 +175,15 @@ func (r *LLMISVCReconciler) reconcileModelExpress(ctx context.Context, llmSvc *v
 		return fail("ServerNotResolved", err)
 	}
 
+	revision, err := modelExpressRevision(llmSvc)
+	if err != nil {
+		return fail("RevisionNotComputed", err)
+	}
+
 	config.ModelExpress = &modelExpressConfig{
 		Mode:     mode,
 		Server:   *server,
-		Revision: modelExpressRevision(llmSvc),
+		Revision: revision,
 	}
 	llmSvc.MarkModelExpressReady()
 	return nil

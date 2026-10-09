@@ -134,6 +134,7 @@ var _ = Describe("LLMInferenceService Controller - ModelExpress", func() {
 			return envTest.Get(ctx, types.NamespacedName{Name: serviceAccountName, Namespace: testNs.Name}, &corev1.ServiceAccount{})
 		}).WithContext(ctx).Should(Succeed(), "ModelExpress needs a predictable identity without a routing sidecar")
 
+		revisions := map[string]bool{}
 		for _, name := range []string{svcName + "-kserve", svcName + "-kserve-prefill"} {
 			d := getDeployment(ctx, name, testNs.Name)
 			podSpec := d.Spec.Template.Spec
@@ -153,13 +154,15 @@ var _ = Describe("LLMInferenceService Controller - ModelExpress", func() {
 			Expect(envNamed(c, "MX_MODEL_URI")).To(HaveField("Value", "s3://models/llama"), name)
 			Expect(envNamed(c, "MX_SERVER_ADDRESS")).To(HaveField("Value", mxAddress), name)
 			Expect(envNamed(c, "MODEL_EXPRESS_URL")).To(HaveField("Value", mxAddress), name)
-			Expect(envNamed(c, "MX_MODEL_REVISION").Value).To(HavePrefix("uri-"), name)
+			Expect(envNamed(c, "MX_MODEL_REVISION").Value).To(HavePrefix("spec-"), name)
+			revisions[envNamed(c, "MX_MODEL_REVISION").Value] = true
 			Expect(envNamed(c, s3.AWSAccessKeyId)).ToNot(BeNil(), name)
 			Expect(envNamed(c, s3.AWSEndpointUrl)).To(HaveField("Value", "http://minio.minio.svc:9000"), name)
 			Expect(envNamed(c, "RUNAI_STREAMER_S3_USE_VIRTUAL_ADDRESSING")).To(HaveField("Value", "0"), name)
 			Expect(envNamed(c, "MX_AUTH_TOKEN_PATH")).To(HaveField("Value", "/var/run/secrets/modelexpress/token"), name)
 			Expect(podSpec.Volumes).To(ContainElement(HaveField("Name", "modelexpress-token")), name)
 		}
+		Expect(revisions).To(HaveLen(1), "prefill and decode run the same engine setup, so they share one revision")
 	})
 
 	It("renders native hf:// engine pods that load through the ModelExpress server cache", func(ctx SpecContext) {
