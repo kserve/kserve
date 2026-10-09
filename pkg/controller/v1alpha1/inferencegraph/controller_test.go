@@ -1379,6 +1379,20 @@ var _ = Describe("Inference Graph controller test", func() {
 				Expect(svcRef.Kind).To(Equal("InferenceGraph"))
 				Expect(svcRef.Name).To(Equal(graphServiceKey.Name))
 
+				// The graph's deployment and service must carry the KServe managed
+				// label: the manager's Deployment/Service informer caches are scoped
+				// to this label, so without it the controller would lose watch events
+				// for these resources (e.g. availability status updates).
+				Expect(rawDeployment.Labels).To(HaveKeyWithValue(constants.KServeManagedLabelKey, constants.KServeManagedLabelValue),
+					"graph deployment must carry the managed label to be visible to the scoped cache")
+				Expect(rawService.Labels).To(HaveKeyWithValue(constants.KServeManagedLabelKey, constants.KServeManagedLabelValue),
+					"graph service must carry the managed label to be visible to the scoped cache")
+
+				// The graph becomes Ready only after the (label-scoped) Deployment
+				// watch delivers the availability update, proving the managed label
+				// keeps IG deployments visible to the scoped informer cache.
+				expectIGConditionStatus(ctx, graphServiceKey, apis.ConditionReady, corev1.ConditionTrue)
+
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
 			})
 
