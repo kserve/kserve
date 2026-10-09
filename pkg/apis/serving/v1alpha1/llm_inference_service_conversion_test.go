@@ -327,6 +327,7 @@ func TestLLMInferenceServiceConversion_PreservesInferencePoolSpec(t *testing.T) 
 	v1Spec := dst.Spec.Router.Scheduler.Pool.Spec
 	assert.Equal(t, igwapiv1.PortNumber(8000), v1Spec.TargetPorts[0].Number)
 	assert.Equal(t, igwapiv1.LabelValue("vllm"), v1Spec.Selector.MatchLabels["app"])
+	require.NotNil(t, v1Spec.EndpointPickerRef)
 	assert.Equal(t, igwapiv1.ObjectName("my-epp"), v1Spec.EndpointPickerRef.Name)
 
 	// Convert back to v1alpha1

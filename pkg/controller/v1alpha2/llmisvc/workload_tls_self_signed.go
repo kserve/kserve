@@ -292,7 +292,7 @@ func (r *LLMISVCReconciler) collectDNSNames(ctx context.Context, llmSvc *v1alpha
 			}
 		}
 
-		if infPoolSpec != nil {
+		if infPoolSpec != nil && infPoolSpec.EndpointPickerRef != nil {
 			dnsNames = append(dnsNames, network.GetServiceHostname(string(infPoolSpec.EndpointPickerRef.Name), llmSvc.GetNamespace()))
 			dnsNames = append(dnsNames, fmt.Sprintf("%s.%s.svc", string(infPoolSpec.EndpointPickerRef.Name), llmSvc.GetNamespace()))
 		}
