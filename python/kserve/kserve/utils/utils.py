@@ -61,7 +61,10 @@ def cpu_count():
     - CPU Affinity (if set)
     - Cgroups limit (if set)
     """
-    count = os.cpu_count()
+    # os.cpu_count() may return None when the count is undetermined; fall back
+    # to 1 so the min() comparisons below (with affinity / cgroups limits) don't
+    # raise TypeError on such hosts.
+    count = os.cpu_count() or 1
 
     # Check CPU affinity if available
     try:
