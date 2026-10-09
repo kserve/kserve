@@ -132,9 +132,24 @@ func TestConvertFrom_NilEndpointPickerRef(t *testing.T) {
 	converted := &InferencePool{}
 	err := converted.ConvertFrom(original)
 
-	require.NoError(t, err)
-	assert.Equal(t, int32(8000), converted.Spec.TargetPortNumber)
-	assert.Equal(t, Extension{}, converted.Spec.ExtensionRef)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "endpointPickerRef cannot be nil")
+	assert.Equal(t, InferencePoolSpec{}, converted.Spec)
+}
+
+func TestConvertTo_EmptyExtensionRef(t *testing.T) {
+	original := &InferencePool{
+		Spec: InferencePoolSpec{
+			TargetPortNumber: 8000,
+		},
+	}
+
+	converted := &v1.InferencePool{}
+	err := original.ConvertTo(converted)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "extensionRef name cannot be empty")
+	assert.Equal(t, v1.InferencePoolSpec{}, converted.Spec)
 }
 
 func TestSchemeRegistration(t *testing.T) {

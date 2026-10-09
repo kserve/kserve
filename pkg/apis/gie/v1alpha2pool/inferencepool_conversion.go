@@ -67,13 +67,12 @@ func (dst *InferencePool) ConvertFrom(src *v1.InferencePool) error {
 	if src == nil {
 		return errors.New("src cannot be nil")
 	}
-	extensionRef := Extension{}
-	if src.Spec.EndpointPickerRef != nil {
-		converted, err := convertEndpointPickerRefFromV1(src.Spec.EndpointPickerRef)
-		if err != nil {
-			return err
-		}
-		extensionRef = converted
+	if src.Spec.EndpointPickerRef == nil {
+		return errors.New("v1 InferencePool endpointPickerRef cannot be nil when converting to v1alpha2 extensionRef")
+	}
+	extensionRef, err := convertEndpointPickerRefFromV1(src.Spec.EndpointPickerRef)
+	if err != nil {
+		return err
 	}
 	status, err := convertStatusFromV1(&src.Status)
 	if err != nil {
@@ -242,6 +241,9 @@ func convertExtensionRefToV1(src *Extension) (v1.EndpointPickerRef, error) {
 	endpointPickerRef := v1.EndpointPickerRef{}
 	if src == nil {
 		return endpointPickerRef, errors.New("src cannot be nil")
+	}
+	if src.Name == "" {
+		return endpointPickerRef, errors.New("v1alpha2 InferencePool extensionRef name cannot be empty when converting to v1 endpointPickerRef")
 	}
 	if src.Group != nil {
 		endpointPickerRef.Group = ptr.To(v1.Group(*src.Group))
