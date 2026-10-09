@@ -53,6 +53,8 @@ type mockFileSystem struct {
 	FileSystemInterface
 	// represents the dirs under models root
 	subDirs []os.DirEntry
+	used    resource.Quantity
+	free    resource.Quantity
 }
 
 func (f *mockFileSystem) removeModel(model string) error {
@@ -92,14 +94,20 @@ func (f *mockFileSystem) ensureModelRootFolderExists() error {
 	return nil
 }
 
+func (f *mockFileSystem) getStorageUsage() (resource.Quantity, resource.Quantity, error) {
+	return f.used.DeepCopy(), f.free.DeepCopy(), nil
+}
+
 func (f *mockFileSystem) clear() {
 	f.subDirs = []os.DirEntry{}
+	f.used = resource.MustParse("0")
+	f.free = resource.MustParse("100Gi")
 }
 
 func newMockFileSystem() *mockFileSystem {
-	return &mockFileSystem{
-		subDirs: []os.DirEntry{},
-	}
+	fs := &mockFileSystem{}
+	fs.clear()
+	return fs
 }
 
 var _ = Describe("LocalModelNode controller", func() {
@@ -134,6 +142,7 @@ var _ = Describe("LocalModelNode controller", func() {
 			},
 		}
 		localModelNodeGroupSpec = v1alpha1.LocalModelNodeGroupSpec{
+			StorageLimit: resource.MustParse("10Gi"),
 			PersistentVolumeSpec: corev1.PersistentVolumeSpec{
 				AccessModes:                   []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 				VolumeMode:                    ptr.To(corev1.PersistentVolumeFilesystem),
@@ -256,6 +265,13 @@ var _ = Describe("LocalModelNode controller", func() {
 				return err == nil && len(jobs.Items) == 1
 			}, timeout, interval).Should(BeTrue(), "Download job should be created")
 
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeGroup.Name}, nodeGroup); err != nil {
+					return false
+				}
+				return nodeGroup.Status.Used.Cmp(fsMock.used) == 0 && nodeGroup.Status.Available.Cmp(resource.MustParse("10Gi")) == 0
+			}, timeout, interval).Should(BeTrue(), "Node group should report observed storage usage")
+
 			// Now let's update the job status to be successful
 			fsMock.mockModel(&MockFileInfo{name: storageKey, isDir: true})
 			job := &jobs.Items[0]
@@ -293,6 +309,87 @@ var _ = Describe("LocalModelNode controller", func() {
 				return !ok
 			}, timeout, interval).Should(BeTrue(), "Model should be removed from the status field")
 		})
+
+		It("Should not create a download job when the model does not fit", func() {
+			ctx := context.Background()
+			fsMock.clear()
+			fsMock.used = resource.MustParse("9Gi")
+			fsMock.free = resource.MustParse("1Gi")
+
+			configMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      constants.InferenceServiceConfigMapName,
+					Namespace: constants.KServeNamespace,
+				},
+				Data: configs,
+			}
+			Expect(k8sClient.Create(ctx, configMap)).Should(Succeed())
+			defer k8sClient.Delete(ctx, configMap)
+
+			clusterStorageContainer := &v1alpha1.ClusterStorageContainer{
+				ObjectMeta: metav1.ObjectMeta{Name: "capacity-test"},
+				Spec:       clusterStorageContainerSpec,
+			}
+			Expect(k8sClient.Create(ctx, clusterStorageContainer)).Should(Succeed())
+			defer k8sClient.Delete(ctx, clusterStorageContainer)
+
+			nodeGroup := &v1alpha1.LocalModelNodeGroup{
+				ObjectMeta: metav1.ObjectMeta{Name: "capacity-nodegroup"},
+				Spec:       localModelNodeGroupSpec,
+			}
+			Expect(k8sClient.Create(ctx, nodeGroup)).Should(Succeed())
+			defer k8sClient.Delete(ctx, nodeGroup)
+
+			modelCache := &v1alpha1.LocalModelCache{
+				ObjectMeta: metav1.ObjectMeta{Name: "capacity-model"},
+				Spec: v1alpha1.LocalModelCacheSpec{
+					SourceModelUri: sourceModelUri,
+					ModelSize:      resource.MustParse("2Gi"),
+					NodeGroups:     []string{nodeGroup.Name},
+				},
+			}
+			Expect(k8sClient.Create(ctx, modelCache)).Should(Succeed())
+			defer k8sClient.Delete(ctx, modelCache)
+
+			nodeName = "capacity-worker"
+			node := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeName,
+					Labels: map[string]string{
+						"node.kubernetes.io/instance-type": "gpu",
+					},
+				},
+				Status: corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}}},
+			}
+			Expect(k8sClient.Create(ctx, node)).Should(Succeed())
+			defer k8sClient.Delete(ctx, node)
+
+			localModelNode := &v1alpha1.LocalModelNode{
+				ObjectMeta: metav1.ObjectMeta{Name: nodeName},
+				Spec: v1alpha1.LocalModelNodeSpec{LocalModels: []v1alpha1.LocalModelInfo{{
+					SourceModelUri: sourceModelUri,
+					ModelName:      modelCache.Name,
+					NodeGroup:      nodeGroup.Name,
+				}}},
+			}
+			Expect(k8sClient.Create(ctx, localModelNode)).Should(Succeed())
+			defer k8sClient.Delete(ctx, localModelNode)
+
+			Eventually(func() bool {
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: nodeGroup.Name}, nodeGroup); err != nil {
+					return false
+				}
+				return nodeGroup.Status.Used.Cmp(fsMock.used) == 0 && nodeGroup.Status.Available.Cmp(fsMock.free) == 0
+			}, timeout, interval).Should(BeTrue(), "Node group should report storage before rejecting the download")
+
+			jobs := &batchv1.JobList{}
+			labelSelector := map[string]string{"model": modelCache.Name, "node": nodeName}
+			Consistently(func() int {
+				Expect(k8sClient.List(ctx, jobs, client.InNamespace(jobNamespace), client.MatchingLabels(labelSelector))).To(Succeed())
+				return len(jobs.Items)
+			}, duration, interval).Should(Equal(0), "Download job should not be created when model size exceeds available storage")
+		})
+
 		It("Should use storageKey hash as the download job SubPath for storage deduplication", func() {
 			ctx := context.Background()
 			fsMock.clear()
