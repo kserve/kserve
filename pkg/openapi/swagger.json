@@ -5034,10 +5034,25 @@
         }
       }
     },
+    "v1beta1.LoggerAgentSpec": {
+      "description": "LoggerAgentSpec configures the logger agent sidecar.",
+      "type": "object",
+      "properties": {
+        "workers": {
+          "description": "Number of workers used by the logger agent.",
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "v1beta1.LoggerSpec": {
       "description": "LoggerSpec specifies optional payload logging available for all components",
       "type": "object",
       "properties": {
+        "agent": {
+          "description": "Configuration for the logger agent sidecar.",
+          "$ref": "#/definitions/v1beta1.LoggerAgentSpec"
+        },
         "batchInterval": {
           "description": "Max duration to wait before flushing a partial batch (e.g. \"5s\", \"100ms\"). Only used when BatchSize \u003e 1. Defaults to \"0\" (no time-based flushing).",
           "type": "string"
