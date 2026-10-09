@@ -31,6 +31,17 @@ from kserve.constants.constants import (
 _logger = logging.getLogger(__name__)
 
 
+class TerminalFailure(Exception):
+    """Raised when a wait condition encounters a terminal failure state.
+
+    Unlike AssertionError (which indicates "not ready yet"), TerminalFailure
+    indicates the resource reached a failed/invalid state that will never recover.
+    wait_for() does not retry TerminalFailure — it propagates immediately.
+    """
+
+    pass
+
+
 def _load_k8s_config() -> None:
     try:
         k8s_config.load_incluster_config()
@@ -56,6 +67,9 @@ def wait_for(
     """Generic polling helper: repeatedly call assertion_fn until it succeeds or times out.
 
     The assertion function should raise AssertionError when the condition is not yet met.
+    For terminal failures that should not be retried (e.g., resource deleted, phase=Failed),
+    raise TerminalFailure instead — wait_for() propagates it immediately.
+
     Follows the pattern established in test/e2e/llmisvc/test_llm_inference_service.py.
 
     Args:
@@ -68,12 +82,17 @@ def wait_for(
 
     Raises:
         AssertionError: If timeout is reached before assertion_fn succeeds
+        TerminalFailure: If assertion_fn raises TerminalFailure (propagated immediately)
     """
     deadline = time.time() + timeout
     last_msg = None
     while True:
         try:
             return assertion_fn()
+        except TerminalFailure:
+            # Terminal failures (resource deleted, phase=Failed, etc.) should not be
+            # retried — propagate immediately so the test fails fast.
+            raise
         except AssertionError as e:
             msg = str(e)
             if time.time() >= deadline:
@@ -85,14 +104,59 @@ def wait_for(
             time.sleep(interval)
 
 
+def wait_for_resource_deleted(
+    group: str,
+    version: str,
+    plural: str,
+    name: str,
+    namespace: str | None = None,
+    timeout: int = 30,
+) -> None:
+    """Wait until a Kubernetes resource is fully deleted (404).
+
+    Kubernetes deletion is asynchronous — the delete API call returns immediately,
+    but the resource may still exist while finalizers run. This helper polls until
+    GET returns 404, ensuring it's safe to recreate a resource with the same name.
+
+    Args:
+        group: API group (e.g., KSERVE_GROUP)
+        version: API version (e.g., KSERVE_V1ALPHA1_VERSION)
+        plural: Resource plural (e.g., KSERVE_PLURAL_KERNELCACHENODEGROUP)
+        name: Resource name
+        namespace: Namespace (None for cluster-scoped resources)
+        timeout: Maximum time to wait in seconds
+    """
+    api = _custom_api()
+
+    def check_deleted():
+        try:
+            if namespace:
+                api.get_namespaced_custom_object(
+                    group, version, namespace, plural, name
+                )
+            else:
+                api.get_cluster_custom_object(group, version, plural, name)
+            # Resource still exists — not ready yet
+            raise AssertionError(f"Waiting for {plural}/{name} to be deleted")
+        except ApiException as e:
+            if e.status == 404:
+                # Resource is gone — deletion complete
+                return
+            # Other errors (permissions, etc.) should propagate
+            raise
+
+    wait_for(check_deleted, timeout=timeout, interval=1.0)
+
+
 def wait_for_kernelcache_nodes(
     expected_node_names: list[str], timeout: int = 120
 ) -> list:
-    """Poll until a KernelCacheNode exists for each expected node name.
+    """Poll until a KernelCacheNode exists for each expected node name and has been reconciled.
 
     Verifies that each node name in expected_node_names has a corresponding
-    KernelCacheNode CR (matching by name), preventing false passes from stale
-    KCNs left over from previous tests.
+    KernelCacheNode CR (matching by name) and that the agent has reconciled it
+    (status.counts field is populated), preventing false passes from stale KCNs
+    left over from previous tests or KCNs that haven't been reconciled yet.
 
     Args:
         expected_node_names: List of Kubernetes node names that should have KCNs
@@ -120,9 +184,23 @@ def wait_for_kernelcache_nodes(
             f"KernelCacheNode missing for nodes: {missing} "
             f"(have: {sorted(kcn_names)}, expect: {sorted(expected_node_names)})"
         )
-        return [
+
+        # Verify each expected KCN has been reconciled by the agent (status.counts exists).
+        # The agent populates this field on its first reconcile after the controller creates
+        # the KCN resource. Without this check, the test could pass before the agent pod starts.
+        matching_kcns = [
             item for item in items if item["metadata"]["name"] in expected_node_names
         ]
+        not_reconciled = [
+            item["metadata"]["name"]
+            for item in matching_kcns
+            if not item.get("status", {}).get("counts")
+        ]
+        assert not not_reconciled, (
+            f"KernelCacheNode exists but not yet reconciled by agent: {not_reconciled}"
+        )
+
+        return matching_kcns
 
     return wait_for(check_nodes, timeout=timeout, interval=5.0)
 
@@ -184,18 +262,18 @@ def wait_for_capture_complete(
             )
         except ApiException as e:
             if e.status == 404:
-                raise AssertionError(
+                raise TerminalFailure(
                     f"KernelCacheCapture {namespace}/{kcc_name} was deleted unexpectedly"
                 ) from e
             raise
 
         phase = kcc.get("status", {}).get("phase", "")
         if phase == "Failed":
-            raise AssertionError(
+            raise TerminalFailure(
                 f"KernelCacheCapture {namespace}/{kcc_name} reached Failed phase"
             )
         if phase == "Unchanged":
-            raise AssertionError(
+            raise TerminalFailure(
                 f"KernelCacheCapture {namespace}/{kcc_name} reached Unchanged phase. "
                 "This test always writes a new dummy cache file, so Unchanged means "
                 "MCV did not detect the file (wrong timing, file not written, etc.)"
@@ -233,7 +311,7 @@ def wait_for_kernelcache_verified(
             )
         except ApiException as e:
             if e.status == 404:
-                raise AssertionError(
+                raise TerminalFailure(
                     f"KernelCacheCapture {namespace}/{kcc_name} was deleted unexpectedly"
                 ) from e
             raise
@@ -255,7 +333,7 @@ def wait_for_kernelcache_verified(
             )
         except ApiException as e:
             if e.status == 404:
-                raise AssertionError(
+                raise TerminalFailure(
                     f"KernelCache {kc_namespace}/{kc_name} was deleted unexpectedly"
                 ) from e
             raise
@@ -264,7 +342,7 @@ def wait_for_kernelcache_verified(
         state = verification.get("state", "")
         verified = verification.get("verified", False)
         if state == "Failed":
-            raise AssertionError(
+            raise TerminalFailure(
                 f"KernelCache {kc_namespace}/{kc_name} verification Failed: "
                 f"{verification.get('message', '')}"
             )

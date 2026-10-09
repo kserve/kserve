@@ -27,7 +27,7 @@ from kserve.constants.constants import (
 
 from ..common.namespace import skip_resource_deletion
 
-from .utils import _load_k8s_config
+from .utils import _load_k8s_config, wait_for_resource_deleted
 
 _KC_NODE_GROUP_NAME = os.environ.get("KERNELCACHE_NODE_GROUP", "kc-test-group")
 _KC_NODE_LABEL_KEY = os.environ.get(
@@ -150,6 +150,16 @@ def kc_node_group(kc_config):
             KSERVE_PLURAL_KERNELCACHENODEGROUP,
             _KC_NODE_GROUP_NAME,
         )
+        # Wait for deletion to complete before creating a new resource with the same name.
+        # Kubernetes deletion is asynchronous — the delete call returns immediately, but
+        # the resource may still be finalizing. Creating immediately could fail with 409.
+        wait_for_resource_deleted(
+            KSERVE_GROUP,
+            KSERVE_V1ALPHA1_VERSION,
+            KSERVE_PLURAL_KERNELCACHENODEGROUP,
+            _KC_NODE_GROUP_NAME,
+            timeout=30,
+        )
     except ApiException as e:
         if e.status != 404:
             raise
@@ -206,6 +216,14 @@ def kc_test_runtime(kc_config):
             KSERVE_V1ALPHA1_VERSION,
             "clusterservingruntimes",
             KC_TEST_RUNTIME_NAME,
+        )
+        # Wait for deletion to complete before creating a new resource with the same name.
+        wait_for_resource_deleted(
+            KSERVE_GROUP,
+            KSERVE_V1ALPHA1_VERSION,
+            "clusterservingruntimes",
+            KC_TEST_RUNTIME_NAME,
+            timeout=30,
         )
     except ApiException as e:
         if e.status != 404:
