@@ -438,9 +438,12 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 		credentials.MountOciCaBundle(storageInitializerConfig, localModel.Namespace, container, &volumes)
 	}
 
-	var fsGroup *int64
-	if localModelConfig, cfgErr := v1beta1.NewLocalModelConfig(isvcConfigMap); cfgErr == nil {
-		fsGroup = localModelConfig.FSGroup
+	// Only the shared-PVC specific key is honored here. The global localModel.fsGroup is
+	// sized for the admin-controlled job namespace; the import Job runs in the user's
+	// namespace, where a fixed group can be rejected by admission.
+	var podSecurityContext *corev1.PodSecurityContext
+	if localModelConfig, cfgErr := v1beta1.NewLocalModelConfig(isvcConfigMap); cfgErr == nil && localModelConfig.SharedPVCImportFSGroup != nil {
+		podSecurityContext = &corev1.PodSecurityContext{FSGroup: localModelConfig.SharedPVCImportFSGroup}
 	}
 
 	parallelism := int32(1)
@@ -470,12 +473,10 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					// No node selector: the import runs on any node that can mount the RWX claim.
-					Containers:    []corev1.Container{*container},
-					RestartPolicy: corev1.RestartPolicyNever,
-					Volumes:       volumes,
-					SecurityContext: &corev1.PodSecurityContext{
-						FSGroup: fsGroup,
-					},
+					Containers:      []corev1.Container{*container},
+					RestartPolicy:   corev1.RestartPolicyNever,
+					Volumes:         volumes,
+					SecurityContext: podSecurityContext,
 				},
 			},
 		},

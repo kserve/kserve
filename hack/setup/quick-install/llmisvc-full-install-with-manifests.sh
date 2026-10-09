@@ -113000,8 +113000,14 @@ data:
          "jobNamespace": "kserve-localmodel-jobs",
          # defaultJobImage specifies the default image used for the download job.
          "defaultJobImage" : "kserve/storage-initializer:latest",
-         # Kubernetes modifies the filesystem group ID on the attached volume.
+         # fsGroup is set on per-node download Jobs in jobNamespace. Kubernetes modifies the
+         # filesystem group ID on the attached volume.
          "fsGroup": 1000,
+         # sharedPVCImportFSGroup is set on shared-PVC import Jobs, which run in the cache's own
+         # namespace. It is independent of fsGroup. RWX drivers with fsGroupPolicy File (e.g.
+         # csi-driver-nfs) need it so the UID 1000 import container can write a root-owned volume.
+         # Remove the key to omit fsGroup and let namespace admission (e.g. an OpenShift SCC) assign one.
+         "sharedPVCImportFSGroup": 1000,
          # TTL for the download job after it is finished.
          "jobTTLSecondsAfterFinished": 3600,
          # The frequency at which the local model agent reconciles the local models
@@ -113177,6 +113183,7 @@ data:
       "jobNamespace": "kserve-localmodel-jobs",
       "defaultJobImage" : "kserve/storage-initializer:latest",
       "fsGroup": 1000,
+      "sharedPVCImportFSGroup": 1000,
       "jobTTLSecondsAfterFinished": 3600,
       "reconcilationFrequencyInSecs": 60,
       "disableVolumeManagement": false

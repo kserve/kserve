@@ -783,3 +783,73 @@ func TestReconcileSharedPVCMissingImagePullSecretSurfacesCredentialError(t *test
 		t.Fatalf("expected no import Job when imagePullSecret is missing, got %d", len(jobs.Items))
 	}
 }
+
+func TestBuildImportJobFSGroup(t *testing.T) {
+	cache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "ns"},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "s3://bucket/model",
+			ModelSize:      resource.MustParse("1Gi"),
+			PVCRef:         ptrTo("pvc"),
+		},
+	}
+	pvc := pvcWith(fsMode(), []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, "2Gi", corev1.ClaimBound, "2Gi")
+	pvc.Name = "pvc"
+	pvc.Namespace = "ns"
+
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add KServe scheme: %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add core scheme: %v", err)
+	}
+	reconciler := &LocalModelNamespaceCacheReconciler{
+		Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
+		Scheme: scheme,
+		Log:    logr.Discard(),
+	}
+
+	tests := []struct {
+		name        string
+		localModel  string
+		wantFSGroup *int64
+	}{
+		{
+			name:       "neither key leaves fsGroup unset",
+			localModel: `{"jobNamespace": "jobs"}`,
+		},
+		{
+			name:       "global fsGroup alone is not applied",
+			localModel: `{"jobNamespace": "jobs", "fsGroup": 1000}`,
+		},
+		{
+			name:       "explicit null import key is treated as unset",
+			localModel: `{"jobNamespace": "jobs", "fsGroup": 1000, "sharedPVCImportFSGroup": null}`,
+		},
+		{
+			name:        "sharedPVCImportFSGroup is applied",
+			localModel:  `{"jobNamespace": "jobs", "fsGroup": 1000, "sharedPVCImportFSGroup": 2000}`,
+			wantFSGroup: ptrTo(int64(2000)),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configMap := &corev1.ConfigMap{Data: map[string]string{"localModel": tt.localModel}}
+			job, err := reconciler.buildImportJob(context.Background(), cache, "cache-import", pvc, "key", configMap)
+			if err != nil {
+				t.Fatalf("buildImportJob() error = %v", err)
+			}
+			securityContext := job.Spec.Template.Spec.SecurityContext
+			if tt.wantFSGroup == nil {
+				if securityContext != nil {
+					t.Fatalf("pod securityContext = %#v, want nil", securityContext)
+				}
+				return
+			}
+			if securityContext == nil || securityContext.FSGroup == nil || *securityContext.FSGroup != *tt.wantFSGroup {
+				t.Fatalf("pod securityContext = %#v, want fsGroup %d", securityContext, *tt.wantFSGroup)
+			}
+		})
+	}
+}
