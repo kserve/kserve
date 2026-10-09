@@ -43,9 +43,7 @@ OPT_125M_OCI_MODEL_URI = os.environ.get(
 )
 VLLM_CPU_IMAGE = os.environ.get("VLLM_CPU_IMAGE", "vllm/vllm-openai-cpu:v0.19.0")
 
-# Prometheus server address used by direct-KEDA (no WVA) `prometheus` triggers.
-# Matches the URL setup-kserve.sh patches into autoscaling-wva-controller-config
-# for the WVA-mediated KEDA path, so both paths talk to the same instance.
+# Prometheus server address used by direct-KEDA `prometheus` triggers.
 PROMETHEUS_SERVER_ADDRESS = os.environ.get(
     "PROMETHEUS_SERVER_ADDRESS",
     "https://prometheus-kube-prometheus-prometheus.monitoring:9090",
@@ -1567,51 +1565,6 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         },
     },
-    "scaling-hpa": {
-        "scaling": {
-            "minReplicas": 1,
-            "maxReplicas": 3,
-            "wva": {
-                "hpa": {
-                    "behavior": {
-                        "scaleDown": {
-                            "stabilizationWindowSeconds": 10,
-                            "policies": [
-                                {
-                                    "type": "Percent",
-                                    "value": 100,
-                                    "periodSeconds": 10,
-                                }
-                            ],
-                        },
-                        "scaleUp": {
-                            "stabilizationWindowSeconds": 0,
-                            "policies": [
-                                {
-                                    "type": "Percent",
-                                    "value": 100,
-                                    "periodSeconds": 10,
-                                }
-                            ],
-                        },
-                    }
-                }
-            },
-        }
-    },
-    "scaling-keda": {
-        "scaling": {
-            "minReplicas": 1,
-            "maxReplicas": 3,
-            "wva": {
-                "keda": {
-                    "pollingInterval": 5,
-                    "cooldownPeriod": 10,
-                    "initialCooldownPeriod": 0,
-                }
-            },
-        }
-    },
     "scaling-direct-keda": {
         "scaling": {
             "minReplicas": 1,
@@ -1639,7 +1592,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         }
     },
-    # Direct KEDA (standalone, no WVA) with a fallback replica count: when the
+    # Direct KEDA with a fallback replica count: when the
     # Prometheus scaler repeatedly fails to reach the server (outage), KEDA
     # holds the deployment at `fallback.replicas` instead of scaling to zero.
     "scaling-direct-keda-fallback": {
@@ -1695,55 +1648,6 @@ LLMINFERENCESERVICE_CONFIGS = {
                     )
                 ],
             },
-        }
-    },
-    "scaling-prefill-hpa": {
-        "prefill": {
-            "scaling": {
-                "minReplicas": 1,
-                "maxReplicas": 3,
-                "wva": {
-                    "hpa": {
-                        "behavior": {
-                            "scaleDown": {
-                                "stabilizationWindowSeconds": 10,
-                                "policies": [
-                                    {
-                                        "type": "Percent",
-                                        "value": 100,
-                                        "periodSeconds": 10,
-                                    }
-                                ],
-                            },
-                            "scaleUp": {
-                                "stabilizationWindowSeconds": 0,
-                                "policies": [
-                                    {
-                                        "type": "Percent",
-                                        "value": 100,
-                                        "periodSeconds": 10,
-                                    }
-                                ],
-                            },
-                        }
-                    }
-                },
-            }
-        }
-    },
-    "scaling-prefill-keda": {
-        "prefill": {
-            "scaling": {
-                "minReplicas": 1,
-                "maxReplicas": 3,
-                "wva": {
-                    "keda": {
-                        "pollingInterval": 5,
-                        "cooldownPeriod": 10,
-                        "initialCooldownPeriod": 0,
-                    }
-                },
-            }
         }
     },
     "workload-llmd-simulator-kvcache": {

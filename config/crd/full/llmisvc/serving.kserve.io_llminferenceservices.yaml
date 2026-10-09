@@ -853,8 +853,6 @@ spec:
                         - maxReplicas
                       type: object
                       x-kubernetes-validations:
-                        - message: either wva or keda must be specified when scaling is configured
-                          rule: has(self.wva) || has(self.keda)
                         - message: wva and keda are mutually exclusive
                           rule: '!(has(self.wva) && has(self.keda))'
                         - message: at least one trigger is required when using direct KEDA scaling
@@ -865,8 +863,6 @@ spec:
                           rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)'
                         - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
                           rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas'
-                        - message: minReplicas is required when idleReplicaCount is set
-                          rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
                         - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
                           rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas) || self.keda.idleReplicaCount < self.minReplicas'
                     template:
@@ -18322,8 +18318,6 @@ spec:
                     - maxReplicas
                   type: object
                   x-kubernetes-validations:
-                    - message: either wva or keda must be specified when scaling is configured
-                      rule: has(self.wva) || has(self.keda)
                     - message: wva and keda are mutually exclusive
                       rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct KEDA scaling
@@ -18334,8 +18328,6 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas'
-                    - message: minReplicas is required when idleReplicaCount is set
-                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
                       rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas) || self.keda.idleReplicaCount < self.minReplicas'
                 storageInitializer:
@@ -27177,8 +27169,6 @@ spec:
                         - maxReplicas
                       type: object
                       x-kubernetes-validations:
-                        - message: either wva or keda must be specified when scaling is configured
-                          rule: has(self.wva) || has(self.keda)
                         - message: wva and keda are mutually exclusive
                           rule: '!(has(self.wva) && has(self.keda))'
                         - message: at least one trigger is required when using direct KEDA scaling
@@ -27189,8 +27179,6 @@ spec:
                           rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)'
                         - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
                           rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas'
-                        - message: minReplicas is required when idleReplicaCount is set
-                          rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
                         - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
                           rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas) || self.keda.idleReplicaCount < self.minReplicas'
                     template:
@@ -44687,8 +44675,6 @@ spec:
                     - maxReplicas
                   type: object
                   x-kubernetes-validations:
-                    - message: either wva or keda must be specified when scaling is configured
-                      rule: has(self.wva) || has(self.keda)
                     - message: wva and keda are mutually exclusive
                       rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct KEDA scaling
@@ -44699,8 +44685,6 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount) || !has(self.minReplicas) || self.wva.keda.idleReplicaCount < self.minReplicas'
-                    - message: minReplicas is required when idleReplicaCount is set
-                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount defines the replica floor when no triggers are active
                       rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas) || self.keda.idleReplicaCount < self.minReplicas'
                 storageInitializer:
