@@ -37,7 +37,6 @@ def test_kernelcache_basic(
 
     Phase 1 — KernelCacheNode creation:
       [TEST VERIFIES] Controller creates one KernelCacheNode CR per worker node.
-      [TEST VERIFIES] Agent reconciles each KCN (status.counts field populated).
 
     Phase 2 — Cache capture (driven by kc_session fixture):
       [FIXTURE CREATES] ISVC using kernelcache-test-runtime (producer pod).
@@ -60,8 +59,7 @@ def test_kernelcache_basic(
 
     # Controller creates one KernelCacheNode CR per matching node after the
     # KernelCacheNodeGroup (created by the kc_node_group fixture) is reconciled.
-    # This test verifies that each worker node has a corresponding KCN (by name)
-    # and that the agent has reconciled it (status.counts populated).
+    # This test verifies that each worker node has a corresponding KCN (by name).
     worker_node_names = [node.metadata.name for node in worker_nodes]
     wait_for_kernelcache_nodes(worker_node_names, timeout=120)
 

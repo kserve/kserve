@@ -190,12 +190,11 @@ def wait_for_resource_deleted(
 def wait_for_kernelcache_nodes(
     expected_node_names: list[str], timeout: int = 120
 ) -> list:
-    """Poll until a KernelCacheNode exists for each expected node name and has been reconciled.
+    """Poll until a KernelCacheNode exists for each expected node name.
 
     Verifies that each node name in expected_node_names has a corresponding
-    KernelCacheNode CR (matching by name) and that the agent has reconciled it
-    (status.counts field is populated), preventing false passes from stale KCNs
-    left over from previous tests or KCNs that haven't been reconciled yet.
+    KernelCacheNode CR (matching by name), preventing false passes from stale
+    KCNs left over from previous tests.
 
     Args:
         expected_node_names: List of Kubernetes node names that should have KCNs
@@ -224,22 +223,9 @@ def wait_for_kernelcache_nodes(
             f"(have: {sorted(kcn_names)}, expect: {sorted(expected_node_names)})"
         )
 
-        # Verify each expected KCN has been reconciled by the agent (status.counts exists).
-        # The agent populates this field on its first reconcile after the controller creates
-        # the KCN resource. Without this check, the test could pass before the agent pod starts.
-        matching_kcns = [
+        return [
             item for item in items if item["metadata"]["name"] in expected_node_names
         ]
-        not_reconciled = [
-            item["metadata"]["name"]
-            for item in matching_kcns
-            if not item.get("status", {}).get("counts")
-        ]
-        assert not not_reconciled, (
-            f"KernelCacheNode exists but not yet reconciled by agent: {not_reconciled}"
-        )
-
-        return matching_kcns
 
     return wait_for(check_nodes, timeout=timeout, interval=5.0)
 

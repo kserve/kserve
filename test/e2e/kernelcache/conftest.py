@@ -13,11 +13,14 @@
 # limitations under the License.
 
 import json
+import logging
 import os
 
 import pytest
 from kubernetes import client
 from kubernetes.client.exceptions import ApiException
+
+_logger = logging.getLogger(__name__)
 
 from kserve import KServeClient
 from kserve.constants.constants import (
@@ -191,14 +194,59 @@ def kc_node_group(kc_config):
             "nodeSelector": {_KC_NODE_LABEL_KEY: _KC_NODE_LABEL_VALUE},
         },
     }
-    api.create_cluster_custom_object(
-        KSERVE_GROUP,
-        KSERVE_V1ALPHA1_VERSION,
-        KSERVE_PLURAL_KERNELCACHENODEGROUP,
-        body,
-    )
+    try:
+        result = api.create_cluster_custom_object(
+            KSERVE_GROUP,
+            KSERVE_V1ALPHA1_VERSION,
+            KSERVE_PLURAL_KERNELCACHENODEGROUP,
+            body,
+        )
+        print(f"[KCNG SETUP] create_cluster_custom_object returned: kind={result.get('kind')}, name={result.get('metadata', {}).get('name')}")
+    except ApiException as e:
+        pytest.fail(
+            f"Failed to create KernelCacheNodeGroup {_KC_NODE_GROUP_NAME}: "
+            f"{e.status} {e.reason} - {e.body}"
+        )
+
+    # Verify the KCNG was actually created
+    try:
+        created = api.get_cluster_custom_object(
+            KSERVE_GROUP,
+            KSERVE_V1ALPHA1_VERSION,
+            KSERVE_PLURAL_KERNELCACHENODEGROUP,
+            _KC_NODE_GROUP_NAME,
+        )
+        # Validate the resource structure
+        if not isinstance(created, dict):
+            pytest.fail(
+                f"KernelCacheNodeGroup {_KC_NODE_GROUP_NAME} GET returned unexpected type: {type(created)}"
+            )
+        if created.get("kind") != "KernelCacheNodeGroup":
+            pytest.fail(
+                f"KernelCacheNodeGroup {_KC_NODE_GROUP_NAME} has wrong kind: {created.get('kind')}"
+            )
+        created_name = created.get("metadata", {}).get("name")
+        if created_name != _KC_NODE_GROUP_NAME:
+            pytest.fail(
+                f"KernelCacheNodeGroup name mismatch: expected {_KC_NODE_GROUP_NAME}, got {created_name}"
+            )
+        print(f"[KCNG SETUP] Created and verified KernelCacheNodeGroup {_KC_NODE_GROUP_NAME}")
+        _logger.info(
+            "Created and verified KernelCacheNodeGroup %s with nodeSelector %s=%s",
+            _KC_NODE_GROUP_NAME,
+            _KC_NODE_LABEL_KEY,
+            _KC_NODE_LABEL_VALUE,
+        )
+    except ApiException as e:
+        pytest.fail(
+            f"Failed to verify KernelCacheNodeGroup {_KC_NODE_GROUP_NAME} after creation: "
+            f"{e.status} {e.reason}"
+        )
 
     yield _KC_NODE_GROUP_NAME
+
+    print(f"[KCNG TEARDOWN] Starting cleanup of KernelCacheNodeGroup {_KC_NODE_GROUP_NAME}")
+    _logger.info("Teardown: cleaning up KernelCacheNodeGroup %s", _KC_NODE_GROUP_NAME)
 
     if skip_resource_deletion():
         return

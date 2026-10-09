@@ -333,14 +333,28 @@ jobs:
           export KERNELCACHE_MODEL_URI="s3://example-models/facebook/opt-125m"
           # Set MCV image to the CI-built version for test fixtures
           export KERNELCACHE_MCV_IMAGE="${KO_DOCKER_REPO}/${MCV_IMG}:${TAG}-minimal"
+          # Skip resource deletion on failure so the debug step can inspect what was created
+          export SKIP_RESOURCE_DELETION=1
           ./test/scripts/gh-actions/run-e2e-tests.sh "kernelcache" "1"
 
       - name: Debug KernelCache state
         if: failure()
         run: |
+          echo "::group::KernelCacheNodeGroup resources"
+          kubectl get kcng -o wide || true
+          echo "::endgroup::"
+
+          echo "::group::KernelCacheNodeGroup full details"
+          kubectl get kcng -o yaml || true
+          echo "::endgroup::"
+
           echo "::group::KernelCache agent DaemonSet and pods"
           kubectl get daemonset -n kserve kserve-kernelcachenode-agent -o wide || true
           kubectl get pods -n kserve -l app=kserve-kernelcachenode-agent -o wide || true
+          echo "--- All pods in kserve namespace ---"
+          kubectl get pods -n kserve -o wide || true
+          echo "--- DaemonSet full spec ---"
+          kubectl get daemonset -n kserve kserve-kernelcachenode-agent -o yaml || true
           echo "::endgroup::"
 
           echo "::group::KernelCache agent logs (last 100 lines per pod)"
@@ -381,6 +395,15 @@ jobs:
           echo "::group::Prefetch jobs (if any)"
           kubectl get jobs -n kserve-kernelcache-jobs -o wide || echo "No jobs namespace or no jobs"
           kubectl get pods -n kserve-kernelcache-jobs -o wide || echo "No job pods"
+          echo "::endgroup::"
+
+          echo "::group::Prefetch job events and history"
+          kubectl get events -n kserve-kernelcache-jobs --sort-by='.lastTimestamp' || echo "No events"
+          kubectl get jobs -n kserve-kernelcache-jobs -o yaml || echo "No jobs"
+          echo "::endgroup::"
+
+          echo "::group::KernelCache controller logs"
+          kubectl logs -n kserve deployment/kserve-localmodel-controller-manager --tail=200 || true
           echo "::endgroup::"
 
       - name: Check system status
