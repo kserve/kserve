@@ -23,6 +23,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/coreos/go-semver/semver"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -220,6 +221,36 @@ func deploymentSelectorLabels(identity, workloadLabels map[string]string) map[st
 		}
 	}
 	return selector
+}
+
+// prefillDecodeRoleMinVersion is the first llm-d-router version that expects
+// llm-d.ai/role=prefill-decode instead of "both".
+var prefillDecodeRoleMinVersion = semver.New("0.11.0")
+
+// nonDisaggregatedRole returns the llm-d.ai/role label for the pods of a
+// service without prefill. The role depends on the llm-d-router version in the
+// scheduler's app.kubernetes.io/version annotation:
+//   - "prefill-decode" for v0.11.0 or later,
+//   - "both" for older versions, or when the annotation is missing, the same
+//     way schedulerTransform treats a missing version as an old router.
+//
+// It returns an error if the annotation is not a valid version.
+func nonDisaggregatedRole(llmSvc *v1alpha2.LLMInferenceService) (string, error) {
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
+		return constants.LLMDRoleBoth, nil
+	}
+	version := llmSvc.Spec.Router.Scheduler.Annotations["app.kubernetes.io/version"]
+	if version == "" {
+		return constants.LLMDRoleBoth, nil
+	}
+	v, err := semver.NewVersion(version)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse llm-d-router version %q: %w", version, err)
+	}
+	if v.LessThan(*prefillDecodeRoleMinVersion) {
+		return constants.LLMDRoleBoth, nil
+	}
+	return constants.LLMDRolePrefillDecode, nil
 }
 
 func (r *LLMISVCReconciler) propagateInferencePoolRefLabelSelector(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, labels map[string]string) error {

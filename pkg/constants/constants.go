@@ -441,7 +441,10 @@ const (
 	LLMDRoleLabelKey = "llm-d.ai/role"
 	LLMDRoleDecode   = "decode"
 	LLMDRolePrefill  = "prefill"
-	LLMDRoleBoth     = "both"
+	// LLMDRoleBoth is the role of non-P/D pods for llm-d-router older than v0.11.0.
+	// From v0.11.0 on, LLMDRolePrefillDecode replaces it.
+	LLMDRoleBoth          = "both"
+	LLMDRolePrefillDecode = "prefill-decode"
 )
 
 // LLMInferenceService label constants (uses Kubernetes recommended label keys above)

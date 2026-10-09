@@ -209,7 +209,10 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 	}
 	role := constants.LLMDRoleDecode
 	if llmSvc.Spec.Prefill == nil {
-		role = constants.LLMDRoleBoth
+		var err error
+		if role, err = nonDisaggregatedRole(llmSvc); err != nil {
+			return nil, err
+		}
 	}
 	leaderLabels := map[string]string{
 		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkloadLeader,

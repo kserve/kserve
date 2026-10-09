@@ -67,6 +67,7 @@ func TestReconcileMultiNodeMainServiceAccount_UseExisting_SkipsManagedSA(t *test
 		WithTemplate(&corev1.PodSpec{
 			ServiceAccountName: existingSAName,
 		}),
+		WithWorker(SimpleWorkerPodSpec()),
 	)
 
 	fakeClient := fake.NewClientBuilder().
