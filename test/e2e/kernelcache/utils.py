@@ -410,24 +410,59 @@ def wait_for_kernelcachenode_cache_ready(
     deadline = time.monotonic() + timeout
     api = _custom_api()
     key = f"{kc_namespace}/{kc_name}"
+    iteration = 0
     while time.monotonic() < deadline:
         nodes = api.list_cluster_custom_object(
             KSERVE_GROUP, KSERVE_V1ALPHA1_VERSION, KSERVE_PLURAL_KERNELCACHENODE
         ).get("items", [])
+
+        # Log all caches on first iteration and every 6th iteration (every 60s)
+        # to help diagnose if the cache exists but with a different key
+        dump_all_caches = iteration % 6 == 0
+
         for node in nodes:
-            info = node.get("status", {}).get("cacheStatus", {}).get(key, {})
+            node_name = node["metadata"]["name"]
+            cache_status = node.get("status", {}).get("cacheStatus", {})
+            info = cache_status.get(key, {})
             state = info.get("state", "")
+
+            if dump_all_caches and cache_status:
+                _logger.info(
+                    "KernelCacheNode %s has %d cache(es): %s",
+                    node_name,
+                    len(cache_status),
+                    ", ".join(
+                        f"{k}={v.get('state', 'no-state')}"
+                        for k, v in cache_status.items()
+                    ),
+                )
+
             _logger.info(
                 "KernelCacheNode %s cacheStatus[%s].state=%s",
-                node["metadata"]["name"],
+                node_name,
                 key,
                 state or "(absent)",
             )
             if state == "Ready":
                 return
+
+        iteration += 1
         time.sleep(10)
+
+    # Gather final diagnostic info
+    final_status = []
+    for node in nodes:
+        node_name = node["metadata"]["name"]
+        cache_status = node.get("status", {}).get("cacheStatus", {})
+        if cache_status:
+            final_status.append(f"{node_name}: {len(cache_status)} cache(s)")
+        else:
+            final_status.append(f"{node_name}: no caches")
+
     raise TimeoutError(
-        f"KernelCache {key} did not reach Ready state on any KernelCacheNode within {timeout}s"
+        f"KernelCache {key} did not reach Ready state on any KernelCacheNode within {timeout}s. "
+        f"Final KCN status: {'; '.join(final_status) if final_status else 'no nodes found'}. "
+        f"Check kserve-kernelcachenode-agent DaemonSet and logs for errors."
     )
 
 

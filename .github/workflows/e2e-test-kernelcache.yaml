@@ -335,6 +335,54 @@ jobs:
           export KERNELCACHE_MCV_IMAGE="${KO_DOCKER_REPO}/${MCV_IMG}:${TAG}-minimal"
           ./test/scripts/gh-actions/run-e2e-tests.sh "kernelcache" "1"
 
+      - name: Debug KernelCache state
+        if: failure()
+        run: |
+          echo "::group::KernelCache agent DaemonSet and pods"
+          kubectl get daemonset -n kserve kserve-kernelcachenode-agent -o wide || true
+          kubectl get pods -n kserve -l app=kserve-kernelcachenode-agent -o wide || true
+          echo "::endgroup::"
+
+          echo "::group::KernelCache agent logs (last 100 lines per pod)"
+          for pod in $(kubectl get pods -n kserve -l app=kserve-kernelcachenode-agent -o name 2>/dev/null); do
+            echo "--- Logs from $pod ---"
+            kubectl logs -n kserve "$pod" --tail=100 || true
+          done
+          echo "::endgroup::"
+
+          echo "::group::KernelCacheNode resources"
+          kubectl get kcn -o wide || true
+          echo "::endgroup::"
+
+          echo "::group::KernelCacheNode status details"
+          kubectl get kcn -o yaml || true
+          echo "::endgroup::"
+
+          echo "::group::KernelCache resources (all namespaces)"
+          kubectl get kc -A -o wide || true
+          echo "::endgroup::"
+
+          echo "::group::KernelCache full details"
+          kubectl get kc -A -o yaml || true
+          echo "::endgroup::"
+
+          echo "::group::KernelCacheCapture resources (all namespaces)"
+          kubectl get kcc -A -o wide || true
+          echo "::endgroup::"
+
+          echo "::group::KernelCacheCapture full details"
+          kubectl get kcc -A -o yaml || true
+          echo "::endgroup::"
+
+          echo "::group::Test namespace pods"
+          kubectl get pods -A | grep -E "(kc-e2e-session|kc-basic-test)" || echo "No test pods found"
+          echo "::endgroup::"
+
+          echo "::group::Prefetch jobs (if any)"
+          kubectl get jobs -n kserve-kernelcache-jobs -o wide || echo "No jobs namespace or no jobs"
+          kubectl get pods -n kserve-kernelcache-jobs -o wide || echo "No job pods"
+          echo "::endgroup::"
+
       - name: Check system status
         if: always()
         run: |
