@@ -76,10 +76,10 @@ func TestMatchCacheForURI_NamespaceScopedPrecedence(t *testing.T) {
 	assert.Equal(t, "ns-cache-gpu2", match.PVCName)
 }
 
-func sharedNSCache(name, pvcRef string, ready bool) v1alpha1.LocalModelNamespaceCache {
-	ref := pvcRef
+func sharedNSCache(ready bool) v1alpha1.LocalModelNamespaceCache {
+	ref := "shared-pvc"
 	c := v1alpha1.LocalModelNamespaceCache{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", Generation: 1},
+		ObjectMeta: metav1.ObjectMeta{Name: "ns-cache", Namespace: "default", Generation: 1},
 		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
 			SourceModelUri: "hf://org/model",
 			ModelSize:      resource.MustParse("1Gi"),
@@ -94,7 +94,7 @@ func sharedNSCache(name, pvcRef string, ready bool) v1alpha1.LocalModelNamespace
 
 func TestMatchCacheForURI_SharedPVCReady(t *testing.T) {
 	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
-		Items: []v1alpha1.LocalModelNamespaceCache{sharedNSCache("ns-cache", "shared-pvc", true)},
+		Items: []v1alpha1.LocalModelNamespaceCache{sharedNSCache(true)},
 	}
 	match := MatchCacheForURI("hf://org/model", "", false, nil, nsModels)
 	assert.NotNil(t, match)
@@ -105,10 +105,41 @@ func TestMatchCacheForURI_SharedPVCReady(t *testing.T) {
 
 func TestMatchCacheForURI_SharedPVCNotReadySkipped(t *testing.T) {
 	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
-		Items: []v1alpha1.LocalModelNamespaceCache{sharedNSCache("ns-cache", "shared-pvc", false)},
+		Items: []v1alpha1.LocalModelNamespaceCache{sharedNSCache(false)},
 	}
 	match := MatchCacheForURI("hf://org/model", "", false, nil, nsModels)
 	assert.Nil(t, match)
+}
+
+// A consumer already bound to a shared-PVC cache keeps its binding when the cache drops to
+// NotReady after a successful import (re-import blocked, spec-generation bump): the data is
+// still on the claim, and stripping the binding would roll pods back to downloading from
+// source and drop the consumer out of the cache's re-import gate.
+func TestMatchCacheForURI_SharedPVCNotReadyKeepsBoundConsumer(t *testing.T) {
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{sharedNSCache(false)},
+	}
+	match := MatchCacheForURIBound("hf://org/model", "", false, nil, nsModels,
+		&CacheEntry{Cache: "ns-cache", Namespace: "default"})
+	assert.NotNil(t, match)
+	assert.Equal(t, "ns-cache", match.Cache)
+	assert.Equal(t, "default", match.Namespace)
+	assert.Equal(t, "shared-pvc", match.PVCName)
+}
+
+func TestMatchCacheForURI_SharedPVCNotReadySkipsConsumerBoundElsewhere(t *testing.T) {
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{sharedNSCache(false)},
+	}
+	for name, bound := range map[string]*CacheEntry{
+		"other cache":                    {Cache: "other-cache", Namespace: "default"},
+		"same name, cluster-scoped":      {Cache: "ns-cache"},
+		"same name, different namespace": {Cache: "ns-cache", Namespace: "elsewhere"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			assert.Nil(t, MatchCacheForURIBound("hf://org/model", "", false, nil, nsModels, bound))
+		})
+	}
 }
 
 func TestMarshalParseLoRACacheAnnotation(t *testing.T) {
