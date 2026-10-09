@@ -45,6 +45,13 @@ KERNELCACHE_NODE_LABEL_VALUE="${KERNELCACHE_NODE_LABEL_VALUE:-workers}"
 KERNELCACHE_JOBS_NS="${KERNELCACHE_JOBS_NS:-kserve-kernelcache-jobs}"
 KERNELCACHE_REGISTRY_INSECURE="${KERNELCACHE_REGISTRY_INSECURE:-true}"
 
+# common.sh consumes KSERVE_NAMESPACE but never assigns it, so under
+# `set -o nounset` every `-n "${KSERVE_NAMESPACE}"` below would abort with
+# "KSERVE_NAMESPACE: unbound variable" unless the caller exports it.
+# setup-kserve.sh does not, so default and export it here.
+KSERVE_NAMESPACE="${KSERVE_NAMESPACE:-kserve}"
+export KSERVE_NAMESPACE
+
 if [[ -z "${KERNELCACHE_REGISTRY_ENDPOINT:-}" ]]; then
   log_error "KERNELCACHE_REGISTRY_ENDPOINT must be set (e.g. 'localhost:5000')"
   exit 1
@@ -66,11 +73,29 @@ kubectl label nodes \
   "${KERNELCACHE_NODE_LABEL_KEY}=${KERNELCACHE_NODE_LABEL_VALUE}" \
   --overwrite
 
-# ── Step 2: Create KernelCache jobs namespace ──────────────────────────────
+# ── Step 2: Create the KernelCacheNodeGroup ─────────────────────────────────
+# kernelcache.defaultNodeGroup set in step 4 names a KernelCacheNodeGroup
+# resource; it is not a node label. The reconciler does a cluster-scoped Get on
+# that name and reports "KernelCacheNodeGroup %q was not found" when it is
+# missing, so the group has to exist before any KernelCache is reconciled. Its
+# spec.nodeSelector is wired to the label applied in step 1. kubectl apply keeps
+# this idempotent across repeated runs.
+log_info "Creating KernelCacheNodeGroup '${KERNELCACHE_NODE_GROUP}' ..."
+kubectl apply -f - <<EOF
+apiVersion: serving.kserve.io/v1alpha1
+kind: KernelCacheNodeGroup
+metadata:
+  name: ${KERNELCACHE_NODE_GROUP}
+spec:
+  nodeSelector:
+    ${KERNELCACHE_NODE_LABEL_KEY}: ${KERNELCACHE_NODE_LABEL_VALUE}
+EOF
+
+# ── Step 3: Create KernelCache jobs namespace ──────────────────────────────
 log_info "Creating KernelCache jobs namespace '${KERNELCACHE_JOBS_NS}' ..."
 create_or_skip_namespace "${KERNELCACHE_JOBS_NS}"
 
-# ── Step 3: Patch inferenceservice-config with KernelCache settings ────────
+# ── Step 4: Patch inferenceservice-config with KernelCache settings ────────
 log_info "Patching inferenceservice-config with KernelCache settings ..."
 KERNELCACHE_CONFIG=$(cat <<EOF
 {
@@ -119,7 +144,7 @@ kubectl patch configmap inferenceservice-config \
   --type=json \
   -p "${PATCH}"
 
-# ── Step 4: Verify certificates have been issued ────────────────────────────
+# ── Step 5: Verify certificates have been issued ────────────────────────────
 log_info "Verify KernelCache certificates have been issued ..."
 kubectl wait \
   --for=condition=Ready \
@@ -128,7 +153,7 @@ kubectl wait \
   -n "${KSERVE_NAMESPACE}" \
   --timeout=120s
 
-# ── Step 5: Restart localmodel controller and wait for rollout ────────────
+# ── Step 6: Restart localmodel controller and wait for rollout ────────────
 # The localmodel controller's webhook server needs a TLS certificate from
 # cert-manager (localmodel-webhook-server-cert). That cert is created during
 # initial cluster setup, but cert-manager may not have issued it before the
