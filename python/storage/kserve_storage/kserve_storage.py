@@ -35,7 +35,9 @@ from typing import List, Optional, TYPE_CHECKING
 import zipfile
 from pathlib import Path
 from typing import Tuple
+from urllib.error import HTTPError
 from urllib.parse import urljoin, urlparse
+from urllib.request import Request, urlopen
 import certifi
 import requests
 import urllib3
@@ -221,17 +223,99 @@ class _GuardedHTTPProxyManager(_GuardedHTTPPoolMixin, urllib3.ProxyManager):
 # the docker config.json. oras-py ignores DOCKER_CONFIG and only reads ~/.docker/config.json,
 # so the handler reads this path and passes it as an explicit config_path.
 _OCI_DOCKER_CONFIG_PATH_ENV = "KSERVE_OCI_DOCKER_CONFIG"
-# Default docker config.json path if the env var is unset (e.g. direct CLI invocation). Kept
-# in sync with ociFetchDockerConfigDir in pkg/webhook/admission/pod/oci_fetch.go. It is under
-# /mnt, not /root, because the storage-initializer runs as UID 1000 and cannot read /root.
+# Default docker config.json path if the env var is unset (e.g. direct CLI invocation).
+# Must match credentials.OciFetchDockerConfigDir in pkg/credentials/oci_docker_config.go.
+# It is under /mnt, not /root, because the storage-initializer runs as UID 1000.
 _OCI_DOCKER_CONFIG_PATH = "/mnt/oci-fetch-auth/config.json"
 
-# Env var by which the Go webhook (ConfigureOciFetchToContainer) signals that the
+# Env var by which the Go webhook and LocalModelCache download Job signal that the
 # target registry should be treated as plain-HTTP/insecure (self-signed or no TLS).
 # Defaults to secure (verified HTTPS) when unset -- this is an explicit opt-in,
 # mirroring how CA_BUNDLE_VOLUME_MOUNT_POINT etc. are wired: Go-side config field ->
 # env var on the init container -> read here.
 _OCI_INSECURE_REGISTRY_ENV = "KSERVE_OCI_INSECURE_REGISTRY"
+
+
+def _oci_insecure_registry_enabled() -> bool:
+    return os.environ.get(_OCI_INSECURE_REGISTRY_ENV, "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+
+def _oci_auth_backend_from_www_authenticate(header: str) -> str:
+    """Map a Www-Authenticate challenge to oras-py's auth_backend.
+
+    Bearer (Docker Hub, GHCR, quay.io) uses the token backend. Basic-only
+    (Distribution htpasswd) uses basic. When both appear, prefer token so
+    bearer-only registries keep working.
+    """
+    if not header:
+        return "token"
+    found = [m.lower() for m in re.findall(r"(?i)(?:^|,\s*)(Bearer|Basic)\b", header)]
+    if "bearer" in found:
+        return "token"
+    if "basic" in found:
+        return "basic"
+    return "token"
+
+
+def _oci_ssl_context_for_probe(url: str, insecure: bool) -> Optional[ssl.SSLContext]:
+    """SSL context for the urllib /v2/ auth probe.
+
+    urllib ignores REQUESTS_CA_BUNDLE (used by oras/requests after
+    _setup_oci_tls), so custom-CA registries need an explicit context
+    here or the probe fails TLS before seeing Www-Authenticate and we
+    incorrectly fall back to token for Basic-only registries.
+    """
+    if not url.startswith("https://"):
+        return None
+    if insecure:
+        return ssl._create_unverified_context()
+    ca_bundle = os.environ.get("REQUESTS_CA_BUNDLE", "").strip()
+    if ca_bundle and os.path.exists(ca_bundle):
+        return ssl.create_default_context(cafile=ca_bundle)
+    return None
+
+
+def _oci_auth_backend_for_registry(registry: str, insecure: bool) -> str:
+    """Probe GET /v2/ and select basic vs token from the 401 challenge.
+
+    Probe failure defaults to token so imagePullSecrets against bearer
+    registries do not break if /v2/ is unreachable. Call after
+    _setup_oci_tls() so a mounted custom CA is visible via
+    REQUESTS_CA_BUNDLE.
+    """
+    urls = []
+    if insecure:
+        urls.append("http://%s/v2/" % registry)
+    urls.append("https://%s/v2/" % registry)
+    for url in urls:
+        try:
+            ctx = _oci_ssl_context_for_probe(url, insecure)
+            req = Request(url, method="GET")
+            with urlopen(req, timeout=5, context=ctx) as resp:
+                header = resp.headers.get("Www-Authenticate", "")
+                backend = (
+                    _oci_auth_backend_from_www_authenticate(header)
+                    if header
+                    else "token"
+                )
+                logger.info("Selected OCI auth backend %s for %s", backend, registry)
+                return backend
+        except HTTPError as err:
+            header = err.headers.get("Www-Authenticate", "") if err.headers else ""
+            if header:
+                backend = _oci_auth_backend_from_www_authenticate(header)
+                logger.info("Selected OCI auth backend %s for %s", backend, registry)
+                return backend
+        except Exception as err:  # noqa: BLE001
+            logger.debug("OCI /v2/ probe failed for %s: %s", url, err)
+            continue
+    logger.info("Selected OCI auth backend token for %s (probe fallback)", registry)
+    return "token"
+
 
 # Prefix identifying the modelcar layout's model subtree within an OCI layer tar.
 _OCI_MODELS_PREFIX = "models/"
@@ -386,6 +470,42 @@ def _setup_oci_tls() -> None:
         os.environ["REQUESTS_CA_BUNDLE"] = ca_cert
 
 
+# Hostnames that all refer to Docker Hub. docker CLI / kubectl create secret
+# docker-registry typically store Hub credentials under https://index.docker.io/v1/
+# rather than "docker.io", so URI hosts and config.json keys often disagree.
+_DOCKER_HUB_HOSTS = frozenset({"docker.io", "index.docker.io", "registry-1.docker.io"})
+_DOCKER_HUB_AUTH_KEYS = (
+    "https://index.docker.io/v1/",
+    "https://index.docker.io/v2/",
+    "index.docker.io",
+    "https://index.docker.io",
+    "registry-1.docker.io",
+    "https://registry-1.docker.io",
+    "docker.io",
+    "https://docker.io",
+)
+
+
+def _docker_config_auth_keys(registry: str) -> list[str]:
+    """Candidate auths[] keys for a registry hostname (with optional :port).
+
+    Always tries the literal registry, https://<registry>, and the hostname
+    without port. For Docker Hub, also tries the index.docker.io forms that
+    `docker login` writes into config.json.
+    """
+    host = registry.split(":", 1)[0]
+    keys = [registry, f"https://{registry}", host]
+    if host in _DOCKER_HUB_HOSTS:
+        keys.extend(_DOCKER_HUB_AUTH_KEYS)
+    seen: set[str] = set()
+    out: list[str] = []
+    for key in keys:
+        if key not in seen:
+            seen.add(key)
+            out.append(key)
+    return out
+
+
 def _login_from_docker_config(
     client: "oras.client.OrasClient",
     target: str,
@@ -400,6 +520,13 @@ def _login_from_docker_config(
     try:
         with open(config_path) as f:
             cfg = json.load(f)
+    except PermissionError as err:
+        logger.warning(
+            "Cannot read OCI docker config %s: %s; falling back to anonymous pull",
+            config_path,
+            err,
+        )
+        return
     except (OSError, ValueError):
         return
     if not isinstance(cfg, dict):
@@ -409,9 +536,8 @@ def _login_from_docker_config(
         return
     # Resolve the target's registry hostname (first path segment)
     registry = target.split("/", 1)[0]
-    # Try multiple lookup keys docker config can use
     entry = None
-    for key in (registry, f"https://{registry}", registry.split(":", 1)[0]):
+    for key in _docker_config_auth_keys(registry):
         entry = auths.get(key)
         if entry:
             break
@@ -427,7 +553,14 @@ def _login_from_docker_config(
     except (ValueError, UnicodeDecodeError):
         return
     try:
-        client.login(username=username, password=password, hostname=registry)
+        login_kwargs = {
+            "username": username,
+            "password": password,
+            "hostname": registry,
+        }
+        if _oci_insecure_registry_enabled():
+            login_kwargs["tls_verify"] = False
+        client.login(**login_kwargs)
     except Exception:  # noqa: BLE001
         # Login failed (network, bad creds) — fall to anonymous; the
         # subsequent get_manifest/pull will surface a clear error
@@ -1601,12 +1734,17 @@ class Storage(object):
         if not os.path.exists(config_path):
             config_path = None
 
-        insecure = os.environ.get(_OCI_INSECURE_REGISTRY_ENV, "").strip().lower() in (
-            "1",
-            "true",
-            "yes",
+        insecure = _oci_insecure_registry_enabled()
+        # oras-py's default token backend 401s against htpasswd HTTP registries.
+        # Always-basic breaks Docker Hub / quay.io (bearer-only). Probe /v2/ and
+        # match the Www-Authenticate scheme; anonymous pulls stay on token.
+        registry = target.split("/", 1)[0]
+        auth_backend = (
+            _oci_auth_backend_for_registry(registry, insecure)
+            if config_path
+            else "token"
         )
-        client = oras.client.OrasClient(insecure=insecure)
+        client = oras.client.OrasClient(insecure=insecure, auth_backend=auth_backend)
         if config_path:
             _login_from_docker_config(client, target, config_path)
 

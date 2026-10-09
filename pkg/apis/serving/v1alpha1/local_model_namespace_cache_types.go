@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -52,8 +53,30 @@ type LocalModelNamespaceCacheSpec struct {
 	// +optional
 	PVCRef *string `json:"pvcRef,omitempty"`
 	// ServiceAccountName specifies the service account to use for credential lookup.
+	// For nodeGroups caches it must exist in the download job namespace
+	// (localModel.jobNamespace); for pvcRef caches it must exist in this cache's namespace,
+	// where the import Job runs.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// ImagePullSecrets is a single kubernetes.io/dockerconfigjson secret used to
+	// authenticate OCI (oci://) imports. The list shape matches PodSpec.imagePullSecrets;
+	// MaxItems=1 because credential merging is not supported. Combine credentials for
+	// multiple registries into one secret. For nodeGroups caches the named Secret must
+	// exist in the download job namespace (localModel.jobNamespace); for pvcRef caches
+	// it must exist in this cache's namespace, where the import Job runs. Credentials
+	// from serviceAccountName and storage are not used for oci:// sources.
+	//
+	// Trust boundary: a namespaced nodeGroups cache can name any dockerconfigjson Secret
+	// already present in the shared job namespace by that Secret's metadata.name.
+	// There is no extra ownership check; knowing the name is enough. Secrets are not
+	// copied from the cache namespace. Prefer pvcRef (import Job in the cache namespace)
+	// when tenants must not share the cluster job-namespace credential store.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=1
+	// +kubebuilder:validation:XValidation:rule="self.all(s, s.name != '')",message="imagePullSecrets.name must be non-empty"
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// +optional
 	Storage *LocalModelStorageSpec `json:"storage,omitempty"`
 }

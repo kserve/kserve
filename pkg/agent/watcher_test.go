@@ -43,6 +43,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/modelconfig"
+	kserveutils "github.com/kserve/kserve/pkg/utils"
 )
 
 // testStorageURIHost is a publicly routable IP literal. HTTP(S) storage URI
@@ -596,6 +597,14 @@ var _ = Describe("Watcher", func() {
 	})
 
 	Describe("Use HTTP(S) Downloader", func() {
+		BeforeEach(func() {
+			// httptest binds to 127.0.0.1, which production SSRF checks reject.
+			kserveutils.AllowHTTPStorageLoopbackForTesting(true)
+		})
+		AfterEach(func() {
+			kserveutils.AllowHTTPStorageLoopbackForTesting(false)
+		})
+
 		Context("Download Uncompressed Model", func() {
 			It("should download test model and write contents", func() {
 				modelContents := "Temporary content"
