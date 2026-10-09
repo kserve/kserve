@@ -12,6 +12,9 @@ kserve:
     llmdRouterEndpointPicker:
       image: ghcr.io/llm-d/llm-d-router-endpoint-picker
       tag: v0.10.0
+    llmdTokenizer:
+      image: docker.io/vllm/vllm-openai-cpu
+      tag: v0.23.0@sha256:89e1fbe829038b1a560601990c8ec89625c622a969fcbc8f10ce48b6139795be
   servingruntime:
     enabled: false
     modelNamePlaceholder: "{{.Name}}"
