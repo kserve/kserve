@@ -19,8 +19,10 @@ package utils
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 func Convert[T any](obj runtime.Object) (T, error) {
@@ -40,4 +42,17 @@ func StringToInt32(number string) (int32, error) {
 		return 0, err
 	}
 	return int32(converted), err
+}
+
+// ParsePort parses value as a TCP port and validates it against the valid
+// Kubernetes port range.
+func ParsePort(value string) (int32, error) {
+	port, err := StringToInt32(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid port %q: %w", value, err)
+	}
+	if errs := validation.IsValidPortNum(int(port)); errs != nil {
+		return 0, fmt.Errorf("invalid port %q: %s", value, strings.Join(errs, "; "))
+	}
+	return port, nil
 }
