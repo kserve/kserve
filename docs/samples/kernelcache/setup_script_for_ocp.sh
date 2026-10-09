@@ -1,61 +1,44 @@
 #!/bin/bash
 
-# Copyright 2026 The KServe Authors.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-# Configure the KernelCache feature on a cluster that already has KServe
-# installed via setup-kserve.sh. Must be called after setup-kserve.sh.
-#
-# Required environment variables:
-#   KERNELCACHE_REGISTRY_ENDPOINT  OCI registry the MCV sidecar pushes captured
-#                                  artifacts to (e.g. "localhost:5000" for a
-#                                  Minikube registry addon, or the in-cluster
-#                                  registry address).
-#
-# Optional environment variables (all have defaults):
-#   KERNELCACHE_NODE_GROUP    KernelCacheNodeGroup name (default: kc-test-group)
-#   KERNELCACHE_NODE_LABEL    Node label selector applied to worker nodes
-#                             (default: kernelcache.example.com/group=workers)
-#   KERNELCACHE_JOBS_NS       Namespace for KC prefetch jobs (default: ${KERNELCACHE_JOBS_NS})
-#   KERNELCACHE_REGISTRY_INSECURE  Set to "true" to allow plain-HTTP registry (default: true)
-
 set -o errexit
 set -o nounset
 set -o pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]:-$0}")" &>/dev/null && pwd 2>/dev/null)"
 source "${SCRIPT_DIR}/../../../hack/setup/common.sh"
+
+if [ -z "${KO_DOCKER_REPO:-}" ]; then
+  log_error "KO_DOCKER_REPO is required. Set it to the registry repository for the images, for example: export KO_DOCKER_REPO=image-registry.openshift-image-registry.svc:5000/<project>"
+  exit 1
+fi
+
+if [ -z "${KERNELCACHE_NODE_LABEL_KEY:-}" ]; then
+  log_error "KERNELCACHE_NODE_LABEL_KEY is required. Set it to the label key used to select KernelCache nodes, for example: export KERNELCACHE_NODE_LABEL_KEY=nvidia.com/gpu.present"
+  exit 1
+fi
+
+if [ -z "${KERNELCACHE_NODE_LABEL_VALUE:-}" ]; then
+  log_error "KERNELCACHE_NODE_LABEL_VALUE is required. Set it to the label value used to select KernelCache nodes, for example: export KERNELCACHE_NODE_LABEL_VALUE=true"
+  exit 1
+fi
+
 source "${REPO_ROOT}/kserve-images.sh"
 
 # ── Configuration ──────────────────────────────────────────────────────────
 KERNELCACHE_NODE_GROUP="${KERNELCACHE_NODE_GROUP:-kc-test-group}"
-KERNELCACHE_NODE_LABEL_KEY="${KERNELCACHE_NODE_LABEL_KEY:-nvidia.com/gpu.present}"
-KERNELCACHE_NODE_LABEL_VALUE="${KERNELCACHE_NODE_LABEL_VALUE:-true}"
+KERNELCACHE_NODE_LABEL_KEY="${KERNELCACHE_NODE_LABEL_KEY}"
+KERNELCACHE_NODE_LABEL_VALUE="${KERNELCACHE_NODE_LABEL_VALUE}"
 KERNELCACHE_JOBS_NS="kserve-kernelcache-jobs"
 KERNELCACHE_REGISTRY_ENDPOINT="image-registry.openshift-image-registry.svc:5000"
-if [ -z "$KO_DOCKER_REPO" ]; then
-  exit 1
-fi
 
 export KO_DEFAULTPLATFORMS=linux/amd64
 export TAG=${TAG:-test-gkm}
 export MCV_IMAGE="${KO_DOCKER_REPO}/${MCV_IMG}:${TAG}-minimal"
 
-# make docker-build docker-push
-# make docker-build-kernelcachenode-agent docker-push-kernelcachenode-agent
-# make docker-build-localmodel docker-push-localmodel
-# make docker-build-mcv-minimal docker-push-mcv-minimal
+make docker-build docker-push
+make docker-build-kernelcachenode-agent docker-push-kernelcachenode-agent
+make docker-build-localmodel docker-push-localmodel
+make docker-build-mcv-minimal docker-push-mcv-minimal
 
 log_info "KernelCache setup"
 log_info "  node group  : ${KERNELCACHE_NODE_GROUP}"
@@ -128,7 +111,7 @@ KERNELCACHE_CONFIG="$(cat <<EOF
   "mcvImage": "${MCV_IMAGE}",
   "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
   "registry": {
-    "endpoint": "image-registry.openshift-image-registry.svc:5000",
+    "endpoint": "${KERNELCACHE_REGISTRY_ENDPOINT}",
     "caConfigMapRef": {
       "name": "openshift-service-ca.crt",
       "key": "service-ca.crt"

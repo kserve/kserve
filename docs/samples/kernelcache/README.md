@@ -1,7 +1,7 @@
 # Setup for KernelCache
 
 This directory includes setup scripts for using KernelCache.
-Scripts are provided for both Minikube and OpenShift. The  setup for Minikube is already covered by [GitHub Actions Script](/home/jlee/temp/20260522_gkm/kserve/test/scripts/gh-actions/setup-kernelcache.sh), so you can use that flow when working with Minikube.
+Scripts are provided for both Minikube and OpenShift. The  setup for Minikube is already covered by [GitHub Actions Script](../../../test/scripts/gh-actions/setup-kernelcache.sh), so you can use that flow when working with Minikube.
 The documentation here focuses on setups that use ServiceAccount tokens. OpenShift is used as the example platform because it is a common environment where ServiceAccount token-based authentication is required.
 
 
@@ -27,8 +27,9 @@ kubectl get kcng,kcn -n kserve
 * Deploy isvc
 ```
 kubectl create ns kc-test
-kubectl create -f ./docs/samples/kernelcache/vllm-servingruntime.yaml -n kc-test
-kubectl create -f ./docs/samples/kernelcache/isvc.yaml -n kc-test
+kubectl config set-context --current --namespace=kc-test
+kubectl create -f ./docs/samples/kernelcache/vllm-servingruntime.yaml
+kubectl create -f ./docs/samples/kernelcache/isvc.yaml
 kubectl get pod
 NAME                                           READY   STATUS    RESTARTS   AGE
 opt-125m-no-cache-predictor-566d8dc4bf-lhh2b   1/2     Running   0          39s
@@ -40,7 +41,7 @@ The pod has two containers: vLLM and the MCV sidecar, which creates the OCI imag
 
 * Check KCC/KC 
 ```
-kubectl get kcc,kc,kcn -n kc-test
+kubectl get kcc,kc,kcn
 ```
 * Example output
 ```
@@ -82,7 +83,7 @@ kubectl get kc -oyaml
 
 * Restart pod to see if it is using kernel cache 
 ```
-kubectl delete pod --force --all -n kc-test
+kubectl delete pod --force --all
 
 kubectl get pod 
 NAME                                           READY   STATUS     RESTARTS   AGE
