@@ -23,6 +23,7 @@ import (
 	"github.com/go-logr/logr"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -93,12 +94,21 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 		return c.reconcileSharedPVC(ctx, localModel, isvcConfigMap, consumers)
 	}
 
+	deleting := !localModel.DeletionTimestamp.IsZero()
 	defaultNodeGroup := &v1alpha1.LocalModelNodeGroup{}
 	nodeGroups := map[string]*v1alpha1.LocalModelNodeGroup{}
 	for idx, nodeGroupName := range localModel.Spec.NodeGroups {
 		nodeGroup := &v1alpha1.LocalModelNodeGroup{}
 		nodeGroupNamespacedName := types.NamespacedName{Name: nodeGroupName}
 		if err := c.Get(ctx, nodeGroupNamespacedName, nodeGroup); err != nil {
+			if deleting && apierr.IsNotFound(err) {
+				// A node group deleted before the cache (nothing guards that order)
+				// must not strand cache deletion. Keep a nil entry so name-based
+				// cleanup (PV/PVC) still runs and leftover per-node entries are
+				// swept before the finalizer goes.
+				nodeGroups[nodeGroupName] = nil
+				continue
+			}
 			return reconcile.Result{}, err
 		}
 		nodeGroups[nodeGroupName] = nodeGroup
@@ -119,6 +129,9 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 			}
 		}
 	} else {
+		// DeleteModelFromNodes removes the finalizer only after every cleanup step
+		// (node entries, missing-group sweep, PV/PVC) succeeded, so a failure is
+		// retried instead of being lost once the cache is gone.
 		return DeleteModelFromNodes(ctx, c.Client, c.Clientset, c.Log, nil, localModel, nodeGroups)
 	}
 
