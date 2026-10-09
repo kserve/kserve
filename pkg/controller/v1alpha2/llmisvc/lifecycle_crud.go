@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -28,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -64,6 +66,16 @@ func Delete[O client.Object, T client.Object](ctx context.Context, c clientWithR
 	if err := c.Get(ctx, client.ObjectKeyFromObject(expected), existing); err != nil {
 		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 			return nil
+		}
+		// Optional APIs have no informer when absent. The strict cache can
+		// reject the read before discovery; ignore only a confirmed missing API,
+		// not a missing informer for an installed resource.
+		var notCached *cache.ErrResourceNotCached
+		if errors.As(err, &notCached) {
+			_, mappingErr := c.RESTMapper().RESTMapping(notCached.GVK.GroupKind(), notCached.GVK.Version)
+			if meta.IsNoMatchError(mappingErr) {
+				return nil
+			}
 		}
 		return fmt.Errorf("failed to get %s %s/%s: %w", typeLogLine, expected.GetNamespace(), expected.GetName(), err)
 	}
