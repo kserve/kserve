@@ -111,6 +111,8 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.kernelcache.registry.caConfigMapRef.key | string | `""` |  |
 | kserve.kernelcache.registry.caConfigMapRef.name | string | `""` |  |
 | kserve.kernelcache.registry.endpoint | string | `""` |  |
+| kserve.llmisvc.featureGates.disaggregatedSet | bool | `false` |  |
+| kserve.llmisvc.featureGates.recursiveConfigRender | bool | `false` |  |
 | kserve.localmodel.agent.affinity | object | `{}` |  |
 | kserve.localmodel.agent.hostPath | string | `"/mnt/models"` |  |
 | kserve.localmodel.agent.image | string | `"kserve/kserve-localmodelnode-agent"` |  |

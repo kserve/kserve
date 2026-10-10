@@ -26,6 +26,22 @@
                             "default": true,
                             "description": "Create the Gateway API Inference Extension (GIE) CRDs bundled with this chart. Set to false if these CRDs are managed by another component to avoid Helm release-ownership conflicts. The LLMInferenceService controller still requires the CRDs to exist on the cluster at runtime."
                         },
+                        "featureGates": {
+                            "type": "object",
+                            "description": "Opt-in LLMInferenceService controller features, rendered into the llmisvc key of the inferenceservice-config ConfigMap.",
+                            "properties": {
+                                "disaggregatedSet": {
+                                    "type": "boolean",
+                                    "default": false,
+                                    "description": "Run prefill/decode services on a LeaderWorkerSet DisaggregatedSet when their presets request it and the DisaggregatedSet CRD is installed. Enabling it moves running P/D services onto a DisaggregatedSet, and each is unavailable until its new pods are ready."
+                                },
+                                "recursiveConfigRender": {
+                                    "type": "boolean",
+                                    "default": false,
+                                    "description": "Render LLMInferenceServiceConfig templates one string field at a time instead of through a JSON round trip. The presets from v0.21.0 and earlier do not work under it. Validate any custom templates against the new renderer before enabling it."
+                                }
+                            }
+                        },
                         "controller": {
                             "type": "object",
                             "properties": {

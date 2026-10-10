@@ -218,3 +218,11 @@ data:
       "scaleUpStabilizationWindowSeconds": "{{ .Values.kserve.autoscaler.scaleUpStabilizationWindowSeconds }}",
       "scaleDownStabilizationWindowSeconds": "{{ .Values.kserve.autoscaler.scaleDownStabilizationWindowSeconds }}"
     }
+
+  llmisvc: |-
+    {
+      "featureGates": {
+        "disaggregatedSet": {{ .Values.kserve.llmisvc.featureGates.disaggregatedSet | default false }},
+        "recursiveConfigRender": {{ .Values.kserve.llmisvc.featureGates.recursiveConfigRender | default false }}
+      }
+    }

@@ -39,7 +39,7 @@ const (
 
 	// llmISVCConfigMapKey is the key in the inferenceservice-config ConfigMap that
 	// holds LLMInferenceService controller settings, currently the feature gates.
-	// The key is optional and absent by default; see LLMISVCConfig.
+	// The key is optional and absent from the kustomize manifests. See LLMISVCConfig.
 	llmISVCConfigMapKey = "llmisvc"
 )
 
@@ -106,14 +106,36 @@ type FeatureGates struct {
 	// presets from an earlier release (see LLM_INFERENCE_SERVICE_CONFIG_PREFIX) do not
 	// carry the default and keep their workloads unless they set the annotation.
 	DisaggregatedSet bool `json:"disaggregatedSet,omitempty"`
+
+	// RecursiveConfigRender renders LLMInferenceServiceConfig templates by walking the
+	// merged config and executing each string field as its own template, instead of
+	// marshaling the whole config to JSON and executing that as one template. Values a
+	// template emits are taken literally, so quotes, backslashes and newlines in them no
+	// longer corrupt the JSON document. See replaceVariablesUsingWalk.
+	//
+	// The shipped presets render the same under both renderers, so turning the gate on
+	// does not restart services that use them.
+	//
+	// The presets from v0.21.0 and earlier do not work under this gate. Those from
+	// v0.20.0 and v0.21.0 call a deprecatedTemplateFuncs entry, which does not exist
+	// here, so they fail to render. The service keeps its current workloads and reports
+	// the error in its PresetsCombined condition, and the webhook rejects creating or
+	// updating such a config. Earlier data-parallel presets render a different command
+	// with no error, and their workloads restart with it. Services stay pinned to old
+	// presets only where preset names are versioned (see
+	// LLM_INFERENCE_SERVICE_CONFIG_PREFIX).
+	//
+	// Custom templates can render differently under this gate, so validate them against
+	// it before turning it on.
+	RecursiveConfigRender bool `json:"recursiveConfigRender,omitempty"`
 }
 
 // LLMISVCConfig holds LLMInferenceService controller settings read from the "llmisvc"
 // key of the inferenceservice-config ConfigMap.
 //
-// The key is optional and is not shipped in the default ConfigMap, matching the other
-// controller-private keys in that ConfigMap ("scheduler",
-// "autoscaling-wva-controller-config"). To enable a gate, add for example:
+// The key is optional. The Helm charts always render it from kserve.llmisvc.featureGates,
+// with every gate off by default, while the kustomize manifests do not ship it. To
+// enable a gate without Helm, add for example:
 //
 //	llmisvc: |-
 //	  {"featureGates": {"disaggregatedSet": true}}
