@@ -7,6 +7,15 @@ spec:
     name: storage-initializer
     image: default-storage-initilizer:replace
     imagePullPolicy: IfNotPresent
+    securityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      privileged: false
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
     resources:
       requests:
         memory: 100Mi
