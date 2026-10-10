@@ -388,6 +388,136 @@ func TestAgentInjector(t *testing.T) {
 				},
 			},
 		},
+		"AddLoggerWithLogAllResponses": {
+			original: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.LoggerInternalAnnotationKey:                "true",
+						constants.LoggerSinkUrlInternalAnnotationKey:         "http://httpbin.org/",
+						constants.LoggerModeInternalAnnotationKey:            string(v1beta1.LogAll),
+						constants.LoggerLogAllResponsesInternalAnnotationKey: "true",
+					},
+					Labels: map[string]string{
+						"serving.kserve.io/inferenceservice": "sklearn",
+						constants.KServiceModelLabel:         "sklearn",
+						constants.KServiceEndpointLabel:      "default",
+						constants.KServiceComponentLabel:     "predictor",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "sklearn",
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
+										Port: intstr.IntOrString{
+											IntVal: 8080,
+										},
+									},
+								},
+								InitialDelaySeconds: 0,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+						},
+						{
+							Name: "queue-proxy",
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+						},
+					},
+				},
+			},
+			expected: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "deployment",
+					Annotations: map[string]string{
+						constants.LoggerInternalAnnotationKey:                "true",
+						constants.LoggerSinkUrlInternalAnnotationKey:         "http://httpbin.org/",
+						constants.LoggerModeInternalAnnotationKey:            string(v1beta1.LogAll),
+						constants.LoggerLogAllResponsesInternalAnnotationKey: "true",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name: "sklearn",
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									TCPSocket: &corev1.TCPSocketAction{
+										Port: intstr.IntOrString{
+											IntVal: 8080,
+										},
+									},
+								},
+								InitialDelaySeconds: 0,
+								TimeoutSeconds:      1,
+								PeriodSeconds:       10,
+								SuccessThreshold:    1,
+								FailureThreshold:    3,
+							},
+						},
+						{
+							Name: "queue-proxy",
+							Env:  []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+						},
+						{
+							Name:  constants.AgentContainerName,
+							Image: loggerConfig.Image,
+							Args: []string{
+								LoggerArgumentLogUrl,
+								"http://httpbin.org/",
+								LoggerArgumentSourceUri,
+								"deployment",
+								LoggerArgumentMode,
+								"all",
+								LoggerArgumentInferenceService,
+								"sklearn",
+								LoggerArgumentNamespace,
+								"default",
+								LoggerArgumentEndpoint,
+								"default",
+								LoggerArgumentComponent,
+								"predictor",
+								LoggerArgumentLogAllResponses + "=true",
+								LoggerArgumentTlsSkipVerify,
+								"false",
+								constants.AgentComponentPortArgName,
+								constants.InferenceServiceDefaultHttpPort,
+							},
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          "agent-port",
+									ContainerPort: constants.InferenceServiceDefaultAgentPort,
+									Protocol:      "TCP",
+								},
+							},
+							Env:       []corev1.EnvVar{{Name: "SERVING_READINESS_PROBE", Value: "{\"tcpSocket\":{\"port\":8080},\"timeoutSeconds\":1,\"periodSeconds\":10,\"successThreshold\":1,\"failureThreshold\":3}"}},
+							Resources: agentResourceRequirement,
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										HTTPHeaders: []corev1.HTTPHeader{
+											{
+												Name:  "K-Network-Probe",
+												Value: "queue",
+											},
+										},
+										Port:   intstr.FromInt(9081),
+										Path:   "/",
+										Scheme: "HTTP",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		"AddLoggerWithMetadata": {
 			original: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{

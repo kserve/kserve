@@ -37,4 +37,5 @@ type LogRequest struct {
 	CertName         string              `json:"certName,omitempty"`
 	TlsSkipVerify    bool                `json:"tlsSkipVerify,omitempty"`
 	OccurrenceTime   time.Time           `json:"occurrenceTime"`
+	StatusCode       int                 `json:"statusCode,omitempty"`
 }
