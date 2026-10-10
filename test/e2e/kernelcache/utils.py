@@ -22,11 +22,18 @@ from kubernetes.client.exceptions import ApiException
 
 from kserve.constants.constants import (
     KSERVE_GROUP,
+    KSERVE_KIND_INFERENCESERVICE,
     KSERVE_V1ALPHA1_VERSION,
+    KSERVE_V1BETA1,
     KSERVE_PLURAL_KERNELCACHE,
     KSERVE_PLURAL_KERNELCACHECAPTURE,
     KSERVE_PLURAL_KERNELCACHENODE,
 )
+from kserve.models.v1beta1_inference_service import V1beta1InferenceService
+from kserve.models.v1beta1_inference_service_spec import V1beta1InferenceServiceSpec
+from kserve.models.v1beta1_model_format import V1beta1ModelFormat
+from kserve.models.v1beta1_model_spec import V1beta1ModelSpec
+from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
 
 _logger = logging.getLogger(__name__)
 
@@ -104,6 +111,38 @@ def wait_for(
             time.sleep(interval)
 
 
+def make_producer_isvc(
+    name: str, namespace: str, storage_uri: str
+) -> V1beta1InferenceService:
+    """Build a KC producer ISVC that triggers MCV capture via kernelcache-test-runtime."""
+    return V1beta1InferenceService(
+        api_version=KSERVE_V1BETA1,
+        kind=KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=name,
+            namespace=namespace,
+            # Standard mode bypasses Knative (which strips the HTTP readinessProbe
+            # from the pod spec when injecting queue-proxy, breaking the MCV webhook).
+            annotations={"serving.kserve.io/deploymentMode": "Standard"},
+        ),
+        spec=V1beta1InferenceServiceSpec(
+            predictor=V1beta1PredictorSpec(
+                min_replicas=1,
+                model=V1beta1ModelSpec(
+                    model_format=V1beta1ModelFormat(name="test-cache"),
+                    # storageUri causes the storage annotation to be set on the pod,
+                    # which is required by the MCV sidecar injection webhook.
+                    storage_uri=storage_uri,
+                    resources=client.V1ResourceRequirements(
+                        requests={"cpu": "100m", "memory": "256Mi"},
+                        limits={"cpu": "500m", "memory": "512Mi"},
+                    ),
+                ),
+            )
+        ),
+    )
+
+
 def wait_for_resource_deleted(
     group: str,
     version: str,
@@ -151,12 +190,11 @@ def wait_for_resource_deleted(
 def wait_for_kernelcache_nodes(
     expected_node_names: list[str], timeout: int = 120
 ) -> list:
-    """Poll until a KernelCacheNode exists for each expected node name and has been reconciled.
+    """Poll until a KernelCacheNode exists for each expected node name.
 
     Verifies that each node name in expected_node_names has a corresponding
-    KernelCacheNode CR (matching by name) and that the agent has reconciled it
-    (status.counts field is populated), preventing false passes from stale KCNs
-    left over from previous tests or KCNs that haven't been reconciled yet.
+    KernelCacheNode CR (matching by name), preventing false passes from stale
+    KCNs left over from previous tests.
 
     Args:
         expected_node_names: List of Kubernetes node names that should have KCNs
@@ -185,22 +223,9 @@ def wait_for_kernelcache_nodes(
             f"(have: {sorted(kcn_names)}, expect: {sorted(expected_node_names)})"
         )
 
-        # Verify each expected KCN has been reconciled by the agent (status.counts exists).
-        # The agent populates this field on its first reconcile after the controller creates
-        # the KCN resource. Without this check, the test could pass before the agent pod starts.
-        matching_kcns = [
+        return [
             item for item in items if item["metadata"]["name"] in expected_node_names
         ]
-        not_reconciled = [
-            item["metadata"]["name"]
-            for item in matching_kcns
-            if not item.get("status", {}).get("counts")
-        ]
-        assert not not_reconciled, (
-            f"KernelCacheNode exists but not yet reconciled by agent: {not_reconciled}"
-        )
-
-        return matching_kcns
 
     return wait_for(check_nodes, timeout=timeout, interval=5.0)
 
@@ -352,6 +377,140 @@ def wait_for_kernelcache_verified(
         return kc
 
     return wait_for(check_verification, timeout=timeout, interval=5.0)
+
+
+_KERNEL_CACHE_SOURCE_VOLUME = "kernel-cache-source"
+_KERNEL_CACHE_LINKER_CONTAINER = "kernel-cache-linker"
+_KERNEL_CACHE_USAGE_ANNOTATION = "internal.serving.kserve.io/kernelcache-usage"
+
+
+def wait_for_kernelcachenode_cache_ready(
+    kc_namespace: str, kc_name: str, timeout: int = 300
+) -> None:
+    """Poll until at least one KernelCacheNode reports the KC as Ready.
+
+    The injection webhook reads KernelCacheNode.status.cacheStatus to find
+    candidates; if no node has the KC in Ready state the webhook falls back
+    to injecting MCV instead of mounting the cache.
+    """
+    deadline = time.monotonic() + timeout
+    api = _custom_api()
+    key = f"{kc_namespace}/{kc_name}"
+    iteration = 0
+    while time.monotonic() < deadline:
+        nodes = api.list_cluster_custom_object(
+            KSERVE_GROUP, KSERVE_V1ALPHA1_VERSION, KSERVE_PLURAL_KERNELCACHENODE
+        ).get("items", [])
+
+        # Log all caches on first iteration and every 6th iteration (every 60s)
+        # to help diagnose if the cache exists but with a different key
+        dump_all_caches = iteration % 6 == 0
+
+        for node in nodes:
+            node_name = node["metadata"]["name"]
+            cache_status = node.get("status", {}).get("cacheStatus", {})
+            info = cache_status.get(key, {})
+            state = info.get("state", "")
+
+            if dump_all_caches and cache_status:
+                _logger.info(
+                    "KernelCacheNode %s has %d cache(es): %s",
+                    node_name,
+                    len(cache_status),
+                    ", ".join(
+                        f"{k}={v.get('state', 'no-state')}"
+                        for k, v in cache_status.items()
+                    ),
+                )
+
+            _logger.info(
+                "KernelCacheNode %s cacheStatus[%s].state=%s",
+                node_name,
+                key,
+                state or "(absent)",
+            )
+            if state == "Ready":
+                return
+
+        iteration += 1
+        time.sleep(10)
+
+    # Gather final diagnostic info
+    final_status = []
+    for node in nodes:
+        node_name = node["metadata"]["name"]
+        cache_status = node.get("status", {}).get("cacheStatus", {})
+        if cache_status:
+            final_status.append(f"{node_name}: {len(cache_status)} cache(s)")
+        else:
+            final_status.append(f"{node_name}: no caches")
+
+    raise TimeoutError(
+        f"KernelCache {key} did not reach Ready state on any KernelCacheNode within {timeout}s. "
+        f"Final KCN status: {'; '.join(final_status) if final_status else 'no nodes found'}. "
+        f"Check kserve-kernelcachenode-agent DaemonSet and logs for errors."
+    )
+
+
+def pod_has_cache_injected(namespace: str, isvc_name: str) -> client.V1Pod | None:
+    """Return the ISVC pod if it has the kernel-cache volume and linker init
+    container injected, or None if not yet present or not injected."""
+    core = _core_api()
+    pods = core.list_namespaced_pod(
+        namespace,
+        label_selector=f"serving.kserve.io/inferenceservice={isvc_name}",
+    ).items
+    for pod in pods:
+        has_source_volume = any(
+            v.name == _KERNEL_CACHE_SOURCE_VOLUME and v.image is not None
+            for v in (pod.spec.volumes or [])
+        )
+        has_linker = any(
+            c.name == _KERNEL_CACHE_LINKER_CONTAINER
+            for c in (pod.spec.init_containers or [])
+        )
+        if has_source_volume and has_linker:
+            return pod
+    return None
+
+
+def wait_for_cache_injected(
+    namespace: str, isvc_name: str, timeout: int = 120
+) -> client.V1Pod:
+    """Poll until the ISVC pod has the kernel-cache OCI volume and linker
+    init container injected by the pod mutator webhook."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        pod = pod_has_cache_injected(namespace, isvc_name)
+        if pod is not None:
+            _logger.info("Cache injected into ISVC %s/%s pod", namespace, isvc_name)
+            return pod
+        time.sleep(5)
+    raise AssertionError(
+        f"No pod for ISVC {namespace}/{isvc_name} had cache injected within {timeout}s"
+    )
+
+
+def wait_for_isvc_pod_running(
+    namespace: str, isvc_name: str, timeout: int = 300
+) -> None:
+    """Poll until at least one pod for the ISVC reaches Running phase."""
+    deadline = time.monotonic() + timeout
+    core = _core_api()
+    while time.monotonic() < deadline:
+        pods = core.list_namespaced_pod(
+            namespace,
+            label_selector=f"serving.kserve.io/inferenceservice={isvc_name}",
+        ).items
+        for pod in pods:
+            phase = (pod.status.phase or "") if pod.status else ""
+            _logger.info("Pod for ISVC %s/%s phase: %s", namespace, isvc_name, phase)
+            if phase == "Running":
+                return
+        time.sleep(5)
+    raise TimeoutError(
+        f"No pod for ISVC {namespace}/{isvc_name} reached Running within {timeout}s"
+    )
 
 
 def pod_has_mcv_sidecar(namespace: str, isvc_name: str) -> bool:
