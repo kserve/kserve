@@ -358,6 +358,41 @@ var _ = Describe("Routing Status", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
+
+	Context("External scheduler without route or gateway refs", func() {
+		It("publishes the Service named by the external pool endpoint picker", func(ctx SpecContext) {
+			testNs := NewTestNamespace(ctx, envTest)
+			pool := InferencePool("external-pool",
+				WithSelector("app", "workload"),
+				WithEndpointPickerRef("", "Service", "custom-endpoint-picker", 9002),
+			)
+			pool.Namespace = testNs.Name
+			Expect(envTest.Create(ctx, pool)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, pool)
+			}()
+
+			llmSvc := LLMInferenceService("test-external-scheduler-status",
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithReplicas(1),
+				WithInferencePoolRef(pool.Name),
+			)
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status.Router).ToNot(BeNil())
+				g.Expect(current.Status.Router.Scheduler).ToNot(BeNil())
+				g.Expect(current.Status.Router.Scheduler.Service).ToNot(BeNil())
+				g.Expect(string(current.Status.Router.Scheduler.Service.Name)).To(Equal("custom-endpoint-picker"))
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
 })
 
 func setGatewayStatusAddresses(ctx context.Context, c client.Client, gw *gwapiv1.Gateway, addresses ...string) {
