@@ -15,6 +15,7 @@
 import asyncio
 
 import pytest
+from vllm.v1.engine.exceptions import EngineDeadError
 
 from huggingfaceserver.vllm.engine_health import VLLMEngineHealth
 
@@ -67,7 +68,7 @@ async def test_initializing_before_client_exists_is_live_but_not_ready():
 
 @pytest.mark.asyncio
 async def test_worker_failure_during_initialization_fails_liveness():
-    client = FakeEngineClient(error=RuntimeError("worker exited during startup"))
+    client = FakeEngineClient(error=EngineDeadError())
     health = VLLMEngineHealth(timeout_seconds=0.1)
     health.set_engine_client(client)
 
@@ -78,56 +79,73 @@ async def test_worker_failure_during_initialization_fails_liveness():
 
 @pytest.mark.asyncio
 async def test_background_loop_failure_is_latched_for_live_and_ready():
-    client = FakeEngineClient(error=RuntimeError("background loop failed"))
+    error = EngineDeadError()
+    client = FakeEngineClient(error=error)
     health = VLLMEngineHealth(timeout_seconds=0.1)
     health.set_engine_client(client)
     health.mark_ready()
 
     assert await health.is_ready() is False
+    client.error = None
     assert await health.is_live() is False
+    assert await health.is_ready() is False
     assert client.check_count == 1
-    assert isinstance(health.failure, RuntimeError)
+    assert health.failure is error
 
 
 @pytest.mark.asyncio
 async def test_worker_exit_is_latched_for_live_and_ready():
-    class FakeEngineDeadError(RuntimeError):
-        pass
-
-    client = FakeEngineClient(error=FakeEngineDeadError("worker exited"))
+    error = EngineDeadError()
+    client = FakeEngineClient(error=error)
     health = VLLMEngineHealth(timeout_seconds=0.1)
     health.set_engine_client(client)
     health.mark_ready()
 
     assert await health.is_live() is False
+    client.error = None
     assert await health.is_ready() is False
+    assert await health.is_live() is False
     assert client.check_count == 1
-    assert isinstance(health.failure, FakeEngineDeadError)
+    assert health.failure is error
 
 
 @pytest.mark.asyncio
-async def test_health_check_timeout_fails_closed_without_hanging():
+@pytest.mark.parametrize("probe_name", ["is_live", "is_ready"])
+async def test_health_check_timeouts_fail_closed_and_allow_recovery(probe_name):
     client = FakeEngineClient(block=True)
     health = VLLMEngineHealth(timeout_seconds=0.01)
     health.set_engine_client(client)
     health.mark_ready()
 
-    assert await asyncio.wait_for(health.is_live(), timeout=0.2) is False
-    assert await health.is_ready() is False
-    assert client.check_count == 1
-    assert isinstance(health.failure, TimeoutError)
+    probe = getattr(health, probe_name)
+    for _ in range(2):
+        assert await asyncio.wait_for(probe(), timeout=0.2) is False
+        assert health.failure is None
+
+    client.block = False
+    assert await health.is_live() is True
+    assert await health.is_ready() is True
+    assert client.check_count == 4
 
 
 @pytest.mark.asyncio
-async def test_health_check_exception_fails_closed():
-    client = FakeEngineClient(error=ValueError("scheduler failed"))
+@pytest.mark.parametrize("probe_name", ["is_live", "is_ready"])
+@pytest.mark.parametrize("error_type", [RuntimeError, ValueError])
+async def test_health_check_exception_fails_closed_and_allows_recovery(
+    probe_name, error_type
+):
+    client = FakeEngineClient(error=error_type("transient health check failure"))
     health = VLLMEngineHealth(timeout_seconds=0.1)
     health.set_engine_client(client)
     health.mark_ready()
 
-    assert await health.is_live() is False
-    assert await health.is_ready() is False
-    assert client.check_count == 1
+    assert await getattr(health, probe_name)() is False
+    assert health.failure is None
+
+    client.error = None
+    assert await health.is_live() is True
+    assert await health.is_ready() is True
+    assert client.check_count == 3
 
 
 @pytest.mark.asyncio
@@ -144,7 +162,7 @@ async def test_concurrent_success_cannot_race_past_a_latched_failure():
                 self.first_check_started.set()
                 await self.release_first_check.wait()
                 return
-            raise RuntimeError("concurrent worker failure")
+            raise EngineDeadError()
 
     client = RacingEngineClient()
     health = VLLMEngineHealth(timeout_seconds=1.0)
@@ -157,7 +175,41 @@ async def test_concurrent_success_cannot_race_past_a_latched_failure():
     client.release_first_check.set()
 
     assert await first_probe is False
-    assert isinstance(health.failure, RuntimeError)
+    assert isinstance(health.failure, EngineDeadError)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error_type", [TimeoutError, ValueError])
+async def test_concurrent_transient_failure_does_not_poison_success(error_type):
+    class RacingEngineClient:
+        def __init__(self):
+            self.check_count = 0
+            self.first_check_started = asyncio.Event()
+            self.release_first_check = asyncio.Event()
+
+        async def check_health(self) -> None:
+            self.check_count += 1
+            if self.check_count == 1:
+                self.first_check_started.set()
+                await self.release_first_check.wait()
+            elif self.check_count == 2:
+                raise error_type("transient health check failure")
+
+    client = RacingEngineClient()
+    health = VLLMEngineHealth(timeout_seconds=1.0)
+    health.set_engine_client(client)
+    health.mark_ready()
+
+    first_probe = asyncio.create_task(health.is_live())
+    await client.first_check_started.wait()
+    try:
+        assert await health.is_ready() is False
+    finally:
+        client.release_first_check.set()
+
+    assert await first_probe is True
+    assert health.failure is None
+    assert await health.is_ready() is True
 
 
 @pytest.mark.asyncio

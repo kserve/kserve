@@ -18,6 +18,16 @@ from typing import Optional, Protocol
 from kserve.logging import logger
 
 
+# This module is also imported by backends that do not require vLLM.
+_ENGINE_DEAD_ERRORS: tuple[type[Exception], ...]
+try:
+    from vllm.v1.engine.exceptions import EngineDeadError
+
+    _ENGINE_DEAD_ERRORS = (EngineDeadError,)
+except ImportError:
+    _ENGINE_DEAD_ERRORS = ()
+
+
 DEFAULT_VLLM_HEALTH_CHECK_TIMEOUT_SECONDS = 1.0
 
 
@@ -32,10 +42,10 @@ class VLLMEngineHealth:
     """Tracks vLLM initialization and fatal engine failures.
 
     vLLM's public ``EngineClient.check_health`` method reports both a failed
-    AsyncLLM output handler and an EngineCore/worker process failure. A failed
-    check is latched because neither condition is recoverable without replacing
-    the engine. This also makes subsequent Kubernetes probes inexpensive and
-    gives them a stable result.
+    AsyncLLM output handler and an EngineCore/worker process failure through
+    ``EngineDeadError``. This explicit engine-death error is latched. Timeouts
+    and other exceptions fail the current probe while allowing later probes to
+    retry and recover.
     """
 
     def __init__(self, timeout_seconds: float):
@@ -117,15 +127,15 @@ class VLLMEngineHealth:
         except asyncio.CancelledError:
             raise
         except asyncio.TimeoutError as error:
-            timeout_error = TimeoutError(
-                "vLLM engine health check timed out after "
-                f"{self._timeout_seconds:g} seconds"
+            logger.error(
+                "vLLM engine health check timed out after %g seconds",
+                self._timeout_seconds,
+                exc_info=error,
             )
-            self.mark_failed(timeout_error)
-            logger.error("vLLM engine health check timed out", exc_info=error)
             return False
         except Exception as error:
-            self.mark_failed(error)
+            if isinstance(error, _ENGINE_DEAD_ERRORS):
+                self.mark_failed(error)
             logger.error("vLLM engine health check failed", exc_info=error)
             return False
 
