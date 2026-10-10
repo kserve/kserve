@@ -58,6 +58,22 @@ func NewHPAReconciler(client client.Client,
 	}, nil
 }
 
+// resolveMemoryTargetType picks the target type to render for a memory resource metric.
+// target.type is optional in the CRD, so infer it when exactly one target value says which
+// type was meant. Anything else stays unresolved and renders as it did before.
+func resolveMemoryTargetType(target v1beta1.MetricTarget) v1beta1.MetricTargetType {
+	if target.Type != "" {
+		return target.Type
+	}
+	switch {
+	case target.AverageValue != nil && target.AverageUtilization == nil:
+		return v1beta1.AverageValueMetricType
+	case target.AverageUtilization != nil && target.AverageValue == nil:
+		return v1beta1.UtilizationMetricType
+	}
+	return ""
+}
+
 func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2.MetricSpec {
 	var metrics []autoscalingv2.MetricSpec
 	if componentExt != nil && componentExt.AutoScaling != nil {
@@ -89,7 +105,7 @@ func getHPAMetrics(componentExt *v1beta1.ComponentExtensionSpec) []autoscalingv2
 						Name: corev1.ResourceName(metric.Resource.Name),
 					},
 				}
-				switch metric.Resource.Target.Type {
+				switch resolveMemoryTargetType(metric.Resource.Target) {
 				case v1beta1.UtilizationMetricType:
 					ms.Resource.Target.Type = autoscalingv2.UtilizationMetricType
 					ms.Resource.Target.AverageUtilization = metric.Resource.Target.AverageUtilization
