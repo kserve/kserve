@@ -2342,6 +2342,75 @@ schedulingProfiles:
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
+
+	Context("Scheduler template with pod-level fields but no containers", func() {
+		It("should deploy successfully and inject a default main container", func(ctx SpecContext) {
+			svcName := "test-scheduler-no-containers"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+			llmSvc.Spec.Router.Scheduler.Template = &corev1.PodSpec{
+				Affinity: &corev1.Affinity{
+					PodAffinity: &corev1.PodAffinity{
+						PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+							{
+								Weight: 100,
+								PodAffinityTerm: corev1.PodAffinityTerm{
+									LabelSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"app.kubernetes.io/name": svcName,
+										},
+									},
+									TopologyKey: "kubernetes.io/hostname",
+								},
+							},
+						},
+					},
+				},
+				Tolerations: []corev1.Toleration{
+					{
+						Key:      "nvidia.com/gpu",
+						Operator: corev1.TolerationOpExists,
+						Effect:   corev1.TaintEffectNoSchedule,
+					},
+				},
+			}
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			deployment := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) error {
+				return envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+					Namespace: testNs.Name,
+				}, deployment)
+			}).WithContext(ctx).Should(Succeed())
+
+			// Verify the deployment has at least one container named "main"
+			Expect(deployment.Spec.Template.Spec.Containers).NotTo(BeEmpty(),
+				"Scheduler deployment must have at least one container")
+			Expect(deployment.Spec.Template.Spec.Containers[0].Name).To(Equal("main"),
+				"Default injected container must be named 'main'")
+
+			// Verify the pod-level fields were preserved
+			Expect(deployment.Spec.Template.Spec.Affinity).NotTo(BeNil(),
+				"Affinity must be preserved on the scheduler deployment")
+			Expect(deployment.Spec.Template.Spec.Affinity.PodAffinity).NotTo(BeNil())
+			Expect(deployment.Spec.Template.Spec.Affinity.PodAffinity.PreferredDuringSchedulingIgnoredDuringExecution).To(HaveLen(1))
+			Expect(deployment.Spec.Template.Spec.Tolerations).To(HaveLen(1),
+				"Tolerations must be preserved on the scheduler deployment")
+			Expect(deployment.Spec.Template.Spec.Tolerations[0].Key).To(Equal("nvidia.com/gpu"))
+		})
+	})
 })
 
 // schedulerContainerName is the expected name of the main container in the scheduler deployment
