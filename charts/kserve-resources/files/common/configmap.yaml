@@ -707,6 +707,24 @@ data:
          # Periodic Node image validation uses the node agent's internal interval.
          "reconcileIntervalSeconds": 300
        }
+
+     # ====================================== LLMINFERENCESERVICE CONFIGURATION ======================================
+     # Example
+     llmisvc: |-
+       {
+         # featureGates are opt-in LLMInferenceService controller features. Every gate is off when unset.
+         "featureGates": {
+           # disaggregatedSet runs prefill/decode services on a LeaderWorkerSet DisaggregatedSet when their
+           # presets request it and the DisaggregatedSet CRD is installed. Enabling it moves running P/D
+           # services onto a DisaggregatedSet, and each is unavailable until its new pods are ready.
+           "disaggregatedSet": false,
+           # recursiveConfigRender renders LLMInferenceServiceConfig templates one string field at a time
+           # instead of through a JSON round trip, so values containing quotes, backslashes or newlines
+           # render as they are. The presets from v0.21.0 and earlier do not work under it. Validate any
+           # custom templates against the new renderer before enabling it.
+           "recursiveConfigRender": false
+         }
+       }
   agent: |-
     {
         "image" : "kserve/agent:latest",

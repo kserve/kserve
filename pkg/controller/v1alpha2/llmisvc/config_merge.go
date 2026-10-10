@@ -1005,6 +1005,11 @@ type templateGlobalConfig struct {
 //
 // Retire an entry by moving it to deprecatedTemplateFuncs, not by editing or
 // deleting it in place.
+//
+// Both renderers share these, so an entry must return the same text under both.
+// While the JSON renderer exists, that means text with nothing to escape in a JSON
+// string, such as a name or a number. A value that needs quotes or backslashes
+// belongs in a slot the controller fills after rendering, like kvTransferArgsEnvVar.
 var templateFuncs = map[string]any{
 	"ChildName": kmeta.ChildName,
 	// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
@@ -1046,6 +1051,9 @@ var templateFuncs = map[string]any{
 //   - Fix the bug in the replacement, never here.
 //
 // Each entry records what replaced it.
+//
+// Only the JSON renderer provides these. Under the RecursiveConfigRender gate they
+// do not exist, so a config that calls one fails to render.
 var deprecatedTemplateFuncs = map[string]any{
 	// kvTransferConfig: replaced by the kvTransferArgsEnvVar slot, which the
 	// controller fills in after rendering. The unconditional TieringOffloadingSpec
@@ -1097,12 +1105,131 @@ var deprecatedTemplateFuncs = map[string]any{
 
 // ReplaceVariables processes the configuration as a Go template to substitute
 // variables with values from the LLM service and global configuration.
+//
+// By default the whole config is marshaled to JSON and executed as one template.
+// The RecursiveConfigRender feature gate switches to replaceVariablesUsingWalk.
 func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig, reconcilerConfig *Config) (*v1alpha2.LLMInferenceServiceConfig, error) {
+	data := templateData(llmSvc, llmSvcCfg, reconcilerConfig)
+	if reconcilerConfig != nil && reconcilerConfig.FeatureGates.RecursiveConfigRender {
+		return replaceVariablesUsingWalk(llmSvcCfg, data)
+	}
+
 	templateBytes, err := json.Marshal(llmSvcCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal config for template processing: %w", err)
 	}
 	buf := bytes.NewBuffer(nil)
+	t, err := template.New("config").
+		Funcs(templateFuncs).
+		Funcs(deprecatedTemplateFuncs).
+		Option("missingkey=error").
+		Parse(string(templateBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse template config: %w", err)
+	}
+	if err := t.Execute(buf, data); err != nil {
+		return nil, fmt.Errorf("failed to merge config: %w", err)
+	}
+
+	out := &v1alpha2.LLMInferenceServiceConfig{}
+	if err := json.Unmarshal(buf.Bytes(), out); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal config from template: %w", err)
+	}
+	return out, nil
+}
+
+// replaceVariablesUsingWalk walks the config and executes each string, map keys
+// included, as its own template, instead of marshaling the whole config to JSON,
+// executing that as one template and unmarshaling the result.
+//
+// Under the JSON round trip every template action writes into a JSON document
+// without knowing it. That holds while what gets written is JSON-safe, such as an
+// identifier or a number, and breaks as soon as a template emits a quote, backslash
+// or literal newline it did not put there itself, including through range or with
+// over arbitrary data. Here a template's output becomes the value as it is, with no
+// second parse to corrupt.
+//
+// Templates can call templateFuncs only. deprecatedTemplateFuncs are not available.
+func replaceVariablesUsingWalk(llmSvcCfg *v1alpha2.LLMInferenceServiceConfig, data any) (*v1alpha2.LLMInferenceServiceConfig, error) {
+	tree, err := runtime.DefaultUnstructuredConverter.ToUnstructured(llmSvcCfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert config for template processing: %w", err)
+	}
+	rendered, err := replaceVariablesWalkTree("", tree, data)
+	if err != nil {
+		return nil, err
+	}
+	out := &v1alpha2.LLMInferenceServiceConfig{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(rendered.(map[string]any), out); err != nil {
+		return nil, fmt.Errorf("failed to convert config from template: %w", err)
+	}
+	return out, nil
+}
+
+// replaceVariablesWalkTree renders every string under node. path names the node in
+// template errors, so a failure points at the field that holds the template.
+func replaceVariablesWalkTree(path string, node, data any) (any, error) {
+	switch v := node.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(v))
+		for key, val := range v {
+			childPath := key
+			if path != "" {
+				childPath = path + "." + key
+			}
+			renderedKey, err := replaceVariablesTemplate(childPath, key, data)
+			if err != nil {
+				return nil, err
+			}
+			if _, ok := out[renderedKey]; ok {
+				return nil, fmt.Errorf("failed to merge config: %s: key %q is rendered more than once", path, renderedKey)
+			}
+			renderedVal, err := replaceVariablesWalkTree(childPath, val, data)
+			if err != nil {
+				return nil, err
+			}
+			out[renderedKey] = renderedVal
+		}
+		return out, nil
+	case []any:
+		for i, val := range v {
+			rendered, err := replaceVariablesWalkTree(fmt.Sprintf("%s[%d]", path, i), val, data)
+			if err != nil {
+				return nil, err
+			}
+			v[i] = rendered
+		}
+		return v, nil
+	case string:
+		return replaceVariablesTemplate(path, v, data)
+	default:
+		return v, nil
+	}
+}
+
+// replaceVariablesTemplate executes s as a template named after its path.
+func replaceVariablesTemplate(path, s string, data any) (string, error) {
+	// Text without an action renders as itself, so skip parsing it.
+	if !strings.Contains(s, "{{") {
+		return s, nil
+	}
+	t, err := template.New(path).
+		Funcs(templateFuncs).
+		Option("missingkey=error").
+		Parse(s)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template config: %w", err)
+	}
+	var buf strings.Builder
+	if err := t.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("failed to merge config: %w", err)
+	}
+	return buf.String(), nil
+}
+
+// templateData builds the value LLMInferenceServiceConfig templates execute
+// against. Both renderers use it, so a template sees the same fields under either.
+func templateData(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.LLMInferenceServiceConfig, reconcilerConfig *Config) any {
 	var gc templateGlobalConfig
 	if reconcilerConfig != nil {
 		gc = templateGlobalConfig{
@@ -1121,30 +1248,13 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 		}
 		gc.InferencePoolNamespacedName = infPoolNamespacedName.String()
 	}
-	config := struct {
+	return struct {
 		*v1alpha2.LLMInferenceService
 		GlobalConfig templateGlobalConfig
 	}{
 		LLMInferenceService: llmSvc,
 		GlobalConfig:        gc,
 	}
-	t, err := template.New("config").
-		Funcs(templateFuncs).
-		Funcs(deprecatedTemplateFuncs).
-		Option("missingkey=error").
-		Parse(string(templateBytes))
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse template config: %w", err)
-	}
-	if err := t.Execute(buf, config); err != nil {
-		return nil, fmt.Errorf("failed to merge config: %w", err)
-	}
-
-	out := &v1alpha2.LLMInferenceServiceConfig{}
-	if err := json.Unmarshal(buf.Bytes(), out); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal config from template: %w", err)
-	}
-	return out, nil
 }
 
 // configNotFoundError is returned by getConfig when an LLMInferenceServiceConfig

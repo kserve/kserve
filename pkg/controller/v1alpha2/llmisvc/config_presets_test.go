@@ -1101,6 +1101,105 @@ func TestPresetRenderingIsIndifferentToEmptyParallelism(t *testing.T) {
 	}
 }
 
+// TestPresetRenderingMatchesAcrossRenderers pins that every shipped preset renders the
+// same under the JSON renderer and under the RecursiveConfigRender gate, so turning the
+// gate on changes no workload built from them. A "{{-" that trims back to the line
+// break before it only works under the JSON renderer, where that line break is an
+// escaped "\n", and is the usual way a preset breaks this.
+func TestPresetRenderingMatchesAcrossRenderers(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("read presets dir: %v", err)
+	}
+
+	parallelism := func() *v1alpha2.ParallelismSpec {
+		return &v1alpha2.ParallelismSpec{
+			Tensor:      ptr.To[int32](4),
+			Data:        ptr.To[int32](8),
+			DataLocal:   ptr.To[int32](2),
+			DataRPCPort: ptr.To[int32](5555),
+			Expert:      true,
+		}
+	}
+	kvCacheOffloading := func() *v1alpha2.KVCacheOffloadingSpec {
+		return &v1alpha2.KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi"), EvictionPolicy: "lru"}
+	}
+
+	// Every optional block a preset branches on set, and none set, so both sides of
+	// each conditional are rendered.
+	cases := map[string]struct {
+		llmSvc *v1alpha2.LLMInferenceService
+		config *llmisvc.Config
+	}{
+		"everything unset": {
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+				},
+			},
+			config: &llmisvc.Config{},
+		},
+		"everything set": {
+			llmSvc: &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model: v1alpha2.LLMModelSpec{Name: ptr.To("model")},
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Parallelism:       parallelism(),
+						KVCacheOffloading: kvCacheOffloading(),
+						Template:          &corev1.PodSpec{TerminationGracePeriodSeconds: ptr.To[int64](120)},
+					},
+					Prefill: &v1alpha2.WorkloadSpec{
+						Parallelism:       parallelism(),
+						KVCacheOffloading: kvCacheOffloading(),
+					},
+				},
+			},
+			config: &llmisvc.Config{
+				SystemNamespace:             "kserve",
+				IngressGatewayName:          "kserve-ingress-gateway",
+				IngressGatewayNamespace:     "kserve",
+				EnableTLS:                   true,
+				ModelBasedRoutingHeaderName: "X-Gateway-Model-Name",
+			},
+		},
+	}
+
+	checked := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "config-") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Clean(filepath.Join(presetsDir, entry.Name())))
+		if err != nil {
+			t.Fatalf("read %s: %v", entry.Name(), err)
+		}
+		checked++
+
+		for caseName, tc := range cases {
+			t.Run(entry.Name()+"/"+caseName, func(t *testing.T) {
+				rendered := map[string]*v1alpha2.LLMInferenceServiceConfig{}
+				for _, renderer := range templateRenderers {
+					out, err := llmisvc.ReplaceVariables(tc.llmSvc, loadConfig(t, data, entry.Name()), renderer.config(tc.config))
+					if err != nil {
+						t.Fatalf("%s renderer: %v", renderer.name, err)
+					}
+					rendered[renderer.name] = out
+				}
+				if diff := cmp.Diff(rendered["json"], rendered["recursive"]); diff != "" {
+					t.Errorf("rendering differs between renderers (-json +recursive):\n%s", diff)
+				}
+			})
+		}
+	}
+
+	if checked == 0 {
+		t.Fatal("no presets checked")
+	}
+}
+
 // TestPresetRenderingInvariants asserts the properties that keep rendering against the
 // merged spec equivalent to rendering against the service alone. Each one holds across
 // the shipped presets today; each would change the command of already-running workloads
