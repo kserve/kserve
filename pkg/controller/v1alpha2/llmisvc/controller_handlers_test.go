@@ -125,9 +125,9 @@ func TestHasRoutingHTTPRouteRefReturnsFalseWithoutObservedRoutes(t *testing.T) {
 	}, gwapiv1.ObjectName("llm-route"), "routing")).To(BeFalse())
 }
 
-func TestSetRoutingPoolStatusOnlyWritesWhenRoutingExists(t *testing.T) {
+// TestSetRoutingPoolStatusInitializesRouterWhenNeeded publishes pool refs and allocates router status.
+func TestSetRoutingPoolStatusInitializesRouterWhenNeeded(t *testing.T) {
 	g := NewGomegaWithT(t)
-	llmSvc := &v1alpha2.LLMInferenceService{}
 	poolRef := gwapiv1.ObjectReference{
 		Group: "inference.networking.k8s.io",
 		Kind:  "InferencePool",
@@ -137,27 +137,36 @@ func TestSetRoutingPoolStatusOnlyWritesWhenRoutingExists(t *testing.T) {
 		Kind: "Service",
 		Name: "epp-service",
 	}
+	expectedScheduler := &v1alpha2.ObservedSchedulerStatus{
+		InferencePool: &poolRef,
+		Service:       &svcRef,
+	}
 
-	setRoutingPoolStatus(llmSvc, poolRef, svcRef)
-	g.Expect(llmSvc.Status.Router).To(BeNil())
+	empty := &v1alpha2.LLMInferenceService{}
+	setRoutingPoolStatus(empty, poolRef, svcRef)
+	g.Expect(empty.Status.Router).ToNot(BeNil())
+	g.Expect(empty.Status.Router.Gateways).To(BeEmpty())
+	g.Expect(empty.Status.Router.Scheduler).To(Equal(expectedScheduler))
 
-	llmSvc.Status.Router = &v1alpha2.RouterStatus{
-		Gateways: []v1alpha2.ObservedGateway{
-			{
-				ObjectReference: gwapiv1.ObjectReference{
-					Group: "gateway.networking.k8s.io",
-					Kind:  "Gateway",
-					Name:  "kserve-gateway",
+	preSeeded := &v1alpha2.LLMInferenceService{
+		Status: v1alpha2.LLMInferenceServiceStatus{
+			Router: &v1alpha2.RouterStatus{
+				Gateways: []v1alpha2.ObservedGateway{
+					{
+						ObjectReference: gwapiv1.ObjectReference{
+							Group: "gateway.networking.k8s.io",
+							Kind:  "Gateway",
+							Name:  "kserve-gateway",
+						},
+					},
 				},
 			},
 		},
 	}
-	setRoutingPoolStatus(llmSvc, poolRef, svcRef)
-	g.Expect(llmSvc.Status.Router).ToNot(BeNil())
-	g.Expect(llmSvc.Status.Router.Scheduler.InferencePool).ToNot(BeNil())
-	g.Expect(string(llmSvc.Status.Router.Scheduler.InferencePool.Name)).To(Equal("managed-pool"))
-	g.Expect(llmSvc.Status.Router.Scheduler.Service).ToNot(BeNil())
-	g.Expect(string(llmSvc.Status.Router.Scheduler.Service.Name)).To(Equal("epp-service"))
+	setRoutingPoolStatus(preSeeded, poolRef, svcRef)
+	g.Expect(preSeeded.Status.Router.Gateways).To(HaveLen(1))
+	g.Expect(string(preSeeded.Status.Router.Gateways[0].Name)).To(Equal("kserve-gateway"))
+	g.Expect(preSeeded.Status.Router.Scheduler).To(Equal(expectedScheduler))
 }
 
 func TestRequestsForInferencePoolChangeMatchesExternalPoolRefs(t *testing.T) {

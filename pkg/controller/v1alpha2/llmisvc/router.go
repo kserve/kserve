@@ -808,7 +808,7 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 			gwapiv1.ObjectReference{
 				Group: "",
 				Kind:  "Service",
-				Name:  gwapiv1.ObjectName(llmSvc.Spec.Router.EPPServiceName(llmSvc)),
+				Name:  gwapiv1.ObjectName(curr.Spec.EndpointPickerRef.Name),
 			},
 		)
 		return r.evaluateInferencePoolCondition(ctx, llmSvc, curr, gatewayKeys)
