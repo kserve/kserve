@@ -56,7 +56,7 @@ const mainContainerName = "main"
 // applyKVCacheCarriers fills the kvTransferArgsEnvVar slot in every pod spec that
 // declares one, and changes nothing else.
 //
-// It runs after template rendering because ReplaceVariables marshals the config
+// It runs after template rendering because ReplaceVariables by default marshals the config
 // to JSON, executes the template and unmarshals the result: a value a template
 // emits must survive that round trip and then a shell eval, which is the
 // escaping kvTransferConfig still carries. Assigning to a typed field afterwards

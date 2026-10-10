@@ -2852,7 +2852,7 @@ spec:
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
           ${KV_TRANSFER_ARGS} \
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
+        {{ if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -3252,8 +3252,8 @@ spec:
           --port 8001 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
+        {{ if and .Spec.Parallelism .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
+        {{ if and .Spec.Parallelism .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --data-parallel-size {{ or (and .Spec.Parallelism .Spec.Parallelism.Data) 1 }} \
           --data-parallel-size-local {{ or (and .Spec.Parallelism .Spec.Parallelism.DataLocal) 1 }} \
           --data-parallel-address ${DP_ADDRESS} \
@@ -3635,8 +3635,8 @@ spec:
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
+        {{ if and .Spec.Parallelism .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
+        {{ if and .Spec.Parallelism .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --data-parallel-size {{ or (and .Spec.Parallelism .Spec.Parallelism.Data) 1 }} \
           --data-parallel-size-local {{ or (and .Spec.Parallelism .Spec.Parallelism.DataLocal) 1 }} \
           --data-parallel-address ${DP_ADDRESS} \
@@ -3954,8 +3954,8 @@ spec:
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8200 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
+        {{ if and .Spec.Parallelism .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
+        {{ if and .Spec.Parallelism .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --data-parallel-size {{ or (and .Spec.Parallelism .Spec.Parallelism.Data) 1 }} \
           --data-parallel-size-local {{ or (and .Spec.Parallelism .Spec.Parallelism.DataLocal) 1 }} \
           --data-parallel-address ${DP_ADDRESS} \
@@ -4403,8 +4403,8 @@ spec:
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8200 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
+        {{ if and .Spec.Parallelism .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
+        {{ if and .Spec.Parallelism .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --data-parallel-size {{ or (and .Spec.Parallelism .Spec.Parallelism.Data) 1 }} \
           --data-parallel-size-local {{ or (and .Spec.Parallelism .Spec.Parallelism.DataLocal) 1 }} \
           --data-parallel-address ${DP_ADDRESS} \
@@ -4887,7 +4887,7 @@ spec:
             ${ACCESS_LOG_ARGS} \
             ${SHUTDOWN_TIMEOUT_ARGS} \
             ${KV_TRANSFER_ARGS} \
-            {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor }} --tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
+          {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor }} --tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -5205,8 +5205,8 @@ spec:
             --port 8000 \
             --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
             --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
-            {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
-            {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
+          {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
+          {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
             --data-parallel-size {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Data) 1 }} \
             --data-parallel-size-local {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.DataLocal) 1 }} \
             --data-parallel-address ${DP_ADDRESS} \
@@ -5521,8 +5521,8 @@ spec:
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
             --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
-            {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
-            {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
+          {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
+          {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
             --data-parallel-size {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Data) 1 }} \
             --data-parallel-size-local {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.DataLocal) 1 }} \
             --data-parallel-address ${DP_ADDRESS} \
@@ -5823,8 +5823,8 @@ spec:
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
             --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
-            {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
-            {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
+          {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
+          {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
             --data-parallel-size {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Data) 1 }} \
             --data-parallel-size-local {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.DataLocal) 1 }} \
             --data-parallel-address ${DP_ADDRESS} \
@@ -6183,8 +6183,8 @@ spec:
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
             --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
-            {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
-            {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
+          {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
+          {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
             --data-parallel-size {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Data) 1 }} \
             --data-parallel-size-local {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.DataLocal) 1 }} \
             --data-parallel-address ${DP_ADDRESS} \
@@ -7199,7 +7199,7 @@ spec:
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
           ${KV_TRANSFER_ARGS} \
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
+        {{ if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
@@ -7638,8 +7638,8 @@ spec:
           --port 8000 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
+        {{ if and .Spec.Parallelism .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
+        {{ if and .Spec.Parallelism .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --data-parallel-size {{ or (and .Spec.Parallelism .Spec.Parallelism.Data) 1 }} \
           --data-parallel-size-local {{ or (and .Spec.Parallelism .Spec.Parallelism.DataLocal) 1 }} \
           --data-parallel-address ${DP_ADDRESS} \
@@ -7927,8 +7927,8 @@ spec:
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
+        {{ if and .Spec.Parallelism .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
+        {{ if and .Spec.Parallelism .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --data-parallel-size {{ or (and .Spec.Parallelism .Spec.Parallelism.Data) 1 }} \
           --data-parallel-size-local {{ or (and .Spec.Parallelism .Spec.Parallelism.DataLocal) 1 }} \
           --data-parallel-address ${DP_ADDRESS} \
@@ -8029,7 +8029,7 @@ spec:
           --served-model-name "{{ .Spec.Model.Name }}"
           --port 8000
           --host 0.0.0.0
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tp {{ .Spec.Parallelism.Tensor }}{{- end }}
+        {{ if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tp {{ .Spec.Parallelism.Tensor }}{{- end }}
         )
         exec "${args[@]}" "$@"
       - --
@@ -115182,6 +115182,24 @@ data:
          # reconcileIntervalSeconds controls KCN status reconciliation.
          # Periodic Node image validation uses the node agent's internal interval.
          "reconcileIntervalSeconds": 300
+       }
+
+     # ====================================== LLMINFERENCESERVICE CONFIGURATION ======================================
+     # Example
+     llmisvc: |-
+       {
+         # featureGates are opt-in LLMInferenceService controller features. Every gate is off when unset.
+         "featureGates": {
+           # disaggregatedSet runs prefill/decode services on a LeaderWorkerSet DisaggregatedSet when their
+           # presets request it and the DisaggregatedSet CRD is installed. Enabling it moves running P/D
+           # services onto a DisaggregatedSet, and each is unavailable until its new pods are ready.
+           "disaggregatedSet": false,
+           # recursiveConfigRender renders LLMInferenceServiceConfig templates one string field at a time
+           # instead of through a JSON round trip, so values containing quotes, backslashes or newlines
+           # render as they are. The presets from v0.21.0 and earlier do not work under it. Validate any
+           # custom templates against the new renderer before enabling it.
+           "recursiveConfigRender": false
+         }
        }
   agent: |-
     {
