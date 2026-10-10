@@ -66,7 +66,7 @@ type SecurityConfig struct {
 }
 
 // ErrUnknownMode is returned when the configured mode is not recognised.
-var ErrUnknownMode = errors.New("unknown verification mode")
+var ErrUnknownMode = errors.New("unknown security mode")
 
 // Default fills empty fields with safe defaults. An unset mode defaults to
 // disabled so an unconfigured feature performs no verification rather than

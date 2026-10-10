@@ -35,6 +35,15 @@ type StorageMountParams struct {
 	VolumeName string
 	PVCName    string
 	ReadOnly   bool
+	// DefaultVolumeSource overrides the emptyDir used when PVCName is empty.
+	// When nil, emptyDir is used (backward-compatible default).
+	DefaultVolumeSource *corev1.VolumeSource
+	// MountsPerPath identifies an existing mount by (VolumeName, MountPath, SubPath) rather
+	// than by VolumeName alone, so one volume can be mounted at several paths in the same
+	// container. Leave it unset unless the caller owns every mount on the volume: with the
+	// default, a mount that already carries the volume name suppresses this one, which is
+	// how a workload overrides an injected volume by declaring its own.
+	MountsPerPath bool
 }
 
 // ParsePvcURI parses a PVC URI of the form "pvc://<name>[/path]" into its components.
@@ -72,11 +81,19 @@ func ParsePvcURI(srcURI string) (pvcName string, pvcPath string, err error) {
 	return pvcName, pvcPath, nil
 }
 
-// addVolumeMountToContainer adds a volume mount to a specific container
+// addVolumeMountToContainer adds a volume mount to a specific container.
+//
+// By default a mount is identified by its volume name alone, so an existing mount with that
+// name suppresses this one. StorageMountParams.MountsPerPath widens the identity to the
+// mount path and sub path, allowing several mounts of one volume in the same container.
 func addVolumeMountToContainer(container *corev1.Container, storageMountParams StorageMountParams) bool {
 	// Check if mount already exists
 	for _, mount := range container.VolumeMounts {
-		if mount.Name == storageMountParams.VolumeName {
+		if mount.Name != storageMountParams.VolumeName {
+			continue
+		}
+		if !storageMountParams.MountsPerPath ||
+			(mount.MountPath == storageMountParams.MountPath && mount.SubPath == storageMountParams.SubPath) {
 			return false // Mount already exists
 		}
 	}
@@ -94,7 +111,9 @@ func addVolumeMountToContainer(container *corev1.Container, storageMountParams S
 }
 
 // AddModelMount adds a mount to the specified container in the given PodSpec based on the provided modelUri.
-// If the mount or volume already exists, it will not be duplicated.
+// The volume is added at most once per name. A mount already carrying that volume name
+// suppresses this one, unless StorageMountParams.MountsPerPath is set, in which case only a
+// mount at the same path and sub path does.
 //
 // Parameters:
 //   - modelUri: The URI specifying the PVC and optional sub-path to mount.
@@ -106,14 +125,16 @@ func addVolumeMountToContainer(container *corev1.Container, storageMountParams S
 //   - error: An error if the modelUri is invalid or if any other issue occurs; otherwise, nil.
 func AddModelMount(storageMountParams StorageMountParams, containerName string, podSpec *corev1.PodSpec) error {
 	var volumeSource corev1.VolumeSource
-
-	if storageMountParams.PVCName != "" {
+	switch {
+	case storageMountParams.PVCName != "":
 		volumeSource = corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: storageMountParams.PVCName,
 			},
 		}
-	} else {
+	case storageMountParams.DefaultVolumeSource != nil:
+		volumeSource = *storageMountParams.DefaultVolumeSource
+	default:
 		volumeSource = corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		}
@@ -350,12 +371,19 @@ func ShellQuote(s string) string {
 		return "''"
 	}
 	for _, c := range s {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-			c == '/' || c == '.' || c == '_' || c == '-') {
+		if !isShellSafe(c) {
 			return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 		}
 	}
 	return s
+}
+
+// isShellSafe reports whether c can appear unquoted in a sh -c command string.
+// Kept as a named predicate: inlined into ShellQuote it makes staticcheck QF1001
+// emit two conflicting fixes, and golangci-lint --fix then skips the whole file.
+func isShellSafe(c rune) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+		c == '/' || c == '.' || c == '_' || c == '-'
 }
 
 // modelcarCommand returns the shell command for the modelcar container.

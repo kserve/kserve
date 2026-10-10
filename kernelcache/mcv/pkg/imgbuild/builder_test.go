@@ -87,6 +87,12 @@ func TestNewWithBuilder_Docker(t *testing.T) {
 	assert.IsType(t, &dockerBuilder{}, builder)
 }
 
+func TestNewWithBuilder_OCI(t *testing.T) {
+	builder, err := NewWithBuilder(OCI)
+	assert.NoError(t, err)
+	assert.IsType(t, &ociBuilder{}, builder)
+}
+
 func TestNewWithBuilder_Unsupported(t *testing.T) {
 	builder, err := NewWithBuilder("unsupported")
 	assert.Nil(t, builder)

@@ -17,7 +17,6 @@ limitations under the License.
 package types
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 )
@@ -45,19 +44,34 @@ type CertConfig struct {
 	TrustBundleKey string `json:"trustBundleKey,omitempty"`
 
 	// SubjectRegexp matches the accepted signer identity (the leaf certificate
-	// SAN). Required: without it any cert chaining to the CA would be accepted.
+	// SAN). Required for verification: without it any cert chaining to the CA
+	// would be accepted.
 	SubjectRegexp string `json:"subjectRegexp"`
+
+	// SigningSecret references the Secret ("namespace/name") holding the signing
+	// material: the private key, leaf certificate, and CA chain. Required for
+	// signing; unused by verification.
+	SigningSecret string `json:"signingSecret,omitempty"`
+
+	// SigningKeyKey, SigningCertKey, and SigningChainKey override the data keys
+	// read from SigningSecret. They default to the kubernetes.io/tls layout plus
+	// cert-manager's chain key (tls.key, tls.crt, ca.crt); set them only for a
+	// Secret that stores the material under different names.
+	SigningKeyKey   string `json:"signingKeyKey,omitempty"`
+	SigningCertKey  string `json:"signingCertKey,omitempty"`
+	SigningChainKey string `json:"signingChainKey,omitempty"`
 }
 
+// validate only checks role-independent syntax (SubjectRegexp compiles).
+// Required-field presence is enforced per role by the constructors:
+// newCertVerifier requires trustBundle + subjectRegexp (verify-only fields),
+// newCertSigner requires signingSecret (signing-only fields). A verify-only
+// or sign-only config both pass here.
 func (c CertConfig) validate() error {
-	if c.TrustBundle == "" {
-		return errors.New("cert.trustBundle must be set")
-	}
-	if c.SubjectRegexp == "" {
-		return errors.New("cert.subjectRegexp must be set")
-	}
-	if _, err := regexp.Compile(c.SubjectRegexp); err != nil {
-		return fmt.Errorf("cert.subjectRegexp is not a valid regexp: %w", err)
+	if c.SubjectRegexp != "" {
+		if _, err := regexp.Compile(c.SubjectRegexp); err != nil {
+			return fmt.Errorf("cert.subjectRegexp is not a valid regexp: %w", err)
+		}
 	}
 	return nil
 }

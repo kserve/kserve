@@ -281,7 +281,7 @@ func (r *LLMISVCConfigReconciler) enqueueOnLLMInferenceServiceChange(logger logr
 			enqueue(ref.Name)
 		}
 
-		for _, name := range llmSvc.Status.Annotations {
+		for _, name := range llmSvc.PinnedConfigNames() {
 			enqueue(name)
 		}
 

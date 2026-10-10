@@ -19,6 +19,7 @@ package llmisvc
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -44,6 +46,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	kservetesting "github.com/kserve/kserve/pkg/testing"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 func TestReconcileBaseRefs_DryRunValidatesRenderedSpec(t *testing.T) {
@@ -155,6 +158,134 @@ func TestReconcileBaseRefs_DryRunValidatesRenderedSpec(t *testing.T) {
 	assert.True(t, ready.IsFalse(), "Ready should be False when the rendered config is invalid")
 	assert.Equal(t, "InvalidRenderedConfig", ready.Reason)
 	assert.Equal(t, condition.Message, ready.Message, "the exact cause should bubble up to Ready")
+}
+
+// TestCombineBaseRefsConfig_TransferSlot pins the upgrade contract end to end: a
+// preset declaring the slot gets the argument filled in from the merged spec, and
+// one without it comes back untouched.
+func TestCombineBaseRefsConfig_TransferSlot(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
+
+	secondary := []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+		EmptyDir: &v1alpha2.EmptyDirTierSpec{Size: resource.MustParse("10Gi")},
+	}}}
+	for _, tt := range []struct {
+		name    string
+		hasSlot bool
+	}{
+		{name: "preset without the slot", hasSlot: false},
+		{name: "preset declaring the slot", hasSlot: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			env := []corev1.EnvVar(nil)
+			if tt.hasSlot {
+				env = []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}
+			}
+			template := &v1alpha2.LLMInferenceServiceConfig{
+				ObjectMeta: metav1.ObjectMeta{Name: configTemplateName, Namespace: constants.KServeNamespace},
+				Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{
+							Name: mainContainerName,
+							Env:  env,
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("4Gi")},
+							},
+						}},
+						Volumes: []corev1.Volume{{
+							Name: "dshm",
+							VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{
+								SizeLimit: ptr.To(resource.MustParse("1Gi")),
+							}},
+						}},
+					},
+				}},
+			}
+			custom := &v1alpha2.LLMInferenceServiceConfig{
+				ObjectMeta: metav1.ObjectMeta{Name: "kv-config", Namespace: "test-ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+					KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi"), Secondary: secondary},
+				}},
+			}
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: "test-ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					BaseRefs: []corev1.LocalObjectReference{{Name: custom.Name}},
+				},
+			}
+			reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(template, custom).Build()}
+
+			combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+			require.NoError(t, err)
+			require.NotNil(t, combined)
+			require.NotNil(t, combined.Config.Spec.Template)
+			podSpec := combined.Config.Spec.Template
+			require.Len(t, podSpec.Containers, 1)
+			main := &podSpec.Containers[0]
+
+			// This preset asks for no headroom, so its declared size stands.
+			// Secondary-tier volumes are attached later by the workload builders.
+			require.Len(t, podSpec.Volumes, 1)
+			assert.Equal(t, "dshm", podSpec.Volumes[0].Name)
+			assert.Equal(t, "1Gi", podSpec.Volumes[0].EmptyDir.SizeLimit.String())
+			assert.Equal(t, "4Gi", main.Resources.Requests.Memory().String())
+
+			if !tt.hasSlot {
+				_, present := utils.GetEnvVarValue(main.Env, kvTransferArgsEnvVar)
+				assert.False(t, present)
+				return
+			}
+			transfer, filled := utils.GetEnvVarValue(main.Env, kvTransferArgsEnvVar)
+			require.True(t, filled)
+			assert.Contains(t, transfer, `"spec_name":"TieringOffloadingSpec"`)
+			assert.Contains(t, transfer, `"cpu_bytes_to_use":10737418240`)
+		})
+	}
+}
+
+// A cpu that makes no sense still has to render. Config merging runs on every
+// reconcile of every service, so failing here would take down a workload that was
+// running before the slot existed, on nothing more than a controller upgrade.
+func TestCombineBaseRefsConfig_RendersDegenerateKVCacheCPUFromBaseRef(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
+
+	for _, cpu := range []string{"0", "-1Gi"} {
+		t.Run(cpu, func(t *testing.T) {
+			template := &v1alpha2.LLMInferenceServiceConfig{
+				ObjectMeta: metav1.ObjectMeta{Name: configTemplateName, Namespace: constants.KServeNamespace},
+				Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{Containers: []corev1.Container{{
+						Name: mainContainerName,
+						Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
+					}}},
+				}},
+			}
+			custom := &v1alpha2.LLMInferenceServiceConfig{
+				ObjectMeta: metav1.ObjectMeta{Name: "kv-config", Namespace: "test-ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+					KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{CPU: resource.MustParse(cpu)},
+				}},
+			}
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: "test-ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					BaseRefs: []corev1.LocalObjectReference{{Name: custom.Name}},
+				},
+			}
+			reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(template, custom).Build()}
+
+			combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+			require.NoError(t, err)
+
+			require.NotNil(t, combined.Config.Spec.Template)
+			require.Len(t, combined.Config.Spec.Template.Containers, 1)
+			transfer, filled := utils.GetEnvVarValue(combined.Config.Spec.Template.Containers[0].Env, kvTransferArgsEnvVar)
+			require.True(t, filled)
+			assert.Contains(t, transfer, "cpu_bytes_to_use")
+		})
+	}
 }
 
 func TestReconcileBaseRefs_InvalidConfigClearsStaleReady(t *testing.T) {
@@ -896,4 +1027,218 @@ func TestCombineBaseRefsConfig_BareServiceRendersUnchanged(t *testing.T) {
 			require.NotZero(t, asserted, "expected at least one rendered command to assert on")
 		})
 	}
+}
+
+// The headroom percentage is carried by the preset, not by this package, so that
+// retuning it ships as a new preset rather than re-rendering every service that
+// already has a tier configured.
+func TestCombineBaseRefsConfig_SizesSharedMemoryFromPresetAnnotation(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
+
+	preset := func(name, namespace, percent string) *v1alpha2.LLMInferenceServiceConfig {
+		cfg := &v1alpha2.LLMInferenceServiceConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+			Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:         mainContainerName,
+						VolumeMounts: []corev1.VolumeMount{{Name: "dshm", MountPath: sharedMemoryMountPath}},
+					}},
+					Volumes: []corev1.Volume{{
+						Name: "dshm",
+						VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{
+							Medium:    corev1.StorageMediumMemory,
+							SizeLimit: ptr.To(resource.MustParse("1Gi")),
+						}},
+					}},
+				},
+			}},
+		}
+		if percent != "" {
+			cfg.Annotations = map[string]string{shmPercentOfCPUAnnotation: percent}
+		}
+		return cfg
+	}
+	sizeLimit := func(t *testing.T, combined *CombinedConfig) string {
+		t.Helper()
+		require.NotNil(t, combined.Config.Spec.Template)
+		require.Len(t, combined.Config.Spec.Template.Volumes, 1)
+		return combined.Config.Spec.Template.Volumes[0].EmptyDir.SizeLimit.String()
+	}
+	svc := func(baseRefs ...corev1.LocalObjectReference) *v1alpha2.LLMInferenceService {
+		return &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: "test-ns"},
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				BaseRefs: baseRefs,
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi")},
+				},
+			},
+		}
+	}
+
+	t.Run("the preset's percentage is applied", func(t *testing.T) {
+		template := preset(configTemplateName, constants.KServeNamespace, "120")
+		reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(template).Build()}
+
+		combined, err := reconciler.combineBaseRefsConfig(t.Context(), svc(), &Config{})
+		require.NoError(t, err)
+		assert.Equal(t, "13Gi", sizeLimit(t, combined))
+	})
+
+	t.Run("a preset that does not ask is left as declared", func(t *testing.T) {
+		template := preset(configTemplateName, constants.KServeNamespace, "")
+		reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(template).Build()}
+
+		combined, err := reconciler.combineBaseRefsConfig(t.Context(), svc(), &Config{})
+		require.NoError(t, err)
+		assert.Equal(t, "1Gi", sizeLimit(t, combined))
+	})
+
+	// The annotation is reserved for the configs KServe ships. Reading it off a
+	// user's config would make an internal detail into an API, so it is ignored
+	// there and the shipped preset's value still decides.
+	t.Run("a user config cannot override the percentage", func(t *testing.T) {
+		template := preset(configTemplateName, constants.KServeNamespace, "120")
+		custom := preset("kv-config", "test-ns", "500")
+		custom.Spec.Template = nil
+		reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(template, custom).Build()}
+
+		combined, err := reconciler.combineBaseRefsConfig(t.Context(), svc(corev1.LocalObjectReference{Name: custom.Name}), &Config{})
+		require.NoError(t, err)
+		assert.Equal(t, "13Gi", sizeLimit(t, combined))
+	})
+
+	// The controller cannot check its arithmetic against the model being served,
+	// so a size the user declared is the escape hatch from it and is used as
+	// written - including a smaller one than the sizing would have produced.
+	t.Run("a user-declared sizeLimit replaces the computed one", func(t *testing.T) {
+		template := preset(configTemplateName, constants.KServeNamespace, "120")
+		reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(template).Build()}
+
+		llmSvc := svc()
+		llmSvc.Spec.Template = &corev1.PodSpec{Volumes: []corev1.Volume{{
+			Name: "dshm",
+			VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{
+				Medium:    corev1.StorageMediumMemory,
+				SizeLimit: ptr.To(resource.MustParse("32Gi")),
+			}},
+		}}}
+
+		combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+		require.NoError(t, err)
+		assert.Equal(t, "32Gi", sizeLimit(t, combined))
+	})
+
+	for _, source := range []string{"service", "baseRef"} {
+		for _, size := range []string{"1Gi", "1024Mi"} {
+			t.Run("preserves an explicit preset-sized limit from "+source+"/"+size, func(t *testing.T) {
+				template := preset(configTemplateName, constants.KServeNamespace, "120")
+				custom := &v1alpha2.LLMInferenceServiceConfig{
+					ObjectMeta: metav1.ObjectMeta{Name: "volume-config", Namespace: "test-ns"},
+					Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+						// A partial override inherits its mount and medium from the preset.
+						Template: &corev1.PodSpec{Volumes: []corev1.Volume{{
+							Name: "dshm",
+							VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{
+								SizeLimit: ptr.To(resource.MustParse(size)),
+							}},
+						}}},
+					}},
+				}
+				llmSvc := svc()
+				if source == "service" {
+					llmSvc.Spec.Template = custom.Spec.Template
+				} else {
+					llmSvc.Spec.BaseRefs = []corev1.LocalObjectReference{{Name: custom.Name}}
+				}
+				reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(template, custom).Build()}
+
+				combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+				require.NoError(t, err)
+				assert.Equal(t, "1Gi", sizeLimit(t, combined))
+			})
+		}
+	}
+
+	for _, tc := range []struct {
+		name, prefillPercent, decodePercent, wantPrefill, wantDecode string
+	}{
+		{"legacy decode", "120", "", "13Gi", "1Gi"},
+		{"legacy prefill", "", "120", "1Gi", "13Gi"},
+		{"different policies", "150", "120", "16Gi", "13Gi"},
+		{"invalid decode policy", "120", "invalid", "13Gi", "1Gi"},
+	} {
+		t.Run("keeps sizing with its workload/"+tc.name, func(t *testing.T) {
+			prefill := preset(configPrefillWorkerDataParallelName, constants.KServeNamespace, tc.prefillPercent)
+			prefill.Spec.Worker = prefill.Spec.Template.DeepCopy()
+			prefill.Spec.Prefill = prefill.Spec.WorkloadSpec.DeepCopy()
+			prefill.Spec.WorkloadSpec = v1alpha2.WorkloadSpec{}
+			decode := preset(configDecodeWorkerDataParallelName, constants.KServeNamespace, tc.decodePercent)
+			decode.Spec.Worker = decode.Spec.Template.DeepCopy()
+			reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(prefill, decode).Build()}
+			llmSvc := svc()
+			llmSvc.Spec.Worker = &corev1.PodSpec{}
+			llmSvc.Spec.Parallelism = &v1alpha2.ParallelismSpec{Data: ptr.To(int32(2))}
+			llmSvc.Spec.Prefill = llmSvc.Spec.WorkloadSpec.DeepCopy()
+
+			combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+			require.NoError(t, err)
+			again, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+			require.NoError(t, err)
+			assert.Equal(t, combined.Config.Spec, again.Config.Spec, "sizing must be stable across reconciles")
+
+			assert.Equal(t, tc.wantDecode, sharedMemorySizeLimit(combined.Config.Spec.Template).String())
+			assert.Equal(t, tc.wantDecode, sharedMemorySizeLimit(combined.Config.Spec.Worker).String())
+			assert.Equal(t, tc.wantPrefill, sharedMemorySizeLimit(combined.Config.Spec.Prefill.Template).String())
+			assert.Equal(t, tc.wantPrefill, sharedMemorySizeLimit(combined.Config.Spec.Prefill.Worker).String())
+		})
+	}
+
+	// A well-known name resolves from the service's own namespace first, so a copy
+	// a user puts there wins the slot. It must not be trusted with a reserved
+	// annotation just for answering to the right name.
+	t.Run("a config shadowing a well-known name is not a preset", func(t *testing.T) {
+		shipped := preset(configTemplateName, constants.KServeNamespace, "120")
+		shadow := preset(configTemplateName, "test-ns", "500")
+		reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(shipped, shadow).Build()}
+
+		combined, err := reconciler.combineBaseRefsConfig(t.Context(), svc(), &Config{})
+		require.NoError(t, err)
+		assert.Equal(t, "1Gi", sizeLimit(t, combined))
+
+		require.Len(t, combined.AppliedConfigRefs, 1)
+		assert.Equal(t, v1alpha2.AppliedConfigSourceUserRef, combined.AppliedConfigRefs[0].Source)
+	})
+
+	// A preset is not worth failing a reconcile over: an unreadable value leaves
+	// the declared size alone rather than taking the service down.
+	t.Run("an unreadable percentage leaves the declared size alone", func(t *testing.T) {
+		template := preset(configTemplateName, constants.KServeNamespace, "not-a-number")
+		reconciler := &LLMISVCReconciler{Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(template).Build()}
+
+		combined, err := reconciler.combineBaseRefsConfig(t.Context(), svc(), &Config{})
+		require.NoError(t, err)
+		assert.Equal(t, "1Gi", sizeLimit(t, combined))
+	})
+}
+
+// controller-runtime's terminal wrapping says whether the controller will
+// requeue; the user reading the condition can only act on the cause.
+func TestConditionMessageDropsTerminalPrefix(t *testing.T) {
+	cause := errors.New("env KSERVE_KV_TRANSFER_ARGS cannot take a valueFrom")
+
+	assert.Equal(t, cause.Error(), conditionMessage(reconcile.TerminalError(cause)))
+	assert.Equal(t, cause.Error(), conditionMessage(cause))
+	assert.Equal(t, "wrapped: "+cause.Error(),
+		conditionMessage(fmt.Errorf("wrapped: %w", cause)))
+
+	// errors.Is matches the terminal marker anywhere in the chain, so the layer
+	// has to be located before it is unwrapped - peeling only the outermost would
+	// leave the prefix on a wrapped terminal error.
+	// The marker can sit at any depth. Removing it must not take the surrounding
+	// context with it - "outer:" is what tells the user which step failed.
+	assert.Equal(t, "outer: "+cause.Error(),
+		conditionMessage(fmt.Errorf("outer: %w", reconcile.TerminalError(cause))))
 }

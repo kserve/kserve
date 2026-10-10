@@ -32,6 +32,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 
 	kservetesting "github.com/kserve/kserve/pkg/testing"
@@ -196,6 +197,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{
 											Name:  "HOME",
 											Value: "/home",
@@ -384,6 +386,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{
 											Name:  "HOME",
 											Value: "/home",
@@ -482,6 +485,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{
 											Name:  "HOME",
 											Value: "/home",
@@ -579,6 +583,156 @@ func TestPresetFiles(t *testing.T) {
 								},
 							},
 							TerminationGracePeriodSeconds: ptr.To(int64(60)),
+						},
+					},
+				},
+			},
+		},
+		"config-sglang-template.yaml": {
+			expected: &v1alpha2.LLMInferenceServiceConfig{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "serving.kserve.io/v1alpha2",
+					Kind:       "LLMInferenceServiceConfig",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "kserve-config-sglang-template",
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					WorkloadSpec: v1alpha2.WorkloadSpec{
+						Template: &corev1.PodSpec{
+							Volumes: []corev1.Volume{
+								{
+									Name: "home",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "dshm",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{
+											Medium:    corev1.StorageMediumMemory,
+											SizeLimit: ptr.To(resource.MustParse("1Gi")),
+										},
+									},
+								},
+								{
+									Name: "model-cache",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+								{
+									Name: "tmp-dir",
+									VolumeSource: corev1.VolumeSource{
+										EmptyDir: &corev1.EmptyDirVolumeSource{},
+									},
+								},
+							},
+							Containers: []corev1.Container{
+								{
+									Name:  "main",
+									Image: "",
+									Command: []string{
+										"/bin/bash",
+										"-c",
+										"args=(\n" +
+											"  python3 -m sglang.launch_server\n" +
+											"  --model-path /mnt/models\n" +
+											"  --served-model-name \"llama\"\n" +
+											"  --port 8000\n" +
+											"  --host 0.0.0.0\n" +
+											" --tp 1\n" +
+											")\n" +
+											"exec \"${args[@]}\" \"$@\"",
+										"--",
+									},
+									Ports: []corev1.ContainerPort{
+										{
+											ContainerPort: 8000,
+											Protocol:      corev1.ProtocolTCP,
+										},
+									},
+									Env: []corev1.EnvVar{
+										{
+											Name:  "HOME",
+											Value: "/home",
+										},
+										{
+											Name:  "HF_HUB_CACHE",
+											Value: "/models",
+										},
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "home",
+											MountPath: "/home",
+										},
+										{
+											Name:      "tmp-dir",
+											MountPath: "/tmp",
+										},
+										{
+											Name:      "dshm",
+											MountPath: "/dev/shm",
+										},
+										{
+											Name:      "model-cache",
+											MountPath: "/models",
+										},
+									},
+									LivenessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8000),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+										TimeoutSeconds:   10,
+										PeriodSeconds:    10,
+										FailureThreshold: 3,
+									},
+									ReadinessProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8000),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+										TimeoutSeconds:   5,
+										PeriodSeconds:    10,
+										FailureThreshold: 60,
+									},
+									StartupProbe: &corev1.Probe{
+										ProbeHandler: corev1.ProbeHandler{
+											HTTPGet: &corev1.HTTPGetAction{
+												Path:   "/health",
+												Port:   intstr.FromInt32(8000),
+												Scheme: corev1.URISchemeHTTP,
+											},
+										},
+										FailureThreshold: 60,
+										PeriodSeconds:    10,
+										TimeoutSeconds:   10,
+									},
+									TerminationMessagePath:   "/dev/termination-log",
+									TerminationMessagePolicy: "FallbackToLogsOnError",
+									ImagePullPolicy:          "IfNotPresent",
+									SecurityContext: &corev1.SecurityContext{
+										Capabilities: &corev1.Capabilities{
+											Drop: []corev1.Capability{"ALL"},
+										},
+										AllowPrivilegeEscalation: ptr.To(false),
+										ReadOnlyRootFilesystem:   ptr.To(true),
+										SeccompProfile: &corev1.SeccompProfile{
+											Type: corev1.SeccompProfileTypeRuntimeDefault,
+										},
+									},
+								},
+							},
+							TerminationGracePeriodSeconds: ptr.To(int64(30)),
 						},
 					},
 				},
@@ -738,6 +892,52 @@ func TestSingleNodeTensorParallelRendered(t *testing.T) {
 				if strings.Contains(cmd, "--tensor-parallel-size") {
 					t.Errorf("rendered command should not contain --tensor-parallel-size:\n%s", cmd)
 				}
+			}
+		})
+	}
+}
+
+// TestVLLMPresetsRenderRootPath verifies that every built-in vLLM preset
+// supplies a service-specific root path for routes served through the gateway.
+func TestVLLMPresetsRenderRootPath(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	llmSvc := llmisvc.LLMInferenceServiceSample()
+	wantRootPath := "--root-path /" + llmSvc.Namespace + "/" + llmSvc.Name
+
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("read presets directory: %v", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".yaml") {
+			continue
+		}
+
+		filename := entry.Name()
+		filePath := filepath.Join(presetsDir, filename)
+		data, err := os.ReadFile(filepath.Clean(filePath))
+		if err != nil {
+			t.Fatalf("read %s: %v", filename, err)
+		}
+		if !strings.Contains(string(data), `eval "exec vllm serve`) {
+			continue
+		}
+
+		t.Run(filename, func(t *testing.T) {
+			config := loadConfig(t, data, filePath)
+			rendered, err := llmisvc.ReplaceVariables(llmSvc, config, &llmisvc.Config{})
+			if err != nil {
+				t.Fatalf("render preset: %v", err)
+			}
+			renderedYAML, err := yaml.Marshal(rendered)
+			if err != nil {
+				t.Fatalf("marshal rendered preset: %v", err)
+			}
+
+			wantCount := strings.Count(string(data), `eval "exec vllm serve`)
+			if gotCount := strings.Count(string(renderedYAML), wantRootPath); gotCount != wantCount {
+				t.Errorf("rendered %d root-path flags, want %d:\n%s", gotCount, wantCount, renderedYAML)
 			}
 		})
 	}
@@ -988,4 +1188,172 @@ func podSpecs(config *v1alpha2.LLMInferenceServiceConfig) map[string]*corev1.Pod
 		add("spec.router.scheduler.template", r.Scheduler.Template)
 	}
 	return out
+}
+
+// TestSGLangTemplateNilParallelism verifies that the SGLang config template renders
+// without error when Parallelism is nil (the common single-GPU case).
+func TestSGLangTemplateNilParallelism(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	filePath := filepath.Join(presetsDir, "config-sglang-template.yaml")
+
+	data, err := os.ReadFile(filepath.Clean(filePath))
+	if err != nil {
+		t.Fatalf("Failed to read config-sglang-template.yaml: %v", err)
+	}
+
+	config := loadConfig(t, data, filePath)
+
+	llmSvc := llmisvc.LLMInferenceServiceSample()
+	// Clear Parallelism to simulate single-GPU deployment (no --tp flag needed)
+	llmSvc.Spec.Parallelism = nil
+
+	kserveSystemConfig := llmisvc.Config{
+		SystemNamespace:         "kserve",
+		IngressGatewayName:      "kserve-ingress-gateway",
+		IngressGatewayNamespace: "kserve",
+	}
+
+	out, err := llmisvc.ReplaceVariables(llmSvc, config, &kserveSystemConfig)
+	if err != nil {
+		t.Fatalf("ReplaceVariables() with nil Parallelism returned unexpected error: %v", err)
+	}
+
+	// --tp flag must be absent when Parallelism.Tensor is zero/nil
+	cmd := out.Spec.Template.Containers[0].Command[2]
+	if strings.Contains(cmd, "--tp") {
+		t.Errorf("Expected no --tp flag when Parallelism.Tensor is unset, got command: %q", cmd)
+	}
+	if strings.Contains(cmd, "--trust-remote-code") {
+		t.Errorf("Expected no --trust-remote-code flag by default, got command: %q", cmd)
+	}
+}
+
+// TestSGLangTemplateForwardsContainerArgs verifies runtime-specific flags can be
+// supplied explicitly without a dedicated LLMInferenceService API field.
+func TestSGLangTemplateForwardsContainerArgs(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	filePath := filepath.Join(presetsDir, "config-sglang-template.yaml")
+
+	data, err := os.ReadFile(filepath.Clean(filePath))
+	if err != nil {
+		t.Fatalf("Failed to read config-sglang-template.yaml: %v", err)
+	}
+
+	config := loadConfig(t, data, filePath)
+
+	llmSvc := llmisvc.LLMInferenceServiceSample()
+	llmSvc.Spec.Template = &corev1.PodSpec{
+		Containers: []corev1.Container{{
+			Name: "main",
+			Args: []string{"--trust-remote-code"},
+		}},
+	}
+
+	mergedSpec, err := llmisvc.MergeSpecs(t.Context(), config.Spec, llmSvc.Spec)
+	if err != nil {
+		t.Fatalf("MergeSpecs() returned unexpected error: %v", err)
+	}
+	config.Spec = mergedSpec
+	effectiveSvc := llmSvc.DeepCopy()
+	effectiveSvc.Spec = mergedSpec
+
+	kserveSystemConfig := llmisvc.Config{
+		SystemNamespace:         "kserve",
+		IngressGatewayName:      "kserve-ingress-gateway",
+		IngressGatewayNamespace: "kserve",
+	}
+
+	out, err := llmisvc.ReplaceVariables(effectiveSvc, config, &kserveSystemConfig)
+	if err != nil {
+		t.Fatalf("ReplaceVariables() returned unexpected error: %v", err)
+	}
+
+	container := out.Spec.Template.Containers[0]
+	if strings.Contains(container.Command[2], "--trust-remote-code") {
+		t.Errorf("Expected no automatically injected --trust-remote-code flag, got command: %q", container.Command[2])
+	}
+	if diff := cmp.Diff([]string{"--trust-remote-code"}, container.Args); diff != "" {
+		t.Errorf("Expected explicit container args to be forwarded (-want, +got):\n%s", diff)
+	}
+}
+
+// TestDisaggregatedSetPresetDefault checks that DisaggregatedSet is on by default for
+// disaggregated (prefill/decode) services only: the decode presets, which the
+// controller selects only for P/D services, set the annotation, and no other preset
+// does. A service still opts out by setting "false" in its own spec.annotations.
+func TestDisaggregatedSetPresetDefault(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	turnedOn := map[string]bool{
+		"config-llm-decode-template.yaml":             true,
+		"config-llm-decode-worker-data-parallel.yaml": true,
+	}
+
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("Failed to read presets directory: %v", err)
+	}
+	presets := map[string]*v1alpha2.LLMInferenceServiceConfig{}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "config-") || filepath.Ext(entry.Name()) != ".yaml" {
+			continue
+		}
+		filePath := filepath.Join(presetsDir, entry.Name())
+		data, err := os.ReadFile(filepath.Clean(filePath))
+		if err != nil {
+			t.Fatalf("Failed to read %s: %v", entry.Name(), err)
+		}
+		presets[entry.Name()] = loadConfig(t, data, filePath)
+	}
+	for name := range turnedOn {
+		if presets[name] == nil {
+			t.Fatalf("Preset %s not found", name)
+		}
+	}
+
+	for name, preset := range presets {
+		t.Run(name, func(t *testing.T) {
+			value, ok := preset.Spec.Annotations[constants.LLMDisaggregatedSetAnnotationKey]
+			if turnedOn[name] {
+				if value != "true" {
+					t.Errorf("Expected %s to set %s to \"true\", got %q", name, constants.LLMDisaggregatedSetAnnotationKey, value)
+				}
+				return
+			}
+			if ok {
+				t.Errorf("Expected %s not to set %s, got %q", name, constants.LLMDisaggregatedSetAnnotationKey, value)
+			}
+			if preset.Spec.Prefill != nil {
+				if _, ok := preset.Spec.Prefill.Annotations[constants.LLMDisaggregatedSetAnnotationKey]; ok {
+					t.Errorf("Expected %s not to set %s on prefill; it is read from the decode workload only", name, constants.LLMDisaggregatedSetAnnotationKey)
+				}
+			}
+		})
+	}
+
+	for name := range turnedOn {
+		preset := presets[name]
+		t.Run(name+" is overridden by the service", func(t *testing.T) {
+			tests := []struct {
+				desc        string
+				annotations map[string]string
+				want        bool
+			}{
+				{desc: "no value of its own keeps the default", annotations: nil, want: true},
+				{desc: "false opts out", annotations: map[string]string{constants.LLMDisaggregatedSetAnnotationKey: "false"}, want: false},
+			}
+			for _, tt := range tests {
+				t.Run(tt.desc, func(t *testing.T) {
+					svc := v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{Annotations: tt.annotations}}
+					merged, err := llmisvc.MergeSpecs(t.Context(), preset.Spec, svc)
+					if err != nil {
+						t.Fatalf("MergeSpecs() returned unexpected error: %v", err)
+					}
+					got := (&v1alpha2.LLMInferenceService{Spec: merged}).DisaggregatedSetRequested()
+					if got != tt.want {
+						t.Errorf("DisaggregatedSetRequested() = %v, want %v", got, tt.want)
+					}
+				})
+			}
+		})
+	}
 }

@@ -1301,8 +1301,9 @@ func TestNewDeploymentReconciler(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewDeploymentReconciler(
+			got, err := NewDeploymentReconciler(t.Context(),
 				tt.fields.client,
+				nil, // clientset
 				tt.fields.scheme,
 				tt.fields.objectMeta,
 				tt.fields.workerMeta,
@@ -1789,6 +1790,20 @@ func TestGetArgValue(t *testing.T) {
 			args:   nil,
 			flag:   "--http_port",
 			wantOk: false,
+		},
+		{
+			name:    "duplicate flag returns last value",
+			args:    []string{"--http_port=8080", "--http_port=5000"},
+			flag:    "--http_port",
+			wantVal: "5000",
+			wantOk:  true,
+		},
+		{
+			name:    "duplicate mixed forms returns last value",
+			args:    []string{"--http_port", "8080", "--http_port=5000"},
+			flag:    "--http_port",
+			wantVal: "5000",
+			wantOk:  true,
 		},
 	}
 	for _, tt := range tests {

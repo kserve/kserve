@@ -339,6 +339,7 @@ class TestInferenceRESTClient:
                     }
                 ],
             },
+            is_reusable=True,
         )
 
         async with httpx.AsyncClient() as client:
@@ -440,6 +441,7 @@ class TestInferenceRESTClient:
                             }
                         ],
                     },
+                    is_reusable=True,
                 )
                 input_data = {
                     "id": request_id,

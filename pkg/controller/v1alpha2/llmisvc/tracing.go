@@ -21,6 +21,8 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/tracing"
+	"github.com/kserve/kserve/pkg/utils"
 )
 
 const (
@@ -34,7 +36,7 @@ const (
 func otelResourceAttributeEnvVars(namespace, llmisvcName string) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
-			Name: "OTEL_RESOURCE_ATTRIBUTES_NODE_NAME",
+			Name: tracing.EnvOtelResourceAttributesNodeName,
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
 					APIVersion: "v1",
@@ -43,7 +45,7 @@ func otelResourceAttributeEnvVars(namespace, llmisvcName string) []corev1.EnvVar
 			},
 		},
 		{
-			Name: "OTEL_RESOURCE_ATTRIBUTES_POD_NAME",
+			Name: tracing.EnvOtelResourceAttributesPodName,
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
 					APIVersion: "v1",
@@ -52,10 +54,10 @@ func otelResourceAttributeEnvVars(namespace, llmisvcName string) []corev1.EnvVar
 			},
 		},
 		{
-			Name: "OTEL_RESOURCE_ATTRIBUTES",
+			Name: tracing.EnvOtelResourceAttributes,
 			Value: "k8s.namespace.name=" + namespace +
-				",k8s.node.name=$(OTEL_RESOURCE_ATTRIBUTES_NODE_NAME)" +
-				",k8s.pod.name=$(OTEL_RESOURCE_ATTRIBUTES_POD_NAME)" +
+				",k8s.node.name=$(" + tracing.EnvOtelResourceAttributesNodeName + ")" +
+				",k8s.pod.name=$(" + tracing.EnvOtelResourceAttributesPodName + ")" +
 				",llmisvc.name=" + llmisvcName,
 		},
 	}
@@ -72,23 +74,23 @@ func injectSchedulerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName stri
 		return false
 	}
 
-	if !hasArg(container.Args, "--tracing") &&
-		!hasArg(container.Args, "-tracing") {
+	if !tracing.HasArg(container.Args, "--tracing") &&
+		!tracing.HasArg(container.Args, "-tracing") {
 		container.Args = append(container.Args, "--tracing=true")
 	}
 
 	resourceAttrs := otelResourceAttributeEnvVars(namespace, llmisvcName)
 	tracingEnvVars := make([]corev1.EnvVar, 0, 5+len(resourceAttrs))
 	tracingEnvVars = append(tracingEnvVars,
-		corev1.EnvVar{Name: "OTEL_SERVICE_NAME", Value: defaultSchedulerServiceName},
-		corev1.EnvVar{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: ptr.Deref(t.ExporterEndpoint, "")},
-		corev1.EnvVar{Name: "OTEL_TRACES_EXPORTER", Value: ptr.Deref(t.Exporter, "")},
-		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER", Value: ptr.Deref(t.Sampler, "")},
-		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER_ARG", Value: ptr.Deref(t.SamplerArg, "")},
+		corev1.EnvVar{Name: tracing.EnvOtelServiceName, Value: defaultSchedulerServiceName},
+		corev1.EnvVar{Name: tracing.EnvOtelExporterEndpoint, Value: ptr.Deref(t.ExporterEndpoint, "")},
+		corev1.EnvVar{Name: tracing.EnvOtelTracesExporter, Value: ptr.Deref(t.Exporter, "")},
+		corev1.EnvVar{Name: tracing.EnvOtelTracesSampler, Value: ptr.Deref(t.Sampler, "")},
+		corev1.EnvVar{Name: tracing.EnvOtelTracesSamplerArg, Value: ptr.Deref(t.SamplerArg, "")},
 	)
 	tracingEnvVars = append(tracingEnvVars, resourceAttrs...)
 
-	container.Env = mergeEnvVars(container.Env, tracingEnvVars)
+	container.Env = utils.AppendEnvVarIfNotExists(container.Env, tracingEnvVars...)
 	return true
 }
 
@@ -109,11 +111,11 @@ func injectServerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSu
 		return false
 	}
 
-	if !hasArg(container.Args, "--otlp-traces-endpoint") {
+	if !tracing.HasArg(container.Args, "--otlp-traces-endpoint") {
 		container.Args = append(container.Args, "--otlp-traces-endpoint", endpoint)
 	}
 
-	if !hasArg(container.Args, "--collect-detailed-traces") {
+	if !tracing.HasArg(container.Args, "--collect-detailed-traces") {
 		container.Args = append(container.Args, "--collect-detailed-traces", "all")
 	}
 
@@ -122,15 +124,15 @@ func injectServerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSu
 
 	tracingEnvVars := make([]corev1.EnvVar, 0, 5+len(resourceAttrs))
 	tracingEnvVars = append(tracingEnvVars,
-		corev1.EnvVar{Name: "OTEL_SERVICE_NAME", Value: serviceName},
-		corev1.EnvVar{Name: "OTEL_EXPORTER_OTLP_ENDPOINT", Value: endpoint},
-		corev1.EnvVar{Name: "OTEL_TRACES_EXPORTER", Value: ptr.Deref(t.Exporter, "")},
-		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER", Value: ptr.Deref(t.Sampler, "")},
-		corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER_ARG", Value: ptr.Deref(t.SamplerArg, "")},
+		corev1.EnvVar{Name: tracing.EnvOtelServiceName, Value: serviceName},
+		corev1.EnvVar{Name: tracing.EnvOtelExporterEndpoint, Value: endpoint},
+		corev1.EnvVar{Name: tracing.EnvOtelTracesExporter, Value: ptr.Deref(t.Exporter, "")},
+		corev1.EnvVar{Name: tracing.EnvOtelTracesSampler, Value: ptr.Deref(t.Sampler, "")},
+		corev1.EnvVar{Name: tracing.EnvOtelTracesSamplerArg, Value: ptr.Deref(t.SamplerArg, "")},
 	)
 	tracingEnvVars = append(tracingEnvVars, resourceAttrs...)
 
-	container.Env = mergeEnvVars(container.Env, tracingEnvVars)
+	container.Env = utils.AppendEnvVarIfNotExists(container.Env, tracingEnvVars...)
 	return true
 }
 
@@ -140,32 +142,6 @@ func injectServerTracingIntoPodSpec(t *v1alpha2.TracingSpec, namespace, llmisvcN
 	for i := range podSpec.Containers {
 		if podSpec.Containers[i].Name == "main" {
 			return injectServerTracing(t, namespace, llmisvcName, roleSuffix, &podSpec.Containers[i])
-		}
-	}
-	return false
-}
-
-// mergeEnvVars appends env vars from src into dst, skipping any that already
-// exist in dst (by name). This ensures user-provided env vars take precedence.
-func mergeEnvVars(dst, src []corev1.EnvVar) []corev1.EnvVar {
-	existing := make(map[string]struct{}, len(dst))
-	for _, e := range dst {
-		existing[e.Name] = struct{}{}
-	}
-	for _, e := range src {
-		if _, ok := existing[e.Name]; !ok {
-			dst = append(dst, e)
-		}
-	}
-	return dst
-}
-
-// hasArg checks whether any element in args starts with the given flag name.
-// It handles both --flag=value and --flag value forms.
-func hasArg(args []string, flag string) bool {
-	for _, a := range args {
-		if a == flag || len(a) > len(flag) && a[:len(flag)+1] == flag+"=" {
-			return true
 		}
 	}
 	return false

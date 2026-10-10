@@ -1,5 +1,7 @@
-# This patch inject a sidecar container which is a HTTP proxy for the controller manager,
-# it performs RBAC authorization against the Kubernetes API using SubjectAccessReviews.
+# This patch adds kube-rbac-proxy, which terminates HTTPS, performs Kubernetes
+# authentication and authorization, and forwards plaintext HTTP to the manager.
+# Do not enable --metrics-secure unless the proxy upstream and certificate trust
+# are also configured for HTTPS.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

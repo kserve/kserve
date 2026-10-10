@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
@@ -33,6 +34,52 @@ import (
 
 	"github.com/kserve/kserve/pkg/constants"
 )
+
+// The v1alpha1 validator keeps its own checklist, so the shared annotation
+// check must be wired here explicitly - the python SDK creates v1alpha1 objects.
+func TestValidateCreateRejectsUnsupportedLoRARoutingStrategyAnnotation(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	for _, tt := range []struct {
+		name    string
+		value   string
+		wantErr bool
+	}{
+		{name: "valid value is admitted", value: " Regex "},
+		{name: "typo is rejected", value: "regexp", wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceService()
+			svc.Spec.Annotations = map[string]string{constants.LoRAModelRoutingStrategyAnnotationKey: tt.value}
+
+			_, err := validator.ValidateCreate(t.Context(), svc)
+
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, constants.LoRAModelRoutingStrategyAnnotationKey)
+		})
+	}
+}
+
+func TestValidateKVCacheOffloading(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	valid := &LLMInferenceService{Spec: LLMInferenceServiceSpec{WorkloadSpec: WorkloadSpec{
+		KVCacheOffloading: &KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{{FileSystem: &FileSystemTierSpec{
+				EmptyDir: &EmptyDirTierSpec{Size: resource.MustParse("100Gi")},
+			}}},
+		},
+	}}}
+	assert.NoError(t, validator.validate(t.Context(), nil, valid))
+
+	invalid := valid.DeepCopy()
+	invalid.Spec.KVCacheOffloading.Secondary[0].FileSystem.PVC = &PVCTierSpec{}
+	err := validator.validate(t.Context(), nil, invalid)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exactly one of emptyDir or pvc")
+}
 
 func newBaseLLMInferenceService() *LLMInferenceService {
 	return &LLMInferenceService{
@@ -1220,5 +1267,58 @@ func TestValidateManagedDRAAnnotations_V1Alpha1(t *testing.T) {
 				assert.Contains(t, err.Error(), tt.wantErrField)
 			}
 		})
+	}
+}
+
+// The v1alpha1 validator keeps its own checklist, so the shared DisaggregatedSet
+// annotation check must be wired here explicitly. The python SDK creates v1alpha1
+// objects, so both versions have to reject the same inputs.
+func TestValidateCreateDisaggregatedSetAnnotation(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	for _, tt := range []struct {
+		name    string
+		value   string
+		scaling bool
+		wantErr bool
+	}{
+		{name: "opted in is admitted", value: "true"},
+		{name: "opted out is admitted", value: "false"},
+		// Admission cannot read the feature gate, and presets merged after admission
+		// can still add spec.scaling, so this combination is the reconciler's problem.
+		{name: "opted in with scaling is admitted", value: "true", scaling: true},
+		{name: "malformed value is rejected", value: "yes", wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceService()
+			svc.Spec.Annotations = map[string]string{constants.LLMDisaggregatedSetAnnotationKey: tt.value}
+			if tt.scaling {
+				svc.Spec.Scaling = validDisaggScalingSpec()
+				svc.Spec.Prefill = &WorkloadSpec{Scaling: validDisaggScalingSpec()}
+			}
+
+			_, err := validator.ValidateCreate(t.Context(), svc)
+
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, "spec.annotations["+constants.LLMDisaggregatedSetAnnotationKey+"]")
+		})
+	}
+}
+
+// validDisaggScalingSpec returns a ScalingSpec that satisfies the unrelated scaling
+// validation rules, so these cases exercise the DisaggregatedSet check rather than
+// tripping over an incomplete scaling block.
+func validDisaggScalingSpec() *ScalingSpec {
+	return &ScalingSpec{
+		MinReplicas: ptr.To(int32(1)),
+		MaxReplicas: 5,
+		WVA: &WVASpec{
+			VariantCost: "10.0",
+			ActuatorSpec: ActuatorSpec{
+				HPA: &HPAScalingSpec{},
+			},
+		},
 	}
 }

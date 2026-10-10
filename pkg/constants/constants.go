@@ -17,6 +17,7 @@ limitations under the License.
 package constants
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"regexp"
@@ -136,6 +137,9 @@ var (
 	LoggerCredentialPathKey                     = KServeAPIGroupName + "/logger-secret-path"
 	LoggerCredentialFileKey                     = KServeAPIGroupName + "/logger-secret-file"
 	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
+	KernelCacheSupportedAnnotationKey           = KServeAPIGroupName + "/kernelcache-supported"
+	KernelCacheSidecarInjectionAnnotationKey    = KServeAPIGroupName + "/kernelcache-sidecar-injection"
+	KernelCacheNodeGroupAnnotationKey           = KServeAPIGroupName + "/kernelcache-nodegroup"
 	ModelFormatAnnotationKey                    = "modelFormat"
 	InferencePoolMigratedAnnotationKey          = KServeAPIGroupName + "/inferencepool-migrated"
 	// Managed DRA Experimental Annotations
@@ -178,6 +182,9 @@ var (
 	LocalModelNamespaceLabel                         = InferenceServiceInternalAnnotationsPrefix + "/localmodel-namespace"
 	LocalModelSourceUriAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/localmodel-sourceuri"
 	LocalModelPVCNameAnnotationKey                   = InferenceServiceInternalAnnotationsPrefix + "/localmodel-pvc-name"
+	KernelCacheUsageAnnotationKey                    = InferenceServiceInternalAnnotationsPrefix + "/kernelcache-usage"
+	KernelCacheCaptureGeneratedLabelKey              = InferenceServiceInternalAnnotationsPrefix + "/kernelcache-capture-generated"
+	KernelCacheNodeGroupSelectionSourceAnnotationKey = InferenceServiceInternalAnnotationsPrefix + "/kernelcache-nodegroup-selection-source"
 	ConfidentialEnabledAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/confidential-enabled"
 	ConfidentialResourceIdAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/confidential-resource-id"
 	LocalModelLoRAAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/localmodel-lora"
@@ -439,7 +446,8 @@ const (
 
 // LLMInferenceService label constants (uses Kubernetes recommended label keys above)
 const (
-	LLMInferenceServicePartOfValue = "llminferenceservice"
+	LLMInferenceServiceRevisionLabelKey = "serving.kserve.io/llmisvc-revision"
+	LLMInferenceServicePartOfValue      = "llminferenceservice"
 	// LLMInferenceService component label values (for KubernetesComponentLabelKey)
 	LLMComponentRouter                = "llminferenceservice-router"
 	LLMComponentRouterScheduler       = "llminferenceservice-router-scheduler"
@@ -461,6 +469,33 @@ const (
 	// LLMServedByAnnotationKey enables the x-served-by response header middleware.
 	// Set to "true" on an LLMInferenceService to inject the middleware.
 	LLMServedByAnnotationKey = "serving.kserve.io/enable-served-by-header"
+
+	// LLMDisaggregatedSetAnnotationKey selects the DisaggregatedSet workload backend for
+	// a disaggregated (prefill/decode) LLMInferenceService, which manages both roles as
+	// one object so they roll together during an upgrade instead of racing independently.
+	//
+	// It is read from spec.annotations after presets are merged. The P/D presets set it
+	// to "true", so DisaggregatedSet is the default; a service sets it to "false" in its
+	// own spec.annotations to keep using Deployments or LeaderWorkerSets. The only
+	// accepted values are "true" and "false", compared case-insensitively after trimming,
+	// matching StopAnnotationKey; anything else is rejected at admission.
+	//
+	// Using the backend additionally requires the DisaggregatedSet feature gate in the
+	// "llmisvc" key of inferenceservice-config and the LWS DisaggregatedSet CRD on the
+	// cluster. Without either, the annotation is inert and the service keeps using the
+	// Deployment or LeaderWorkerSet path unchanged.
+	LLMDisaggregatedSetAnnotationKey = KServeAPIGroupName + "/enable-disaggregated-set"
+
+	// LLMAcceleratorAnnotationKey is the Status.Annotations key where the
+	// resolved accelerator type (cpu/gpu/unknown) is persisted during
+	// reconciliation for telemetry scraping.
+	LLMAcceleratorAnnotationKey = "serving.kserve.io/accelerator-type"
+
+	// WellKnownConfigPinAnnotationPrefix is the key prefix shared by all
+	// config-pin annotations written to Status.Annotations by the
+	// WellKnownConfigResolver. Used as an allowlist when reading config
+	// references from annotations.
+	WellKnownConfigPinAnnotationPrefix = "serving.kserve.io/config-"
 )
 
 // LLMInferenceService constants
@@ -504,8 +539,9 @@ const (
 
 // InferenceService container names
 const (
-	InferenceServiceContainerName   = "kserve-container"
-	StorageInitializerContainerName = "storage-initializer"
+	InferenceServiceContainerName    = "kserve-container"
+	LLMInferenceServiceContainerName = "main"
+	StorageInitializerContainerName  = "storage-initializer"
 
 	// TransformerContainerName transformer container name in collocation
 	TransformerContainerName = "transformer-container"
@@ -964,3 +1000,49 @@ func GetRouterReadinessProbe() *corev1.Probe {
 	}
 	return probe
 }
+
+// KernelCacheCaptureRevisionName returns the deterministic generated capture
+// name for a workload revision. The revision identifier is retained in full so
+// Pods from the same ReplicaSet resolve the same KCC. Long source names are
+// shortened with a digest to keep the result within the Kubernetes name limit.
+func KernelCacheCaptureRevisionName(sourceName, revisionID string) string {
+	const marker = "-kcc-"
+	const maxNameLength = 63
+
+	if sourceName == "" || revisionID == "" {
+		return ""
+	}
+	suffix := marker + revisionID
+	available := maxNameLength - len(suffix)
+	if available <= 0 {
+		return ""
+	}
+	if len(sourceName) <= available {
+		return sourceName + suffix
+	}
+
+	digest := sha256.Sum256([]byte(sourceName))
+	digestText := fmt.Sprintf("-%x", digest[:6])
+	keep := available - len(digestText)
+	if keep < 1 {
+		return ""
+	}
+	return strings.TrimRight(sourceName[:keep], "-.") + digestText + suffix
+}
+
+// KernelCacheTargetImage returns the OCI image reference for one capture.
+func KernelCacheTargetImage(registry, namespace, inferenceServiceName, captureID string) string {
+	return fmt.Sprintf("%s/%s/kernel-cache-%s:%s", strings.TrimSuffix(registry, "/"), namespace, inferenceServiceName, captureID)
+}
+
+// LoRAModelRoutingStrategyAnnotationKey pins the LoRA routing strategy for one
+// LLMInferenceService, overriding the cluster-wide loraModelRoutingStrategy.
+// Set on spec.annotations, so a preset can carry it.
+const LoRAModelRoutingStrategyAnnotationKey = KServeAPIGroupName + "/lora-model-routing-strategy"
+
+// Values accepted by the loraModelRoutingStrategy ConfigMap key and the
+// LoRAModelRoutingStrategyAnnotationKey annotation; compared case-insensitively.
+const (
+	LoRAModelRoutingStrategyExact = "exact"
+	LoRAModelRoutingStrategyRegex = "regex"
+)

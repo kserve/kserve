@@ -1,4 +1,4 @@
-# Copyright 2023 The KServe Authors.
+# Copyright 2020 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -538,7 +538,7 @@ class V1beta1ModelSpec(object):
     def resize_policy(self):
         """Gets the resize_policy of this V1beta1ModelSpec.  # noqa: E501
 
-        Resources resize policy for the container.  # noqa: E501
+        Resources resize policy for the container. This field cannot be set on ephemeral containers.  # noqa: E501
 
         :return: The resize_policy of this V1beta1ModelSpec.  # noqa: E501
         :rtype: list[V1ContainerResizePolicy]
@@ -549,7 +549,7 @@ class V1beta1ModelSpec(object):
     def resize_policy(self, resize_policy):
         """Sets the resize_policy of this V1beta1ModelSpec.
 
-        Resources resize policy for the container.  # noqa: E501
+        Resources resize policy for the container. This field cannot be set on ephemeral containers.  # noqa: E501
 
         :param resize_policy: The resize_policy of this V1beta1ModelSpec.  # noqa: E501
         :type: list[V1ContainerResizePolicy]

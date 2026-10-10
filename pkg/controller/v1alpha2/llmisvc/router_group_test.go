@@ -17,14 +17,27 @@ limitations under the License.
 package llmisvc
 
 import (
+	"context"
+	"errors"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	v1alpha2 "github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -519,14 +532,16 @@ func TestTrafficFieldsChanged(t *testing.T) {
 			old: func() *v1alpha2.LLMInferenceService {
 				s := memberSvc("v1", "g", 9, false, now)
 				s.Status.Addresses = []v1alpha2.SourcedAddress{{
-					Models: []v1alpha2.ModelSourcedAddressStatus{{Name: "model-beta"}},
+					Addressable: duckv1.Addressable{URL: apis.HTTP("gateway.example.com")},
+					Models:      []v1alpha2.ModelSourcedAddressStatus{{Name: "publishers/default/models/model-beta"}},
 				}}
 				return &s
 			}(),
 			new: func() *v1alpha2.LLMInferenceService {
 				s := memberSvc("v1", "g", 9, false, now)
 				s.Status.Addresses = []v1alpha2.SourcedAddress{{
-					Models: []v1alpha2.ModelSourcedAddressStatus{{Name: "model-alpha"}},
+					Addressable: duckv1.Addressable{URL: apis.HTTP("gateway.example.com")},
+					Models:      []v1alpha2.ModelSourcedAddressStatus{{Name: "publishers/default/models/model-alpha"}},
 				}}
 				return &s
 			}(),
@@ -537,14 +552,16 @@ func TestTrafficFieldsChanged(t *testing.T) {
 			old: func() *v1alpha2.LLMInferenceService {
 				s := memberSvc("v1", "g", 9, false, now)
 				s.Status.Addresses = []v1alpha2.SourcedAddress{{
-					Models: []v1alpha2.ModelSourcedAddressStatus{{Name: "model-alpha"}},
+					Addressable: duckv1.Addressable{URL: apis.HTTP("gateway.example.com")},
+					Models:      []v1alpha2.ModelSourcedAddressStatus{{Name: "publishers/default/models/model-alpha"}},
 				}}
 				return &s
 			}(),
 			new: func() *v1alpha2.LLMInferenceService {
 				s := memberSvc("v1", "g", 9, false, now)
 				s.Status.Addresses = []v1alpha2.SourcedAddress{{
-					Models: []v1alpha2.ModelSourcedAddressStatus{{Name: "model-alpha"}},
+					Addressable: duckv1.Addressable{URL: apis.HTTP("gateway.example.com")},
+					Models:      []v1alpha2.ModelSourcedAddressStatus{{Name: "publishers/default/models/model-alpha"}},
 				}}
 				return &s
 			}(),
@@ -658,54 +675,6 @@ func TestResolveMemberBackendRef(t *testing.T) {
 	}
 }
 
-func TestRouteReferencesBackend(t *testing.T) {
-	tests := []struct {
-		name    string
-		route   *gwapiv1.HTTPRoute
-		backend string
-		want    bool
-	}{
-		{
-			name: "match in first rule",
-			route: &gwapiv1.HTTPRoute{Spec: gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{
-				{BackendRefs: []gwapiv1.HTTPBackendRef{{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{Name: "pool-a"}}}}},
-			}}},
-			backend: "pool-a",
-			want:    true,
-		},
-		{
-			name: "no match",
-			route: &gwapiv1.HTTPRoute{Spec: gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{
-				{BackendRefs: []gwapiv1.HTTPBackendRef{{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{Name: "pool-a"}}}}},
-			}}},
-			backend: "pool-b",
-			want:    false,
-		},
-		{
-			name:    "empty rules",
-			route:   &gwapiv1.HTTPRoute{},
-			backend: "pool-a",
-			want:    false,
-		},
-		{
-			name: "match in second rule",
-			route: &gwapiv1.HTTPRoute{Spec: gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{
-				{BackendRefs: []gwapiv1.HTTPBackendRef{{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{Name: "pool-a"}}}}},
-				{BackendRefs: []gwapiv1.HTTPBackendRef{{BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{Name: "pool-b"}}}}},
-			}}},
-			backend: "pool-b",
-			want:    true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, routeReferencesBackend(tt.route, tt.backend))
-		})
-	}
-}
-
-// memberSvc creates a minimal LLMInferenceService for group testing.
 func routableMember(name, group string, weight int32, ts metav1.Time) v1alpha2.LLMInferenceService {
 	svc := memberSvc(name, group, weight, false, ts)
 	svc.Status.SetConditions(apis.Conditions{{
@@ -749,4 +718,341 @@ func memberSvc(name, group string, weight int32, stopped bool, ts metav1.Time) v
 		}
 	}
 	return svc
+}
+
+func TestFinalizeGroupMembership(t *testing.T) {
+	const group = "group"
+	deleting := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "leaving", Namespace: "ns", DeletionTimestamp: ptr.To(metav1.Now()),
+			Finalizers: []string{"test-finalizer"},
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{Route: &v1alpha2.GatewayRoutesSpec{Group: ptr.To(group)}},
+		},
+	}
+	peer := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "peer", Namespace: "ns"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{Route: &v1alpha2.GatewayRoutesSpec{Group: ptr.To(group)}},
+		},
+	}
+	peerPoolRoute := func(poolName string) *gwapiv1.HTTPRoute {
+		return &gwapiv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: kmeta.ChildName(peer.Name, "-kserve-route"), Namespace: peer.Namespace},
+			Spec: gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{{BackendRefs: []gwapiv1.HTTPBackendRef{{
+				BackendRef: gwapiv1.BackendRef{BackendObjectReference: gwapiv1.BackendObjectReference{
+					Group: ptr.To(gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName)),
+					Kind:  ptr.To(gwapiv1.Kind("InferencePool")),
+					Name:  gwapiv1.ObjectName(poolName),
+				}},
+			}}}}},
+		}
+	}
+	peerRoute := func(backends ...string) *gwapiv1.HTTPRoute {
+		refs := make([]gwapiv1.HTTPBackendRef, 0, len(backends))
+		for _, name := range backends {
+			refs = append(refs, gwapiv1.HTTPBackendRef{BackendRef: gwapiv1.BackendRef{
+				BackendObjectReference: gwapiv1.BackendObjectReference{Name: gwapiv1.ObjectName(name)},
+			}})
+		}
+		return &gwapiv1.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{Name: kmeta.ChildName(peer.Name, "-kserve-route"), Namespace: peer.Namespace},
+			Spec:       gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{{BackendRefs: refs}}},
+		}
+	}
+
+	peerRouteInNamespace := func(backend, namespace string) *gwapiv1.HTTPRoute {
+		route := peerRoute(backend)
+		route.Spec.Rules[0].BackendRefs[0].Namespace = ptr.To(gwapiv1.Namespace(namespace))
+		return route
+	}
+
+	for _, tt := range []struct {
+		name      string
+		route     *gwapiv1.HTTPRoute
+		poolRef   string
+		getErr    error
+		converged bool
+		wantErr   bool
+	}{
+		{name: "peer released the backend", route: peerRoute("peer-kserve-workload-svc"), converged: true},
+		{name: "peer references the backend with an empty namespace", route: peerRouteInNamespace(workloadServiceName(deleting), "")},
+		{name: "peer references the backend in another namespace", route: peerRouteInNamespace(workloadServiceName(deleting), "elsewhere"), converged: true},
+		{name: "peer still references the backend", route: peerRoute(workloadServiceName(deleting))},
+		// The injected backendRef carries the referenced pool name, not the
+		// default one, so matching on the default alone would wrongly converge.
+		{name: "peer still references an explicitly referenced pool", route: peerPoolRoute("user-pool"), poolRef: "user-pool"},
+		{name: "peer released an explicitly referenced pool", route: peerRoute("peer-kserve-workload-svc"), poolRef: "user-pool", converged: true},
+		{name: "peer has no route yet", converged: true},
+		{
+			name:      "HTTPRoute CRD is not installed",
+			getErr:    &meta.NoKindMatchError{GroupKind: schema.GroupKind{Group: gwapiv1.GroupName, Kind: "HTTPRoute"}},
+			converged: true,
+		},
+		{
+			name: "peer route read denied",
+			getErr: apierrors.NewForbidden(
+				schema.GroupResource{Group: gwapiv1.GroupName, Resource: "httproutes"}, "route", errors.New("denied")),
+			wantErr: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			require.NoError(t, v1alpha2.AddToScheme(scheme))
+			require.NoError(t, gwapiv1.Install(scheme))
+
+			builder := fake.NewClientBuilder().WithScheme(scheme).WithObjects(deleting, peer).
+				WithIndex(&v1alpha2.LLMInferenceService{}, groupFieldIndex, groupIndexValue)
+			if tt.route != nil {
+				builder = builder.WithObjects(tt.route)
+			}
+			if tt.getErr != nil {
+				builder = builder.WithInterceptorFuncs(interceptor.Funcs{
+					Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+						if _, ok := obj.(*gwapiv1.HTTPRoute); ok {
+							return tt.getErr
+						}
+						return c.Get(ctx, key, obj, opts...)
+					},
+				})
+			}
+
+			leaving := deleting.DeepCopy()
+			if tt.poolRef != "" {
+				leaving.Spec.Router.Scheduler = &v1alpha2.SchedulerSpec{
+					Pool: &v1alpha2.InferencePoolSpec{Ref: &corev1.LocalObjectReference{Name: tt.poolRef}},
+				}
+			}
+
+			r := &LLMISVCReconciler{Client: builder.Build()}
+			done, err := r.finalizeGroupMembership(t.Context(), leaving)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.converged, done)
+		})
+	}
+}
+
+func TestResolvedModelNames(t *testing.T) {
+	pathURL := apis.HTTP("gateway.example.com")
+	pathURL.Path = "/ns/svc"
+	modelRoutingURL := apis.HTTP("gateway.example.com")
+	address := func(url *apis.URL, models ...string) v1alpha2.SourcedAddress {
+		addr := v1alpha2.SourcedAddress{Addressable: duckv1.Addressable{URL: url}}
+		for _, m := range models {
+			addr.Models = append(addr.Models, v1alpha2.ModelSourcedAddressStatus{Name: m})
+		}
+		return addr
+	}
+	member := func(namespace, specModel string, addresses ...v1alpha2.SourcedAddress) *v1alpha2.LLMInferenceService {
+		m := &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: namespace},
+			Spec:       v1alpha2.LLMInferenceServiceSpec{Model: v1alpha2.LLMModelSpec{Name: ptr.To(specModel)}},
+		}
+		m.Status.Addresses = addresses
+		return m
+	}
+	// A path-based address lists the plain and the publisher-qualified name, a
+	// model-routing address only the qualified one.
+	pathAddress := address(pathURL, "publishers/ns/models/org/m", "org/m", "publishers/ns/models/a1", "a1")
+	modelRoutingAddress := address(modelRoutingURL, "publishers/ns/models/org/m", "publishers/ns/models/a1")
+
+	tests := []struct {
+		name   string
+		member *v1alpha2.LLMInferenceService
+		want   []string
+	}{
+		{
+			name:   "path and model-routing addresses",
+			member: member("ns", "org/m", pathAddress, modelRoutingAddress),
+			want:   []string{"a1", "org/m"},
+		},
+		{
+			name:   "model-routing addresses only, as with model-based-routing-only",
+			member: member("ns", "org/m", modelRoutingAddress),
+			want:   []string{"a1", "org/m"},
+		},
+		{
+			name:   "a qualified name from another namespace is kept as is",
+			member: member("ns", "org/m", address(modelRoutingURL, "publishers/other/models/org/m")),
+			want:   []string{"publishers/other/models/org/m"},
+		},
+		{
+			name:   "no addresses falls back to the spec",
+			member: member("ns", "org/m"),
+			want:   []string{"org/m"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, resolvedModelNames(tt.member))
+		})
+	}
+}
+
+// Real SourcedAddress output: a member with path URLs and one with only the
+// model-routing URL, as with model-based-routing-only, serve the same models.
+func TestResolvedModelNamesAcrossAddressTypes(t *testing.T) {
+	pathURL := apis.HTTP("gateway.example.com")
+	pathURL.Path = "/ns/svc"
+	modelRoutingURL := apis.HTTP("gateway.example.com")
+
+	tests := []struct {
+		name     string
+		model    string
+		adapters []string
+		want     []string
+	}{
+		{
+			name:     "plain names",
+			model:    "org/m",
+			adapters: []string{"a1"},
+			want:     []string{"a1", "org/m"},
+		},
+		{
+			name:     "names already starting with the member's publisher prefix",
+			model:    "publishers/ns/models/m",
+			adapters: []string{"publishers/ns/models/a1"},
+			want:     []string{"publishers/ns/models/a1", "publishers/ns/models/m"},
+		},
+		{
+			name:  "name starting with another namespace's publisher prefix",
+			model: "publishers/other/models/m",
+			want:  []string{"publishers/other/models/m"},
+		},
+		{
+			name:     "adapter named after the base model's qualified name",
+			model:    "m",
+			adapters: []string{"publishers/ns/models/m"},
+			want:     []string{"m", "publishers/ns/models/m"},
+		},
+		{
+			name:     "adapter name with a repeated publisher prefix",
+			model:    "m",
+			adapters: []string{"publishers/ns/models/publishers/ns/models/m"},
+			want:     []string{"m", "publishers/ns/models/publishers/ns/models/m"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			member := func(urls ...*apis.URL) *v1alpha2.LLMInferenceService {
+				m := &v1alpha2.LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns"},
+					Spec:       v1alpha2.LLMInferenceServiceSpec{Model: v1alpha2.LLMModelSpec{Name: ptr.To(tt.model)}},
+				}
+				if len(tt.adapters) > 0 {
+					m.Spec.Model.LoRA = &v1alpha2.LoRASpec{}
+					for _, a := range tt.adapters {
+						m.Spec.Model.LoRA.Adapters = append(m.Spec.Model.LoRA.Adapters, v1alpha2.LLMModelSpec{Name: ptr.To(a)})
+					}
+				}
+				for _, u := range urls {
+					m.Status.Addresses = append(m.Status.Addresses, SourcedAddress(t.Context(), DiscoveredURL{URL: u}, m))
+				}
+				return m
+			}
+			assert.Equal(t, tt.want, resolvedModelNames(member(pathURL, modelRoutingURL)), "path and model-routing URLs")
+			assert.Equal(t, tt.want, resolvedModelNames(member(modelRoutingURL)), "model-routing URL only")
+
+			// Model declarations supplied by presets need not be in the stored spec.
+			pathMember := member(pathURL)
+			pathMember.Spec.Model.Name = ptr.To("unresolved-model")
+			pathMember.Spec.Model.LoRA = nil
+			assert.Equal(t, tt.want, resolvedModelNames(pathMember), "path URL only")
+			slices.Reverse(pathMember.Status.Addresses[0].Models)
+			assert.Equal(t, tt.want, resolvedModelNames(pathMember), "reversed address models")
+			slices.SortFunc(pathMember.Status.Addresses[0].Models, func(a, b v1alpha2.ModelSourcedAddressStatus) int {
+				return strings.Compare(a.Name, b.Name)
+			})
+			assert.Equal(t, tt.want, resolvedModelNames(pathMember), "sorted address models")
+		})
+	}
+}
+
+// Group members are weighted peers only when their resolved model names are
+// equal, whether or not one of them serves through the model-routing URL only.
+func TestResolvedModelNamesGroupPeers(t *testing.T) {
+	pathURL := apis.HTTP("gateway.example.com")
+	pathURL.Path = "/ns/svc"
+	modelRoutingURL := apis.HTTP("gateway.example.com")
+
+	type member struct {
+		model    string
+		adapters []string
+		urls     []*apis.URL
+	}
+	resolve := func(t *testing.T, mb member) []string {
+		t.Helper()
+		m := &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns"},
+			Spec:       v1alpha2.LLMInferenceServiceSpec{Model: v1alpha2.LLMModelSpec{Name: ptr.To(mb.model)}},
+		}
+		if len(mb.adapters) > 0 {
+			m.Spec.Model.LoRA = &v1alpha2.LoRASpec{}
+			for _, a := range mb.adapters {
+				m.Spec.Model.LoRA.Adapters = append(m.Spec.Model.LoRA.Adapters, v1alpha2.LLMModelSpec{Name: ptr.To(a)})
+			}
+		}
+		for _, u := range mb.urls {
+			m.Status.Addresses = append(m.Status.Addresses, SourcedAddress(t.Context(), DiscoveredURL{URL: u}, m))
+		}
+		return resolvedModelNames(m)
+	}
+
+	tests := []struct {
+		name  string
+		a, b  member
+		peers bool
+	}{
+		{
+			name:  "same model, one member with the model-routing URL only",
+			a:     member{model: "org/m", urls: []*apis.URL{pathURL, modelRoutingURL}},
+			b:     member{model: "org/m", urls: []*apis.URL{modelRoutingURL}},
+			peers: true,
+		},
+		{
+			name:  "same prefixed model, one member with the model-routing URL only",
+			a:     member{model: "publishers/ns/models/m", urls: []*apis.URL{pathURL, modelRoutingURL}},
+			b:     member{model: "publishers/ns/models/m", urls: []*apis.URL{modelRoutingURL}},
+			peers: true,
+		},
+		{
+			name:  "same base and adapter named after its qualified name, one member with the model-routing URL only",
+			a:     member{model: "m", adapters: []string{"publishers/ns/models/m"}, urls: []*apis.URL{pathURL, modelRoutingURL}},
+			b:     member{model: "m", adapters: []string{"publishers/ns/models/m"}, urls: []*apis.URL{modelRoutingURL}},
+			peers: true,
+		},
+		{
+			name:  "same base and repeatedly prefixed adapter, one member with the model-routing URL only",
+			a:     member{model: "m", adapters: []string{"publishers/ns/models/publishers/ns/models/m"}, urls: []*apis.URL{pathURL, modelRoutingURL}},
+			b:     member{model: "m", adapters: []string{"publishers/ns/models/publishers/ns/models/m"}, urls: []*apis.URL{modelRoutingURL}},
+			peers: true,
+		},
+		{
+			name:  "peer with an additional adapter is not a peer",
+			a:     member{model: "m", adapters: []string{"publishers/ns/models/publishers/ns/models/m"}, urls: []*apis.URL{pathURL, modelRoutingURL}},
+			b:     member{model: "m", adapters: []string{"publishers/ns/models/m", "publishers/ns/models/publishers/ns/models/m"}, urls: []*apis.URL{modelRoutingURL}},
+			peers: false,
+		},
+		{
+			name:  "peer serving only the adapter's name is not a peer",
+			a:     member{model: "m", adapters: []string{"publishers/ns/models/m"}, urls: []*apis.URL{pathURL, modelRoutingURL}},
+			b:     member{model: "publishers/ns/models/m", urls: []*apis.URL{modelRoutingURL}},
+			peers: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a, b := resolve(t, tt.a), resolve(t, tt.b)
+			if tt.peers {
+				assert.Equal(t, a, b)
+			} else {
+				assert.NotEqual(t, a, b)
+			}
+		})
+	}
 }

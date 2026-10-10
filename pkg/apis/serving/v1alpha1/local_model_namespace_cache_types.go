@@ -17,26 +17,73 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// LocalModelNamespaceCacheSpec defines the spec for namespace-scoped local model cache
+// LocalModelNamespaceCacheSpec defines the spec for namespace-scoped local model cache.
+//
+// Exactly one storage mode must be selected: either node-local caching via nodeGroups,
+// or shared-PVC import via pvcRef. The two are mutually exclusive.
 // +k8s:openapi-gen=true
+// +kubebuilder:validation:XValidation:rule="!(has(self.nodeGroups) && has(self.pvcRef))",message="nodeGroups and pvcRef are mutually exclusive"
+// +kubebuilder:validation:XValidation:rule="has(self.nodeGroups) || has(self.pvcRef)",message="one of nodeGroups or pvcRef must be set"
+// +kubebuilder:validation:XValidation:rule="has(self.pvcRef) == has(oldSelf.pvcRef)",message="storage mode is immutable"
 type LocalModelNamespaceCacheSpec struct {
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="StorageUri is immutable"
 	// Original StorageUri
 	SourceModelUri string `json:"sourceModelUri" validate:"required"`
 	// Model size to make sure it does not exceed the disk space reserved for local models. The limit is defined on the NodeGroup.
 	ModelSize resource.Quantity `json:"modelSize" validate:"required"`
-	// group of nodes to cache the model on.
+	// group of nodes to cache the model on. Selects the legacy node-local caching mode.
+	// Mutually exclusive with pvcRef.
 	// +kubebuilder:validation:MinItems=1
-	NodeGroups []string `json:"nodeGroups" validate:"required"`
+	// +optional
+	NodeGroups []string `json:"nodeGroups,omitempty"`
+	// PVCRef is the name of a pre-created PersistentVolumeClaim in the cache CR's namespace.
+	// Selects shared-PVC import mode: the model is imported once onto the referenced claim and
+	// shared read-only by serving replicas. The claim must be ReadWriteMany with filesystem
+	// volume mode. It is immutable; changing the destination requires a new cache CR.
+	// Mutually exclusive with nodeGroups.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="pvcRef is immutable"
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +kubebuilder:validation:Pattern=`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	// +optional
+	PVCRef *string `json:"pvcRef,omitempty"`
 	// ServiceAccountName specifies the service account to use for credential lookup.
+	// For nodeGroups caches it must exist in the download job namespace
+	// (localModel.jobNamespace); for pvcRef caches it must exist in this cache's namespace,
+	// where the import Job runs.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// ImagePullSecrets is a single kubernetes.io/dockerconfigjson secret used to
+	// authenticate OCI (oci://) imports. The list shape matches PodSpec.imagePullSecrets;
+	// MaxItems=1 because credential merging is not supported. Combine credentials for
+	// multiple registries into one secret. For nodeGroups caches the named Secret must
+	// exist in the download job namespace (localModel.jobNamespace); for pvcRef caches
+	// it must exist in this cache's namespace, where the import Job runs. Credentials
+	// from serviceAccountName and storage are not used for oci:// sources.
+	//
+	// Trust boundary: a namespaced nodeGroups cache can name any dockerconfigjson Secret
+	// already present in the shared job namespace by that Secret's metadata.name.
+	// There is no extra ownership check; knowing the name is enough. Secrets are not
+	// copied from the cache namespace. Prefer pvcRef (import Job in the cache namespace)
+	// when tenants must not share the cluster job-namespace credential store.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=1
+	// +kubebuilder:validation:XValidation:rule="self.all(s, s.name != '')",message="imagePullSecrets.name must be non-empty"
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// +optional
 	Storage *LocalModelStorageSpec `json:"storage,omitempty"`
+}
+
+// SharedPVCMode reports whether the cache uses shared-PVC import mode.
+func (spec *LocalModelNamespaceCacheSpec) SharedPVCMode() bool {
+	return spec.PVCRef != nil && *spec.PVCRef != ""
 }
 
 // LocalModelNamespaceCache is a namespace-scoped version of LocalModelCache.
@@ -61,10 +108,6 @@ type LocalModelNamespaceCacheList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []LocalModelNamespaceCache `json:"items" validate:"required"`
-}
-
-func init() {
-	SchemeBuilder.Register(&LocalModelNamespaceCache{}, &LocalModelNamespaceCacheList{})
 }
 
 // MatchStorageURI checks if storageUri matches the sourceModelUri or is a subdirectory of it

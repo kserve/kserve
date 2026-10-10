@@ -36,6 +36,9 @@ func (b *buildahBuilder) CreateImage(imageName, cacheDir string) error {
 	}
 	defer CleanupDirs(prep.CacheBuildDir, prep.ManifestBuildDir)
 
+	// Add OCI title label for consistency with Docker path
+	prep.Labels[imageTitleLabel] = imageTitleFromName(imageName)
+
 	buildStoreOptions, err := storage.DefaultStoreOptions()
 	if err != nil {
 		return fmt.Errorf("failed to get default store options: %w", err)
@@ -102,7 +105,10 @@ func (b *buildahBuilder) CreateImage(imageName, cacheDir string) error {
 		builder.SetLabel(k, v)
 	}
 
-	imageID, _, _, err := builder.Commit(ctx, imageRef, buildah.CommitOptions{Squash: true})
+	imageID, _, _, err := builder.Commit(ctx, imageRef, buildah.CommitOptions{
+		Squash:                true,
+		PreferredManifestType: buildah.Dockerv2ImageManifest,
+	})
 	if err != nil {
 		return err
 	}

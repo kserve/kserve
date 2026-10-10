@@ -17,12 +17,21 @@ limitations under the License.
 package llmisvc
 
 import (
+	"context"
+	"maps"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
+	"knative.dev/pkg/apis"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -423,4 +432,237 @@ func TestPropagateWorkloadServiceMetadata(t *testing.T) {
 	}
 	assert.Equal(t, expectedLabels, svc.Labels)
 	assert.Equal(t, map[string]string{"prometheus.io/scrape": "true"}, svc.Annotations)
+}
+
+// TestDeploymentSelectorExcludesMetadataLabels verifies how the Deployment builders split
+// labels between spec.selector, the pod template and the Deployment's own metadata.
+//
+// spec.selector carries the component's identity labels, taking the values spec.labels
+// sets for those keys. Labels propagated from top-level metadata, such as
+// kueue.x-k8s.io/*, and spec.labels keys that identity does not define reach the pod
+// template only.
+func TestDeploymentSelectorExcludesMetadataLabels(t *testing.T) {
+	const (
+		nameLabel  = "app.kubernetes.io/name"
+		queueLabel = "kueue.x-k8s.io/queue-name"
+		userLabel  = "team"
+	)
+
+	modelURI, err := apis.ParseURL("hf://facebook/opt-125m")
+	require.NoError(t, err)
+
+	newSvc := func() *v1alpha2.LLMInferenceService {
+		return &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "selector-test",
+				Namespace: "default",
+				Labels:    map[string]string{queueLabel: "team-alpha-queue"},
+			},
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				Model: v1alpha2.LLMModelSpec{URI: *modelURI},
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Labels: map[string]string{
+						userLabel: "alpha",
+						nameLabel: "other-service",
+					},
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name string
+		// Only the main and prefill builders call propagateDeploymentMetadata, so only
+		// they receive allowlisted labels from the LLMInferenceService's own metadata.
+		propagatesMetadataLabels bool
+		// The tokenizer takes no workload labels, so its selector is identity alone.
+		appliesWorkloadLabels bool
+		build                 func(t *testing.T, r *LLMISVCReconciler) *appsv1.Deployment
+	}{
+		{
+			name:                     "single-node main deployment",
+			propagatesMetadataLabels: true,
+			appliesWorkloadLabels:    true,
+			build: func(t *testing.T, r *LLMISVCReconciler) *appsv1.Deployment {
+				d, err := r.expectedSingleNodeMainDeployment(context.Background(), newSvc(), &Config{})
+				require.NoError(t, err)
+				return d
+			},
+		},
+		{
+			name:                     "prefill deployment",
+			propagatesMetadataLabels: true,
+			appliesWorkloadLabels:    true,
+			build: func(t *testing.T, r *LLMISVCReconciler) *appsv1.Deployment {
+				svc := newSvc()
+				svc.Spec.Prefill = &v1alpha2.WorkloadSpec{Labels: svc.Spec.Labels}
+				d, err := r.expectedPrefillMainDeployment(context.Background(), svc, &Config{})
+				require.NoError(t, err)
+				return d
+			},
+		},
+		{
+			name:                  "scheduler deployment",
+			appliesWorkloadLabels: true,
+			build: func(t *testing.T, r *LLMISVCReconciler) *appsv1.Deployment {
+				svc := newSvc()
+				svc.Spec.Router = &v1alpha2.RouterSpec{
+					Scheduler: &v1alpha2.SchedulerSpec{Labels: svc.Spec.Labels},
+				}
+				d, err := r.expectedSchedulerDeployment(context.Background(), svc)
+				require.NoError(t, err)
+				return d
+			},
+		},
+		{
+			name: "tokenizer deployment",
+			build: func(t *testing.T, r *LLMISVCReconciler) *appsv1.Deployment {
+				d, err := r.expectedTokenizerDeployment(context.Background(), newSvc())
+				require.NoError(t, err)
+				return d
+			},
+		},
+		{
+			// Labels copied from a referenced InferencePool identify the pods that pool
+			// routes to, so they belong in the selector alongside the identity labels.
+			name:                     "single-node main deployment with an InferencePool ref",
+			propagatesMetadataLabels: true,
+			appliesWorkloadLabels:    true,
+			build: func(t *testing.T, r *LLMISVCReconciler) *appsv1.Deployment {
+				svc := newSvc()
+				svc.Spec.Router = &v1alpha2.RouterSpec{
+					Scheduler: &v1alpha2.SchedulerSpec{
+						Pool: &v1alpha2.InferencePoolSpec{
+							Ref: &corev1.LocalObjectReference{Name: "shared-pool"},
+						},
+					},
+				}
+				d, err := r.expectedSingleNodeMainDeployment(context.Background(), svc, &Config{})
+				require.NoError(t, err)
+				assert.Equal(t, "shared", d.Spec.Selector.MatchLabels["pool"],
+					"labels from a referenced InferencePool must reach the selector")
+				return d
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &LLMISVCReconciler{Client: selectorTestClient(t), Clientset: k8sfake.NewSimpleClientset()}
+			d := tt.build(t, r)
+
+			selector := d.Spec.Selector.MatchLabels
+			podLabels := d.Spec.Template.Labels
+			metaLabels := d.Labels
+
+			// Propagated from metadata: pod template only, never the selector.
+			if tt.propagatesMetadataLabels {
+				assert.Contains(t, podLabels, queueLabel)
+			}
+			assert.NotContains(t, selector, queueLabel,
+				"spec.selector is immutable and must not carry labels propagated from metadata")
+
+			// From spec.labels: the value it sets for an identity key reaches the
+			// selector, a key identity does not define reaches the pod template only,
+			// and neither reaches the Deployment's own metadata.
+			assert.NotContains(t, selector, userLabel,
+				"spec.selector must carry identity keys only")
+			if tt.appliesWorkloadLabels {
+				assert.Equal(t, "alpha", podLabels[userLabel])
+				assert.Equal(t, "other-service", selector[nameLabel],
+					"spec.labels must override the identity label in the selector")
+				assert.NotContains(t, metaLabels, userLabel,
+					"spec.labels must not reach the Deployment's own metadata")
+				assert.Equal(t, "selector-test", metaLabels[nameLabel],
+					"the Deployment's own metadata keeps the identity label")
+			}
+
+			// Kubernetes requires the pod template to satisfy the selector.
+			for k, v := range selector {
+				assert.Equal(t, v, podLabels[k],
+					"selector key %s must be satisfied by the pod template", k)
+			}
+
+			// A write to the pod template labels must not reach the selector or the
+			// Deployment's own metadata: all three are separate maps.
+			podLabels["mutation-probe"] = "x"
+			assert.NotContains(t, selector, "mutation-probe",
+				"spec.selector must not share its backing map with the pod template")
+			assert.NotContains(t, metaLabels, "mutation-probe",
+				"metadata.labels must not share its backing map with the pod template")
+		})
+	}
+}
+
+// selectorTestClient returns a client with the schemes the Deployment builders read
+// through (existing Deployment, ServiceAccount, InferencePool) so they can run without
+// an API server, seeded with the InferencePool the ref case looks up.
+func selectorTestClient(t *testing.T) client.Client {
+	t.Helper()
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
+	require.NoError(t, appsv1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, igwapi.Install(scheme))
+
+	pool := &igwapi.InferencePool{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-pool", Namespace: "default"},
+		Spec: igwapi.InferencePoolSpec{
+			Selector: igwapi.LabelSelector{
+				MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{"pool": "shared"},
+			},
+		},
+	}
+
+	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(pool).Build()
+}
+
+func TestDeploymentSelectorLabels(t *testing.T) {
+	tests := []struct {
+		name           string
+		identity       map[string]string
+		workloadLabels map[string]string
+		want           map[string]string
+	}{
+		{
+			name:     "nil workload labels leave the identity labels alone",
+			identity: map[string]string{"app.kubernetes.io/name": "svc"},
+			want:     map[string]string{"app.kubernetes.io/name": "svc"},
+		},
+		{
+			name:           "nil identity labels leave nothing for workload labels to override",
+			workloadLabels: map[string]string{"team": "alpha"},
+			want:           map[string]string{},
+		},
+		{
+			name: "both nil",
+			want: map[string]string{},
+		},
+		{
+			name:           "workload labels override identity labels",
+			identity:       map[string]string{"app.kubernetes.io/name": "svc", "kserve.io/component": "workload"},
+			workloadLabels: map[string]string{"app.kubernetes.io/name": "other"},
+			want: map[string]string{
+				"app.kubernetes.io/name": "other",
+				"kserve.io/component":    "workload",
+			},
+		},
+		{
+			name:           "workload labels that identity does not define are left out",
+			identity:       map[string]string{"app.kubernetes.io/name": "svc"},
+			workloadLabels: map[string]string{"app.kubernetes.io/name": "other", "team": "alpha"},
+			want:           map[string]string{"app.kubernetes.io/name": "other"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			identity := maps.Clone(tt.identity)
+
+			got := deploymentSelectorLabels(identity, tt.workloadLabels)
+
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.identity, identity, "the identity map must not be modified")
+		})
+	}
 }

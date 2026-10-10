@@ -26,4 +26,18 @@ kserve:
       nodeSelector:
         kserve/localmodel: worker
       affinity: {}
+      tolerations: []  
+  kernelcachenode:
+    controller:
+      image: kserve/kserve-kernelcachenode-agent
+      tag: ''
+      imagePullPolicy: IfNotPresent
+      resources:
+        limits:
+          cpu: 100m
+          memory: 300Mi
+        requests:
+          cpu: 10m
+          memory: 128Mi
+      affinity: {}
       tolerations: []

@@ -19,6 +19,9 @@ package llmisvc
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
+	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -31,6 +34,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
@@ -61,6 +65,18 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		llmSvc.MarkMainWorkloadNotReady("Stopped", "Service is stopped")
 	}
 
+	disaggregatedSetDecision := r.decideDisaggregatedSet(llmSvc, config)
+	r.markDisaggregatedSetDecision(ctx, llmSvc, disaggregatedSetDecision)
+	useDisaggregatedSet := useDisaggregatedSetWorkload(llmSvc, disaggregatedSetDecision)
+
+	// A DisaggregatedSet computes its revision from its own roles.
+	if !useDisaggregatedSet {
+		if err := r.reconcileWorkloadRevision(ctx, llmSvc, config); err != nil {
+			llmSvc.MarkMainWorkloadNotReady("ComputeWorkloadRevisionError", err.Error())
+			return fmt.Errorf("failed to compute workload revision: %w", err)
+		}
+	}
+
 	// Set up TLS certificates for secure communication
 	if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc, config.SchedulerConfig); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileCertsError", err.Error())
@@ -75,18 +91,33 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	}
 
 	// We need to always reconcile every type of workload to handle transitions from P/D to another topology (meaning
-	// finalizing superfluous workloads).
+	// finalizing superfluous workloads). Switching to and from a DisaggregatedSet creates the new workloads and deletes
+	// the old ones in the same reconcile without waiting for the new pods to become ready, so the service has no ready
+	// endpoints until the new pods finish loading the model. markDisaggregatedSetDecision warns about it with a
+	// MigratingToDisaggregatedSet or MigratingFromDisaggregatedSet event.
+
+	// Handle disaggregated (P/D) deployments using a DisaggregatedSet
+	disaggregatedSet, err := r.reconcileDisaggregatedSet(ctx, llmSvc, config, useDisaggregatedSet)
+	if err != nil {
+		llmSvc.MarkMainWorkloadNotReady("ReconcileDisaggregatedSetError", err.Error())
+		return fmt.Errorf("failed to reconcile disaggregated set: %w", err)
+	}
 
 	// Handle multi-node deployments using LeaderWorkerSets
-	if err := r.reconcileMultiNodeWorkload(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileMultiNodeWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		llmSvc.MarkWorkerWorkloadNotReady("ReconcileMultiNodeWorkloadError", err.Error())
 		return fmt.Errorf("failed to reconcile multi node workload: %w", err)
 	}
 
 	// Handle single-node deployments using standard Deployments
-	if err := r.reconcileSingleNodeWorkload(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileSingleNodeWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileSingleNodeWorkloadError", err.Error())
 		return fmt.Errorf("failed to reconcile single node workload: %w", err)
+	}
+
+	if useDisaggregatedSet {
+		// After the other workloads, which clear the conditions of the workloads they delete.
+		propagateDisaggregatedSetStatus(llmSvc, disaggregatedSet)
 	}
 
 	// Create Service to expose workload pods
@@ -156,7 +187,7 @@ func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc
 	}
 
 	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Labels)
-	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Annotations, AnnotationModelBasedRoutingEnabled)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Annotations, routingSpecAnnotations...)
 
 	if utils.GetForceStopRuntime(llmSvc) {
 		return Delete(ctx, r, llmSvc, expected)
@@ -175,6 +206,20 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 	// TODO https://github.com/llm-d/llm-d-router/issues/220 and DP template
 
 	return s
+}
+
+// deploymentSelectorLabels returns the labels for a workload Deployment's spec.selector:
+// the component's identity labels, taking the values workloadLabels sets for those keys.
+// workloadLabels keys that identity does not define are left out.
+func deploymentSelectorLabels(identity, workloadLabels map[string]string) map[string]string {
+	selector := make(map[string]string, len(identity))
+	maps.Copy(selector, identity)
+	for k, v := range workloadLabels {
+		if _, isIdentity := selector[k]; isIdentity {
+			selector[k] = v
+		}
+	}
+	return selector
 }
 
 func (r *LLMISVCReconciler) propagateInferencePoolRefLabelSelector(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, labels map[string]string) error {
@@ -242,6 +287,38 @@ func PreserveDeploymentReplicas() UpdateOption[*appsv1.Deployment] {
 		if expectedGiven.Spec.Replicas == nil {
 			expected.Spec.Replicas = curr.Spec.Replicas
 		}
+	})
+}
+
+// PreserveDeploymentSelector returns an UpdateOption that carries the stored
+// Deployment's spec.selector over to the object being written, since spec.selector is
+// immutable and the API server accepts no other value.
+//
+// If the pod template does not satisfy that selector, it returns a
+// reconcile.TerminalError naming the labels it is missing: the Deployment has to be
+// recreated, so requeuing the update cannot change the outcome.
+func PreserveDeploymentSelector() UpdateOption[*appsv1.Deployment] {
+	return BeforeDryRun(func(expected, curr *appsv1.Deployment) error {
+		if curr.Spec.Selector == nil {
+			return nil
+		}
+		expected.Spec.Selector = curr.Spec.Selector.DeepCopy()
+
+		var unsatisfied []string
+		for k, v := range curr.Spec.Selector.MatchLabels {
+			if expected.Spec.Template.Labels[k] != v {
+				unsatisfied = append(unsatisfied, fmt.Sprintf("%s=%q", k, v))
+			}
+		}
+		if len(unsatisfied) == 0 {
+			return nil
+		}
+		slices.Sort(unsatisfied)
+
+		return reconcile.TerminalError(fmt.Errorf(
+			"deployment %s/%s must be recreated to reconcile: its selector is "+
+				"immutable and requires %s, which the pod template no longer sets",
+			curr.GetNamespace(), curr.GetName(), strings.Join(unsatisfied, ", ")))
 	})
 }
 

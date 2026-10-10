@@ -52,7 +52,3 @@ type LocalModelNodeGroupList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []LocalModelNodeGroup `json:"items"`
 }
-
-func init() {
-	SchemeBuilder.Register(&LocalModelNodeGroup{}, &LocalModelNodeGroupList{})
-}

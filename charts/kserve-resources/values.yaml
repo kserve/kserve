@@ -1,5 +1,5 @@
 kserve:
-  version: v0.20.0
+  version: v0.21.0
   createSharedResources: true
   inferenceServiceConfig:
     enabled: ''
@@ -38,6 +38,14 @@ kserve:
     uidModelcar: 1010
     cpuModelcar: 10m
     memoryModelcar: 15Mi
+    # enableOciModelSupport turns on any OCI-backed model storage path (modelcar,
+    # native ImageVolume, or fetch). Only rendered into the storageInitializer
+    # config when true, so the default leaves the shipped config untouched.
+    enableOciModelSupport: false
+    # ociModelMode picks the materialization strategy for oci:// storageUris that
+    # carry no explicit suffix. One of: modelcar | native | fetch.
+    # Only rendered into the storageInitializer config when non-empty.
+    ociModelMode: ''
     caBundleConfigMapName: ''
     caBundleVolumeMountPath: /etc/ssl/custom-certs
     storageSpecSecretName: storage-config
@@ -83,6 +91,42 @@ kserve:
       securityContext:
         runAsUser: 1000
         runAsNonRoot: true
+  kernelcache:
+    enabled: false
+    defaultSidecarInjection: true
+    defaultMountType: 'oci'
+    defaultNodeGroup: ''
+    jobNamespace: 'kserve-kernelcache-jobs'
+    mcvImage: 'kserve/kserve-mcv'
+    mcvTag: ''
+    prefetchImage: 'registry.access.redhat.com/ubi9/ubi-minimal:latest'
+    prefetchTag: ''
+    registry:
+      endpoint: ''
+      caConfigMapRef:
+        name: ''
+        key: ''
+      auth:
+        type: 'none'
+        tokenTTLSeconds: 600
+        pushRoleRef:
+          kind: ''
+          name: ''
+        pullRoleRef:
+          kind: ''
+          name: ''
+    artifactSecurity:
+      mode: 'cert'
+      failurePolicy: 'reject'
+      cert:
+        signingProfileRef: 'kernelcache-signer'
+        trustBundle: 'kserve/kernelcache-root-ca'
+        trustBundleKey: ''
+        subjectRegexp: 'spiffe://kserve/kernelcache-signer'
+    abandonedCapturePolicy: 'retain'
+    jobTTLSecondsAfterFinished: 600
+    mcvCaptureReadinessTimeoutSeconds: 600
+    reconcileIntervalSeconds: 300
   security:
     autoMountServiceAccountToken: true
   inferenceservice:
@@ -153,6 +197,7 @@ kserve:
       disableIstioVirtualHost: false
       disableIngressCreation: false
       disableHTTPRouteTimeout: false
+      loraModelRoutingStrategy: exact
       localGateway:
         gateway: knative-serving/knative-local-gateway
         gatewayService: knative-local-gateway.istio-system.svc.cluster.local

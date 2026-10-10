@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/config"
+	"github.com/kserve/kserve/kernelcache/mcv/pkg/constants"
 	"github.com/kserve/kserve/kernelcache/mcv/pkg/utils"
 
 	logging "github.com/sirupsen/logrus"
@@ -204,7 +205,7 @@ func (r *gpuROCm) Init() error {
 				Arch:              info.GFXVersion,
 				WarpSize:          64,
 				MemoryTotalMB:     memTotal / (1024 * 1024),
-				Backend:           hipBackend,
+				Backend:           constants.BackendHIP,
 				ID:                gpuID,
 			},
 			Summary: DeviceSummary{

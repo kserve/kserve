@@ -1,6 +1,6 @@
 # kserve-llmisvc-resources
 
-![Version: v0.20.0](https://img.shields.io/badge/Version-v0.20.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.20.0](https://img.shields.io/badge/AppVersion-v0.20.0-informational?style=flat-square)
+![Version: v0.21.0](https://img.shields.io/badge/Version-v0.21.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.21.0](https://img.shields.io/badge/AppVersion-v0.21.0-informational?style=flat-square)
 
 Helm chart for deploying KServe LLMInferenceService resources
 
@@ -11,7 +11,7 @@ Helm chart for deploying KServe LLMInferenceService resources
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmisvc-resources --version v0.20.0
+$ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmisvc-resources --version v0.21.0
 ```
 
 ## Maintainers
@@ -50,6 +50,7 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.controller.gateway.localGateway.gateway | string | `"knative-serving/knative-local-gateway"` |  |
 | kserve.controller.gateway.localGateway.gatewayService | string | `"knative-local-gateway.istio-system.svc.cluster.local"` |  |
 | kserve.controller.gateway.localGateway.knativeGatewayService | string | `""` |  |
+| kserve.controller.gateway.loraModelRoutingStrategy | string | `"exact"` |  |
 | kserve.controller.gateway.pathTemplate | string | `""` |  |
 | kserve.controller.gateway.urlScheme | string | `"http"` |  |
 | kserve.createSharedResources | bool | `true` |  |
@@ -58,6 +59,34 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.inferenceservice.resources.limits.memory | string | `"2Gi"` |  |
 | kserve.inferenceservice.resources.requests.cpu | string | `"1"` |  |
 | kserve.inferenceservice.resources.requests.memory | string | `"2Gi"` |  |
+| kserve.kernelcache.abandonedCapturePolicy | string | `"retain"` |  |
+| kserve.kernelcache.artifactSecurity.cert.signingProfileRef | string | `"kernelcache-signer"` |  |
+| kserve.kernelcache.artifactSecurity.cert.subjectRegexp | string | `"spiffe://kserve/kernelcache-signer"` |  |
+| kserve.kernelcache.artifactSecurity.cert.trustBundle | string | `"kserve/kernelcache-root-ca"` |  |
+| kserve.kernelcache.artifactSecurity.cert.trustBundleKey | string | `""` |  |
+| kserve.kernelcache.artifactSecurity.failurePolicy | string | `"reject"` |  |
+| kserve.kernelcache.artifactSecurity.mode | string | `"cert"` |  |
+| kserve.kernelcache.defaultMountType | string | `"oci"` |  |
+| kserve.kernelcache.defaultNodeGroup | string | `""` |  |
+| kserve.kernelcache.defaultSidecarInjection | bool | `true` |  |
+| kserve.kernelcache.enabled | bool | `false` |  |
+| kserve.kernelcache.jobNamespace | string | `"kserve-kernelcache-jobs"` |  |
+| kserve.kernelcache.jobTTLSecondsAfterFinished | int | `600` |  |
+| kserve.kernelcache.mcvCaptureReadinessTimeoutSeconds | int | `600` |  |
+| kserve.kernelcache.mcvImage | string | `"kserve/kserve-mcv"` |  |
+| kserve.kernelcache.mcvTag | string | `""` |  |
+| kserve.kernelcache.prefetchImage | string | `"registry.access.redhat.com/ubi9/ubi-minimal:latest"` |  |
+| kserve.kernelcache.prefetchTag | string | `""` |  |
+| kserve.kernelcache.reconcileIntervalSeconds | int | `300` |  |
+| kserve.kernelcache.registry.auth.pullRoleRef.kind | string | `""` |  |
+| kserve.kernelcache.registry.auth.pullRoleRef.name | string | `""` |  |
+| kserve.kernelcache.registry.auth.pushRoleRef.kind | string | `""` |  |
+| kserve.kernelcache.registry.auth.pushRoleRef.name | string | `""` |  |
+| kserve.kernelcache.registry.auth.tokenTTLSeconds | int | `600` |  |
+| kserve.kernelcache.registry.auth.type | string | `"none"` |  |
+| kserve.kernelcache.registry.caConfigMapRef.key | string | `""` |  |
+| kserve.kernelcache.registry.caConfigMapRef.name | string | `""` |  |
+| kserve.kernelcache.registry.endpoint | string | `""` |  |
 | kserve.llmisvc.controller.affinity | object | `{}` |  |
 | kserve.llmisvc.controller.annotations | object | `{}` |  |
 | kserve.llmisvc.controller.containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |
@@ -157,8 +186,10 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.storage.containerSecurityContext.runAsNonRoot | bool | `true` |  |
 | kserve.storage.cpuModelcar | string | `"10m"` |  |
 | kserve.storage.enableModelcar | bool | `true` |  |
+| kserve.storage.enableOciModelSupport | bool | `false` |  |
 | kserve.storage.image | string | `"kserve/storage-initializer"` |  |
 | kserve.storage.memoryModelcar | string | `"15Mi"` |  |
+| kserve.storage.ociModelMode | string | `""` |  |
 | kserve.storage.resources.limits.cpu | string | `"1"` |  |
 | kserve.storage.resources.limits.memory | string | `"1Gi"` |  |
 | kserve.storage.resources.requests.cpu | string | `"100m"` |  |
@@ -178,4 +209,4 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.storage.tag | string | `""` |  |
 | kserve.storage.uidModelcar | int | `1010` |  |
 | kserve.storagecontainer.enabled | string | `""` |  |
-| kserve.version | string | `"v0.20.0"` |  |
+| kserve.version | string | `"v0.21.0"` |  |

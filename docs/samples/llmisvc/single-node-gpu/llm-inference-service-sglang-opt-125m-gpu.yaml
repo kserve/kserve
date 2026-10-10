@@ -1,0 +1,31 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: sglang-opt-125m-single
+spec:
+  runtime: kserve-llm-sglang
+  model:
+    uri: hf://facebook/opt-125m
+    name: facebook/opt-125m
+  replicas: 1
+  router:
+    scheduler: {}
+    route: {}
+    gateway: {}
+  template:
+    containers:
+      - name: main
+        # To execute custom code bundled with a model, uncomment the args below.
+        # This executes arbitrary code from the model source; enable it only for
+        # models from sources you trust.
+        # args:
+        #   - --trust-remote-code
+        resources:
+          limits:
+            cpu: '4'
+            memory: 16Gi
+            nvidia.com/gpu: "1"
+          requests:
+            cpu: '1'
+            memory: 8Gi
+            nvidia.com/gpu: "1"

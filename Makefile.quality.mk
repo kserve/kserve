@@ -60,12 +60,15 @@ SHELLCHECK_EXCLUDES := ':(exclude)install/**' ':(exclude)hack/setup/quick-instal
 # `warning` is a bounded follow-up (mostly SC2155/SC2206/SC2034); run
 # `make sh-lint SHELLCHECK_SEVERITY=warning` to see that backlog.
 SHELLCHECK_SEVERITY ?= error
+# ShellCheck is CPU-bound per script; keep parallelism bounded for laptops and CI.
+SHELLCHECK_JOBS ?= 4
+SHELLCHECK_BATCH_SIZE ?= 8
 
 .PHONY: sh-lint
 sh-lint: $(SHELLCHECK)
 	@echo "Shell-linting scripts (severity: $(SHELLCHECK_SEVERITY))"
 	@git ls-files -z --cached --others --exclude-standard -- '*.sh' $(SHELLCHECK_EXCLUDES) \
-		| xargs -0 -r $(SHELLCHECK) --severity=$(SHELLCHECK_SEVERITY)
+		| xargs -0 -r -n $(SHELLCHECK_BATCH_SIZE) -P $(SHELLCHECK_JOBS) $(SHELLCHECK) --severity=$(SHELLCHECK_SEVERITY)
 
 # Verify e2e test files parse and collect without errors (catches import errors, syntax errors, fixture issues).
 e2e-collect: $(PYTEST)
@@ -118,8 +121,12 @@ sync-helm-common-helpers:
 		echo "  ✓ Copied to charts/$$chart/templates/_utils.tpl"; \
 	done
 
+# Configuration: in setup.cfg [codespell] section (skip paths, ignore-words-list)
+spell-check: $(CODESPELL)
+	$(CODESPELL)
+
 # This runs all necessary steps to prepare for a commit.
-precommit: ensure-go-version-upgrade sync-deps sync-img-env vet go-lint py-fmt py-lint sh-lint e2e-collect generate tidy manifests uv-lock generate-quick-install-scripts generate-chart-manifests sync-helm-common-helpers sync-helm-common-resource-helpers sync-helm-multi-resource-helpers verify-pinned-actions verify-minimal-crd-sync boilerplate
+precommit: ensure-go-version-upgrade sync-deps sync-img-env vet go-lint py-fmt py-lint sh-lint e2e-collect generate tidy manifests uv-lock generate-quick-install-scripts generate-chart-manifests sync-helm-common-helpers sync-helm-common-resource-helpers sync-helm-multi-resource-helpers verify-pinned-actions verify-minimal-crd-sync boilerplate spell-check
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit

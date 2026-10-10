@@ -130,7 +130,7 @@ func TestExtractCacheAndManifestDirectory_ZipSlipRejected(t *testing.T) {
 	cacheDir := filepath.Join(extractDir, "cache")
 	manifestDir := filepath.Join(extractDir, "manifest")
 
-	_, err := extractCacheAndManifestDirectory(archive, cachePrefix, manifestPrefix, cacheDir, manifestDir)
+	_, _, err := extractCacheAndManifestDirectory(archive, cachePrefix, manifestPrefix, cacheDir, manifestDir)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "illegal path in tar entry")
 
@@ -156,7 +156,7 @@ func TestExtractCacheAndManifestDirectory_ManifestZipSlipRejected(t *testing.T) 
 	cacheDir := filepath.Join(extractDir, "cache")
 	manifestDir := filepath.Join(extractDir, "manifest")
 
-	_, err := extractCacheAndManifestDirectory(archive, cachePrefix, manifestPrefix, cacheDir, manifestDir)
+	_, _, err := extractCacheAndManifestDirectory(archive, cachePrefix, manifestPrefix, cacheDir, manifestDir)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "illegal path in tar entry")
 }
@@ -200,7 +200,7 @@ func TestExtractCacheAndManifestDirectory_ValidEntriesExtracted(t *testing.T) {
 	cacheDir := filepath.Join(extractDir, "cache")
 	manifestDir := filepath.Join(extractDir, "manifest")
 
-	dirs, err := extractCacheAndManifestDirectory(archive, cachePrefix, manifestPrefix, cacheDir, manifestDir)
+	dirs, _, err := extractCacheAndManifestDirectory(archive, cachePrefix, manifestPrefix, cacheDir, manifestDir)
 	require.NoError(t, err)
 	assert.NotEmpty(t, dirs)
 

@@ -28,6 +28,7 @@ from .fixtures import (
     LLMINFERENCESERVICE_CONFIGS,
     _create_or_update_llmisvc_config,
     _get_model_name_from_configs,
+    ensure_pvc_with_base_model_and_lora,
     generate_k8s_safe_suffix,
     generate_test_id,
     inject_k8s_proxy,
@@ -61,6 +62,8 @@ class LoRATestCase:
     max_tokens: int = 20
     wait_timeout: int = 900
     response_timeout: int = 60
+    # Populate the shared LoRA PVC before creating the service, for pvc:// adapters.
+    needs_lora_pvc: bool = False
 
 
 def build_llm_service_from_refs(
@@ -92,6 +95,9 @@ def run_lora_test(test_case: LoRATestCase, namespace: str):
     model_name = _get_model_name_from_configs(test_case.base_refs)
     created_configs = []
     llm_service = None
+
+    if test_case.needs_lora_pvc:
+        ensure_pvc_with_base_model_and_lora(namespace=namespace)
 
     try:
         # Create unique LLMInferenceServiceConfig resources for each base ref
@@ -243,6 +249,47 @@ def run_lora_test(test_case: LoRATestCase, namespace: str):
                 pytest.mark.lora,
             ],
             id="multiple-lora-adapters",
+        ),
+        pytest.param(
+            LoRATestCase(
+                base_refs=[
+                    "router-no-scheduler",
+                    "workload-single-cpu",
+                    "model-fb-opt-125m-with-single-lora-pvc",
+                ],
+                prompt="What is Kubernetes?",
+                expected_adapter_names=["lora-adapter-1"],
+                service_name="lora-pvc-single-adapter-test",
+                needs_lora_pvc=True,
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.lora,
+            ],
+            # A claim backing one adapter keeps the per-adapter volume name; this is the
+            # case per-claim naming must leave alone.
+            id="single-lora-adapter-pvc",
+        ),
+        pytest.param(
+            LoRATestCase(
+                base_refs=[
+                    "router-no-scheduler",
+                    "workload-single-cpu",
+                    "model-fb-opt-125m-with-lora-pvc",
+                ],
+                prompt="What is Kubernetes?",
+                expected_adapter_names=["lora-adapter-1", "lora-adapter-2"],
+                service_name="lora-pvc-adapters-test",
+                needs_lora_pvc=True,
+            ),
+            marks=[
+                pytest.mark.cluster_cpu,
+                pytest.mark.lora,
+            ],
+            # The base model and both adapters share one claim. Before per-claim volume
+            # naming the pod template declared three Volumes for it and the workload never
+            # became Ready on Kubernetes 1.34, which is what CI runs.
+            id="multiple-lora-adapters-one-pvc",
         ),
     ],
 )

@@ -27,6 +27,12 @@ docker-build-localmodelnode-agent:
 docker-push-localmodelnode-agent: docker-build-localmodelnode-agent
 	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${LOCALMODEL_AGENT_IMG}:${TAG} -f localmodel-agent.Dockerfile .
 
+docker-build-kernelcachenode-agent:
+	${ENGINE} buildx build ${ARCH} --load --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG} -f kernelcache-agent.Dockerfile .
+
+docker-push-kernelcachenode-agent: docker-build-kernelcachenode-agent
+	${ENGINE} buildx build ${ARCH} --push --build-arg GOTAGS=${GOTAGS} -t ${KO_DOCKER_REPO}/${KERNELCACHE_AGENT_IMG}:${TAG} -f kernelcache-agent.Dockerfile .
+
 docker-build-agent:
 	${ENGINE} buildx build ${ARCH} --build-arg GOTAGS=${GOTAGS} -f agent.Dockerfile . -t ${KO_DOCKER_REPO}/${AGENT_IMG}:${TAG}
 
@@ -129,11 +135,39 @@ docker-build-qpext:
 docker-build-push-qpext: docker-build-qpext
 	${ENGINE} push ${KO_DOCKER_REPO}/${QPEXT_IMG}:${TAG}
 
-docker-build-mcv:
-	${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${MCV_IMG} -f kernelcache/mcv/mcv.Dockerfile kernelcache/mcv
+docker-build-mcv-minimal:
+	${ENGINE} buildx build ${ARCH} --target mcv-minimal -t ${KO_DOCKER_REPO}/${MCV_IMG}:${TAG}-minimal -f kernelcache/mcv/mcv.Dockerfile .
 
-docker-push-mcv: docker-build-mcv
-	${ENGINE} push ${KO_DOCKER_REPO}/${MCV_IMG}
+docker-push-mcv-minimal: docker-build-mcv-minimal
+	${ENGINE} push ${KO_DOCKER_REPO}/${MCV_IMG}:${TAG}-minimal
+
+docker-build-mcv-rocm:
+	${ENGINE} buildx build ${ARCH} --target mcv-rocm -t ${KO_DOCKER_REPO}/${MCV_IMG}:${TAG}-rocm -f kernelcache/mcv/mcv.Dockerfile .
+
+docker-push-mcv-rocm: docker-build-mcv-rocm
+	${ENGINE} push ${KO_DOCKER_REPO}/${MCV_IMG}:${TAG}-rocm
+
+docker-build-mcv-gaudi:
+	${ENGINE} buildx build ${ARCH} --target mcv-gaudi -t ${KO_DOCKER_REPO}/${MCV_IMG}:${TAG}-gaudi -f kernelcache/mcv/mcv.Dockerfile .
+
+docker-push-mcv-gaudi: docker-build-mcv-gaudi
+	${ENGINE} push ${KO_DOCKER_REPO}/${MCV_IMG}:${TAG}-gaudi
+
+docker-build-mcv-cuda:
+	${ENGINE} buildx build ${ARCH} --target mcv-cuda -t ${KO_DOCKER_REPO}/${MCV_IMG}:${TAG}-cuda -f kernelcache/mcv/mcv.Dockerfile .
+
+docker-push-mcv-cuda: docker-build-mcv-cuda
+	${ENGINE} push ${KO_DOCKER_REPO}/${MCV_IMG}:${TAG}-cuda
+
+docker-build-mcv-unified:
+	${ENGINE} buildx build ${ARCH} --target mcv-unified -t ${KO_DOCKER_REPO}/${MCV_IMG}:${TAG}-unified -f kernelcache/mcv/mcv.Dockerfile .
+
+docker-push-mcv-unified: docker-build-mcv-unified
+	${ENGINE} push ${KO_DOCKER_REPO}/${MCV_IMG}:${TAG}-unified
+
+docker-build-mcv: docker-build-mcv-minimal docker-build-mcv-rocm docker-build-mcv-gaudi docker-build-mcv-cuda docker-build-mcv-unified
+
+docker-push-mcv: docker-push-mcv-minimal docker-push-mcv-rocm docker-push-mcv-gaudi docker-push-mcv-cuda docker-push-mcv-unified
 
 docker-build-success-200-isvc:
 	cd python && ${ENGINE} buildx build ${ARCH} -t ${KO_DOCKER_REPO}/${SUCCESS_200_ISVC_IMG}:${TAG} -f success_200_isvc.Dockerfile .

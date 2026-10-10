@@ -131,8 +131,7 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 			return err
 		}
 
-		if err := ctrl.NewWebhookManagedBy(mgr).
-			For(&v1alpha1.LLMInferenceService{}).
+		if err := ctrl.NewWebhookManagedBy(mgr, &v1alpha1.LLMInferenceService{}).
 			WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha1{
 				Client:    mgr.GetClient(),
 				Clientset: defaulterClientSet,
@@ -141,8 +140,7 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 			return err
 		}
 
-		return ctrl.NewWebhookManagedBy(mgr).
-			For(&v1alpha2.LLMInferenceService{}).
+		return ctrl.NewWebhookManagedBy(mgr, &v1alpha2.LLMInferenceService{}).
 			WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha2{
 				Client:    mgr.GetClient(),
 				Clientset: defaulterClientSet,

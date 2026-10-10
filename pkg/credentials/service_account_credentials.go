@@ -118,11 +118,12 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(ctx context.Context, nam
 	secret, err := c.clientset.CoreV1().Secrets(namespace).Get(ctx, storageSecretName, metav1.GetOptions{})
 
 	var storageData []byte
-	if err == nil {
+	switch {
+	case err == nil:
 		if storageKey != "" {
 			if storageData = secret.Data[storageKey]; storageData == nil {
-				return fmt.Errorf("specified storage key %s not found in storage secret %s",
-					storageKey, storageSecretName)
+				return fmt.Errorf("specified storage key %s not found in storage secret %s: %w",
+					storageKey, storageSecretName, ErrStorageKeyNotFound)
 			}
 		} else {
 			if stype == "" {
@@ -130,34 +131,41 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(ctx context.Context, nam
 			} else {
 				storageKey = fmt.Sprintf("%s_%s", DefaultStorageSecretKey, stype)
 			}
-			// It's ok for the entry not to be found in the default/fallback cases
 			storageData = secret.Data[storageKey]
 		}
-	} else if storageKey != "" || !apierr.IsNotFound(err) { // Don't fail if not found and no storage key was specified
-		return fmt.Errorf("can't read storage secret %s: %w", storageSecretName, err)
+	case apierr.IsNotFound(err):
+		if storageKey != "" {
+			return fmt.Errorf("can't read storage secret %s: %w", storageSecretName, ErrStorageConfigSecretNotFound)
+		}
+	default:
+		if storageKey != "" {
+			return fmt.Errorf("can't read storage secret %s: %w", storageSecretName, err)
+		}
 	}
 
 	if storageData != nil {
+		var storageDataJson map[string]string
+		if err := json.Unmarshal(storageData, &storageDataJson); err != nil {
+			return fmt.Errorf("invalid json encountered in key %s of storage secret %s: %w",
+				storageKey, storageSecretName, err)
+		}
+
 		if stype == "" {
-			var storageDataJson map[string]string
-			if err := json.Unmarshal(storageData, &storageDataJson); err != nil {
-				return fmt.Errorf("invalid json encountered in key %s of storage secret %s: %w",
-					storageKey, storageSecretName, err)
-			}
 			if storageType, ok := storageDataJson["type"]; ok {
 				stype = storageType
 				if !utils.Includes(SupportedStorageSpecTypes, stype) {
 					return fmt.Errorf(UnsupportedStorageSpecType, strings.Join(SupportedStorageSpecTypes, ", "), stype)
 				}
 			}
-			// Get bucket from storage-config if not provided in override params
-			if _, ok := storageDataJson["bucket"]; ok && bucket == "" {
-				bucket = storageDataJson["bucket"]
-			}
-			if cabundle_configmap, ok := storageDataJson["cabundle_configmap"]; ok {
+		}
+		if _, ok := storageDataJson["bucket"]; ok && bucket == "" {
+			bucket = storageDataJson["bucket"]
+		}
+		if cabundleConfigmap, ok := storageDataJson["cabundle_configmap"]; ok && cabundleConfigmap != "" {
+			if !envVarExists(container.Env, s3.AWSCABundleConfigMap) {
 				container.Env = append(container.Env, corev1.EnvVar{
 					Name:  s3.AWSCABundleConfigMap,
-					Value: cabundle_configmap,
+					Value: cabundleConfigmap,
 				})
 			}
 		}
@@ -206,6 +214,51 @@ func (c *CredentialBuilder) CreateStorageSpecSecretEnvs(ctx context.Context, nam
 		}
 	}
 
+	return nil
+}
+
+// ErrStorageKeyNotFound indicates the requested key was not found in the storage-config secret.
+var ErrStorageKeyNotFound = errors.New("storage key not found")
+
+// ErrStorageConfigSecretNotFound indicates the storage-config secret itself does not exist.
+var ErrStorageConfigSecretNotFound = errors.New("storage-config secret not found")
+
+func shouldFallbackToDirectSecret(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, ErrStorageKeyNotFound) || errors.Is(err, ErrStorageConfigSecretNotFound)
+}
+
+func envVarExists(envs []corev1.EnvVar, name string) bool {
+	for _, e := range envs {
+		if e.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// CreateStorageSpecSecretEnvsWithSecretFallback resolves storage credentials for local model
+// download jobs. It first looks up storageKey inside the storage-config secret. When that
+// entry is missing, it falls back to treating storageKey as a standalone secret name with
+// S3/GCS/HF annotations (the same path used by InferenceService storage-initializer injection).
+func (c *CredentialBuilder) CreateStorageSpecSecretEnvsWithSecretFallback(
+	ctx context.Context, namespace string, annotations map[string]string, storageKey string,
+	overrideParams map[string]string, container *corev1.Container, volumes *[]corev1.Volume,
+) error {
+	err := c.CreateStorageSpecSecretEnvs(ctx, namespace, annotations, storageKey, overrideParams, container)
+	if err == nil {
+		return nil
+	}
+	if !shouldFallbackToDirectSecret(err) {
+		return err
+	}
+	log.Info("storage-config lookup failed, falling back to direct secret mount",
+		"storageKey", storageKey, "error", err)
+	if mountErr := c.mountSecretCredential(ctx, storageKey, namespace, container, volumes); mountErr != nil {
+		return fmt.Errorf("storage spec credentials: %w; direct secret mount: %w", err, mountErr)
+	}
 	return nil
 }
 

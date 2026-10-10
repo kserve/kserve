@@ -73,6 +73,10 @@ func GenerateDockerfile(imageName, cacheDir, manifestDir, outputPath string) err
 }
 
 func prepareBuildContext(buildType, cacheDir string) (*buildContext, error) {
+	return prepareBuildContextAt(filepath.Join(constants.MCVBuildDir, buildType), cacheDir)
+}
+
+func prepareBuildContextAt(buildRoot, cacheDir string) (*buildContext, error) {
 	caches := cache.DetectCaches(cacheDir)
 	if len(caches) == 0 {
 		return nil, errors.New("failed to detect cache type")
@@ -85,8 +89,6 @@ func prepareBuildContext(buildType, cacheDir string) (*buildContext, error) {
 	}
 	logging.Debugf("manifestTag: %s", manifestTag)
 	logging.Debugf("cacheTag: %s", cacheTag)
-
-	buildRoot := filepath.Join(constants.MCVBuildDir, buildType)
 
 	cacheBuildDir := filepath.Join(buildRoot, cacheTag)
 	manifestBuildDir := filepath.Join(buildRoot, manifestTag)

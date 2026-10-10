@@ -1,8 +1,21 @@
-# This workflow will remove the lgtm label from a PR that gets updated.
-# This prevents any un-reviewed code from being automatically merged by the lgtm-merger mechanism.
+# Removes the lgtm label when a PR is updated, so un-reviewed code cannot be
+# picked up by the automerge job in prow-pr-automerge.yml.
+#
+# pull_request_target rather than pull_request: GitHub forces the pull_request
+# token to read-only on fork PRs, so removeLabel returns 403 there, and almost
+# every kserve PR comes from a fork.
+#
+# Nothing from the fork reaches the runner, which is what makes the write token
+# safe here. Do not add:
+#   - actions/checkout - would put fork code on a runner holding the token
+#   - run: steps interpolating github.event values - script injection
+#   - caches shared with pull_request workflows - cache poisoning
+#   - any secret other than GITHUB_TOKEN
 
 name: "Prow remove lgtm label"
-on: pull_request
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
 
 # This workflow is not applicable to merge queue
 # merge_group:
@@ -10,10 +23,28 @@ on: pull_request
 
 jobs:
   remove-lgtm:
+    # Keeps the write token out of the job entirely on the majority of pushes,
+    # where there is no label to remove.
+    if: contains(github.event.pull_request.labels.*.name, 'lgtm')
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      pull-requests: write
     steps:
-      - uses: jpmcb/prow-github-actions@c44ac3a57d67639e39e4a4988b52049ef45b80dd # v2.0.0
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
-          jobs: 'lgtm'
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const prNumber = context.payload.pull_request.number;
+
+            try {
+              await github.rest.issues.removeLabel({
+                owner, repo, issue_number: prNumber, name: 'lgtm',
+              });
+              core.info(`Removed lgtm from PR #${prNumber}`);
+            } catch (e) {
+              // 404 means the label went away between the event and this call.
+              if (e.status !== 404) throw e;
+              core.info(`PR #${prNumber} no longer carries lgtm`);
+            }

@@ -55,6 +55,19 @@ func MatchCacheForURI(
 			if !nsModel.Spec.MatchStorageURI(storageURI) {
 				continue
 			}
+			// Shared-PVC mode: the cache is only selected once Ready=True, and the serving
+			// PVC is the referenced claim itself (node groups do not apply).
+			if nsModel.Spec.SharedPVCMode() {
+				if !nsModel.IsReady() {
+					continue
+				}
+				return &CacheEntry{
+					Cache:     nsModel.Name,
+					Namespace: nsModel.Namespace,
+					SourceURI: nsModel.Spec.SourceModelUri,
+					PVCName:   *nsModel.Spec.PVCRef,
+				}
+			}
 			pvcName, ok := PVCNameForNodeGroup(nsModel.Spec.NodeGroups, nodeGroup, nodeGroupExists, nsModel.Name)
 			if !ok {
 				continue

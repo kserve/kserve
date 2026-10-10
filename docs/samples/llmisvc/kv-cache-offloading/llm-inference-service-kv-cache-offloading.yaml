@@ -11,16 +11,20 @@ spec:
     route: {}
     gateway: {}
   template:
+    # /dev/shm is grown from kvCacheOffloading.cpu below, so no volume override
+    # is needed here.
     containers:
       - name: main
         resources:
+          # /dev/shm is RAM-backed, so the 10Gi CPU tier below is charged to this
+          # container's memory cgroup on top of the model and its activations.
           limits:
             cpu: '8'
-            memory: 64Gi
+            memory: 74Gi
             nvidia.com/gpu: "1"
           requests:
             cpu: '4'
-            memory: 32Gi
+            memory: 42Gi
             nvidia.com/gpu: "1"
   kvCacheOffloading:
     # Primary tier: CPU RAM. GPU overflows here first.

@@ -307,11 +307,6 @@ type WorkerSpec struct {
 	TensorParallelSize *int `json:"tensorParallelSize,omitempty"`
 }
 
-func init() {
-	SchemeBuilder.Register(&ServingRuntime{}, &ServingRuntimeList{})
-	SchemeBuilder.Register(&ClusterServingRuntime{}, &ClusterServingRuntimeList{})
-}
-
 func (srSpec *ServingRuntimeSpec) IsDisabled() bool {
 	return srSpec.Disabled != nil && *srSpec.Disabled
 }

@@ -77,6 +77,24 @@ spec:
           image: ${IMG}
 EOF
 
+IMG=$(ko resolve ${KO_OPTS:-} -f config/kernelcachenodes/manager.yaml | grep 'image:' | head -1 | awk '{print $2}')
+if [ -z ${IMG} ]; then exit; fi
+cat > config/overlays/${OVERLAY}/kernelcachenode_image_patch.yaml << EOF
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kserve-kernelcachenode-agent
+  namespace: kserve
+spec:
+  template:
+    spec:
+      containers:
+        - name: manager
+          command:
+            - /ko-app/kernelcachenode
+          image: ${IMG}
+EOF
+
 AGENT_IMG=$(ko resolve ${KO_OPTS:-} -f config/overlays/development/configmap/ko_resolve_agent| grep 'image:' | awk '{print $2}')
 ROUTER_IMG=$(ko resolve ${KO_OPTS:-} -f config/overlays/development/configmap/ko_resolve_router| grep 'image:' | awk '{print $2}')
 

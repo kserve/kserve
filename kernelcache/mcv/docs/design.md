@@ -18,13 +18,18 @@ validation, and developer-friendly debugging workflows.
   - Full manifest analysis (for detailed checks)
 
 ## Supported Image Formats
-<!-- markdownlint-disable  MD013 -->
-<!-- Teporarily disable MD013 - Line length to keep the table formatting  -->
-| Format Type          | Description                         | Media Type(s)                                       | Support |
-|----------------------|-------------------------------------|-----------------------------------------------------|---------|
-| **Docker V2 Schema** | Standard Docker images              | `application/vnd.docker.image.rootfs.diff.tar.gzip` | ✅      |
-| **OCI Standard**     | OCI images via tools like `buildah` | `application/vnd.oci.image.layer.v1.tar`            | ✅      |
-<!-- markdownlint-enable MD013 -->
+
+MCV **create** produces **compat** cache images: cache content in a standard
+gzip tarball layer. MCV **extract** selects the code path from **layer media
+type**, not manifest type (OCI vs Docker Schema 2).
+
+| Layer media type | Typical builder | Extract support |
+|------------------|-----------------|-----------------|
+| `application/vnd.docker.image.rootfs.diff.tar.gzip` | Docker / MCV `-c` | Yes (compat) |
+| `application/vnd.oci.image.layer.v1.tar+gzip` | Buildah / Podman / MCV `--builder buildah` or `--builder oci` | Yes (compat) |
+| `application/cache.<type>.content.layer.v1+<type>` | External / legacy | Yes (fallback only) |
+
+See [spec-compat.md](./spec-compat.md) for the full compat specification.
 
 ## Key Features
 
@@ -80,7 +85,7 @@ mcv -c -i quay.io/example/triton-kernel -d /path/to/.triton/cache
 
 - Copies kernel cache into build context
 - Writes manifest.json with entry metadata
-- Builds Docker or OCI image using Docker or Buildah
+- Builds a single-layer compat image using the Docker or Buildah builder
 - Labels image with summary + entry count
 
 ### Extracting and Validating
@@ -94,6 +99,16 @@ mcv -e -i quay.io/example/triton-kernel
 - Extracts image if compatible
 - Validates manifest
 - Removes incompatible kernels if manifest fails
+
+### OCI delta capture
+
+KServe capture uses the MCV OCI builder to avoid a local Docker or Buildah daemon. The sidecar records a baseline snapshot before workload readiness, waits for the workload to become ready, and creates an image from the cache changes that follow.
+
+```text
+baseline snapshot -> readiness -> current snapshot -> delta comparison -> push
+```
+
+The delta path creates a directory-only image when possible. File deletions, root-level file changes, and legacy snapshots fall back to a full image. See [oci-delta-capture.md](./oci-delta-capture.md) for the CLI contract and [capture-sidecar.md](./capture-sidecar.md) for the KServe sidecar contract.
 
 ## Debugging & Logging
 

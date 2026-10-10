@@ -76,6 +76,41 @@ func TestMatchCacheForURI_NamespaceScopedPrecedence(t *testing.T) {
 	assert.Equal(t, "ns-cache-gpu2", match.PVCName)
 }
 
+func sharedNSCache(name, pvcRef string, ready bool) v1alpha1.LocalModelNamespaceCache {
+	ref := pvcRef
+	c := v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default", Generation: 1},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "hf://org/model",
+			ModelSize:      resource.MustParse("1Gi"),
+			PVCRef:         &ref,
+		},
+	}
+	if ready {
+		c.Status.MarkReady(1)
+	}
+	return c
+}
+
+func TestMatchCacheForURI_SharedPVCReady(t *testing.T) {
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{sharedNSCache("ns-cache", "shared-pvc", true)},
+	}
+	match := MatchCacheForURI("hf://org/model", "", false, nil, nsModels)
+	assert.NotNil(t, match)
+	assert.Equal(t, "ns-cache", match.Cache)
+	assert.Equal(t, "default", match.Namespace)
+	assert.Equal(t, "shared-pvc", match.PVCName)
+}
+
+func TestMatchCacheForURI_SharedPVCNotReadySkipped(t *testing.T) {
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{sharedNSCache("ns-cache", "shared-pvc", false)},
+	}
+	match := MatchCacheForURI("hf://org/model", "", false, nil, nsModels)
+	assert.Nil(t, match)
+}
+
 func TestMarshalParseLoRACacheAnnotation(t *testing.T) {
 	raw, err := MarshalLoRACacheAnnotation(map[string]CacheEntry{
 		"adapter-a": {

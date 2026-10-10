@@ -1,4 +1,4 @@
-# Copyright 2023 The KServe Authors.
+# Copyright 2020 The KServe Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,41 +47,75 @@ class V1alpha1LocalModelNamespaceCacheSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'image_pull_secrets': 'list[V1LocalObjectReference]',
         'model_size': 'ResourceQuantity',
         'node_groups': 'list[str]',
+        'pvc_ref': 'str',
         'service_account_name': 'str',
         'source_model_uri': 'str',
         'storage': 'V1alpha1LocalModelStorageSpec'
     }
 
     attribute_map = {
+        'image_pull_secrets': 'imagePullSecrets',
         'model_size': 'modelSize',
         'node_groups': 'nodeGroups',
+        'pvc_ref': 'pvcRef',
         'service_account_name': 'serviceAccountName',
         'source_model_uri': 'sourceModelUri',
         'storage': 'storage'
     }
 
-    def __init__(self, model_size=None, node_groups=None, service_account_name=None, source_model_uri='', storage=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, image_pull_secrets=None, model_size=None, node_groups=None, pvc_ref=None, service_account_name=None, source_model_uri='', storage=None, local_vars_configuration=None):  # noqa: E501
         """V1alpha1LocalModelNamespaceCacheSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._image_pull_secrets = None
         self._model_size = None
         self._node_groups = None
+        self._pvc_ref = None
         self._service_account_name = None
         self._source_model_uri = None
         self._storage = None
         self.discriminator = None
 
+        if image_pull_secrets is not None:
+            self.image_pull_secrets = image_pull_secrets
         self.model_size = model_size
-        self.node_groups = node_groups
+        if node_groups is not None:
+            self.node_groups = node_groups
+        if pvc_ref is not None:
+            self.pvc_ref = pvc_ref
         if service_account_name is not None:
             self.service_account_name = service_account_name
         self.source_model_uri = source_model_uri
         if storage is not None:
             self.storage = storage
+
+    @property
+    def image_pull_secrets(self):
+        """Gets the image_pull_secrets of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
+
+        ImagePullSecrets is a single kubernetes.io/dockerconfigjson secret used to authenticate OCI (oci://) imports. The list shape matches PodSpec.imagePullSecrets; MaxItems=1 because credential merging is not supported. Combine credentials for multiple registries into one secret. For nodeGroups caches the named Secret must exist in the download job namespace (localModel.jobNamespace); for pvcRef caches it must exist in this cache's namespace, where the import Job runs. Credentials from serviceAccountName and storage are not used for oci:// sources.  Trust boundary: a namespaced nodeGroups cache can name any dockerconfigjson Secret already present in the shared job namespace by that Secret's metadata.name. There is no extra ownership check; knowing the name is enough. Secrets are not copied from the cache namespace. Prefer pvcRef (import Job in the cache namespace) when tenants must not share the cluster job-namespace credential store.  # noqa: E501
+
+        :return: The image_pull_secrets of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
+        :rtype: list[V1LocalObjectReference]
+        """
+        return self._image_pull_secrets
+
+    @image_pull_secrets.setter
+    def image_pull_secrets(self, image_pull_secrets):
+        """Sets the image_pull_secrets of this V1alpha1LocalModelNamespaceCacheSpec.
+
+        ImagePullSecrets is a single kubernetes.io/dockerconfigjson secret used to authenticate OCI (oci://) imports. The list shape matches PodSpec.imagePullSecrets; MaxItems=1 because credential merging is not supported. Combine credentials for multiple registries into one secret. For nodeGroups caches the named Secret must exist in the download job namespace (localModel.jobNamespace); for pvcRef caches it must exist in this cache's namespace, where the import Job runs. Credentials from serviceAccountName and storage are not used for oci:// sources.  Trust boundary: a namespaced nodeGroups cache can name any dockerconfigjson Secret already present in the shared job namespace by that Secret's metadata.name. There is no extra ownership check; knowing the name is enough. Secrets are not copied from the cache namespace. Prefer pvcRef (import Job in the cache namespace) when tenants must not share the cluster job-namespace credential store.  # noqa: E501
+
+        :param image_pull_secrets: The image_pull_secrets of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
+        :type: list[V1LocalObjectReference]
+        """
+
+        self._image_pull_secrets = image_pull_secrets
 
     @property
     def model_size(self):
@@ -110,7 +144,7 @@ class V1alpha1LocalModelNamespaceCacheSpec(object):
     def node_groups(self):
         """Gets the node_groups of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
 
-        group of nodes to cache the model on.  # noqa: E501
+        group of nodes to cache the model on. Selects the legacy node-local caching mode. Mutually exclusive with pvcRef.  # noqa: E501
 
         :return: The node_groups of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
         :rtype: list[str]
@@ -121,21 +155,42 @@ class V1alpha1LocalModelNamespaceCacheSpec(object):
     def node_groups(self, node_groups):
         """Sets the node_groups of this V1alpha1LocalModelNamespaceCacheSpec.
 
-        group of nodes to cache the model on.  # noqa: E501
+        group of nodes to cache the model on. Selects the legacy node-local caching mode. Mutually exclusive with pvcRef.  # noqa: E501
 
         :param node_groups: The node_groups of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
         :type: list[str]
         """
-        if self.local_vars_configuration.client_side_validation and node_groups is None:  # noqa: E501
-            raise ValueError("Invalid value for `node_groups`, must not be `None`")  # noqa: E501
 
         self._node_groups = node_groups
+
+    @property
+    def pvc_ref(self):
+        """Gets the pvc_ref of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
+
+        PVCRef is the name of a pre-created PersistentVolumeClaim in the cache CR's namespace. Selects shared-PVC import mode: the model is imported once onto the referenced claim and shared read-only by serving replicas. The claim must be ReadWriteMany with filesystem volume mode. It is immutable; changing the destination requires a new cache CR. Mutually exclusive with nodeGroups.  # noqa: E501
+
+        :return: The pvc_ref of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
+        :rtype: str
+        """
+        return self._pvc_ref
+
+    @pvc_ref.setter
+    def pvc_ref(self, pvc_ref):
+        """Sets the pvc_ref of this V1alpha1LocalModelNamespaceCacheSpec.
+
+        PVCRef is the name of a pre-created PersistentVolumeClaim in the cache CR's namespace. Selects shared-PVC import mode: the model is imported once onto the referenced claim and shared read-only by serving replicas. The claim must be ReadWriteMany with filesystem volume mode. It is immutable; changing the destination requires a new cache CR. Mutually exclusive with nodeGroups.  # noqa: E501
+
+        :param pvc_ref: The pvc_ref of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
+        :type: str
+        """
+
+        self._pvc_ref = pvc_ref
 
     @property
     def service_account_name(self):
         """Gets the service_account_name of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
 
-        ServiceAccountName specifies the service account to use for credential lookup.  # noqa: E501
+        ServiceAccountName specifies the service account to use for credential lookup. For nodeGroups caches it must exist in the download job namespace (localModel.jobNamespace); for pvcRef caches it must exist in this cache's namespace, where the import Job runs.  # noqa: E501
 
         :return: The service_account_name of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
         :rtype: str
@@ -146,7 +201,7 @@ class V1alpha1LocalModelNamespaceCacheSpec(object):
     def service_account_name(self, service_account_name):
         """Sets the service_account_name of this V1alpha1LocalModelNamespaceCacheSpec.
 
-        ServiceAccountName specifies the service account to use for credential lookup.  # noqa: E501
+        ServiceAccountName specifies the service account to use for credential lookup. For nodeGroups caches it must exist in the download job namespace (localModel.jobNamespace); for pvcRef caches it must exist in this cache's namespace, where the import Job runs.  # noqa: E501
 
         :param service_account_name: The service_account_name of this V1alpha1LocalModelNamespaceCacheSpec.  # noqa: E501
         :type: str

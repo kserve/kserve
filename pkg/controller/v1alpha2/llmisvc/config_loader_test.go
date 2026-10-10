@@ -19,6 +19,7 @@ package llmisvc_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -28,6 +29,38 @@ import (
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 )
+
+func TestLoadConfigLoRAModelRoutingStrategy(t *testing.T) {
+	for _, tt := range []struct {
+		input   string
+		want    llmisvc.LoRAModelRoutingStrategy
+		wantErr bool
+	}{
+		{input: "", want: llmisvc.LoRAModelRoutingStrategyExact},
+		{input: "exact", want: llmisvc.LoRAModelRoutingStrategyExact},
+		{input: "Exact", want: llmisvc.LoRAModelRoutingStrategyExact},
+		{input: "REGEX", want: llmisvc.LoRAModelRoutingStrategyRegex},
+		{input: "RegEx", want: llmisvc.LoRAModelRoutingStrategyRegex},
+		{input: "Unsupported", wantErr: true},
+	} {
+		t.Run(tt.input, func(t *testing.T) {
+			cm := fixture.InferenceServiceCfgMap(constants.KServeNamespace)
+			if tt.input != "" {
+				fixture.SetIngressConfigKey(cm, "loraModelRoutingStrategy", tt.input)
+			}
+			c := fake.NewClientBuilder().WithScheme(clientgoscheme.Scheme).WithObjects(cm).Build()
+
+			got, err := llmisvc.LoadConfig(t.Context(), c)
+
+			if tt.wantErr {
+				require.ErrorContains(t, err, "loraModelRoutingStrategy", "an unsupported value fails config loading like any other invalid ingress key")
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got.LoRAModelRoutingStrategy, "the loaded value is defaulted and lowercased")
+		})
+	}
+}
 
 func TestNewSchedulerConfig(t *testing.T) {
 	tests := []struct {
@@ -124,4 +157,128 @@ func TestLoadConfig(t *testing.T) {
 	if got.SchedulerConfig == nil {
 		t.Fatal("SchedulerConfig = nil, want populated config")
 	}
+}
+
+func TestNewLLMISVCConfig(t *testing.T) {
+	tests := []struct {
+		name                 string
+		configMapData        map[string]string
+		wantErr              bool
+		wantDisaggregatedSet bool
+	}{
+		{
+			// The key is not shipped in the default ConfigMap, so this is the
+			// configuration every existing cluster has. Every gate must be off.
+			name:                 "missing llmisvc key leaves gates off",
+			configMapData:        map[string]string{},
+			wantDisaggregatedSet: false,
+		},
+		{
+			name: "empty JSON object leaves gates off",
+			configMapData: map[string]string{
+				"llmisvc": `{}`,
+			},
+			wantDisaggregatedSet: false,
+		},
+		{
+			name: "empty featureGates object leaves gates off",
+			configMapData: map[string]string{
+				"llmisvc": `{"featureGates":{}}`,
+			},
+			wantDisaggregatedSet: false,
+		},
+		{
+			name: "disaggregatedSet can be enabled",
+			configMapData: map[string]string{
+				"llmisvc": `{"featureGates":{"disaggregatedSet":true}}`,
+			},
+			wantDisaggregatedSet: true,
+		},
+		{
+			name: "disaggregatedSet can be explicitly disabled",
+			configMapData: map[string]string{
+				"llmisvc": `{"featureGates":{"disaggregatedSet":false}}`,
+			},
+			wantDisaggregatedSet: false,
+		},
+		{
+			// Decoding is deliberately tolerant of unknown fields, so a typo in a gate
+			// name leaves the gate off rather than aborting config loading, which would
+			// stall reconciliation for every service. See NewLLMISVCConfig.
+			name: "typo in the gate name leaves the gate off rather than erroring",
+			configMapData: map[string]string{
+				"llmisvc": `{"featureGates":{"disaggregatedSets":true}}`,
+			},
+			wantDisaggregatedSet: false,
+		},
+		{
+			name: "invalid JSON returns error",
+			configMapData: map[string]string{
+				"llmisvc": `{not-json`,
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{Name: "inferenceservice-config"},
+				Data:       tt.configMapData,
+			}
+
+			got, err := llmisvc.NewLLMISVCConfig(cm)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if got.FeatureGates.DisaggregatedSet != tt.wantDisaggregatedSet {
+				t.Errorf("FeatureGates.DisaggregatedSet = %v, want %v",
+					got.FeatureGates.DisaggregatedSet, tt.wantDisaggregatedSet)
+			}
+		})
+	}
+}
+
+// TestLoadConfigFeatureGates covers propagation of the "llmisvc" ConfigMap key through
+// LoadConfig into Config.FeatureGates, which is what the reconciler actually reads.
+func TestLoadConfigFeatureGates(t *testing.T) {
+	t.Run("default configmap leaves the gate off", func(t *testing.T) {
+		cm := fixture.InferenceServiceCfgMap(constants.KServeNamespace)
+		c := fake.NewClientBuilder().WithScheme(clientgoscheme.Scheme).WithObjects(cm).Build()
+
+		got, err := llmisvc.LoadConfig(t.Context(), c)
+
+		require.NoError(t, err)
+		require.False(t, got.FeatureGates.DisaggregatedSet,
+			"the DisaggregatedSet gate must be off for a cluster that never set the llmisvc key")
+	})
+
+	t.Run("gate is propagated when enabled", func(t *testing.T) {
+		cm := fixture.InferenceServiceCfgMap(constants.KServeNamespace)
+		cm.Data["llmisvc"] = `{"featureGates":{"disaggregatedSet":true}}`
+		c := fake.NewClientBuilder().WithScheme(clientgoscheme.Scheme).WithObjects(cm).Build()
+
+		got, err := llmisvc.LoadConfig(t.Context(), c)
+
+		require.NoError(t, err)
+		require.True(t, got.FeatureGates.DisaggregatedSet)
+	})
+
+	t.Run("malformed llmisvc key fails config loading", func(t *testing.T) {
+		cm := fixture.InferenceServiceCfgMap(constants.KServeNamespace)
+		cm.Data["llmisvc"] = `{not-json`
+		c := fake.NewClientBuilder().WithScheme(clientgoscheme.Scheme).WithObjects(cm).Build()
+
+		_, err := llmisvc.LoadConfig(t.Context(), c)
+
+		require.ErrorContains(t, err, "llmisvc",
+			"a typo in the gate block must surface loudly rather than read as gates-off")
+	})
 }

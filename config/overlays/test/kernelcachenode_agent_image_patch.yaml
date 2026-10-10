@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kserve-kernelcachenode-agent
+  namespace: kserve
+spec:
+  template:
+    spec:
+      containers:
+      - image: kserve/kserve-kernelcachenode-agent:latest
+        name: manager
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 100m
+            memory: 300Mi
+          requests:
+            cpu: 50m
+            memory: 200Mi

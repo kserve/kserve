@@ -31,6 +31,7 @@ import (
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	disaggregatedsetv1 "sigs.k8s.io/lws/api/disaggregatedset/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -79,9 +80,12 @@ func AddGatewayAPIs(s *runtime.Scheme) error {
 	)
 }
 
-// AddLeaderWorkerSetAPIs registers LeaderWorkerSet APIs.
+// AddLeaderWorkerSetAPIs registers the LeaderWorkerSet APIs, both the
+// leaderworkerset.x-k8s.io and disaggregatedset.x-k8s.io groups. Both ship in the
+// same operator, so their availability is tied; each group is still watched
+// independently based on whether its CRD is installed.
 func AddLeaderWorkerSetAPIs(s *runtime.Scheme) error {
-	return addAll(s, lwsapi.AddToScheme)
+	return addAll(s, lwsapi.AddToScheme, disaggregatedsetv1.AddToScheme)
 }
 
 // AddKnativeAPIs registers Knative Serving APIs.
