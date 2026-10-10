@@ -225,3 +225,7 @@ kserve:
         memory: 300Mi
     knativeAddressableResolver:
       enabled: false
+  llmisvc:
+    featureGates:
+      disaggregatedSet: false
+      recursiveConfigRender: false
