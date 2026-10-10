@@ -85,42 +85,146 @@ func TestResolveContainerPath(t *testing.T) {
 		name        string
 		container   corev1.Container
 		requested   string
+		ociPath     string
 		want        string
 		wantFailure bool
 	}{
 		{
-			name:      "uses explicit path",
-			container: corev1.Container{Env: []corev1.EnvVar{{Name: vllmCacheRootEnv, Value: "/env/cache"}}},
+			name: "uses explicit path",
+			container: corev1.Container{
+				Env: []corev1.EnvVar{
+					{Name: vllmCacheRootEnv, Value: "/env/vllm"},
+					{Name: tritonCacheDirEnv, Value: "/env/triton"},
+				},
+			},
 			requested: "/explicit/cache",
+			ociPath:   defaultOCIPath,
 			want:      "/explicit/cache",
 		},
 		{
-			name:      "uses runtime environment",
-			container: corev1.Container{Env: []corev1.EnvVar{{Name: vllmCacheRootEnv, Value: "/env/cache"}}},
-			want:      "/env/cache",
+			name: "uses vllm environment",
+			container: corev1.Container{
+				Env: []corev1.EnvVar{
+					{Name: vllmCacheRootEnv, Value: "/env/vllm"},
+				},
+			},
+			ociPath: defaultOCIPath,
+			want:    "/env/vllm",
 		},
 		{
-			name: "uses fallback",
-			want: defaultVLLMCachePath,
+			name: "uses triton environment",
+			container: corev1.Container{
+				Env: []corev1.EnvVar{
+					{Name: tritonCacheDirEnv, Value: "/env/triton"},
+				},
+			},
+			ociPath: tritonOCIPath,
+			want:    "/env/triton",
 		},
 		{
-			name: "rejects valueFrom",
-			container: corev1.Container{Env: []corev1.EnvVar{{
-				Name:      vllmCacheRootEnv,
-				ValueFrom: &corev1.EnvVarSource{},
-			}}},
+			name: "uses vllm environment when both runtime environments are present",
+			container: corev1.Container{
+				Env: []corev1.EnvVar{
+					{Name: vllmCacheRootEnv, Value: "/env/vllm"},
+					{Name: tritonCacheDirEnv, Value: "/env/triton"},
+				},
+			},
+			ociPath: defaultOCIPath,
+			want:    "/env/vllm",
+		},
+		{
+			name: "uses triton environment when both runtime environments are present",
+			container: corev1.Container{
+				Env: []corev1.EnvVar{
+					{Name: vllmCacheRootEnv, Value: "/env/vllm"},
+					{Name: tritonCacheDirEnv, Value: "/env/triton"},
+				},
+			},
+			ociPath: tritonOCIPath,
+			want:    "/env/triton",
+		},
+		{
+			name:    "uses vllm fallback",
+			ociPath: defaultOCIPath,
+			want:    defaultVLLMCachePath,
+		},
+		{
+			name:    "uses triton fallback",
+			ociPath: tritonOCIPath,
+			want:    defaultTritonCachePath,
+		},
+		{
+			name: "ignores triton environment for vllm cache",
+			container: corev1.Container{
+				Env: []corev1.EnvVar{
+					{Name: tritonCacheDirEnv, Value: "/env/triton"},
+				},
+			},
+			ociPath: defaultOCIPath,
+			want:    defaultVLLMCachePath,
+		},
+		{
+			name: "ignores vllm environment for triton cache",
+			container: corev1.Container{
+				Env: []corev1.EnvVar{
+					{Name: vllmCacheRootEnv, Value: "/env/vllm"},
+				},
+			},
+			ociPath: tritonOCIPath,
+			want:    defaultTritonCachePath,
+		},
+		{
+			name: "rejects vllm valueFrom",
+			container: corev1.Container{
+				Env: []corev1.EnvVar{{
+					Name:      vllmCacheRootEnv,
+					ValueFrom: &corev1.EnvVarSource{},
+				}},
+			},
+			ociPath:     defaultOCIPath,
 			wantFailure: true,
 		},
 		{
-			name:        "rejects empty environment value",
-			container:   corev1.Container{Env: []corev1.EnvVar{{Name: vllmCacheRootEnv}}},
+			name: "rejects triton valueFrom",
+			container: corev1.Container{
+				Env: []corev1.EnvVar{{
+					Name:      tritonCacheDirEnv,
+					ValueFrom: &corev1.EnvVarSource{},
+				}},
+			},
+			ociPath:     tritonOCIPath,
 			wantFailure: true,
+		},
+		{
+			name: "rejects empty vllm environment value",
+			container: corev1.Container{
+				Env: []corev1.EnvVar{
+					{Name: vllmCacheRootEnv},
+				},
+			},
+			ociPath:     defaultOCIPath,
+			wantFailure: true,
+		},
+		{
+			name: "rejects empty triton environment value",
+			container: corev1.Container{
+				Env: []corev1.EnvVar{
+					{Name: tritonCacheDirEnv},
+				},
+			},
+			ociPath:     tritonOCIPath,
+			wantFailure: true,
+		},
+		{
+			name:    "uses vllm behavior when oci path is empty",
+			ociPath: "",
+			want:    defaultVLLMCachePath,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := ResolveContainerPath(&test.container, test.requested)
+			got, err := ResolveContainerPath(&test.container, test.requested, test.ociPath)
 			if test.wantFailure {
 				if err == nil {
 					t.Fatal("expected an error")
@@ -138,7 +242,7 @@ func TestResolveContainerPath(t *testing.T) {
 }
 
 func TestResolveContainerPathRejectsNilContainer(t *testing.T) {
-	_, err := ResolveContainerPath(nil, "")
+	_, err := ResolveContainerPath(nil, "", "")
 	if err == nil {
 		t.Fatal("expected an error")
 	}
