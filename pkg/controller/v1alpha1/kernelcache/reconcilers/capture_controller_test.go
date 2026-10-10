@@ -225,6 +225,123 @@ func TestCaptureControllerCreatesDeterministicCaptureAndReporterIdentity(t *test
 	require.True(t, apierrors.IsNotFound(err))
 }
 
+func TestCaptureControllerCaptureOverride(t *testing.T) {
+	const annotation = "serving.kserve.io/kernelcache-capture"
+	for _, tc := range []struct {
+		name    string
+		mutate  func(*appsv1.ReplicaSet, *corev1.Pod)
+		missing bool
+	}{
+		{name: "uses user capture without adopting it"},
+		{name: "reuses referenced capture for a new ReplicaSet and Pod", mutate: func(rs *appsv1.ReplicaSet, pod *corev1.Pod) {
+			rs.Name = "model-next-rs"
+			rs.UID = "next-rs-uid"
+			rs.Labels[appsv1.DefaultDeploymentUniqueLabelKey] = "779990a88a"
+			pod.Name = "model-next-pod"
+			pod.UID = "next-pod-uid"
+			pod.Labels[appsv1.DefaultDeploymentUniqueLabelKey] = "779990a88a"
+			pod.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(rs, appsv1.SchemeGroupVersion.WithKind("ReplicaSet"))}
+		}},
+		{name: "missing capture does not generate a replacement", missing: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			require.NoError(t, corev1.AddToScheme(scheme))
+			require.NoError(t, appsv1.AddToScheme(scheme))
+			require.NoError(t, rbacv1.AddToScheme(scheme))
+			require.NoError(t, v1alpha1.AddToScheme(scheme))
+			require.NoError(t, v1beta1.AddToScheme(scheme))
+			isvc := &v1beta1.InferenceService{ObjectMeta: metav1.ObjectMeta{
+				Name: "model", Namespace: "team", UID: "isvc-uid", Annotations: map[string]string{annotation: "custom-capture"},
+			}}
+			deployment := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{
+				Name: "model-predictor", Namespace: "team", UID: "deployment-uid",
+				OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(isvc, v1beta1.SchemeGroupVersion.WithKind("InferenceService"))},
+			}}
+			rs := &appsv1.ReplicaSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "model-rs", Namespace: "team", UID: "rs-uid",
+					Labels:          map[string]string{appsv1.DefaultDeploymentUniqueLabelKey: "669889f77f"},
+					OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(deployment, appsv1.SchemeGroupVersion.WithKind("Deployment"))},
+				},
+				Spec: appsv1.ReplicaSetSpec{Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{annotation: "custom-capture"}}}},
+			}
+			value, err := captureconfig.MarshalCaptureConfig(newTestCaptureConfig("custom-capture", "session-id"))
+			require.NoError(t, err)
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "model-pod", Namespace: "team", UID: "pod-uid",
+					Labels:          map[string]string{constants.InferenceServicePodLabelKey: "model", appsv1.DefaultDeploymentUniqueLabelKey: "669889f77f"},
+					Annotations:     map[string]string{annotation: "custom-capture", reporter.AccessSecretAnnotation: reporter.SecretName("custom-capture")},
+					OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(rs, appsv1.SchemeGroupVersion.WithKind("ReplicaSet"))},
+				},
+				Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "mcv", Env: []corev1.EnvVar{{Name: captureconfig.CaptureConfigEnv, Value: value}}}}},
+			}
+			capture := &v1alpha1.KernelCacheCapture{
+				ObjectMeta: metav1.ObjectMeta{Name: "custom-capture", Namespace: "team", UID: "capture-uid", Labels: map[string]string{"user-label": "keep"}},
+				Spec: v1alpha1.KernelCacheCaptureSpec{
+					SourceRef:   v1alpha1.KernelCacheSourceRef{Kind: "InferenceService", Name: isvc.Name},
+					TargetImage: "registry.example/custom:v1",
+					Signing:     &v1alpha1.KernelCacheSigningSpec{ProfileRef: &corev1.LocalObjectReference{Name: "user-profile"}},
+				},
+			}
+			if tc.mutate != nil {
+				tc.mutate(rs, pod)
+			}
+			objects := []client.Object{
+				&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "team"}},
+				&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, Data: map[string]string{"kernelcache": `{"enabled":true}`}},
+				isvc, deployment, rs, pod,
+			}
+			if !tc.missing {
+				objects = append(objects, capture)
+			}
+			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).WithStatusSubresource(&v1alpha1.KernelCacheCapture{}).Build()
+			clientset := kubernetesfake.NewSimpleClientset(pod.DeepCopy())
+			clientset.PrependReactor("create", "serviceaccounts", func(action k8stesting.Action) (bool, runtime.Object, error) {
+				if action.GetSubresource() != "token" {
+					return false, nil, nil
+				}
+				request := action.(k8stesting.CreateAction).GetObject().(*authenticationv1.TokenRequest).DeepCopy()
+				request.Status.Token = "reporter-token"
+				request.Status.ExpirationTimestamp = metav1.NewTime(time.Now().Add(10 * time.Minute))
+				return true, request, nil
+			})
+			reconciler := &KernelCacheCaptureControllerReconciler{
+				Client: k8sClient, Reader: k8sClient, Clientset: clientset, OperatorNamespace: "kserve", OperatorServiceAccount: "operator",
+			}
+			original := capture.DeepCopy()
+			if !tc.missing {
+				require.NoError(t, k8sClient.Get(t.Context(), client.ObjectKeyFromObject(capture), original))
+			}
+			_, err = reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(pod)})
+			if tc.missing {
+				require.ErrorContains(t, err, capture.Name)
+			} else {
+				require.NoError(t, err)
+				// Reconciliation is idempotent and never adopts or rewrites the user resource.
+				_, err = reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(pod)})
+				require.NoError(t, err)
+				role := &rbacv1.Role{}
+				require.NoError(t, k8sClient.Get(t.Context(), client.ObjectKey{Namespace: "team", Name: reporter.RoleName(capture.Name)}, role))
+				require.Equal(t, []string{capture.Name}, role.Rules[1].ResourceNames)
+				require.Equal(t, capture.UID, metav1.GetControllerOf(role).UID)
+				secret, getErr := clientset.CoreV1().Secrets("team").Get(t.Context(), reporter.SecretName(capture.Name), metav1.GetOptions{})
+				require.NoError(t, getErr)
+				require.Equal(t, capture.UID, metav1.GetControllerOf(secret).UID)
+			}
+			if !tc.missing {
+				updated := &v1alpha1.KernelCacheCapture{}
+				require.NoError(t, k8sClient.Get(t.Context(), client.ObjectKeyFromObject(capture), updated))
+				require.Equal(t, original, updated)
+			}
+			generated := &v1alpha1.KernelCacheCapture{}
+			generatedName := constants.KernelCacheCaptureRevisionName(isvc.Name, pod.Labels[appsv1.DefaultDeploymentUniqueLabelKey])
+			require.True(t, apierrors.IsNotFound(k8sClient.Get(t.Context(), client.ObjectKey{Namespace: "team", Name: generatedName}, generated)))
+		})
+	}
+}
+
 func TestCaptureControllerIgnoresPodWithoutVerifiedInferenceServiceOwner(t *testing.T) {
 	ctx := context.Background()
 	scheme := runtime.NewScheme()
