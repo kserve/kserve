@@ -55,6 +55,7 @@ from .middleware import TraceResponseHeaderMiddleware
 from .ssl_cert_refresher import SSLCertRefresher
 from .v1_endpoints import register_v1_endpoints
 from .v2_endpoints import register_v2_endpoints
+from .tls_profile import TLSProfileProvider, TLSProfileProviderFactory
 
 
 async def metrics_handler(request: Request) -> Response:
@@ -79,31 +80,45 @@ REST_TRACE_EXCLUDED_URLS = (
 class _RefreshingServer(uvicorn.Server):
     """Uvicorn server that refreshes its SSL context when certificates change."""
 
-    def __init__(self, config: uvicorn.Config):
+    def __init__(
+        self,
+        config: uvicorn.Config,
+        tls_profile_provider_factory: Optional[TLSProfileProviderFactory] = None,
+    ):
         super().__init__(config)
         self._ssl_cert_refresher: Optional[SSLCertRefresher] = None
+        self._tls_profile_provider_factory = tls_profile_provider_factory
+        self._tls_profile_provider: Optional[TLSProfileProvider] = None
 
     async def serve(self, sockets: Optional[List[socket]] = None) -> None:
         if not self.config.loaded:
             self.config.load()
 
-        if (
-            self.config.ssl is not None
-            and self.config.ssl_keyfile is not None
-            and self.config.ssl_certfile is not None
-        ):
-            self._ssl_cert_refresher = SSLCertRefresher(
-                ssl_context=self.config.ssl,
-                key_path=str(self.config.ssl_keyfile),
-                cert_path=str(self.config.ssl_certfile),
-            )
-
         try:
+            if (
+                self.config.ssl is not None
+                and self.config.ssl_keyfile is not None
+                and self.config.ssl_certfile is not None
+            ):
+                self._ssl_cert_refresher = SSLCertRefresher(
+                    ssl_context=self.config.ssl,
+                    key_path=str(self.config.ssl_keyfile),
+                    cert_path=str(self.config.ssl_certfile),
+                )
+                if self._tls_profile_provider_factory is not None:
+                    self._tls_profile_provider = self._tls_profile_provider_factory(
+                        self.config.ssl
+                    )
+                    self._tls_profile_provider.start()
+
             await super().serve(sockets=sockets)
         finally:
             if self._ssl_cert_refresher is not None:
                 self._ssl_cert_refresher.stop()
                 self._ssl_cert_refresher = None
+            if self._tls_profile_provider is not None:
+                self._tls_profile_provider.stop()
+                self._tls_profile_provider = None
 
 
 class RESTServer:
@@ -120,7 +135,10 @@ class RESTServer:
         timeout_keep_alive: int = 65,
         ssl_certfile: Optional[str] = None,
         ssl_keyfile: Optional[str] = None,
+        tls_profile_provider_factory: Optional[TLSProfileProviderFactory] = None,
     ):
+        if bool(ssl_certfile) != bool(ssl_keyfile):
+            raise ValueError("ssl_certfile and ssl_keyfile must be configured together")
         self.dataplane = data_plane
         self.model_repository_extension = model_repository_extension
         self.access_log_format = access_log_format
@@ -145,7 +163,7 @@ class RESTServer:
             ssl_certfile=ssl_certfile,
             ssl_keyfile=ssl_keyfile,
         )
-        self._server = _RefreshingServer(self.config)
+        self._server = _RefreshingServer(self.config, tls_profile_provider_factory)
 
     def _register_endpoints(self, app: fastapi.FastAPI):
         root_router = APIRouter()
