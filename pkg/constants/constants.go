@@ -139,6 +139,7 @@ var (
 	DisableAutoUpdateAnnotationKey              = KServeAPIGroupName + "/disable-auto-update"
 	KernelCacheSupportedAnnotationKey           = KServeAPIGroupName + "/kernelcache-supported"
 	KernelCacheSidecarInjectionAnnotationKey    = KServeAPIGroupName + "/kernelcache-sidecar-injection"
+	KernelCacheCaptureAnnotationKey             = KServeAPIGroupName + "/kernelcache-capture"
 	KernelCacheNodeGroupAnnotationKey           = KServeAPIGroupName + "/kernelcache-nodegroup"
 	ModelFormatAnnotationKey                    = "modelFormat"
 	InferencePoolMigratedAnnotationKey          = KServeAPIGroupName + "/inferencepool-migrated"
