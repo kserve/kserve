@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
@@ -29,12 +30,15 @@ import (
 
 type MockS3Client struct{}
 
-func (m *MockS3Client) ListObjectsV2(_ context.Context, _ *s3.ListObjectsV2Input, _ ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
+func (m *MockS3Client) ListObjectsV2(_ context.Context, input *s3.ListObjectsV2Input, _ ...func(*s3.Options)) (*s3.ListObjectsV2Output, error) {
+	prefix := strings.TrimRight(aws.ToString(input.Prefix), "/")
+	key := "model.pt"
+	if prefix != "" {
+		key = prefix + "/model.pt"
+	}
 	return &s3.ListObjectsV2Output{
 		Contents: []s3types.Object{
-			{
-				Key: aws.String("model.pt"),
-			},
+			{Key: aws.String(key)},
 		},
 	}, nil
 }
