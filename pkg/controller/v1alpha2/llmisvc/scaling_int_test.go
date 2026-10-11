@@ -22,11 +22,18 @@ import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmeta"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,11 +41,125 @@ import (
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
 	. "github.com/kserve/kserve/pkg/testing"
 )
 
 var _ = Describe("LLMInferenceService Controller - Scaling", func() {
+	Context("Legacy WVA upgrade cleanup", func() {
+		It("should delete legacy autoscalers and preserve main and prefill workloads", func(ctx SpecContext) {
+			// Admission rejects new WVA resources. Seed the pre-upgrade state in
+			// an isolated API server without admission webhooks, then invoke reconciliation
+			// explicitly so cleanup and repeated reconciliation are deterministic.
+			// Keep conversion available during DeferCleanup, after the spec context ends.
+			legacyEnv := NewEnvTest().WithWebhooks(func(_ *rest.Config, mgr ctrl.Manager) error {
+				// Conversion is still needed for namespace cleanup across served API versions.
+				return ctrl.NewWebhookManagedBy(mgr, &v1alpha2.LLMInferenceService{}).Complete()
+			}).Start(context.Background())
+			RequiredResources(ctx, legacyEnv.Client, constants.KServeNamespace)
+			testNs := NewTestNamespace(ctx, legacyEnv)
+			llmSvc := LLMInferenceService("legacy-wva",
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
+				WithModelName("meta-llama/Llama-3.1-8B"),
+				WithScaling(&v1alpha2.ScalingSpec{
+					MinReplicas: ptr.To(int32(1)), MaxReplicas: 5,
+					WVA: &v1alpha2.WVASpec{VariantCost: "10.0", ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}},
+				}),
+				WithPrefillScaling(&v1alpha2.ScalingSpec{
+					MinReplicas: ptr.To(int32(1)), MaxReplicas: 5,
+					WVA: &v1alpha2.WVASpec{VariantCost: "10.0", ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
+				}),
+			)
+			Expect(legacyEnv.Create(ctx, llmSvc)).To(Succeed())
+			originalSpec := llmSvc.Spec.DeepCopy()
+			clientset, err := kubernetes.NewForConfig(legacyEnv.Config)
+			Expect(err).NotTo(HaveOccurred())
+			r := &llmisvc.LLMISVCReconciler{
+				Client: legacyEnv.Client, Config: legacyEnv.Config,
+				Clientset: clientset, EventRecorder: record.NewFakeRecorder(100),
+			}
+			request := ctrl.Request{NamespacedName: client.ObjectKeyFromObject(llmSvc)}
+			_, err = r.Reconcile(ctx, request)
+			Expect(err).NotTo(HaveOccurred())
+
+			workloads := make([]*appsv1.Deployment, 0, 2)
+			legacyAutoscalers := make([]client.Object, 0, 4)
+			for _, suffix := range []string{"-kserve", "-kserve-prefill"} {
+				name := kmeta.ChildName(llmSvc.Name, suffix)
+				deployment := &appsv1.Deployment{}
+				Expect(legacyEnv.Get(ctx, types.NamespacedName{Name: name, Namespace: testNs.Name}, deployment)).To(Succeed())
+				deployment.Spec.Replicas = ptr.To(int32(3))
+				Expect(legacyEnv.Update(ctx, deployment)).To(Succeed())
+				// envtest has no Deployment controller; emulate an already-running workload.
+				deployment.Status.ObservedGeneration = deployment.Generation
+				deployment.Status.Replicas = 3
+				deployment.Status.ReadyReplicas = 3
+				deployment.Status.UpdatedReplicas = 3
+				deployment.Status.AvailableReplicas = 3
+				deployment.Status.Conditions = []appsv1.DeploymentCondition{{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue}}
+				Expect(legacyEnv.Status().Update(ctx, deployment)).To(Succeed())
+				workloads = append(workloads, deployment.DeepCopy())
+
+				metadata := metav1.ObjectMeta{
+					Namespace:       testNs.Name,
+					OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK)},
+					Annotations:     map[string]string{"llm-d.ai/managed": "true", "llm-d.ai/model-id": "meta-llama/Llama-3.1-8B"},
+				}
+				hpa := &autoscalingv2.HorizontalPodAutoscaler{
+					ObjectMeta: *metadata.DeepCopy(),
+					Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+						ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{APIVersion: "apps/v1", Kind: "Deployment", Name: name},
+						MinReplicas:    ptr.To(int32(1)), MaxReplicas: 5,
+					},
+				}
+				hpa.Name = kmeta.ChildName(llmSvc.Name, suffix+"-hpa")
+				so := &kedav1alpha1.ScaledObject{
+					ObjectMeta: *metadata.DeepCopy(),
+					Spec: kedav1alpha1.ScaledObjectSpec{
+						ScaleTargetRef:  &kedav1alpha1.ScaleTarget{APIVersion: "apps/v1", Kind: "Deployment", Name: name},
+						MinReplicaCount: ptr.To(int32(1)), MaxReplicaCount: ptr.To(int32(5)),
+						Triggers: []kedav1alpha1.ScaleTriggers{{Type: "prometheus", Metadata: map[string]string{
+							"serverAddress": "http://prometheus:9090", "query": "wva_desired_replicas", "threshold": "1",
+						}}},
+					},
+				}
+				so.Name = kmeta.ChildName(llmSvc.Name, suffix+"-keda")
+				Expect(legacyEnv.Create(ctx, hpa)).To(Succeed())
+				Expect(legacyEnv.Create(ctx, so)).To(Succeed())
+				legacyAutoscalers = append(legacyAutoscalers, hpa, so)
+			}
+
+			// Verify cleanup is idempotent and cannot recreate WVA autoscalers.
+			for range 2 {
+				_, err = r.Reconcile(ctx, request)
+				Expect(err).NotTo(HaveOccurred())
+				for _, autoscaler := range legacyAutoscalers {
+					Expect(apierrors.IsNotFound(legacyEnv.Get(ctx, client.ObjectKeyFromObject(autoscaler), autoscaler))).To(BeTrue())
+				}
+				for _, original := range workloads {
+					current := &appsv1.Deployment{}
+					Expect(legacyEnv.Get(ctx, client.ObjectKeyFromObject(original), current)).To(Succeed())
+					Expect(current.UID).To(Equal(original.UID))
+					Expect(current.Spec).To(Equal(original.Spec))
+				}
+				current := &v1alpha2.LLMInferenceService{}
+				Expect(legacyEnv.Get(ctx, request.NamespacedName, current)).To(Succeed())
+				Expect(current.Spec).To(Equal(*originalSpec))
+				for _, conditionType := range []apis.ConditionType{v1alpha2.ScalingReady, v1alpha2.PrefillScalingReady} {
+					condition := current.Status.GetCondition(conditionType)
+					Expect(condition).NotTo(BeNil())
+					Expect(condition.IsFalse()).To(BeTrue())
+					Expect(condition.Reason).To(Equal(v1alpha2.WVAUnsupportedReason))
+				}
+				condition := current.Status.GetCondition(v1alpha2.WorkloadReady)
+				Expect(condition).NotTo(BeNil())
+				Expect(condition.IsTrue()).To(BeTrue(), "WVAUnsupported must not block workload readiness")
+			}
+		})
+	})
+
 	Context("Direct KEDA scaling", func() {
 		It("should create ScaledObject with user triggers and without legacy annotations", func(ctx SpecContext) {
 			svcName := "test-direct-keda-scaling"
