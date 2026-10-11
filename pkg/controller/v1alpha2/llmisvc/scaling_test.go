@@ -392,19 +392,6 @@ func TestScaleTargetRefHelpers(t *testing.T) {
 	})
 }
 
-func newReconcilerWithHPA(hpa *autoscalingv2.HorizontalPodAutoscaler) *LLMISVCReconciler {
-	scheme := runtime.NewScheme()
-	_ = autoscalingv2.AddToScheme(scheme)
-	cb := fake.NewClientBuilder().WithScheme(scheme)
-	if hpa != nil {
-		cb = cb.WithObjects(hpa)
-	}
-	return &LLMISVCReconciler{
-		Client:        cb.Build(),
-		EventRecorder: record.NewFakeRecorder(10),
-	}
-}
-
 func newReconcilerWithScaledObject(so *kedav1alpha1.ScaledObject) *LLMISVCReconciler {
 	scheme := runtime.NewScheme()
 	_ = kedav1alpha1.AddToScheme(scheme)

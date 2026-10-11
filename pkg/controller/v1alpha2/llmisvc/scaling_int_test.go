@@ -427,7 +427,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
 				WithModelName("meta-llama/Llama-3.1-8B"),
-				WithScaling(KEDAScaling(1, 5)),
+				WithScaling(DirectKEDAScaling(1, 5)),
 			)
 
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
@@ -500,7 +500,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
 				WithModelName("meta-llama/Llama-3.1-8B"),
-				WithScaling(KEDAScaling(1, 5)),
+				WithScaling(DirectKEDAScaling(1, 5)),
 			)
 
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
@@ -527,7 +527,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
 				WithModelName("meta-llama/Llama-3.1-8B"),
-				WithScaling(KEDAScaling(1, 5)),
+				WithScaling(DirectKEDAScaling(1, 5)),
 			)
 
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
@@ -576,7 +576,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
 				WithModelName("meta-llama/Llama-3.1-8B"),
-				WithScaling(KEDAScaling(1, 5)),
+				WithScaling(DirectKEDAScaling(1, 5)),
 			)
 
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
@@ -643,7 +643,7 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("should set PrefillScalingReady when prefill scaling is configured", func(ctx SpecContext) {
+		It("should set PrefillScalingReady when direct KEDA prefill scaling is configured", func(ctx SpecContext) {
 			svcName := "test-prefill-scale"
 			testNs := NewTestNamespace(ctx, envTest)
 
@@ -651,8 +651,8 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
 				WithModelName("meta-llama/Llama-3.1-8B"),
-				WithScaling(HPAScaling(1, 5)),
-				WithPrefillScaling(HPAScaling(1, 3)),
+				WithScaling(DirectKEDAScaling(1, 5)),
+				WithPrefillScaling(DirectKEDAScaling(1, 3)),
 			)
 
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())

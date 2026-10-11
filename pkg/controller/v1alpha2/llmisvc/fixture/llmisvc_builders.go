@@ -20,7 +20,6 @@ import (
 	"maps"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -265,28 +264,6 @@ func WithPrefillScaling(scaling *v1alpha2.ScalingSpec) LLMInferenceServiceOption
 	}
 }
 
-func HPAScaling(minReplicas int32, maxReplicas int32) *v1alpha2.ScalingSpec {
-	return DirectKEDAScaling(minReplicas, maxReplicas)
-}
-
-func KEDAScaling(minReplicas int32, maxReplicas int32) *v1alpha2.ScalingSpec {
-	return &v1alpha2.ScalingSpec{
-		MinReplicas: &minReplicas,
-		MaxReplicas: maxReplicas,
-		KEDA:        &v1alpha2.DirectKEDAScalingSpec{Triggers: []kedav1alpha1.ScaleTriggers{{Type: "cpu", Metadata: map[string]string{"value": "80"}}}},
-	}
-}
-
-// KEDAScalingWithIdleReplicaCount builds scaling.keda with an idleReplicaCount,
-// e.g. idleReplicaCount=0 for true scale-to-zero.
-func KEDAScalingWithIdleReplicaCount(minReplicas int32, maxReplicas int32, idleReplicaCount int32) *v1alpha2.ScalingSpec {
-	return &v1alpha2.ScalingSpec{
-		MinReplicas: &minReplicas,
-		MaxReplicas: maxReplicas,
-		KEDA:        &v1alpha2.DirectKEDAScalingSpec{KEDAScalingSpec: v1alpha2.KEDAScalingSpec{IdleReplicaCount: &idleReplicaCount}, Triggers: []kedav1alpha1.ScaleTriggers{{Type: "cpu", Metadata: map[string]string{"value": "80"}}}},
-	}
-}
-
 // DirectKEDAScaling builds scaling.keda with user-defined triggers.
 func DirectKEDAScaling(minReplicas int32, maxReplicas int32, triggers ...kedav1alpha1.ScaleTriggers) *v1alpha2.ScalingSpec {
 	if len(triggers) == 0 {
@@ -321,15 +298,6 @@ func DirectKEDAScalingWithIdleReplicaCount(minReplicas int32, maxReplicas int32,
 			Triggers: triggers,
 		},
 	}
-}
-
-func HPAScalingWithBehavior(minReplicas int32, maxReplicas int32, behavior *autoscalingv2.HorizontalPodAutoscalerBehavior) *v1alpha2.ScalingSpec {
-	return DirectKEDAScaling(minReplicas, maxReplicas)
-}
-
-func ScalingWithVariantCost(base *v1alpha2.ScalingSpec, variantCost string) *v1alpha2.ScalingSpec {
-	_ = variantCost
-	return base
 }
 
 func WithRolloutStrategy(rs *v1alpha2.RolloutStrategy) LLMInferenceServiceOption {
