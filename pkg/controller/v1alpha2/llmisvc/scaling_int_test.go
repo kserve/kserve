@@ -18,6 +18,7 @@ package llmisvc_test
 
 import (
 	"context"
+	"path/filepath"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
@@ -29,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
@@ -48,17 +48,21 @@ import (
 
 var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 	Context("Legacy WVA upgrade cleanup", func() {
-		It("should delete legacy autoscalers and preserve main and prefill workloads", func(ctx SpecContext) {
-			// Admission rejects new WVA resources. Seed the pre-upgrade state in
-			// an isolated API server without admission webhooks, then invoke reconciliation
-			// explicitly so cleanup and repeated reconciliation are deterministic.
-			// Keep conversion available during DeferCleanup, after the spec context ends.
-			legacyEnv := NewEnvTest().WithWebhooks(func(_ *rest.Config, mgr ctrl.Manager) error {
-				// Conversion is still needed for namespace cleanup across served API versions.
-				return ctrl.NewWebhookManagedBy(mgr, &v1alpha2.LLMInferenceService{}).Complete()
-			}).Start(context.Background())
+		It("should delete legacy autoscalers and preserve workloads with admission enabled", func(ctx SpecContext) {
+			// Use the production admission chain, but temporarily disable service
+			// validation to seed pre-upgrade resources. Keep the webhook server alive
+			// through namespace cleanup after the spec context ends.
+			legacyEnv := NewEnvTest(WithWebhookManifests(
+				filepath.Join(ProjectRoot(), "config", "webhook", "llmisvc", "manifests.yaml"))).
+				WithWebhooks(SetupWebhooks).Start(context.Background())
 			RequiredResources(ctx, legacyEnv.Client, constants.KServeNamespace)
 			testNs := NewTestNamespace(ctx, legacyEnv)
+			clientset, err := kubernetes.NewForConfig(legacyEnv.Config)
+			Expect(err).NotTo(HaveOccurred())
+			validators := clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations()
+			validatorConfig, err := validators.Get(ctx, "llminferenceservice.serving.kserve.io", metav1.GetOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(validators.Delete(ctx, validatorConfig.Name, metav1.DeleteOptions{})).To(Succeed())
 			llmSvc := LLMInferenceService("legacy-wva",
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 				WithModelURI("hf://meta-llama/Llama-3.1-8B"),
@@ -72,10 +76,10 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 					WVA: &v1alpha2.WVASpec{VariantCost: "10.0", ActuatorSpec: v1alpha2.ActuatorSpec{KEDA: &v1alpha2.KEDAScalingSpec{}}},
 				}),
 			)
-			Expect(legacyEnv.Create(ctx, llmSvc)).To(Succeed())
+			Eventually(func() error {
+				return legacyEnv.Create(ctx, llmSvc)
+			}).WithContext(ctx).Should(Succeed())
 			originalSpec := llmSvc.Spec.DeepCopy()
-			clientset, err := kubernetes.NewForConfig(legacyEnv.Config)
-			Expect(err).NotTo(HaveOccurred())
 			r := &llmisvc.LLMISVCReconciler{
 				Client: legacyEnv.Client, Config: legacyEnv.Config,
 				Clientset: clientset, EventRecorder: record.NewFakeRecorder(100),
@@ -130,6 +134,32 @@ var _ = Describe("LLMInferenceService Controller - Scaling", func() {
 				Expect(legacyEnv.Create(ctx, so)).To(Succeed())
 				legacyAutoscalers = append(legacyAutoscalers, hpa, so)
 			}
+
+			validatorConfig.ResourceVersion = ""
+			_, err = validators.Create(ctx, validatorConfig, metav1.CreateOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			// Confirm admission has observed re-enablement before testing reconciliation.
+			newService := llmSvc.DeepCopy()
+			newService.Name = "new-wva"
+			newService.ResourceVersion = ""
+			newService.UID = ""
+			Eventually(func() error {
+				return legacyEnv.Create(ctx, newService, client.DryRunAll)
+			}).WithContext(ctx).Should(MatchError(ContainSubstring("WVA autoscaling is no longer supported")))
+			for _, prefill := range []bool{false, true} {
+				current := &v1alpha2.LLMInferenceService{}
+				Expect(legacyEnv.Get(ctx, request.NamespacedName, current)).To(Succeed())
+				if prefill {
+					current.Spec.Prefill.Scaling.WVA.VariantCost = "20.0"
+				} else {
+					current.Spec.Scaling.WVA.VariantCost = "20.0"
+				}
+				Expect(legacyEnv.Update(ctx, current)).To(MatchError(ContainSubstring("existing WVA configuration must remain unchanged or be removed")))
+			}
+			current := &v1alpha2.LLMInferenceService{}
+			Expect(legacyEnv.Get(ctx, request.NamespacedName, current)).To(Succeed())
+			current.Labels = map[string]string{"upgrade": "retained-wva"}
+			Expect(legacyEnv.Update(ctx, current)).To(Succeed(), "unrelated updates must allow unchanged WVA")
 
 			// Verify cleanup is idempotent and cannot recreate WVA autoscalers.
 			for range 2 {
