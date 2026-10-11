@@ -300,10 +300,10 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 
 	if group.LeaderTemplate != nil {
 		utils.PropagateMap(llmSvc.Spec.Labels, &group.LeaderTemplate.Labels)
-		utils.PropagateMap(llmSvc.Spec.Annotations, &group.LeaderTemplate.Annotations, routingSpecAnnotations...)
+		utils.PropagateMap(llmSvc.Spec.Annotations, &group.LeaderTemplate.Annotations, nonPropagatedSpecAnnotations...)
 	}
 	utils.PropagateMap(llmSvc.Spec.Labels, &group.WorkerTemplate.Labels)
-	utils.PropagateMap(llmSvc.Spec.Annotations, &group.WorkerTemplate.Annotations, routingSpecAnnotations...)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &group.WorkerTemplate.Annotations, nonPropagatedSpecAnnotations...)
 
 	// Inject tracing instrumentation when spec.tracing is set
 	if llmSvc.Spec.Tracing != nil {
@@ -465,10 +465,10 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 	if llmSvc.Spec.Prefill != nil {
 		if group.LeaderTemplate != nil {
 			utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &group.LeaderTemplate.Labels)
-			utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &group.LeaderTemplate.Annotations, routingSpecAnnotations...)
+			utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &group.LeaderTemplate.Annotations, nonPropagatedSpecAnnotations...)
 		}
 		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &group.WorkerTemplate.Labels)
-		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &group.WorkerTemplate.Annotations, routingSpecAnnotations...)
+		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &group.WorkerTemplate.Annotations, nonPropagatedSpecAnnotations...)
 	}
 
 	applyLeaderWorkerSetWorkloadRevision(&group, config)
