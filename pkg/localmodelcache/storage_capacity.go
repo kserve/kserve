@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -28,15 +29,16 @@ import (
 
 // StorageReservation describes the storage requested by a local model cache.
 type StorageReservation struct {
-	Name       string
-	Namespace  string
-	ModelSize  resource.Quantity
-	NodeGroups []string
+	Name           string
+	Namespace      string
+	SourceModelUri string
+	ModelSize      resource.Quantity
+	NodeGroups     []string
 }
 
 // ValidateStorageCapacity validates that the requested storage fits within the
-// storage limit of every targeted LocalModelNodeGroup. Existing reservations
-// from both LocalModelCache and LocalModelNamespaceCache are included.
+// storage limit of every existing targeted LocalModelNodeGroup. Reservations
+// sharing the same source URI are counted once, using the largest declared size.
 func ValidateStorageCapacity(
 	ctx context.Context,
 	c client.Client,
@@ -55,19 +57,35 @@ func ValidateStorageCapacity(
 	for _, nodeGroupName := range current.NodeGroups {
 		nodeGroup := &v1alpha1.LocalModelNodeGroup{}
 		if err := c.Get(ctx, client.ObjectKey{Name: nodeGroupName}, nodeGroup); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
 			return fmt.Errorf("unable to get LocalModelNodeGroup %s: %w", nodeGroupName, err)
 		}
 
-		var totalModelSize resource.Quantity
-		totalModelSize.Add(current.ModelSize)
+		reservations := make(map[string]resource.Quantity)
+		addReservation := func(sourceModelURI string, modelSize resource.Quantity) {
+			if sourceModelURI == "" {
+				// An empty URI cannot safely identify a shared model artifact.
+				key := fmt.Sprintf("unnamed-%d", len(reservations))
+				reservations[key] = modelSize.DeepCopy()
+				return
+			}
+			key := v1alpha1.GetStorageKey(sourceModelURI)
+			existingSize, exists := reservations[key]
+			if !exists || modelSize.Cmp(existingSize) > 0 {
+				reservations[key] = modelSize.DeepCopy()
+			}
+		}
+
+		addReservation(current.SourceModelUri, current.ModelSize)
 
 		for _, cache := range localModelCaches.Items {
 			if cache.Name == current.Name && current.Namespace == "" {
 				continue
 			}
-
 			if containsNodeGroup(cache.Spec.NodeGroups, nodeGroupName) {
-				totalModelSize.Add(cache.Spec.ModelSize)
+				addReservation(cache.Spec.SourceModelUri, cache.Spec.ModelSize)
 			}
 		}
 
@@ -75,18 +93,21 @@ func ValidateStorageCapacity(
 			if cache.Name == current.Name && cache.Namespace == current.Namespace {
 				continue
 			}
-
 			if containsNodeGroup(cache.Spec.NodeGroups, nodeGroupName) {
-				totalModelSize.Add(cache.Spec.ModelSize)
+				addReservation(cache.Spec.SourceModelUri, cache.Spec.ModelSize)
 			}
+		}
+
+		var totalModelSize resource.Quantity
+		for _, modelSize := range reservations {
+			totalModelSize.Add(modelSize)
 		}
 
 		if totalModelSize.Cmp(nodeGroup.Spec.StorageLimit) > 0 {
 			return fmt.Errorf(
-				"local model cache %s would use %s of %s storage in LocalModelNodeGroup %s, exceeding the storage limit of %s",
+				"local model cache %s would reserve %s of storage in LocalModelNodeGroup %s, exceeding its storage limit of %s",
 				current.Name,
 				totalModelSize.String(),
-				nodeGroup.Spec.StorageLimit.String(),
 				nodeGroupName,
 				nodeGroup.Spec.StorageLimit.String(),
 			)

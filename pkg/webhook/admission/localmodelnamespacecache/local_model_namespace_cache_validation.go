@@ -69,10 +69,11 @@ func (v *LocalModelNamespaceCacheValidator) ValidateCreate(ctx context.Context, 
 		ctx,
 		v.Client,
 		localmodelcache.StorageReservation{
-			Name:       localModelNamespaceCache.Name,
-			Namespace:  localModelNamespaceCache.Namespace,
-			ModelSize:  localModelNamespaceCache.Spec.ModelSize,
-			NodeGroups: localModelNamespaceCache.Spec.NodeGroups,
+			SourceModelUri: localModelNamespaceCache.Spec.SourceModelUri,
+			Name:           localModelNamespaceCache.Name,
+			Namespace:      localModelNamespaceCache.Namespace,
+			ModelSize:      localModelNamespaceCache.Spec.ModelSize,
+			NodeGroups:     localModelNamespaceCache.Spec.NodeGroups,
 		},
 	); err != nil {
 		return nil, err
@@ -100,10 +101,11 @@ func (v *LocalModelNamespaceCacheValidator) ValidateUpdate(ctx context.Context, 
 		ctx,
 		v.Client,
 		localmodelcache.StorageReservation{
-			Name:       localModelNamespaceCache.Name,
-			Namespace:  localModelNamespaceCache.Namespace,
-			ModelSize:  localModelNamespaceCache.Spec.ModelSize,
-			NodeGroups: localModelNamespaceCache.Spec.NodeGroups,
+			SourceModelUri: localModelNamespaceCache.Spec.SourceModelUri,
+			Name:           localModelNamespaceCache.Name,
+			Namespace:      localModelNamespaceCache.Namespace,
+			ModelSize:      localModelNamespaceCache.Spec.ModelSize,
+			NodeGroups:     localModelNamespaceCache.Spec.NodeGroups,
 		},
 	); err != nil {
 		return nil, err

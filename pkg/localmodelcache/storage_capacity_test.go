@@ -41,9 +41,10 @@ func TestValidateStorageCapacity_AllowsWithinLimit(t *testing.T) {
 		context.Background(),
 		newStorageCapacityTestClient(t, nodeGroup),
 		StorageReservation{
-			Name:       "iris",
-			ModelSize:  resource.MustParse("5Gi"),
-			NodeGroups: []string{"gpu1"},
+			Name:           "iris",
+			SourceModelUri: "s3://models/iris",
+			ModelSize:      resource.MustParse("5Gi"),
+			NodeGroups:     []string{"gpu1"},
 		},
 	)
 	if err != nil {
@@ -63,9 +64,10 @@ func TestValidateStorageCapacity_RejectsWhenLimitExceeded(t *testing.T) {
 		context.Background(),
 		newStorageCapacityTestClient(t, nodeGroup),
 		StorageReservation{
-			Name:       "iris",
-			ModelSize:  resource.MustParse("11Gi"),
-			NodeGroups: []string{"gpu1"},
+			Name:           "iris",
+			SourceModelUri: "s3://models/iris",
+			ModelSize:      resource.MustParse("11Gi"),
+			NodeGroups:     []string{"gpu1"},
 		},
 	)
 
@@ -85,8 +87,9 @@ func TestValidateStorageCapacity_RejectsAggregateLimitExceeded(t *testing.T) {
 	existingCache := &v1alpha1.LocalModelCache{
 		ObjectMeta: metav1.ObjectMeta{Name: "existing"},
 		Spec: v1alpha1.LocalModelCacheSpec{
-			ModelSize:  resource.MustParse("6Gi"),
-			NodeGroups: []string{"gpu1"},
+			SourceModelUri: "s3://models/existing",
+			ModelSize:      resource.MustParse("6Gi"),
+			NodeGroups:     []string{"gpu1"},
 		},
 	}
 
@@ -94,9 +97,10 @@ func TestValidateStorageCapacity_RejectsAggregateLimitExceeded(t *testing.T) {
 		context.Background(),
 		newStorageCapacityTestClient(t, nodeGroup, existingCache),
 		StorageReservation{
-			Name:       "new",
-			ModelSize:  resource.MustParse("5Gi"),
-			NodeGroups: []string{"gpu1"},
+			Name:           "new",
+			SourceModelUri: "s3://models/new",
+			ModelSize:      resource.MustParse("5Gi"),
+			NodeGroups:     []string{"gpu1"},
 		},
 	)
 
@@ -116,8 +120,9 @@ func TestValidateStorageCapacity_IncludesBothCacheTypes(t *testing.T) {
 	existingCache := &v1alpha1.LocalModelCache{
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster-cache"},
 		Spec: v1alpha1.LocalModelCacheSpec{
-			ModelSize:  resource.MustParse("6Gi"),
-			NodeGroups: []string{"gpu1"},
+			SourceModelUri: "s3://models/cluster",
+			ModelSize:      resource.MustParse("6Gi"),
+			NodeGroups:     []string{"gpu1"},
 		},
 	}
 
@@ -127,8 +132,9 @@ func TestValidateStorageCapacity_IncludesBothCacheTypes(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
-			ModelSize:  resource.MustParse("2Gi"),
-			NodeGroups: []string{"gpu1"},
+			SourceModelUri: "s3://models/namespace",
+			ModelSize:      resource.MustParse("2Gi"),
+			NodeGroups:     []string{"gpu1"},
 		},
 	}
 
@@ -136,9 +142,10 @@ func TestValidateStorageCapacity_IncludesBothCacheTypes(t *testing.T) {
 		context.Background(),
 		newStorageCapacityTestClient(t, nodeGroup, existingCache, existingNamespaceCache),
 		StorageReservation{
-			Name:       "new",
-			ModelSize:  resource.MustParse("3Gi"),
-			NodeGroups: []string{"gpu1"},
+			Name:           "new",
+			SourceModelUri: "s3://models/new",
+			ModelSize:      resource.MustParse("3Gi"),
+			NodeGroups:     []string{"gpu1"},
 		},
 	)
 
@@ -158,8 +165,9 @@ func TestValidateStorageCapacity_DoesNotCountCurrentCache(t *testing.T) {
 	currentCache := &v1alpha1.LocalModelCache{
 		ObjectMeta: metav1.ObjectMeta{Name: "iris"},
 		Spec: v1alpha1.LocalModelCacheSpec{
-			ModelSize:  resource.MustParse("6Gi"),
-			NodeGroups: []string{"gpu1"},
+			SourceModelUri: "s3://models/iris",
+			ModelSize:      resource.MustParse("6Gi"),
+			NodeGroups:     []string{"gpu1"},
 		},
 	}
 
@@ -167,13 +175,77 @@ func TestValidateStorageCapacity_DoesNotCountCurrentCache(t *testing.T) {
 		context.Background(),
 		newStorageCapacityTestClient(t, nodeGroup, currentCache),
 		StorageReservation{
-			Name:       "iris",
-			ModelSize:  resource.MustParse("6Gi"),
-			NodeGroups: []string{"gpu1"},
+			Name:           "iris",
+			SourceModelUri: "s3://models/iris",
+			ModelSize:      resource.MustParse("6Gi"),
+			NodeGroups:     []string{"gpu1"},
 		},
 	)
 	if err != nil {
 		t.Fatalf("expected current cache to be excluded, got %v", err)
+	}
+}
+
+func TestValidateStorageCapacity_DeduplicatesSharedSourceURI(t *testing.T) {
+	nodeGroup := &v1alpha1.LocalModelNodeGroup{
+		ObjectMeta: metav1.ObjectMeta{Name: "gpu1"},
+		Spec: v1alpha1.LocalModelNodeGroupSpec{
+			StorageLimit: resource.MustParse("10Gi"),
+		},
+	}
+	existingCache := &v1alpha1.LocalModelCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-model"},
+		Spec: v1alpha1.LocalModelCacheSpec{
+			SourceModelUri: "s3://models/shared",
+			ModelSize:      resource.MustParse("6Gi"),
+			NodeGroups:     []string{"gpu1"},
+		},
+	}
+	existingNamespaceCache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "shared-model-namespace",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "s3://models/shared",
+			ModelSize:      resource.MustParse("6Gi"),
+			NodeGroups:     []string{"gpu1"},
+		},
+	}
+	err := ValidateStorageCapacity(
+		context.Background(),
+		newStorageCapacityTestClient(t, nodeGroup, existingCache, existingNamespaceCache),
+		StorageReservation{
+			Name:           "new",
+			SourceModelUri: "s3://models/new",
+			ModelSize:      resource.MustParse("3Gi"),
+			NodeGroups:     []string{"gpu1"},
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected shared source URI to be counted once, got %v", err)
+	}
+}
+
+func TestValidateStorageCapacity_SkipsMissingNodeGroup(t *testing.T) {
+	nodeGroup := &v1alpha1.LocalModelNodeGroup{
+		ObjectMeta: metav1.ObjectMeta{Name: "gpu1"},
+		Spec: v1alpha1.LocalModelNodeGroupSpec{
+			StorageLimit: resource.MustParse("10Gi"),
+		},
+	}
+	err := ValidateStorageCapacity(
+		context.Background(),
+		newStorageCapacityTestClient(t, nodeGroup),
+		StorageReservation{
+			Name:           "iris",
+			SourceModelUri: "s3://models/iris",
+			ModelSize:      resource.MustParse("5Gi"),
+			NodeGroups:     []string{"missing-group", "gpu1"},
+		},
+	)
+	if err != nil {
+		t.Fatalf("expected missing node group to be skipped while existing groups are validated, got %v", err)
 	}
 }
 

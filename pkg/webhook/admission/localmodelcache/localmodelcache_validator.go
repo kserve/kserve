@@ -74,9 +74,10 @@ func (v *LocalModelCacheValidator) ValidateCreate(ctx context.Context, obj runti
 		ctx,
 		v.Client,
 		localmodelcache.StorageReservation{
-			Name:       localModelCache.Name,
-			ModelSize:  localModelCache.Spec.ModelSize,
-			NodeGroups: localModelCache.Spec.NodeGroups,
+			SourceModelUri: localModelCache.Spec.SourceModelUri,
+			Name:           localModelCache.Name,
+			ModelSize:      localModelCache.Spec.ModelSize,
+			NodeGroups:     localModelCache.Spec.NodeGroups,
 		},
 	); err != nil {
 		return nil, err
@@ -107,9 +108,10 @@ func (v *LocalModelCacheValidator) ValidateUpdate(ctx context.Context, oldObj, n
 		ctx,
 		v.Client,
 		localmodelcache.StorageReservation{
-			Name:       localModelCache.Name,
-			ModelSize:  localModelCache.Spec.ModelSize,
-			NodeGroups: localModelCache.Spec.NodeGroups,
+			SourceModelUri: localModelCache.Spec.SourceModelUri,
+			Name:           localModelCache.Name,
+			ModelSize:      localModelCache.Spec.ModelSize,
+			NodeGroups:     localModelCache.Spec.NodeGroups,
 		},
 	); err != nil {
 		return nil, err
