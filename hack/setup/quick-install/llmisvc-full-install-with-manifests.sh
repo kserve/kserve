@@ -7693,6 +7693,9 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
                         < self.minReplicas'
+                    - message: minReplicas is required when idleReplicaCount is set
+                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
+                        has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                         defines the replica floor when no triggers are active
                       rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
@@ -24769,6 +24772,8 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
+                - message: minReplicas is required when idleReplicaCount is set
+                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                     defines the replica floor when no triggers are active
                   rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas)
@@ -33454,6 +33459,9 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
                         < self.minReplicas'
+                    - message: minReplicas is required when idleReplicaCount is set
+                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
+                        has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                         defines the replica floor when no triggers are active
                       rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
@@ -50561,6 +50569,8 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
+                - message: minReplicas is required when idleReplicaCount is set
+                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                     defines the replica floor when no triggers are active
                   rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas)
@@ -59296,6 +59306,9 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
                         < self.minReplicas'
+                    - message: minReplicas is required when idleReplicaCount is set
+                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
+                        has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                         defines the replica floor when no triggers are active
                       rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
@@ -77069,6 +77082,8 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
+                - message: minReplicas is required when idleReplicaCount is set
+                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                     defines the replica floor when no triggers are active
                   rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas)
@@ -85941,6 +85956,9 @@ spec:
                       rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                         || !has(self.minReplicas) || self.wva.keda.idleReplicaCount
                         < self.minReplicas'
+                    - message: minReplicas is required when idleReplicaCount is set
+                      rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
+                        has(self.minReplicas)'
                     - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                         defines the replica floor when no triggers are active
                       rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) ||
@@ -103757,6 +103775,8 @@ spec:
                   rule: '!has(self.wva) || !has(self.wva.keda) || !has(self.wva.keda.idleReplicaCount)
                     || !has(self.minReplicas) || self.wva.keda.idleReplicaCount <
                     self.minReplicas'
+                - message: minReplicas is required when idleReplicaCount is set
+                  rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || has(self.minReplicas)'
                 - message: idleReplicaCount must be less than minReplicas; idleReplicaCount
                     defines the replica floor when no triggers are active
                   rule: '!has(self.keda) || !has(self.keda.idleReplicaCount) || !has(self.minReplicas)
