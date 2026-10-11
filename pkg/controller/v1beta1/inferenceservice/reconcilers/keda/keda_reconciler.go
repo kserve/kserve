@@ -141,6 +141,7 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 					if authRef.Name != "" {
 						trigger.AuthenticationRef = &kedav1alpha1.AuthenticationRef{
 							Name: authRef.Name,
+							Kind: string(authRef.Kind),
 						}
 					}
 				}
