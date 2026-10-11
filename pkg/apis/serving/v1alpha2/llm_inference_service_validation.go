@@ -26,6 +26,7 @@ import (
 
 	"k8s.io/utils/ptr"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -112,8 +113,9 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 		llmSvc.Name, allErrs)
 }
 
-// validateWVAConfig keeps the WVA fields readable for upgrade compatibility while
-// preventing new resources from adopting an autoscaler that is no longer reconciled.
+// validateWVAConfig keeps the WVA fields readable for upgrade compatibility.
+// Existing WVA configuration may remain unchanged or be removed, but adding or
+// modifying it is rejected because WVA is no longer reconciled.
 func (l *LLMInferenceServiceValidator) validateWVAConfig(prev, llmSvc *LLMInferenceService) field.ErrorList {
 	var allErrs field.ErrorList
 	validateWorkload := func(path *field.Path, oldWorkload, newWorkload *WorkloadSpec) {
@@ -127,6 +129,9 @@ func (l *LLMInferenceServiceValidator) validateWVAConfig(prev, llmSvc *LLMInfere
 		if newWVA != nil && oldWVA == nil {
 			allErrs = append(allErrs, field.Forbidden(path.Child("scaling", "wva"),
 				"WVA autoscaling is no longer supported; remove spec.scaling.wva and use direct KEDA scaling if needed"))
+		} else if newWVA != nil && !equality.Semantic.DeepEqual(oldWVA, newWVA) {
+			allErrs = append(allErrs, field.Forbidden(path.Child("scaling", "wva"),
+				"WVA autoscaling is no longer supported; existing WVA configuration must remain unchanged or be removed"))
 		}
 	}
 
