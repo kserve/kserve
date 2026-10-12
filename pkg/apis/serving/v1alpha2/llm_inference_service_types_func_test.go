@@ -63,7 +63,7 @@ func TestEPPServiceName(t *testing.T) {
 				Scheduler: &SchedulerSpec{
 					Pool: &InferencePoolSpec{
 						Spec: &igwapi.InferencePoolSpec{
-							EndpointPickerRef: igwapi.EndpointPickerRef{
+							EndpointPickerRef: &igwapi.EndpointPickerRef{
 								Name: igwapi.ObjectName(defaultName),
 							},
 						},
@@ -84,7 +84,7 @@ func TestEPPServiceName(t *testing.T) {
 				Scheduler: &SchedulerSpec{
 					Pool: &InferencePoolSpec{
 						Spec: &igwapi.InferencePoolSpec{
-							EndpointPickerRef: igwapi.EndpointPickerRef{
+							EndpointPickerRef: &igwapi.EndpointPickerRef{
 								Name: "my-custom-epp",
 							},
 						},
@@ -111,7 +111,7 @@ func TestEPPServiceName(t *testing.T) {
 					Pool: &InferencePoolSpec{
 						Ref: &corev1.LocalObjectReference{Name: "external-pool"},
 						Spec: &igwapi.InferencePoolSpec{
-							EndpointPickerRef: igwapi.EndpointPickerRef{
+							EndpointPickerRef: &igwapi.EndpointPickerRef{
 								Name: "should-be-ignored",
 							},
 						},
@@ -126,7 +126,7 @@ func TestEPPServiceName(t *testing.T) {
 				Scheduler: &SchedulerSpec{
 					Pool: &InferencePoolSpec{
 						Spec: &igwapi.InferencePoolSpec{
-							EndpointPickerRef: igwapi.EndpointPickerRef{
+							EndpointPickerRef: &igwapi.EndpointPickerRef{
 								Name: "",
 							},
 						},

@@ -114,6 +114,16 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	// Ensure readiness is determined even if errors occur
 	defer llmSvc.DetermineRouterReadiness()
 
+	if !utils.GetForceStopRuntime(llmSvc) && managedInferencePoolMissingEndpointPickerRef(llmSvc) {
+		const reason = "EndpointPickerRefMissing"
+		message := "spec.router.scheduler.pool.spec.endpointPickerRef is required for a managed InferencePool"
+		llmSvc.MarkGatewaysReadyUnset()
+		llmSvc.MarkHTTPRoutesReadyUnset()
+		llmSvc.MarkSchedulerWorkloadNotReady(reason, "%s", message)
+		llmSvc.MarkInferencePoolNotReady(reason, "%s", message)
+		return reconcile.TerminalError(errors.New(message))
+	}
+
 	// Ensure platform-specific preconditions are met before proceeding.
 	// A non-transient precondition failure (e.g. missing CRD) marks status and stops
 	// reconciliation without requeuing — the condition won't resolve by retrying.

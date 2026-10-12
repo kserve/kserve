@@ -660,7 +660,7 @@ KEDA_VERSION=2.20.2
 OPENTELEMETRY_OPERATOR_VERSION=0.114.1
 LWS_VERSION=v0.11.0
 GATEWAY_API_VERSION=v1.5.1
-GIE_VERSION=v1.5.0
+GIE_VERSION=v1.6.2
 LLMD_ROUTER_VERSION=v0.10.0
 WVA_VERSION=v0.9.0
 
@@ -16536,7 +16536,6 @@ spec:
                                     - FailClose
                                     type: string
                                   group:
-                                    maxLength: 253
                                     type: string
                                   kind:
                                     maxLength: 63
@@ -42364,7 +42363,6 @@ spec:
                                 type: array
                                 x-kubernetes-list-type: atomic
                             required:
-                            - endpointPickerRef
                             - selector
                             - targetPorts
                             type: object
@@ -68820,8 +68818,6 @@ spec:
                                     - FailClose
                                     type: string
                                   group:
-                                    maxLength: 253
-                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                     type: string
                                   kind:
                                     maxLength: 63
@@ -95549,7 +95545,6 @@ spec:
                                 - message: port number must be unique
                                   rule: self.all(p1, self.exists_one(p2, p1.number==p2.number))
                             required:
-                            - endpointPickerRef
                             - selector
                             - targetPorts
                             type: object

@@ -259,6 +259,15 @@ func (r *LLMISVCReconciler) reconcileV1Alpha2InferencePool(ctx context.Context, 
 	return Reconcile(ctx, r, llmSvc, &igwapiv1alpha2.InferencePool{}, expected, semanticInferencePoolV1Alpha2IsEqual)
 }
 
+func managedInferencePoolMissingEndpointPickerRef(llmSvc *v1alpha2.LLMInferenceService) bool {
+	return llmSvc.Spec.Router != nil &&
+		llmSvc.Spec.Router.Scheduler != nil &&
+		llmSvc.Spec.Router.Scheduler.Pool != nil &&
+		!llmSvc.Spec.Router.Scheduler.Pool.HasRef() &&
+		llmSvc.Spec.Router.Scheduler.Pool.Spec != nil &&
+		llmSvc.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef == nil
+}
+
 func (r *LLMISVCReconciler) reconcileSchedulerService(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
 	expected := r.expectedSchedulerService(ctx, llmSvc)
 	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil || llmSvc.Spec.Router.Scheduler.Template == nil || llmSvc.Spec.Router.Scheduler.Pool.HasRef() {

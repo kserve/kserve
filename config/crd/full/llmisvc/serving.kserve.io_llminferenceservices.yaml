@@ -10069,8 +10069,6 @@ spec:
                                         - FailClose
                                       type: string
                                     group:
-                                      maxLength: 253
-                                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                       type: string
                                     kind:
                                       maxLength: 63
@@ -36464,7 +36462,6 @@ spec:
                                     - message: port number must be unique
                                       rule: self.all(p1, self.exists_one(p2, p1.number==p2.number))
                               required:
-                                - endpointPickerRef
                                 - selector
                                 - targetPorts
                               type: object

@@ -9804,7 +9804,6 @@ spec:
                                 type: array
                                 x-kubernetes-list-type: atomic
                             required:
-                            - endpointPickerRef
                             - selector
                             - targetPorts
                             type: object

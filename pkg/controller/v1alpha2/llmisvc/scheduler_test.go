@@ -25,16 +25,74 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	pkgtesting "github.com/kserve/kserve/pkg/testing"
 )
+
+func managedPoolService() *v1alpha2.LLMInferenceService {
+	return &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: "test-ns"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Pool: &v1alpha2.InferencePoolSpec{
+						Spec: &igwapi.InferencePoolSpec{},
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestManagedInferencePoolMissingEndpointPickerRef(t *testing.T) {
+	withNilRef := managedPoolService()
+	if !managedInferencePoolMissingEndpointPickerRef(withNilRef) {
+		t.Fatal("expected a managed pool without EndpointPickerRef to be invalid")
+	}
+
+	withRef := withNilRef.DeepCopy()
+	withRef.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef = &igwapi.EndpointPickerRef{
+		Kind: "Service",
+		Name: "test-epp",
+		Port: &igwapi.Port{Number: 9002},
+	}
+	if managedInferencePoolMissingEndpointPickerRef(withRef) {
+		t.Fatal("expected a managed pool with EndpointPickerRef to be valid")
+	}
+
+	withExternalRef := withNilRef.DeepCopy()
+	withExternalRef.Spec.Router.Scheduler.Pool.Spec = nil
+	withExternalRef.Spec.Router.Scheduler.Pool.Ref = &corev1.LocalObjectReference{Name: "external-pool"}
+	if managedInferencePoolMissingEndpointPickerRef(withExternalRef) {
+		t.Fatal("expected an external InferencePool ref to be allowed")
+	}
+}
+
+func TestReconcileRouter_ManagedPoolWithoutEndpointPickerRefIsTerminal(t *testing.T) {
+	llmSvc := managedPoolService()
+	reconciler := &LLMISVCReconciler{}
+
+	err := reconciler.reconcileRouter(t.Context(), llmSvc, &Config{})
+	require.ErrorIs(t, err, reconcile.TerminalError(nil))
+
+	condition := llmSvc.Status.GetCondition(v1alpha2.InferencePoolReady)
+	require.NotNil(t, condition)
+	assert.True(t, condition.IsFalse())
+	assert.Equal(t, "EndpointPickerRefMissing", condition.Reason)
+	assert.Contains(t, condition.Message,
+		"spec.router.scheduler.pool.spec.endpointPickerRef is required")
+}
 
 // loadSchedulerPresetInline reads a scheduler preset from config/llmisvcconfig and
 // returns its resolved EPPConfig inline as a parsed map.

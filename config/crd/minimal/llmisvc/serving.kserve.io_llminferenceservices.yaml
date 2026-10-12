@@ -10495,7 +10495,6 @@ spec:
                                 - message: port number must be unique
                                   rule: self.all(p1, self.exists_one(p2, p1.number==p2.number))
                             required:
-                            - endpointPickerRef
                             - selector
                             - targetPorts
                             type: object

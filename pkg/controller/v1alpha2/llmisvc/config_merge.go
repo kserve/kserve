@@ -830,6 +830,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		llmSvcCfg.Spec.Router.Scheduler != nil &&
 		llmSvcCfg.Spec.Router.Scheduler.Pool != nil &&
 		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec != nil &&
+		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef != nil &&
 		(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port == nil || llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port.Number == 0) &&
 		(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Kind == "Service" || llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Kind == "") {
 		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port = ptr.To(igwapi.Port{Number: 9002})
