@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -116,15 +117,27 @@ func TestValidateUpdate_DeletionBypass(t *testing.T) {
 
 func TestValidateWVAConfiguration(t *testing.T) {
 	makeWVAWorkload := func() WorkloadSpec {
-		return WorkloadSpec{Scaling: &ScalingSpec{MaxReplicas: 2, WVA: &WVASpec{}}}
+		return WorkloadSpec{Scaling: &ScalingSpec{
+			MinReplicas: ptr.To(int32(1)),
+			MaxReplicas: 2,
+			WVA: &WVASpec{
+				VariantCost: "10.0",
+				ActuatorSpec: ActuatorSpec{KEDA: &KEDAScalingSpec{
+					PollingInterval:  ptr.To(int32(30)),
+					IdleReplicaCount: ptr.To(int32(0)),
+				}},
+			},
+		}}
 	}
 
-	tests := []struct {
+	type testCase struct {
 		name    string
 		old     *LLMInferenceService
 		current *LLMInferenceService
 		wantErr bool
-	}{
+	}
+	tests := make([]testCase, 0, 8)
+	tests = append(tests, []testCase{
 		{
 			name: "create with WVA is rejected",
 			current: func() *LLMInferenceService {
@@ -154,6 +167,8 @@ func TestValidateWVAConfiguration(t *testing.T) {
 			current: func() *LLMInferenceService {
 				svc := newBaseLLMInferenceService()
 				svc.Spec.WorkloadSpec = makeWVAWorkload()
+				svc.Labels = map[string]string{"updated": "true"}
+				svc.Spec.Scaling.MaxReplicas = 3
 				return svc
 			}(),
 		},
@@ -166,17 +181,58 @@ func TestValidateWVAConfiguration(t *testing.T) {
 			}(),
 			current: newBaseLLMInferenceService(),
 		},
+	}...)
+
+	for _, mutation := range []struct {
+		name   string
+		modify func(*WVASpec)
+	}{
+		{"variant cost", func(wva *WVASpec) { wva.VariantCost = "20.0" }},
+		{"polling interval", func(wva *WVASpec) { wva.KEDA.PollingInterval = ptr.To(int32(60)) }},
+		{"idle replica count", func(wva *WVASpec) { wva.KEDA.IdleReplicaCount = ptr.To(int32(1)) }},
+		{"actuator", func(wva *WVASpec) {
+			wva.KEDA = nil
+			wva.HPA = &HPAScalingSpec{}
+		}},
+	} {
+		old := newBaseLLMInferenceService()
+		old.Spec.WorkloadSpec = makeWVAWorkload()
+		current := old.DeepCopy()
+		mutation.modify(current.Spec.Scaling.WVA)
+		tests = append(tests, testCase{
+			name:    "update changing " + mutation.name + " is rejected",
+			old:     old,
+			current: current,
+			wantErr: true,
+		})
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := (&LLMInferenceServiceValidator{}).validateWVAConfig(tt.old, tt.current)
-			if tt.wantErr {
-				require.NotEmpty(t, err)
-				assert.ErrorContains(t, err[0], "WVA autoscaling is no longer supported")
-				return
+	for _, workload := range []string{"main", "prefill"} {
+		t.Run(workload, func(t *testing.T) {
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					old, current := tt.old.DeepCopy(), tt.current.DeepCopy()
+					path := "spec.scaling.wva"
+					if workload == "prefill" {
+						path = "spec.prefill.scaling.wva"
+						if old != nil {
+							old.Spec.Prefill = &WorkloadSpec{Scaling: old.Spec.Scaling}
+							old.Spec.Scaling = nil
+						}
+						current.Spec.Prefill = &WorkloadSpec{Scaling: current.Spec.Scaling}
+						current.Spec.Scaling = nil
+					}
+					err := (&LLMInferenceServiceValidator{}).validateWVAConfig(old, current)
+					if tt.wantErr {
+						require.Len(t, err, 1)
+						assert.Equal(t, path, err[0].Field)
+						assert.Equal(t, field.ErrorTypeForbidden, err[0].Type)
+						assert.ErrorContains(t, err[0], "WVA autoscaling is no longer supported")
+						return
+					}
+					assert.Empty(t, err)
+				})
 			}
-			assert.Empty(t, err)
 		})
 	}
 }
