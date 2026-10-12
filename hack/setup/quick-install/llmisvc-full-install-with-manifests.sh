@@ -112312,19 +112312,10 @@ rules:
   - serving.kserve.io
   resources:
   - clusterservingruntimes
-  - localmodelcaches
-  - localmodelnamespacecaches
-  - servingruntimes
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - serving.kserve.io
-  resources:
   - clusterstoragecontainers
   - localmodelcaches
   - localmodelnamespacecaches
+  - servingruntimes
   verbs:
   - get
   - list
