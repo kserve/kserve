@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
@@ -29,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
@@ -768,6 +770,42 @@ func NewServiceConfig(isvcConfigMap *corev1.ConfigMap) (*ServiceConfig, error) {
 	return serviceConfig, nil
 }
 
+// legacyModelcarKey is the deprecated storageInitializer key superseded by
+// enableOciModelSupport and ociModelMode. See https://github.com/kserve/kserve/issues/5679.
+const legacyModelcarKey = "enableModelcar"
+
+var (
+	storageInitializerConfigLogger = logf.Log.WithName("storage-initializer-config")
+	// The configmap is re-read on every reconcile and pod admission, so the
+	// deprecation warning is emitted at most once per process.
+	warnLegacyModelcarKeyOnce sync.Once
+)
+
+// hasLegacyModelcarKey reports whether the raw storageInitializer JSON sets enableModelcar.
+// The parsed bool cannot distinguish an explicit false from an absent key, so the raw
+// keys are inspected. Matching is case-insensitive, like encoding/json field matching.
+func hasLegacyModelcarKey(raw string) bool {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(raw), &fields); err != nil {
+		return false
+	}
+	for key := range fields {
+		if strings.EqualFold(key, legacyModelcarKey) {
+			return true
+		}
+	}
+	return false
+}
+
+func warnLegacyModelcarKey(value bool) {
+	warnLegacyModelcarKeyOnce.Do(func() {
+		storageInitializerConfigLogger.Info("WARNING: storageInitializer.enableModelcar is deprecated and will be removed in a future release. "+
+			"Use enableOciModelSupport (and optionally ociModelMode) instead: replace enableModelcar: true with enableOciModelSupport: true; "+
+			"for enableModelcar: false, set enableOciModelSupport: false or omit it. See https://github.com/kserve/kserve/issues/5679",
+			"enableModelcar", value)
+	})
+}
+
 // GetStorageInitializerConfigs parses the StorageInitializer configuration from the provided ConfigMap.
 // It unmarshalls JSON configuration under the "storageInitializer" key into a StorageInitializerConfig struct.
 // The fields related to CPU and memory resource values are validated to contain valid Kubernetes resource quantities.
@@ -786,6 +824,9 @@ func GetStorageInitializerConfigs(configMap *corev1.ConfigMap) (*types.StorageIn
 		err := json.Unmarshal([]byte(initializerConfig), &storageInitializerConfig)
 		if err != nil {
 			panic(fmt.Errorf("Unable to unmarshall %v json string due to %w ", StorageInitializerConfigMapKeyName, err))
+		}
+		if hasLegacyModelcarKey(initializerConfig) {
+			warnLegacyModelcarKey(storageInitializerConfig.EnableOciImageSource)
 		}
 	}
 	// Ensure that we set proper values for CPU/Memory Limit/Request
