@@ -13,7 +13,11 @@
 # limitations under the License.
 
 import ssl
+from unittest.mock import Mock
 
+import pytest
+
+from kserve.protocol.rest import tls_profile
 from kserve.protocol.rest.tls_profile import TLSProfile, apply_tls_profile
 
 
@@ -44,3 +48,28 @@ def test_apply_tls_13_profile_ignores_cipher_list():
     )
 
     assert context.minimum_version == ssl.TLSVersion.TLSv1_3
+
+
+def test_load_tls_profile_provider(monkeypatch):
+    ssl_context = Mock()
+    provider = Mock()
+    provider_factory = Mock(return_value=provider)
+    provider_entry_point = Mock()
+    provider_entry_point.name = "test"
+    provider_entry_point.load.return_value = provider_factory
+    entry_point_loader = Mock(return_value=(provider_entry_point,))
+    monkeypatch.setattr(tls_profile, "entry_points", entry_point_loader)
+
+    assert tls_profile.load_tls_profile_provider("test", ssl_context) is provider
+
+    entry_point_loader.assert_called_once_with(
+        group=tls_profile.TLS_PROFILE_PROVIDER_ENTRY_POINT_GROUP
+    )
+    provider_factory.assert_called_once_with(ssl_context)
+
+
+def test_load_tls_profile_provider_rejects_unknown_provider(monkeypatch):
+    monkeypatch.setattr(tls_profile, "entry_points", Mock(return_value=()))
+
+    with pytest.raises(ValueError, match="unknown TLS profile provider 'missing'"):
+        tls_profile.load_tls_profile_provider("missing", Mock())

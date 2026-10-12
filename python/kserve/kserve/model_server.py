@@ -45,7 +45,6 @@ from .protocol.grpc.server import GRPCServer
 from .protocol.model_repository_extension import ModelRepositoryExtension
 from .protocol.rest.multiprocess.server import RESTServerMultiProcess
 from .protocol.rest.server import RESTServer
-from .protocol.rest.tls_profile import TLSProfileProviderFactory
 from .utils import utils
 from .utils.inference_client_factory import InferenceClientFactory
 
@@ -253,7 +252,6 @@ class ModelServer:
         predictor_config: Optional[PredictorConfig] = None,
         ssl_certfile: Optional[str] = args.ssl_certfile,
         ssl_keyfile: Optional[str] = args.ssl_keyfile,
-        tls_profile_provider_factory: Optional[TLSProfileProviderFactory] = None,
     ):
         """KServe ModelServer Constructor
 
@@ -281,15 +279,12 @@ class ModelServer:
                           Falls back to KSERVE_TLS_CERT_FILE env var.
             ssl_keyfile: Path to the SSL private key file for serving HTTPS. Default: ``None``.
                          Falls back to KSERVE_TLS_KEY_FILE env var.
-            tls_profile_provider_factory: Optional factory for configuring and refreshing
-                                          the HTTPS server SSL context.
         """
         self.registered_models = (
             ModelRepository() if registered_models is None else registered_models
         )
         self.ssl_certfile = ssl_certfile
         self.ssl_keyfile = ssl_keyfile
-        self.tls_profile_provider_factory = tls_profile_provider_factory
         if bool(self.ssl_certfile) != bool(self.ssl_keyfile):
             raise ValueError("ssl_certfile and ssl_keyfile must be configured together")
         # None means neither the CLI nor the constructor explicitly selected a port.
@@ -392,7 +387,6 @@ class ModelServer:
                 timeout_keep_alive=self.timeout_keep_alive,
                 ssl_certfile=self.ssl_certfile,
                 ssl_keyfile=self.ssl_keyfile,
-                tls_profile_provider_factory=self.tls_profile_provider_factory,
             )
             self.servers.append(self._rest_multiprocess_server.start())
         else:
@@ -408,7 +402,6 @@ class ModelServer:
                 timeout_keep_alive=self.timeout_keep_alive,
                 ssl_certfile=self.ssl_certfile,
                 ssl_keyfile=self.ssl_keyfile,
-                tls_profile_provider_factory=self.tls_profile_provider_factory,
             )
             self.servers.append(self._rest_server.start())
         if self.enable_grpc:

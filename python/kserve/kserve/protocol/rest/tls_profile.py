@@ -13,9 +13,14 @@
 # limitations under the License.
 
 import ssl
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
+from importlib.metadata import entry_points
 from typing import Protocol
+
+
+TLS_PROFILE_PROVIDER_ENTRY_POINT_GROUP = "kserve.tls_profile_providers"
+TLS_PROFILE_PROVIDER_ENV = "KSERVE_TLS_PROFILE_PROVIDER"
 
 
 @dataclass(frozen=True)
@@ -41,4 +46,14 @@ class TLSProfileProvider(Protocol):
     def stop(self) -> None: ...
 
 
-TLSProfileProviderFactory = Callable[[ssl.SSLContext], TLSProfileProvider]
+def load_tls_profile_provider(
+    name: str, ssl_context: ssl.SSLContext
+) -> TLSProfileProvider:
+    """Load a TLS profile provider registered under the KServe entry-point group."""
+    for provider_entry_point in entry_points(
+        group=TLS_PROFILE_PROVIDER_ENTRY_POINT_GROUP
+    ):
+        if provider_entry_point.name == name:
+            return provider_entry_point.load()(ssl_context)
+
+    raise ValueError(f"unknown TLS profile provider {name!r}")

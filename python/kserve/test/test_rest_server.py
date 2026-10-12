@@ -141,7 +141,9 @@ async def test_tls_profile_provider_lifecycle(monkeypatch):
     monkeypatch.setattr(rest_mod.uvicorn.Server, "serve", AsyncMock())
     ssl_context = Mock()
     provider = Mock()
-    provider_factory = Mock(return_value=provider)
+    monkeypatch.setenv(rest_mod.TLS_PROFILE_PROVIDER_ENV, "test")
+    provider_loader = Mock(return_value=provider)
+    monkeypatch.setattr(rest_mod, "load_tls_profile_provider", provider_loader)
 
     rs = rest_mod.RESTServer(
         app="dummy:app",
@@ -150,7 +152,6 @@ async def test_tls_profile_provider_lifecycle(monkeypatch):
         http_port=8443,
         ssl_certfile="/etc/tls/tls.crt",
         ssl_keyfile="/etc/tls/tls.key",
-        tls_profile_provider_factory=provider_factory,
     )
 
     def load_config():
@@ -161,7 +162,7 @@ async def test_tls_profile_provider_lifecycle(monkeypatch):
 
     await rs.start()
 
-    provider_factory.assert_called_once_with(ssl_context)
+    provider_loader.assert_called_once_with("test", ssl_context)
     provider.start.assert_called_once_with()
     provider.stop.assert_called_once_with()
 
@@ -174,6 +175,10 @@ async def test_tls_profile_provider_start_failure_stops_refreshers(monkeypatch):
     provider = Mock()
     provider.start.side_effect = RuntimeError("provider failed")
     ssl_context = Mock()
+    monkeypatch.setenv(rest_mod.TLS_PROFILE_PROVIDER_ENV, "test")
+    monkeypatch.setattr(
+        rest_mod, "load_tls_profile_provider", Mock(return_value=provider)
+    )
 
     rs = rest_mod.RESTServer(
         app="dummy:app",
@@ -182,7 +187,6 @@ async def test_tls_profile_provider_start_failure_stops_refreshers(monkeypatch):
         http_port=8443,
         ssl_certfile="/etc/tls/tls.crt",
         ssl_keyfile="/etc/tls/tls.key",
-        tls_profile_provider_factory=Mock(return_value=provider),
     )
 
     def load_config():

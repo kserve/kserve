@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 import sys
 from socket import socket
 from typing import List, Optional
@@ -55,7 +56,11 @@ from .middleware import TraceResponseHeaderMiddleware
 from .ssl_cert_refresher import SSLCertRefresher
 from .v1_endpoints import register_v1_endpoints
 from .v2_endpoints import register_v2_endpoints
-from .tls_profile import TLSProfileProvider, TLSProfileProviderFactory
+from .tls_profile import (
+    TLS_PROFILE_PROVIDER_ENV,
+    TLSProfileProvider,
+    load_tls_profile_provider,
+)
 
 
 async def metrics_handler(request: Request) -> Response:
@@ -80,14 +85,9 @@ REST_TRACE_EXCLUDED_URLS = (
 class _RefreshingServer(uvicorn.Server):
     """Uvicorn server that refreshes its SSL context when certificates change."""
 
-    def __init__(
-        self,
-        config: uvicorn.Config,
-        tls_profile_provider_factory: Optional[TLSProfileProviderFactory] = None,
-    ):
+    def __init__(self, config: uvicorn.Config):
         super().__init__(config)
         self._ssl_cert_refresher: Optional[SSLCertRefresher] = None
-        self._tls_profile_provider_factory = tls_profile_provider_factory
         self._tls_profile_provider: Optional[TLSProfileProvider] = None
 
     async def serve(self, sockets: Optional[List[socket]] = None) -> None:
@@ -105,9 +105,9 @@ class _RefreshingServer(uvicorn.Server):
                     key_path=str(self.config.ssl_keyfile),
                     cert_path=str(self.config.ssl_certfile),
                 )
-                if self._tls_profile_provider_factory is not None:
-                    self._tls_profile_provider = self._tls_profile_provider_factory(
-                        self.config.ssl
+                if provider_name := os.getenv(TLS_PROFILE_PROVIDER_ENV):
+                    self._tls_profile_provider = load_tls_profile_provider(
+                        provider_name, self.config.ssl
                     )
                     self._tls_profile_provider.start()
 
@@ -135,7 +135,6 @@ class RESTServer:
         timeout_keep_alive: int = 65,
         ssl_certfile: Optional[str] = None,
         ssl_keyfile: Optional[str] = None,
-        tls_profile_provider_factory: Optional[TLSProfileProviderFactory] = None,
     ):
         if bool(ssl_certfile) != bool(ssl_keyfile):
             raise ValueError("ssl_certfile and ssl_keyfile must be configured together")
@@ -163,7 +162,7 @@ class RESTServer:
             ssl_certfile=ssl_certfile,
             ssl_keyfile=ssl_keyfile,
         )
-        self._server = _RefreshingServer(self.config, tls_profile_provider_factory)
+        self._server = _RefreshingServer(self.config)
 
     def _register_endpoints(self, app: fastapi.FastAPI):
         root_router = APIRouter()
