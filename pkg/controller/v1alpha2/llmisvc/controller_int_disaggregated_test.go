@@ -259,7 +259,7 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			// given
 			enableDisaggregatedSetGate(ctx)
 			testNs := NewTestNamespace(ctx, envTest)
-			llmSvc := singleNodePD("ds-scaling", testNs.Name, optIn, WithScaling(HPAScaling(1, 2)))
+			llmSvc := singleNodePD("ds-scaling", testNs.Name, optIn, WithScaling(DirectKEDAScaling(1, 2)))
 
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
@@ -275,7 +275,7 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			// given
 			enableDisaggregatedSetGate(ctx)
 			testNs := NewTestNamespace(ctx, envTest)
-			llmSvc := singleNodePD("ds-scaling-default", testNs.Name, WithScaling(HPAScaling(1, 2)))
+			llmSvc := singleNodePD("ds-scaling-default", testNs.Name, WithScaling(DirectKEDAScaling(1, 2)))
 
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
