@@ -9,6 +9,10 @@ dependencies = [
     "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
     "lightgbm[scikit-learn]~=4.6.0",
     "pandas<3.0.0,>=2.2.0",
+    "scikit-learn<1.9.0 ; platform_machine == 'ppc64le'",
+    "google-crc32c",
+    "hf-xet",
+    "scipy"
 ]
 name = "lgbserver"
 version = "0.21.0"
@@ -25,3 +29,24 @@ test = [
 dev = [
     "black[colorama]>=26.3.1,<27",
 ]
+
+[tool.uv]
+index-strategy = "unsafe-best-match"
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",   # linux/amd64
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",  # linux/arm64/v8
+    "sys_platform == 'linux' and platform_machine == 'ppc64le'",  # linux/ppc64le
+]
+
+[tool.uv.sources]
+pandas = { index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'" }
+scikit-learn = { index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'" }
+google-crc32c = { index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'" }
+hf-xet = { index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'" }
+lightgbm = { index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'" }
+scipy = { index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'" }
+
+[[tool.uv.index]]
+name = "ibm-ppc64le"
+url = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/"
+explicit = true

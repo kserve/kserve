@@ -9,6 +9,12 @@ dependencies = [
     "kserve-storage @ file:///${PROJECT_ROOT}/../storage",
     "jpmml-evaluator~=0.10.3",
     "setuptools<71.0.0,>=70.0.0",
+
+    # IBM
+    "google-crc32c",
+    "pyjnius",
+    "jpype1",
+    "hf-xet",
 ]
 name = "pmmlserver"
 version = "0.21.0"
@@ -25,3 +31,22 @@ test = [
 dev = [
     "black[colorama]>=26.3.1,<27",
 ]
+
+[tool.uv]
+index-strategy = "unsafe-best-match"
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",   # linux/amd64
+    "sys_platform == 'linux' and platform_machine == 'aarch64'",  # linux/arm64/v8
+    "sys_platform == 'linux' and platform_machine == 'ppc64le'",  # linux/ppc64le
+]
+
+[[tool.uv.index]]
+name = "ibm-ppc64le"
+url = "https://wheels.developerfirst.ibm.com/ppc64le/linux/+simple/"
+explicit = true
+
+[tool.uv.sources]
+google-crc32c = { index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'" }
+pyjnius = { index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le' and python_version != '3.13.*'" }
+jpype1 = { index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'" }
+hf-xet = { index = "ibm-ppc64le", marker = "platform_machine == 'ppc64le'" }
