@@ -341,39 +341,6 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("keeps the current workloads when autoscaling through WVA is configured", func(ctx SpecContext) {
-			// given
-			enableDisaggregatedSetGate(ctx)
-			testNs := NewTestNamespace(ctx, envTest)
-			llmSvc := singleNodePD("ds-scaling", testNs.Name, optIn, WithScaling(DirectKEDAScaling(1, 2)))
-
-			// when
-			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
-			defer testNs.DeleteAndWait(ctx, llmSvc)
-
-			// then
-			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve", llmSvc.Namespace)
-			expectNotUsed(ctx, llmSvc, "AutoscalingNotSupported")
-			expectNotFound(ctx, &disaggregatedsetv1.DisaggregatedSet{}, llmSvc.Name+"-kserve-pd", llmSvc.Namespace)
-		})
-
-		It("keeps the current workloads when autoscaling through WVA meets the preset default", func(ctx SpecContext) {
-			// given
-			enableDisaggregatedSetGate(ctx)
-			testNs := NewTestNamespace(ctx, envTest)
-			llmSvc := singleNodePD("ds-scaling-default", testNs.Name, WithScaling(DirectKEDAScaling(1, 2)))
-
-			// when
-			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
-			defer testNs.DeleteAndWait(ctx, llmSvc)
-
-			// then
-			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve", llmSvc.Namespace)
-			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve-prefill", llmSvc.Namespace)
-			expectNotUsed(ctx, llmSvc, "AutoscalingNotSupported")
-			expectNotFound(ctx, &disaggregatedsetv1.DisaggregatedSet{}, llmSvc.Name+"-kserve-pd", llmSvc.Namespace)
-		})
-
 		It("deletes the DisaggregatedSet when the service is stopped", func(ctx SpecContext) {
 			// given
 			enableDisaggregatedSetGate(ctx)

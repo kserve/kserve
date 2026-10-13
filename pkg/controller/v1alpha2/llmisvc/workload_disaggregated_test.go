@@ -108,16 +108,6 @@ func disaggTestKEDAScaling(minReplicas, maxReplicas int32) *v1alpha2.ScalingSpec
 	}
 }
 
-func disaggTestWVAScaling(minReplicas, maxReplicas int32) *v1alpha2.ScalingSpec {
-	return &v1alpha2.ScalingSpec{
-		MinReplicas: ptr.To(minReplicas),
-		MaxReplicas: maxReplicas,
-		WVA: &v1alpha2.WVASpec{
-			ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}},
-		},
-	}
-}
-
 func disaggTestPod() *corev1.PodSpec {
 	return &corev1.PodSpec{Containers: []corev1.Container{{Name: "main", Image: "vllm:latest"}}}
 }
@@ -241,20 +231,6 @@ func TestDecideDisaggregatedSet(t *testing.T) {
 			wantUse: true,
 		},
 		{
-			name: "decode autoscaled by WVA",
-			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, _ *LLMISVCReconciler) {
-				svc.Spec.Scaling = disaggTestWVAScaling(1, 3)
-			},
-			wantReason: reasonAutoscalingNotSupported,
-		},
-		{
-			name: "prefill autoscaled by WVA",
-			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, _ *LLMISVCReconciler) {
-				svc.Spec.Prefill.Scaling = disaggTestWVAScaling(1, 3)
-			},
-			wantReason: reasonAutoscalingNotSupported,
-		},
-		{
 			// A DisaggregatedSet checks zero and non-zero replicas only across static roles.
 			name: "static prefill scaled to zero next to an autoscaled decode",
 			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, _ *LLMISVCReconciler) {
@@ -302,7 +278,7 @@ func TestDecideDisaggregatedSet(t *testing.T) {
 // misleading status to check it is ignored.
 func TestMarkDisaggregatedSetDecision(t *testing.T) {
 	use := disaggregatedSetDecision{Requested: true, Use: true}
-	fallback := disaggregatedSetDecision{Requested: true, Reason: reasonAutoscalingNotSupported, Message: "autoscaling is not supported"}
+	fallback := disaggregatedSetDecision{Requested: true, Reason: reasonReplicasMismatch, Message: "replicas mismatch"}
 
 	deployments := func(svc *v1alpha2.LLMInferenceService) []client.Object {
 		return []client.Object{
@@ -389,9 +365,9 @@ func TestMarkDisaggregatedSetDecision(t *testing.T) {
 			existing:      disaggregatedSet,
 			decision:      fallback,
 			wantStatus:    corev1.ConditionFalse,
-			wantReason:    reasonAutoscalingNotSupported,
+			wantReason:    reasonReplicasMismatch,
 			wantEvent:     disaggregatedSetMigratingFromReason,
-			wantInMessage: "autoscaling is not supported",
+			wantInMessage: "replicas mismatch",
 		},
 		{
 			// The condition says why; only a migration, which replaces running
@@ -399,14 +375,14 @@ func TestMarkDisaggregatedSetDecision(t *testing.T) {
 			name:       "falling back without a DisaggregatedSet only records why",
 			decision:   fallback,
 			wantStatus: corev1.ConditionFalse,
-			wantReason: reasonAutoscalingNotSupported,
+			wantReason: reasonReplicasMismatch,
 		},
 		{
 			name:       "falling back again only records why",
 			status:     staleNotUsed,
 			decision:   fallback,
 			wantStatus: corev1.ConditionFalse,
-			wantReason: reasonAutoscalingNotSupported,
+			wantReason: reasonReplicasMismatch,
 		},
 		{
 			name:       "stopping a service on Deployments is not a migration",

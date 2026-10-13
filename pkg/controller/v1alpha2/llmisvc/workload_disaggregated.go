@@ -65,11 +65,10 @@ const (
 
 // Reasons for a False DisaggregatedSetUsed condition. They are part of the API.
 const (
-	reasonFeatureGateDisabled     = "FeatureGateDisabled"
-	reasonCRDNotInstalled         = "CRDNotInstalled"
-	reasonNoPrefillWorkload       = "NoPrefillWorkload"
-	reasonAutoscalingNotSupported = "AutoscalingNotSupported"
-	reasonReplicasMismatch        = "ReplicasMismatch"
+	reasonFeatureGateDisabled = "FeatureGateDisabled"
+	reasonCRDNotInstalled     = "CRDNotInstalled"
+	reasonNoPrefillWorkload   = "NoPrefillWorkload"
+	reasonReplicasMismatch    = "ReplicasMismatch"
 )
 
 // disaggregatedSetRoles lists the roles of a DisaggregatedSet in the order they appear
@@ -104,8 +103,6 @@ func (r *LLMISVCReconciler) decideDisaggregatedSet(llmSvc *v1alpha2.LLMInference
 		return notUsed(reasonCRDNotInstalled, "the DisaggregatedSet CRD is not installed")
 	case llmSvc.Spec.Prefill == nil:
 		return notUsed(reasonNoPrefillWorkload, "the service has no prefill workload")
-	case usesWVAScaling(llmSvc.Spec.Scaling) || usesWVAScaling(llmSvc.Spec.Prefill.Scaling):
-		return notUsed(reasonAutoscalingNotSupported, "autoscaling through WVA is not supported with a DisaggregatedSet; use scaling.keda")
 	// A DisaggregatedSet checks this only across roles with static replicas, so it
 	// applies only when neither role is autoscaled.
 	case llmSvc.Spec.Scaling == nil && llmSvc.Spec.Prefill.Scaling == nil &&
@@ -113,12 +110,6 @@ func (r *LLMISVCReconciler) decideDisaggregatedSet(llmSvc *v1alpha2.LLMInference
 		return notUsed(reasonReplicasMismatch, "a DisaggregatedSet requires decode and prefill replicas to be both zero or both non-zero")
 	}
 	return disaggregatedSetDecision{Requested: true, Use: true}
-}
-
-// usesWVAScaling reports whether a workload is autoscaled through WVA, which drives
-// Deployments and LeaderWorkerSets but not the roles of a DisaggregatedSet.
-func usesWVAScaling(scaling *v1alpha2.ScalingSpec) bool {
-	return scaling != nil && scaling.WVA != nil
 }
 
 // markDisaggregatedSetDecision records the decision in the DisaggregatedSetUsed
