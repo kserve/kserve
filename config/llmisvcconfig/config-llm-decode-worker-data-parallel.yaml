@@ -91,7 +91,7 @@ spec:
         name: main
         ports:
           - containerPort: 8200
-            name: dp-health
+            name: modelserver
             protocol: TCP
         command:
           - "/bin/bash"
@@ -349,7 +349,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /health
-            port: dp-health
+            port: modelserver
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
           timeoutSeconds: 1
@@ -357,7 +357,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /health
-            port: dp-health
+            port: modelserver
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 1
           timeoutSeconds: 1
@@ -365,7 +365,7 @@ spec:
         startupProbe:
           httpGet:
             path: /health
-            port: dp-health
+            port: modelserver
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           failureThreshold: 60
           periodSeconds: 10
@@ -403,7 +403,7 @@ spec:
         name: main
         ports:
           - containerPort: 8200
-            name: dp-health
+            name: modelserver
             protocol: TCP
         command:
           - "/bin/bash"

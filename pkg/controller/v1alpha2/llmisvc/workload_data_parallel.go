@@ -31,13 +31,13 @@ import (
 )
 
 // New P/D presets opt into multi-port routing with this empty env slot and a
-// named dp-health port. Older pinned presets retain their headless topology.
+// named modelserver port. Older pinned presets retain their headless topology.
 // Like the KV transfer slot, this is a versioned preset/controller contract:
 // changing the generated arguments or topology requires a new slot name.
 const dpRoutingArgsEnvVar = "KSERVE_DP_ROUTING_ARGS"
 
 const (
-	dpHealthPortName              = "dp-health"
+	dpHealthPortName              = "modelserver"
 	dpActivePortsAnnotation       = "llm-d.ai/active-ports"
 	dpMultiPortFlag               = "--data-parallel-multi-port-external-lb"
 	dpMaxLocalRanks         int32 = 8 // InferencePool v1 permits at most eight targetPorts.

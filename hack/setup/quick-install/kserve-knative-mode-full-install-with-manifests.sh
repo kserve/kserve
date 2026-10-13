@@ -2841,7 +2841,7 @@ spec:
 
         eval "exec vllm serve /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
-          --port 8001 \
+          --port 8200 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
@@ -2878,19 +2878,20 @@ spec:
         failureThreshold: 10
         httpGet:
           path: /health
-          port: 8001
+          port: modelserver
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
         timeoutSeconds: 1
       name: main
       ports:
       - containerPort: 8200
+        name: modelserver
         protocol: TCP
       readinessProbe:
         failureThreshold: 2
         httpGet:
           path: /health
-          port: 8001
+          port: modelserver
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 1
         timeoutSeconds: 1
@@ -2907,7 +2908,7 @@ spec:
         failureThreshold: 60
         httpGet:
           path: /health
-          port: 8001
+          port: modelserver
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
       terminationMessagePath: /dev/termination-log
@@ -2928,10 +2929,10 @@ spec:
     - command:
       - /app/pd-sidecar
       - --port=8000
-      - --model-server-port=8001
+      - --model-server-port=8200
       - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
-      - --pool-group=inference.networking.x-k8s.io
+      - --pool-group=inference.networking.k8s.io
       - --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }}
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
@@ -3254,20 +3255,20 @@ spec:
         failureThreshold: 10
         httpGet:
           path: /health
-          port: dp-health
+          port: modelserver
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
         timeoutSeconds: 1
       name: main
       ports:
       - containerPort: 8200
-        name: dp-health
+        name: modelserver
         protocol: TCP
       readinessProbe:
         failureThreshold: 2
         httpGet:
           path: /health
-          port: dp-health
+          port: modelserver
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 1
         timeoutSeconds: 1
@@ -3288,7 +3289,7 @@ spec:
         failureThreshold: 60
         httpGet:
           path: /health
-          port: dp-health
+          port: modelserver
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
       terminationMessagePath: /dev/termination-log
@@ -3314,7 +3315,7 @@ spec:
         1 }}
       - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
-      - --pool-group=inference.networking.x-k8s.io
+      - --pool-group=inference.networking.k8s.io
       - --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }}
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
@@ -3629,7 +3630,7 @@ spec:
       name: main
       ports:
       - containerPort: 8200
-        name: dp-health
+        name: modelserver
         protocol: TCP
       securityContext:
         allowPrivilegeEscalation: false
@@ -4239,20 +4240,20 @@ spec:
           failureThreshold: 10
           httpGet:
             path: /health
-            port: dp-health
+            port: modelserver
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
           timeoutSeconds: 1
         name: main
         ports:
         - containerPort: 8000
-          name: dp-health
+          name: modelserver
           protocol: TCP
         readinessProbe:
           failureThreshold: 2
           httpGet:
             path: /health
-            port: dp-health
+            port: modelserver
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 1
           timeoutSeconds: 1
@@ -4273,7 +4274,7 @@ spec:
           failureThreshold: 60
           httpGet:
             path: /health
-            port: dp-health
+            port: modelserver
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
         terminationMessagePath: /dev/termination-log
@@ -4545,7 +4546,7 @@ spec:
         name: main
         ports:
         - containerPort: 8000
-          name: dp-health
+          name: modelserver
           protocol: TCP
         securityContext:
           allowPrivilegeEscalation: false

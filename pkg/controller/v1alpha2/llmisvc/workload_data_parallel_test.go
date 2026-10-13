@@ -87,12 +87,12 @@ func TestDataParallelRouting(t *testing.T) {
 						assert.Contains(t, args, "--data-parallel-multi-port-external-lb")
 						assert.Contains(t, args, fmt.Sprintf("--data-parallel-supervisor-port=%d", basePort+8))
 						require.NotNil(t, main.ReadinessProbe)
-						assert.Equal(t, "dp-health", main.ReadinessProbe.HTTPGet.Port.StrVal)
+						assert.Equal(t, "modelserver", main.ReadinessProbe.HTTPGet.Port.StrVal)
 						assert.Equal(t, "/readyz", main.ReadinessProbe.HTTPGet.Path)
 						for rank := range sizes[i] {
 							assert.Contains(t, main.Ports, corev1.ContainerPort{Name: fmt.Sprintf("dp-rank-%d", rank), ContainerPort: basePort + rank, Protocol: corev1.ProtocolTCP})
 						}
-						assert.Contains(t, main.Ports, corev1.ContainerPort{Name: "dp-health", ContainerPort: basePort + 8, Protocol: corev1.ProtocolTCP})
+						assert.Contains(t, main.Ports, corev1.ContainerPort{Name: "modelserver", ContainerPort: basePort + 8, Protocol: corev1.ProtocolTCP})
 						if i == 1 {
 							sidecar := routingSidecar(pod)
 							require.NotNil(t, sidecar, "decode workers must also proxy their local ranks")

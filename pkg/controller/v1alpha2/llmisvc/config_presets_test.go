@@ -195,7 +195,7 @@ func TestPresetFiles(t *testing.T) {
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8200,
-											Name:          "dp-health",
+											Name:          "modelserver",
 											Protocol:      corev1.ProtocolTCP,
 										},
 									},
@@ -242,7 +242,7 @@ func TestPresetFiles(t *testing.T) {
 										ProbeHandler: corev1.ProbeHandler{
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
-												Port:   intstr.FromString("dp-health"),
+												Port:   intstr.FromString("modelserver"),
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
@@ -255,7 +255,7 @@ func TestPresetFiles(t *testing.T) {
 										ProbeHandler: corev1.ProbeHandler{
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
-												Port:   intstr.FromString("dp-health"),
+												Port:   intstr.FromString("modelserver"),
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
@@ -268,7 +268,7 @@ func TestPresetFiles(t *testing.T) {
 										ProbeHandler: corev1.ProbeHandler{
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
-												Port:   intstr.FromString("dp-health"),
+												Port:   intstr.FromString("modelserver"),
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
@@ -347,7 +347,7 @@ func TestPresetFiles(t *testing.T) {
 									Ports: []corev1.ContainerPort{
 										{
 											ContainerPort: 8200,
-											Name:          "dp-health",
+											Name:          "modelserver",
 											Protocol:      corev1.ProtocolTCP,
 										},
 									},
