@@ -151,6 +151,9 @@ kserve:
     scaleDownStabilizationWindowSeconds: '300'
   llmisvc:
     createGIECRDs: true
+    featureGates:
+      disaggregatedSet: false
+      recursiveConfigRender: false
     controller:
       image: kserve/llmisvc-controller
       tag: ''

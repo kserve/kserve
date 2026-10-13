@@ -161,45 +161,56 @@ func TestLoadConfig(t *testing.T) {
 
 func TestNewLLMISVCConfig(t *testing.T) {
 	tests := []struct {
-		name                 string
-		configMapData        map[string]string
-		wantErr              bool
-		wantDisaggregatedSet bool
+		name          string
+		configMapData map[string]string
+		wantErr       bool
+		want          llmisvc.FeatureGates
 	}{
 		{
-			// The key is not shipped in the default ConfigMap, so this is the
+			// The kustomize manifests do not ship the key, so this is the
 			// configuration every existing cluster has. Every gate must be off.
-			name:                 "missing llmisvc key leaves gates off",
-			configMapData:        map[string]string{},
-			wantDisaggregatedSet: false,
+			name:          "missing llmisvc key leaves gates off",
+			configMapData: map[string]string{},
 		},
 		{
 			name: "empty JSON object leaves gates off",
 			configMapData: map[string]string{
 				"llmisvc": `{}`,
 			},
-			wantDisaggregatedSet: false,
 		},
 		{
 			name: "empty featureGates object leaves gates off",
 			configMapData: map[string]string{
 				"llmisvc": `{"featureGates":{}}`,
 			},
-			wantDisaggregatedSet: false,
+		},
+		{
+			// What the Helm charts render by default.
+			name: "every gate explicitly disabled leaves gates off",
+			configMapData: map[string]string{
+				"llmisvc": `{"featureGates":{"disaggregatedSet":false,"recursiveConfigRender":false}}`,
+			},
 		},
 		{
 			name: "disaggregatedSet can be enabled",
 			configMapData: map[string]string{
 				"llmisvc": `{"featureGates":{"disaggregatedSet":true}}`,
 			},
-			wantDisaggregatedSet: true,
+			want: llmisvc.FeatureGates{DisaggregatedSet: true},
 		},
 		{
-			name: "disaggregatedSet can be explicitly disabled",
+			name: "recursiveConfigRender can be enabled",
 			configMapData: map[string]string{
-				"llmisvc": `{"featureGates":{"disaggregatedSet":false}}`,
+				"llmisvc": `{"featureGates":{"recursiveConfigRender":true}}`,
 			},
-			wantDisaggregatedSet: false,
+			want: llmisvc.FeatureGates{RecursiveConfigRender: true},
+		},
+		{
+			name: "gates are independent",
+			configMapData: map[string]string{
+				"llmisvc": `{"featureGates":{"disaggregatedSet":true,"recursiveConfigRender":true}}`,
+			},
+			want: llmisvc.FeatureGates{DisaggregatedSet: true, RecursiveConfigRender: true},
 		},
 		{
 			// Decoding is deliberately tolerant of unknown fields, so a typo in a gate
@@ -207,9 +218,8 @@ func TestNewLLMISVCConfig(t *testing.T) {
 			// stall reconciliation for every service. See NewLLMISVCConfig.
 			name: "typo in the gate name leaves the gate off rather than erroring",
 			configMapData: map[string]string{
-				"llmisvc": `{"featureGates":{"disaggregatedSets":true}}`,
+				"llmisvc": `{"featureGates":{"disaggregatedSets":true,"recursiveConfigRenderer":true}}`,
 			},
-			wantDisaggregatedSet: false,
 		},
 		{
 			name: "invalid JSON returns error",
@@ -238,9 +248,8 @@ func TestNewLLMISVCConfig(t *testing.T) {
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			if got.FeatureGates.DisaggregatedSet != tt.wantDisaggregatedSet {
-				t.Errorf("FeatureGates.DisaggregatedSet = %v, want %v",
-					got.FeatureGates.DisaggregatedSet, tt.wantDisaggregatedSet)
+			if got.FeatureGates != tt.want {
+				t.Errorf("FeatureGates = %+v, want %+v", got.FeatureGates, tt.want)
 			}
 		})
 	}
