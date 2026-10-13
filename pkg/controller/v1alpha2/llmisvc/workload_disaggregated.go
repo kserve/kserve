@@ -65,10 +65,11 @@ const (
 
 // Reasons for a False DisaggregatedSetUsed condition. They are part of the API.
 const (
-	reasonFeatureGateDisabled = "FeatureGateDisabled"
-	reasonCRDNotInstalled     = "CRDNotInstalled"
-	reasonNoPrefillWorkload   = "NoPrefillWorkload"
-	reasonReplicasMismatch    = "ReplicasMismatch"
+	reasonFeatureGateDisabled    = "FeatureGateDisabled"
+	reasonCRDNotInstalled        = "CRDNotInstalled"
+	reasonNoPrefillWorkload      = "NoPrefillWorkload"
+	reasonRoleScalerNotInstalled = "RoleScalerNotInstalled"
+	reasonReplicasMismatch       = "ReplicasMismatch"
 )
 
 // disaggregatedSetRoles lists the roles of a DisaggregatedSet in the order they appear
@@ -103,6 +104,8 @@ func (r *LLMISVCReconciler) decideDisaggregatedSet(llmSvc *v1alpha2.LLMInference
 		return notUsed(reasonCRDNotInstalled, "the DisaggregatedSet CRD is not installed")
 	case llmSvc.Spec.Prefill == nil:
 		return notUsed(reasonNoPrefillWorkload, "the service has no prefill workload")
+	case (llmSvc.Spec.Scaling != nil || llmSvc.Spec.Prefill.Scaling != nil) && !r.DisaggregatedSetRoleScalerAvailable:
+		return notUsed(reasonRoleScalerNotInstalled, "autoscaling on a DisaggregatedSet requires the DisaggregatedSetRoleScaler CRD from LWS v0.10.0 or later")
 	// A DisaggregatedSet checks this only across roles with static replicas, so it
 	// applies only when neither role is autoscaled.
 	case llmSvc.Spec.Scaling == nil && llmSvc.Spec.Prefill.Scaling == nil &&

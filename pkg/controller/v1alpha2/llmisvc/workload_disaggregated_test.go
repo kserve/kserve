@@ -156,9 +156,10 @@ func disaggTestReconciler(t *testing.T) *LLMISVCReconciler {
 		&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: disaggTestUserSA, Namespace: disaggTestNamespace}},
 	}
 	return &LLMISVCReconciler{
-		Client:                    fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build(),
-		Clientset:                 k8sfake.NewClientset(),
-		DisaggregatedSetAvailable: true,
+		Client:                              fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build(),
+		Clientset:                           k8sfake.NewClientset(),
+		DisaggregatedSetAvailable:           true,
+		DisaggregatedSetRoleScalerAvailable: true,
 	}
 }
 
@@ -207,6 +208,30 @@ func TestDecideDisaggregatedSet(t *testing.T) {
 			name:       "no prefill",
 			mutate:     func(svc *v1alpha2.LLMInferenceService, _ *Config, _ *LLMISVCReconciler) { svc.Spec.Prefill = nil },
 			wantReason: reasonNoPrefillWorkload,
+		},
+		{
+			// LWS v0.9.0 ships the DisaggregatedSet CRD without DisaggregatedSetRoleScaler.
+			name: "decode autoscaled without the DisaggregatedSetRoleScaler CRD",
+			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, r *LLMISVCReconciler) {
+				svc.Spec.Scaling = disaggTestKEDAScaling(1, 3)
+				r.DisaggregatedSetRoleScalerAvailable = false
+			},
+			wantReason: reasonRoleScalerNotInstalled,
+		},
+		{
+			name: "prefill autoscaled without the DisaggregatedSetRoleScaler CRD",
+			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, r *LLMISVCReconciler) {
+				svc.Spec.Prefill.Scaling = disaggTestKEDAScaling(1, 3)
+				r.DisaggregatedSetRoleScalerAvailable = false
+			},
+			wantReason: reasonRoleScalerNotInstalled,
+		},
+		{
+			name: "static roles without the DisaggregatedSetRoleScaler CRD",
+			mutate: func(_ *v1alpha2.LLMInferenceService, _ *Config, r *LLMISVCReconciler) {
+				r.DisaggregatedSetRoleScalerAvailable = false
+			},
+			wantUse: true,
 		},
 		{
 			name: "decode autoscaled by KEDA",
@@ -258,7 +283,7 @@ func TestDecideDisaggregatedSet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, config, r := disaggTestService(t), disaggTestConfig(), &LLMISVCReconciler{DisaggregatedSetAvailable: true}
+			svc, config, r := disaggTestService(t), disaggTestConfig(), &LLMISVCReconciler{DisaggregatedSetAvailable: true, DisaggregatedSetRoleScalerAvailable: true}
 			tt.mutate(svc, config, r)
 
 			got := r.decideDisaggregatedSet(svc, config)

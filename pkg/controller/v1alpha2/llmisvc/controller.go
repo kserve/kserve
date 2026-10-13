@@ -148,6 +148,11 @@ type LLMISVCReconciler struct {
 	// installing the LWS operator after startup requires a controller restart, the
 	// same constraint that already applies to LeaderWorkerSet.
 	DisaggregatedSetAvailable bool
+
+	// DisaggregatedSetRoleScalerAvailable reports whether the DisaggregatedSetRoleScaler
+	// CRD was present when SetupWithManager ran. LWS v0.9.0 ships the DisaggregatedSet
+	// CRD without it, so autoscaled roles need LWS v0.10.0 or later.
+	DisaggregatedSetRoleScalerAvailable bool
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -496,10 +501,14 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), disaggregatedsetv1.GroupVersion.String(), "DisaggregatedSet"); ok && err == nil {
 		r.DisaggregatedSetAvailable = true
-		b = b.Owns(&disaggregatedsetv1.DisaggregatedSet{}, builder.WithPredicates(childResourcesPredicate)).
-			Watches(&disaggregatedsetv1.DisaggregatedSetRoleScaler{},
-				handler.EnqueueRequestsFromMapFunc(r.enqueueOnDisaggregatedSetRoleScalerChange(logger)),
-				builder.WithPredicates(predicate.GenerationChangedPredicate{}))
+		b = b.Owns(&disaggregatedsetv1.DisaggregatedSet{}, builder.WithPredicates(childResourcesPredicate))
+	}
+
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), disaggregatedsetv1.GroupVersion.String(), "DisaggregatedSetRoleScaler"); ok && err == nil {
+		r.DisaggregatedSetRoleScalerAvailable = true
+		b = b.Watches(&disaggregatedsetv1.DisaggregatedSetRoleScaler{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueOnDisaggregatedSetRoleScalerChange(logger)),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}))
 	}
 
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), resourcev1.SchemeGroupVersion.String(), "ResourceClaimTemplate"); ok && err == nil {
