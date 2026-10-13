@@ -209,8 +209,11 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 	}
 	role := constants.LLMDRoleDecode
 	if llmSvc.Spec.Prefill == nil {
-		var err error
-		if role, err = nonDisaggregatedRole(llmSvc); err != nil {
+		currentRole, err := r.currentMainWorkloadRole(ctx, llmSvc)
+		if err != nil {
+			return nil, err
+		}
+		if role, err = nonDisaggregatedRole(llmSvc, currentRole); err != nil {
 			return nil, err
 		}
 	}
