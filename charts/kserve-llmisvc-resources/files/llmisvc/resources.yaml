@@ -1384,6 +1384,7 @@ rules:
   - serving.kserve.io
   resources:
   - clusterservingruntimes
+  - clusterstoragecontainers
   - localmodelcaches
   - localmodelnamespacecaches
   - servingruntimes
