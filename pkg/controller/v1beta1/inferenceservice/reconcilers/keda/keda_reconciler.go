@@ -80,6 +80,13 @@ func getOriginalStringMQ(mq *v1beta1.MetricQuantity, defaultValue string) string
 	return defaultValue
 }
 
+func getKedaMetricTarget(target v1beta1.MetricTarget) (autoscalingv2.MetricTargetType, *v1beta1.MetricQuantity) {
+	if target.Type == v1beta1.AverageValueMetricType {
+		return autoscalingv2.AverageValueMetricType, target.AverageValue
+	}
+	return autoscalingv2.MetricTargetType(target.Type), target.Value
+}
+
 func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.ComponentExtensionSpec, configMap *corev1.ConfigMap,
 ) ([]kedav1alpha1.ScaleTriggers, error) {
 	var triggers []kedav1alpha1.ScaleTriggers
@@ -118,13 +125,15 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 				triggerType := string(metric.External.Metric.Backend)
 				serverAddress := metric.External.Metric.ServerAddress
 				query := metric.External.Metric.Query
+				metricType, targetValue := getKedaMetricTarget(metric.External.Target)
 
 				trigger := kedav1alpha1.ScaleTriggers{
-					Type: triggerType,
+					Type:       triggerType,
+					MetricType: metricType,
 					Metadata: map[string]string{
 						"serverAddress": serverAddress,
 						"query":         query,
-						"threshold":     getOriginalStringMQ(metric.External.Target.Value, "0"),
+						"threshold":     getOriginalStringMQ(targetValue, "0"),
 					},
 				}
 
@@ -157,10 +166,12 @@ func getKedaMetrics(componentMeta metav1.ObjectMeta, componentExt *v1beta1.Compo
 
 				triggerType := string(metric.PodMetric.Metric.Backend)
 				query := metric.PodMetric.Metric.Query
-				targetValue := getOriginalStringMQ(metric.PodMetric.Target.Value, "0")
+				metricType, target := getKedaMetricTarget(metric.PodMetric.Target)
+				targetValue := getOriginalStringMQ(target, "0")
 
 				trigger := kedav1alpha1.ScaleTriggers{
-					Metadata: map[string]string{},
+					MetricType: metricType,
+					Metadata:   map[string]string{},
 				}
 
 				if triggerType == string(constants.AutoScalerMetricsSourceOpenTelemetry) {
