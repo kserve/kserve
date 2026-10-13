@@ -3,9 +3,9 @@ kind: LLMInferenceService
 metadata:
   name: omni-tts-single
 spec:
-  # Selects the vLLM-Omni workload template and the load-only EPP profile for
-  # audio/image endpoints. The container image comes from the kserve-llm-omni
-  # ClusterServingRuntime.
+  # Selects the vLLM-Omni workload template (the base vLLM template with the
+  # omni overlay: vLLM-Omni image, long startup probe, --omni arg) and the
+  # load-only EPP profile for audio/image endpoints.
   runtime: kserve-llm-omni
   model:
     uri: hf://Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice

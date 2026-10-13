@@ -152,10 +152,11 @@ var useVersionedConfig, _ = strconv.ParseBool(constants.GetEnvOrDefault("LLM_INF
 // name-based mapping and kserve-config-sglang-template can be removed.
 const SGLangServingRuntimeName = "kserve-llm-sglang"
 
-// OmniServingRuntimeName is the well-known ClusterServingRuntime name that
-// supplies the vLLM-Omni container image. When spec.runtime is set to this
-// name, the controller selects the omni infrastructure template
-// (kserve-config-llm-omni-template) and the modality EPP preset instead of
+// OmniServingRuntimeName is the well-known ClusterServingRuntime name shipped
+// with KServe that identifies the vLLM-Omni engine. When spec.runtime is set
+// to this name, the controller layers the omni overlay config
+// (kserve-config-llm-omni-template) on top of the base vLLM template, appends
+// --omni to the workload args, and selects the modality EPP preset instead of
 // the text prefix-cache chain, which has no TokenizedRequest for audio/image
 // inputs.
 const OmniServingRuntimeName = "kserve-llm-omni"
@@ -165,19 +166,43 @@ func isOmniRuntime(runtime *string) bool {
 	return runtime != nil && *runtime == OmniServingRuntimeName
 }
 
-// selectSingleNodeTemplateName returns the well-known config template name for
-// a single-node Non-P/D deployment based on the requested runtime. When runtime
-// points at the well-known SGLang ServingRuntime, the SGLang-specific
-// infrastructure template is used; for the omni runtime the omni template is
-// used; otherwise the default vLLM template.
-func selectSingleNodeTemplateName(runtime *string) string {
+// selectSingleNodeTemplateNames returns the well-known config template names
+// for a single-node Non-P/D deployment based on the requested runtime, in
+// merge order (lowest precedence first). When runtime points at the
+// well-known SGLang ServingRuntime, the SGLang-specific infrastructure
+// template is used; for the omni runtime the omni overlay is layered on top
+// of the base vLLM template so only the omni-specific diff (image, probes,
+// security context) lives in its own config; otherwise the default vLLM
+// template alone.
+func selectSingleNodeTemplateNames(runtime *string) []string {
 	if isOmniRuntime(runtime) {
-		return configOmniTemplateName
+		return []string{configTemplateName, configOmniTemplateName}
 	}
 	if runtime != nil && *runtime == SGLangServingRuntimeName {
-		return configSGLangTemplateName
+		return []string{configSGLangTemplateName}
 	}
-	return configTemplateName
+	return []string{configTemplateName}
+}
+
+// omniRuntimeArg is the vLLM-Omni flag the controller appends to the workload's
+// main container args when spec.runtime selects the omni runtime. The base vLLM
+// template forwards container args to `vllm serve` (the "--" convention), so
+// the flag rides along without the omni overlay forking the template command.
+const omniRuntimeArg = "--omni"
+
+// injectOmniRuntimeArgs prepends the vLLM-Omni flag to the single-node
+// workload's main container args for omni services. It runs after the merge so
+// a user's own container args cannot drop the flag, and it is idempotent so
+// re-renders leave the args untouched.
+func injectOmniRuntimeArgs(cfg *v1alpha2.LLMInferenceServiceConfig, omni bool) {
+	if !omni || cfg.Spec.Template == nil {
+		return
+	}
+	c := utils.GetContainerWithName(cfg.Spec.Template, mainContainerName)
+	if c == nil || slices.Contains(c.Args, omniRuntimeArg) {
+		return
+	}
+	c.Args = append([]string{omniRuntimeArg}, c.Args...)
 }
 
 // CombineOption is a functional option for combineBaseRefsConfig
@@ -632,8 +657,10 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	} else { // Non P/D
 		switch {
 		case resolvedSpec.Worker == nil:
-			// single-node -- select template based on runtime
-			refs = append(refs, presetRef(wr.Resolve(llmSvc, selectSingleNodeTemplateName(resolvedSpec.Runtime))))
+			// single-node -- select template(s) based on runtime
+			for _, name := range selectSingleNodeTemplateNames(resolvedSpec.Runtime) {
+				refs = append(refs, presetRef(wr.Resolve(llmSvc, name)))
+			}
 		case resolvedSpec.Worker != nil && resolvedSpec.Parallelism.IsDataParallel():
 			// multi-node Data Parallel
 			refs = append(refs, presetRef(wr.Resolve(llmSvc, configWorkerDataParallelName)))
@@ -770,6 +797,8 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	if err := applyKVCacheCarriers(llmSvcCfg); err != nil {
 		return nil, err
 	}
+
+	injectOmniRuntimeArgs(llmSvcCfg, isOmniRuntime(resolvedSpec.Runtime))
 
 	injectManagedDRAIntoConfig(llmSvc, llmSvcCfg)
 
@@ -949,6 +978,57 @@ func stripModelBasedRoutingRules(rules []gwapiv1.HTTPRouteRule, headerName strin
 		}
 		if len(kept) > 0 {
 			rules[i].Matches = kept
+			filtered = append(filtered, rules[i])
+		}
+	}
+	return filtered
+}
+
+// modalityEndpointPathPrefixes are the URL path prefixes of the omni TTS/TTI
+// endpoints exposed by the route preset.
+var modalityEndpointPathPrefixes = []string{"/v1/audio", "/v1/images"}
+
+// isModalityEndpointPath reports whether a route match path targets an omni
+// modality endpoint: /v1/audio or /v1/images either as the rewritten tail of a
+// PathPrefix match (e.g. /{namespace}/{name}/v1/audio or the publisher-
+// qualified equivalent) or as the head of an Exact model-routing match
+// (e.g. /v1/audio/speech).
+func isModalityEndpointPath(path string) bool {
+	for _, prefix := range modalityEndpointPathPrefixes {
+		if strings.HasSuffix(path, prefix) || strings.HasPrefix(path, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// stripModalityRouteRules drops the omni TTS/TTI endpoint rules and matches
+// from a rendered route. The route preset ships them so one preset can serve
+// every runtime, but they consume the Gateway API rule and match caps that
+// LoRA adapter expansion also needs: every model-routing match is duplicated
+// once per adapter, so the six modality matches measurably shrink the adapter
+// budget of text services. Services not running the omni runtime can never
+// serve those endpoints, so the rules are dead weight for them. Removing them
+// here restores the pre-omni routing footprint until the route preset is
+// restructured (kserve/kserve#6360).
+func stripModalityRouteRules(rules []gwapiv1.HTTPRouteRule) []gwapiv1.HTTPRouteRule {
+	filtered := make([]gwapiv1.HTTPRouteRule, 0, len(rules))
+	for i := range rules {
+		kept := make([]gwapiv1.HTTPRouteMatch, 0, len(rules[i].Matches))
+		for _, match := range rules[i].Matches {
+			if match.Path == nil || !isModalityEndpointPath(ptr.Deref(match.Path.Value, "")) {
+				kept = append(kept, match)
+			}
+		}
+		switch {
+		case len(kept) == 0:
+			// Every match targeted a modality endpoint (v1-audio-path and
+			// friends): drop the whole rule.
+		case len(kept) < len(rules[i].Matches):
+			// Mixed rule (v1-model-routing): keep the non-modality matches.
+			rules[i].Matches = kept
+			filtered = append(filtered, rules[i])
+		default:
 			filtered = append(filtered, rules[i])
 		}
 	}

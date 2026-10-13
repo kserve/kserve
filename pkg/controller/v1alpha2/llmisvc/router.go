@@ -356,6 +356,14 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Route != nil && llmSvc.Spec.Router.Route.HTTP.HasSpec() {
 		httpRoute.Spec = *llmSvc.Spec.Router.Route.HTTP.Spec.DeepCopy()
 
+		// The route preset ships modality rules for the omni runtime. Strip
+		// them for every other runtime so they do not consume the Gateway API
+		// rule and match caps that LoRA adapter expansion needs; this runs
+		// before the expansion so modality matches are not duplicated first.
+		if !isOmniRuntime(llmSvc.Spec.Runtime) {
+			httpRoute.Spec.Rules = stripModalityRouteRules(httpRoute.Spec.Rules)
+		}
+
 		if r.isModelBasedRoutingEnabled(ctx, llmSvc, cfg) {
 			if err := applyLoRAModelRouting(httpRoute.Spec.Rules, llmSvc, cfg); err != nil {
 				return httpRoute, err

@@ -6,8 +6,9 @@ Deploys a vLLM-Omni model behind the llm-d router for non-text endpoints:
 
 ## Overview
 
-Setting `spec.runtime: kserve-llm-omni` selects the vLLM-Omni workload
-template (`vllm serve --omni`) and a load-only EPP profile
+Setting `spec.runtime: kserve-llm-omni` layers the vLLM-Omni overlay on the
+base vLLM workload template (swapping in the vLLM-Omni image and appending
+`--omni` to the launch args) and selects a load-only EPP profile
 (`active-request-scorer` + `max-score-picker`). Diffusion and speech
 synthesis expose no prefix-cache signal, so the text prefix-cache chain does
 not apply; the router prefers the least-busy endpoint instead.

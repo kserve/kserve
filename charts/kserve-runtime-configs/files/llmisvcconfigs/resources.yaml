@@ -1010,58 +1010,17 @@ metadata:
   name: kserve-config-llm-omni-template
   namespace: kserve
 spec:
-  annotations:
-    serving.kserve.io/model-based-routing-enabled: "true"
   template:
     containers:
-    - command:
-      - /bin/bash
-      - -c
-      - |-
-        args=(
-          vllm serve /mnt/models
-          --omni
-          --served-model-name "{{ .Spec.Model.Name }}"
-          --port 8000
-          --host 0.0.0.0
-          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }}
-          --disable-access-log-for-endpoints=/health,/metrics,/v1/models
-          --log-stats
-        )
-        exec "${args[@]}" "$@"
-      - --
-      env:
-      - name: HOME
-        value: /home
-      - name: HF_HUB_CACHE
-        value: /models
-      imagePullPolicy: IfNotPresent
-      livenessProbe:
-        failureThreshold: 3
-        httpGet:
-          path: /health
-          port: 8000
-          scheme: HTTP
-        periodSeconds: 10
-        timeoutSeconds: 10
+    - image: docker.io/vllm/vllm-omni:v0.26.0
       name: main
-      ports:
-      - containerPort: 8000
-        protocol: TCP
-      readinessProbe:
-        failureThreshold: 60
-        httpGet:
-          path: /health
-          port: 8000
-          scheme: HTTP
-        periodSeconds: 10
-        timeoutSeconds: 5
       securityContext:
         allowPrivilegeEscalation: false
         capabilities:
           drop:
           - ALL
         readOnlyRootFilesystem: true
+        runAsNonRoot: false
         seccompProfile:
           type: RuntimeDefault
       startupProbe:
@@ -1069,31 +1028,8 @@ spec:
         httpGet:
           path: /health
           port: 8000
-          scheme: HTTP
         periodSeconds: 30
         timeoutSeconds: 10
-      terminationMessagePath: /dev/termination-log
-      terminationMessagePolicy: FallbackToLogsOnError
-      volumeMounts:
-      - mountPath: /home
-        name: home
-      - mountPath: /tmp
-        name: tmp-dir
-      - mountPath: /dev/shm
-        name: dshm
-      - mountPath: /models
-        name: model-cache
-    volumes:
-    - emptyDir: {}
-      name: home
-    - emptyDir:
-        medium: Memory
-        sizeLimit: 1Gi
-      name: dshm
-    - emptyDir: {}
-      name: model-cache
-    - emptyDir: {}
-      name: tmp-dir
 ---
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig

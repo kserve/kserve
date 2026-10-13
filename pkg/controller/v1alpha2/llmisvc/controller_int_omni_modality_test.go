@@ -9,7 +9,7 @@ You may obtain a copy of the License at
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ WITHOUT WARRANTIES OR ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
@@ -39,9 +39,12 @@ import (
 )
 
 // Reconciler-level coverage for the vLLM-Omni modality path: an
-// LLMInferenceService with spec.runtime kserve-llm-omni must render the omni
-// workload template, the load-only EPP profile, and HTTPRoute rules carrying
-// the audio/image endpoints to the InferencePool.
+// LLMInferenceService with spec.runtime kserve-llm-omni must render the base
+// vLLM workload template with the omni overlay layered on top (engine image
+// and startup probe swapped in, --omni appended to the args), the load-only
+// EPP profile, and HTTPRoute rules carrying the audio/image endpoints to the
+// InferencePool. Non-omni services must have the modality rules stripped so
+// they keep the Gateway API rule and match headroom LoRA expansion needs.
 func createOmniTestService(ctx SpecContext, svcName string, testNs *TestNamespace) *v1alpha2.LLMInferenceService {
 	// Scheduler template at llm-d-router >= 0.11.0 so the controller injects
 	// the EPPConfig preset instead of the legacy hardcoded config text.
@@ -75,7 +78,7 @@ func createOmniTestService(ctx SpecContext, svcName string, testNs *TestNamespac
 				"kserve.io/component":       "workload",
 			}},
 			TargetPorts: []igwapi.Port{{Number: modelPort}},
-			EndpointPickerRef: igwapi.EndpointPickerRef{
+			EndpointPickerRef: &igwapi.EndpointPickerRef{
 				Kind:        "Service",
 				Name:        igwapi.ObjectName(kmeta.ChildName(svcName, "-epp-service")),
 				Port:        &igwapi.Port{Number: eppPort},
@@ -84,10 +87,11 @@ func createOmniTestService(ctx SpecContext, svcName string, testNs *TestNamespac
 		},
 	}
 
-	// The omni workload template omits the image; in production the
-	// kserve-llm-omni (Cluster)ServingRuntime supplies it as the lowest-priority
-	// merge layer. Mirror that here with a namespaced runtime so the workload
-	// Deployment validates.
+	// The omni overlay pins the engine image, so in production the
+	// kserve-llm-omni ClusterServingRuntime is not needed for the workload to
+	// render. Mirror it anyway with a sentinel image to pin down the layering:
+	// the runtime is the lowest-priority merge layer, so the overlay's image
+	// must win over both the runtime's and the base template's.
 	runtime := &v1alpha1.ServingRuntime{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      llmisvc.OmniServingRuntimeName,
@@ -98,7 +102,7 @@ func createOmniTestService(ctx SpecContext, svcName string, testNs *TestNamespac
 			ServingRuntimePodSpec: v1alpha1.ServingRuntimePodSpec{
 				Containers: []corev1.Container{{
 					Name:  "main",
-					Image: "docker.io/vllm/vllm-omni:v0.26.0",
+					Image: "example.com/sentinel-omni-runtime-image:v0",
 				}},
 			},
 		},
@@ -145,7 +149,7 @@ var _ = Describe("Omni Modality (TTS/TTI)", func() {
 	})
 
 	Context("omni runtime workload", func() {
-		It("should render the omni template command", func(ctx SpecContext) {
+		It("should layer the omni overlay on the base vLLM template", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-omni-workload"
 			testNs := NewTestNamespace(ctx, envTest)
@@ -154,7 +158,9 @@ var _ = Describe("Omni Modality (TTS/TTI)", func() {
 				testNs.DeleteAndWait(ctx, llmSvc)
 			}()
 
-			// then - main workload uses vllm serve --omni
+			// then - the workload reuses the base template command (with the
+			// model-based routing served name) and swaps only the overlay's
+			// diff: image, startup probe, and the --omni arg.
 			workload := &appsv1.Deployment{}
 			Eventually(func(g Gomega, ctx context.Context) {
 				g.Expect(envTest.Get(ctx, types.NamespacedName{
@@ -163,15 +169,31 @@ var _ = Describe("Omni Modality (TTS/TTI)", func() {
 				}, workload)).To(Succeed())
 
 				g.Expect(workload.Spec.Template.Spec.Containers).NotTo(BeEmpty())
+				main := workload.Spec.Template.Spec.Containers[0]
+
 				var joined strings.Builder
-				for _, c := range workload.Spec.Template.Spec.Containers[0].Command {
+				for _, c := range main.Command {
 					joined.WriteString(c + "\n")
 				}
-				for _, a := range workload.Spec.Template.Spec.Containers[0].Args {
-					joined.WriteString(a + "\n")
-				}
-				g.Expect(joined.String()).To(ContainSubstring("vllm serve"))
-				g.Expect(joined.String()).To(ContainSubstring("--omni"))
+				command := joined.String()
+				g.Expect(command).To(ContainSubstring("vllm serve"),
+					"command must come from the base vLLM template")
+				g.Expect(command).To(ContainSubstring("--served-model-name"),
+					"served model names must come from the base vLLM template")
+				g.Expect(command).To(ContainSubstring(
+					fmt.Sprintf("publishers/%s/models/%s", testNs.Name, svcName)),
+					"the model-based routing model name must be served for header-based routing")
+				g.Expect(command).NotTo(ContainSubstring("--omni"),
+					"--omni is passed as a container arg, not a command fork")
+
+				g.Expect(main.Args).To(ContainElement("--omni"))
+				g.Expect(main.Image).To(Equal("docker.io/vllm/vllm-omni:v0.26.0"),
+					"engine image must come from the omni overlay, above the runtime and base template layers")
+				g.Expect(main.StartupProbe).NotTo(BeNil())
+				g.Expect(main.StartupProbe.FailureThreshold).To(Equal(int32(120)),
+					"startup probe must come from the omni overlay")
+				g.Expect(main.SecurityContext.RunAsNonRoot).To(HaveValue(BeFalse()),
+					"the vllm-omni image ships no non-root user")
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
@@ -231,6 +253,77 @@ var _ = Describe("Omni Modality (TTS/TTI)", func() {
 				g.Expect(sawImagesPrefix).To(BeTrue(), "expected PathPrefix images rule to InferencePool, got %v", got)
 				g.Expect(sawSpeechExact).To(BeTrue(), "expected Exact /v1/audio/speech model-routing match, got %v", got)
 				g.Expect(sawAudioPublisher).To(BeTrue(), "expected publisher-qualified audio rule to InferencePool, got %v", got)
+			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("non-omni runtime routes", func() {
+		It("should strip the modality rules the runtime cannot serve", func(ctx SpecContext) {
+			// given - a plain vLLM service: same route preset, no omni runtime
+			svcName := "test-llm-text-routes"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+			)
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then - no modality rule or match survives, so the text endpoints
+			// keep the Gateway API rule and match budget LoRA expansion needs
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, llmSvc)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(routes).ToNot(BeEmpty())
+
+				for _, r := range routes {
+					for _, rule := range r.Spec.Rules {
+						for _, m := range rule.Matches {
+							if m.Path == nil {
+								continue
+							}
+							v := ptr.Deref(m.Path.Value, "")
+							g.Expect(v).NotTo(SatisfyAny(
+								ContainSubstring("v1/audio"),
+								ContainSubstring("v1/images"),
+							), "modality path %q must be stripped for non-omni runtimes", v)
+						}
+					}
+
+					// The preset's 16 rules drop to 12: the four modality
+					// prefix rules (namespaced + publisher) are removed and
+					// the model-routing rule keeps only its text matches.
+					var ruleNames []string
+					var modelRoutingMatches int
+					for _, rule := range r.Spec.Rules {
+						ruleNames = append(ruleNames, string(ptr.Deref(rule.Name, "")))
+						if ptr.Deref(rule.Name, "") == "v1-model-routing" {
+							modelRoutingMatches = len(rule.Matches)
+						}
+					}
+					g.Expect(ruleNames).To(ConsistOf(
+						"v1-completions-path",
+						"v1-chat-completions-path",
+						"v1-responses-path",
+						"v1-messages-path",
+						"v1-model-routing",
+						"v1-completions-publisher-path",
+						"v1-chat-completions-publisher-path",
+						"v1-responses-publisher-path",
+						"v1-messages-publisher-path",
+						"v1-publisher-path-catch-all",
+						"v1-catch-all-path",
+						"v1-catch-all-model-routing",
+					))
+					g.Expect(modelRoutingMatches).To(Equal(8),
+						"text model-routing matches: completions, chat/completions, responses, messages, with and without trailing slash")
+				}
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
