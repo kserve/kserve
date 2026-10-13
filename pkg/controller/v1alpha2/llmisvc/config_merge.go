@@ -354,13 +354,25 @@ func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alp
 	// rules and KServe's validating webhook.
 	validationSpec := *result.Config.Spec.DeepCopy()
 	normalizeRawExtensionsToJSON(&validationSpec)
-	if err = r.Create(ctx, &v1alpha2.LLMInferenceService{
+	validationService := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: kmeta.ChildName(llmSvc.Name, "-validation-"),
 			Namespace:    llmSvc.GetNamespace(),
 		},
 		Spec: validationSpec,
-	}, client.DryRunAll); err != nil {
+	}
+	if (llmSvc.Spec.Scaling != nil && llmSvc.Spec.Scaling.WVA != nil) ||
+		(llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Scaling != nil && llmSvc.Spec.Prefill.Scaling.WVA != nil) {
+		// A synthetic CREATE would reject retained WVA as new adoption and
+		// prevent upgrade cleanup. Dry-run an UPDATE of the existing service
+		// instead: admission still rejects WVA additions or mutations, and
+		// the rendered spec is validated without changing the stored resource.
+		validationService.ObjectMeta = *llmSvc.ObjectMeta.DeepCopy()
+		err = r.Update(ctx, validationService, client.DryRunAll)
+	} else {
+		err = r.Create(ctx, validationService, client.DryRunAll)
+	}
+	if err != nil {
 		if utils.GetForceStopRuntime(llmSvc) {
 			llmSvc.MarkPresetsCombinedNotReady("Stopped", "Service is stopped with warning: %v", err.Error())
 

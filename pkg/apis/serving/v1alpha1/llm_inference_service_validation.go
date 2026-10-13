@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/utils/ptr"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -77,6 +78,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateTrafficFields(llmSvc)...)
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
+	allErrs = append(allErrs, l.validateWVAConfig(prev, llmSvc)...)
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
 	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
@@ -94,6 +96,49 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	return apierrors.NewInvalid(
 		LLMInferenceServiceGVK.GroupKind(),
 		llmSvc.Name, allErrs)
+}
+
+// validateWVAConfig keeps the WVA fields readable for upgrade compatibility.
+// Existing WVA configuration may remain unchanged or be removed, but adding or
+// modifying it is rejected because WVA is no longer reconciled.
+func (l *LLMInferenceServiceValidator) validateWVAConfig(prev, llmSvc *LLMInferenceService) field.ErrorList {
+	var allErrs field.ErrorList
+	validateWorkload := func(path *field.Path, oldWorkload, newWorkload *WorkloadSpec) {
+		var oldWVA, newWVA *WVASpec
+		if oldWorkload != nil && oldWorkload.Scaling != nil {
+			oldWVA = oldWorkload.Scaling.WVA
+		}
+		if newWorkload != nil && newWorkload.Scaling != nil {
+			newWVA = newWorkload.Scaling.WVA
+		}
+		if newWVA != nil && oldWVA == nil {
+			allErrs = append(allErrs, field.Forbidden(path.Child("scaling", "wva"),
+				"WVA autoscaling is no longer supported; remove spec.scaling.wva and use direct KEDA scaling if needed"))
+		} else if newWVA != nil && !equality.Semantic.DeepEqual(oldWVA, newWVA) {
+			allErrs = append(allErrs, field.Forbidden(path.Child("scaling", "wva"),
+				"WVA autoscaling is no longer supported; existing WVA configuration must remain unchanged or be removed"))
+		}
+	}
+
+	var oldSpec *LLMInferenceServiceSpec
+	if prev != nil {
+		oldSpec = &prev.Spec
+	}
+	validateWorkload(field.NewPath("spec"), workloadSpec(oldSpec), workloadSpec(&llmSvc.Spec))
+	var oldPrefill, newPrefill *WorkloadSpec
+	if oldSpec != nil {
+		oldPrefill = oldSpec.Prefill
+	}
+	newPrefill = llmSvc.Spec.Prefill
+	validateWorkload(field.NewPath("spec", "prefill"), oldPrefill, newPrefill)
+	return allErrs
+}
+
+func workloadSpec(spec *LLMInferenceServiceSpec) *WorkloadSpec {
+	if spec == nil {
+		return nil
+	}
+	return &spec.WorkloadSpec
 }
 
 func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSvc *LLMInferenceService) field.ErrorList {
