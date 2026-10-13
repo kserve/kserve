@@ -49,7 +49,7 @@ DEPENDENCIES = {
 }
 
 HELM_REPOS = {
-    "istio": "https://istio-release.storage.googleapis.com/charts",
+    "istio": "https://blob.istio.io/istio-release/charts",
     "kedacore": "https://kedacore.github.io/charts",
     "open-telemetry": "https://open-telemetry.github.io/opentelemetry-helm-charts",
 }
