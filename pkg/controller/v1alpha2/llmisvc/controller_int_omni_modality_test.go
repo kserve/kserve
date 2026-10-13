@@ -299,7 +299,7 @@ var _ = Describe("Omni Modality (TTS/TTI)", func() {
 					// The preset's 16 rules drop to 12: the four modality
 					// prefix rules (namespaced + publisher) are removed and
 					// the model-routing rule keeps only its text matches.
-					var ruleNames []string
+					ruleNames := make([]string, 0, len(r.Spec.Rules))
 					var modelRoutingMatches int
 					for _, rule := range r.Spec.Rules {
 						ruleNames = append(ruleNames, string(ptr.Deref(rule.Name, "")))
