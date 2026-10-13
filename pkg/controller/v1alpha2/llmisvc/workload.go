@@ -43,6 +43,14 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
+// nonPropagatedSpecAnnotations are spec.annotations keys the controller consumes
+// itself - the router's keys and the DisaggregatedSet backend request that the
+// P/D presets set. They are kept off the workload Service and pod templates,
+// where changing them would roll the pods. A key can only join before it ships:
+// dropping one that pod templates already carry changes their hash and rolls
+// every workload that has it on upgrade.
+var nonPropagatedSpecAnnotations = []string{AnnotationModelBasedRoutingEnabled, AnnotationModelBasedRoutingOnly, AnnotationLoRAModelRoutingStrategy, constants.LLMDisaggregatedSetAnnotationKey}
+
 // sidecarSSRFProtectionRules defines RBAC rules for the routing sidecar
 // These permissions are needed to discover and monitor inference pools and pods.
 var sidecarSSRFProtectionRules = []rbacv1.PolicyRule{
@@ -187,7 +195,7 @@ func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc
 	}
 
 	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Labels)
-	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Annotations, routingSpecAnnotations...)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Annotations, nonPropagatedSpecAnnotations...)
 
 	if utils.GetForceStopRuntime(llmSvc) {
 		return Delete(ctx, r, llmSvc, expected)

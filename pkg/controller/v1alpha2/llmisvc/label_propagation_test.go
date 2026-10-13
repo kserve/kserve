@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/record"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -253,7 +254,7 @@ func TestPropagateDeploymentMetadata(t *testing.T) {
 			deployment := &appsv1.Deployment{}
 			r.propagateDeploymentMetadata(llmSvc, deployment)
 			utils.PropagateMap(llmSvc.Spec.Labels, &deployment.Spec.Template.Labels)
-			utils.PropagateMap(llmSvc.Spec.Annotations, &deployment.Spec.Template.Annotations, AnnotationModelBasedRoutingEnabled)
+			utils.PropagateMap(llmSvc.Spec.Annotations, &deployment.Spec.Template.Annotations, nonPropagatedSpecAnnotations...)
 
 			// Verify Deployment labels
 			for k, v := range tt.expectedDeploymentLabels {
@@ -392,10 +393,20 @@ func TestPropagateSchedulerMetadata(t *testing.T) {
 	}
 }
 
+// TestPropagateWorkloadServiceMetadata runs reconcileWorkloadService and checks that
+// spec.labels and spec.annotations reach the workload Service, except for the
+// nonPropagatedSpecAnnotations keys the controller reads itself.
 func TestPropagateWorkloadServiceMetadata(t *testing.T) {
+	ctx := context.Background()
+
+	annotations := map[string]string{"prometheus.io/scrape": "true"}
+	for _, k := range nonPropagatedSpecAnnotations {
+		annotations[k] = "true"
+	}
 	llmSvc := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "test-llm",
+			Name:      "test-llm",
+			Namespace: "default",
 		},
 		Spec: v1alpha2.LLMInferenceServiceSpec{
 			WorkloadSpec: v1alpha2.WorkloadSpec{
@@ -403,25 +414,23 @@ func TestPropagateWorkloadServiceMetadata(t *testing.T) {
 					"model":    "llama-3.1-8b",
 					"endpoint": "my-endpoint",
 				},
-				Annotations: map[string]string{
-					"prometheus.io/scrape": "true",
-				},
+				Annotations: annotations,
 			},
 		},
 	}
 
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{
-				constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,
-				constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
-				constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
-			},
-		},
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
+	r := &LLMISVCReconciler{
+		Client:        fake.NewClientBuilder().WithScheme(scheme).Build(),
+		EventRecorder: record.NewFakeRecorder(10),
 	}
 
-	utils.PropagateMap(llmSvc.Spec.Labels, &svc.Labels)
-	utils.PropagateMap(llmSvc.Spec.Annotations, &svc.Annotations)
+	require.NoError(t, r.reconcileWorkloadService(ctx, llmSvc, &Config{}))
+
+	svc := &corev1.Service{}
+	require.NoError(t, r.Get(ctx, client.ObjectKey{Namespace: llmSvc.Namespace, Name: workloadServiceName(llmSvc)}, svc))
 
 	expectedLabels := map[string]string{
 		constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload,

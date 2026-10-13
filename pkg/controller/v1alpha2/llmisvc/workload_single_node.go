@@ -215,7 +215,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 	propagatePodTemplateMetadata(llmSvc, &template)
 
 	utils.PropagateMap(llmSvc.Spec.Labels, &template.Labels)
-	utils.PropagateMap(llmSvc.Spec.Annotations, &template.Annotations, routingSpecAnnotations...)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &template.Annotations, nonPropagatedSpecAnnotations...)
 
 	// Inject tracing instrumentation when spec.tracing is set
 	if llmSvc.Spec.Tracing != nil {
@@ -348,7 +348,7 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 
 	if llmSvc.Spec.Prefill != nil {
 		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &template.Labels)
-		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &template.Annotations, routingSpecAnnotations...)
+		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &template.Annotations, nonPropagatedSpecAnnotations...)
 	}
 
 	// Inject tracing instrumentation when spec.tracing is set
