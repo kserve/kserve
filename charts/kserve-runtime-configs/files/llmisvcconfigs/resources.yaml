@@ -226,7 +226,7 @@ spec:
         timeoutSeconds: 1
       name: main
       ports:
-      - containerPort: 8001
+      - containerPort: 8200
         protocol: TCP
       readinessProbe:
         failureThreshold: 2

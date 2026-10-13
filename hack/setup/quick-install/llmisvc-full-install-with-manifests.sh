@@ -659,7 +659,7 @@ ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.20.2
 OPENTELEMETRY_OPERATOR_VERSION=0.114.1
 LWS_VERSION=v0.11.0
-GATEWAY_API_VERSION=v1.6.2
+GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.6.2
 LLMD_ROUTER_VERSION=v0.11.0
 
@@ -2858,7 +2858,7 @@ spec:
         timeoutSeconds: 1
       name: main
       ports:
-      - containerPort: 8001
+      - containerPort: 8200
         protocol: TCP
       readinessProbe:
         failureThreshold: 2
@@ -16632,7 +16632,6 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
-                                          minimum: 1
                                           type: integer
                                         backoff:
                                           type: string
@@ -16642,7 +16641,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: set
+                                          x-kubernetes-list-type: atomic
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -16657,6 +16656,8 @@ spec:
                                               - Session
                                               type: string
                                           type: object
+                                        idleTimeout:
+                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -42397,7 +42398,6 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
-                                          minimum: 1
                                           type: integer
                                         backoff:
                                           type: string
@@ -42407,7 +42407,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: set
+                                          x-kubernetes-list-type: atomic
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -42422,6 +42422,8 @@ spec:
                                               - Session
                                               type: string
                                           type: object
+                                        idleTimeout:
+                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -68814,7 +68816,6 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
-                                          minimum: 1
                                           type: integer
                                         backoff:
                                           pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
@@ -68825,7 +68826,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: set
+                                          x-kubernetes-list-type: atomic
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -68841,6 +68842,9 @@ spec:
                                               - Session
                                               type: string
                                           type: object
+                                        idleTimeout:
+                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -95462,7 +95466,6 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
-                                          minimum: 1
                                           type: integer
                                         backoff:
                                           pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
@@ -95473,7 +95476,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: set
+                                          x-kubernetes-list-type: atomic
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -95489,6 +95492,9 @@ spec:
                                               - Session
                                               type: string
                                           type: object
+                                        idleTimeout:
+                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string

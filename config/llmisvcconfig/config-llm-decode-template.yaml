@@ -24,7 +24,7 @@ spec:
         imagePullPolicy: IfNotPresent
         name: main
         ports:
-          - containerPort: 8001
+          - containerPort: 8200
             protocol: TCP
         command:
           - "/bin/bash"

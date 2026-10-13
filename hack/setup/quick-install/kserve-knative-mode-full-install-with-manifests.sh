@@ -659,7 +659,7 @@ ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.20.2
 OPENTELEMETRY_OPERATOR_VERSION=0.114.1
 LWS_VERSION=v0.11.0
-GATEWAY_API_VERSION=v1.6.2
+GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.6.2
 LLMD_ROUTER_VERSION=v0.11.0
 
@@ -2884,7 +2884,7 @@ spec:
         timeoutSeconds: 1
       name: main
       ports:
-      - containerPort: 8001
+      - containerPort: 8200
         protocol: TCP
       readinessProbe:
         failureThreshold: 2
