@@ -3,7 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
-    gateway.networking.k8s.io/bundle-version: v1.6.2
+    gateway.networking.k8s.io/bundle-version: v1.5.1
     gateway.networking.k8s.io/channel: standard
   name: httproutes.gateway.networking.k8s.io
 spec:
@@ -441,9 +441,9 @@ spec:
                                         Multiple header names in the value of the `Access-Control-Allow-Headers`
                                         response header are separated by a comma (",").
 
-                                        When the `allowHeaders` field is configured with one or more headers, the
+                                        When the `AllowHeaders` field is configured with one or more headers, the
                                         gateway must return the `Access-Control-Allow-Headers` response header
-                                        which value is present in the `allowHeaders` field.
+                                        which value is present in the `AllowHeaders` field.
 
                                         If any header name in the `Access-Control-Request-Headers` request header
                                         is not included in the list of header names specified by the response
@@ -455,20 +455,21 @@ spec:
                                         client side.
 
                                         A wildcard indicates that the requests with all HTTP headers are allowed.
+                                        If config contains the wildcard "*" in allowHeaders and the request is
+                                        not credentialed, the `Access-Control-Allow-Headers` response header
+                                        can either use the `*` wildcard or the value of
+                                        Access-Control-Request-Headers from the request.
 
-                                        If the configuration contains the wildcard `*` in `allowHeaders` and
-                                        `allowCredentials` is set to `false`, the `Access-Control-Allow-Headers`
-                                        response header may either contain the wildcard `*` or echo the value
-                                        of the `Access-Control-Request-Headers` request header.
-
-                                        If the configuration contains the wildcard `*` in `allowHeaders` and
-                                        `allowCredentials` is set to `true`, the gateway must not return `*`
-                                        in the `Access-Control-Allow-Headers` response header. Instead, it must
-                                        return one or more header names matching the value of the
-                                        `Access-Control-Request-Headers` request header.
-                                        If the `Access-Control-Request-Headers` header is not present in the
-                                        request, the gateway must omit the `Access-Control-Allow-Headers`
-                                        response header.
+                                        When the request is credentialed, the gateway must not specify the `*`
+                                        wildcard in the `Access-Control-Allow-Headers` response header. When
+                                        also the `AllowCredentials` field is true and `AllowHeaders` field
+                                        is specified with the `*` wildcard, the gateway must specify one or more
+                                        HTTP headers in the value of the `Access-Control-Allow-Headers` response
+                                        header. The value of the header `Access-Control-Allow-Headers` is same as
+                                        the `Access-Control-Request-Headers` header provided by the client. If
+                                        the header `Access-Control-Request-Headers` is not included in the
+                                        request, the gateway will omit the `Access-Control-Allow-Headers`
+                                        response header, instead of specifying the `*` wildcard.
 
                                         Support: Extended
                                       items:
@@ -513,29 +514,32 @@ spec:
                                         A CORS-safelisted method is a method that is `GET`, `HEAD`, or `POST`.
                                         (See https://fetch.spec.whatwg.org/#cors-safelisted-method) The
                                         CORS-safelisted methods are always allowed, regardless of whether they
-                                        are specified in the `allowMethods` field.
+                                        are specified in the `AllowMethods` field.
 
-                                        When the `allowMethods` field is configured with one or more methods, the
+                                        When the `AllowMethods` field is configured with one or more methods, the
                                         gateway must return the `Access-Control-Allow-Methods` response header
-                                        which value is present in the `allowMethods` field.
+                                        which value is present in the `AllowMethods` field.
 
                                         If the HTTP method of the `Access-Control-Request-Method` request header
                                         is not included in the list of methods specified by the response header
                                         `Access-Control-Allow-Methods`, it will present an error on the client
                                         side.
 
-                                        If the configuration contains the wildcard `*` in `allowMethods` and
-                                        `allowCredentials` is set to `false`, the `Access-Control-Allow-Methods`
-                                        response header may either contain the wildcard `*` or echo the value
-                                        of the `Access-Control-Request-Method` request header.
+                                        If config contains the wildcard "*" in allowMethods and the request is
+                                        not credentialed, the `Access-Control-Allow-Methods` response header
+                                        can either use the `*` wildcard or the value of
+                                        Access-Control-Request-Method from the request.
 
-                                        If the configuration contains the wildcard `*` in `allowMethods` and
-                                        `allowCredentials` is set to `true`, the gateway must not return `*`
-                                        in the `Access-Control-Allow-Methods` response header. Instead, it must
-                                        return a single HTTP method matching the value of the
-                                        `Access-Control-Request-Method` request header.
-                                        If the `Access-Control-Request-Method` header is not present in the request,
-                                        the gateway must omit the `Access-Control-Allow-Methods` response header.
+                                        When the request is credentialed, the gateway must not specify the `*`
+                                        wildcard in the `Access-Control-Allow-Methods` response header. When
+                                        also the `AllowCredentials` field is true and `AllowMethods` field
+                                        specified with the `*` wildcard, the gateway must specify one HTTP method
+                                        in the value of the Access-Control-Allow-Methods response header. The
+                                        value of the header `Access-Control-Allow-Methods` is same as the
+                                        `Access-Control-Request-Method` header provided by the client. If the
+                                        header `Access-Control-Request-Method` is not included in the request,
+                                        the gateway will omit the `Access-Control-Allow-Methods` response header,
+                                        instead of specifying the `*` wildcard.
 
                                         Support: Extended
                                       items:
@@ -585,7 +589,7 @@ spec:
                                         An origin value that includes _only_ the `*` character indicates requests
                                         from all `Origin`s are allowed.
 
-                                        When the `allowOrigins` field is configured with multiple origins, it
+                                        When the `AllowOrigins` field is configured with multiple origins, it
                                         means the server supports clients from multiple origins. If the request
                                         `Origin` matches the configured allowed origins, the gateway must return
                                         the given `Origin` and sets value of the header
@@ -607,15 +611,19 @@ spec:
                                         `Access-Control-Allow-Origin` to the same value as the `Origin`
                                         header provided by the client.
 
-                                        If the configuration contains the wildcard `*` in `allowOrigins` and
-                                        `allowCredentials` is set to `false`, the `Access-Control-Allow-Origin`
-                                        response header may either contain the wildcard `*` or echo the value
-                                        of the `Origin` request header.
+                                        When config has the wildcard ("*") in allowOrigins, and the request
+                                        is not credentialed (e.g., it is a preflight request), the
+                                        `Access-Control-Allow-Origin` response header either contains the
+                                        wildcard as well or the Origin from the request.
 
-                                        If the configuration contains the wildcard `*` in `allowOrigins` and
-                                        `allowCredentials` is set to `true`, the gateway must not return `*`
-                                        in the `Access-Control-Allow-Origin` response header. Instead, it must
-                                        return a single origin matching the value of the `Origin` request header.
+                                        When the request is credentialed, the gateway must not specify the `*`
+                                        wildcard in the `Access-Control-Allow-Origin` response header. When
+                                        also the `AllowCredentials` field is true and `AllowOrigins` field
+                                        specified with the `*` wildcard, the gateway must return a single origin
+                                        in the value of the `Access-Control-Allow-Origin` response header,
+                                        instead of specifying the `*` wildcard. The value of the header
+                                        `Access-Control-Allow-Origin` is same as the `Origin` header provided by
+                                        the client.
 
                                         Support: Extended
                                       items:
@@ -654,7 +662,7 @@ spec:
                                         (See https://fetch.spec.whatwg.org/#cors-safelisted-response-header-name)
                                         The CORS-safelisted response headers are exposed to client by default.
 
-                                        When an HTTP header name is specified using the `exposeHeaders` field,
+                                        When an HTTP header name is specified using the `ExposeHeaders` field,
                                         this additional header will be exposed as part of the response to the
                                         client.
 
@@ -664,15 +672,12 @@ spec:
                                         response header are separated by a comma (",").
 
                                         A wildcard indicates that the responses with all HTTP headers are exposed
-                                        to clients.
+                                        to clients. The `Access-Control-Expose-Headers` response header can only
+                                        use `*` wildcard as value when the request is not credentialed.
 
-                                        If the configuration contains the wildcard `*` in `exposeHeaders` and
-                                        `allowCredentials` is set to `false`, the `Access-Control-Expose-Headers`
-                                        response header can contain the wildcard `*`.
-
-                                        If the configuration contains the wildcard `*` in `exposeHeaders` and
-                                        `allowCredentials` is set to `true`, the gateway cannot use the `*`
-                                        in the `Access-Control-Expose-Headers` response header.
+                                        When the `exposeHeaders` config field contains the "*" wildcard and
+                                        the request is credentialed, the gateway cannot use the `*` wildcard in
+                                        the `Access-Control-Expose-Headers` response header.
 
                                         Support: Extended
                                       items:
@@ -922,10 +927,6 @@ spec:
                                         Support: Extended for Kubernetes Service
 
                                         Support: Implementation-specific for any other resource
-
-                                        If the backend service requires TLS, use BackendTLSPolicy to tell the
-                                        implementation to supply the TLS details to be used to connect to that
-                                        backend.
                                       properties:
                                         group:
                                           default: ""
@@ -1184,7 +1185,7 @@ spec:
                                         Accepted Condition for the Route to `status: False`, with a
                                         Reason of `UnsupportedValue`.
 
-                                        Support: statusCode 301 and 302 are Core; all others are Extended.
+                                        Support: Core
                                       enum:
                                       - 301
                                       - 302
@@ -1697,9 +1698,9 @@ spec:
                                   Multiple header names in the value of the `Access-Control-Allow-Headers`
                                   response header are separated by a comma (",").
 
-                                  When the `allowHeaders` field is configured with one or more headers, the
+                                  When the `AllowHeaders` field is configured with one or more headers, the
                                   gateway must return the `Access-Control-Allow-Headers` response header
-                                  which value is present in the `allowHeaders` field.
+                                  which value is present in the `AllowHeaders` field.
 
                                   If any header name in the `Access-Control-Request-Headers` request header
                                   is not included in the list of header names specified by the response
@@ -1711,20 +1712,21 @@ spec:
                                   client side.
 
                                   A wildcard indicates that the requests with all HTTP headers are allowed.
+                                  If config contains the wildcard "*" in allowHeaders and the request is
+                                  not credentialed, the `Access-Control-Allow-Headers` response header
+                                  can either use the `*` wildcard or the value of
+                                  Access-Control-Request-Headers from the request.
 
-                                  If the configuration contains the wildcard `*` in `allowHeaders` and
-                                  `allowCredentials` is set to `false`, the `Access-Control-Allow-Headers`
-                                  response header may either contain the wildcard `*` or echo the value
-                                  of the `Access-Control-Request-Headers` request header.
-
-                                  If the configuration contains the wildcard `*` in `allowHeaders` and
-                                  `allowCredentials` is set to `true`, the gateway must not return `*`
-                                  in the `Access-Control-Allow-Headers` response header. Instead, it must
-                                  return one or more header names matching the value of the
-                                  `Access-Control-Request-Headers` request header.
-                                  If the `Access-Control-Request-Headers` header is not present in the
-                                  request, the gateway must omit the `Access-Control-Allow-Headers`
-                                  response header.
+                                  When the request is credentialed, the gateway must not specify the `*`
+                                  wildcard in the `Access-Control-Allow-Headers` response header. When
+                                  also the `AllowCredentials` field is true and `AllowHeaders` field
+                                  is specified with the `*` wildcard, the gateway must specify one or more
+                                  HTTP headers in the value of the `Access-Control-Allow-Headers` response
+                                  header. The value of the header `Access-Control-Allow-Headers` is same as
+                                  the `Access-Control-Request-Headers` header provided by the client. If
+                                  the header `Access-Control-Request-Headers` is not included in the
+                                  request, the gateway will omit the `Access-Control-Allow-Headers`
+                                  response header, instead of specifying the `*` wildcard.
 
                                   Support: Extended
                                 items:
@@ -1769,29 +1771,32 @@ spec:
                                   A CORS-safelisted method is a method that is `GET`, `HEAD`, or `POST`.
                                   (See https://fetch.spec.whatwg.org/#cors-safelisted-method) The
                                   CORS-safelisted methods are always allowed, regardless of whether they
-                                  are specified in the `allowMethods` field.
+                                  are specified in the `AllowMethods` field.
 
-                                  When the `allowMethods` field is configured with one or more methods, the
+                                  When the `AllowMethods` field is configured with one or more methods, the
                                   gateway must return the `Access-Control-Allow-Methods` response header
-                                  which value is present in the `allowMethods` field.
+                                  which value is present in the `AllowMethods` field.
 
                                   If the HTTP method of the `Access-Control-Request-Method` request header
                                   is not included in the list of methods specified by the response header
                                   `Access-Control-Allow-Methods`, it will present an error on the client
                                   side.
 
-                                  If the configuration contains the wildcard `*` in `allowMethods` and
-                                  `allowCredentials` is set to `false`, the `Access-Control-Allow-Methods`
-                                  response header may either contain the wildcard `*` or echo the value
-                                  of the `Access-Control-Request-Method` request header.
+                                  If config contains the wildcard "*" in allowMethods and the request is
+                                  not credentialed, the `Access-Control-Allow-Methods` response header
+                                  can either use the `*` wildcard or the value of
+                                  Access-Control-Request-Method from the request.
 
-                                  If the configuration contains the wildcard `*` in `allowMethods` and
-                                  `allowCredentials` is set to `true`, the gateway must not return `*`
-                                  in the `Access-Control-Allow-Methods` response header. Instead, it must
-                                  return a single HTTP method matching the value of the
-                                  `Access-Control-Request-Method` request header.
-                                  If the `Access-Control-Request-Method` header is not present in the request,
-                                  the gateway must omit the `Access-Control-Allow-Methods` response header.
+                                  When the request is credentialed, the gateway must not specify the `*`
+                                  wildcard in the `Access-Control-Allow-Methods` response header. When
+                                  also the `AllowCredentials` field is true and `AllowMethods` field
+                                  specified with the `*` wildcard, the gateway must specify one HTTP method
+                                  in the value of the Access-Control-Allow-Methods response header. The
+                                  value of the header `Access-Control-Allow-Methods` is same as the
+                                  `Access-Control-Request-Method` header provided by the client. If the
+                                  header `Access-Control-Request-Method` is not included in the request,
+                                  the gateway will omit the `Access-Control-Allow-Methods` response header,
+                                  instead of specifying the `*` wildcard.
 
                                   Support: Extended
                                 items:
@@ -1841,7 +1846,7 @@ spec:
                                   An origin value that includes _only_ the `*` character indicates requests
                                   from all `Origin`s are allowed.
 
-                                  When the `allowOrigins` field is configured with multiple origins, it
+                                  When the `AllowOrigins` field is configured with multiple origins, it
                                   means the server supports clients from multiple origins. If the request
                                   `Origin` matches the configured allowed origins, the gateway must return
                                   the given `Origin` and sets value of the header
@@ -1863,15 +1868,19 @@ spec:
                                   `Access-Control-Allow-Origin` to the same value as the `Origin`
                                   header provided by the client.
 
-                                  If the configuration contains the wildcard `*` in `allowOrigins` and
-                                  `allowCredentials` is set to `false`, the `Access-Control-Allow-Origin`
-                                  response header may either contain the wildcard `*` or echo the value
-                                  of the `Origin` request header.
+                                  When config has the wildcard ("*") in allowOrigins, and the request
+                                  is not credentialed (e.g., it is a preflight request), the
+                                  `Access-Control-Allow-Origin` response header either contains the
+                                  wildcard as well or the Origin from the request.
 
-                                  If the configuration contains the wildcard `*` in `allowOrigins` and
-                                  `allowCredentials` is set to `true`, the gateway must not return `*`
-                                  in the `Access-Control-Allow-Origin` response header. Instead, it must
-                                  return a single origin matching the value of the `Origin` request header.
+                                  When the request is credentialed, the gateway must not specify the `*`
+                                  wildcard in the `Access-Control-Allow-Origin` response header. When
+                                  also the `AllowCredentials` field is true and `AllowOrigins` field
+                                  specified with the `*` wildcard, the gateway must return a single origin
+                                  in the value of the `Access-Control-Allow-Origin` response header,
+                                  instead of specifying the `*` wildcard. The value of the header
+                                  `Access-Control-Allow-Origin` is same as the `Origin` header provided by
+                                  the client.
 
                                   Support: Extended
                                 items:
@@ -1910,7 +1919,7 @@ spec:
                                   (See https://fetch.spec.whatwg.org/#cors-safelisted-response-header-name)
                                   The CORS-safelisted response headers are exposed to client by default.
 
-                                  When an HTTP header name is specified using the `exposeHeaders` field,
+                                  When an HTTP header name is specified using the `ExposeHeaders` field,
                                   this additional header will be exposed as part of the response to the
                                   client.
 
@@ -1920,15 +1929,12 @@ spec:
                                   response header are separated by a comma (",").
 
                                   A wildcard indicates that the responses with all HTTP headers are exposed
-                                  to clients.
+                                  to clients. The `Access-Control-Expose-Headers` response header can only
+                                  use `*` wildcard as value when the request is not credentialed.
 
-                                  If the configuration contains the wildcard `*` in `exposeHeaders` and
-                                  `allowCredentials` is set to `false`, the `Access-Control-Expose-Headers`
-                                  response header can contain the wildcard `*`.
-
-                                  If the configuration contains the wildcard `*` in `exposeHeaders` and
-                                  `allowCredentials` is set to `true`, the gateway cannot use the `*`
-                                  in the `Access-Control-Expose-Headers` response header.
+                                  When the `exposeHeaders` config field contains the "*" wildcard and
+                                  the request is credentialed, the gateway cannot use the `*` wildcard in
+                                  the `Access-Control-Expose-Headers` response header.
 
                                   Support: Extended
                                 items:
@@ -2176,10 +2182,6 @@ spec:
                                   Support: Extended for Kubernetes Service
 
                                   Support: Implementation-specific for any other resource
-
-                                  If the backend service requires TLS, use BackendTLSPolicy to tell the
-                                  implementation to supply the TLS details to be used to connect to that
-                                  backend.
                                 properties:
                                   group:
                                     default: ""
@@ -2438,7 +2440,7 @@ spec:
                                   Accepted Condition for the Route to `status: False`, with a
                                   Reason of `UnsupportedValue`.
 
-                                  Support: statusCode 301 and 302 are Core; all others are Extended.
+                                  Support: Core
                                 enum:
                                 - 301
                                 - 302
@@ -3891,9 +3893,9 @@ spec:
                                         Multiple header names in the value of the `Access-Control-Allow-Headers`
                                         response header are separated by a comma (",").
 
-                                        When the `allowHeaders` field is configured with one or more headers, the
+                                        When the `AllowHeaders` field is configured with one or more headers, the
                                         gateway must return the `Access-Control-Allow-Headers` response header
-                                        which value is present in the `allowHeaders` field.
+                                        which value is present in the `AllowHeaders` field.
 
                                         If any header name in the `Access-Control-Request-Headers` request header
                                         is not included in the list of header names specified by the response
@@ -3905,20 +3907,21 @@ spec:
                                         client side.
 
                                         A wildcard indicates that the requests with all HTTP headers are allowed.
+                                        If config contains the wildcard "*" in allowHeaders and the request is
+                                        not credentialed, the `Access-Control-Allow-Headers` response header
+                                        can either use the `*` wildcard or the value of
+                                        Access-Control-Request-Headers from the request.
 
-                                        If the configuration contains the wildcard `*` in `allowHeaders` and
-                                        `allowCredentials` is set to `false`, the `Access-Control-Allow-Headers`
-                                        response header may either contain the wildcard `*` or echo the value
-                                        of the `Access-Control-Request-Headers` request header.
-
-                                        If the configuration contains the wildcard `*` in `allowHeaders` and
-                                        `allowCredentials` is set to `true`, the gateway must not return `*`
-                                        in the `Access-Control-Allow-Headers` response header. Instead, it must
-                                        return one or more header names matching the value of the
-                                        `Access-Control-Request-Headers` request header.
-                                        If the `Access-Control-Request-Headers` header is not present in the
-                                        request, the gateway must omit the `Access-Control-Allow-Headers`
-                                        response header.
+                                        When the request is credentialed, the gateway must not specify the `*`
+                                        wildcard in the `Access-Control-Allow-Headers` response header. When
+                                        also the `AllowCredentials` field is true and `AllowHeaders` field
+                                        is specified with the `*` wildcard, the gateway must specify one or more
+                                        HTTP headers in the value of the `Access-Control-Allow-Headers` response
+                                        header. The value of the header `Access-Control-Allow-Headers` is same as
+                                        the `Access-Control-Request-Headers` header provided by the client. If
+                                        the header `Access-Control-Request-Headers` is not included in the
+                                        request, the gateway will omit the `Access-Control-Allow-Headers`
+                                        response header, instead of specifying the `*` wildcard.
 
                                         Support: Extended
                                       items:
@@ -3963,29 +3966,32 @@ spec:
                                         A CORS-safelisted method is a method that is `GET`, `HEAD`, or `POST`.
                                         (See https://fetch.spec.whatwg.org/#cors-safelisted-method) The
                                         CORS-safelisted methods are always allowed, regardless of whether they
-                                        are specified in the `allowMethods` field.
+                                        are specified in the `AllowMethods` field.
 
-                                        When the `allowMethods` field is configured with one or more methods, the
+                                        When the `AllowMethods` field is configured with one or more methods, the
                                         gateway must return the `Access-Control-Allow-Methods` response header
-                                        which value is present in the `allowMethods` field.
+                                        which value is present in the `AllowMethods` field.
 
                                         If the HTTP method of the `Access-Control-Request-Method` request header
                                         is not included in the list of methods specified by the response header
                                         `Access-Control-Allow-Methods`, it will present an error on the client
                                         side.
 
-                                        If the configuration contains the wildcard `*` in `allowMethods` and
-                                        `allowCredentials` is set to `false`, the `Access-Control-Allow-Methods`
-                                        response header may either contain the wildcard `*` or echo the value
-                                        of the `Access-Control-Request-Method` request header.
+                                        If config contains the wildcard "*" in allowMethods and the request is
+                                        not credentialed, the `Access-Control-Allow-Methods` response header
+                                        can either use the `*` wildcard or the value of
+                                        Access-Control-Request-Method from the request.
 
-                                        If the configuration contains the wildcard `*` in `allowMethods` and
-                                        `allowCredentials` is set to `true`, the gateway must not return `*`
-                                        in the `Access-Control-Allow-Methods` response header. Instead, it must
-                                        return a single HTTP method matching the value of the
-                                        `Access-Control-Request-Method` request header.
-                                        If the `Access-Control-Request-Method` header is not present in the request,
-                                        the gateway must omit the `Access-Control-Allow-Methods` response header.
+                                        When the request is credentialed, the gateway must not specify the `*`
+                                        wildcard in the `Access-Control-Allow-Methods` response header. When
+                                        also the `AllowCredentials` field is true and `AllowMethods` field
+                                        specified with the `*` wildcard, the gateway must specify one HTTP method
+                                        in the value of the Access-Control-Allow-Methods response header. The
+                                        value of the header `Access-Control-Allow-Methods` is same as the
+                                        `Access-Control-Request-Method` header provided by the client. If the
+                                        header `Access-Control-Request-Method` is not included in the request,
+                                        the gateway will omit the `Access-Control-Allow-Methods` response header,
+                                        instead of specifying the `*` wildcard.
 
                                         Support: Extended
                                       items:
@@ -4035,7 +4041,7 @@ spec:
                                         An origin value that includes _only_ the `*` character indicates requests
                                         from all `Origin`s are allowed.
 
-                                        When the `allowOrigins` field is configured with multiple origins, it
+                                        When the `AllowOrigins` field is configured with multiple origins, it
                                         means the server supports clients from multiple origins. If the request
                                         `Origin` matches the configured allowed origins, the gateway must return
                                         the given `Origin` and sets value of the header
@@ -4057,15 +4063,19 @@ spec:
                                         `Access-Control-Allow-Origin` to the same value as the `Origin`
                                         header provided by the client.
 
-                                        If the configuration contains the wildcard `*` in `allowOrigins` and
-                                        `allowCredentials` is set to `false`, the `Access-Control-Allow-Origin`
-                                        response header may either contain the wildcard `*` or echo the value
-                                        of the `Origin` request header.
+                                        When config has the wildcard ("*") in allowOrigins, and the request
+                                        is not credentialed (e.g., it is a preflight request), the
+                                        `Access-Control-Allow-Origin` response header either contains the
+                                        wildcard as well or the Origin from the request.
 
-                                        If the configuration contains the wildcard `*` in `allowOrigins` and
-                                        `allowCredentials` is set to `true`, the gateway must not return `*`
-                                        in the `Access-Control-Allow-Origin` response header. Instead, it must
-                                        return a single origin matching the value of the `Origin` request header.
+                                        When the request is credentialed, the gateway must not specify the `*`
+                                        wildcard in the `Access-Control-Allow-Origin` response header. When
+                                        also the `AllowCredentials` field is true and `AllowOrigins` field
+                                        specified with the `*` wildcard, the gateway must return a single origin
+                                        in the value of the `Access-Control-Allow-Origin` response header,
+                                        instead of specifying the `*` wildcard. The value of the header
+                                        `Access-Control-Allow-Origin` is same as the `Origin` header provided by
+                                        the client.
 
                                         Support: Extended
                                       items:
@@ -4104,7 +4114,7 @@ spec:
                                         (See https://fetch.spec.whatwg.org/#cors-safelisted-response-header-name)
                                         The CORS-safelisted response headers are exposed to client by default.
 
-                                        When an HTTP header name is specified using the `exposeHeaders` field,
+                                        When an HTTP header name is specified using the `ExposeHeaders` field,
                                         this additional header will be exposed as part of the response to the
                                         client.
 
@@ -4114,15 +4124,12 @@ spec:
                                         response header are separated by a comma (",").
 
                                         A wildcard indicates that the responses with all HTTP headers are exposed
-                                        to clients.
+                                        to clients. The `Access-Control-Expose-Headers` response header can only
+                                        use `*` wildcard as value when the request is not credentialed.
 
-                                        If the configuration contains the wildcard `*` in `exposeHeaders` and
-                                        `allowCredentials` is set to `false`, the `Access-Control-Expose-Headers`
-                                        response header can contain the wildcard `*`.
-
-                                        If the configuration contains the wildcard `*` in `exposeHeaders` and
-                                        `allowCredentials` is set to `true`, the gateway cannot use the `*`
-                                        in the `Access-Control-Expose-Headers` response header.
+                                        When the `exposeHeaders` config field contains the "*" wildcard and
+                                        the request is credentialed, the gateway cannot use the `*` wildcard in
+                                        the `Access-Control-Expose-Headers` response header.
 
                                         Support: Extended
                                       items:
@@ -4372,10 +4379,6 @@ spec:
                                         Support: Extended for Kubernetes Service
 
                                         Support: Implementation-specific for any other resource
-
-                                        If the backend service requires TLS, use BackendTLSPolicy to tell the
-                                        implementation to supply the TLS details to be used to connect to that
-                                        backend.
                                       properties:
                                         group:
                                           default: ""
@@ -4634,7 +4637,7 @@ spec:
                                         Accepted Condition for the Route to `status: False`, with a
                                         Reason of `UnsupportedValue`.
 
-                                        Support: statusCode 301 and 302 are Core; all others are Extended.
+                                        Support: Core
                                       enum:
                                       - 301
                                       - 302
@@ -5147,9 +5150,9 @@ spec:
                                   Multiple header names in the value of the `Access-Control-Allow-Headers`
                                   response header are separated by a comma (",").
 
-                                  When the `allowHeaders` field is configured with one or more headers, the
+                                  When the `AllowHeaders` field is configured with one or more headers, the
                                   gateway must return the `Access-Control-Allow-Headers` response header
-                                  which value is present in the `allowHeaders` field.
+                                  which value is present in the `AllowHeaders` field.
 
                                   If any header name in the `Access-Control-Request-Headers` request header
                                   is not included in the list of header names specified by the response
@@ -5161,20 +5164,21 @@ spec:
                                   client side.
 
                                   A wildcard indicates that the requests with all HTTP headers are allowed.
+                                  If config contains the wildcard "*" in allowHeaders and the request is
+                                  not credentialed, the `Access-Control-Allow-Headers` response header
+                                  can either use the `*` wildcard or the value of
+                                  Access-Control-Request-Headers from the request.
 
-                                  If the configuration contains the wildcard `*` in `allowHeaders` and
-                                  `allowCredentials` is set to `false`, the `Access-Control-Allow-Headers`
-                                  response header may either contain the wildcard `*` or echo the value
-                                  of the `Access-Control-Request-Headers` request header.
-
-                                  If the configuration contains the wildcard `*` in `allowHeaders` and
-                                  `allowCredentials` is set to `true`, the gateway must not return `*`
-                                  in the `Access-Control-Allow-Headers` response header. Instead, it must
-                                  return one or more header names matching the value of the
-                                  `Access-Control-Request-Headers` request header.
-                                  If the `Access-Control-Request-Headers` header is not present in the
-                                  request, the gateway must omit the `Access-Control-Allow-Headers`
-                                  response header.
+                                  When the request is credentialed, the gateway must not specify the `*`
+                                  wildcard in the `Access-Control-Allow-Headers` response header. When
+                                  also the `AllowCredentials` field is true and `AllowHeaders` field
+                                  is specified with the `*` wildcard, the gateway must specify one or more
+                                  HTTP headers in the value of the `Access-Control-Allow-Headers` response
+                                  header. The value of the header `Access-Control-Allow-Headers` is same as
+                                  the `Access-Control-Request-Headers` header provided by the client. If
+                                  the header `Access-Control-Request-Headers` is not included in the
+                                  request, the gateway will omit the `Access-Control-Allow-Headers`
+                                  response header, instead of specifying the `*` wildcard.
 
                                   Support: Extended
                                 items:
@@ -5219,29 +5223,32 @@ spec:
                                   A CORS-safelisted method is a method that is `GET`, `HEAD`, or `POST`.
                                   (See https://fetch.spec.whatwg.org/#cors-safelisted-method) The
                                   CORS-safelisted methods are always allowed, regardless of whether they
-                                  are specified in the `allowMethods` field.
+                                  are specified in the `AllowMethods` field.
 
-                                  When the `allowMethods` field is configured with one or more methods, the
+                                  When the `AllowMethods` field is configured with one or more methods, the
                                   gateway must return the `Access-Control-Allow-Methods` response header
-                                  which value is present in the `allowMethods` field.
+                                  which value is present in the `AllowMethods` field.
 
                                   If the HTTP method of the `Access-Control-Request-Method` request header
                                   is not included in the list of methods specified by the response header
                                   `Access-Control-Allow-Methods`, it will present an error on the client
                                   side.
 
-                                  If the configuration contains the wildcard `*` in `allowMethods` and
-                                  `allowCredentials` is set to `false`, the `Access-Control-Allow-Methods`
-                                  response header may either contain the wildcard `*` or echo the value
-                                  of the `Access-Control-Request-Method` request header.
+                                  If config contains the wildcard "*" in allowMethods and the request is
+                                  not credentialed, the `Access-Control-Allow-Methods` response header
+                                  can either use the `*` wildcard or the value of
+                                  Access-Control-Request-Method from the request.
 
-                                  If the configuration contains the wildcard `*` in `allowMethods` and
-                                  `allowCredentials` is set to `true`, the gateway must not return `*`
-                                  in the `Access-Control-Allow-Methods` response header. Instead, it must
-                                  return a single HTTP method matching the value of the
-                                  `Access-Control-Request-Method` request header.
-                                  If the `Access-Control-Request-Method` header is not present in the request,
-                                  the gateway must omit the `Access-Control-Allow-Methods` response header.
+                                  When the request is credentialed, the gateway must not specify the `*`
+                                  wildcard in the `Access-Control-Allow-Methods` response header. When
+                                  also the `AllowCredentials` field is true and `AllowMethods` field
+                                  specified with the `*` wildcard, the gateway must specify one HTTP method
+                                  in the value of the Access-Control-Allow-Methods response header. The
+                                  value of the header `Access-Control-Allow-Methods` is same as the
+                                  `Access-Control-Request-Method` header provided by the client. If the
+                                  header `Access-Control-Request-Method` is not included in the request,
+                                  the gateway will omit the `Access-Control-Allow-Methods` response header,
+                                  instead of specifying the `*` wildcard.
 
                                   Support: Extended
                                 items:
@@ -5291,7 +5298,7 @@ spec:
                                   An origin value that includes _only_ the `*` character indicates requests
                                   from all `Origin`s are allowed.
 
-                                  When the `allowOrigins` field is configured with multiple origins, it
+                                  When the `AllowOrigins` field is configured with multiple origins, it
                                   means the server supports clients from multiple origins. If the request
                                   `Origin` matches the configured allowed origins, the gateway must return
                                   the given `Origin` and sets value of the header
@@ -5313,15 +5320,19 @@ spec:
                                   `Access-Control-Allow-Origin` to the same value as the `Origin`
                                   header provided by the client.
 
-                                  If the configuration contains the wildcard `*` in `allowOrigins` and
-                                  `allowCredentials` is set to `false`, the `Access-Control-Allow-Origin`
-                                  response header may either contain the wildcard `*` or echo the value
-                                  of the `Origin` request header.
+                                  When config has the wildcard ("*") in allowOrigins, and the request
+                                  is not credentialed (e.g., it is a preflight request), the
+                                  `Access-Control-Allow-Origin` response header either contains the
+                                  wildcard as well or the Origin from the request.
 
-                                  If the configuration contains the wildcard `*` in `allowOrigins` and
-                                  `allowCredentials` is set to `true`, the gateway must not return `*`
-                                  in the `Access-Control-Allow-Origin` response header. Instead, it must
-                                  return a single origin matching the value of the `Origin` request header.
+                                  When the request is credentialed, the gateway must not specify the `*`
+                                  wildcard in the `Access-Control-Allow-Origin` response header. When
+                                  also the `AllowCredentials` field is true and `AllowOrigins` field
+                                  specified with the `*` wildcard, the gateway must return a single origin
+                                  in the value of the `Access-Control-Allow-Origin` response header,
+                                  instead of specifying the `*` wildcard. The value of the header
+                                  `Access-Control-Allow-Origin` is same as the `Origin` header provided by
+                                  the client.
 
                                   Support: Extended
                                 items:
@@ -5360,7 +5371,7 @@ spec:
                                   (See https://fetch.spec.whatwg.org/#cors-safelisted-response-header-name)
                                   The CORS-safelisted response headers are exposed to client by default.
 
-                                  When an HTTP header name is specified using the `exposeHeaders` field,
+                                  When an HTTP header name is specified using the `ExposeHeaders` field,
                                   this additional header will be exposed as part of the response to the
                                   client.
 
@@ -5370,15 +5381,12 @@ spec:
                                   response header are separated by a comma (",").
 
                                   A wildcard indicates that the responses with all HTTP headers are exposed
-                                  to clients.
+                                  to clients. The `Access-Control-Expose-Headers` response header can only
+                                  use `*` wildcard as value when the request is not credentialed.
 
-                                  If the configuration contains the wildcard `*` in `exposeHeaders` and
-                                  `allowCredentials` is set to `false`, the `Access-Control-Expose-Headers`
-                                  response header can contain the wildcard `*`.
-
-                                  If the configuration contains the wildcard `*` in `exposeHeaders` and
-                                  `allowCredentials` is set to `true`, the gateway cannot use the `*`
-                                  in the `Access-Control-Expose-Headers` response header.
+                                  When the `exposeHeaders` config field contains the "*" wildcard and
+                                  the request is credentialed, the gateway cannot use the `*` wildcard in
+                                  the `Access-Control-Expose-Headers` response header.
 
                                   Support: Extended
                                 items:
@@ -5626,10 +5634,6 @@ spec:
                                   Support: Extended for Kubernetes Service
 
                                   Support: Implementation-specific for any other resource
-
-                                  If the backend service requires TLS, use BackendTLSPolicy to tell the
-                                  implementation to supply the TLS details to be used to connect to that
-                                  backend.
                                 properties:
                                   group:
                                     default: ""
@@ -5888,7 +5892,7 @@ spec:
                                   Accepted Condition for the Route to `status: False`, with a
                                   Reason of `UnsupportedValue`.
 
-                                  Support: statusCode 301 and 302 are Core; all others are Extended.
+                                  Support: Core
                                 enum:
                                 - 301
                                 - 302
@@ -6917,3 +6921,9 @@ spec:
     storage: false
     subresources:
       status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null
