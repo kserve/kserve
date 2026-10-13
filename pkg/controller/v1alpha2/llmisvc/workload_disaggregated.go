@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"math"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -352,26 +353,36 @@ func (r *LLMISVCReconciler) expectedDisaggregatedPrefillRole(ctx context.Context
 // take the Deployment defaults: the LeaderWorkerSet default maxSurge of 0 would make
 // maxUnavailable: 0 invalid and remove a lone replica before its replacement is ready.
 //
-// A single-node role also resolves the values the way the Deployment controller does
-// (ResolveFenceposts): when both round down to zero for the role's replicas, for
-// example maxSurge: 0 with the default maxUnavailable of 25% on three replicas or
-// fewer, it removes one replica at a time. A Deployment accepts such values, but a
-// DisaggregatedSet rejects them. A multi-node role keeps them, as a LeaderWorkerSet
-// rejects them too.
+// The DisaggregatedSet copies these settings into the LeaderWorkerSet it creates for
+// each revision, and resizes those LeaderWorkerSets one batch at a time during a
+// rollout, down to a single replica. The LeaderWorkerSet webhook resolves the settings
+// against the replicas of each LeaderWorkerSet at every step, and rejects maxSurge and
+// maxUnavailable that both resolve to zero, which stalls the rollout: maxSurge: 0 with
+// the default maxUnavailable of 25% is rejected as soon as a LeaderWorkerSet has three
+// replicas or fewer. So when maxSurge resolves to zero, maxUnavailable is resolved once
+// against the role's replicas, rounding down the way a Deployment does, and written as
+// a fixed number of at least one.
 func disaggregatedRollingUpdateConfig(workload *v1alpha2.WorkloadSpec) (*lwsapi.RollingUpdateConfiguration, error) {
+	var config *lwsapi.RollingUpdateConfiguration
 	if workload.Worker != nil {
-		return rollingUpdateConfigFromWorkloadSpec(workload), nil
-	}
-	config := &lwsapi.RollingUpdateConfiguration{
-		MaxUnavailable: intstr.FromString("25%"),
-		MaxSurge:       intstr.FromString("25%"),
-	}
-	if rs := workload.RolloutStrategy; rs != nil {
-		if rs.MaxUnavailable != nil {
-			config.MaxUnavailable = *rs.MaxUnavailable
+		config = rollingUpdateConfigFromWorkloadSpec(workload)
+		if config == nil {
+			// The LeaderWorkerSet defaults, maxUnavailable: 1 and maxSurge: 0, are valid
+			// at every size.
+			return nil, nil
 		}
-		if rs.MaxSurge != nil {
-			config.MaxSurge = *rs.MaxSurge
+	} else {
+		config = &lwsapi.RollingUpdateConfiguration{
+			MaxUnavailable: intstr.FromString("25%"),
+			MaxSurge:       intstr.FromString("25%"),
+		}
+		if rs := workload.RolloutStrategy; rs != nil {
+			if rs.MaxUnavailable != nil {
+				config.MaxUnavailable = *rs.MaxUnavailable
+			}
+			if rs.MaxSurge != nil {
+				config.MaxSurge = *rs.MaxSurge
+			}
 		}
 	}
 
@@ -388,8 +399,13 @@ func disaggregatedRollingUpdateConfig(workload *v1alpha2.WorkloadSpec) (*lwsapi.
 	if err != nil {
 		return nil, fmt.Errorf("invalid maxUnavailable: %w", err)
 	}
-	if surge == 0 && unavailable == 0 {
-		config.MaxUnavailable = intstr.FromInt32(1)
+	// A maxSurge that resolves to more than zero is a positive number, or a positive
+	// percentage that rounds up to at least one at every size, so it is valid as set.
+	if surge == 0 && (config.MaxUnavailable.Type == intstr.String || unavailable == 0) {
+		if unavailable < 0 || unavailable > math.MaxInt32 {
+			return nil, fmt.Errorf("invalid maxUnavailable: %s resolves to %d", config.MaxUnavailable.String(), unavailable)
+		}
+		config.MaxUnavailable = intstr.FromInt32(max(int32(unavailable), 1))
 	}
 	return config, nil
 }
