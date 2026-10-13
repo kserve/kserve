@@ -486,7 +486,7 @@ func TestReconcileSharedPVCPreservesNotReadyOnImportJobReadError(t *testing.T) {
 		Client: &jobReadErrorClient{Client: baseClient, err: readErr},
 	}
 
-	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, nil, cacheConsumers{}); !errors.Is(err, readErr) {
+	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, nil, nil, cacheConsumers{}); !errors.Is(err, readErr) {
 		t.Fatalf("reconcileSharedPVC() error = %v, want %v", err, readErr)
 	}
 	condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)
@@ -637,7 +637,7 @@ func TestReconcileSharedPVCSurfacesCredentialErrorWithoutCreatingJob(t *testing.
 		}), credentials.CredentialConfig{}),
 	}
 
-	_, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, cacheConsumers{})
+	_, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, cacheConsumers{})
 	if !errors.Is(err, errImportCredentials) {
 		t.Fatalf("reconcileSharedPVC() error = %v, want errImportCredentials", err)
 	}
@@ -697,7 +697,7 @@ func TestReconcileSharedPVCMountsImagePullSecretFromCacheNamespace(t *testing.T)
 		Build()
 	reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, Scheme: scheme}
 
-	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, cacheConsumers{}); err != nil {
+	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, cacheConsumers{}); err != nil {
 		t.Fatalf("reconcileSharedPVC() error = %v", err)
 	}
 	job := &batchv1.Job{}
@@ -764,7 +764,7 @@ func TestReconcileSharedPVCMissingImagePullSecretSurfacesCredentialError(t *test
 		Build()
 	reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, Scheme: scheme}
 
-	_, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, cacheConsumers{})
+	_, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, cacheConsumers{})
 	if !errors.Is(err, errImportCredentials) {
 		t.Fatalf("reconcileSharedPVC() error = %v, want errImportCredentials", err)
 	}
@@ -836,7 +836,11 @@ func TestBuildImportJobFSGroup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configMap := &corev1.ConfigMap{Data: map[string]string{"localModel": tt.localModel}}
-			job, err := reconciler.buildImportJob(context.Background(), cache, "cache-import", pvc, "key", configMap)
+			localModelConfig, err := v1beta1.NewLocalModelConfig(configMap)
+			if err != nil {
+				t.Fatalf("NewLocalModelConfig() error = %v", err)
+			}
+			job, err := reconciler.buildImportJob(context.Background(), cache, "cache-import", pvc, "key", configMap, localModelConfig)
 			if err != nil {
 				t.Fatalf("buildImportJob() error = %v", err)
 			}

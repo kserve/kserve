@@ -90,7 +90,7 @@ func (c *LocalModelNamespaceCacheReconciler) Reconcile(ctx context.Context, req 
 				return reconcile.Result{}, err
 			}
 		}
-		return c.reconcileSharedPVC(ctx, localModel, isvcConfigMap, consumers)
+		return c.reconcileSharedPVC(ctx, localModel, isvcConfigMap, localModelConfig, consumers)
 	}
 
 	defaultNodeGroup := &v1alpha1.LocalModelNodeGroup{}
