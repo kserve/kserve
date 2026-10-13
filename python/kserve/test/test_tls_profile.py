@@ -36,18 +36,20 @@ def test_apply_tls_profile_sets_minimum_version_and_ciphers():
     }
 
 
-def test_apply_tls_13_profile_ignores_cipher_list():
+def test_apply_tls_13_profile_rejects_cipher_list():
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 
-    apply_tls_profile(
-        context,
-        TLSProfile(
-            minimum_version=ssl.TLSVersion.TLSv1_3,
-            ciphers=("NOT-A-CIPHER",),
-        ),
-    )
-
-    assert context.minimum_version == ssl.TLSVersion.TLSv1_3
+    with pytest.raises(
+        ValueError,
+        match="TLS 1.3 cipher suites cannot be configured with Python's ssl module",
+    ):
+        apply_tls_profile(
+            context,
+            TLSProfile(
+                minimum_version=ssl.TLSVersion.TLSv1_3,
+                ciphers=("NOT-A-CIPHER",),
+            ),
+        )
 
 
 def test_load_tls_profile_provider(monkeypatch):

@@ -33,8 +33,13 @@ class TLSProfile:
 
 def apply_tls_profile(ssl_context: ssl.SSLContext, profile: TLSProfile) -> None:
     """Apply a TLS profile to an active SSL context."""
+    if profile.ciphers and profile.minimum_version >= ssl.TLSVersion.TLSv1_3:
+        raise ValueError(
+            "TLS 1.3 cipher suites cannot be configured with Python's ssl module"
+        )
+
     ssl_context.minimum_version = profile.minimum_version
-    if profile.ciphers and profile.minimum_version < ssl.TLSVersion.TLSv1_3:
+    if profile.ciphers:
         ssl_context.set_ciphers(":".join(profile.ciphers))
 
 

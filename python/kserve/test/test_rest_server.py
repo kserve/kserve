@@ -12,11 +12,44 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import ssl
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 
 from kserve.protocol.rest import server as rest_mod
+from kserve.protocol.rest.tls_profile import TLSProfile, apply_tls_profile
+
+
+def _write_tls_certificate(tmp_path):
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(subject)
+        .issuer_name(issuer)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.now(timezone.utc) - timedelta(minutes=1))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=1))
+        .sign(key, hashes.SHA256())
+    )
+    cert_path = tmp_path / "tls.crt"
+    key_path = tmp_path / "tls.key"
+    cert_path.write_bytes(certificate.public_bytes(serialization.Encoding.PEM))
+    key_path.write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+    return cert_path, key_path
 
 
 @pytest.mark.parametrize(
@@ -163,6 +196,50 @@ async def test_tls_profile_provider_lifecycle(monkeypatch):
     await rs.start()
 
     provider_loader.assert_called_once_with("test", ssl_context)
+    provider.start.assert_called_once_with()
+    provider.stop.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+async def test_tls_profile_provider_receives_loaded_uvicorn_ssl_context(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(rest_mod.RESTServer, "create_application", lambda self: None)
+    monkeypatch.setattr(rest_mod.uvicorn.Server, "serve", AsyncMock())
+    monkeypatch.setattr(rest_mod, "SSLCertRefresher", Mock())
+    monkeypatch.setenv(rest_mod.TLS_PROFILE_PROVIDER_ENV, "test")
+    provider = Mock()
+
+    def load_provider(name, ssl_context):
+        apply_tls_profile(
+            ssl_context,
+            TLSProfile(
+                minimum_version=ssl.TLSVersion.TLSv1_2,
+                ciphers=("ECDHE-RSA-AES128-GCM-SHA256",),
+            ),
+        )
+        return provider
+
+    provider_loader = Mock(side_effect=load_provider)
+    monkeypatch.setattr(rest_mod, "load_tls_profile_provider", provider_loader)
+    cert_path, key_path = _write_tls_certificate(tmp_path)
+    rs = rest_mod.RESTServer(
+        app=rest_mod.fastapi.FastAPI(),
+        data_plane=Mock(),
+        model_repository_extension=Mock(),
+        http_port=8443,
+        ssl_certfile=str(cert_path),
+        ssl_keyfile=str(key_path),
+    )
+
+    await rs.start()
+
+    provider_loader.assert_called_once_with("test", rs.config.ssl)
+    assert isinstance(rs.config.ssl, ssl.SSLContext)
+    assert rs.config.ssl.minimum_version == ssl.TLSVersion.TLSv1_2
+    assert "ECDHE-RSA-AES128-GCM-SHA256" in {
+        cipher["name"] for cipher in rs.config.ssl.get_ciphers()
+    }
     provider.start.assert_called_once_with()
     provider.stop.assert_called_once_with()
 
