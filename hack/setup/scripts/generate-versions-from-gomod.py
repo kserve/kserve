@@ -38,7 +38,7 @@ DEPENDENCIES = {
         "sigs.k8s.io/gateway-api-inference-extension",
         None,
         None,
-        ("kubernetes-sigs/gateway-api-inference-extension", "manifests.yaml"),
+        ("kubernetes-sigs/gateway-api-inference-extension", "v1-manifests.yaml"),
     ),
 }
 

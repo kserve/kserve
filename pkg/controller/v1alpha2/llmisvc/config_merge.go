@@ -393,6 +393,12 @@ func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alp
 			return nil, reconcile.TerminalError(slotConflict)
 		}
 
+		var dpRouting *dataParallelRoutingError
+		if errors.As(err, &dpRouting) {
+			llmSvc.MarkPresetsCombinedNotReady("DataParallelRoutingInvalid", "%s", dpRouting.Error())
+			return nil, reconcile.TerminalError(dpRouting)
+		}
+
 		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", "%s", conditionMessage(err))
 		return nil, fmt.Errorf("failed to combine base-configurations: %w", err)
 	}
@@ -799,6 +805,11 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	}
 
 	injectOmniRuntimeArgs(llmSvcCfg, isOmniRuntime(resolvedSpec.Runtime))
+
+	if err := applyDataParallelRouting(llmSvcCfg, resolvedSpec); err != nil {
+		return nil, &dataParallelRoutingError{err}
+	}
+	applyInferencePoolSidecarAPI(&llmSvcCfg.Spec)
 
 	injectManagedDRAIntoConfig(llmSvc, llmSvcCfg)
 

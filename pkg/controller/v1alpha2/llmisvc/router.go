@@ -399,11 +399,13 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 		infPoolV1Support = IsInferencePoolV1Supported(curr)
 	}
 
+	// Multiple target ports require v1 even before the gateway reports support.
+	// Single-port pools retain the migration path for older gateway controllers.
 	// Switch to v1 if:
 	// - Gateway accepted v1 (route using v1 and ResolvedRefs=True), OR
 	// - Gateway rejected v1alpha2 (route using v1alpha2 and ResolvedRefs=False/InvalidKind), OR
 	// - Already migrated (annotation exists - one-way lock)
-	if isMigrated || infPoolV1Support == metav1.ConditionTrue || infPoolV1Alpha2Support == metav1.ConditionFalse {
+	if inferencePoolRequiresV1(&llmSvc.Spec) || isMigrated || infPoolV1Support == metav1.ConditionTrue || infPoolV1Alpha2Support == metav1.ConditionFalse {
 		// Switch backendRef to v1 API group
 		for i := range httpRoute.Spec.Rules {
 			for j := range httpRoute.Spec.Rules[i].BackendRefs {
@@ -836,6 +838,23 @@ func (r *LLMISVCReconciler) EvaluateInferencePoolConditions(ctx context.Context,
 	v1Pool := &igwapi.InferencePool{}
 	v1Err := r.Get(ctx, types.NamespacedName{Namespace: poolNamespace, Name: poolName}, v1Pool)
 	v1Ready := v1Err == nil && IsInferencePoolReadyForGateways(v1Pool, gatewayKeys)
+
+	// A ready legacy pool cannot establish readiness for multiple target ports.
+	// It may remain from an earlier single-port configuration of this service.
+	if inferencePoolRequiresV1(&llmSvc.Spec) {
+		setRoutingPoolStatus(llmSvc,
+			gwapiv1.ObjectReference{Group: gwapiv1.Group(constants.InferencePoolV1APIGroupName), Kind: "InferencePool", Name: gwapiv1.ObjectName(poolName)},
+			gwapiv1.ObjectReference{Group: "", Kind: "Service", Name: gwapiv1.ObjectName(llmSvc.Spec.Router.EPPServiceName(llmSvc))},
+		)
+		if v1Err != nil {
+			llmSvc.MarkInferencePoolNotReady("InferencePoolFetchError", "Failed to fetch v1 Inference Pool %s/%s: %v", poolNamespace, poolName, v1Err)
+			if apierrors.IsNotFound(v1Err) {
+				return nil
+			}
+			return fmt.Errorf("failed to fetch v1 Inference Pool %s/%s: %w", poolNamespace, poolName, v1Err)
+		}
+		return r.evaluateInferencePoolCondition(ctx, llmSvc, v1Pool, gatewayKeys)
+	}
 
 	// Check v1alpha2 pool - treat CRD-not-installed as "version unavailable" (not an error)
 	v1alpha2Pool := &igwapiv1alpha2.InferencePool{}

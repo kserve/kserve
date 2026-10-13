@@ -3,7 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
-    gateway.networking.k8s.io/bundle-version: v1.5.1
+    gateway.networking.k8s.io/bundle-version: v1.6.2
     gateway.networking.k8s.io/channel: standard
   name: gatewayclasses.gateway.networking.k8s.io
 spec:
@@ -54,6 +54,9 @@ spec:
           Gateway is not deleted while in use.
 
           GatewayClass is a Cluster level resource.
+
+          A GatewayClass name SHOULD be compliant with RFC 1035, consisting of a maximum of 63 lower case alphanumeric
+          characters or hyphens ('-'), and MUST start and end with an alphanumeric character.
         properties:
           apiVersion:
             description: |-
@@ -507,9 +510,3 @@ spec:
     storage: false
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
-  storedVersions: null

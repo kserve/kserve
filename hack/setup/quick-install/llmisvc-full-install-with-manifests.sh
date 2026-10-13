@@ -659,7 +659,7 @@ ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.20.2
 OPENTELEMETRY_OPERATOR_VERSION=0.114.1
 LWS_VERSION=v0.11.0
-GATEWAY_API_VERSION=v1.5.1
+GATEWAY_API_VERSION=v1.6.2
 GIE_VERSION=v1.6.2
 LLMD_ROUTER_VERSION=v0.11.0
 
@@ -3182,9 +3182,9 @@ spec:
         eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
-          --port 8001 \
+          --port 8200 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
-          --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
+          ${KSERVE_DP_ROUTING_ARGS:---api-server-count ${VLLM_API_SERVER_COUNT:-8}} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
           --data-parallel-size {{ or (and .Spec.Parallelism .Spec.Parallelism.Data) 1 }} \
@@ -3202,6 +3202,8 @@ spec:
           $@"
       - --
       env:
+      - name: KSERVE_DP_ROUTING_ARGS
+        value: ""
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: HOME
@@ -3226,19 +3228,20 @@ spec:
         failureThreshold: 10
         httpGet:
           path: /health
-          port: 8001
+          port: dp-health
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
         timeoutSeconds: 1
       name: main
       ports:
-      - containerPort: 8001
+      - containerPort: 8200
+        name: dp-health
         protocol: TCP
       readinessProbe:
         failureThreshold: 2
         httpGet:
           path: /health
-          port: 8001
+          port: dp-health
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 1
         timeoutSeconds: 1
@@ -3259,7 +3262,7 @@ spec:
         failureThreshold: 60
         httpGet:
           path: /health
-          port: 8001
+          port: dp-health
           scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
         periodSeconds: 10
       terminationMessagePath: /dev/termination-log
@@ -3280,7 +3283,9 @@ spec:
     - command:
       - /app/pd-sidecar
       - --port=8000
-      - --model-server-port=8001
+      - --model-server-port=8200
+      - --data-parallel-size={{ or (and .Spec.Parallelism .Spec.Parallelism.DataLocal)
+        1 }}
       - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
       - --pool-group=inference.networking.x-k8s.io
@@ -3295,6 +3300,10 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
+      - name: POD_IP
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
       image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
@@ -3547,7 +3556,7 @@ spec:
         eval "exec vllm serve \
           /mnt/models \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
-          --port 8001 \
+          --port 8200 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
           {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
@@ -3556,7 +3565,7 @@ spec:
           --data-parallel-address ${DP_ADDRESS} \
           --data-parallel-rpc-port {{ if and .Spec.Parallelism .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
           --data-parallel-start-rank $START_RANK \
-          --headless \
+          ${KSERVE_DP_ROUTING_ARGS:---headless} \
           ${ACCESS_LOG_ARGS} \
           ${SHUTDOWN_TIMEOUT_ARGS} \
           ${KV_TRANSFER_ARGS} \
@@ -3567,6 +3576,8 @@ spec:
           $@"
       - --
       env:
+      - name: KSERVE_DP_ROUTING_ARGS
+        value: ""
       - name: KSERVE_KV_TRANSFER_ARGS
         value: ""
       - name: HOME
@@ -3591,7 +3602,8 @@ spec:
             - "15"
       name: main
       ports:
-      - containerPort: 8001
+      - containerPort: 8200
+        name: dp-health
         protocol: TCP
       securityContext:
         allowPrivilegeEscalation: false
@@ -4157,7 +4169,7 @@ spec:
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
             --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
-            --api-server-count ${VLLM_API_SERVER_COUNT:-8} \
+            ${KSERVE_DP_ROUTING_ARGS:---api-server-count ${VLLM_API_SERVER_COUNT:-8}} \
             {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
             {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
             --data-parallel-size {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Data) 1 }} \
@@ -4175,6 +4187,8 @@ spec:
             $@"
         - --
         env:
+        - name: KSERVE_DP_ROUTING_ARGS
+          value: ""
         - name: KSERVE_KV_TRANSFER_ARGS
           value: ""
         - name: HOME
@@ -4199,19 +4213,20 @@ spec:
           failureThreshold: 10
           httpGet:
             path: /health
-            port: 8000
+            port: dp-health
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
           timeoutSeconds: 1
         name: main
         ports:
         - containerPort: 8000
+          name: dp-health
           protocol: TCP
         readinessProbe:
           failureThreshold: 2
           httpGet:
             path: /health
-            port: 8000
+            port: dp-health
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 1
           timeoutSeconds: 1
@@ -4232,7 +4247,7 @@ spec:
           failureThreshold: 60
           httpGet:
             path: /health
-            port: 8000
+            port: dp-health
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
         terminationMessagePath: /dev/termination-log
@@ -4468,7 +4483,7 @@ spec:
             --data-parallel-address ${DP_ADDRESS} \
             --data-parallel-rpc-port {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
             --data-parallel-start-rank $START_RANK \
-            --headless \
+            ${KSERVE_DP_ROUTING_ARGS:---headless} \
             ${ACCESS_LOG_ARGS} \
             ${SHUTDOWN_TIMEOUT_ARGS} \
             ${KV_TRANSFER_ARGS} \
@@ -4479,6 +4494,8 @@ spec:
             $@"
         - --
         env:
+        - name: KSERVE_DP_ROUTING_ARGS
+          value: ""
         - name: KSERVE_KV_TRANSFER_ARGS
           value: ""
         - name: HOME
@@ -4502,6 +4519,7 @@ spec:
         name: main
         ports:
         - containerPort: 8000
+          name: dp-health
           protocol: TCP
         securityContext:
           allowPrivilegeEscalation: false
@@ -16614,6 +16632,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           type: string
@@ -16623,7 +16642,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -16638,8 +16657,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -42380,6 +42397,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           type: string
@@ -42389,7 +42407,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -42404,8 +42422,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -68798,6 +68814,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
@@ -68808,7 +68825,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -68824,9 +68841,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -95448,6 +95462,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
@@ -95458,7 +95473,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -95474,9 +95489,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string

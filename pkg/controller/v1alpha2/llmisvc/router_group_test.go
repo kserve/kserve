@@ -604,7 +604,7 @@ func TestResolveMemberBackendRef(t *testing.T) {
 				},
 			},
 			want: gwapiv1.BackendObjectReference{
-				Group: ptr.To(gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName)),
+				Group: ptr.To(gwapiv1.Group(constants.InferencePoolV1APIGroupName)),
 				Kind:  ptr.To(gwapiv1.Kind("InferencePool")),
 				Name:  "my-custom-pool",
 				Port:  ptr.To(gwapiv1.PortNumber(8000)),

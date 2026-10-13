@@ -218,7 +218,7 @@ func resolveMemberBackendRef(
 		member.Spec.Router.Scheduler != nil &&
 		member.Spec.Router.Scheduler.Pool.HasRef() {
 		return gwapiv1.BackendObjectReference{
-			Group: ptr.To(gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName)),
+			Group: ptr.To(gwapiv1.Group(constants.InferencePoolV1APIGroupName)),
 			Kind:  ptr.To(gwapiv1.Kind("InferencePool")),
 			Name:  gwapiv1.ObjectName(member.Spec.Router.Scheduler.Pool.Ref.Name),
 			Port:  ptr.To(gwapiv1.PortNumber(8000)),

@@ -106,7 +106,8 @@ func TestPresetFiles(t *testing.T) {
 									Command: []string{
 										"/app/pd-sidecar",
 										"--port=8000",
-										"--model-server-port=8001",
+										"--model-server-port=8200",
+										"--data-parallel-size=2",
 										"--kv-connector=nixlv2",
 										"--enable-ssrf-protection=true",
 										"--pool-group=inference.networking.x-k8s.io",
@@ -125,6 +126,7 @@ func TestPresetFiles(t *testing.T) {
 												},
 											},
 										},
+										{Name: "POD_IP", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}}},
 										{
 											Name:  "SSL_CERT_DIR",
 											Value: "/var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs",
@@ -192,11 +194,13 @@ func TestPresetFiles(t *testing.T) {
 									Image: "ghcr.io/llm-d/llm-d-cuda:v0.9.0",
 									Ports: []corev1.ContainerPort{
 										{
-											ContainerPort: 8001,
+											ContainerPort: 8200,
+											Name:          "dp-health",
 											Protocol:      corev1.ProtocolTCP,
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_DP_ROUTING_ARGS"},
 										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{
 											Name:  "HOME",
@@ -238,7 +242,7 @@ func TestPresetFiles(t *testing.T) {
 										ProbeHandler: corev1.ProbeHandler{
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
-												Port:   intstr.FromInt32(8001),
+												Port:   intstr.FromString("dp-health"),
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
@@ -251,7 +255,7 @@ func TestPresetFiles(t *testing.T) {
 										ProbeHandler: corev1.ProbeHandler{
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
-												Port:   intstr.FromInt32(8001),
+												Port:   intstr.FromString("dp-health"),
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
@@ -264,7 +268,7 @@ func TestPresetFiles(t *testing.T) {
 										ProbeHandler: corev1.ProbeHandler{
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
-												Port:   intstr.FromInt32(8001),
+												Port:   intstr.FromString("dp-health"),
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
@@ -342,7 +346,8 @@ func TestPresetFiles(t *testing.T) {
 									Image: "ghcr.io/llm-d/llm-d-cuda:v0.9.0",
 									Ports: []corev1.ContainerPort{
 										{
-											ContainerPort: 8001,
+											ContainerPort: 8200,
+											Name:          "dp-health",
 											Protocol:      corev1.ProtocolTCP,
 										},
 									},
@@ -386,6 +391,7 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_DP_ROUTING_ARGS"},
 										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{
 											Name:  "HOME",
