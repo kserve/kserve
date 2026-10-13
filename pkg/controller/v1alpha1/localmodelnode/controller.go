@@ -160,7 +160,7 @@ func (c *LocalModelNodeReconciler) getModelSize(ctx context.Context, modelInfo v
 	return cache.Spec.ModelSize.DeepCopy(), true, nil
 }
 
-func (c *LocalModelNodeReconciler) availableStorage(ctx context.Context, modelInfo v1alpha1.LocalModelInfo, availableByNodeGroup map[string]resource.Quantity) (*v1alpha1.LocalModelNodeGroup, resource.Quantity, error) {
+func (c *LocalModelNodeReconciler) availableStorage(ctx context.Context, modelInfo v1alpha1.LocalModelInfo, availableByNodeGroup map[string]resource.Quantity, reservedByNodeGroup map[string]resource.Quantity) (*v1alpha1.LocalModelNodeGroup, resource.Quantity, error) {
 	nodeGroup, err := c.getNodeGroup(ctx, modelInfo)
 	if err != nil {
 		return nil, resource.Quantity{}, err
@@ -175,6 +175,9 @@ func (c *LocalModelNodeReconciler) availableStorage(ctx context.Context, modelIn
 	}
 	available := nodeGroup.Spec.StorageLimit.DeepCopy()
 	available.Sub(used)
+	// Disk usage lags in-flight downloads; subtract their declared sizes so
+	// admission cannot over-commit capacity a running job will consume.
+	available.Sub(reservedByNodeGroup[nodeGroup.Name])
 	if available.Sign() < 0 {
 		available.Set(0)
 	}
@@ -192,8 +195,45 @@ func (c *LocalModelNodeReconciler) availableStorage(ctx context.Context, modelIn
 	return nodeGroup, available, nil
 }
 
-func (c *LocalModelNodeReconciler) reserveStorageForDownload(ctx context.Context, modelInfo v1alpha1.LocalModelInfo, availableByNodeGroup map[string]resource.Quantity) error {
-	nodeGroup, available, err := c.availableStorage(ctx, modelInfo, availableByNodeGroup)
+// reservedForInFlightDownloads sums the declared sizes of models whose
+// download job is still active. Jobs persist across reconciles, so the
+// reservation they represent does too.
+func (c *LocalModelNodeReconciler) reservedForInFlightDownloads(ctx context.Context, localModelNode *v1alpha1.LocalModelNode) (map[string]resource.Quantity, error) {
+	reservedByNodeGroup := map[string]resource.Quantity{}
+	seenStorageKeys := map[string]struct{}{}
+	for _, modelInfo := range localModelNode.Spec.LocalModels {
+		storageKey := v1alpha1.GetStorageKey(modelInfo.SourceModelUri)
+		if _, seen := seenStorageKeys[storageKey]; seen {
+			continue
+		}
+		seenStorageKeys[storageKey] = struct{}{}
+		job, _, err := c.getLatestJob(ctx, modelInfo, nodeName)
+		if err != nil {
+			return nil, err
+		}
+		if job == nil || job.Status.Succeeded > 0 || job.Status.Failed > 0 {
+			continue
+		}
+		modelSize, found, err := c.getModelSize(ctx, modelInfo)
+		if err != nil {
+			return nil, err
+		}
+		if !found {
+			continue
+		}
+		nodeGroup, err := c.getNodeGroup(ctx, modelInfo)
+		if err != nil {
+			return nil, err
+		}
+		reserved := reservedByNodeGroup[nodeGroup.Name]
+		reserved.Add(modelSize)
+		reservedByNodeGroup[nodeGroup.Name] = reserved
+	}
+	return reservedByNodeGroup, nil
+}
+
+func (c *LocalModelNodeReconciler) reserveStorageForDownload(ctx context.Context, modelInfo v1alpha1.LocalModelInfo, availableByNodeGroup map[string]resource.Quantity, reservedByNodeGroup map[string]resource.Quantity) error {
+	nodeGroup, available, err := c.availableStorage(ctx, modelInfo, availableByNodeGroup, reservedByNodeGroup)
 	if err != nil {
 		return err
 	}
@@ -478,12 +518,17 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 	// Track which storage keys (URI hashes) have been processed for download deduplication
 	processedStorageKeys := map[string]v1alpha1.ModelStatus{}
 	availableByNodeGroup := map[string]resource.Quantity{}
+	reservedByNodeGroup, err := c.reservedForInFlightDownloads(ctx, localModelNode)
+	if err != nil {
+		c.Log.Error(err, "Failed to sum in-flight download reservations")
+		return err
+	}
 
 	for _, modelInfo := range localModelNode.Spec.LocalModels {
 		statusKey := modelInfo.GetStatusKey()
 		storageKey := v1alpha1.GetStorageKey(modelInfo.SourceModelUri)
 		c.Log.Info("checking model from spec", "model", modelInfo.ModelName, "namespace", modelInfo.Namespace, "statusKey", statusKey, "storageKey", storageKey)
-		if _, _, err := c.availableStorage(ctx, modelInfo, availableByNodeGroup); err != nil {
+		if _, _, err := c.availableStorage(ctx, modelInfo, availableByNodeGroup, reservedByNodeGroup); err != nil {
 			c.Log.Error(err, "Failed to get available storage", "model", modelInfo.ModelName)
 			return err
 		}
@@ -521,8 +566,11 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 			// If job is not found, create a new one. Because download could be incomplete.
 			if job == nil {
 				c.Log.Info("Model folder exists, creating download job", "model", modelInfo.ModelName, "storageKey", storageKey)
-				if err := c.reserveStorageForDownload(ctx, modelInfo, availableByNodeGroup); err != nil {
-					return err
+				if err := c.reserveStorageForDownload(ctx, modelInfo, availableByNodeGroup, reservedByNodeGroup); err != nil {
+					c.Log.Error(err, "Not enough storage for model", "model", modelInfo.ModelName)
+					newStatus[statusKey] = v1alpha1.ModelDownloadError
+					processedStorageKeys[storageKey] = v1alpha1.ModelDownloadError
+					continue
 				}
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
 				if err != nil {
@@ -556,8 +604,11 @@ func (c *LocalModelNodeReconciler) downloadModels(ctx context.Context, localMode
 			// To retry the download, users can manually fix the issue and delete the failed job.
 			// Add the job count check for protection to ensure not creating more than 2 jobs including the previous one.
 			if job == nil || (job.Status.Succeeded > 0 && jobCount < 2) {
-				if err := c.reserveStorageForDownload(ctx, modelInfo, availableByNodeGroup); err != nil {
-					return err
+				if err := c.reserveStorageForDownload(ctx, modelInfo, availableByNodeGroup, reservedByNodeGroup); err != nil {
+					c.Log.Error(err, "Not enough storage for model", "model", modelInfo.ModelName)
+					newStatus[statusKey] = v1alpha1.ModelDownloadError
+					processedStorageKeys[storageKey] = v1alpha1.ModelDownloadError
+					continue
 				}
 				job, err = c.launchJob(ctx, *localModelNode, modelInfo)
 				if err != nil {
