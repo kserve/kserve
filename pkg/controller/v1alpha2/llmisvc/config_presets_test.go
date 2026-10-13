@@ -110,7 +110,7 @@ func TestPresetFiles(t *testing.T) {
 										"--data-parallel-size=2",
 										"--kv-connector=nixlv2",
 										"--enable-ssrf-protection=true",
-										"--pool-group=inference.networking.k8s.io",
+										"--pool-group=inference.networking.x-k8s.io",
 										"--inference-pool=test-llm-preset-test/test-llm-preset-inference-pool",
 										"--secure-proxy=false",
 										"",

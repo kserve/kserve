@@ -141,6 +141,26 @@ func TestDataParallelRouting(t *testing.T) {
 	}
 }
 
+func TestSingleNodeRoutingRetainsLegacyPoolAPI(t *testing.T) {
+	svc, r := dataParallelRoutingFixture(t, 1, 1)
+	for _, name := range []string{"config-llm-decode-template.yaml", "config-llm-prefill-template.yaml"} {
+		preset := loadPresetConfig(t, name)
+		preset.ObjectMeta = metav1.ObjectMeta{Name: preset.Name, Namespace: svc.Namespace}
+		require.NoError(t, r.Create(t.Context(), preset))
+	}
+	svc.Spec.Worker = nil
+	svc.Spec.Parallelism = nil
+	svc.Spec.Prefill.Worker = nil
+	svc.Spec.Prefill.Parallelism = nil
+
+	combined, err := r.combineBaseRefsConfig(t.Context(), svc, &Config{})
+	require.NoError(t, err)
+	require.Equal(t, []igwapi.Port{{Number: 8000}}, combined.Config.Spec.Router.Scheduler.Pool.Spec.TargetPorts)
+	sidecar := routingSidecar(combined.Config.Spec.Template)
+	require.NotNil(t, sidecar)
+	assert.Contains(t, sidecar.Command, "--pool-group="+constants.InferencePoolV1Alpha2APIGroupName)
+}
+
 func TestDataParallelRoutingPreservesExplicitPoolPorts(t *testing.T) {
 	svc, r := dataParallelRoutingFixture(t, 2, 8)
 	want := []igwapi.Port{{Number: 8000}, {Number: 8001}}
