@@ -210,7 +210,6 @@ func TestDecideDisaggregatedSet(t *testing.T) {
 			wantReason: reasonNoPrefillWorkload,
 		},
 		{
-			// LWS v0.9.0 ships the DisaggregatedSet CRD without DisaggregatedSetRoleScaler.
 			name: "decode autoscaled without the DisaggregatedSetRoleScaler CRD",
 			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, r *LLMISVCReconciler) {
 				svc.Spec.Scaling = disaggTestKEDAScaling(1, 3)
@@ -948,8 +947,7 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromString("10%"), MaxSurge: intstr.FromString("10%")},
 		},
 		{
-			// An autoscaled role has no replicas: it is resolved against its minimum, so
-			// it never has more replicas unavailable than the percentage allows there.
+			// An autoscaled role is resolved against its minimum replicas.
 			name: "autoscaled single-node is resolved against its minimum replicas",
 			workload: &v1alpha2.WorkloadSpec{
 				Template: disaggTestPod(),
@@ -1239,7 +1237,7 @@ func TestDisaggregatedRoleReadiness(t *testing.T) {
 		{name: "multi-node mid-rollout with enough replicas serving is not ready", multiNode: true, ds: dsWith(1, 1, four, status(6, 4, 4)), wantReason: "Progressing"},
 
 		// An autoscaled role is ready against the replicas its DisaggregatedSetRoleScaler
-		// asks for, not its own replicas, which the DisaggregatedSet ignores.
+		// asks for, not its own replicas.
 		{
 			name:        "autoscaled single-node scaling up is not ready until enough new replicas serve",
 			ds:          dsWith(1, 1, four, status(8, 4, 8)),
@@ -1292,6 +1290,17 @@ func TestSemanticDisaggregatedSetIsEqual(t *testing.T) {
 	reordered := expected.DeepCopy()
 	reordered.Spec.Roles[0], reordered.Spec.Roles[1] = reordered.Spec.Roles[1], reordered.Spec.Roles[0]
 	assert.False(t, semanticDisaggregatedSetIsEqual(expected, reordered))
+
+	external := expected.DeepCopy()
+	external.Spec.Roles[0].Scaling = &disaggregatedsetv1.RoleScaling{Mode: disaggregatedsetv1.RoleScalingExternal}
+	assert.False(t, semanticDisaggregatedSetIsEqual(expected, external), "a static role is not equal to an External one")
+
+	autoscaledSvc := disaggTestService(t)
+	autoscaledSvc.Spec.Scaling = disaggTestKEDAScaling(1, 3)
+	autoscaled, err := disaggTestReconciler(t).expectedDisaggregatedSet(context.Background(), autoscaledSvc, disaggTestConfig(), nil)
+	require.NoError(t, err)
+	assert.False(t, semanticDisaggregatedSetIsEqual(autoscaled, expected), "an External role is not equal to a static one")
+	assert.True(t, semanticDisaggregatedSetIsEqual(autoscaled, autoscaled.DeepCopy()))
 }
 
 func TestEnqueueOnDisaggregatedSetRoleScalerChange(t *testing.T) {

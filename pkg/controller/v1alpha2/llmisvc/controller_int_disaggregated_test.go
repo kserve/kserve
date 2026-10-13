@@ -272,8 +272,7 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			ds := getDisaggregatedSet(ctx, llmSvc)
 			decode, prefill := ds.Spec.Roles[0], ds.Spec.Roles[1]
 			Expect(decode.Scaling).To(Equal(&disaggregatedsetv1.RoleScaling{Mode: disaggregatedsetv1.RoleScalingExternal}))
-			// The controller leaves the replicas unset; the API server defaults them to 1,
-			// which the DisaggregatedSet ignores for an autoscaled role.
+			// the API server defaults the unset replicas to 1
 			Expect(ptr.Deref(decode.Spec.Replicas, 1)).To(Equal(int32(1)))
 			Expect(prefill.Scaling).To(BeNil())
 			Expect(prefill.Spec.Replicas).To(Equal(ptr.To[int32](1)))
@@ -330,7 +329,7 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			// when the autoscaler asks for four decode replicas
 			scaleRoleScaler(ctx, ds, constants.LLMDRoleDecode, 4)
 
-			// then decode is no longer ready, without waiting for the DisaggregatedSet status
+			// then decode is no longer ready
 			Eventually(func(g Gomega, ctx context.Context) {
 				current := &v1alpha2.LLMInferenceService{}
 				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
@@ -339,6 +338,37 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 				g.Expect(main.Status).To(Equal(corev1.ConditionFalse))
 				g.Expect(main.Message).To(ContainSubstring("needs at least 3 of 4"))
 			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("returns an autoscaled role to its own replicas when scaling is removed", func(ctx SpecContext) {
+			// given
+			enableDisaggregatedSetGate(ctx)
+			testNs := NewTestNamespace(ctx, envTest)
+			llmSvc := singleNodePD("ds-keda-off", testNs.Name, optIn, WithScaling(DirectKEDAScaling(1, 4,
+				kedav1alpha1.ScaleTriggers{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+			)))
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer testNs.DeleteAndWait(ctx, llmSvc)
+			Expect(getDisaggregatedSet(ctx, llmSvc).Spec.Roles[0].Scaling).NotTo(BeNil())
+
+			// when
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current); err != nil {
+					return err
+				}
+				current.Spec.Scaling = nil
+				return envTest.Update(ctx, current)
+			})).To(Succeed())
+
+			// then
+			Eventually(func(g Gomega, ctx context.Context) {
+				ds := &disaggregatedsetv1.DisaggregatedSet{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{Name: llmSvc.Name + "-kserve-pd", Namespace: llmSvc.Namespace}, ds)).To(Succeed())
+				g.Expect(ds.Spec.Roles[0].Scaling).To(BeNil())
+				g.Expect(ds.Spec.Roles[0].Spec.Replicas).To(Equal(ptr.To[int32](1)))
+			}).WithContext(ctx).Should(Succeed())
+			expectNotFound(ctx, &kedav1alpha1.ScaledObject{}, llmSvc.Name+"-kserve-keda", llmSvc.Namespace)
 		})
 
 		It("deletes the DisaggregatedSet when the service is stopped", func(ctx SpecContext) {

@@ -382,8 +382,7 @@ func (r *LLMISVCReconciler) expectedDisaggregatedPrefillRole(ctx context.Context
 // as a LeaderWorkerSet has three replicas or fewer. So when maxSurge resolves to zero,
 // maxUnavailable is resolved once against the role's replicas, rounding down the way a
 // Deployment does, and written as a fixed number of at least one. An autoscaled role is
-// resolved against its minimum replicas, so that at its smallest it never has more
-// replicas unavailable than the user allowed.
+// resolved against its minimum replicas.
 func disaggregatedRollingUpdateConfig(workload *v1alpha2.WorkloadSpec) (*lwsapi.RollingUpdateConfiguration, error) {
 	var config *lwsapi.RollingUpdateConfiguration
 	if workload.Worker != nil {
@@ -432,10 +431,9 @@ func disaggregatedRollingUpdateConfig(workload *v1alpha2.WorkloadSpec) (*lwsapi.
 	return config, nil
 }
 
-// disaggregatedRoleSpec builds a role of the DisaggregatedSet. An autoscaled role takes
-// its replicas from the DisaggregatedSetRoleScaler the DisaggregatedSet creates for it,
-// whose scale subresource the autoscaler sets, so it leaves its own replicas unset: the
-// DisaggregatedSet ignores them and warns when they are more than one.
+// disaggregatedRoleSpec builds a role of the DisaggregatedSet. An autoscaled role is set
+// to External scaling, taking its replicas from the DisaggregatedSetRoleScaler the
+// DisaggregatedSet creates for it, and leaves its own replicas unset.
 func disaggregatedRoleSpec(name string, role *disaggregatedRoleTemplate, workload *v1alpha2.WorkloadSpec, rollingUpdate *lwsapi.RollingUpdateConfiguration) disaggregatedsetv1.DisaggregatedRoleSpec {
 	spec := disaggregatedsetv1.DisaggregatedRoleSpec{
 		Name: name,
@@ -489,16 +487,18 @@ func findDisaggregatedRole(ds *disaggregatedsetv1.DisaggregatedSet, role string)
 	return nil
 }
 
-// semanticDisaggregatedSetIsEqual compares the fields KServe manages. Pod specs are
-// compared exactly so that removed fields are detected; the rest is compared with
-// DeepDerivative so that values defaulted by the API server are ignored.
+// semanticDisaggregatedSetIsEqual compares the fields KServe manages. Pod specs and role
+// scaling are compared exactly so that removed fields are detected; the rest is compared
+// with DeepDerivative so that values defaulted by the API server are ignored.
 func semanticDisaggregatedSetIsEqual(expected *disaggregatedsetv1.DisaggregatedSet, curr *disaggregatedsetv1.DisaggregatedSet) bool {
 	if len(expected.Spec.Roles) != len(curr.Spec.Roles) {
 		return false
 	}
 	for i := range expected.Spec.Roles {
 		want, got := expected.Spec.Roles[i], curr.Spec.Roles[i]
-		if want.Name != got.Name || !podSpecsEqual(&want.Spec.LeaderWorkerTemplate, &got.Spec.LeaderWorkerTemplate) {
+		if want.Name != got.Name ||
+			!equality.Semantic.DeepEqual(want.Scaling, got.Scaling) ||
+			!podSpecsEqual(&want.Spec.LeaderWorkerTemplate, &got.Spec.LeaderWorkerTemplate) {
 			return false
 		}
 	}
@@ -520,8 +520,7 @@ func podSpecsEqual(expected, curr *lwsapi.LeaderWorkerTemplate) bool {
 // disaggregatedRoleTargets returns the replicas each role of a DisaggregatedSet should
 // run: the role's own replicas, or for a role an autoscaler scales, the replicas its
 // DisaggregatedSetRoleScaler asks for. A role whose scaler the DisaggregatedSet has not
-// created yet, or does not control, has no entry, as the DisaggregatedSet does not
-// follow it either.
+// created yet, or does not control, has no entry.
 func (r *LLMISVCReconciler) disaggregatedRoleTargets(ctx context.Context, ds *disaggregatedsetv1.DisaggregatedSet) (map[string]int32, error) {
 	if ds == nil {
 		return nil, nil

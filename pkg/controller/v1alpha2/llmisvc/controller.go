@@ -150,8 +150,7 @@ type LLMISVCReconciler struct {
 	DisaggregatedSetAvailable bool
 
 	// DisaggregatedSetRoleScalerAvailable reports whether the DisaggregatedSetRoleScaler
-	// CRD was present when SetupWithManager ran. LWS v0.9.0 ships the DisaggregatedSet
-	// CRD without it, so autoscaled roles need LWS v0.10.0 or later.
+	// CRD was present when SetupWithManager ran.
 	DisaggregatedSetRoleScalerAvailable bool
 }
 
@@ -728,9 +727,6 @@ func (r *LLMISVCReconciler) enqueueOnInferencePoolChange(logger logr.Logger) han
 
 // enqueueOnDisaggregatedSetRoleScalerChange triggers reconciliation of the
 // LLMInferenceService whose DisaggregatedSet owns a changed DisaggregatedSetRoleScaler.
-// The scaler holds the replicas an autoscaled role should run, which the readiness of
-// the role is checked against, and the DisaggregatedSet status does not report them.
-// Only spec changes matter, which is why the watch drops status-only updates.
 func (r *LLMISVCReconciler) enqueueOnDisaggregatedSetRoleScalerChange(logger logr.Logger) handler.MapFunc {
 	logger = logger.WithName("enqueueOnDisaggregatedSetRoleScalerChange")
 	return func(ctx context.Context, object client.Object) []reconcile.Request {
