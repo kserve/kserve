@@ -108,6 +108,11 @@ kubectl apply -f shared-pvc.yaml
   root-owned volume. Where namespace admission assigns the group (for example an
   OpenShift SCC that rejects a fixed value), remove the key (Helm:
   `--set kserve.localmodel.sharedPVCImportFSGroup=null`) and the Job requests none.
+- `inferenceservice-config` settings, including `sharedPVCImportFSGroup`, are read only
+  when the import Job is created; changing them does not replace an existing Job. To
+  apply a changed setting, delete a pending or failed import Job. A wrong `fsGroup` can
+  leave the Job pending (admission rejects its Pod) or failed (the import cannot write
+  the volume). A completed Job is kept, since its data is already on the claim.
 - A Job with the deterministic name that is not owned by the cache is never adopted
   or deleted; the cache reports `ImportJobConflict` until the collision is removed.
 
