@@ -3639,33 +3639,6 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
-  name: kserve-config-llm-omni-template
-  namespace: kserve
-spec:
-  template:
-    containers:
-    - image: docker.io/vllm/vllm-omni:v0.30.0
-      name: main
-      securityContext:
-        allowPrivilegeEscalation: false
-        capabilities:
-          drop:
-          - ALL
-        readOnlyRootFilesystem: true
-        runAsNonRoot: false
-        seccompProfile:
-          type: RuntimeDefault
-      startupProbe:
-        failureThreshold: 120
-        httpGet:
-          path: /health
-          port: 8000
-        periodSeconds: 30
-        timeoutSeconds: 10
----
-apiVersion: serving.kserve.io/v1alpha2
-kind: LLMInferenceServiceConfig
-metadata:
   annotations:
     internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
     serving.kserve.io/replaces-preset: config-llm-decode-worker-data-parallel
@@ -4569,6 +4542,33 @@ spec:
     - name: tls-certs
       secret:
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-omni-template
+  namespace: kserve
+spec:
+  template:
+    containers:
+    - image: docker.io/vllm/vllm-omni:v0.30.0
+      name: main
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: false
+        seccompProfile:
+          type: RuntimeDefault
+      startupProbe:
+        failureThreshold: 120
+        httpGet:
+          path: /health
+          port: 8000
+        periodSeconds: 30
+        timeoutSeconds: 10
 ---
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig

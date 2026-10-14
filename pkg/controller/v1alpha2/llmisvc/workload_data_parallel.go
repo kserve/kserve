@@ -108,6 +108,9 @@ func (s *dataParallelConfigSelection) configurePool(cfg *v1alpha2.LLMInferenceSe
 	if !slices.Equal(pool.Spec.TargetPorts, []igwapi.Port{{Number: 8000}}) {
 		return nil
 	}
+	// Prefill vLLM serves directly on 8000+rank. Decode's routing sidecar listens
+	// on 8000+rank and forwards to vLLM on 8200+rank, so the pool targets
+	// 8000+rank for both roles.
 	pool.Spec.TargetPorts = make([]igwapi.Port, maxRanks)
 	for rank := range maxRanks {
 		pool.Spec.TargetPorts[rank] = igwapi.Port{Number: igwapi.PortNumber(8000 + rank)}
