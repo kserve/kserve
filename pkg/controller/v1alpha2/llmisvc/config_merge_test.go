@@ -21,6 +21,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -3360,39 +3361,44 @@ spec:
 	}
 }
 
-func TestSelectSingleNodeTemplateName(t *testing.T) {
+func TestSelectSingleNodeTemplateNames(t *testing.T) {
 	tests := []struct {
 		name    string
 		runtime *string
-		want    string
+		want    []string
 	}{
 		{
 			name:    "nil runtime defaults to vllm template",
 			runtime: nil,
-			want:    "kserve-config-llm-template",
+			want:    []string{"kserve-config-llm-template"},
 		},
 		{
 			name:    "empty runtime defaults to vllm template",
 			runtime: ptr.To(""),
-			want:    "kserve-config-llm-template",
+			want:    []string{"kserve-config-llm-template"},
 		},
 		{
 			name:    "unknown runtime name defaults to vllm template",
 			runtime: ptr.To("some-other-runtime"),
-			want:    "kserve-config-llm-template",
+			want:    []string{"kserve-config-llm-template"},
 		},
 		{
 			name:    "kserve-llm-sglang runtime selects sglang template",
 			runtime: ptr.To(llmisvc.SGLangServingRuntimeName),
-			want:    "kserve-config-sglang-template",
+			want:    []string{"kserve-config-sglang-template"},
+		},
+		{
+			name:    "kserve-llm-omni runtime layers the omni overlay on the vllm template",
+			runtime: ptr.To(llmisvc.OmniServingRuntimeName),
+			want:    []string{"kserve-config-llm-template", "kserve-config-llm-omni-template"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := llmisvc.SelectSingleNodeTemplateName(tt.runtime)
-			if got != tt.want {
-				t.Errorf("SelectSingleNodeTemplateName(%v) = %q, want %q", tt.runtime, got, tt.want)
+			got := llmisvc.SelectSingleNodeTemplateNames(tt.runtime)
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("SelectSingleNodeTemplateNames(%v) = %v, want %v", tt.runtime, got, tt.want)
 			}
 		})
 	}
