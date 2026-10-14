@@ -153,7 +153,7 @@ kserve:
     scaleDownStabilizationWindowSeconds: '300'
   controller:
     deploymentMode: Knative
-    rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.18.0
+    rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.23.0
     rbacProxy:
       resources:
         limits:

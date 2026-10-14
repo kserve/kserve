@@ -65,7 +65,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.rbacProxy.securityContext.privileged | bool | `false` |  |
 | kserve.controller.rbacProxy.securityContext.readOnlyRootFilesystem | bool | `true` |  |
 | kserve.controller.rbacProxy.securityContext.runAsNonRoot | bool | `true` |  |
-| kserve.controller.rbacProxyImage | string | `"quay.io/brancz/kube-rbac-proxy:v0.18.0"` |  |
+| kserve.controller.rbacProxyImage | string | `"quay.io/brancz/kube-rbac-proxy:v0.23.0"` |  |
 | kserve.controller.resources.limits.cpu | string | `"100m"` |  |
 | kserve.controller.resources.limits.memory | string | `"300Mi"` |  |
 | kserve.controller.resources.requests.cpu | string | `"100m"` |  |
