@@ -2906,7 +2906,7 @@ spec:
       - --model-server-port=8200
       - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
-      - --pool-group=inference.networking.k8s.io
+      - --pool-group=inference.networking.x-k8s.io
       - --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }}
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
@@ -3289,7 +3289,7 @@ spec:
         1 }}
       - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
-      - --pool-group=inference.networking.k8s.io
+      - --pool-group=inference.networking.x-k8s.io
       - --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }}
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
