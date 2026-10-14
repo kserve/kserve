@@ -197,7 +197,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
-	if llmSvc.Spec.Template == nil || hasMultiPortDataParallel(llmSvc.Spec.Worker) {
+	if llmSvc.Spec.Template == nil || workerServesDataParallelRanks(&llmSvc.Spec.WorkloadSpec) {
 		// Workers with their own rank endpoints also belong to the InferencePool.
 		workerLabels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
 		workerLabels[constants.LLMDRoleLabelKey] = constants.LLMDRoleDecode
@@ -319,8 +319,8 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 		injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-decode", &group.WorkerTemplate.Spec)
 	}
 
-	applyDataParallelActivePorts(llmSvc, &llmSvc.Spec.WorkloadSpec, group.LeaderTemplate)
-	applyDataParallelActivePorts(llmSvc, &llmSvc.Spec.WorkloadSpec, &group.WorkerTemplate)
+	applyDataParallelActivePorts(llmSvc, group.LeaderTemplate)
+	applyDataParallelActivePorts(llmSvc, &group.WorkerTemplate)
 	applyLeaderWorkerSetWorkloadRevision(&group, config)
 
 	return &multiNodeTemplate{Template: group, ObjectLabels: workerLabels}, nil
@@ -383,7 +383,7 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
-	if llmSvc.Spec.Prefill != nil && (llmSvc.Spec.Prefill.Template == nil || hasMultiPortDataParallel(llmSvc.Spec.Prefill.Worker)) {
+	if llmSvc.Spec.Prefill != nil && (llmSvc.Spec.Prefill.Template == nil || workerServesDataParallelRanks(llmSvc.Spec.Prefill)) {
 		// Workers with their own rank endpoints also belong to the InferencePool.
 		workerLabels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
 		workerLabels[constants.LLMDRoleLabelKey] = constants.LLMDRolePrefill
@@ -479,8 +479,8 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &group.WorkerTemplate.Annotations, nonPropagatedSpecAnnotations...)
 	}
 
-	applyDataParallelActivePorts(llmSvc, llmSvc.Spec.Prefill, group.LeaderTemplate)
-	applyDataParallelActivePorts(llmSvc, llmSvc.Spec.Prefill, &group.WorkerTemplate)
+	applyDataParallelActivePorts(llmSvc, group.LeaderTemplate)
+	applyDataParallelActivePorts(llmSvc, &group.WorkerTemplate)
 	applyLeaderWorkerSetWorkloadRevision(&group, config)
 
 	return &multiNodeTemplate{Template: group, ObjectLabels: workerLabels}, nil

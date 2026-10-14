@@ -19,74 +19,79 @@ package llmisvc
 import (
 	"fmt"
 	"slices"
-	"strconv"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
-	"github.com/kserve/kserve/pkg/utils"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
-// New P/D presets opt into multi-port routing with this empty env slot and a
-// named modelserver port. Older pinned presets retain their headless topology.
-// Like the KV transfer slot, this is a versioned preset/controller contract:
-// changing the generated arguments or topology requires a new slot name.
-const dpRoutingArgsEnvVar = "KSERVE_DP_ROUTING_ARGS"
-
 const (
-	dpHealthPortName              = "modelserver"
-	dpActivePortsAnnotation       = "llm-d.ai/active-ports"
-	dpMultiPortFlag               = "--data-parallel-multi-port-external-lb"
-	dpMaxLocalRanks         int32 = 8 // InferencePool v1 permits at most eight targetPorts.
+	// A baseRef config replaces one automatic DP preset. The value is its stable
+	// suffix (without a release prefix), so renamed or versioned copies work too.
+	// This belongs on the config's metadata, not on the service or its pods.
+	configReplacesPresetAnnotation       = "serving.kserve.io/replaces-preset"
+	dpActivePortsAnnotation              = "llm-d.ai/active-ports"
+	dpMaxLocalRanks                int32 = 8 // InferencePool v1 permits at most eight targetPorts.
 )
 
 type dataParallelRoutingError struct{ error }
 
-func applyDataParallelRouting(cfg *v1alpha2.LLMInferenceServiceConfig, userSpec v1alpha2.LLMInferenceServiceSpec) error {
-	spec := &cfg.Spec
+type dataParallelConfigSelection struct {
+	decode  bool
+	prefill bool
+}
+
+func (s *dataParallelConfigSelection) add(cfg *v1alpha2.LLMInferenceServiceConfig) error {
+	var selected *bool
+	switch replacement := cfg.Annotations[configReplacesPresetAnnotation]; replacement {
+	case "":
+		return nil
+	case configDecodeWorkerDataParallelNameSuffix:
+		selected = &s.decode
+	case configPrefillWorkerDataParallelNameSuffix:
+		selected = &s.prefill
+	default:
+		return fmt.Errorf("config %q has unsupported %s value %q", cfg.Name, configReplacesPresetAnnotation, replacement)
+	}
+	if *selected {
+		return fmt.Errorf("multiple baseRefs replace the same data-parallel preset (config %q)", cfg.Name)
+	}
+	*selected = true
+	return nil
+}
+
+// Commands, probes, sidecars and advertised rank ports live in the standalone
+// configs. Only the pool-wide union needs computing from the final typed spec.
+// Explicit pool ports (including those from other baseRefs) remain authoritative.
+func (s *dataParallelConfigSelection) configurePool(cfg *v1alpha2.LLMInferenceServiceConfig, userSpec v1alpha2.LLMInferenceServiceSpec) error {
 	maxRanks := int32(1)
-	for _, workload := range []*v1alpha2.WorkloadSpec{&spec.WorkloadSpec, spec.Prefill} {
-		if workload == nil {
+	for _, role := range []struct {
+		selected bool
+		name     string
+		workload *v1alpha2.WorkloadSpec
+	}{
+		{s.decode, "decode", &cfg.Spec.WorkloadSpec},
+		{s.prefill, "prefill", cfg.Spec.Prefill},
+	} {
+		if !role.selected {
 			continue
 		}
-		localRanks := int32(1)
-		if workload.Parallelism != nil {
-			localRanks = max(ptr.Deref(workload.Parallelism.DataLocal, 1), 1)
+		if role.workload == nil || role.workload.Worker == nil || !role.workload.Parallelism.IsDataParallel() {
+			return fmt.Errorf("the %s per-rank config requires a data-parallel worker workload", role.name)
 		}
-		for _, pod := range []*corev1.PodSpec{workload.Template, workload.Worker} {
-			if err := configureDataParallelPod(pod, localRanks); err != nil {
-				return err
-			}
-			if hasMultiPortDataParallel(pod) {
-				maxRanks = max(maxRanks, localRanks)
-			}
+		local := ptr.Deref(role.workload.Parallelism.DataLocal, 1)
+		if local < 1 {
+			return fmt.Errorf("per-rank routing requires at least one local data-parallel rank for %s", role.name)
 		}
-		if hasMultiPortDataParallel(workload.Worker) && workload.Template != nil {
-			leader := utils.GetContainerWithName(workload.Template, mainContainerName)
-			worker := utils.GetContainerWithName(workload.Worker, mainContainerName)
-			// Headless workers had no HTTP probes. Every serving worker now needs
-			// the same supervisor checks, including the configured TLS scheme.
-			if leader != nil {
-				if worker.StartupProbe == nil {
-					worker.StartupProbe = leader.StartupProbe.DeepCopy()
-				}
-				if worker.ReadinessProbe == nil {
-					worker.ReadinessProbe = leader.ReadinessProbe.DeepCopy()
-				}
-				if worker.LivenessProbe == nil {
-					worker.LivenessProbe = leader.LivenessProbe.DeepCopy()
-				}
-			}
-			// Decode workers need their own proxy for their local ranks. Keep a
-			// worker-specific sidecar if the user supplied one.
-			if sidecar := routingSidecar(workload.Template); sidecar != nil && routingSidecar(workload.Worker) == nil {
-				workload.Worker.InitContainers = append(workload.Worker.InitContainers, *sidecar.DeepCopy())
-			}
+		if local > dpMaxLocalRanks {
+			return fmt.Errorf("per-rank routing supports at most 8 local data-parallel ranks, got %d for %s", local, role.name)
 		}
+		maxRanks = max(maxRanks, local)
 	}
+	spec := &cfg.Spec
 	if maxRanks == 1 || spec.Router == nil || spec.Router.Scheduler == nil {
 		return nil
 	}
@@ -94,10 +99,9 @@ func applyDataParallelRouting(cfg *v1alpha2.LLMInferenceServiceConfig, userSpec 
 	if pool == nil || pool.HasRef() || pool.Spec == nil {
 		return nil
 	}
-	// User/baseRef ports and customized scheduler presets take precedence.
 	if userSpec.Router != nil && userSpec.Router.Scheduler != nil {
-		userPool := userSpec.Router.Scheduler.Pool
-		if userPool != nil && userPool.Spec != nil && len(userPool.Spec.TargetPorts) > 0 {
+		declared := userSpec.Router.Scheduler.Pool
+		if declared != nil && declared.Spec != nil && len(declared.Spec.TargetPorts) > 0 {
 			return nil
 		}
 	}
@@ -111,94 +115,31 @@ func applyDataParallelRouting(cfg *v1alpha2.LLMInferenceServiceConfig, userSpec 
 	return nil
 }
 
-func configureDataParallelPod(pod *corev1.PodSpec, localRanks int32) error {
-	if pod == nil {
-		return nil
-	}
-	main := utils.GetContainerWithName(pod, mainContainerName)
-	if main == nil {
-		return nil
-	}
-	slot := slices.IndexFunc(main.Env, func(env corev1.EnvVar) bool { return env.Name == dpRoutingArgsEnvVar })
-	if slot < 0 {
-		return nil
-	}
-	if main.Env[slot].ValueFrom != nil || main.Env[slot].Value != "" {
-		return fmt.Errorf("%s must be empty; the controller derives it from parallelism.dataLocal", dpRoutingArgsEnvVar)
-	}
-	if localRanks <= 1 {
-		return nil // vLLM's multi-port supervisor requires at least two local ranks.
-	}
-	if localRanks > dpMaxLocalRanks {
-		return fmt.Errorf("multi-port routing supports at most 8 local data-parallel ranks, got %d", localRanks)
-	}
-	health := slices.IndexFunc(main.Ports, func(port corev1.ContainerPort) bool { return port.Name == dpHealthPortName })
-	if health < 0 {
-		return fmt.Errorf("%s requires a named %s container port", dpRoutingArgsEnvVar, dpHealthPortName)
-	}
-	basePort := main.Ports[health].ContainerPort
-	main.Ports[health].ContainerPort = basePort + dpMaxLocalRanks
-	main.Env[slot].Value = fmt.Sprintf("%s --data-parallel-supervisor-port=%d", dpMultiPortFlag, basePort+dpMaxLocalRanks)
-	appendDataParallelPorts(main, basePort, localRanks, "dp-rank")
-	if main.ReadinessProbe != nil && main.ReadinessProbe.HTTPGet != nil && main.ReadinessProbe.HTTPGet.Port.StrVal == dpHealthPortName {
-		main.ReadinessProbe.HTTPGet.Path = "/readyz"
-	}
-	if sidecar := routingSidecar(pod); sidecar != nil {
-		appendDataParallelPorts(sidecar, 8000, localRanks, "dp-proxy")
-	}
-	return nil
+// The new configs explicitly label serving workers. This also allows an external
+// pool's selector to be propagated without inferring topology from launch flags.
+func workerServesDataParallelRanks(workload *v1alpha2.WorkloadSpec) bool {
+	return workload != nil && workload.Labels[constants.KServeComponentLabelKey] == constants.KServeComponentWorkload
 }
 
-func appendDataParallelPorts(container *corev1.Container, base, count int32, prefix string) {
-	for rank := range count {
-		port := base + rank
-		if !slices.ContainsFunc(container.Ports, func(p corev1.ContainerPort) bool { return p.ContainerPort == port }) {
-			container.Ports = append(container.Ports, corev1.ContainerPort{
-				Name: fmt.Sprintf("%s-%d", prefix, rank), ContainerPort: port, Protocol: corev1.ProtocolTCP,
-			})
-		}
-	}
-}
-
-func hasMultiPortDataParallel(pod *corev1.PodSpec) bool {
-	if pod == nil {
-		return false
-	}
-	main := utils.GetContainerWithName(pod, mainContainerName)
-	if main == nil {
-		return false
-	}
-	return slices.ContainsFunc(main.Env, func(env corev1.EnvVar) bool {
-		return env.Name == dpRoutingArgsEnvVar && slices.Contains(strings.Fields(env.Value), dpMultiPortFlag)
-	})
-}
-
-// The pool contains the union of prefill/decode rank ports. Tell EPP which ports
-// each pod actually serves, including the one-port half of an asymmetric P/D
-// deployment. An explicit per-workload annotation remains authoritative.
-func applyDataParallelActivePorts(svc *v1alpha2.LLMInferenceService, workload *v1alpha2.WorkloadSpec, template *corev1.PodTemplateSpec) {
+// Rank configs declare active-ports themselves. For an asymmetric deployment,
+// constrain an unchanged single-endpoint role to 8000. Preserve explicit values.
+func applyDataParallelActivePorts(svc *v1alpha2.LLMInferenceService, template *corev1.PodTemplateSpec) {
 	if template == nil {
 		return
 	}
-	enabled := hasMultiPortDataParallel(svc.Spec.Template) || hasMultiPortDataParallel(svc.Spec.Worker)
-	if prefill := svc.Spec.Prefill; prefill != nil {
-		enabled = enabled || hasMultiPortDataParallel(prefill.Template) || hasMultiPortDataParallel(prefill.Worker)
+	_, decodeDeclared := svc.Spec.Annotations[dpActivePortsAnnotation]
+	prefillDeclared := false
+	if svc.Spec.Prefill != nil {
+		_, prefillDeclared = svc.Spec.Prefill.Annotations[dpActivePortsAnnotation]
 	}
-	if !enabled {
+	if !decodeDeclared && !prefillDeclared && !inferencePoolRequiresV1(&svc.Spec) {
 		return
 	}
 	if _, explicit := template.Annotations[dpActivePortsAnnotation]; explicit {
 		return
 	}
-	ports := []string{"8000"}
-	if hasMultiPortDataParallel(&template.Spec) && workload != nil && workload.Parallelism != nil {
-		ports = nil
-		for rank := range ptr.Deref(workload.Parallelism.DataLocal, 1) {
-			ports = append(ports, strconv.Itoa(8000+int(rank)))
-		}
-	}
 	if template.Annotations == nil {
 		template.Annotations = make(map[string]string)
 	}
-	template.Annotations[dpActivePortsAnnotation] = strings.Join(ports, ",")
+	template.Annotations[dpActivePortsAnnotation] = "8000"
 }

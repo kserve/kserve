@@ -646,7 +646,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                         },
                     },
                     "livenessProbe": {
-                        "httpGet": {"path": "/health", "port": 8200, "scheme": "HTTPS"},
+                        "httpGet": {"path": "/health", "port": 8001, "scheme": "HTTPS"},
                         "initialDelaySeconds": 400,
                         "periodSeconds": 10,
                         "timeoutSeconds": 10,
@@ -1456,7 +1456,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                     "command": ["/app/llm-d-inference-sim"],
                     "args": [
                         "--port",
-                        "8200",
+                        "8001",
                         "--model",
                         "{{ .Spec.Model.Name }}",
                         "--mode",
@@ -1525,13 +1525,13 @@ LLMINFERENCESERVICE_CONFIGS = {
         },
     },
     # Like "prometheus-scrape" but for the P/D simulator, which listens on
-    # different ports per role: main/decode on 8200, prefill on 8000. The
+    # different ports per role: main/decode on 8001, prefill on 8000. The
     # prefill pod template is a separate WorkloadSpec, so it needs its own
     # "annotations" under the "prefill" key.
     "prometheus-scrape-pd": {
         "annotations": {
             "prometheus.io/scrape": "true",
-            "prometheus.io/port": "8200",
+            "prometheus.io/port": "8001",
             "prometheus.io/path": "/metrics",
         },
         "prefill": {

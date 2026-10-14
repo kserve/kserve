@@ -24,9 +24,8 @@ spec:
         imagePullPolicy: IfNotPresent
         name: main
         ports:
-          - containerPort: 8200
+          - containerPort: 8001
             protocol: TCP
-            name: modelserver
         command:
           - "/bin/bash"
           - "-c"
@@ -197,7 +196,7 @@ spec:
 
             eval "exec vllm serve /mnt/models \
               --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
-              --port 8200 \
+              --port 8001 \
               --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
               ${ACCESS_LOG_ARGS} \
               ${SHUTDOWN_TIMEOUT_ARGS} \
@@ -246,7 +245,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /health
-            port: modelserver
+            port: 8001
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 10
           timeoutSeconds: 1
@@ -254,7 +253,7 @@ spec:
         readinessProbe:
           httpGet:
             path: /health
-            port: modelserver
+            port: 8001
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           periodSeconds: 1
           timeoutSeconds: 1
@@ -262,7 +261,7 @@ spec:
         startupProbe:
           httpGet:
             path: /health
-            port: modelserver
+            port: 8001
             scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
           failureThreshold: 60
           periodSeconds: 10
@@ -318,11 +317,10 @@ spec:
         command:
           - "/app/pd-sidecar"
           - "--port=8000"
-          - "--model-server-port=8200"
+          - "--model-server-port=8001"
           - "--kv-connector=nixlv2"
           - "--enable-ssrf-protection=true"
-          # The controller selects v1 for multi-port pools and explicit pool refs.
-          - "--pool-group=inference.networking.x-k8s.io"
+          - "--pool-group=inference.networking.k8s.io"
           - "--inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }}"
           - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{- end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'

@@ -106,11 +106,10 @@ func TestPresetFiles(t *testing.T) {
 									Command: []string{
 										"/app/pd-sidecar",
 										"--port=8000",
-										"--model-server-port=8200",
-										"--data-parallel-size=2",
+										"--model-server-port=8001",
 										"--kv-connector=nixlv2",
 										"--enable-ssrf-protection=true",
-										"--pool-group=inference.networking.x-k8s.io",
+										"--pool-group=inference.networking.k8s.io",
 										"--inference-pool=test-llm-preset-test/test-llm-preset-inference-pool",
 										"--secure-proxy=false",
 										"",
@@ -126,7 +125,6 @@ func TestPresetFiles(t *testing.T) {
 												},
 											},
 										},
-										{Name: "POD_IP", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}}},
 										{
 											Name:  "SSL_CERT_DIR",
 											Value: "/var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs",
@@ -194,13 +192,11 @@ func TestPresetFiles(t *testing.T) {
 									Image: "ghcr.io/llm-d/llm-d-cuda:v0.9.0",
 									Ports: []corev1.ContainerPort{
 										{
-											ContainerPort: 8200,
-											Name:          "modelserver",
+											ContainerPort: 8001,
 											Protocol:      corev1.ProtocolTCP,
 										},
 									},
 									Env: []corev1.EnvVar{
-										{Name: "KSERVE_DP_ROUTING_ARGS"},
 										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{
 											Name:  "HOME",
@@ -242,7 +238,7 @@ func TestPresetFiles(t *testing.T) {
 										ProbeHandler: corev1.ProbeHandler{
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
-												Port:   intstr.FromString("modelserver"),
+												Port:   intstr.FromInt(8001),
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
@@ -255,7 +251,7 @@ func TestPresetFiles(t *testing.T) {
 										ProbeHandler: corev1.ProbeHandler{
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
-												Port:   intstr.FromString("modelserver"),
+												Port:   intstr.FromInt(8001),
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
@@ -268,7 +264,7 @@ func TestPresetFiles(t *testing.T) {
 										ProbeHandler: corev1.ProbeHandler{
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
-												Port:   intstr.FromString("modelserver"),
+												Port:   intstr.FromInt(8001),
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
@@ -346,8 +342,7 @@ func TestPresetFiles(t *testing.T) {
 									Image: "ghcr.io/llm-d/llm-d-cuda:v0.9.0",
 									Ports: []corev1.ContainerPort{
 										{
-											ContainerPort: 8200,
-											Name:          "modelserver",
+											ContainerPort: 8001,
 											Protocol:      corev1.ProtocolTCP,
 										},
 									},
@@ -391,7 +386,6 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
-										{Name: "KSERVE_DP_ROUTING_ARGS"},
 										{Name: "KSERVE_KV_TRANSFER_ARGS"},
 										{
 											Name:  "HOME",
@@ -746,7 +740,7 @@ func TestPresetFiles(t *testing.T) {
 		},
 	}
 
-	remaining := llmisvc.WellKnownDefaultConfigs.Clone()
+	remaining := llmisvc.WellKnownDefaultConfigs.Union(llmisvc.WellKnownBaseRefConfigs)
 
 	_ = filepath.Walk(presetsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -770,7 +764,7 @@ func TestPresetFiles(t *testing.T) {
 			config := loadConfig(t, data, filePath)
 
 			name := config.Name
-			if !llmisvc.WellKnownDefaultConfigs.Has(name) {
+			if !llmisvc.WellKnownDefaultConfigs.Has(name) && !llmisvc.WellKnownBaseRefConfigs.Has(name) {
 				t.Fatalf("Expected %s to exist in WellKnownDefaultConfigs %#v", name, llmisvc.WellKnownDefaultConfigs)
 			}
 			// Remove from the tracked set
@@ -1290,8 +1284,9 @@ func TestSGLangTemplateForwardsContainerArgs(t *testing.T) {
 func TestDisaggregatedSetPresetDefault(t *testing.T) {
 	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
 	turnedOn := map[string]bool{
-		"config-llm-decode-template.yaml":             true,
-		"config-llm-decode-worker-data-parallel.yaml": true,
+		"config-llm-decode-template.yaml":                        true,
+		"config-llm-decode-worker-data-parallel.yaml":            true,
+		"config-llm-decode-worker-data-parallel-multi-port.yaml": true,
 	}
 
 	entries, err := os.ReadDir(presetsDir)
