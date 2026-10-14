@@ -4044,7 +4044,7 @@ spec:
             fieldPath: status.podIP
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.10.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3

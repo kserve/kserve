@@ -244,10 +244,10 @@ func (r *LLMISVCReconciler) reconcileV1InferencePool(ctx context.Context, llmSvc
 // reconcileV1Alpha2InferencePool reconciles the v1alpha2 InferencePool.
 // It is a no-op when the v1alpha2 InferencePool CRD is not installed on the cluster.
 func (r *LLMISVCReconciler) reconcileV1Alpha2InferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shouldDelete bool) error {
-	if inferencePoolRequiresV1(&llmSvc.Spec) {
+	if !shouldDelete && inferencePoolRequiresV1(&llmSvc.Spec) {
 		// Do not publish a truncated, single-port copy of a multi-port pool.
-		// Leave any existing legacy pool untouched during migration; multi-port
-		// routes and readiness exclusively use the v1 pool.
+		// Preserve existing legacy pools during migration, but allow explicit
+		// cleanup to reach the delete path below.
 		return nil
 	}
 	ok, err := utils.IsCrdAvailable(r.Config, igwapiv1alpha2.GroupVersion.String(), "InferencePool")

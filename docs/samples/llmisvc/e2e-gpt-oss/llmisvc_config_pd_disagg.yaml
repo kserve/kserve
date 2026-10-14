@@ -45,7 +45,7 @@ spec:
         livenessProbe:
           httpGet:
             path: /health
-            port: 8200
+            port: 8001
             scheme: HTTP
           initialDelaySeconds: 120
           periodSeconds: 30
