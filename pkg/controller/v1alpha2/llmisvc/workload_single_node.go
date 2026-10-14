@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"maps"
-	"slices"
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
@@ -225,12 +224,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 
 	// Inject tracing instrumentation when spec.tracing is set
 	if llmSvc.Spec.Tracing != nil {
-		mainIdx := slices.IndexFunc(template.Spec.Containers, func(c corev1.Container) bool {
-			return c.Name == "main"
-		})
-		if mainIdx >= 0 {
-			injectServerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-decode", &template.Spec.Containers[mainIdx])
-		}
+		injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-decode", &template.Spec)
 	}
 
 	applyWorkloadRevision(&template, config)
@@ -359,12 +353,7 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 
 	// Inject tracing instrumentation when spec.tracing is set
 	if llmSvc.Spec.Tracing != nil {
-		mainIdx := slices.IndexFunc(template.Spec.Containers, func(c corev1.Container) bool {
-			return c.Name == "main"
-		})
-		if mainIdx >= 0 {
-			injectServerTracing(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-prefill", &template.Spec.Containers[mainIdx])
-		}
+		injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-prefill", &template.Spec)
 	}
 
 	applyWorkloadRevision(&template, config)

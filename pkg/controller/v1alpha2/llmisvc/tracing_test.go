@@ -24,6 +24,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestInjectSchedulerTracing_NilSpec(t *testing.T) {
@@ -237,6 +238,60 @@ func TestInjectServerTracingIntoPodSpec_NoMainContainer(t *testing.T) {
 	mutated := injectServerTracingIntoPodSpec(&v1alpha2.TracingSpec{}, "ns", "svc", "-decode", podSpec)
 	g.Expect(mutated).To(BeFalse())
 	g.Expect(podSpec.Containers[0].Env).To(BeEmpty())
+}
+
+func TestInjectServerTracingIntoPodSpec_RoutingSidecar(t *testing.T) {
+	for _, tt := range []struct {
+		name         string
+		command      []string
+		args         []string
+		expectedArgs []string
+	}{
+		{name: "enabled", command: []string{"/app/pd-sidecar", "--port=8000"}, expectedArgs: []string{"--tracing=true"}},
+		{name: "command override", command: []string{"/app/pd-sidecar", "--tracing=false"}},
+		{name: "args override", args: []string{"--tracing=false"}, expectedArgs: []string{"--tracing=false"}},
+		{name: "split args override", args: []string{"--tracing", "false"}, expectedArgs: []string{"--tracing", "false"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			sampler := corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER", ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "tracing"}, Key: "sampler"},
+			}}
+			pod := &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: "main"}, {Name: "unrelated"}},
+				InitContainers: []corev1.Container{{Name: "storage-initializer"}, {
+					Name: constants.LLMISVCRoutingSidecarContainerName, Command: tt.command, Args: tt.args,
+					Env: []corev1.EnvVar{sampler},
+				}},
+			}
+			spec := &v1alpha2.TracingSpec{
+				ExporterEndpoint: ptr.To("http://collector:4317"), Sampler: ptr.To("always_on"),
+			}
+			g.Expect(injectServerTracingIntoPodSpec(spec, "ns", "svc", "-decode", pod)).To(BeTrue())
+			sidecar := &pod.InitContainers[1]
+			g.Expect(sidecar.Command).To(Equal(tt.command))
+			g.Expect(sidecar.Args).To(Equal(tt.expectedArgs))
+			g.Expect(sidecar.Env).To(ContainElement(sampler))
+			g.Expect(envToMap(sidecar.Env)).To(HaveKeyWithValue("OTEL_SERVICE_NAME", "routing-sidecar"))
+			g.Expect(envToMap(sidecar.Env)).To(HaveKeyWithValue("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4317"))
+			g.Expect(pod.InitContainers[0].Env).To(BeEmpty())
+			g.Expect(pod.Containers[1].Env).To(BeEmpty())
+			before := pod.DeepCopy()
+			injectServerTracingIntoPodSpec(spec, "ns", "svc", "-decode", pod)
+			g.Expect(pod).To(Equal(before))
+		})
+	}
+}
+
+func TestInjectServerTracingIntoPodSpec_RoutingSidecarDisabled(t *testing.T) {
+	g := NewGomegaWithT(t)
+	pod := &corev1.PodSpec{
+		Containers:     []corev1.Container{{Name: "main"}},
+		InitContainers: []corev1.Container{{Name: constants.LLMISVCRoutingSidecarContainerName}},
+	}
+	before := pod.DeepCopy()
+	g.Expect(injectServerTracingIntoPodSpec(nil, "ns", "svc", "-decode", pod)).To(BeFalse())
+	g.Expect(pod).To(Equal(before))
 }
 
 func TestOtelResourceAttributeEnvVars(t *testing.T) {

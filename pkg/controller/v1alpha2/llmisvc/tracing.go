@@ -26,8 +26,9 @@ import (
 )
 
 const (
-	defaultSchedulerServiceName = "inference-scheduler"
-	defaultServerServiceName    = "inference-server"
+	defaultSchedulerServiceName      = "inference-scheduler"
+	defaultServerServiceName         = "inference-server"
+	defaultRoutingSidecarServiceName = "routing-sidecar"
 )
 
 // otelResourceAttributeEnvVars returns the standard k8s resource attribute env
@@ -70,19 +71,25 @@ func otelResourceAttributeEnvVars(namespace, llmisvcName string) []corev1.EnvVar
 // TracingSpec field values are expected to be populated by the well-known config
 // merge (kserve-config-llm-tracing) before this function is called.
 func injectSchedulerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName string, container *corev1.Container) bool {
+	return injectGoTracing(t, namespace, llmisvcName, defaultSchedulerServiceName, container)
+}
+
+func injectGoTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, serviceName string, container *corev1.Container) bool {
 	if t == nil {
 		return false
 	}
 
 	if !tracing.HasArg(container.Args, "--tracing") &&
-		!tracing.HasArg(container.Args, "-tracing") {
+		!tracing.HasArg(container.Args, "-tracing") &&
+		!tracing.HasArg(container.Command, "--tracing") &&
+		!tracing.HasArg(container.Command, "-tracing") {
 		container.Args = append(container.Args, "--tracing=true")
 	}
 
 	resourceAttrs := otelResourceAttributeEnvVars(namespace, llmisvcName)
 	tracingEnvVars := make([]corev1.EnvVar, 0, 5+len(resourceAttrs))
 	tracingEnvVars = append(tracingEnvVars,
-		corev1.EnvVar{Name: tracing.EnvOtelServiceName, Value: defaultSchedulerServiceName},
+		corev1.EnvVar{Name: tracing.EnvOtelServiceName, Value: serviceName},
 		corev1.EnvVar{Name: tracing.EnvOtelExporterEndpoint, Value: ptr.Deref(t.ExporterEndpoint, "")},
 		corev1.EnvVar{Name: tracing.EnvOtelTracesExporter, Value: ptr.Deref(t.Exporter, "")},
 		corev1.EnvVar{Name: tracing.EnvOtelTracesSampler, Value: ptr.Deref(t.Sampler, "")},
@@ -136,13 +143,16 @@ func injectServerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSu
 	return true
 }
 
-// injectServerTracingIntoPodSpec finds the "main" container in a PodSpec and
-// injects server tracing into it. Returns true if the container was mutated.
+// injectServerTracingIntoPodSpec configures the inference server and routing sidecar.
 func injectServerTracingIntoPodSpec(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, podSpec *corev1.PodSpec) bool {
+	mutated := false
+	if sidecar := routingSidecar(podSpec); sidecar != nil {
+		mutated = injectGoTracing(t, namespace, llmisvcName, defaultRoutingSidecarServiceName, sidecar)
+	}
 	for i := range podSpec.Containers {
 		if podSpec.Containers[i].Name == "main" {
-			return injectServerTracing(t, namespace, llmisvcName, roleSuffix, &podSpec.Containers[i])
+			return injectServerTracing(t, namespace, llmisvcName, roleSuffix, &podSpec.Containers[i]) || mutated
 		}
 	}
-	return false
+	return mutated
 }

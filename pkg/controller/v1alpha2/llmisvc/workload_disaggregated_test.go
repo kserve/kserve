@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -673,6 +674,17 @@ func TestDisaggregatedRolesMatchWorkloadBuilders(t *testing.T) {
 			decode, prefill := ds.Spec.Roles[0], ds.Spec.Roles[1]
 			require.Equal(t, constants.LLMDRoleDecode, decode.Name)
 			require.Equal(t, constants.LLMDRolePrefill, prefill.Name)
+			for _, role := range ds.Spec.Roles {
+				pods := []*corev1.PodSpec{&role.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec}
+				if role.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+					pods = append(pods, &role.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec)
+				}
+				for _, pod := range pods {
+					if sidecar := routingSidecar(pod); sidecar != nil {
+						assert.Equal(t, svc.Spec.Tracing != nil, slices.Contains(sidecar.Args, "--tracing=true"))
+					}
+				}
+			}
 
 			if svc.Spec.Worker != nil {
 				lws, err := r.expectedMainMultiNodeLWS(ctx, svc.DeepCopy(), disaggTestConfig())
