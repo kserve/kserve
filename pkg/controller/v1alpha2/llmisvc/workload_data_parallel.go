@@ -125,7 +125,8 @@ func workerServesDataParallelRanks(workload *v1alpha2.WorkloadSpec) bool {
 }
 
 // Rank configs declare active-ports themselves. For an asymmetric deployment,
-// constrain an unchanged single-endpoint role to 8000. Preserve explicit values.
+// constrain a default single-endpoint role to 8000. Custom traffic ports must be
+// supplied through an explicit active-ports annotation, which is preserved.
 func applyDataParallelActivePorts(svc *v1alpha2.LLMInferenceService, template *corev1.PodTemplateSpec) {
 	if template == nil {
 		return

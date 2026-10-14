@@ -1176,7 +1176,9 @@ var templateFuncs = map[string]any{
 		}
 		return *parallelism.DataLocal
 	},
-	// Frozen v1 contract: rank ports are consecutive, beginning at 8000.
+	// Frozen v1 contract for the bundled presets: rank ports are consecutive,
+	// beginning at 8000. Custom traffic ports require an explicit active-ports
+	// annotation and matching InferencePool targetPorts in the service or baseRef.
 	"activeDataParallelPortsV1": func(value any) string {
 		local := int32(1)
 		if parallelism, ok := value.(*v1alpha2.ParallelismSpec); ok && parallelism != nil && parallelism.DataLocal != nil {
