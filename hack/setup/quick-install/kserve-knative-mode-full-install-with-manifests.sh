@@ -2114,7 +2114,7 @@ metadata:
   name: kserve-llm-omni
 spec:
   containers:
-  - image: docker.io/vllm/vllm-omni:v0.26.0
+  - image: docker.io/vllm/vllm-omni:v0.30.0
     name: main
   supportedModelFormats:
   - autoSelect: false
@@ -3670,7 +3670,7 @@ metadata:
 spec:
   template:
     containers:
-    - image: docker.io/vllm/vllm-omni:v0.26.0
+    - image: docker.io/vllm/vllm-omni:v0.30.0
       name: main
       securityContext:
         allowPrivilegeEscalation: false

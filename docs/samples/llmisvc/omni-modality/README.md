@@ -13,6 +13,14 @@ base vLLM workload template (swapping in the vLLM-Omni image and appending
 synthesis expose no prefix-cache signal, so the text prefix-cache chain does
 not apply; the router prefers the least-busy endpoint instead.
 
+## Limitations
+
+- Single-node deployments only: disaggregated prefill/decode is not supported
+  for omni-modality models.
+- Base models only: LoRA adapters are not supported (the load-only EPP profile
+  carries no adapter affinity, and vLLM-Omni LoRA support is still maturing).
+- NVIDIA GPUs are required; the vLLM-Omni image is CUDA-based.
+
 ## Prerequisites
 
 - Kubernetes cluster with NVIDIA GPU nodes
@@ -33,8 +41,15 @@ kubectl apply -f llm-inference-service-omni-tts-gpu.yaml
 
 **Verification:**
 
+The controller publishes the service's path-based URL in `status.url`; no
+gateway IP or port-forward is needed.
+
 ```bash
-curl -s -X POST http://$GATEWAY_IP/v1/audio/speech \
+BASE_URL=$(kubectl get llminferenceservice omni-tts-single \
+  -o jsonpath='{.status.url}')
+
+# Text-to-speech
+curl -s -X POST "${BASE_URL}/v1/audio/speech" \
     -H 'Content-Type: application/json' \
     -o speech.wav \
     -d '{
@@ -44,4 +59,22 @@ curl -s -X POST http://$GATEWAY_IP/v1/audio/speech \
         "response_format": "wav"
     }'
 head -c 4 speech.wav # expect: RIFF
+```
+
+The same service exposes the sibling modality endpoints:
+
+```bash
+# Speech-to-text (swap in a transcription-capable model when deploying)
+curl -s -X POST "${BASE_URL}/v1/audio/transcriptions" \
+    -F model=Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice \
+    -F file=@speech.wav
+
+# Text-to-image (the response carries base64-encoded PNG data)
+curl -s -X POST "${BASE_URL}/v1/images/generations" \
+    -H 'Content-Type: application/json' \
+    -d '{
+        "model": "Qwen/Qwen-Image",
+        "prompt": "A watercolor painting of the Golden Gate Bridge",
+        "size": "1024x1024"
+    }' | jq -r '.data[0].b64_json' | base64 -d > image.png
 ```

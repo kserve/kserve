@@ -41,7 +41,7 @@ func TestOmniPresetsExist(t *testing.T) {
 	}{
 		{
 			file: "config-llm-omni-template.yaml",
-			want: []string{"docker.io/vllm/vllm-omni:v0.26.0", "kserve-config-llm-omni-template"},
+			want: []string{"docker.io/vllm/vllm-omni:v0.30.0", "kserve-config-llm-omni-template"},
 		},
 		{
 			file: "config-llm-scheduler-eppconfig-modality.yaml",

@@ -187,7 +187,7 @@ var _ = Describe("Omni Modality (TTS/TTI)", func() {
 					"--omni is passed as a container arg, not a command fork")
 
 				g.Expect(main.Args).To(ContainElement("--omni"))
-				g.Expect(main.Image).To(Equal("docker.io/vllm/vllm-omni:v0.26.0"),
+				g.Expect(main.Image).To(Equal("docker.io/vllm/vllm-omni:v0.30.0"),
 					"engine image must come from the omni overlay, above the runtime and base template layers")
 				g.Expect(main.StartupProbe).NotTo(BeNil())
 				g.Expect(main.StartupProbe.FailureThreshold).To(Equal(int32(120)),

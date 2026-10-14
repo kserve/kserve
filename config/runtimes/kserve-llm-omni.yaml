@@ -9,4 +9,4 @@ spec:
       autoSelect: false
   containers:
     - name: main
-      image: docker.io/vllm/vllm-omni:v0.26.0
+      image: docker.io/vllm/vllm-omni:v0.30.0
