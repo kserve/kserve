@@ -5031,6 +5031,11 @@
         "reconcilationFrequencyInSecs": {
           "type": "integer",
           "format": "int64"
+        },
+        "sharedPVCImportFSGroup": {
+          "description": "SharedPVCImportFSGroup is applied to shared-PVC import Jobs, which run in the cache's own namespace. It is independent of FSGroup, which applies only to per-node download Jobs in JobNamespace. Leave it unset to let namespace admission assign the group.",
+          "type": "integer",
+          "format": "int64"
         }
       }
     },

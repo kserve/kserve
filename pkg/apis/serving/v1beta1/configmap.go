@@ -170,10 +170,14 @@ type RolloutSpec struct {
 
 // +kubebuilder:object:generate=false
 type LocalModelConfig struct {
-	Enabled                      bool   `json:"enabled"`
-	JobNamespace                 string `json:"jobNamespace"`
-	DefaultJobImage              string `json:"defaultJobImage,omitempty"`
-	FSGroup                      *int64 `json:"fsGroup,omitempty"`
+	Enabled         bool   `json:"enabled"`
+	JobNamespace    string `json:"jobNamespace"`
+	DefaultJobImage string `json:"defaultJobImage,omitempty"`
+	FSGroup         *int64 `json:"fsGroup,omitempty"`
+	// SharedPVCImportFSGroup is applied to shared-PVC import Jobs, which run in the cache's
+	// own namespace. It is independent of FSGroup, which applies only to per-node download
+	// Jobs in JobNamespace. Leave it unset to let namespace admission assign the group.
+	SharedPVCImportFSGroup       *int64 `json:"sharedPVCImportFSGroup,omitempty"`
 	JobTTLSecondsAfterFinished   *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
 	ReconcilationFrequencyInSecs *int64 `json:"reconcilationFrequencyInSecs,omitempty"`
 	DisableVolumeManagement      bool   `json:"disableVolumeManagement,omitempty"`

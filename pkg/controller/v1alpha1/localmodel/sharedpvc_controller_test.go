@@ -122,6 +122,13 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			Expect(*job.Spec.BackoffLimit).To(Equal(int32(2)))
 			Expect(job.Spec.TTLSecondsAfterFinished).To(BeNil())
 			Expect(job.Spec.Template.Spec.NodeSelector).To(BeEmpty())
+			// localModel.fsGroup is set to 1000 in the suite ConfigMap; it must not leak into the
+			// import Job. The API server defaults an empty PodSecurityContext, so check the field.
+			var fsGroup *int64
+			if securityContext := job.Spec.Template.Spec.SecurityContext; securityContext != nil {
+				fsGroup = securityContext.FSGroup
+			}
+			Expect(fsGroup).To(BeNil(), "namespace import Job must not inherit localModel.fsGroup")
 			Expect(job.OwnerReferences).To(HaveLen(1))
 			Expect(job.OwnerReferences[0].Name).To(Equal("shared-iris"))
 
