@@ -235,12 +235,6 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 		RestartPolicy: lwsapi.RecreateGroupOnPodRestart,
 	}
 
-	// Fetch the current LWS once to preserve storage-init images across upgrades.
-	currLWS := &lwsapi.LeaderWorkerSet{}
-	if err := r.Get(ctx, client.ObjectKeyFromObject(expected), currLWS); err != nil && !apierrors.IsNotFound(err) && !meta.IsNoMatchError(err) {
-		return nil, fmt.Errorf("failed to get current leader worker set %s/%s: %w", expected.GetNamespace(), expected.GetName(), err)
-	}
-
 	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		err := r.propagateInferencePoolRefLabelSelector(ctx, llmSvc, leaderLabels)
 		if err != nil {
