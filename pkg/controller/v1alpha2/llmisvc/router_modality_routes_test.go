@@ -136,11 +136,13 @@ func TestStripModalityRouteRules(t *testing.T) {
 			rules: []gwapiv1.HTTPRouteRule{
 				poolRule("v1-catch-all-path", prefix("/ns/svc")),
 				poolRule("v1-publisher-path-catch-all", prefix("/publishers/ns/models/m")),
-				{Name: ptr.To(gwapiv1.SectionName("v1-catch-all-model-routing")),
+				{
+					Name: ptr.To(gwapiv1.SectionName("v1-catch-all-model-routing")),
 					Matches: []gwapiv1.HTTPRouteMatch{{Headers: []gwapiv1.HTTPHeaderMatch{{
 						Name:  "x-gateway-model-name",
 						Value: "publishers/ns/models/m",
-					}}}}},
+					}}}},
+				},
 			},
 			want: []string{"v1-catch-all-path", "v1-publisher-path-catch-all", "v1-catch-all-model-routing"},
 		},
