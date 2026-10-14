@@ -265,6 +265,14 @@ func (r *DeploymentReconciler) checkDeploymentExist(ctx context.Context, client 
 		}
 	}
 
+	// Let platform integrations reconcile fields that they preserve from an
+	// existing Deployment before the desired and live specs are compared.
+	// This keeps the hook inside the normal update decision, so any resulting
+	// controller-managed change is applied in the same reconciliation.
+	if err := r.customizeExistingDeployment(ctx, existingDeployment, deployment); err != nil {
+		return constants.CheckResultUnknown, nil, fmt.Errorf("failed to customize existing deployment %s/%s: %w", deployment.Namespace, deployment.Name, err)
+	}
+
 	// existed, check equivalence
 	// for HPA scaling, we should ignore Replicas of Deployment
 	// for none scaler, we should not ignore Replicas.
