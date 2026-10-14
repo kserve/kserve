@@ -143,17 +143,23 @@ var useVersionedConfig, _ = strconv.ParseBool(constants.GetEnvOrDefault("LLM_INF
 // (no image, aligned probes / volumes / security context across engines) so
 // that the ServingRuntime alone drives engine selection. At that point this
 // name-based mapping and kserve-config-sglang-template can be removed.
-const SGLangServingRuntimeName = "kserve-llm-sglang"
+const SGLangServingRuntimeName = v1alpha2.SGLangRuntimeName
 
 // selectSingleNodeTemplateName returns the well-known config template name for
 // a single-node Non-P/D deployment based on the requested runtime. When runtime
 // points at the well-known SGLang ServingRuntime, the SGLang-specific
 // infrastructure template is used; otherwise the default vLLM template.
-func selectSingleNodeTemplateName(runtime *string) string {
+// Returns an error for unrecognized runtime names so they are not silently
+// treated as vLLM.
+func selectSingleNodeTemplateName(runtime *string) (string, error) {
 	if runtime != nil && *runtime == SGLangServingRuntimeName {
-		return configSGLangTemplateName
+		return configSGLangTemplateName, nil
 	}
-	return configTemplateName
+	if runtime != nil && *runtime != "" && !v1alpha2.IsKnownRuntime(runtime) {
+		return "", fmt.Errorf("unrecognized runtime %q; supported runtimes: %s",
+			*runtime, strings.Join(v1alpha2.KnownRuntimeNames(), ", "))
+	}
+	return configTemplateName, nil
 }
 
 // CombineOption is a functional option for combineBaseRefsConfig
@@ -604,7 +610,11 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		switch {
 		case resolvedSpec.Worker == nil:
 			// single-node -- select template based on runtime
-			refs = append(refs, presetRef(wr.Resolve(llmSvc, selectSingleNodeTemplateName(resolvedSpec.Runtime))))
+			templateName, err := selectSingleNodeTemplateName(resolvedSpec.Runtime)
+			if err != nil {
+				return nil, err
+			}
+			refs = append(refs, presetRef(wr.Resolve(llmSvc, templateName)))
 		case resolvedSpec.Worker != nil && resolvedSpec.Parallelism.IsDataParallel():
 			// multi-node Data Parallel
 			refs = append(refs, presetRef(wr.Resolve(llmSvc, configWorkerDataParallelName)))
