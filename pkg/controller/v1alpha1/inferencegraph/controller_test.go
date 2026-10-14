@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
 	"knative.dev/serving/pkg/apis/autoscaling"
@@ -1131,6 +1132,31 @@ var _ = Describe("Inference Graph controller test", func() {
 				return actualService.Annotations
 			}, timeout, interval).Should(HaveKeyWithValue(customAnnotationKey, "hostname-b"))
 			Expect(actualService.Spec.Template.Annotations).To(HaveKeyWithValue(customAnnotationKey, "hostname-b"))
+
+			By("Removing the custom annotation from the InferenceGraph")
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				if err := k8sClient.Get(ctx, serviceKey, actualIG); err != nil {
+					return err
+				}
+				delete(actualIG.Annotations, customAnnotationKey)
+				return k8sClient.Update(ctx, actualIG)
+			})).To(Succeed())
+
+			// A removed annotation must not linger on the knative service metadata, otherwise tools
+			// such as external-dns keep acting on a hostname the user already removed.
+			Eventually(func() map[string]string {
+				_ = k8sClient.Get(ctx, serviceKey, actualService)
+				return actualService.Annotations
+			}, timeout, interval).ShouldNot(HaveKey(customAnnotationKey))
+			Expect(actualService.Spec.Template.Annotations).NotTo(HaveKey(customAnnotationKey))
+
+			// Annotations are compared exactly, so make sure the reconciler settles instead of
+			// updating the knative service on every loop.
+			settledResourceVersion := actualService.ResourceVersion
+			Consistently(func() string {
+				_ = k8sClient.Get(ctx, serviceKey, actualService)
+				return actualService.ResourceVersion
+			}, 2*time.Second, interval).Should(Equal(settledResourceVersion))
 		})
 	})
 

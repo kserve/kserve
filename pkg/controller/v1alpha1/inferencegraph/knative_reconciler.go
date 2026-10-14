@@ -85,15 +85,9 @@ func reconcileKsvc(desired *knservingv1.Service, existing *knservingv1.Service) 
 	existing.Spec.ConfigurationSpec = desired.Spec.ConfigurationSpec
 	existing.Labels = desired.Labels
 	existing.Spec.Traffic = desired.Spec.Traffic
-	// Sync the annotations KServe manages on the knative service metadata (e.g. the OpenShift passthrough
-	// key and user-provided passthrough annotations). Other keys already on existing (such as those
-	// stamped by knative's webhook or other controllers) are preserved.
-	if existing.Annotations == nil {
-		existing.Annotations = make(map[string]string, len(desired.Annotations))
-	}
-	for key, value := range desired.Annotations {
-		existing.Annotations[key] = value
-	}
+	// Replace, not merge, so an annotation removed from the InferenceGraph is also removed from the
+	// knative service. desired already holds knative's webhook-set keys from the dry-run update above.
+	existing.Annotations = desired.Annotations
 	return nil
 }
 
@@ -163,20 +157,7 @@ func semanticEquals(desiredService, service *knservingv1.Service) bool {
 	return equality.Semantic.DeepEqual(desiredService.Spec.ConfigurationSpec, service.Spec.ConfigurationSpec) &&
 		equality.Semantic.DeepEqual(desiredService.Labels, service.Labels) &&
 		equality.Semantic.DeepEqual(desiredService.Spec.RouteSpec, service.Spec.RouteSpec) &&
-		annotationsSubsetEqual(desiredService.Annotations, service.Annotations)
-}
-
-// annotationsSubsetEqual returns true if every key/value pair in desired is present with the same value
-// in existing. Extra keys on existing (e.g. stamped by knative's webhook or other controllers) are
-// tolerated and not treated as a diff, mirroring how the InferenceService knative reconciler only
-// tracks the annotation keys it manages instead of doing a blanket comparison.
-func annotationsSubsetEqual(desired, existing map[string]string) bool {
-	for key, value := range desired {
-		if existingValue, ok := existing[key]; !ok || existingValue != value {
-			return false
-		}
-	}
-	return true
+		equality.Semantic.DeepEqual(desiredService.Annotations, service.Annotations)
 }
 
 func createKnativeService(
