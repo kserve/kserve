@@ -441,7 +441,10 @@ const (
 	LLMDRoleLabelKey = "llm-d.ai/role"
 	LLMDRoleDecode   = "decode"
 	LLMDRolePrefill  = "prefill"
-	LLMDRoleBoth     = "both"
+	// llm-d-router v0.11.0 no longer accepts "both"; it only remains on workloads created in old version
+	// use LLMDRolePrefillDecode to replace for newer version
+	LLMDRoleBoth          = "both"
+	LLMDRolePrefillDecode = "prefill-decode"
 )
 
 // LLMInferenceService label constants (uses Kubernetes recommended label keys above)

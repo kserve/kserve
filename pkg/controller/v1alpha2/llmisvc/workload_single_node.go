@@ -142,7 +142,13 @@ type singleNodePodTemplate struct {
 func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config, deployed corev1.PodSpec) (*singleNodePodTemplate, error) {
 	role := constants.LLMDRoleDecode
 	if llmSvc.Spec.Prefill == nil {
-		role = constants.LLMDRoleBoth
+		currentRole, err := r.currentMainWorkloadRole(ctx, llmSvc)
+		if err != nil {
+			return nil, err
+		}
+		if role, err = nonDisaggregatedRole(llmSvc, currentRole); err != nil {
+			return nil, err
+		}
 	}
 
 	labels := r.singleNodeLabels(llmSvc)

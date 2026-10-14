@@ -400,11 +400,20 @@ schedulingProfiles:
 		})
 	})
 
-	Context("Default scheduler config", func() {
+	Context("Default scheduler config with llm-d-router < 0.11.0", func() {
 		It("should use default scheduler config when no config is specified (non-prefill)", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-default-scheduler-config"
 			testNs := NewTestNamespace(ctx, envTest)
+
+			// Override the scheduler template in the test namespace with version 0.10.0
+			// so routerVersionSupportsPreset returns false and the controller falls back
+			// to the legacy schedulerConfigText() instead of injecting the preset.
+			schedulerCfg := LLMInferenceServiceConfig("kserve-config-llm-scheduler",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigSchedulerTemplate("0.10.0"),
+			)
+			Expect(envTest.Client.Create(ctx, schedulerCfg)).To(Succeed())
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
@@ -445,6 +454,12 @@ schedulingProfiles:
 			// given
 			svcName := "test-llm-prefill-scheduler-config"
 			testNs := NewTestNamespace(ctx, envTest)
+
+			schedulerCfg := LLMInferenceServiceConfig("kserve-config-llm-scheduler",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigSchedulerTemplate("0.10.0"),
+			)
+			Expect(envTest.Client.Create(ctx, schedulerCfg)).To(Succeed())
 
 			llmSvc := LLMInferenceService(svcName,
 				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
