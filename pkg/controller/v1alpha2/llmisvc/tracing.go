@@ -112,20 +112,32 @@ func injectGoTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, serviceNam
 }
 
 // injectServerTracing injects tracing args and env vars into the inference
-// server (vLLM) deployment's main container. The server uses
-// --otlp-traces-endpoint and --collect-detailed-traces args plus OTEL_* env vars.
+// server deployment's main container. The runtime parameter selects the
+// engine-specific flag format (vLLM vs SGLang); nil/empty defaults to vLLM.
 // roleSuffix should be "-decode" or "-prefill". Returns true if the container was mutated.
 //
 // TracingSpec field values are expected to be populated by the well-known config
 // merge (kserve-config-llm-tracing) before this function is called.
-func injectServerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, container *corev1.Container) bool {
-	if !injectVLLMTracing(t, namespace, llmisvcName, defaultServerServiceName+roleSuffix, container) {
+func injectServerTracing(runtime *string, t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, container *corev1.Container) bool {
+	mapper := mapperForRuntime(runtime)
+	if !mapper.SupportsFeature(FeatureTracing) {
 		return false
 	}
-	if !tracing.HasArg(container.Args, "--collect-detailed-traces") {
-		container.Args = append(container.Args, "--collect-detailed-traces", "all")
+	return mapper.InjectServerTracing(t, namespace, llmisvcName, roleSuffix, container)
+}
+
+// injectServerTracingIntoPodSpec configures the inference server and routing sidecar.
+func injectServerTracingIntoPodSpec(runtime *string, t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, podSpec *corev1.PodSpec) bool {
+	mutated := false
+	if sidecar := routingSidecar(podSpec); sidecar != nil && supportsComponentTracing(sidecar) {
+		mutated = injectGoTracing(t, namespace, llmisvcName, defaultRoutingSidecarServiceName, sidecar)
 	}
-	return true
+	for i := range podSpec.Containers {
+		if podSpec.Containers[i].Name == "main" {
+			return injectServerTracing(runtime, t, namespace, llmisvcName, roleSuffix, &podSpec.Containers[i]) || mutated
+		}
+	}
+	return mutated
 }
 
 func injectVLLMTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, serviceName string, container *corev1.Container) bool {
@@ -143,12 +155,19 @@ func injectVLLMTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, serviceN
 		container.Args = append(container.Args, "--otlp-traces-endpoint", endpoint)
 	}
 
+	appendServerTracingEnvVars(container, t, namespace, llmisvcName, serviceName)
+	return true
+}
+
+// appendServerTracingEnvVars appends the standard OTEL env vars shared by all
+// inference engine adapters (service name, exporter endpoint, sampler, etc.).
+func appendServerTracingEnvVars(container *corev1.Container, t *v1alpha2.TracingSpec, namespace, llmisvcName, serviceName string) {
 	resourceAttrs := otelResourceAttributeEnvVars(namespace, llmisvcName)
 
 	tracingEnvVars := make([]corev1.EnvVar, 0, 5+len(resourceAttrs))
 	tracingEnvVars = append(tracingEnvVars,
 		corev1.EnvVar{Name: tracing.EnvOtelServiceName, Value: serviceName},
-		corev1.EnvVar{Name: tracing.EnvOtelExporterEndpoint, Value: endpoint},
+		corev1.EnvVar{Name: tracing.EnvOtelExporterEndpoint, Value: ptr.Deref(t.ExporterEndpoint, "")},
 		corev1.EnvVar{Name: tracing.EnvOtelTracesExporter, Value: ptr.Deref(t.Exporter, "")},
 		corev1.EnvVar{Name: tracing.EnvOtelTracesSampler, Value: ptr.Deref(t.Sampler, "")},
 		corev1.EnvVar{Name: tracing.EnvOtelTracesSamplerArg, Value: ptr.Deref(t.SamplerArg, "")},
@@ -156,19 +175,4 @@ func injectVLLMTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, serviceN
 	tracingEnvVars = append(tracingEnvVars, resourceAttrs...)
 
 	container.Env = utils.AppendEnvVarIfNotExists(container.Env, tracingEnvVars...)
-	return true
-}
-
-// injectServerTracingIntoPodSpec configures the inference server and routing sidecar.
-func injectServerTracingIntoPodSpec(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, podSpec *corev1.PodSpec) bool {
-	mutated := false
-	if sidecar := routingSidecar(podSpec); sidecar != nil && supportsComponentTracing(sidecar) {
-		mutated = injectGoTracing(t, namespace, llmisvcName, defaultRoutingSidecarServiceName, sidecar)
-	}
-	for i := range podSpec.Containers {
-		if podSpec.Containers[i].Name == "main" {
-			return injectServerTracing(t, namespace, llmisvcName, roleSuffix, &podSpec.Containers[i]) || mutated
-		}
-	}
-	return mutated
 }

@@ -160,7 +160,7 @@ var useVersionedConfig, _ = strconv.ParseBool(constants.GetEnvOrDefault("LLM_INF
 // (no image, aligned probes / volumes / security context across engines) so
 // that the ServingRuntime alone drives engine selection. At that point this
 // name-based mapping and kserve-config-sglang-template can be removed.
-const SGLangServingRuntimeName = "kserve-llm-sglang"
+const SGLangServingRuntimeName = v1alpha2.SGLangRuntimeName
 
 // OmniServingRuntimeName is the well-known ClusterServingRuntime name shipped
 // with KServe that identifies the vLLM-Omni engine. When spec.runtime is set

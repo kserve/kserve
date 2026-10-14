@@ -510,17 +510,17 @@ func TestUserSuppliedLoRAConfig(t *testing.T) {
 	t.Parallel()
 	if !userSuppliedLoRAConfig(&corev1.Container{
 		Env: []corev1.EnvVar{{Name: "VLLM_ADDITIONAL_ARGS", Value: "x --lora-modules y"}},
-	}) {
+	}, nil) {
 		t.Fatal("expected true when VLLM_ADDITIONAL_ARGS has --lora-modules")
 	}
 	if userSuppliedLoRAConfig(&corev1.Container{
 		Env: []corev1.EnvVar{{Name: "VLLM_ADDITIONAL_ARGS", Value: "--enable-lora"}},
-	}) {
+	}, nil) {
 		t.Fatal("expected false without --lora-modules")
 	}
 	if !userSuppliedLoRAConfig(&corev1.Container{
 		Args: []string{"--lora-modules", "x=y"},
-	}) {
+	}, nil) {
 		t.Fatal("expected true when Args contains --lora-modules")
 	}
 }

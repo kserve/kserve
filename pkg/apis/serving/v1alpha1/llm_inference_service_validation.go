@@ -79,6 +79,8 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
 	allErrs = append(allErrs, l.validateWVAConfig(prev, llmSvc)...)
+	allErrs = append(allErrs, v1alpha2.ValidateRuntime(llmSvc.Spec.Runtime, field.NewPath("spec", "runtime"))...)
+	allErrs = append(allErrs, l.validateRuntimeFeatures(llmSvc)...)
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
 	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
@@ -457,6 +459,22 @@ func (l *LLMInferenceServiceValidator) validateLoRAAdapters(llmSvc *LLMInference
 	}
 	hub := convertLoRASpecToV1Alpha2(llmSvc.Spec.Model.LoRA)
 	return v1alpha2.ValidateLoRAAdapters(hub, ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.Name), field.NewPath("spec", "model", "lora"))
+}
+
+// validateRuntimeFeatures delegates to the v1alpha2 feature-matrix check.
+// Runtime is *string in both versions, so no conversion is needed for it.
+// The spec fields checked (LoRA, Tracing, KVCacheOffloading, Worker, Prefill)
+// have the same semantics in both versions; boolean flags avoid full type
+// conversion.
+func (l *LLMInferenceServiceValidator) validateRuntimeFeatures(llmSvc *LLMInferenceService) field.ErrorList {
+	return v1alpha2.ValidateRuntimeFeatures(
+		llmSvc.Spec.Runtime,
+		llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0,
+		llmSvc.Spec.Tracing != nil,
+		llmSvc.Spec.KVCacheOffloading != nil,
+		llmSvc.Spec.Worker != nil,
+		llmSvc.Spec.Prefill != nil,
+	)
 }
 
 // immutable returns a *Error indicating "unsupported mutation".

@@ -89,6 +89,9 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
 	allErrs = append(allErrs, l.validateWVAConfig(prev, llmSvc)...)
 
+	allErrs = append(allErrs, l.validateRuntime(llmSvc)...)
+	allErrs = append(allErrs, l.validateRuntimeFeatures(llmSvc)...)
+
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
 	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
@@ -155,6 +158,90 @@ func workloadSpec(spec *LLMInferenceServiceSpec) *WorkloadSpec {
 		return nil
 	}
 	return &spec.WorkloadSpec
+}
+
+// validateRuntime rejects unknown runtime names on both create and update.
+func (l *LLMInferenceServiceValidator) validateRuntime(llmSvc *LLMInferenceService) field.ErrorList {
+	return ValidateRuntime(llmSvc.Spec.Runtime, field.NewPath("spec", "runtime"))
+}
+
+// ValidateRuntime rejects unknown runtime names. Exported so v1alpha1 can delegate.
+func ValidateRuntime(runtime *string, fldPath *field.Path) field.ErrorList {
+	if runtime == nil || *runtime == "" {
+		return nil
+	}
+	if !IsKnownRuntime(runtime) {
+		return field.ErrorList{field.NotSupported(
+			fldPath,
+			*runtime,
+			KnownRuntimeNames(),
+		)}
+	}
+	return nil
+}
+
+// validateRuntimeFeatures rejects unsupported runtime + feature combinations,
+// but only when the feature is actually present in the spec.
+func (l *LLMInferenceServiceValidator) validateRuntimeFeatures(llmSvc *LLMInferenceService) field.ErrorList {
+	return ValidateRuntimeFeatures(
+		llmSvc.Spec.Runtime,
+		llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0,
+		llmSvc.Spec.Tracing != nil,
+		llmSvc.Spec.KVCacheOffloading != nil,
+		llmSvc.Spec.Worker != nil,
+		llmSvc.Spec.Prefill != nil,
+	)
+}
+
+// ValidateRuntimeFeatures rejects unsupported runtime + feature combinations.
+// Each feature is only gated when it is present in the spec. Exported so
+// v1alpha1 can delegate without full type conversion.
+func ValidateRuntimeFeatures(
+	runtime *string,
+	hasLoRAAdapters bool,
+	hasTracing bool,
+	hasKVCacheOffloading bool,
+	hasWorker bool,
+	hasPrefill bool,
+) field.ErrorList {
+	// Default runtime (nil/empty) is vLLM, which supports everything.
+	if runtime == nil || *runtime == "" {
+		return nil
+	}
+	// Unknown runtimes are caught by ValidateRuntime; skip feature checks.
+	if !IsKnownRuntime(runtime) {
+		return nil
+	}
+
+	var allErrs field.ErrorList
+	runtimePath := field.NewPath("spec", "runtime")
+
+	if hasLoRAAdapters && !RuntimeSupportsFeature(runtime, FeatureNameLoRA) {
+		allErrs = append(allErrs, field.Invalid(runtimePath, *runtime,
+			fmt.Sprintf("runtime %q does not support LoRA adapters", *runtime)))
+	}
+
+	if hasTracing && !RuntimeSupportsFeature(runtime, FeatureNameTracing) {
+		allErrs = append(allErrs, field.Invalid(runtimePath, *runtime,
+			fmt.Sprintf("runtime %q does not support tracing", *runtime)))
+	}
+
+	if hasKVCacheOffloading && !RuntimeSupportsFeature(runtime, FeatureNameKVCacheOffloading) {
+		allErrs = append(allErrs, field.Invalid(runtimePath, *runtime,
+			fmt.Sprintf("runtime %q does not support KV cache offloading", *runtime)))
+	}
+
+	if hasWorker && !RuntimeSupportsFeature(runtime, FeatureNameMultiNode) {
+		allErrs = append(allErrs, field.Invalid(runtimePath, *runtime,
+			fmt.Sprintf("runtime %q does not support multi-node deployments", *runtime)))
+	}
+
+	if hasPrefill && !RuntimeSupportsFeature(runtime, FeatureNamePrefillDecode) {
+		allErrs = append(allErrs, field.Invalid(runtimePath, *runtime,
+			fmt.Sprintf("runtime %q does not support prefill/decode disaggregated serving", *runtime)))
+	}
+
+	return allErrs
 }
 
 func (l *LLMInferenceServiceValidator) validateRouterCrossFieldConstraints(llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
