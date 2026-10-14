@@ -16,10 +16,14 @@ generate-quick-install-scripts: validate-infra-scripts $(PYTHON_VENV)
 	@$(PYTHON_BIN)/pip install -q -r hack/setup/scripts/install-script-generator/requirements.txt
 	@$(PYTHON_BIN)/python hack/setup/scripts/install-script-generator/generator.py
 
-generate-chart-manifests:
+generate-chart-manifests: helm-docs
 	@bash hack/setup/scripts/generate_chart_manifests.sh
 	make lint-helm-charts
 	make verify-helm-helpers-consistency
+	@# Chart READMEs are rendered from each chart's values.yaml, which the script above
+	@# regenerates from charts/_common. Run helm-docs here, after the sync, so a change to a
+	@# common value is documented on the first precommit pass rather than the second.
+	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen kustomize yq
@@ -184,7 +188,7 @@ manifests: controller-gen kustomize yq
 	cp config/configmap/inferenceservice.yaml config/overlays/test/configmap/inferenceservice.yaml
 
 # Generate code
-generate: controller-gen helm-docs
+generate: controller-gen
 	@# Preserve existing copyright years across regeneration.
 	@grep -rn 'Copyright [0-9]\{4\} The KServe Authors' --include='*.go' --include='*.py' \
 		pkg/ cmd/ python/ 2>/dev/null | \
@@ -195,7 +199,6 @@ generate: controller-gen helm-docs
 	COPYRIGHT_YEARS_CACHE=/tmp/copyright_years_cache hack/python-sdk/client-gen.sh
 	@python3 hack/setup/preserve-copyright-years.py /tmp/copyright_years_cache
 	@rm -f /tmp/copyright_years_cache
-	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
 
 # Update uv.lock files
 uv-lock: $(UV)
