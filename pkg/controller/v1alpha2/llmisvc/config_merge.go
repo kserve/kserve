@@ -838,11 +838,6 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 
 	injectOmniRuntimeArgs(llmSvcCfg, isOmniRuntime(resolvedSpec.Runtime))
 
-	if err := applyDataParallelRouting(llmSvcCfg, resolvedSpec); err != nil {
-		return nil, &dataParallelRoutingError{err}
-	}
-	applyInferencePoolSidecarAPI(&llmSvcCfg.Spec)
-
 	injectManagedDRAIntoConfig(llmSvc, llmSvcCfg)
 
 	// Update HTTPRoute parentRefs to point to the custom gateway if Gateway.Refs is specified.
