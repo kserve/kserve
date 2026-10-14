@@ -108,6 +108,16 @@ func disaggTestKEDAScaling(minReplicas, maxReplicas int32) *v1alpha2.ScalingSpec
 	}
 }
 
+// disaggTestWVAScaling returns scaling that only configures WVA, which is no longer
+// supported: the controller creates no autoscaler for it, so the role is not autoscaled.
+func disaggTestWVAScaling(minReplicas, maxReplicas int32) *v1alpha2.ScalingSpec {
+	return &v1alpha2.ScalingSpec{
+		MinReplicas: ptr.To(minReplicas),
+		MaxReplicas: maxReplicas,
+		WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}},
+	}
+}
+
 func disaggTestPod() *corev1.PodSpec {
 	return &corev1.PodSpec{Containers: []corev1.Container{{Name: "main", Image: "vllm:latest"}}}
 }
@@ -226,6 +236,15 @@ func TestDecideDisaggregatedSet(t *testing.T) {
 			wantReason: reasonRoleScalerNotInstalled,
 		},
 		{
+			// WVA is no longer supported, so a role that only configures it is static.
+			name: "decode with only WVA scaling without the DisaggregatedSetRoleScaler CRD",
+			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, r *LLMISVCReconciler) {
+				svc.Spec.Scaling = disaggTestWVAScaling(1, 3)
+				r.DisaggregatedSetRoleScalerAvailable = false
+			},
+			wantUse: true,
+		},
+		{
 			name: "static roles without the DisaggregatedSetRoleScaler CRD",
 			mutate: func(_ *v1alpha2.LLMInferenceService, _ *Config, r *LLMISVCReconciler) {
 				r.DisaggregatedSetRoleScalerAvailable = false
@@ -262,6 +281,14 @@ func TestDecideDisaggregatedSet(t *testing.T) {
 				svc.Spec.Prefill.Replicas = ptr.To[int32](0)
 			},
 			wantUse: true,
+		},
+		{
+			name: "prefill scaled to zero next to a decode with only WVA scaling",
+			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, _ *LLMISVCReconciler) {
+				svc.Spec.Scaling = disaggTestWVAScaling(1, 3)
+				svc.Spec.Prefill.Replicas = ptr.To[int32](0)
+			},
+			wantReason: reasonReplicasMismatch,
 		},
 		{
 			name: "only prefill scaled to zero",
@@ -771,6 +798,22 @@ func TestExpectedDisaggregatedSetAutoscaledRole(t *testing.T) {
 	assert.Equal(t, "llama-kserve-pd-decode", disaggregatedRoleScalerName(svc, constants.LLMDRoleDecode))
 }
 
+// TestExpectedDisaggregatedSetWVAOnlyRole checks that a role that only configures WVA,
+// which is no longer supported and creates no autoscaler, stays static and keeps its
+// replicas instead of handing them to a scaler nothing drives.
+func TestExpectedDisaggregatedSetWVAOnlyRole(t *testing.T) {
+	svc := disaggTestService(t)
+	svc.Spec.Replicas = ptr.To[int32](3)
+	svc.Spec.Scaling = disaggTestWVAScaling(2, 8)
+
+	ds, err := disaggTestReconciler(t).expectedDisaggregatedSet(context.Background(), svc, disaggTestConfig(), nil)
+	require.NoError(t, err)
+
+	decode := ds.Spec.Roles[0]
+	assert.Nil(t, decode.Scaling)
+	assert.Equal(t, ptr.To[int32](3), decode.Spec.Replicas)
+}
+
 // TestDisaggregatedRoleTargets checks that an autoscaled role is ready against the
 // replicas its DisaggregatedSetRoleScaler asks for, and has no target while the
 // DisaggregatedSet has not created that scaler or does not control it.
@@ -958,6 +1001,20 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 				},
 			},
 			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(2), MaxSurge: intstr.FromInt32(0)},
+		},
+		{
+			// WVA is no longer supported, so the role is static and keeps its replicas.
+			name: "single-node with only WVA scaling is resolved against its replicas",
+			workload: &v1alpha2.WorkloadSpec{
+				Template: disaggTestPod(),
+				Replicas: ptr.To[int32](4),
+				Scaling:  disaggTestWVAScaling(8, 16),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{
+					MaxUnavailable: ptr.To(intstr.FromString("25%")),
+					MaxSurge:       ptr.To(intstr.FromInt32(0)),
+				},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)},
 		},
 		{
 			name: "autoscaled single-node with a minimum of zero is resolved against one replica",

@@ -104,11 +104,11 @@ func (r *LLMISVCReconciler) decideDisaggregatedSet(llmSvc *v1alpha2.LLMInference
 		return notUsed(reasonCRDNotInstalled, "the DisaggregatedSet CRD is not installed")
 	case llmSvc.Spec.Prefill == nil:
 		return notUsed(reasonNoPrefillWorkload, "the service has no prefill workload")
-	case (llmSvc.Spec.Scaling != nil || llmSvc.Spec.Prefill.Scaling != nil) && !r.DisaggregatedSetRoleScalerAvailable:
+	case (disaggregatedRoleAutoscaled(&llmSvc.Spec.WorkloadSpec) || disaggregatedRoleAutoscaled(llmSvc.Spec.Prefill)) && !r.DisaggregatedSetRoleScalerAvailable:
 		return notUsed(reasonRoleScalerNotInstalled, "autoscaling on a DisaggregatedSet requires the DisaggregatedSetRoleScaler CRD from LWS v0.10.0 or later")
 	// A DisaggregatedSet checks this only across roles with static replicas, so it
 	// applies only when neither role is autoscaled.
-	case llmSvc.Spec.Scaling == nil && llmSvc.Spec.Prefill.Scaling == nil &&
+	case !disaggregatedRoleAutoscaled(&llmSvc.Spec.WorkloadSpec) && !disaggregatedRoleAutoscaled(llmSvc.Spec.Prefill) &&
 		(disaggregatedRoleReplicas(llmSvc.Spec.Replicas) == 0) != (disaggregatedRoleReplicas(llmSvc.Spec.Prefill.Replicas) == 0):
 		return notUsed(reasonReplicasMismatch, "a DisaggregatedSet requires decode and prefill replicas to be both zero or both non-zero")
 	}
@@ -197,11 +197,18 @@ func disaggregatedRoleReplicas(replicas *int32) int32 {
 	return ptr.Deref(replicas, 1)
 }
 
+// disaggregatedRoleAutoscaled reports whether an autoscaler sets the replicas of a role.
+// Only KEDA does: WVA is no longer supported, so scaling that only configures WVA
+// creates no autoscaler and the role keeps its own replicas.
+func disaggregatedRoleAutoscaled(workload *v1alpha2.WorkloadSpec) bool {
+	return workload.Scaling != nil && workload.Scaling.KEDA != nil
+}
+
 // disaggregatedRoleSizingReplicas returns the replicas the rollout settings of a role
 // are resolved against: its replicas, or for an autoscaled role, which sets none, its
 // minimum replicas and at least one.
 func disaggregatedRoleSizingReplicas(workload *v1alpha2.WorkloadSpec) int32 {
-	if workload.Scaling != nil {
+	if disaggregatedRoleAutoscaled(workload) {
 		return max(ptr.Deref(workload.Scaling.MinReplicas, 1), 1)
 	}
 	return disaggregatedRoleReplicas(workload.Replicas)
@@ -453,7 +460,7 @@ func disaggregatedRoleSpec(name string, role *disaggregatedRoleTemplate, workloa
 			},
 		},
 	}
-	if workload.Scaling != nil {
+	if disaggregatedRoleAutoscaled(workload) {
 		spec.Scaling = &disaggregatedsetv1.RoleScaling{Mode: disaggregatedsetv1.RoleScalingExternal}
 		spec.Spec.Replicas = nil
 	}
