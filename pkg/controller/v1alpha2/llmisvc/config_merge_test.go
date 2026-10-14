@@ -3365,6 +3365,7 @@ func TestSelectSingleNodeTemplateName(t *testing.T) {
 		name    string
 		runtime *string
 		want    string
+		wantErr bool
 	}{
 		{
 			name:    "nil runtime defaults to vllm template",
@@ -3377,9 +3378,9 @@ func TestSelectSingleNodeTemplateName(t *testing.T) {
 			want:    "kserve-config-llm-template",
 		},
 		{
-			name:    "unknown runtime name defaults to vllm template",
+			name:    "unknown runtime name is rejected",
 			runtime: ptr.To("some-other-runtime"),
-			want:    "kserve-config-llm-template",
+			wantErr: true,
 		},
 		{
 			name:    "kserve-llm-sglang runtime selects sglang template",
@@ -3390,7 +3391,17 @@ func TestSelectSingleNodeTemplateName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := llmisvc.SelectSingleNodeTemplateName(tt.runtime)
+			got, err := llmisvc.SelectSingleNodeTemplateName(tt.runtime)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("SelectSingleNodeTemplateName(%v) expected error, got %q", tt.runtime, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("SelectSingleNodeTemplateName(%v) unexpected error: %v", tt.runtime, err)
+				return
+			}
 			if got != tt.want {
 				t.Errorf("SelectSingleNodeTemplateName(%v) = %q, want %q", tt.runtime, got, tt.want)
 			}

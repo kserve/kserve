@@ -95,30 +95,35 @@ func injectSchedulerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName stri
 }
 
 // injectServerTracing injects tracing args and env vars into the inference
-// server (vLLM) deployment's main container. The server uses
-// --otlp-traces-endpoint and --collect-detailed-traces args plus OTEL_* env vars.
+// server deployment's main container. The runtime parameter selects the
+// engine-specific flag format (vLLM vs SGLang); nil/empty defaults to vLLM.
 // roleSuffix should be "-decode" or "-prefill". Returns true if the container was mutated.
 //
 // TracingSpec field values are expected to be populated by the well-known config
 // merge (kserve-config-llm-tracing) before this function is called.
-func injectServerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, container *corev1.Container) bool {
-	if t == nil {
+func injectServerTracing(runtime *string, t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, container *corev1.Container) bool {
+	mapper := mapperForRuntime(runtime)
+	if !mapper.SupportsFeature(FeatureTracing) {
 		return false
 	}
+	return mapper.InjectServerTracing(t, namespace, llmisvcName, roleSuffix, container)
+}
 
+// injectServerTracingIntoPodSpec finds the "main" container in a PodSpec and
+// injects server tracing into it. Returns true if the container was mutated.
+func injectServerTracingIntoPodSpec(runtime *string, t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, podSpec *corev1.PodSpec) bool {
+	for i := range podSpec.Containers {
+		if podSpec.Containers[i].Name == "main" {
+			return injectServerTracing(runtime, t, namespace, llmisvcName, roleSuffix, &podSpec.Containers[i])
+		}
+	}
+	return false
+}
+
+// appendServerTracingEnvVars appends the standard OTEL env vars shared by all
+// inference engine adapters (service name, exporter endpoint, sampler, etc.).
+func appendServerTracingEnvVars(container *corev1.Container, t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string) {
 	endpoint := ptr.Deref(t.ExporterEndpoint, "")
-	if endpoint == "" {
-		return false
-	}
-
-	if !tracing.HasArg(container.Args, "--otlp-traces-endpoint") {
-		container.Args = append(container.Args, "--otlp-traces-endpoint", endpoint)
-	}
-
-	if !tracing.HasArg(container.Args, "--collect-detailed-traces") {
-		container.Args = append(container.Args, "--collect-detailed-traces", "all")
-	}
-
 	serviceName := defaultServerServiceName + roleSuffix
 	resourceAttrs := otelResourceAttributeEnvVars(namespace, llmisvcName)
 
@@ -133,16 +138,4 @@ func injectServerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSu
 	tracingEnvVars = append(tracingEnvVars, resourceAttrs...)
 
 	container.Env = utils.AppendEnvVarIfNotExists(container.Env, tracingEnvVars...)
-	return true
-}
-
-// injectServerTracingIntoPodSpec finds the "main" container in a PodSpec and
-// injects server tracing into it. Returns true if the container was mutated.
-func injectServerTracingIntoPodSpec(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, podSpec *corev1.PodSpec) bool {
-	for i := range podSpec.Containers {
-		if podSpec.Containers[i].Name == "main" {
-			return injectServerTracing(t, namespace, llmisvcName, roleSuffix, &podSpec.Containers[i])
-		}
-	}
-	return false
 }
