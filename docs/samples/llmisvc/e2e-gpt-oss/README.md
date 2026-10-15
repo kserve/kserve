@@ -291,6 +291,12 @@ names `inference-scheduler`, `inference-server-decode`,
 `inference-server-prefill`, `routing-sidecar`, and `tokenizer`, with Kubernetes
 resource attributes to identify the namespace and pods.
 
+The default tokenizer preset pins vLLM v0.23.0, whose `vllm launch render` path
+does not initialize tracing or emit render-request spans. Tokenizer span export
+requires an image containing the
+[renderer tracing fix](https://github.com/vllm-project/vllm/pull/61683);
+setting `spec.tracing` alone does not enable it in the pinned image.
+
 Use runtime images that support the injected tracing options. Tool-calling spans
 also require images containing the corresponding llm-d-router and vLLM
 instrumentation; configuring tracing alone does not add those spans to older
