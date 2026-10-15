@@ -94,6 +94,13 @@ class _RefreshingServer(uvicorn.Server):
         if not self.config.loaded:
             self.config.load()
 
+        provider_name = os.getenv(TLS_PROFILE_PROVIDER_ENV)
+        if provider_name and self.config.ssl is None:
+            raise ValueError(
+                f"{TLS_PROFILE_PROVIDER_ENV} requires TLS to be configured "
+                "with ssl_certfile and ssl_keyfile"
+            )
+
         try:
             if (
                 self.config.ssl is not None
@@ -105,7 +112,7 @@ class _RefreshingServer(uvicorn.Server):
                     key_path=str(self.config.ssl_keyfile),
                     cert_path=str(self.config.ssl_certfile),
                 )
-                if provider_name := os.getenv(TLS_PROFILE_PROVIDER_ENV):
+                if provider_name:
                     self._tls_profile_provider = load_tls_profile_provider(
                         provider_name, self.config.ssl
                     )

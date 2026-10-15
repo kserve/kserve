@@ -135,6 +135,41 @@ def test_rejects_partial_ssl_configuration(ssl_certfile, ssl_keyfile):
 
 
 @pytest.mark.asyncio
+async def test_tls_profile_provider_requires_ssl(monkeypatch):
+    monkeypatch.setattr(rest_mod.RESTServer, "create_application", lambda self: None)
+    server_serve = AsyncMock()
+    monkeypatch.setattr(rest_mod.uvicorn.Server, "serve", server_serve)
+    provider_loader = Mock()
+    monkeypatch.setattr(rest_mod, "load_tls_profile_provider", provider_loader)
+    monkeypatch.setenv(rest_mod.TLS_PROFILE_PROVIDER_ENV, "test")
+
+    rs = rest_mod.RESTServer(
+        app="dummy:app",
+        data_plane=Mock(),
+        model_repository_extension=Mock(),
+        http_port=8080,
+    )
+
+    def load_config():
+        rs.config.loaded = True
+        rs.config.ssl = None
+
+    monkeypatch.setattr(rs.config, "load", load_config)
+
+    with pytest.raises(
+        ValueError,
+        match=(
+            "KSERVE_TLS_PROFILE_PROVIDER requires TLS to be configured "
+            "with ssl_certfile and ssl_keyfile"
+        ),
+    ):
+        await rs.start()
+
+    provider_loader.assert_not_called()
+    server_serve.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_ssl_cert_refresher_lifecycle(monkeypatch):
     monkeypatch.setattr(rest_mod.RESTServer, "create_application", lambda self: None)
     monkeypatch.setattr(rest_mod.uvicorn.Server, "serve", AsyncMock())
