@@ -29,7 +29,7 @@ dependencies = [
     "pandas<3.0.0,>=2.2.0",
     "pydantic<3.0.0,>=2.5.0",
     "pyyaml<7.0.0,>=6.0.0",
-    "urllib3>=2.7.0", # CVE-2026-21441
+    "urllib3>=2.8.0", # CVE-2026-21441, CVE-2026-97689
     # Security floors on transitive dependencies. Kept here (not only in
     # [tool.uv] override-dependencies) so consumers installing kserve from PyPI
     # also inherit the CVE fixes; override-dependencies applies to this
