@@ -333,12 +333,34 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
 
+		// A prefill workload that already runs keeps the ServiceAccount it
+		// runs with, so a controller upgrade never rewrites the prefill
+		// identity and never rolls the deployment. The main-workload
+		// fallback applies at creation only.
+		if template.Spec.ServiceAccountName == "" {
+			curr := &appsv1.Deployment{}
+			if err := r.Get(ctx, types.NamespacedName{Name: prefillDeploymentName(llmSvc), Namespace: llmSvc.Namespace}, curr); err != nil {
+				if !apierrors.IsNotFound(err) {
+					return nil, fmt.Errorf("failed to get current prefill deployment %s/%s: %w",
+						llmSvc.Namespace, prefillDeploymentName(llmSvc), err)
+				}
+				// Creation: fall back to the main workload's ServiceAccount
+				// so prefill pods run with the same identity, including IRSA
+				// annotations for model download.
+				if llmSvc.Spec.Template != nil && llmSvc.Spec.Template.ServiceAccountName != "" {
+					template.Spec.ServiceAccountName = llmSvc.Spec.Template.ServiceAccountName
+				}
+			} else {
+				template.Spec.ServiceAccountName = curr.Spec.Template.Spec.ServiceAccountName
+			}
+		}
+
 		var existingServiceAccount *corev1.ServiceAccount = nil
-		if llmSvc.Spec.Prefill.Template.ServiceAccountName != "" {
+		if template.Spec.ServiceAccountName != "" {
 			existingServiceAccount = &corev1.ServiceAccount{}
-			err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Prefill.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
+			err := r.Get(ctx, types.NamespacedName{Name: template.Spec.ServiceAccountName, Namespace: llmSvc.Namespace}, existingServiceAccount)
 			if err != nil {
-				return nil, fmt.Errorf("failed to fetch existing single node prefill service account %s/%s: %w", llmSvc.Namespace, llmSvc.Spec.Prefill.Template.ServiceAccountName, err)
+				return nil, fmt.Errorf("failed to fetch existing single node prefill service account %s/%s: %w", llmSvc.Namespace, template.Spec.ServiceAccountName, err)
 			}
 		}
 

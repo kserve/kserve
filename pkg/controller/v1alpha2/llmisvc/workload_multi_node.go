@@ -508,14 +508,36 @@ func (r *LLMISVCReconciler) reconcileMultiNodePrefillServiceAccount(ctx context.
 	if err != nil {
 		return fmt.Errorf("failed to create expected multi node service account: %w", err)
 	}
-	if !useExistingServiceAccount {
-		if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker == nil {
-			return Delete(ctx, r, llmSvc, serviceAccount)
+	if useExistingServiceAccount {
+		// The prefill workload runs with an existing ServiceAccount. Delete
+		// the managed ServiceAccount that an earlier reconcile may have
+		// created, so that switching to the existing ServiceAccount does not
+		// leave a stale one behind — but only after the deployed workload no
+		// longer references it: the workload is updated after this step, and
+		// the pods of a slow or failed rollout must not lose the
+		// ServiceAccount they still run with. Delete is a no-op when it does
+		// not exist.
+		deployed, err := r.deployedPrefillLWS(ctx, llmSvc)
+		if err != nil {
+			return err
 		}
+		if prefillLWSReferencesServiceAccount(deployed, prefillLWSName(llmSvc)) {
+			return nil
+		}
+		managedServiceAccount := &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      prefillLWSName(llmSvc),
+				Namespace: llmSvc.GetNamespace(),
+			},
+		}
+		return Delete(ctx, r, llmSvc, managedServiceAccount)
+	}
+	if utils.GetForceStopRuntime(llmSvc) || llmSvc.Spec.Prefill == nil || llmSvc.Spec.Prefill.Worker == nil {
+		return Delete(ctx, r, llmSvc, serviceAccount)
+	}
 
-		if err := Reconcile(ctx, r, llmSvc, &corev1.ServiceAccount{}, serviceAccount, semanticServiceAccountIsEqual); err != nil {
-			return fmt.Errorf("failed to reconcile multi node service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
-		}
+	if err := Reconcile(ctx, r, llmSvc, &corev1.ServiceAccount{}, serviceAccount, semanticServiceAccountIsEqual); err != nil {
+		return fmt.Errorf("failed to reconcile multi node service account %s/%s: %w", serviceAccount.GetNamespace(), serviceAccount.GetName(), err)
 	}
 
 	return nil
@@ -606,12 +628,20 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.C
 	useExistingServiceAccount := false
 	expectedServiceAccountName := prefillLWSName(llmSvc)
 
-	// An existing service account attached to the prefill leader template takes precedence over any attached to the prefill worker template.
-	var existingServiceAccountName string
-	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && llmSvc.Spec.Prefill.Template.ServiceAccountName != "" {
-		existingServiceAccountName = llmSvc.Spec.Prefill.Template.ServiceAccountName
-	} else if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Worker != nil && llmSvc.Spec.Prefill.Worker.ServiceAccountName != "" {
-		existingServiceAccountName = llmSvc.Spec.Prefill.Worker.ServiceAccountName
+	existingServiceAccountName := resolvePrefillServiceAccountName(llmSvc)
+
+	// A prefill workload that already runs keeps the ServiceAccount it runs
+	// with: switching it on a controller upgrade would roll the workload.
+	// The main-workload fallback in resolvePrefillServiceAccountName applies
+	// at creation only; an explicit prefill ServiceAccount always wins.
+	if !prefillSpecifiesServiceAccount(llmSvc) {
+		deployed, err := r.deployedPrefillLWS(ctx, llmSvc)
+		if err != nil {
+			return nil, useExistingServiceAccount, err
+		}
+		if deployed != nil {
+			existingServiceAccountName = deployedPrefillServiceAccountName(deployed)
+		}
 	}
 
 	if existingServiceAccountName != "" && existingServiceAccountName != expectedServiceAccountName {
@@ -645,6 +675,88 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillServiceAccount(ctx context.C
 	expectedServiceAccount.Labels[constants.KubernetesPartOfLabelKey] = constants.LLMInferenceServicePartOfValue
 
 	return expectedServiceAccount, useExistingServiceAccount, nil
+}
+
+// resolvePrefillServiceAccountName returns the ServiceAccount name the
+// prefill workload should run with: a prefill-specific ServiceAccount first,
+// then the main workload's ServiceAccount resolved with the same precedence
+// the main workload uses. The main-workload fallback applies at creation
+// only; a prefill workload that already runs keeps the ServiceAccount it
+// runs with (see expectedMultiNodePrefillServiceAccount). A name is resolved
+// only while the prefill workload exists, so that removing the prefill spec
+// keeps the generated prefill ServiceAccount on the delete path.
+func resolvePrefillServiceAccountName(llmSvc *v1alpha2.LLMInferenceService) string {
+	prefill := llmSvc.Spec.Prefill
+	if prefill == nil || prefill.Worker == nil {
+		return ""
+	}
+	if prefill.Template != nil && prefill.Template.ServiceAccountName != "" {
+		return prefill.Template.ServiceAccountName
+	}
+	if prefill.Worker.ServiceAccountName != "" {
+		return prefill.Worker.ServiceAccountName
+	}
+	if llmSvc.Spec.Template != nil && llmSvc.Spec.Template.ServiceAccountName != "" {
+		return llmSvc.Spec.Template.ServiceAccountName
+	}
+	if llmSvc.Spec.Worker != nil && llmSvc.Spec.Worker.ServiceAccountName != "" {
+		return llmSvc.Spec.Worker.ServiceAccountName
+	}
+	return ""
+}
+
+// prefillSpecifiesServiceAccount reports whether the prefill spec names a
+// ServiceAccount of its own. An explicit prefill ServiceAccount always wins
+// over the one the deployed workload runs with.
+func prefillSpecifiesServiceAccount(llmSvc *v1alpha2.LLMInferenceService) bool {
+	prefill := llmSvc.Spec.Prefill
+	if prefill == nil {
+		return false
+	}
+	if prefill.Template != nil && prefill.Template.ServiceAccountName != "" {
+		return true
+	}
+	return prefill.Worker != nil && prefill.Worker.ServiceAccountName != ""
+}
+
+// deployedPrefillLWS returns the LeaderWorkerSet currently deployed for the
+// prefill workload, or nil when no prefill workload is deployed.
+func (r *LLMISVCReconciler) deployedPrefillLWS(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*lwsapi.LeaderWorkerSet, error) {
+	key := types.NamespacedName{Name: prefillLWSName(llmSvc), Namespace: llmSvc.GetNamespace()}
+	curr := &lwsapi.LeaderWorkerSet{}
+	if err := r.Get(ctx, key, curr); err != nil {
+		if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get current prefill leader worker set %s/%s: %w", key.Namespace, key.Name, err)
+	}
+	return curr, nil
+}
+
+// deployedPrefillServiceAccountName returns the ServiceAccount name the
+// deployed prefill workload runs with.
+func deployedPrefillServiceAccountName(lws *lwsapi.LeaderWorkerSet) string {
+	if lws == nil {
+		return ""
+	}
+	name := lws.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName
+	if name == "" && lws.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+		name = lws.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ServiceAccountName
+	}
+	return name
+}
+
+// prefillLWSReferencesServiceAccount reports whether any template of the
+// deployed prefill workload runs with the named ServiceAccount.
+func prefillLWSReferencesServiceAccount(lws *lwsapi.LeaderWorkerSet, name string) bool {
+	if lws == nil {
+		return false
+	}
+	if lws.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec.ServiceAccountName == name {
+		return true
+	}
+	return lws.Spec.LeaderWorkerTemplate.LeaderTemplate != nil &&
+		lws.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ServiceAccountName == name
 }
 
 func (r *LLMISVCReconciler) expectedMultiNodeMainRole(llmSvc *v1alpha2.LLMInferenceService) *rbacv1.Role {
