@@ -390,6 +390,12 @@ func (r *LLMISVCReconciler) expectedDisaggregatedPrefillRole(ctx context.Context
 // maxUnavailable is resolved once against the role's replicas, rounding down the way a
 // Deployment does, and written as a fixed number of at least one. An autoscaled role is
 // resolved against its minimum replicas.
+//
+// A role scaled to zero is resolved as if it had one replica. The DisaggregatedSet
+// creates its LeaderWorkerSets with these settings even at zero replicas, which the
+// webhook accepts, and afterwards only changes their replicas, never their settings: a
+// value that resolves to zero would be rejected as soon as the role scales up, leaving
+// it at zero replicas.
 func disaggregatedRollingUpdateConfig(workload *v1alpha2.WorkloadSpec) (*lwsapi.RollingUpdateConfiguration, error) {
 	var config *lwsapi.RollingUpdateConfiguration
 	if workload.Worker != nil {
@@ -414,11 +420,7 @@ func disaggregatedRollingUpdateConfig(workload *v1alpha2.WorkloadSpec) (*lwsapi.
 		}
 	}
 
-	// A DisaggregatedSet does not check a role scaled to zero.
-	replicas := int(disaggregatedRoleSizingReplicas(workload))
-	if replicas == 0 {
-		return config, nil
-	}
+	replicas := max(int(disaggregatedRoleSizingReplicas(workload)), 1)
 	surge, err := intstr.GetScaledValueFromIntOrPercent(&config.MaxSurge, replicas, true)
 	if err != nil {
 		return nil, fmt.Errorf("invalid maxSurge: %w", err)
