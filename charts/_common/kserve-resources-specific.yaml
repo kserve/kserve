@@ -1,7 +1,7 @@
 kserve:
   controller:
     deploymentMode: Knative
-    rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.18.0
+    rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.23.0
     rbacProxy:
       resources:
         limits:
@@ -75,4 +75,3 @@ kserve:
         memory: 300Mi
     knativeAddressableResolver:
       enabled: false
-

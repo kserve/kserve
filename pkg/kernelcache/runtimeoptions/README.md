@@ -9,7 +9,7 @@ not execute commands or query Kubernetes resources.
 Values are resolved in this order. A later source replaces an earlier value:
 
 ```text
-Env < Args < Command
+Env < Command < Args
 ```
 
 Repeated options within one source use the last resolvable occurrence.

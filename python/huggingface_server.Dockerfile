@@ -169,7 +169,7 @@ FROM base AS build
 
 ARG WORKSPACE_DIR
 ARG VLLM_VERSION=0.24.0
-ARG LMCACHE_VERSION=0.5.1
+ARG LMCACHE_VERSION=0.5.5
 
 WORKDIR ${WORKSPACE_DIR}
 
@@ -207,7 +207,9 @@ RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv sync --
 RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv pip install vllm[runai,tensorizer,fastsafetensors]==${VLLM_VERSION}
 
 # Install lmcache
-RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv pip install lmcache==${LMCACHE_VERSION}
+# --no-deps avoids pulling in a newer torch as a transitive dependency, which breaks ABI
+# compatibility with the torchvision build already installed by vllm's extras above.
+RUN --mount=type=cache,target=/root/.cache/uv cd huggingfaceserver && uv pip install --no-deps lmcache==${LMCACHE_VERSION}
 
 # Generate third-party licenses
 COPY pyproject.toml pyproject.toml

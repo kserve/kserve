@@ -35,7 +35,8 @@ import (
 )
 
 const (
-	kernelCachePrefetchServiceAccount = "kernel-cache-prefetcher"
+	kernelCachePrefetchServiceAccount = "kernel-cache-prefetcher-sa"
+	kernelCachePrefetchRoleBinding    = "kernel-cache-prefetcher-rb"
 	kernelCachePrefetchManagedLabel   = "internal.serving.kserve.io/kernelcache-prefetcher"
 )
 

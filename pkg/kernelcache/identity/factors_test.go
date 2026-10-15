@@ -67,15 +67,17 @@ func TestParseRuntimeConfigFactorsCanonicalizesCommaSeparatedValues(t *testing.T
 	require.Equal(t, first, second)
 }
 
-func TestParseRuntimeConfigFactorsUsesCommandOverArgs(t *testing.T) {
+// Kubernetes appends Args after Command in the effective argv, so Args wins
+// when the same runtime option is specified in both fields.
+func TestParseRuntimeConfigFactorsUsesArgsOverCommand(t *testing.T) {
 	factors := ParseRuntimeConfigFactors(
 		[]string{"--max-num-seqs=128", "--tensor_parallel_size=2"},
 		[]string{"--max-num-seqs", "256", "--tp=4"},
 		nil,
 	)
 
-	require.Equal(t, "128", factors["option.maxNumSeqs"])
-	require.Equal(t, "2", factors[TensorParallelSizeFactor])
+	require.Equal(t, "256", factors["option.maxNumSeqs"])
+	require.Equal(t, "4", factors[TensorParallelSizeFactor])
 }
 
 func TestParseRuntimeConfigFactorsPreservesJSONValue(t *testing.T) {

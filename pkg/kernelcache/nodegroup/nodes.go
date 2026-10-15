@@ -47,6 +47,14 @@ func MatchingGroups(node *corev1.Node, groups []v1alpha1.KernelCacheNodeGroup) [
 	return matches
 }
 
+// ResolveKernelCacheNodeGroupName returns the explicit node group name or the configured default.
+func ResolveKernelCacheNodeGroupName(kernelCache *v1alpha1.KernelCache, defaultNodeGroup string) string {
+	if kernelCache != nil && kernelCache.Spec.NodeGroupRef != nil && kernelCache.Spec.NodeGroupRef.Name != "" {
+		return kernelCache.Spec.NodeGroupRef.Name
+	}
+	return defaultNodeGroup
+}
+
 // GetNodes returns the ready and not-ready nodes that match the group selector.
 // It never returns nodes that fail the selector, so callers can safely treat
 // the union as the group membership.

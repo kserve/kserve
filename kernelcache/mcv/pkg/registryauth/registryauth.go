@@ -38,6 +38,7 @@ const (
 	caFileEnv          = "MCV_REGISTRY_CA_FILE"          // #nosec G101 -- this is an environment variable name, not a credential
 	allowedEndpointEnv = "MCV_REGISTRY_ALLOWED_ENDPOINT" // #nosec G101 -- this is an environment variable name, not a credential
 	accessFileEnv      = "MCV_REGISTRY_ACCESS_FILE"
+	insecureEnv        = "MCV_REGISTRY_INSECURE"
 )
 
 type publishingCredential struct {
@@ -45,6 +46,18 @@ type publishingCredential struct {
 	Username  string    `json:"username"`
 	Token     string    `json:"token"`
 	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+// ReferenceOptions returns image reference options for registry operations.
+func ReferenceOptions(strict bool) []name.Option {
+	options := make([]name.Option, 0, 2)
+	if strict {
+		options = append(options, name.StrictValidation)
+	}
+	if strings.EqualFold(strings.TrimSpace(os.Getenv(insecureEnv)), "true") {
+		options = append(options, name.Insecure)
+	}
+	return options
 }
 
 // RemoteOptions returns registry options for pull and push operations.

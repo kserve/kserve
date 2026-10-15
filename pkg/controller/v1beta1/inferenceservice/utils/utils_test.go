@@ -2390,6 +2390,20 @@ func TestValidateStorageURIForDefaultStorageInitializer(t *testing.T) {
 	}
 }
 
+func TestValidateStorageURIRejectsInternalHTTP(t *testing.T) {
+	for _, uri := range []string{
+		"http://127.0.0.1/model",
+		"http://169.254.169.254/latest/meta-data",
+		"https://kubernetes.default.svc/api",
+	} {
+		t.Run(uri, func(t *testing.T) {
+			if err := ValidateStorageURI(t.Context(), &uri, nil); err == nil {
+				t.Fatal("expected internal HTTP storage URI to be rejected")
+			}
+		})
+	}
+}
+
 func TestValidateStorageURIForCustomPrefix(t *testing.T) {
 	invalidUris := []string{
 		"custom://custom.com/model",

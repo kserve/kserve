@@ -21,6 +21,7 @@ import (
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -40,16 +41,39 @@ import (
 func (r *KernelCacheReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha1.KernelCache{}).
+		Watches(&v1alpha1.KernelCacheCapture{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCForCompletedKCC)).
 		Watches(&v1alpha1.KernelCacheNodeGroup{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCsOnNodeGroupChange)).
 		Watches(&v1alpha1.KernelCacheNode{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCsOnKCNChange)).
 		Watches(&corev1.Node{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCsOnNodeChange), builder.WithPredicates(kernelCacheNodePredicate())).
 		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCsOnConfigChange), builder.WithPredicates(predicate.NewPredicateFuncs(isInferenceServiceConfigMap))).
+		Watches(&corev1.ServiceAccount{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCsOnPrefetchAuthChange), builder.WithPredicates(prefetchAuthResourcePredicate())).
+		Watches(&rbacv1.RoleBinding{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCsOnPrefetchAuthChange), builder.WithPredicates(prefetchAuthResourcePredicate())).
 		Watches(&corev1.Pod{}, handler.EnqueueRequestsFromMapFunc(r.enqueueKCOnPodUsageChange), builder.WithPredicates(consumerPodPredicate())).
 		Complete(r)
 }
 
 func isInferenceServiceConfigMap(obj client.Object) bool {
 	return obj != nil && obj.GetNamespace() == constants.KServeNamespace && obj.GetName() == constants.InferenceServiceConfigMapName
+}
+
+// prefetchAuthResourcePredicate accepts only the shared prefetch identity resources.
+func prefetchAuthResourcePredicate() predicate.Predicate {
+	return predicate.NewPredicateFuncs(func(obj client.Object) bool {
+		return obj.GetName() == kernelCachePrefetchServiceAccount || obj.GetName() == kernelCachePrefetchRoleBinding
+	})
+}
+
+// enqueueKCsOnPrefetchAuthChange revisits every KC when shared prefetch access changes.
+func (r *KernelCacheReconciler) enqueueKCsOnPrefetchAuthChange(ctx context.Context, _ client.Object) []reconcile.Request {
+	kernelCaches := &v1alpha1.KernelCacheList{}
+	if err := r.List(ctx, kernelCaches); err != nil {
+		return nil
+	}
+	requests := make([]reconcile.Request, 0, len(kernelCaches.Items))
+	for index := range kernelCaches.Items {
+		requests = append(requests, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&kernelCaches.Items[index])})
+	}
+	return requests
 }
 
 // kernelCacheNodePredicate forwards only Node events that can change placement.
@@ -71,12 +95,18 @@ func kernelCacheNodePredicate() predicate.Predicate {
 
 // enqueueKCsOnNodeGroupChange selects KCs whose effective NodeGroup changed.
 func (r *KernelCacheReconciler) enqueueKCsOnNodeGroupChange(ctx context.Context, obj client.Object) []reconcile.Request {
-	return r.kcRequestsForNodeGroup(ctx, obj.GetName())
+	return mergeReconcileRequests(
+		r.kcRequestsForNodeGroup(ctx, obj.GetName()),
+		r.kcRequestsForCompletedKCCs(ctx, ""),
+	)
 }
 
 // enqueueKCsOnNodeChange selects KCs whose effective NodeGroup matches the Node.
 func (r *KernelCacheReconciler) enqueueKCsOnNodeChange(ctx context.Context, obj client.Object) []reconcile.Request {
-	return r.kcRequestsForMatchingNodeGroups(ctx, obj)
+	return mergeReconcileRequests(
+		r.kcRequestsForMatchingNodeGroups(ctx, obj),
+		r.kcRequestsForCompletedKCCs(ctx, obj.GetName()),
+	)
 }
 
 // enqueueKCsOnConfigChange requeues all KCs because config values are global.
@@ -84,7 +114,47 @@ func (r *KernelCacheReconciler) enqueueKCsOnConfigChange(ctx context.Context, ob
 	if !isInferenceServiceConfigMap(obj) {
 		return nil
 	}
-	return r.kcRequestsForNodeGroup(ctx, "")
+	return mergeReconcileRequests(
+		r.kcRequestsForNodeGroup(ctx, ""),
+		r.kcRequestsForCompletedKCCs(ctx, ""),
+	)
+}
+
+func (r *KernelCacheReconciler) kcRequestsForCompletedKCCs(ctx context.Context, nodeName string) []reconcile.Request {
+	captures := &v1alpha1.KernelCacheCaptureList{}
+	if err := r.List(ctx, captures); err != nil {
+		return nil
+	}
+	requests := make([]reconcile.Request, 0, len(captures.Items))
+	for index := range captures.Items {
+		capture := &captures.Items[index]
+		if !isCaptureComplete(capture) || capture.Status.KernelCacheRef != nil {
+			continue
+		}
+		if nodeName != "" && (capture.Status.ActiveSession == nil || capture.Status.ActiveSession.NodeName != nodeName) {
+			continue
+		}
+		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
+			Namespace: capture.Namespace,
+			Name:      generatedKernelCacheName(capture.Name, capture.Status.Artifact.ImageReference),
+		}})
+	}
+	return requests
+}
+
+func mergeReconcileRequests(groups ...[]reconcile.Request) []reconcile.Request {
+	seen := map[types.NamespacedName]struct{}{}
+	requests := []reconcile.Request{}
+	for _, group := range groups {
+		for _, request := range group {
+			if _, exists := seen[request.NamespacedName]; exists {
+				continue
+			}
+			seen[request.NamespacedName] = struct{}{}
+			requests = append(requests, request)
+		}
+	}
+	return requests
 }
 
 // kcRequestsForMatchingNodeGroups finds KCs affected by the supplied Node.

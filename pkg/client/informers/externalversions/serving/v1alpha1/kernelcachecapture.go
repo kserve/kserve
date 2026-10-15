@@ -34,11 +34,39 @@ import (
 )
 
 // KernelCacheCaptureInformer provides access to a shared informer and lister for
-// KernelCacheCaptures.
+// KernelCacheCaptures. Prefer using the type-safe variant (see [TypedKernelCacheCaptureInformer]).
 type KernelCacheCaptureInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() servingv1alpha1.KernelCacheCaptureLister
 }
+
+// TypedKernelCacheCaptureInformer provides access to a shared informer and lister for
+// KernelCacheCaptures, including the type-safe TypedInformer variant.
+// It is a superset of KernelCacheCaptureInformer.
+type TypedKernelCacheCaptureInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() KernelCacheCaptureIndexInformer
+	Lister() servingv1alpha1.KernelCacheCaptureLister
+}
+
+// KernelCacheCaptureIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type KernelCacheCaptureIndexInformer cache.TypedSharedIndexInformer[*apisservingv1alpha1.KernelCacheCapture]
+
+// KernelCacheCaptureHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for KernelCacheCapture.
+type KernelCacheCaptureHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisservingv1alpha1.KernelCacheCapture]
+
+// KernelCacheCaptureDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for KernelCacheCapture.
+type KernelCacheCaptureDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisservingv1alpha1.KernelCacheCapture]
+
+// KernelCacheCaptureFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for KernelCacheCapture.
+type KernelCacheCaptureFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisservingv1alpha1.KernelCacheCapture]
+
+// KernelCacheCaptureIndexers is a specialization of [cache.TypedIndexers] for KernelCacheCapture.
+type KernelCacheCaptureIndexers = cache.TypedIndexers[*apisservingv1alpha1.KernelCacheCapture]
+
+// DeletedKernelCacheCapture is a specialization of [cache.DeletedObject] for KernelCacheCapture.
+type DeletedKernelCacheCapture = cache.DeletedObject[*apisservingv1alpha1.KernelCacheCapture]
 
 type kernelCacheCaptureInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -49,25 +77,49 @@ type kernelCacheCaptureInformer struct {
 // NewKernelCacheCaptureInformer constructs a new informer for KernelCacheCapture type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedKernelCacheCaptureInformer]).
 func NewKernelCacheCaptureInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewKernelCacheCaptureInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedKernelCacheCaptureInformer constructs a new informer for KernelCacheCapture type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedKernelCacheCaptureInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers KernelCacheCaptureIndexers) KernelCacheCaptureIndexInformer {
+	return NewTypedKernelCacheCaptureInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredKernelCacheCaptureInformer constructs a new informer for KernelCacheCapture type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredKernelCacheCaptureInformer]).
 func NewFilteredKernelCacheCaptureInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewKernelCacheCaptureInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedKernelCacheCaptureInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredKernelCacheCaptureInformer constructs a new informer for KernelCacheCapture type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredKernelCacheCaptureInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers KernelCacheCaptureIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) KernelCacheCaptureIndexInformer {
+	return NewTypedKernelCacheCaptureInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewKernelCacheCaptureInformerWithOptions constructs a new informer for KernelCacheCapture type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedKernelCacheCaptureInformerWithOptions]).
 func NewKernelCacheCaptureInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedKernelCacheCaptureInformerWithOptions(client, namespace, options)
+}
+
+// NewTypedKernelCacheCaptureInformerWithOptions constructs a new informer for KernelCacheCapture type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedKernelCacheCaptureInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) KernelCacheCaptureIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "serving.kserve.io", Version: "v1alpha1", Resource: "kernelcachecaptures"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.KernelCacheCapture](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -100,17 +152,57 @@ func NewKernelCacheCaptureInformerWithOptions(client versioned.Interface, namesp
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *kernelCacheCaptureInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewKernelCacheCaptureInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedKernelCacheCaptureInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *kernelCacheCaptureInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisservingv1alpha1.KernelCacheCapture{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *kernelCacheCaptureInformer) TypedInformer() KernelCacheCaptureIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.KernelCacheCapture](f.factory.InformerFor(&apisservingv1alpha1.KernelCacheCapture{}, f.defaultInformer))
 }
 
 func (f *kernelCacheCaptureInformer) Lister() servingv1alpha1.KernelCacheCaptureLister {
 	return servingv1alpha1.NewKernelCacheCaptureLister(f.Informer().GetIndexer())
+}
+
+// ToTypedKernelCacheCaptureInformer converts an untyped informer into a TypedKernelCacheCaptureInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *KernelCacheCapture. If that is not the case, calling type-safe methods of the returned
+// TypedKernelCacheCaptureInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedKernelCacheCaptureInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedKernelCacheCaptureInformer(informer KernelCacheCaptureInformer) TypedKernelCacheCaptureInformer {
+	if informer, ok := informer.(TypedKernelCacheCaptureInformer); ok {
+		return informer
+	}
+	return &kernelCacheCaptureTypedInformerAdapter{informer}
+}
+
+type kernelCacheCaptureTypedInformerAdapter struct {
+	KernelCacheCaptureInformer
+}
+
+func (a *kernelCacheCaptureTypedInformerAdapter) TypedInformer() KernelCacheCaptureIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.KernelCacheCapture](a.Informer())
+}
+
+// ToKernelCacheCaptureIndexInformer converts an untyped informer into a KernelCacheCaptureIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *KernelCacheCapture. If that is not the case, calling type-safe methods of the returned
+// KernelCacheCaptureIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a KernelCacheCaptureIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToKernelCacheCaptureIndexInformer(informer cache.SharedIndexInformer) KernelCacheCaptureIndexInformer {
+	if informer, ok := informer.(KernelCacheCaptureIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.KernelCacheCapture](informer)
 }

@@ -16,8 +16,8 @@
 E2E test for KEDA fallback during a Prometheus outage.
 
 Scales the *shared* cluster Prometheus instance to 0 replicas to simulate an
-outage. Deliberately not tagged with autoscaling_wva/autoscaling_keda/
-autoscaling_direct_keda so it runs in its own CI step, after every other test
+outage. Deliberately not tagged with autoscaling_keda/autoscaling_direct_keda
+so it runs in its own CI step, after every other test
 depending on that instance. The finally block always restores Prometheus.
 """
 
@@ -31,7 +31,7 @@ from kubernetes import client
 from .fixtures import generate_test_id, inject_k8s_proxy
 from .logging import log_execution
 from .test_llm_autoscaling_direct_keda import _cleanup, _new_kserve_client
-from .test_llm_autoscaling_wva import (
+from .autoscaling_helpers import (
     assert_scaled_object_condition,
     get_pod_count,
 )

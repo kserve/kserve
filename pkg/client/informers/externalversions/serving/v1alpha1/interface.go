@@ -25,33 +25,33 @@ import (
 // Interface provides access to all the informers in this group version.
 type Interface interface {
 	// ClusterServingRuntimes returns a ClusterServingRuntimeInformer.
-	ClusterServingRuntimes() ClusterServingRuntimeInformer
+	ClusterServingRuntimes() TypedClusterServingRuntimeInformer
 	// ClusterStorageContainers returns a ClusterStorageContainerInformer.
-	ClusterStorageContainers() ClusterStorageContainerInformer
+	ClusterStorageContainers() TypedClusterStorageContainerInformer
 	// InferenceGraphs returns a InferenceGraphInformer.
-	InferenceGraphs() InferenceGraphInformer
+	InferenceGraphs() TypedInferenceGraphInformer
 	// KernelCaches returns a KernelCacheInformer.
-	KernelCaches() KernelCacheInformer
+	KernelCaches() TypedKernelCacheInformer
 	// KernelCacheCaptures returns a KernelCacheCaptureInformer.
-	KernelCacheCaptures() KernelCacheCaptureInformer
+	KernelCacheCaptures() TypedKernelCacheCaptureInformer
 	// KernelCacheNodes returns a KernelCacheNodeInformer.
-	KernelCacheNodes() KernelCacheNodeInformer
+	KernelCacheNodes() TypedKernelCacheNodeInformer
 	// KernelCacheNodeGroups returns a KernelCacheNodeGroupInformer.
-	KernelCacheNodeGroups() KernelCacheNodeGroupInformer
+	KernelCacheNodeGroups() TypedKernelCacheNodeGroupInformer
 	// LLMInferenceServices returns a LLMInferenceServiceInformer.
-	LLMInferenceServices() LLMInferenceServiceInformer
+	LLMInferenceServices() TypedLLMInferenceServiceInformer
 	// LocalModelCaches returns a LocalModelCacheInformer.
-	LocalModelCaches() LocalModelCacheInformer
+	LocalModelCaches() TypedLocalModelCacheInformer
 	// LocalModelNamespaceCaches returns a LocalModelNamespaceCacheInformer.
-	LocalModelNamespaceCaches() LocalModelNamespaceCacheInformer
+	LocalModelNamespaceCaches() TypedLocalModelNamespaceCacheInformer
 	// LocalModelNodes returns a LocalModelNodeInformer.
-	LocalModelNodes() LocalModelNodeInformer
+	LocalModelNodes() TypedLocalModelNodeInformer
 	// LocalModelNodeGroups returns a LocalModelNodeGroupInformer.
-	LocalModelNodeGroups() LocalModelNodeGroupInformer
+	LocalModelNodeGroups() TypedLocalModelNodeGroupInformer
 	// ServingRuntimes returns a ServingRuntimeInformer.
-	ServingRuntimes() ServingRuntimeInformer
+	ServingRuntimes() TypedServingRuntimeInformer
 	// TrainedModels returns a TrainedModelInformer.
-	TrainedModels() TrainedModelInformer
+	TrainedModels() TypedTrainedModelInformer
 }
 
 type version struct {
@@ -65,72 +65,72 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// ClusterServingRuntimes returns a ClusterServingRuntimeInformer.
-func (v *version) ClusterServingRuntimes() ClusterServingRuntimeInformer {
+// ClusterServingRuntimes returns a TypedClusterServingRuntimeInformer.
+func (v *version) ClusterServingRuntimes() TypedClusterServingRuntimeInformer {
 	return &clusterServingRuntimeInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// ClusterStorageContainers returns a ClusterStorageContainerInformer.
-func (v *version) ClusterStorageContainers() ClusterStorageContainerInformer {
+// ClusterStorageContainers returns a TypedClusterStorageContainerInformer.
+func (v *version) ClusterStorageContainers() TypedClusterStorageContainerInformer {
 	return &clusterStorageContainerInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// InferenceGraphs returns a InferenceGraphInformer.
-func (v *version) InferenceGraphs() InferenceGraphInformer {
+// InferenceGraphs returns a TypedInferenceGraphInformer.
+func (v *version) InferenceGraphs() TypedInferenceGraphInformer {
 	return &inferenceGraphInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// KernelCaches returns a KernelCacheInformer.
-func (v *version) KernelCaches() KernelCacheInformer {
+// KernelCaches returns a TypedKernelCacheInformer.
+func (v *version) KernelCaches() TypedKernelCacheInformer {
 	return &kernelCacheInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// KernelCacheCaptures returns a KernelCacheCaptureInformer.
-func (v *version) KernelCacheCaptures() KernelCacheCaptureInformer {
+// KernelCacheCaptures returns a TypedKernelCacheCaptureInformer.
+func (v *version) KernelCacheCaptures() TypedKernelCacheCaptureInformer {
 	return &kernelCacheCaptureInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// KernelCacheNodes returns a KernelCacheNodeInformer.
-func (v *version) KernelCacheNodes() KernelCacheNodeInformer {
+// KernelCacheNodes returns a TypedKernelCacheNodeInformer.
+func (v *version) KernelCacheNodes() TypedKernelCacheNodeInformer {
 	return &kernelCacheNodeInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// KernelCacheNodeGroups returns a KernelCacheNodeGroupInformer.
-func (v *version) KernelCacheNodeGroups() KernelCacheNodeGroupInformer {
+// KernelCacheNodeGroups returns a TypedKernelCacheNodeGroupInformer.
+func (v *version) KernelCacheNodeGroups() TypedKernelCacheNodeGroupInformer {
 	return &kernelCacheNodeGroupInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
-// LLMInferenceServices returns a LLMInferenceServiceInformer.
-func (v *version) LLMInferenceServices() LLMInferenceServiceInformer {
+// LLMInferenceServices returns a TypedLLMInferenceServiceInformer.
+func (v *version) LLMInferenceServices() TypedLLMInferenceServiceInformer {
 	return &lLMInferenceServiceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// LocalModelCaches returns a LocalModelCacheInformer.
-func (v *version) LocalModelCaches() LocalModelCacheInformer {
+// LocalModelCaches returns a TypedLocalModelCacheInformer.
+func (v *version) LocalModelCaches() TypedLocalModelCacheInformer {
 	return &localModelCacheInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// LocalModelNamespaceCaches returns a LocalModelNamespaceCacheInformer.
-func (v *version) LocalModelNamespaceCaches() LocalModelNamespaceCacheInformer {
+// LocalModelNamespaceCaches returns a TypedLocalModelNamespaceCacheInformer.
+func (v *version) LocalModelNamespaceCaches() TypedLocalModelNamespaceCacheInformer {
 	return &localModelNamespaceCacheInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// LocalModelNodes returns a LocalModelNodeInformer.
-func (v *version) LocalModelNodes() LocalModelNodeInformer {
+// LocalModelNodes returns a TypedLocalModelNodeInformer.
+func (v *version) LocalModelNodes() TypedLocalModelNodeInformer {
 	return &localModelNodeInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// LocalModelNodeGroups returns a LocalModelNodeGroupInformer.
-func (v *version) LocalModelNodeGroups() LocalModelNodeGroupInformer {
+// LocalModelNodeGroups returns a TypedLocalModelNodeGroupInformer.
+func (v *version) LocalModelNodeGroups() TypedLocalModelNodeGroupInformer {
 	return &localModelNodeGroupInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// ServingRuntimes returns a ServingRuntimeInformer.
-func (v *version) ServingRuntimes() ServingRuntimeInformer {
+// ServingRuntimes returns a TypedServingRuntimeInformer.
+func (v *version) ServingRuntimes() TypedServingRuntimeInformer {
 	return &servingRuntimeInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
-// TrainedModels returns a TrainedModelInformer.
-func (v *version) TrainedModels() TrainedModelInformer {
+// TrainedModels returns a TypedTrainedModelInformer.
+func (v *version) TrainedModels() TypedTrainedModelInformer {
 	return &trainedModelInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

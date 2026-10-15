@@ -31,7 +31,7 @@ All tests collected from the `llmisvc/` directory automatically receive the
 
 | File pattern | Assigned markers | Example file |
 |---|---|---|
-| `test_llm_autoscaling_<variant>.py` | `llminferenceservice` + `llmisvc_autoscaling` + `autoscaling_<variant>` | `test_llm_autoscaling_wva.py` → `llminferenceservice`, `llmisvc_autoscaling`, `autoscaling_wva` |
+| `test_llm_autoscaling_<variant>.py` | `llminferenceservice` + `llmisvc_autoscaling` + `autoscaling_<variant>` | `test_llm_autoscaling_direct_keda.py` → `llminferenceservice`, `llmisvc_autoscaling`, `autoscaling_direct_keda` |
 | Files in `_LLMISVC_CORE_EXCLUDED` | `llminferenceservice` only (manually marked for sub-group) | `test_llm_tracing.py` has its own `tracing` marker, `test_llm_inference_service_config_deletion.py` and `test_llm_canary_lifecycle.py` carry `llmisvc_serial` |
 | Everything else | `llminferenceservice` + `llmisvc_core` | `test_llm_inference_service.py`, `test_pod_watch.py` |
 
@@ -77,9 +77,6 @@ Examples:
 ```bash
 # Run all core LLMISVC tests
 pytest -m "llmisvc_core" test/e2e/llmisvc/
-
-# Run only WVA autoscaling tests
-pytest -m "autoscaling_wva" test/e2e/llmisvc/
 
 # Run all LLMISVC autoscaling variants
 pytest -m "llmisvc_autoscaling" test/e2e/llmisvc/

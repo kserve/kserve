@@ -194,6 +194,7 @@ func NewRawKubeReconciler(ctx context.Context,
 		deploymentMode,
 		reconcilers.WorkloadReconcilerParams{
 			Client:              client,
+			Clientset:           clientset,
 			Scheme:              scheme,
 			ComponentMeta:       componentMeta,
 			WorkerComponentMeta: workerComponentMeta,

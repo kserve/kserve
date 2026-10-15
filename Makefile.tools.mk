@@ -17,6 +17,7 @@ SHELLCHECK = $(LOCALBIN)/shellcheck
 UV = $(PYTHON_BIN)/uv
 RUFF = $(PYTHON_BIN)/ruff
 PYTEST = $(PYTHON_BIN)/pytest
+CODESPELL = $(PYTHON_BIN)/codespell
 
 ## Tool versions are defined in kserve-deps.env (included in main Makefile)
 
@@ -99,6 +100,9 @@ $(RUFF): $(PYTHON_VENV) $(DEPS_ENV)
 
 $(PYTEST): $(UV)
 	$(UV) pip install --python $(PYTHON_BIN)/python pytest
+
+$(CODESPELL): $(PYTHON_VENV) $(DEPS_ENV)
+	$(PYTHON_BIN)/pip install codespell==$(CODESPELL_VERSION)
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary

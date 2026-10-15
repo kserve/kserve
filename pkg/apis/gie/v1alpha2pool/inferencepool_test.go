@@ -92,7 +92,7 @@ func TestConvertFrom_RoundTrip(t *testing.T) {
 				},
 			},
 			TargetPorts: []v1.Port{{Number: 8000}},
-			EndpointPickerRef: v1.EndpointPickerRef{
+			EndpointPickerRef: &v1.EndpointPickerRef{
 				Group:       ptr.To(v1.Group("")),
 				Kind:        v1.Kind("Service"),
 				Name:        "my-epp",
@@ -120,6 +120,36 @@ func TestConvertFrom_RoundTrip(t *testing.T) {
 	assert.Equal(t, original.Spec.TargetPorts[0].Number, roundTripped.Spec.TargetPorts[0].Number)
 	assert.Equal(t, original.Spec.EndpointPickerRef.Name, roundTripped.Spec.EndpointPickerRef.Name)
 	assert.Equal(t, original.Spec.EndpointPickerRef.FailureMode, roundTripped.Spec.EndpointPickerRef.FailureMode)
+}
+
+func TestConvertFrom_NilEndpointPickerRef(t *testing.T) {
+	original := &v1.InferencePool{
+		Spec: v1.InferencePoolSpec{
+			TargetPorts: []v1.Port{{Number: 8000}},
+		},
+	}
+
+	converted := &InferencePool{}
+	err := converted.ConvertFrom(original)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "endpointPickerRef cannot be nil")
+	assert.Equal(t, InferencePoolSpec{}, converted.Spec)
+}
+
+func TestConvertTo_EmptyExtensionRef(t *testing.T) {
+	original := &InferencePool{
+		Spec: InferencePoolSpec{
+			TargetPortNumber: 8000,
+		},
+	}
+
+	converted := &v1.InferencePool{}
+	err := original.ConvertTo(converted)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "extensionRef name cannot be empty")
+	assert.Equal(t, v1.InferencePoolSpec{}, converted.Spec)
 }
 
 func TestSchemeRegistration(t *testing.T) {

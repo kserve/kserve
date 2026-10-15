@@ -837,6 +837,8 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 		return nil, errors.Wrapf(err, "fails to reconcile predictor")
 	}
 
+	propagatePlatformWorkloadStatus(isvc, r.Workload)
+
 	if !utils.GetForceStopRuntime(isvc) {
 		isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)
 	}

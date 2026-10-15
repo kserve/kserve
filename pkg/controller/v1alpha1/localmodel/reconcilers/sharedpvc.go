@@ -75,7 +75,7 @@ type sharedState struct {
 // state. The referenced PVC and the imported model data are user-owned and never mutated or
 // deleted by the controller. The owned Job is deleted before the cache finalizer is removed,
 // preventing a successor cache from importing into the same destination concurrently.
-func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, isvcConfigMap *corev1.ConfigMap, consumers cacheConsumers) (ctrl.Result, error) {
+func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, isvcConfigMap *corev1.ConfigMap, localModelConfig *v1beta1.LocalModelConfig, consumers cacheConsumers) (ctrl.Result, error) {
 	log := c.Log.WithValues("name", localModel.Name, "namespace", localModel.Namespace, "pvcRef", *localModel.Spec.PVCRef)
 
 	if !localModel.DeletionTimestamp.IsZero() {
@@ -126,7 +126,7 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 	}
 
 	// Get or create the single deterministic import Job.
-	job, requeue, err := c.getOrCreateImportJob(ctx, localModel, pvc, storageKey, isvcConfigMap)
+	job, requeue, err := c.getOrCreateImportJob(ctx, localModel, pvc, storageKey, isvcConfigMap, localModelConfig)
 	if err != nil {
 		if errors.Is(err, errImportJobConflict) {
 			if _, statusErr := c.applySharedStatus(ctx, localModel, sharedState{
@@ -310,7 +310,7 @@ func cachePrecedes(candidate, current *v1alpha1.LocalModelNamespaceCache) bool {
 
 // getOrCreateImportJob returns the existing deterministic import Job, or creates it. A retained
 // succeeded/failed Job is returned as-is; a second Job is never created while one exists.
-func (c *LocalModelNamespaceCacheReconciler) getOrCreateImportJob(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim, storageKey string, isvcConfigMap *corev1.ConfigMap) (*batchv1.Job, bool, error) {
+func (c *LocalModelNamespaceCacheReconciler) getOrCreateImportJob(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim, storageKey string, isvcConfigMap *corev1.ConfigMap, localModelConfig *v1beta1.LocalModelConfig) (*batchv1.Job, bool, error) {
 	jobName := importJobName(localModel.Name)
 	job := &batchv1.Job{}
 	err := c.Get(ctx, types.NamespacedName{Name: jobName, Namespace: localModel.Namespace}, job)
@@ -321,7 +321,7 @@ func (c *LocalModelNamespaceCacheReconciler) getOrCreateImportJob(ctx context.Co
 		return nil, false, err
 	}
 
-	job, err = c.buildImportJob(ctx, localModel, jobName, pvc, storageKey, isvcConfigMap)
+	job, err = c.buildImportJob(ctx, localModel, jobName, pvc, storageKey, isvcConfigMap, localModelConfig)
 	if err != nil {
 		return nil, false, err
 	}
@@ -372,7 +372,7 @@ func (c *LocalModelNamespaceCacheReconciler) validateExistingImportJob(ctx conte
 }
 
 // buildImportJob constructs the single import Job for a shared-PVC cache.
-func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, jobName string, pvc *corev1.PersistentVolumeClaim, storageKey string, isvcConfigMap *corev1.ConfigMap) (*batchv1.Job, error) {
+func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, jobName string, pvc *corev1.PersistentVolumeClaim, storageKey string, isvcConfigMap *corev1.ConfigMap, localModelConfig *v1beta1.LocalModelConfig) (*batchv1.Job, error) {
 	storageInitializerConfig, err := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
 	if err != nil {
 		c.Log.Error(err, "Failed to get storage initializer config, using defaults")
@@ -382,7 +382,11 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 	if err != nil {
 		return nil, err
 	}
-	container.Args = []string{localModel.Spec.SourceModelUri, constants.DefaultModelLocalMountPath}
+	storageUri := localModel.Spec.SourceModelUri
+	if _, normalized, isOci := utils.ParseOciScheme(storageUri); isOci {
+		storageUri = normalized
+	}
+	container.Args = []string{storageUri, constants.DefaultModelLocalMountPath}
 	container.VolumeMounts = []corev1.VolumeMount{
 		{
 			MountPath: constants.DefaultModelLocalMountPath,
@@ -403,6 +407,17 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 		},
 	}
 
+	if secretName, ok := credentials.FirstNamedImagePullSecret(localModel.Spec.ImagePullSecrets); ok {
+		reader := c.APIReader
+		if reader == nil {
+			reader = c.Client
+		}
+		if err := credentials.FetchAndValidateDockerConfigJSONSecret(ctx, reader, localModel.Namespace, secretName); err != nil {
+			return nil, fmt.Errorf("%w: %w", errImportCredentials, err)
+		}
+		credentials.MountImagePullSecretsAsDockerConfig(localModel.Spec.ImagePullSecrets, container, &volumes)
+	}
+
 	if localModel.Spec.ServiceAccountName != "" || localModel.Spec.Storage != nil {
 		if c.CredentialBuilder == nil {
 			c.CredentialBuilder = credentials.NewCredentialBuilder(c.Client, c.Clientset, isvcConfigMap)
@@ -416,9 +431,20 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 		}
 	}
 
-	var fsGroup *int64
-	if localModelConfig, cfgErr := v1beta1.NewLocalModelConfig(isvcConfigMap); cfgErr == nil {
-		fsGroup = localModelConfig.FSGroup
+	if _, _, isOci := utils.ParseOciScheme(localModel.Spec.SourceModelUri); isOci {
+		if storageInitializerConfig != nil && storageInitializerConfig.OciInsecureRegistry {
+			credentials.SetOciInsecureRegistryEnv(container)
+		}
+		credentials.MountOciCaBundle(storageInitializerConfig, localModel.Namespace, container, &volumes)
+	}
+
+	// Only the shared-PVC specific key is honored here. The global localModel.fsGroup is
+	// sized for the admin-controlled job namespace; the import Job runs in the user's
+	// namespace, where a fixed group can be rejected by admission. localModelConfig is
+	// parsed once in Reconcile, which returns on a parse error before reaching here.
+	var podSecurityContext *corev1.PodSecurityContext
+	if localModelConfig.SharedPVCImportFSGroup != nil {
+		podSecurityContext = &corev1.PodSecurityContext{FSGroup: localModelConfig.SharedPVCImportFSGroup}
 	}
 
 	parallelism := int32(1)
@@ -448,12 +474,10 @@ func (c *LocalModelNamespaceCacheReconciler) buildImportJob(ctx context.Context,
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					// No node selector: the import runs on any node that can mount the RWX claim.
-					Containers:    []corev1.Container{*container},
-					RestartPolicy: corev1.RestartPolicyNever,
-					Volumes:       volumes,
-					SecurityContext: &corev1.PodSecurityContext{
-						FSGroup: fsGroup,
-					},
+					Containers:      []corev1.Container{*container},
+					RestartPolicy:   corev1.RestartPolicyNever,
+					Volumes:         volumes,
+					SecurityContext: podSecurityContext,
 				},
 			},
 		},
@@ -521,17 +545,19 @@ func importPendingState(message string) sharedState {
 }
 
 // importSpecHash returns a stable hash of the spec fields that shape the import Job's
-// credentials (serviceAccountName and storage). It is stamped on the Job so a credential
-// fix invalidates a non-completed Job and triggers a fresh import.
+// credentials (serviceAccountName, storage, and imagePullSecrets). It is stamped on the Job
+// so a credential fix invalidates a non-completed Job and triggers a fresh import.
 func importSpecHash(localModel *v1alpha1.LocalModelNamespaceCache) string {
 	// Marshal a fixed-shape struct so the hash is stable across field ordering and nil vs
 	// empty; json.Marshal of a *string / *struct is deterministic for this input.
 	payload, err := json.Marshal(struct {
 		ServiceAccountName string                          `json:"serviceAccountName"`
 		Storage            *v1alpha1.LocalModelStorageSpec `json:"storage"`
+		ImagePullSecrets   []corev1.LocalObjectReference   `json:"imagePullSecrets,omitempty"`
 	}{
 		ServiceAccountName: localModel.Spec.ServiceAccountName,
 		Storage:            localModel.Spec.Storage,
+		ImagePullSecrets:   localModel.Spec.ImagePullSecrets,
 	})
 	if err != nil {
 		// Marshalling plain strings and maps cannot fail; fall back to a constant so a

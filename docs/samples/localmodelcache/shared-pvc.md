@@ -43,6 +43,13 @@ The referenced PVC and the imported model data are **user-owned**. KServe never
 mutates or deletes the PVC or its contents. Deleting the cache removes only the owned
 import Job (via garbage collection); the PVC and the model data are retained.
 
+## Credentials
+
+`serviceAccountName`, `storage`, and `imagePullSecrets` are resolved in the cache
+CR's namespace, because that is where the import Job runs. They are not looked up
+in `localModel.jobNamespace`. For `oci://` imports, put the dockerconfigjson secret
+in the same namespace as the `LocalModelNamespaceCache`.
+
 ## Example
 
 `shared-pvc.yaml` in this directory contains a complete example:
@@ -92,6 +99,20 @@ kubectl apply -f shared-pvc.yaml
   occur.
 - The Job records the referenced PVC UID and storage key. Recreating the PVC under
   the same name invalidates the old import and creates a replacement Job.
+- The Job's Pod `fsGroup` comes from `localModel.sharedPVCImportFSGroup` in the
+  `inferenceservice-config` ConfigMap (default `1000`). It is independent of
+  `localModel.fsGroup`, which applies only to per-node download Jobs in the admin-owned
+  job namespace; the two can differ because the import Job runs in the cache's own
+  namespace. RWX drivers with CSIDriver `fsGroupPolicy: File` (for example
+  `csi-driver-nfs`) need the group so the UID 1000 storage-initializer can write a
+  root-owned volume. Where namespace admission assigns the group (for example an
+  OpenShift SCC that rejects a fixed value), remove the key (Helm:
+  `--set kserve.localmodel.sharedPVCImportFSGroup=null`) and the Job requests none.
+- `inferenceservice-config` settings, including `sharedPVCImportFSGroup`, are read only
+  when the import Job is created; changing them does not replace an existing Job. To
+  apply a changed setting, delete a pending or failed import Job. A wrong `fsGroup` can
+  leave the Job pending (admission rejects its Pod) or failed (the import cannot write
+  the volume). A completed Job is kept, since its data is already on the claim.
 - A Job with the deterministic name that is not owned by the cache is never adopted
   or deleted; the cache reports `ImportJobConflict` until the collision is removed.
 

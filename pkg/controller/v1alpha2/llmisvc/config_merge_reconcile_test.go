@@ -160,6 +160,85 @@ func TestReconcileBaseRefs_DryRunValidatesRenderedSpec(t *testing.T) {
 	assert.Equal(t, condition.Message, ready.Message, "the exact cause should bubble up to Ready")
 }
 
+func TestReconcileBaseRefs_DryRunUpdateRetainsWVA(t *testing.T) {
+	for _, role := range []string{"main", "prefill"} {
+		t.Run(role, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			require.NoError(t, v1alpha2.AddToScheme(scheme))
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "legacy-wva", Namespace: "test-ns"},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					BaseRefs: []corev1.LocalObjectReference{{Name: "custom-config"}},
+					Model:    v1alpha2.LLMModelSpec{Name: ptr.To("test-model")},
+				},
+			}
+			scaling := &v1alpha2.ScalingSpec{
+				MinReplicas: ptr.To(int32(1)), MaxReplicas: 5,
+				WVA: &v1alpha2.WVASpec{VariantCost: "10.0", ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}},
+			}
+			if role == "main" {
+				llmSvc.Spec.Scaling = scaling
+			} else {
+				llmSvc.Spec.Prefill = &v1alpha2.WorkloadSpec{Scaling: scaling}
+			}
+			customConfig := &v1alpha2.LLMInferenceServiceConfig{
+				ObjectMeta: metav1.ObjectMeta{Name: "custom-config", Namespace: llmSvc.Namespace},
+				Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{Containers: []corev1.Container{{Name: mainContainerName, Image: "example.com/model:test"}}},
+				}},
+			}
+			var validated *v1alpha2.LLMInferenceService
+			var updateOptions client.UpdateOptions
+			objects := make([]client.Object, 0, 5)
+			objects = append(objects, llmSvc, customConfig)
+			for _, name := range []string{configTemplateName, configDecodeTemplateName, configPrefillTemplateName} {
+				objects = append(objects, &v1alpha2.LLMInferenceServiceConfig{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: constants.KServeNamespace},
+				})
+			}
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).
+				WithInterceptorFuncs(interceptor.Funcs{
+					Create: func(_ context.Context, _ client.WithWatch, _ client.Object, _ ...client.CreateOption) error {
+						t.Fatal("retained WVA must be validated as an UPDATE, not new adoption")
+						return nil
+					},
+					Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+						var ok bool
+						validated, ok = obj.(*v1alpha2.LLMInferenceService)
+						require.True(t, ok)
+						for _, opt := range opts {
+							opt.ApplyToUpdate(&updateOptions)
+						}
+						previous := &v1alpha2.LLMInferenceService{}
+						require.NoError(t, c.Get(ctx, client.ObjectKeyFromObject(obj), previous))
+						_, err := (&v1alpha2.LLMInferenceServiceValidator{}).ValidateUpdate(ctx, previous, validated)
+						return err
+					},
+				}).Build()
+			require.NoError(t, fakeClient.Get(t.Context(), client.ObjectKeyFromObject(llmSvc), llmSvc))
+			original := llmSvc.DeepCopy()
+			reconciler := &LLMISVCReconciler{Client: fakeClient, EventRecorder: record.NewFakeRecorder(10)}
+			combined, err := reconciler.reconcileBaseRefs(t.Context(), llmSvc, &Config{})
+			require.NoError(t, err)
+			require.NotNil(t, combined)
+			require.NotNil(t, validated)
+			assert.Equal(t, original.ObjectMeta, validated.ObjectMeta)
+			assert.Equal(t, []string{metav1.DryRunAll}, updateOptions.DryRun)
+			assert.Equal(t, customConfig.Spec.Template, validated.Spec.Template, "validate the merged spec")
+			if role == "main" {
+				assert.Equal(t, scaling, combined.Spec.Scaling)
+			} else {
+				assert.Nil(t, combined.Spec.Scaling)
+				assert.Equal(t, scaling, combined.Spec.Prefill.Scaling)
+			}
+			assert.Equal(t, original.Spec, llmSvc.Spec, "rendered validation must not mutate the user's spec")
+			persisted := &v1alpha2.LLMInferenceService{}
+			require.NoError(t, fakeClient.Get(t.Context(), client.ObjectKeyFromObject(llmSvc), persisted))
+			assert.Equal(t, original.Spec, persisted.Spec)
+		})
+	}
+}
+
 // TestCombineBaseRefsConfig_TransferSlot pins the upgrade contract end to end: a
 // preset declaring the slot gets the argument filled in from the merged spec, and
 // one without it comes back untouched.

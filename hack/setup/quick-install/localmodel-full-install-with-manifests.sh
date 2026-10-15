@@ -642,6 +642,7 @@ POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
 RUFF_VERSION=0.14.13
 SHELLCHECK_VERSION=v0.11.0
+CODESPELL_VERSION=2.4.3
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
@@ -657,11 +658,10 @@ KSERVE_VERSION=v0.21.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.20.2
 OPENTELEMETRY_OPERATOR_VERSION=0.114.1
-LWS_VERSION=v0.10.0
+LWS_VERSION=v0.11.0
 GATEWAY_API_VERSION=v1.5.1
-GIE_VERSION=v1.5.0
-LLMD_ROUTER_VERSION=v0.10.0
-WVA_VERSION=v0.9.0
+GIE_VERSION=v1.6.2
+LLMD_ROUTER_VERSION=v0.11.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -673,7 +673,6 @@ KEDA_NAMESPACE="${KEDA_NAMESPACE:-keda}"
 KSERVE_NAMESPACE="${KSERVE_NAMESPACE:-kserve}"
 PROMETHEUS_NAMESPACE="${PROMETHEUS_NAMESPACE:-monitoring}"
 PROMETHEUS_ADAPTER_NAMESPACE="${PROMETHEUS_ADAPTER_NAMESPACE:-monitoring}"
-WVA_NAMESPACE="${WVA_NAMESPACE:-wva-system}"
 OTEL_NAMESPACE="${OTEL_NAMESPACE:-opentelemetry-operator}"
 OPERATOR_NAMESPACE="${OPERATOR_NAMESPACE:-knative-operator}"
 SERVING_NAMESPACE="${SERVING_NAMESPACE:-knative-serving}"
@@ -1694,6 +1693,19 @@ spec:
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
+  name: kserve-llm-omni
+spec:
+  containers:
+  - image: docker.io/vllm/vllm-omni:v0.30.0
+    name: main
+  supportedModelFormats:
+  - autoSelect: false
+    name: vllm-omni
+    version: "1"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
   name: kserve-llm-sglang
 spec:
   containers:
@@ -2116,6 +2128,7 @@ spec:
   annotations:
     prometheus.kserve.io/path: /metrics
     prometheus.kserve.io/port: "8080"
+    serving.kserve.io/kernelcache-supported: "true"
   containers:
   - args:
     - --port=8080
@@ -2234,7 +2247,10 @@ metadata:
   namespace: kserve
 spec:
   annotations:
+    serving.kserve.io/enable-disaggregated-set: "true"
     serving.kserve.io/model-based-routing-enabled: "true"
+  labels:
+    serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
     - command:
@@ -2530,7 +2546,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.10.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2594,7 +2610,10 @@ metadata:
   namespace: kserve
 spec:
   annotations:
+    serving.kserve.io/enable-disaggregated-set: "true"
     serving.kserve.io/model-based-routing-enabled: "true"
+  labels:
+    serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
     - command:
@@ -2920,7 +2939,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.10.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3273,6 +3292,33 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  name: kserve-config-llm-omni-template
+  namespace: kserve
+spec:
+  template:
+    containers:
+    - image: docker.io/vllm/vllm-omni:v0.30.0
+      name: main
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: false
+        seccompProfile:
+          type: RuntimeDefault
+      startupProbe:
+        failureThreshold: 120
+        httpGet:
+          path: /health
+          port: 8000
+        periodSeconds: 30
+        timeoutSeconds: 10
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
   annotations:
     internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
   name: kserve-config-llm-prefill-template
@@ -3281,6 +3327,8 @@ spec:
   prefill:
     annotations:
       serving.kserve.io/model-based-routing-enabled: "true"
+    labels:
+      serving.kserve.io/llmisvc-revision: placeholder
     template:
       containers:
       - command:
@@ -3578,6 +3626,8 @@ spec:
   prefill:
     annotations:
       serving.kserve.io/model-based-routing-enabled: "true"
+    labels:
+      serving.kserve.io/llmisvc-revision: placeholder
     template:
       containers:
       - command:
@@ -4288,6 +4338,46 @@ spec:
               name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
               port: 8000
               weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/audio
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/audio
+            name: v1-audio-path
+            timeouts:
+              backendRequest: 0s
+              request: 600s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/images
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/images
+            name: v1-images-path
+            timeouts:
+              backendRequest: 0s
+              request: 600s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
             matches:
             - headers:
               - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
@@ -4353,6 +4443,54 @@ spec:
               path:
                 type: Exact
                 value: /v1/messages/
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/audio/speech
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/audio/speech/
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/audio/transcriptions
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/audio/transcriptions/
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/images/generations
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/images/generations/
             name: v1-model-routing
             timeouts:
               backendRequest: 0s
@@ -4442,6 +4580,48 @@ spec:
               backendRequest: 0s
               request: 0s
           - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/audio
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}/v1/audio
+            name: v1-audio-publisher-path
+            timeouts:
+              backendRequest: 0s
+              request: 600s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/images
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}/v1/images
+            name: v1-images-publisher-path
+            timeouts:
+              backendRequest: 0s
+              request: 600s
+          - backendRefs:
             - kind: Service
               name: '{{ ChildName .ObjectMeta.Name `-kserve-workload-svc` }}'
               port: 8000
@@ -4505,7 +4685,7 @@ spec:
   router:
     scheduler:
       annotations:
-        app.kubernetes.io/version: 0.10.0
+        app.kubernetes.io/version: 0.11.0
       pool:
         spec:
           endpointPickerRef:
@@ -4548,7 +4728,7 @@ spec:
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.10.0
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -4678,6 +4858,27 @@ spec:
           - name: decode
             plugins:
             - pluginRef: decode-filter
+            - pluginRef: active-request-scorer
+            - pluginRef: max-score-picker
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-scheduler-eppconfig-modality
+  namespace: kserve
+spec:
+  router:
+    scheduler:
+      config:
+        inline:
+          apiVersion: llm-d.ai/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+          - type: active-request-scorer
+          - type: max-score-picker
+          schedulingProfiles:
+          - name: default
+            plugins:
             - pluginRef: active-request-scorer
             - pluginRef: max-score-picker
 ---
@@ -4991,6 +5192,7 @@ spec:
               fi
               {{ end }}
               exec vllm launch render /mnt/models/base \
+                --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" /mnt/models/base \
                 --port=8000 \
                 {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh \
                 --ssl-certfile /var/run/kserve/tls/tls.crt \
@@ -5779,6 +5981,22 @@ spec:
             type: object
           spec:
             properties:
+              imagePullSecrets:
+                items:
+                  properties:
+                    name:
+                      default: ""
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                maxItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: imagePullSecrets.name must be non-empty
+                  rule: self.all(s, s.name != '')
               modelSize:
                 anyOf:
                 - type: integer
@@ -5924,6 +6142,22 @@ spec:
             type: object
           spec:
             properties:
+              imagePullSecrets:
+                items:
+                  properties:
+                    name:
+                      default: ""
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                maxItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: imagePullSecrets.name must be non-empty
+                  rule: self.all(s, s.name != '')
               modelSize:
                 anyOf:
                 - type: integer
@@ -6778,6 +7012,19 @@ spec:
               localModels:
                 items:
                   properties:
+                    imagePullSecrets:
+                      items:
+                        properties:
+                          name:
+                            default: ""
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      maxItems: 1
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     modelName:
                       type: string
                     namespace:
@@ -6886,10 +7133,23 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - update
+- apiGroups:
+  - ""
+  resources:
   - serviceaccounts
   verbs:
   - create
+  - delete
   - get
+  - list
+  - patch
+  - watch
 - apiGroups:
   - apps
   resourceNames:
@@ -6900,6 +7160,13 @@ rules:
   - get
   - patch
 - apiGroups:
+  - apps
+  resources:
+  - deployments
+  - replicasets
+  verbs:
+  - get
+- apiGroups:
   - batch
   resources:
   - jobs
@@ -6909,17 +7176,38 @@ rules:
   - list
   - watch
 - apiGroups:
-  - serving.kserve.io
+  - rbac.authorization.k8s.io
+  resourceNames:
+  - kserve-kernelcache-token-requester
   resources:
-  - kernelcachenodegroups
-  - kernelcaches
+  - clusterroles
   verbs:
+  - bind
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
   - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - roles
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
 - apiGroups:
   - serving.kserve.io
   resources:
+  - kernelcachecaptures
   - kernelcachenodes
   verbs:
   - create
@@ -6930,11 +7218,44 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - kernelcachecaptures/status
   - kernelcaches/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcachenodegroups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
+  - kernelcaches
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kserve-kernelcache-token-requester
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts/token
+  verbs:
+  - create
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -7526,6 +7847,45 @@ metadata:
   labels:
     app.kubernetes.io/component: localmodel
     app.kubernetes.io/name: kserve
+  name: kernelcache-root-ca
+  namespace: kserve
+spec:
+  commonName: kernelcache-root-ca
+  duration: 8760h
+  isCA: true
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: selfsigned-issuer
+  secretName: kernelcache-root-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcache-signer
+  namespace: kserve
+spec:
+  commonName: kernelcache-signer
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: kernelcache-ca
+  secretName: kernelcache-signer
+  uris:
+  - spiffe://kserve/kernelcache-signer
+  usages:
+  - digital signature
+  - code signing
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
   name: localmodel-serving-cert
   namespace: kserve
 spec:
@@ -7536,6 +7896,89 @@ spec:
     kind: Issuer
     name: selfsigned-issuer
   secretName: localmodel-webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcache-ca
+  namespace: kserve
+spec:
+  ca:
+    secretName: kernelcache-root-ca
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kserve/localmodel-serving-cert
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcache.serving.kserve.io
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: localmodel-webhook-server-service
+      namespace: kserve
+      path: /mutate-kernelcache-pods
+  failurePolicy: Fail
+  matchConditions:
+  - expression: has(object.metadata.labels) && 'serving.kserve.io/inferenceservice'
+      in object.metadata.labels
+    name: inferenceservice-workload
+  name: kernelcache.kserve-webhook-server.pod-mutator
+  namespaceSelector:
+    matchExpressions:
+    - key: control-plane
+      operator: DoesNotExist
+  reinvocationPolicy: IfNeeded
+  rules:
+  - apiGroups:
+    - ""
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    resources:
+    - pods
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: kserve/localmodel-serving-cert
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: localmodel
+    app.kubernetes.io/name: kserve
+  name: kernelcachecapture.serving.kserve.io
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: localmodel-webhook-server-service
+      namespace: kserve
+      path: /validate-kernelcachecapture-status
+  failurePolicy: Fail
+  name: kernelcachecapture.kserve-webhook-server.status-validator
+  rules:
+  - apiGroups:
+    - serving.kserve.io
+    apiVersions:
+    - v1alpha1
+    operations:
+    - UPDATE
+    resources:
+    - kernelcachecaptures/status
+  sideEffects: None
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration

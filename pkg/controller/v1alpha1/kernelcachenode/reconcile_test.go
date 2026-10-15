@@ -19,6 +19,7 @@ package kernelcachenode
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	batchv1 "k8s.io/api/batch/v1"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -35,6 +37,70 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 )
+
+func TestReconcileRecordsConfigErrorEvent(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	const nodeName = "gpu-node-1"
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(&v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}).
+		Build()
+	recorder := events.NewFakeRecorder(1)
+	recorder.Verbose = true
+	reconciler := &KernelCacheNodeReconciler{
+		Client:   client,
+		NodeName: nodeName,
+		Recorder: recorder,
+	}
+
+	if _, err := reconciler.Reconcile(t.Context(), ctrl.Request{NamespacedName: types.NamespacedName{Name: nodeName}}); err == nil {
+		t.Fatal("expected missing KernelCache configuration to fail reconciliation")
+	}
+
+	select {
+	case event := <-recorder.Events:
+		if !strings.Contains(event, "Warning ConfigError Reconcile") {
+			t.Fatalf("expected a ConfigError warning event, got %q", event)
+		}
+	default:
+		t.Fatal("expected a ConfigError warning event")
+	}
+}
+
+func TestRunImageValidationRecordsImageValidationEvent(t *testing.T) {
+	const nodeName = "gpu-node-1"
+
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	client := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(&v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: nodeName}}).
+		Build()
+	recorder := events.NewFakeRecorder(1)
+	recorder.Verbose = true
+	reconciler := &KernelCacheNodeReconciler{
+		Client:   client,
+		NodeName: nodeName,
+		Recorder: recorder,
+	}
+
+	reconciler.runImageValidation(t.Context())
+
+	select {
+	case event := <-recorder.Events:
+		if !strings.Contains(event, "Warning ImageValidationError ImageValidation") {
+			t.Fatalf("expected an ImageValidation warning event, got %q", event)
+		}
+	default:
+		t.Fatal("expected an ImageValidation warning event")
+	}
+}
 
 // Retry KCN status updates after a resource version conflict.
 func TestReconcileRetriesStatusConflict(t *testing.T) {

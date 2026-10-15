@@ -34,11 +34,39 @@ import (
 )
 
 // LocalModelNamespaceCacheInformer provides access to a shared informer and lister for
-// LocalModelNamespaceCaches.
+// LocalModelNamespaceCaches. Prefer using the type-safe variant (see [TypedLocalModelNamespaceCacheInformer]).
 type LocalModelNamespaceCacheInformer interface {
 	Informer() cache.SharedIndexInformer
 	Lister() servingv1alpha1.LocalModelNamespaceCacheLister
 }
+
+// TypedLocalModelNamespaceCacheInformer provides access to a shared informer and lister for
+// LocalModelNamespaceCaches, including the type-safe TypedInformer variant.
+// It is a superset of LocalModelNamespaceCacheInformer.
+type TypedLocalModelNamespaceCacheInformer interface {
+	Informer() cache.SharedIndexInformer
+	TypedInformer() LocalModelNamespaceCacheIndexInformer
+	Lister() servingv1alpha1.LocalModelNamespaceCacheLister
+}
+
+// LocalModelNamespaceCacheIndexInformer is a wrapper around the underlying [cache.SharedIndexInformer]
+// with type-safe variants of several methods.
+type LocalModelNamespaceCacheIndexInformer cache.TypedSharedIndexInformer[*apisservingv1alpha1.LocalModelNamespaceCache]
+
+// LocalModelNamespaceCacheHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerFuncs] for LocalModelNamespaceCache.
+type LocalModelNamespaceCacheHandlerFuncs = cache.TypedResourceEventHandlerFuncs[*apisservingv1alpha1.LocalModelNamespaceCache]
+
+// LocalModelNamespaceCacheDetailedHandlerFuncs is a specialization of [cache.TypedResourceEventHandlerDetailedFuncs] for LocalModelNamespaceCache.
+type LocalModelNamespaceCacheDetailedHandlerFuncs = cache.TypedResourceEventHandlerDetailedFuncs[*apisservingv1alpha1.LocalModelNamespaceCache]
+
+// LocalModelNamespaceCacheFilteringHandler is a specialization of [cache.TypedFilteringResourceEventHandler] for LocalModelNamespaceCache.
+type LocalModelNamespaceCacheFilteringHandler = cache.TypedFilteringResourceEventHandler[*apisservingv1alpha1.LocalModelNamespaceCache]
+
+// LocalModelNamespaceCacheIndexers is a specialization of [cache.TypedIndexers] for LocalModelNamespaceCache.
+type LocalModelNamespaceCacheIndexers = cache.TypedIndexers[*apisservingv1alpha1.LocalModelNamespaceCache]
+
+// DeletedLocalModelNamespaceCache is a specialization of [cache.DeletedObject] for LocalModelNamespaceCache.
+type DeletedLocalModelNamespaceCache = cache.DeletedObject[*apisservingv1alpha1.LocalModelNamespaceCache]
 
 type localModelNamespaceCacheInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
@@ -49,25 +77,49 @@ type localModelNamespaceCacheInformer struct {
 // NewLocalModelNamespaceCacheInformer constructs a new informer for LocalModelNamespaceCache type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedLocalModelNamespaceCacheInformer]).
 func NewLocalModelNamespaceCacheInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
 	return NewLocalModelNamespaceCacheInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers})
+}
+
+// NewTypedLocalModelNamespaceCacheInformer constructs a new informer for LocalModelNamespaceCache type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedLocalModelNamespaceCacheInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers LocalModelNamespaceCacheIndexers) LocalModelNamespaceCacheIndexInformer {
+	return NewTypedLocalModelNamespaceCacheInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers)})
 }
 
 // NewFilteredLocalModelNamespaceCacheInformer constructs a new informer for LocalModelNamespaceCache type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedFilteredLocalModelNamespaceCacheInformer]).
 func NewFilteredLocalModelNamespaceCacheInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	return NewLocalModelNamespaceCacheInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+	return NewTypedLocalModelNamespaceCacheInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: indexers, TweakListOptions: tweakListOptions})
+}
+
+// NewTypedFilteredLocalModelNamespaceCacheInformer constructs a new informer for LocalModelNamespaceCache type.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedFilteredLocalModelNamespaceCacheInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers LocalModelNamespaceCacheIndexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) LocalModelNamespaceCacheIndexInformer {
+	return NewTypedLocalModelNamespaceCacheInformerWithOptions(client, namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.TypedIndexersToIndexers(indexers), TweakListOptions: tweakListOptions})
 }
 
 // NewLocalModelNamespaceCacheInformerWithOptions constructs a new informer for LocalModelNamespaceCache type with additional options.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
+// If you really need an independent one, prefer using the type-safe variant (see [NewTypedLocalModelNamespaceCacheInformerWithOptions]).
 func NewLocalModelNamespaceCacheInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) cache.SharedIndexInformer {
+	return NewTypedLocalModelNamespaceCacheInformerWithOptions(client, namespace, options)
+}
+
+// NewTypedLocalModelNamespaceCacheInformerWithOptions constructs a new informer for LocalModelNamespaceCache type with additional options.
+// Always prefer using an informer factory to get a shared informer instead of getting an independent
+// one. This reduces memory footprint and number of connections to the server.
+func NewTypedLocalModelNamespaceCacheInformerWithOptions(client versioned.Interface, namespace string, options internalinterfaces.InformerOptions) LocalModelNamespaceCacheIndexInformer {
 	gvr := schema.GroupVersionResource{Group: "serving.kserve.io", Version: "v1alpha1", Resource: "localmodelnamespacecaches"}
 	identifier := options.InformerName.WithResource(gvr)
 	tweakListOptions := options.TweakListOptions
-	return cache.NewSharedIndexInformerWithOptions(
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.LocalModelNamespaceCache](cache.NewSharedIndexInformerWithOptions(
 		cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 			ListFunc: func(opts v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
@@ -100,17 +152,57 @@ func NewLocalModelNamespaceCacheInformerWithOptions(client versioned.Interface, 
 			Indexers:     options.Indexers,
 			Identifier:   identifier,
 		},
-	)
+	))
 }
 
 func (f *localModelNamespaceCacheInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewLocalModelNamespaceCacheInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
+	return NewTypedLocalModelNamespaceCacheInformerWithOptions(client, f.namespace, internalinterfaces.InformerOptions{ResyncPeriod: resyncPeriod, Indexers: cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, InformerName: f.factory.InformerName(), TweakListOptions: f.tweakListOptions})
 }
 
 func (f *localModelNamespaceCacheInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&apisservingv1alpha1.LocalModelNamespaceCache{}, f.defaultInformer)
+	return f.TypedInformer()
+}
+
+func (f *localModelNamespaceCacheInformer) TypedInformer() LocalModelNamespaceCacheIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.LocalModelNamespaceCache](f.factory.InformerFor(&apisservingv1alpha1.LocalModelNamespaceCache{}, f.defaultInformer))
 }
 
 func (f *localModelNamespaceCacheInformer) Lister() servingv1alpha1.LocalModelNamespaceCacheLister {
 	return servingv1alpha1.NewLocalModelNamespaceCacheLister(f.Informer().GetIndexer())
+}
+
+// ToTypedLocalModelNamespaceCacheInformer converts an untyped informer into a TypedLocalModelNamespaceCacheInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *LocalModelNamespaceCache. If that is not the case, calling type-safe methods of the returned
+// TypedLocalModelNamespaceCacheInformer leads to runtime panics. A safer alternative is to pass
+// around a TypedLocalModelNamespaceCacheInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToTypedLocalModelNamespaceCacheInformer(informer LocalModelNamespaceCacheInformer) TypedLocalModelNamespaceCacheInformer {
+	if informer, ok := informer.(TypedLocalModelNamespaceCacheInformer); ok {
+		return informer
+	}
+	return &localModelNamespaceCacheTypedInformerAdapter{informer}
+}
+
+type localModelNamespaceCacheTypedInformerAdapter struct {
+	LocalModelNamespaceCacheInformer
+}
+
+func (a *localModelNamespaceCacheTypedInformerAdapter) TypedInformer() LocalModelNamespaceCacheIndexInformer {
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.LocalModelNamespaceCache](a.Informer())
+}
+
+// ToLocalModelNamespaceCacheIndexInformer converts an untyped informer into a LocalModelNamespaceCacheIndexInformer.
+//
+// WARNING: this conversion is only safe if the informer handles objects of type
+// *LocalModelNamespaceCache. If that is not the case, calling type-safe methods of the returned
+// LocalModelNamespaceCacheIndexInformer leads to runtime panics. A safer alternative is to pass
+// around a LocalModelNamespaceCacheIndexInformer instances that was obtained from a
+// SharedInformerFactory.
+func ToLocalModelNamespaceCacheIndexInformer(informer cache.SharedIndexInformer) LocalModelNamespaceCacheIndexInformer {
+	if informer, ok := informer.(LocalModelNamespaceCacheIndexInformer); ok {
+		return informer
+	}
+	return cache.NewTypedSharedIndexInformer[*apisservingv1alpha1.LocalModelNamespaceCache](informer)
 }

@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -409,6 +410,17 @@ func TestImportSpecHash(t *testing.T) {
 	if importSpecHash(withStorage) == importSpecHash(base) {
 		t.Fatalf("importSpecHash() must change when storage changes")
 	}
+	withPullSecret := base.DeepCopy()
+	withPullSecret.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "reg-cred"}}
+	if importSpecHash(withPullSecret) == importSpecHash(base) {
+		t.Fatalf("importSpecHash() must change when imagePullSecrets changes")
+	}
+	// Pin the empty-spec hash so adding a field without omitempty cannot sneak in
+	// and rewrite every existing Job annotation.
+	const emptyImportSpecHash = "ab0e10bb1d654a08e44021f12f02ca83d0dd7b30e5f80a3d636ee163d43998d3"
+	if got := importSpecHash(base); got != emptyImportSpecHash {
+		t.Fatalf("empty importSpecHash() = %s, want %s", got, emptyImportSpecHash)
+	}
 }
 
 func TestValidateExistingImportJobWaitsForTerminatingMatchingJob(t *testing.T) {
@@ -474,7 +486,7 @@ func TestReconcileSharedPVCPreservesNotReadyOnImportJobReadError(t *testing.T) {
 		Client: &jobReadErrorClient{Client: baseClient, err: readErr},
 	}
 
-	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, nil, cacheConsumers{}); !errors.Is(err, readErr) {
+	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, nil, nil, cacheConsumers{}); !errors.Is(err, readErr) {
 		t.Fatalf("reconcileSharedPVC() error = %v, want %v", err, readErr)
 	}
 	condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)
@@ -625,7 +637,7 @@ func TestReconcileSharedPVCSurfacesCredentialErrorWithoutCreatingJob(t *testing.
 		}), credentials.CredentialConfig{}),
 	}
 
-	_, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, cacheConsumers{})
+	_, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, cacheConsumers{})
 	if !errors.Is(err, errImportCredentials) {
 		t.Fatalf("reconcileSharedPVC() error = %v, want errImportCredentials", err)
 	}
@@ -642,5 +654,206 @@ func TestReconcileSharedPVCSurfacesCredentialErrorWithoutCreatingJob(t *testing.
 	}
 	if len(jobs.Items) != 0 {
 		t.Fatalf("expected no import Job to be created on credential error, got %d", len(jobs.Items))
+	}
+}
+
+func TestReconcileSharedPVCMountsImagePullSecretFromCacheNamespace(t *testing.T) {
+	cache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "cache",
+			Namespace:  "ns",
+			Finalizers: []string{NamespaceCacheFinalizerName},
+		},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri:   "oci://registry.local/models/llm:v1",
+			ModelSize:        resource.MustParse("1Gi"),
+			PVCRef:           ptrTo("pvc"),
+			ImagePullSecrets: []corev1.LocalObjectReference{{Name: "reg-cred"}},
+		},
+	}
+	pvc := pvcWith(fsMode(), []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, "2Gi", corev1.ClaimBound, "")
+	pvc.Name = "pvc"
+	pvc.Namespace = "ns"
+
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add KServe scheme: %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add core scheme: %v", err)
+	}
+	if err := batchv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add batch scheme: %v", err)
+	}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "reg-cred", Namespace: "ns"},
+		Type:       corev1.SecretTypeDockerConfigJson,
+		Data:       map[string][]byte{corev1.DockerConfigJsonKey: []byte(`{"auths":{}}`)},
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1alpha1.LocalModelNamespaceCache{}).
+		WithObjects(cache, pvc, secret).
+		Build()
+	reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, Scheme: scheme}
+
+	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, cacheConsumers{}); err != nil {
+		t.Fatalf("reconcileSharedPVC() error = %v", err)
+	}
+	job := &batchv1.Job{}
+	if err := cl.Get(context.Background(), types.NamespacedName{Name: importJobName("cache"), Namespace: "ns"}, job); err != nil {
+		t.Fatalf("import Job must be created in the cache namespace: %v", err)
+	}
+	var vol *corev1.Volume
+	for i := range job.Spec.Template.Spec.Volumes {
+		if job.Spec.Template.Spec.Volumes[i].Name == credentials.OciFetchDockerConfigVolumeName {
+			vol = &job.Spec.Template.Spec.Volumes[i]
+		}
+	}
+	if vol == nil || vol.Secret == nil || vol.Secret.SecretName != "reg-cred" {
+		t.Fatalf("docker config volume = %#v, want Secret volume for reg-cred", vol)
+	}
+	c := job.Spec.Template.Spec.Containers[0]
+	// ParseOciScheme keeps the oci:// prefix; the Python handler requires it.
+	if len(c.Args) == 0 || c.Args[0] != "oci://registry.local/models/llm:v1" {
+		t.Fatalf("normalized OCI args should keep oci://, got %v", c.Args)
+	}
+	found := false
+	for _, e := range c.Env {
+		if e.Name == credentials.OciFetchDockerConfigPathEnvVar {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("container should set %s", credentials.OciFetchDockerConfigPathEnvVar)
+	}
+}
+
+func TestReconcileSharedPVCMissingImagePullSecretSurfacesCredentialError(t *testing.T) {
+	cache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "cache",
+			Namespace:  "ns",
+			Finalizers: []string{NamespaceCacheFinalizerName},
+		},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri:   "oci://registry.local/models/llm:v1",
+			ModelSize:        resource.MustParse("1Gi"),
+			PVCRef:           ptrTo("pvc"),
+			ImagePullSecrets: []corev1.LocalObjectReference{{Name: "missing-cred"}},
+		},
+	}
+	pvc := pvcWith(fsMode(), []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, "2Gi", corev1.ClaimBound, "")
+	pvc.Name = "pvc"
+	pvc.Namespace = "ns"
+
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add KServe scheme: %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add core scheme: %v", err)
+	}
+	if err := batchv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add batch scheme: %v", err)
+	}
+	cl := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1alpha1.LocalModelNamespaceCache{}).
+		WithObjects(cache, pvc).
+		Build()
+	reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, Scheme: scheme}
+
+	_, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, cacheConsumers{})
+	if !errors.Is(err, errImportCredentials) {
+		t.Fatalf("reconcileSharedPVC() error = %v, want errImportCredentials", err)
+	}
+	condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+	if condition == nil || condition.Reason != v1alpha1.ReasonImportCredentialError {
+		t.Fatalf("cache Ready condition = %#v, want %s", condition, v1alpha1.ReasonImportCredentialError)
+	}
+	if !strings.Contains(condition.Message, "missing-cred") {
+		t.Fatalf("condition message %q should name the missing imagePullSecret", condition.Message)
+	}
+	jobs := &batchv1.JobList{}
+	if err := cl.List(context.Background(), jobs, client.InNamespace("ns")); err != nil {
+		t.Fatalf("list jobs: %v", err)
+	}
+	if len(jobs.Items) != 0 {
+		t.Fatalf("expected no import Job when imagePullSecret is missing, got %d", len(jobs.Items))
+	}
+}
+
+func TestBuildImportJobFSGroup(t *testing.T) {
+	cache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "ns"},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "s3://bucket/model",
+			ModelSize:      resource.MustParse("1Gi"),
+			PVCRef:         ptrTo("pvc"),
+		},
+	}
+	pvc := pvcWith(fsMode(), []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany}, "2Gi", corev1.ClaimBound, "2Gi")
+	pvc.Name = "pvc"
+	pvc.Namespace = "ns"
+
+	scheme := runtime.NewScheme()
+	if err := v1alpha1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add KServe scheme: %v", err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add core scheme: %v", err)
+	}
+	reconciler := &LocalModelNamespaceCacheReconciler{
+		Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
+		Scheme: scheme,
+		Log:    logr.Discard(),
+	}
+
+	tests := []struct {
+		name        string
+		localModel  string
+		wantFSGroup *int64
+	}{
+		{
+			name:       "neither key leaves fsGroup unset",
+			localModel: `{"jobNamespace": "jobs"}`,
+		},
+		{
+			name:       "global fsGroup alone is not applied",
+			localModel: `{"jobNamespace": "jobs", "fsGroup": 1000}`,
+		},
+		{
+			name:       "explicit null import key is treated as unset",
+			localModel: `{"jobNamespace": "jobs", "fsGroup": 1000, "sharedPVCImportFSGroup": null}`,
+		},
+		{
+			name:        "sharedPVCImportFSGroup is applied",
+			localModel:  `{"jobNamespace": "jobs", "fsGroup": 1000, "sharedPVCImportFSGroup": 2000}`,
+			wantFSGroup: ptrTo(int64(2000)),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configMap := &corev1.ConfigMap{Data: map[string]string{"localModel": tt.localModel}}
+			localModelConfig, err := v1beta1.NewLocalModelConfig(configMap)
+			if err != nil {
+				t.Fatalf("NewLocalModelConfig() error = %v", err)
+			}
+			job, err := reconciler.buildImportJob(context.Background(), cache, "cache-import", pvc, "key", configMap, localModelConfig)
+			if err != nil {
+				t.Fatalf("buildImportJob() error = %v", err)
+			}
+			securityContext := job.Spec.Template.Spec.SecurityContext
+			if tt.wantFSGroup == nil {
+				if securityContext != nil {
+					t.Fatalf("pod securityContext = %#v, want nil", securityContext)
+				}
+				return
+			}
+			if securityContext == nil || securityContext.FSGroup == nil || *securityContext.FSGroup != *tt.wantFSGroup {
+				t.Fatalf("pod securityContext = %#v, want fsGroup %d", securityContext, *tt.wantFSGroup)
+			}
+		})
 	}
 }

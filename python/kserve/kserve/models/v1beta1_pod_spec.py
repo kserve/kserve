@@ -55,6 +55,7 @@ class V1beta1PodSpec(object):
         'dns_policy': 'str',
         'enable_service_links': 'bool',
         'ephemeral_containers': 'list[V1EphemeralContainer]',
+        'eviction_responders': 'list[V1EvictionResponder]',
         'host_aliases': 'list[V1HostAlias]',
         'host_ipc': 'bool',
         'host_network': 'bool',
@@ -100,6 +101,7 @@ class V1beta1PodSpec(object):
         'dns_policy': 'dnsPolicy',
         'enable_service_links': 'enableServiceLinks',
         'ephemeral_containers': 'ephemeralContainers',
+        'eviction_responders': 'evictionResponders',
         'host_aliases': 'hostAliases',
         'host_ipc': 'hostIPC',
         'host_network': 'hostNetwork',
@@ -136,7 +138,7 @@ class V1beta1PodSpec(object):
         'volumes': 'volumes'
     }
 
-    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, scheduling_gates=None, scheduling_group=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, active_deadline_seconds=None, affinity=None, automount_service_account_token=None, containers=None, dns_config=None, dns_policy=None, enable_service_links=None, ephemeral_containers=None, eviction_responders=None, host_aliases=None, host_ipc=None, host_network=None, host_pid=None, host_users=None, hostname=None, hostname_override=None, image_pull_secrets=None, init_containers=None, node_name=None, node_selector=None, os=None, overhead=None, preemption_policy=None, priority=None, priority_class_name=None, readiness_gates=None, resource_claims=None, resources=None, restart_policy=None, runtime_class_name=None, scheduler_name=None, scheduling_gates=None, scheduling_group=None, security_context=None, service_account=None, service_account_name=None, set_hostname_as_fqdn=None, share_process_namespace=None, subdomain=None, termination_grace_period_seconds=None, tolerations=None, topology_spread_constraints=None, volumes=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1PodSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -150,6 +152,7 @@ class V1beta1PodSpec(object):
         self._dns_policy = None
         self._enable_service_links = None
         self._ephemeral_containers = None
+        self._eviction_responders = None
         self._host_aliases = None
         self._host_ipc = None
         self._host_network = None
@@ -202,6 +205,8 @@ class V1beta1PodSpec(object):
             self.enable_service_links = enable_service_links
         if ephemeral_containers is not None:
             self.ephemeral_containers = ephemeral_containers
+        if eviction_responders is not None:
+            self.eviction_responders = eviction_responders
         if host_aliases is not None:
             self.host_aliases = host_aliases
         if host_ipc is not None:
@@ -450,6 +455,29 @@ class V1beta1PodSpec(object):
         """
 
         self._ephemeral_containers = ephemeral_containers
+
+    @property
+    def eviction_responders(self):
+        """Gets the eviction_responders of this V1beta1PodSpec.  # noqa: E501
+
+        EvictionResponders reference responders that react to Evictions based on EvictionRequests. Responders should observe and communicate through the Eviction Resource API to help with the graceful termination of a pod. The responders are selected sequentially, according to their specified priority.  The maximum length of the responders list is 10. Responders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set). This field can only be set on creation and is immutable afterwards.  # noqa: E501
+
+        :return: The eviction_responders of this V1beta1PodSpec.  # noqa: E501
+        :rtype: list[V1EvictionResponder]
+        """
+        return self._eviction_responders
+
+    @eviction_responders.setter
+    def eviction_responders(self, eviction_responders):
+        """Sets the eviction_responders of this V1beta1PodSpec.
+
+        EvictionResponders reference responders that react to Evictions based on EvictionRequests. Responders should observe and communicate through the Eviction Resource API to help with the graceful termination of a pod. The responders are selected sequentially, according to their specified priority.  The maximum length of the responders list is 10. Responders are not supported when the pod is part of a PodGroup (.spec.schedulingGroup is set). This field can only be set on creation and is immutable afterwards.  # noqa: E501
+
+        :param eviction_responders: The eviction_responders of this V1beta1PodSpec.  # noqa: E501
+        :type: list[V1EvictionResponder]
+        """
+
+        self._eviction_responders = eviction_responders
 
     @property
     def host_aliases(self):

@@ -99,9 +99,13 @@ type FeatureGates struct {
 	// (prefill/decode) services, which upgrades both roles as one coordinated unit
 	// instead of letting them roll independently.
 	//
-	// This gate alone changes nothing. A service opts in individually with the
-	// serving.kserve.io/enable-disaggregated-set annotation, and the LWS
-	// DisaggregatedSet CRD must be installed on the cluster.
+	// The P/D presets set serving.kserve.io/enable-disaggregated-set to "true" in
+	// spec.annotations, so turning the gate on moves every P/D service that does not set
+	// it to "false" onto a DisaggregatedSet, provided the LWS DisaggregatedSet CRD is
+	// installed. A running service that moves is unavailable until its new pods are
+	// ready, and gets a MigratingToDisaggregatedSet warning event. Services pinned to
+	// presets from an earlier release (see LLM_INFERENCE_SERVICE_CONFIG_PREFIX) do not
+	// carry the default and keep their workloads unless they set the annotation.
 	DisaggregatedSet bool `json:"disaggregatedSet,omitempty"`
 }
 
@@ -109,8 +113,7 @@ type FeatureGates struct {
 // key of the inferenceservice-config ConfigMap.
 //
 // The key is optional and is not shipped in the default ConfigMap, matching the other
-// controller-private keys in that ConfigMap ("scheduler",
-// "autoscaling-wva-controller-config"). To enable a gate, add for example:
+// controller-private keys in that ConfigMap ("scheduler"). To enable a gate, add for example:
 //
 //	llmisvc: |-
 //	  {"featureGates": {"disaggregatedSet": true}}
@@ -166,10 +169,6 @@ type Config struct {
 	// directly constructed Configs keep the byte-compatible default.
 	LoRAModelRoutingStrategy LoRAModelRoutingStrategy `json:"loraModelRoutingStrategy,omitempty"`
 
-	// WVAAutoscalingConfig holds Prometheus and monitoring settings for WVA autoscaling.
-	// nil when the "autoscaling-wva-controller-config" key is not present in inferenceservice-config.
-	WVAAutoscalingConfig *WVAAutoscalingConfig `json:"-"`
-
 	// FeatureGates holds the opt-in behaviour switches from the "llmisvc" key of
 	// inferenceservice-config. The zero value leaves every gate off, so a directly
 	// constructed Config behaves as it did before any gate existed.
@@ -186,50 +185,11 @@ type Config struct {
 	// so that resolution is tied to the config-merge step and all downstream workload functions
 	// share a single consistent result.
 	ResolvedLoRAAdapters []resolvedLoRAAdapter `json:"-"`
-}
 
-// PrometheusConfig holds Prometheus connection and authentication settings used by KEDA
-// to query the wva_desired_replicas metric.
-type PrometheusConfig struct {
-	// URL is the URL of the Prometheus server (used by KEDA to query wva_desired_replicas).
-	URL string `json:"url"`
-	// TLSInsecureSkipVerify disables TLS certificate verification for the Prometheus connection.
-	TLSInsecureSkipVerify bool `json:"tlsInsecureSkipVerify"`
-	// AuthModes is the KEDA authModes value for the Prometheus trigger
-	// (e.g. "bearer", "basic", "tls"). Empty means no secret-backed authentication.
-	// Requires TriggerAuthName to be set, since the referenced CR supplies the actual
-	// credential values. Must be left empty when TriggerAuthName references a
-	// pod-identity-based CR (e.g. AWS/Azure/GCP managed Prometheus) - KEDA's Prometheus
-	// scaler rejects pod identity combined with any other auth mode.
-	// See: https://keda.sh/docs/latest/scalers/prometheus/#authentication-parameters
-	// +optional
-	AuthModes string `json:"authModes,omitempty"`
-	// TriggerAuthName is the name of a pre-existing TriggerAuthentication or
-	// ClusterTriggerAuthentication CR that KEDA should use when querying Prometheus.
-	// The CR must be created by the cluster admin before enabling KEDA autoscaling.
-	// May be set without AuthModes, e.g. when the CR configures pod-identity-based auth
-	// for a managed Prometheus service instead of secret-backed credentials.
-	// +optional
-	TriggerAuthName string `json:"triggerAuthName,omitempty"`
-	// TriggerAuthKind specifies the kind of the authentication CR referenced by
-	// TriggerAuthName. Accepted values are "TriggerAuthentication" (namespaced)
-	// and "ClusterTriggerAuthentication" (cluster-scoped). Defaults to "TriggerAuthentication"
-	// when empty. ClusterTriggerAuthentication is recommended for multi-namespace deployments.
-	// +optional
-	TriggerAuthKind string `json:"triggerAuthKind,omitempty"`
+	// WorkloadRevision is the generated compatibility boundary shared by all
+	// prefill and decode Pod templates. It is populated per reconciliation.
+	WorkloadRevision string `json:"-"`
 }
-
-// WVAAutoscalingConfig holds cluster-wide WVA autoscaling settings loaded from the
-// "autoscaling-wva-controller-config" key in the inferenceservice-config ConfigMap.
-// These are shared across all LLMISVC instances.
-type WVAAutoscalingConfig struct {
-	// Prometheus holds Prometheus connection and authentication settings.
-	Prometheus PrometheusConfig `json:"prometheus"`
-}
-
-// autoscalingConfigName is the key in the inferenceservice-config ConfigMap
-// that holds WVA-specific autoscaling controller configuration.
-const autoscalingConfigName = "autoscaling-wva-controller-config"
 
 // NewConfig creates an instance of llm-specific config based on predefined values
 // in IngressConfig struct
@@ -353,14 +313,6 @@ func toConfig(isvcConfigMap *corev1.ConfigMap) (*Config, error) {
 	config, errConvert := NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig)
 	if errConvert != nil {
 		return nil, fmt.Errorf("failed to convert TLS cipher suites for OpenSSL: %w", errConvert)
-	}
-
-	if autoscalingData, ok := isvcConfigMap.Data[autoscalingConfigName]; ok {
-		asCfg := &WVAAutoscalingConfig{}
-		if err := json.Unmarshal([]byte(autoscalingData), asCfg); err != nil {
-			return nil, fmt.Errorf("failed to parse %s config json: %w", autoscalingConfigName, err)
-		}
-		config.WVAAutoscalingConfig = asCfg
 	}
 
 	llmISVCConfig, errConvert := NewLLMISVCConfig(isvcConfigMap)

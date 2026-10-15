@@ -34,7 +34,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	"knative.dev/pkg/kmp"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -51,12 +53,17 @@ var log = logf.Log.WithName("DeploymentReconciler")
 // DeploymentReconciler reconciles the raw kubernetes deployment resource
 type DeploymentReconciler struct {
 	client         kclient.Client
+	clientset      kubernetes.Interface
 	scheme         *runtime.Scheme
 	DeploymentList []*appsv1.Deployment
 	componentExt   *v1beta1.ComponentExtensionSpec
+	// platformConditions are status conditions for the owning resource, recorded by customizeDeployments.
+	platformConditions []apis.Condition
 }
 
-func NewDeploymentReconciler(client kclient.Client,
+func NewDeploymentReconciler(ctx context.Context,
+	client kclient.Client,
+	clientset kubernetes.Interface,
 	scheme *runtime.Scheme,
 	componentMeta metav1.ObjectMeta,
 	workerComponentMeta metav1.ObjectMeta,
@@ -69,12 +76,19 @@ func NewDeploymentReconciler(client kclient.Client,
 		return nil, fmt.Errorf("failed to create raw deployment: %w", err)
 	}
 
-	return &DeploymentReconciler{
+	r := &DeploymentReconciler{
 		client:         client,
+		clientset:      clientset,
 		scheme:         scheme,
 		DeploymentList: deploymentList,
 		componentExt:   componentExt,
-	}, nil
+	}
+
+	if err := r.customizeDeployments(ctx, componentMeta, podSpec); err != nil {
+		return nil, err
+	}
+
+	return r, nil
 }
 
 func createRawDeployment(componentMeta metav1.ObjectMeta, workerComponentMeta metav1.ObjectMeta,
@@ -573,6 +587,14 @@ func (r *DeploymentReconciler) SetControllerReferences(owner metav1.Object, sche
 		}
 	}
 	return nil
+}
+
+// PlatformConditions returns the status conditions customizeDeployments recorded for the owning
+// resource, e.g. when it kept part of an existing Deployment to avoid restarting its pods. The owner's
+// controller decides how they apply to its status; the InferenceService controller reads them for the
+// stable predictor only.
+func (r *DeploymentReconciler) PlatformConditions() []apis.Condition {
+	return r.platformConditions
 }
 
 // CleanupOrphans deletes Deployments selected by scope whose names are not retained.

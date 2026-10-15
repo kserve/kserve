@@ -35,6 +35,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
+	"github.com/kserve/kserve/pkg/credentials/hf"
 	"github.com/kserve/kserve/pkg/credentials/s3"
 	"github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
@@ -703,9 +704,77 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 
 		// Apply confidential model serving configuration if enabled via annotations
 		applyConfidentialConfig(initContainer, params.IsvcAnnotations)
+
+		// InferenceService env is applied to the serving container. hf:// downloads
+		// run here, so copy auth variables the initializer does not already have.
+		propagateStorageAuthEnvVars(params.StorageURIs, params.PodSpec, initContainer)
 	}
 
 	return nil
+}
+
+// storageAuthEnvNames are equivalent Hugging Face authentication variables read
+// by the storage-initializer, in the same priority order used by huggingface_hub.
+// ClusterStorageContainer and service-account credential injection take precedence
+// when either name is already present on the init container.
+var storageAuthEnvNames = []string{
+	hf.HFTokenKey,
+	"HUGGING_FACE_HUB_TOKEN",
+}
+
+// storageAuthEnvSources is the order serving containers are searched.
+// The predictor container is where InferenceService env is set.
+var storageAuthEnvSources = []string{
+	constants.InferenceServiceContainerName,
+	constants.WorkerContainerName,
+	constants.TransformerContainerName,
+}
+
+// propagateStorageAuthEnvVars copies one Hugging Face credential from serving
+// containers onto the storage-initializer when an hf:// source needs it.
+// ValueFrom (including secretKeyRef) is preserved. An existing credential on
+// the init container is left unchanged, including one using the legacy alias.
+func propagateStorageAuthEnvVars(storageURIs []v1beta1.StorageUri, podSpec *corev1.PodSpec, initContainer *corev1.Container) {
+	if podSpec == nil || initContainer == nil {
+		return
+	}
+
+	hasHuggingFaceURI := false
+	for _, storageURI := range storageURIs {
+		if strings.HasPrefix(storageURI.Uri, constants.HfURIPrefix) {
+			hasHuggingFaceURI = true
+			break
+		}
+	}
+	if !hasHuggingFaceURI || hasStorageAuthEnvVar(initContainer.Env) {
+		return
+	}
+
+	for _, containerName := range storageAuthEnvSources {
+		source := utils.GetContainerWithName(podSpec, containerName)
+		if source == nil {
+			continue
+		}
+		for _, authEnvName := range storageAuthEnvNames {
+			for i := range source.Env {
+				if source.Env[i].Name == authEnvName {
+					initContainer.Env = append(initContainer.Env, *source.Env[i].DeepCopy())
+					return
+				}
+			}
+		}
+	}
+}
+
+func hasStorageAuthEnvVar(envVars []corev1.EnvVar) bool {
+	for _, envVar := range envVars {
+		for _, authEnvName := range storageAuthEnvNames {
+			if envVar.Name == authEnvName {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // applyConfidentialConfig injects environment variables for confidential model

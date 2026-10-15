@@ -647,8 +647,14 @@ data:
          "jobNamespace": "kserve-localmodel-jobs",
          # defaultJobImage specifies the default image used for the download job.
          "defaultJobImage" : "kserve/storage-initializer:latest",
-         # Kubernetes modifies the filesystem group ID on the attached volume.
+         # fsGroup is set on per-node download Jobs in jobNamespace. Kubernetes modifies the
+         # filesystem group ID on the attached volume.
          "fsGroup": 1000,
+         # sharedPVCImportFSGroup is set on shared-PVC import Jobs, which run in the cache's own
+         # namespace. It is independent of fsGroup. RWX drivers with fsGroupPolicy File (e.g.
+         # csi-driver-nfs) need it so the UID 1000 import container can write a root-owned volume.
+         # Remove the key to omit fsGroup and let namespace admission (e.g. an OpenShift SCC) assign one.
+         "sharedPVCImportFSGroup": 1000,
          # TTL for the download job after it is finished.
          "jobTTLSecondsAfterFinished": 3600,
          # The frequency at which the local model agent reconciles the local models
@@ -677,6 +683,29 @@ data:
          "mcvImage": "kserve/kserve-mcv:latest-minimal",
          # prefetchImage is the lightweight image used by OCI prefetch Jobs.
          "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+         # registry defines the OCI registry used by capture and prefetch.
+         "registry": {
+           # endpoint is required to identify the registry used by capture and prefetch operations.
+           # insecure defaults to false. Set it to true only for an HTTP registry.
+           # caConfigMapRef optionally references a ConfigMap key containing the registry CA.
+           "auth": {
+             # type is none or serviceAccountToken. The default is none.
+             # none does not provision registry credentials.
+             # serviceAccountToken uses the Kubernetes TokenRequest API for short-lived credentials.
+             "type": "none"
+             # tokenTTLSeconds, pushRoleRef, and pullRoleRef are used with serviceAccountToken.
+           }
+         },
+         # artifactSecurity controls signing after capture and verification before preparation.
+         "artifactSecurity": {
+           "mode": "cert",
+           "failurePolicy": "reject",
+           "cert": {
+             "signingProfileRef": "kernelcache-signer",
+             "trustBundle": "kserve/kernelcache-root-ca",
+             "subjectRegexp": "spiffe://kserve/kernelcache-signer"
+           }
+         },
          # abandonedCapturePolicy controls generated captures whose producer Pod disappears
          # before completion. Supported values are retain and delete.
          "abandonedCapturePolicy": "retain",
@@ -808,6 +837,7 @@ data:
       "jobNamespace": "kserve-localmodel-jobs",
       "defaultJobImage" : "kserve/storage-initializer:latest",
       "fsGroup": 1000,
+      "sharedPVCImportFSGroup": 1000,
       "jobTTLSecondsAfterFinished": 3600,
       "reconcilationFrequencyInSecs": 60,
       "disableVolumeManagement": false
@@ -822,6 +852,20 @@ data:
       "jobNamespace": "kserve-kernelcache-jobs",
       "mcvImage": "kserve/kserve-mcv:latest-minimal",
       "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+      "registry": {
+        "auth": {
+          "type": "none"
+        }
+      },
+      "artifactSecurity": {
+        "mode": "cert",
+        "failurePolicy": "reject",
+        "cert": {
+          "signingProfileRef": "kernelcache-signer",
+          "trustBundle": "kserve/kernelcache-root-ca",
+          "subjectRegexp": "spiffe://kserve/kernelcache-signer"
+        }
+      },
       "abandonedCapturePolicy": "retain",
       "jobTTLSecondsAfterFinished": 600,
       "mcvCaptureReadinessTimeoutSeconds": 600,

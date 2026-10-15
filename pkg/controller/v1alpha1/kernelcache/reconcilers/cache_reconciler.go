@@ -18,10 +18,14 @@ package reconcilers
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -30,12 +34,14 @@ import (
 	"github.com/kserve/kserve/pkg/kernelcache/nodegroup"
 )
 
-// KernelCacheReconciler prepares KernelCache artifacts on the selected nodes.
-// Capture and registry credential flows are integrated by later controllers.
+// KernelCacheReconciler prepares KernelCache artifacts on the selected nodes
+// and reconciles the shared prefetch authorization used by those artifacts.
 type KernelCacheReconciler struct {
 	client.Client
-	Reader client.Reader
-	Log    logr.Logger
+	Reader                     client.Reader
+	Log                        logr.Logger
+	Recorder                   events.EventRecorder
+	prefetchAuthorizationMutex sync.Mutex
 }
 
 const (
@@ -45,6 +51,7 @@ const (
 	reasonNoReadyNodes            = "NoReadyNodes"
 	reasonConfigError             = "ConfigError"
 	reasonFeatureDisabled         = "FeatureDisabled"
+	reasonVerificationFailed      = "VerificationFailed"
 	reasonStorageError            = "StorageError"
 	reasonWaitingForPreparation   = "WaitingForPreparation"
 	reasonPreparing               = "Preparing"
@@ -56,6 +63,20 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	kernelCache := &v1alpha1.KernelCache{}
 	if err := r.Get(ctx, req.NamespacedName, kernelCache); err != nil {
 		if apierrors.IsNotFound(err) {
+			if err := r.reconcileCaptureKernelCache(ctx, req); err != nil {
+				return ctrl.Result{}, err
+			}
+			config, configErr := kernelcacheconfig.Load(ctx, r.Client)
+			if configErr != nil {
+				return ctrl.Result{}, configErr
+			}
+			cleanupReady, cleanupErr := r.cleanupPrefetchRoleBindingAfterKernelCacheDeletion(ctx, req.Namespace, config)
+			if cleanupErr != nil {
+				return ctrl.Result{}, cleanupErr
+			}
+			if !cleanupReady {
+				return ctrl.Result{RequeueAfter: time.Minute}, nil
+			}
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -77,6 +98,16 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	}
 	if !config.Enabled {
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStatePending, 0, reasonFeatureDisabled, "kernel cache is disabled in inferenceservice-config", mountType)
+	}
+	verified, err := r.reconcileArtifactVerification(ctx, kernelCache, config)
+	if err != nil {
+		if statusErr := r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, 0, reasonVerificationFailed, err.Error(), mountType); statusErr != nil {
+			return ctrl.Result{}, errors.Join(statusErr, err)
+		}
+		return ctrl.Result{}, err
+	}
+	if !verified {
+		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, 0, reasonVerificationFailed, "kernel cache artifact verification failed", mountType)
 	}
 
 	if err := r.reconcileKernelCacheUsage(ctx, kernelCache); err != nil {
@@ -110,8 +141,14 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err := r.checkNamespace(ctx, config.JobNamespace); err != nil {
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, len(readyNodes.Items), reasonStorageError, err.Error(), mountType)
 	}
-	if err := r.ensurePrefetchServiceAccount(ctx, config.JobNamespace); err != nil {
+	r.prefetchAuthorizationMutex.Lock()
+	prefetchAccessReady, err := r.reconcilePrefetchServiceAccountAccess(ctx, kernelCache, config)
+	r.prefetchAuthorizationMutex.Unlock()
+	if err != nil {
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, len(readyNodes.Items), reasonStorageError, err.Error(), mountType)
+	}
+	if !prefetchAccessReady {
+		return ctrl.Result{RequeueAfter: time.Minute}, nil
 	}
 	if err := r.ensureOCIPrefetchJobs(ctx, kernelCache, nodeGroup, readyNodes, config); err != nil {
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, len(readyNodes.Items), reasonStorageError, err.Error(), mountType)
@@ -125,8 +162,5 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 }
 
 func kernelCacheNodeGroupName(kernelCache *v1alpha1.KernelCache, defaultNodeGroup string) string {
-	if kernelCache.Spec.NodeGroupRef != nil && kernelCache.Spec.NodeGroupRef.Name != "" {
-		return kernelCache.Spec.NodeGroupRef.Name
-	}
-	return defaultNodeGroup
+	return nodegroup.ResolveKernelCacheNodeGroupName(kernelCache, defaultNodeGroup)
 }

@@ -1,6 +1,6 @@
 # kserve-localmodel-resources
 
-![Version: v0.21.0-rc1](https://img.shields.io/badge/Version-v0.21.0--rc1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.21.0-rc1](https://img.shields.io/badge/AppVersion-v0.21.0--rc1-informational?style=flat-square)
+![Version: v0.21.0](https://img.shields.io/badge/Version-v0.21.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.21.0](https://img.shields.io/badge/AppVersion-v0.21.0-informational?style=flat-square)
 
 KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Deployments
 
@@ -11,7 +11,7 @@ KServe LocalModel - Local Model Storage and Caching for Edge and On-Premise Depl
 To install the chart, run the following:
 
 ```console
-$ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-localmodel-resources --version v0.21.0-rc1
+$ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-localmodel-resources --version v0.21.0
 ```
 
 ## Maintainers
@@ -40,12 +40,12 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.inferenceservice.resources.requests.cpu | string | `"1"` |  |
 | kserve.inferenceservice.resources.requests.memory | string | `"2Gi"` |  |
 | kserve.kernelcache.abandonedCapturePolicy | string | `"retain"` |  |
-| kserve.kernelcache.artifactSecurity.cert.signingProfileRef | string | `""` |  |
-| kserve.kernelcache.artifactSecurity.cert.subjectRegexp | string | `""` |  |
-| kserve.kernelcache.artifactSecurity.cert.trustBundle | string | `""` |  |
+| kserve.kernelcache.artifactSecurity.cert.signingProfileRef | string | `"kernelcache-signer"` |  |
+| kserve.kernelcache.artifactSecurity.cert.subjectRegexp | string | `"spiffe://kserve/kernelcache-signer"` |  |
+| kserve.kernelcache.artifactSecurity.cert.trustBundle | string | `"kserve/kernelcache-root-ca"` |  |
 | kserve.kernelcache.artifactSecurity.cert.trustBundleKey | string | `""` |  |
 | kserve.kernelcache.artifactSecurity.failurePolicy | string | `"reject"` |  |
-| kserve.kernelcache.artifactSecurity.mode | string | `"none"` |  |
+| kserve.kernelcache.artifactSecurity.mode | string | `"cert"` |  |
 | kserve.kernelcache.defaultMountType | string | `"oci"` |  |
 | kserve.kernelcache.defaultNodeGroup | string | `""` |  |
 | kserve.kernelcache.defaultSidecarInjection | bool | `true` |  |
@@ -99,6 +99,7 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.localmodel.jobNamespace | string | `"kserve-localmodel-jobs"` |  |
 | kserve.localmodel.jobTTLSecondsAfterFinished | int | `3600` |  |
 | kserve.localmodel.securityContext.fsGroup | int | `1000` |  |
+| kserve.localmodel.sharedPVCImportFSGroup | int | `1000` | fsGroup for shared-PVC import Jobs, which run in the cache's namespace. Independent of securityContext.fsGroup (per-node download Jobs). Set to null to omit it and let namespace admission (e.g. an OpenShift SCC) assign the group. |
 | kserve.localmodelnode.controller.affinity | object | `{}` |  |
 | kserve.localmodelnode.controller.image | string | `"kserve/kserve-localmodelnode-agent"` |  |
 | kserve.localmodelnode.controller.imagePullPolicy | string | `"IfNotPresent"` |  |
@@ -157,4 +158,4 @@ $ helm install kserve-localmodel-resources oci://ghcr.io/kserve/charts/kserve-lo
 | kserve.storage.tag | string | `""` |  |
 | kserve.storage.uidModelcar | int | `1010` |  |
 | kserve.storagecontainer.enabled | string | `""` |  |
-| kserve.version | string | `"v0.21.0-rc1"` |  |
+| kserve.version | string | `"v0.21.0"` |  |

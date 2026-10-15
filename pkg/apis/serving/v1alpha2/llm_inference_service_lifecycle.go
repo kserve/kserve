@@ -21,6 +21,10 @@ import (
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 )
 
+// WVAUnsupportedReason identifies the non-blocking condition reported for
+// existing resources that still contain deprecated WVA configuration.
+const WVAUnsupportedReason = "WVAUnsupported"
+
 // Top-level conditions. Ready aggregates PresetsCombined, WorkloadsReady and
 // RouterReady via the Knative LivingConditionSet.
 const (
@@ -133,6 +137,28 @@ const (
 	// continues with available members. False (or unset) when fully healthy.
 	// Only present when traffic splitting is configured (group + weight set).
 	GroupDegraded apis.ConditionType = "GroupDegraded"
+
+	// PerModelPathsDropped reports whether the managed HTTPRoute, as last
+	// written, dropped its per-model path matches because of the
+	// serving.kserve.io/model-based-routing-only annotation. True with reason
+	// SetOnService or SetOnAllGateways. False when the annotation is
+	// configured but the paths are kept, with reason, in order of precedence:
+	// DisabledOnService (the service says "false" while a parent Gateway says
+	// "true"), UnrecognizedValue, NotSetOnAllGateways,
+	// ModelBasedRoutingNotEnabled or NoModelRoutingMatches.
+	// Independent of the Ready rollup - kept paths still serve every client.
+	// Only present when the annotation is configured on the service or on a
+	// parent Gateway of a managed route; absent means not configured.
+	PerModelPathsDropped apis.ConditionType = "PerModelPathsDropped"
+
+	// DisaggregatedSetUsed reports whether a service that requests the
+	// DisaggregatedSet backend, by default through its P/D presets or in its own
+	// spec.annotations, runs on it. False when the service keeps its current
+	// workloads, with reason FeatureGateDisabled, CRDNotInstalled,
+	// NoPrefillWorkload, RoleScalerNotInstalled or ReplicasMismatch.
+	// Independent of the Ready rollup - the current workloads keep serving.
+	// Only present when the backend is requested; absent means not requested.
+	DisaggregatedSetUsed apis.ConditionType = "DisaggregatedSetUsed"
 )
 
 var llmInferenceServiceCondSet = apis.NewLivingConditionSet(
@@ -243,6 +269,11 @@ func (in *LLMInferenceService) DetermineWorkloadReadiness() {
 		if cond == nil {
 			continue
 		}
+		// Existing WVA resources remain operational with autoscaling disabled. Keep
+		// the persistent warning visible without making the workload NotReady.
+		if (cond.Type == ScalingReady || cond.Type == PrefillScalingReady) && cond.Reason == WVAUnsupportedReason {
+			continue
+		}
 		if cond.IsFalse() {
 			in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(WorkloadReady, cond.Reason, cond.Message)
 			return
@@ -345,6 +376,30 @@ func (in *LLMInferenceService) MarkGroupDegraded(reason, messageFormat string, m
 
 func (in *LLMInferenceService) MarkGroupNotDegraded() {
 	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(GroupDegraded)
+}
+
+func (in *LLMInferenceService) MarkPerModelPathsDropped(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrueWithReason(PerModelPathsDropped, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkPerModelPathsKept(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(PerModelPathsDropped, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkPerModelPathsDroppedUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(PerModelPathsDropped)
+}
+
+func (in *LLMInferenceService) MarkDisaggregatedSetUsed() {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkTrue(DisaggregatedSetUsed)
+}
+
+func (in *LLMInferenceService) MarkDisaggregatedSetNotUsed(reason, messageFormat string, messageA ...interface{}) {
+	in.GetConditionSet().Manage(in.GetStatus()).MarkFalse(DisaggregatedSetUsed, reason, messageFormat, messageA...)
+}
+
+func (in *LLMInferenceService) MarkDisaggregatedSetUsedUnset() {
+	_ = in.GetConditionSet().Manage(in.GetStatus()).ClearCondition(DisaggregatedSetUsed)
 }
 
 func (in *LLMInferenceService) DetermineRouterReadiness() {

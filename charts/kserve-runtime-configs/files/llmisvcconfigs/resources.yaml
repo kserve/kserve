@@ -7,7 +7,10 @@ metadata:
   namespace: kserve
 spec:
   annotations:
+    serving.kserve.io/enable-disaggregated-set: "true"
     serving.kserve.io/model-based-routing-enabled: "true"
+  labels:
+    serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
     - command:
@@ -303,7 +306,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.10.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -367,7 +370,10 @@ metadata:
   namespace: kserve
 spec:
   annotations:
+    serving.kserve.io/enable-disaggregated-set: "true"
     serving.kserve.io/model-based-routing-enabled: "true"
+  labels:
+    serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
     - command:
@@ -693,7 +699,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.10.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -1046,6 +1052,33 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  name: kserve-config-llm-omni-template
+  namespace: kserve
+spec:
+  template:
+    containers:
+    - image: docker.io/vllm/vllm-omni:v0.30.0
+      name: main
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: false
+        seccompProfile:
+          type: RuntimeDefault
+      startupProbe:
+        failureThreshold: 120
+        httpGet:
+          path: /health
+          port: 8000
+        periodSeconds: 30
+        timeoutSeconds: 10
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
   annotations:
     internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
   name: kserve-config-llm-prefill-template
@@ -1054,6 +1087,8 @@ spec:
   prefill:
     annotations:
       serving.kserve.io/model-based-routing-enabled: "true"
+    labels:
+      serving.kserve.io/llmisvc-revision: placeholder
     template:
       containers:
       - command:
@@ -1351,6 +1386,8 @@ spec:
   prefill:
     annotations:
       serving.kserve.io/model-based-routing-enabled: "true"
+    labels:
+      serving.kserve.io/llmisvc-revision: placeholder
     template:
       containers:
       - command:
@@ -2061,6 +2098,46 @@ spec:
               name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
               port: 8000
               weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/audio
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/audio
+            name: v1-audio-path
+            timeouts:
+              backendRequest: 0s
+              request: 600s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/images
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/images
+            name: v1-images-path
+            timeouts:
+              backendRequest: 0s
+              request: 600s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
             matches:
             - headers:
               - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
@@ -2126,6 +2203,54 @@ spec:
               path:
                 type: Exact
                 value: /v1/messages/
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/audio/speech
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/audio/speech/
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/audio/transcriptions
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/audio/transcriptions/
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/images/generations
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/images/generations/
             name: v1-model-routing
             timeouts:
               backendRequest: 0s
@@ -2215,6 +2340,48 @@ spec:
               backendRequest: 0s
               request: 0s
           - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/audio
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}/v1/audio
+            name: v1-audio-publisher-path
+            timeouts:
+              backendRequest: 0s
+              request: 600s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/images
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}/v1/images
+            name: v1-images-publisher-path
+            timeouts:
+              backendRequest: 0s
+              request: 600s
+          - backendRefs:
             - kind: Service
               name: '{{ ChildName .ObjectMeta.Name `-kserve-workload-svc` }}'
               port: 8000
@@ -2278,7 +2445,7 @@ spec:
   router:
     scheduler:
       annotations:
-        app.kubernetes.io/version: 0.10.0
+        app.kubernetes.io/version: 0.11.0
       pool:
         spec:
           endpointPickerRef:
@@ -2321,7 +2488,7 @@ spec:
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.10.0
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -2451,6 +2618,27 @@ spec:
           - name: decode
             plugins:
             - pluginRef: decode-filter
+            - pluginRef: active-request-scorer
+            - pluginRef: max-score-picker
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-scheduler-eppconfig-modality
+  namespace: kserve
+spec:
+  router:
+    scheduler:
+      config:
+        inline:
+          apiVersion: llm-d.ai/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+          - type: active-request-scorer
+          - type: max-score-picker
+          schedulingProfiles:
+          - name: default
+            plugins:
             - pluginRef: active-request-scorer
             - pluginRef: max-score-picker
 ---
@@ -2764,6 +2952,7 @@ spec:
               fi
               {{ end }}
               exec vllm launch render /mnt/models/base \
+                --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" /mnt/models/base \
                 --port=8000 \
                 {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh \
                 --ssl-certfile /var/run/kserve/tls/tls.crt \
