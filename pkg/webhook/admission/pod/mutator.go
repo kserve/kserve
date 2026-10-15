@@ -138,7 +138,8 @@ func (mutator *Mutator) mutate(ctx context.Context, pod *corev1.Pod, configMap *
 		metricsAggregator.InjectMetricsAggregator,
 	}
 
-	if kservetypes.ResolveOciModelMode(storageInitializer.config) != "" {
+	// A LocalModel pod gets its model from the cache PVC, even when the original source URI is OCI.
+	if _, cached := pod.Labels[constants.LocalModelLabel]; !cached && kservetypes.ResolveOciModelMode(storageInitializer.config) != "" {
 		mutators = append(mutators, storageInitializer.InjectModelcar)
 	}
 
