@@ -45,6 +45,9 @@ func extractHTTPRoute(actual any) (*gwapiv1.HTTPRoute, error) {
 		return v, nil
 	case gwapiv1.HTTPRoute:
 		return &v, nil
+	case interface{ ToHTTPRouteSpec() gwapiv1.HTTPRouteSpec }:
+		// KServe-owned route specs such as v1alpha2.LogicalHTTPRouteSpec.
+		return &gwapiv1.HTTPRoute{Spec: v.ToHTTPRouteSpec()}, nil
 	default:
 		return nil, fmt.Errorf("expected gatewayapi.HTTPRoute gatewayapi.HTTPRouteSpec, but got %T", actual)
 	}

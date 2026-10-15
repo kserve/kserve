@@ -546,7 +546,7 @@ func TestMergeSpecs(t *testing.T) {
 					Router: &v1alpha2.RouterSpec{
 						Route: &v1alpha2.GatewayRoutesSpec{
 							HTTP: &v1alpha2.HTTPRouteSpec{
-								Spec: &gwapiv1.HTTPRouteSpec{
+								Spec: &v1alpha2.LogicalHTTPRouteSpec{
 									CommonRouteSpec: gwapiv1.CommonRouteSpec{
 										ParentRefs: []gwapiv1.ParentReference{
 											{
@@ -635,7 +635,7 @@ func TestMergeSpecs(t *testing.T) {
 				Router: &v1alpha2.RouterSpec{
 					Route: &v1alpha2.GatewayRoutesSpec{
 						HTTP: &v1alpha2.HTTPRouteSpec{
-							Spec: &gwapiv1.HTTPRouteSpec{
+							Spec: &v1alpha2.LogicalHTTPRouteSpec{
 								CommonRouteSpec: gwapiv1.CommonRouteSpec{
 									ParentRefs: []gwapiv1.ParentReference{
 										{
@@ -2892,7 +2892,7 @@ func TestParentRefRewritingGuard(t *testing.T) {
 
 			httpRoute := &v1alpha2.HTTPRouteSpec{}
 			if tt.httpRouteHasSpec {
-				httpRoute.Spec = &gwapiv1.HTTPRouteSpec{
+				httpRoute.Spec = &v1alpha2.LogicalHTTPRouteSpec{
 					CommonRouteSpec: gwapiv1.CommonRouteSpec{
 						ParentRefs: []gwapiv1.ParentReference{
 							{Name: "old-default-gateway"},

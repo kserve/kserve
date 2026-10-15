@@ -469,6 +469,11 @@ const (
 	// LLMRoutingGroupLabelKey identifies which traffic splitting group an LLMInferenceService belongs to.
 	LLMRoutingGroupLabelKey = "serving.kserve.io/routing-group"
 
+	// LLMHTTPRouteShardLabelKey marks an additional controller-managed HTTPRoute that carries part of an
+	// LLMInferenceService's logical route. The value is the shard index; the first shard keeps the
+	// original route name and carries no shard label.
+	LLMHTTPRouteShardLabelKey = "serving.kserve.io/httproute-shard"
+
 	// LLMServedByAnnotationKey enables the x-served-by response header middleware.
 	// Set to "true" on an LLMInferenceService to inject the middleware.
 	LLMServedByAnnotationKey = "serving.kserve.io/enable-served-by-header"

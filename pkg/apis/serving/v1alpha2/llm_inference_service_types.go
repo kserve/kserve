@@ -456,9 +456,68 @@ type HTTPRouteSpec struct {
 	Refs []corev1.LocalObjectReference `json:"refs,omitempty"`
 
 	// Spec allows for providing a custom specification for an HTTPRoute.
-	// If provided, the controller will create and manage an HTTPRoute with this specification.
+	// If provided, the controller will create and manage one or more HTTPRoutes with this specification.
 	// +optional
-	Spec *gwapiv1.HTTPRouteSpec `json:"spec,omitempty"`
+	Spec *LogicalHTTPRouteSpec `json:"spec,omitempty"`
+}
+
+// MaxLogicalHTTPRouteRules bounds the number of rules accepted in a LogicalHTTPRouteSpec.
+// The controller shards the rules across managed HTTPRoutes, each of which stays within the
+// Gateway API per-route limits (16 rules, 64 matches per rule and 128 matches in total).
+const MaxLogicalHTTPRouteRules = 64
+
+// LogicalHTTPRouteSpec is the KServe-owned form of a Gateway API HTTPRouteSpec.
+// It has the same shape as HTTPRouteSpec, but accepts more rules than a single HTTPRoute can hold.
+// The controller splits the effective route, including generated LoRA adapter matches, into as many
+// managed HTTPRoute resources as needed. Route-level fields such as parentRefs and hostnames are
+// copied to every resource.
+type LogicalHTTPRouteSpec struct {
+	// Common route information, copied to every managed HTTPRoute.
+	gwapiv1.CommonRouteSpec `json:",inline"`
+
+	// Hostnames defines a set of hostnames that should match against the HTTP Host header,
+	// copied to every managed HTTPRoute. See the Gateway API HTTPRouteSpec for the matching semantics.
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MaxItems=16
+	Hostnames []gwapiv1.Hostname `json:"hostnames,omitempty"`
+
+	// Rules are a list of HTTP matchers, filters and actions.
+	// Unlike a single HTTPRoute, up to 64 rules are accepted. The controller distributes them over
+	// managed HTTPRoutes that each respect the Gateway API rule and match limits.
+	// +optional
+	// +listType=atomic
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=64
+	// +kubebuilder:default={{matches: {{path: {type: "PathPrefix", value: "/"}}}}}
+	Rules []gwapiv1.HTTPRouteRule `json:"rules,omitempty"`
+}
+
+// ToHTTPRouteSpec returns a deep copy of the logical spec as a Gateway API HTTPRouteSpec.
+// The result may exceed the per-route limits and is meant to be sharded before it is written.
+func (s *LogicalHTTPRouteSpec) ToHTTPRouteSpec() gwapiv1.HTTPRouteSpec {
+	if s == nil {
+		return gwapiv1.HTTPRouteSpec{}
+	}
+	c := s.DeepCopy()
+	return gwapiv1.HTTPRouteSpec{
+		CommonRouteSpec: c.CommonRouteSpec,
+		Hostnames:       c.Hostnames,
+		Rules:           c.Rules,
+	}
+}
+
+// LogicalHTTPRouteSpecFrom converts a Gateway API HTTPRouteSpec into a LogicalHTTPRouteSpec.
+func LogicalHTTPRouteSpecFrom(s *gwapiv1.HTTPRouteSpec) *LogicalHTTPRouteSpec {
+	if s == nil {
+		return nil
+	}
+	c := s.DeepCopy()
+	return &LogicalHTTPRouteSpec{
+		CommonRouteSpec: c.CommonRouteSpec,
+		Hostnames:       c.Hostnames,
+		Rules:           c.Rules,
+	}
 }
 
 // GatewaySpec defines the configuration for a Gateway API Gateway.
