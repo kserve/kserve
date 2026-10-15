@@ -257,7 +257,9 @@ The Gateway and Route from step 7 still apply; they reference the same `Inferenc
 ---
 
 
-## 10. ServiceMonitor for Prometheus
+## 10. Monitoring and tracing
+
+### 10.1 ServiceMonitor for Prometheus
 
 To scrape vLLM and EPP metrics, apply the ServiceMonitor in the same namespace (or adjust `namespaceSelector` to your Prometheus setup):
 
@@ -267,6 +269,45 @@ To scrape vLLM and EPP metrics, apply the ServiceMonitor in the same namespace (
 ```bash
 kubectl apply -f service_monitor.yaml -n kserve-lab
 ```
+
+### 10.2 Distributed tracing (optional)
+
+Add `tracing` to the `spec` of the selected `LLMInferenceService` or its
+`LLMInferenceServiceConfig`. Point it at an existing, reachable OTLP collector;
+KServe does not install a collector:
+
+```yaml
+spec:
+  tracing:
+    exporterEndpoint: "http://otel-collector.kserve-lab.svc.cluster.local:4317"
+    exporter: "otlp"
+    sampler: "parentbased_traceidratio"
+    samplerArg: "0.05"
+```
+
+KServe configures tracing for the EPP, inference server, routing sidecar (when
+present), and standalone HTTP tokenizer (when enabled). Traces use the service
+names `inference-scheduler`, `inference-server-decode`,
+`inference-server-prefill`, `routing-sidecar`, and `tokenizer`, with Kubernetes
+resource attributes to identify the namespace and pods.
+
+Use runtime images that support the injected tracing options. Tool-calling spans
+also require images containing the corresponding llm-d-router and vLLM
+instrumentation; configuring tracing alone does not add those spans to older
+images. Custom launch scripts must forward container arguments, for example
+using `"$@"`, to receive the tracing flags. Existing tracing flags and environment
+variables in container templates are preserved.
+
+Without a tracing configuration in the service or its configs, KServe does not
+inject tracing settings. Setting `spec.tracing` to `{}` uses the
+`kserve-config-llm-tracing` preset defaults, including the collector endpoint.
+The example samples 5% of root traces and respects parent sampling;
+use `samplerArg: "1.0"` for controlled validation and send a W3C `traceparent`
+header to correlate requests across components.
+
+Tracing does not enable metrics listeners or configure Prometheus scraping. The
+ServiceMonitor above covers vLLM and EPP, not the routing sidecar's separate
+metrics listener.
 
 ---
 
