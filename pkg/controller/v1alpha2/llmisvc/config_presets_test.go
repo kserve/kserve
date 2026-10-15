@@ -18,6 +18,7 @@ package llmisvc_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -1274,6 +1275,39 @@ func TestSGLangTemplateForwardsContainerArgs(t *testing.T) {
 	}
 	if diff := cmp.Diff([]string{"--trust-remote-code"}, container.Args); diff != "" {
 		t.Errorf("Expected explicit container args to be forwarded (-want, +got):\n%s", diff)
+	}
+}
+
+func TestTokenizerPresetForwardsTracingArgs(t *testing.T) {
+	filePath := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig", "config-llm-tokenizer.yaml")
+	data, err := os.ReadFile(filepath.Clean(filePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tls := range []bool{false, true} {
+		t.Run(map[bool]string{false: "HTTP", true: "HTTPS"}[tls], func(t *testing.T) {
+			config := loadConfig(t, data, filePath)
+			out, err := llmisvc.ReplaceVariables(llmisvc.LLMInferenceServiceSample(), config, &llmisvc.Config{EnableTLS: tls})
+			if err != nil {
+				t.Fatal(err)
+			}
+			container := out.Spec.Router.Scheduler.Tokenizer.Template.Containers[0]
+			// Capture the actual shell argv without starting a model server.
+			script := strings.Replace(container.Command[2], "exec vllm ", "printf '%s\\n' ", 1)
+			args := append([]string{container.Command[1], script}, container.Command[3:]...)
+			endpoint := "http://collector:4317/?value=$trace_value"
+			args = append(args, "--otlp-traces-endpoint", endpoint)
+			output, err := exec.CommandContext(t.Context(), container.Command[0], args...).CombinedOutput() // #nosec G204 -- repository preset and fixed test input, not user data
+			if err != nil {
+				t.Fatalf("render command failed: %v\n%s", err, output)
+			}
+			if !strings.Contains(string(output), "--otlp-traces-endpoint\n"+endpoint+"\n") {
+				t.Fatalf("tracing args were not forwarded verbatim:\n%s", output)
+			}
+			if strings.Contains(string(output), "--ssl-keyfile\n") != tls {
+				t.Fatalf("TLS flags changed unexpectedly:\n%s", output)
+			}
+		})
 	}
 }
 

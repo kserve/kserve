@@ -227,6 +227,10 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Tokenizer.Template.DeepCopy()
 	}
 
+	if container := utils.GetContainerWithName(&d.Spec.Template.Spec, tokenizerDeploymentContainerName); container != nil {
+		injectVLLMTracing(llmSvc.Spec.Tracing, llmSvc.Namespace, llmSvc.Name, defaultTokenizerServiceName, container)
+	}
+
 	// Attach model artifacts so the tokenizer has access to tokenizer files
 	var existingServiceAccount *corev1.ServiceAccount
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil &&

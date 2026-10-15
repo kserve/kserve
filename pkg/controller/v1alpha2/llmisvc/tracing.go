@@ -29,6 +29,7 @@ const (
 	defaultSchedulerServiceName      = "inference-scheduler"
 	defaultServerServiceName         = "inference-server"
 	defaultRoutingSidecarServiceName = "routing-sidecar"
+	defaultTokenizerServiceName      = "tokenizer"
 )
 
 // otelResourceAttributeEnvVars returns the standard k8s resource attribute env
@@ -109,6 +110,16 @@ func injectGoTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, serviceNam
 // TracingSpec field values are expected to be populated by the well-known config
 // merge (kserve-config-llm-tracing) before this function is called.
 func injectServerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, container *corev1.Container) bool {
+	if !injectVLLMTracing(t, namespace, llmisvcName, defaultServerServiceName+roleSuffix, container) {
+		return false
+	}
+	if !tracing.HasArg(container.Args, "--collect-detailed-traces") {
+		container.Args = append(container.Args, "--collect-detailed-traces", "all")
+	}
+	return true
+}
+
+func injectVLLMTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, serviceName string, container *corev1.Container) bool {
 	if t == nil {
 		return false
 	}
@@ -118,15 +129,11 @@ func injectServerTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSu
 		return false
 	}
 
-	if !tracing.HasArg(container.Args, "--otlp-traces-endpoint") {
+	if !tracing.HasArg(container.Args, "--otlp-traces-endpoint") &&
+		!tracing.HasArg(container.Command, "--otlp-traces-endpoint") {
 		container.Args = append(container.Args, "--otlp-traces-endpoint", endpoint)
 	}
 
-	if !tracing.HasArg(container.Args, "--collect-detailed-traces") {
-		container.Args = append(container.Args, "--collect-detailed-traces", "all")
-	}
-
-	serviceName := defaultServerServiceName + roleSuffix
 	resourceAttrs := otelResourceAttributeEnvVars(namespace, llmisvcName)
 
 	tracingEnvVars := make([]corev1.EnvVar, 0, 5+len(resourceAttrs))

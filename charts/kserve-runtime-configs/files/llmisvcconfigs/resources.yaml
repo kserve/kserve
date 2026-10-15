@@ -4598,7 +4598,9 @@ spec:
                 {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh \
                 --ssl-certfile /var/run/kserve/tls/tls.crt \
                 --ssl-keyfile /var/run/kserve/tls/tls.key{{ end }} \
-                {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{ end }}
+                {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{ end }} \
+                "$@"
+            - --
             env:
             - name: HF_HOME
               value: /tmp/hf
