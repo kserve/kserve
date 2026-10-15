@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"slices"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
@@ -124,26 +123,30 @@ func workerServesDataParallelRanks(workload *v1alpha2.WorkloadSpec) bool {
 	return workload != nil && workload.Labels[constants.KServeComponentLabelKey] == constants.KServeComponentWorkload
 }
 
-// Rank configs declare active-ports themselves. For an asymmetric deployment,
-// constrain a default single-endpoint role to 8000. Custom traffic ports must be
-// supplied through an explicit active-ports annotation, which is preserved.
-func applyDataParallelActivePorts(svc *v1alpha2.LLMInferenceService, template *corev1.PodTemplateSpec) {
-	if template == nil {
+// Rank configs declare their own active-ports. Only when one is selected, give
+// the other role's default single endpoint an explicit 8000 annotation so EPP
+// does not register the pool's whole port union for it. Custom pool ports alone
+// do not select this topology, and explicit workload annotations are preserved.
+func (s *dataParallelConfigSelection) configureActivePorts(cfg *v1alpha2.LLMInferenceServiceConfig) {
+	if !s.decode && !s.prefill {
 		return
 	}
-	_, decodeDeclared := svc.Spec.Annotations[dpActivePortsAnnotation]
-	prefillDeclared := false
-	if svc.Spec.Prefill != nil {
-		_, prefillDeclared = svc.Spec.Prefill.Annotations[dpActivePortsAnnotation]
+	for _, role := range []struct {
+		selected bool
+		workload *v1alpha2.WorkloadSpec
+	}{
+		{s.decode, &cfg.Spec.WorkloadSpec},
+		{s.prefill, cfg.Spec.Prefill},
+	} {
+		if role.selected || role.workload == nil {
+			continue
+		}
+		if _, explicit := role.workload.Annotations[dpActivePortsAnnotation]; explicit {
+			continue
+		}
+		if role.workload.Annotations == nil {
+			role.workload.Annotations = make(map[string]string)
+		}
+		role.workload.Annotations[dpActivePortsAnnotation] = "8000"
 	}
-	if !decodeDeclared && !prefillDeclared && !inferencePoolRequiresV1(&svc.Spec) {
-		return
-	}
-	if _, explicit := template.Annotations[dpActivePortsAnnotation]; explicit {
-		return
-	}
-	if template.Annotations == nil {
-		template.Annotations = make(map[string]string)
-	}
-	template.Annotations[dpActivePortsAnnotation] = "8000"
 }

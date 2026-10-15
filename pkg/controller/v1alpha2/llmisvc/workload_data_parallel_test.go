@@ -229,13 +229,66 @@ func TestDataParallelBaseRefsReplaceDefaults(t *testing.T) {
 }
 
 func TestDataParallelRoutingPreservesActivePorts(t *testing.T) {
-	svc, r := dataParallelRoutingFixture(t, 1, 4)
-	svc.Spec.Prefill.Annotations = map[string]string{"llm-d.ai/active-ports": "8000"}
-	svc.Spec.Annotations["llm-d.ai/active-ports"] = "8001,8003"
-	combined, err := r.combineBaseRefsConfig(t.Context(), svc, &Config{})
-	require.NoError(t, err)
-	assert.Equal(t, "8000", combined.Config.Spec.Prefill.Annotations["llm-d.ai/active-ports"])
-	assert.Equal(t, "8001,8003", combined.Config.Spec.Annotations["llm-d.ai/active-ports"])
+	for _, selected := range []string{"both", "prefill", "decode"} {
+		t.Run(selected, func(t *testing.T) {
+			svc, r := dataParallelRoutingFixture(t, 1, 4)
+			if selected != "both" {
+				svc.Spec.BaseRefs = []corev1.LocalObjectReference{{Name: "kserve-config-llm-" + selected + "-worker-data-parallel-multi-port"}}
+			}
+			svc.Spec.Prefill.Annotations = map[string]string{dpActivePortsAnnotation: "9000"}
+			svc.Spec.Annotations[dpActivePortsAnnotation] = "9001,9003"
+			combined, err := r.combineBaseRefsConfig(t.Context(), svc, &Config{})
+			require.NoError(t, err)
+			assert.Equal(t, "9000", combined.Config.Spec.Prefill.Annotations[dpActivePortsAnnotation])
+			assert.Equal(t, "9001,9003", combined.Config.Spec.Annotations[dpActivePortsAnnotation])
+		})
+	}
+}
+
+func TestCustomMultiPortPoolDoesNotDefaultActivePorts(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		ports         []igwapi.Port
+		decodeActive  string
+		prefillActive string
+	}{
+		{name: "custom traffic ports", ports: []igwapi.Port{{Number: 9000}, {Number: 9001}}},
+		{name: "standard traffic ports", ports: []igwapi.Port{{Number: 8000}, {Number: 8001}}},
+		{name: "explicit decode ports", ports: []igwapi.Port{{Number: 9000}, {Number: 9001}}, decodeActive: "9001"},
+		{name: "explicit prefill ports", ports: []igwapi.Port{{Number: 9000}, {Number: 9001}}, prefillActive: "9000"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, r := dataParallelRoutingFixture(t, 2, 4)
+			svc.Spec.BaseRefs = nil // A custom pool does not opt into the new topology.
+			svc.Spec.Router.Scheduler.Pool = &v1alpha2.InferencePoolSpec{Spec: &igwapi.InferencePoolSpec{TargetPorts: tc.ports}}
+			if tc.decodeActive != "" {
+				svc.Spec.Annotations[dpActivePortsAnnotation] = tc.decodeActive
+			}
+			if tc.prefillActive != "" {
+				svc.Spec.Prefill.Annotations[dpActivePortsAnnotation] = tc.prefillActive
+			}
+			combined, err := r.combineBaseRefsConfig(t.Context(), svc, &Config{})
+			require.NoError(t, err)
+			require.Equal(t, tc.ports, combined.Config.Spec.Router.Scheduler.Pool.Spec.TargetPorts)
+			svc.Spec = combined.Config.Spec
+			ds, err := disaggTestReconciler(t).expectedDisaggregatedSet(t.Context(), svc, disaggTestConfig(), nil)
+			require.NoError(t, err)
+			for _, role := range ds.Spec.Roles {
+				want := tc.decodeActive
+				if role.Name == constants.LLMDRolePrefill {
+					want = tc.prefillActive
+				}
+				group := role.Spec.LeaderWorkerTemplate
+				for _, pod := range []*corev1.PodTemplateSpec{group.LeaderTemplate, &group.WorkerTemplate} {
+					if want == "" {
+						assert.NotContains(t, pod.Annotations, dpActivePortsAnnotation)
+					} else {
+						assert.Equal(t, want, pod.Annotations[dpActivePortsAnnotation])
+					}
+				}
+			}
+		})
+	}
 }
 
 func TestDataParallelBaseRefsSelectRolesIndependently(t *testing.T) {
@@ -301,9 +354,9 @@ func TestDataParallelBaseRefWithTensorParallelPrefill(t *testing.T) {
 	require.Nil(t, combined.Config.Spec.Prefill.Worker)
 	assert.Contains(t, strings.Join(combined.Config.Spec.Prefill.Template.Containers[0].Command, " "), "--tensor-parallel-size 8")
 	svc.Spec = combined.Config.Spec
-	pod := &corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Annotations: combined.Config.Spec.Prefill.Annotations}}
-	applyDataParallelActivePorts(svc, pod)
-	assert.Equal(t, "8000", pod.Annotations[dpActivePortsAnnotation])
+	pod, err := disaggTestReconciler(t).expectedSingleNodePrefillPodTemplate(t.Context(), svc, disaggTestConfig(), corev1.PodSpec{})
+	require.NoError(t, err)
+	assert.Equal(t, "8000", pod.Template.Annotations[dpActivePortsAnnotation])
 }
 
 func TestDataParallelBaseRefRejectsInvalidReplacement(t *testing.T) {

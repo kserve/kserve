@@ -784,6 +784,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	if err := dpConfigs.configurePool(llmSvcCfg, resolvedSpec); err != nil {
 		return nil, &dataParallelRoutingError{err}
 	}
+	dpConfigs.configureActivePorts(llmSvcCfg)
 	var resolvedSchedulerConfigMap *types.NamespacedName
 
 	if llmSvcCfg.Spec.Router != nil &&

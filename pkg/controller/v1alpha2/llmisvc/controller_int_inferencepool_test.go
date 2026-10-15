@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/utils/ptr"
@@ -125,14 +126,13 @@ var _ = Describe("InferencePool v1", func() {
 		Entry("on a DisaggregatedSet", true),
 	)
 
-	It("creates a multi-port v1 pool and routes to it before Gateway acceptance", func(ctx SpecContext) {
+	DescribeTable("creates a multi-port v1 pool without restricting unrelated workload ports", func(ctx SpecContext, ports []igwapi.Port) {
 		testNs := NewTestNamespace(ctx, envTest)
 		llmSvc := LLMInferenceService("test-llm-v1-pool",
 			InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 			WithModelURI("hf://facebook/opt-125m"),
 			WithManagedRoute(), WithManagedGateway(), WithManagedScheduler(),
 		)
-		ports := []igwapi.Port{{Number: 8000}, {Number: 8001}, {Number: 8002}, {Number: 8003}, {Number: 8004}, {Number: 8005}, {Number: 8006}, {Number: 8007}}
 		llmSvc.Spec.Router.Scheduler.Pool = &v1alpha2.InferencePoolSpec{Spec: &igwapi.InferencePoolSpec{
 			Selector: igwapi.LabelSelector{MatchLabels: map[igwapi.LabelKey]igwapi.LabelValue{
 				"app.kubernetes.io/name": igwapi.LabelValue(llmSvc.Name),
@@ -154,6 +154,13 @@ var _ = Describe("InferencePool v1", func() {
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(routes).To(HaveLen(1))
 			g.Expect(&routes[0]).To(HaveBackendRefs(BackendRefInferencePool(llmSvc.Name + "-inference-pool")))
+			workload := &appsv1.Deployment{}
+			g.Expect(envTest.Get(ctx, client.ObjectKey{Namespace: testNs.Name, Name: llmSvc.Name + "-kserve"}, workload)).To(Succeed())
+			g.Expect(workload.Spec.Template.Annotations).NotTo(HaveKey("llm-d.ai/active-ports"))
 		}).WithContext(ctx).Should(Succeed())
-	})
+	},
+		Entry("eight standard ports", []igwapi.Port{{Number: 8000}, {Number: 8001}, {Number: 8002}, {Number: 8003}, {Number: 8004}, {Number: 8005}, {Number: 8006}, {Number: 8007}}),
+		Entry("two standard ports", []igwapi.Port{{Number: 8000}, {Number: 8001}}),
+		Entry("custom ports", []igwapi.Port{{Number: 9000}, {Number: 9001}}),
+	)
 })

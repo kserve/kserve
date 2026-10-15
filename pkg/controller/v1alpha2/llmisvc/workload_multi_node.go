@@ -319,8 +319,6 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 		injectServerTracingIntoPodSpec(llmSvc.Spec.Tracing, llmSvc.GetNamespace(), llmSvc.GetName(), "-decode", &group.WorkerTemplate.Spec)
 	}
 
-	applyDataParallelActivePorts(llmSvc, group.LeaderTemplate)
-	applyDataParallelActivePorts(llmSvc, &group.WorkerTemplate)
 	applyLeaderWorkerSetWorkloadRevision(&group, config)
 
 	return &multiNodeTemplate{Template: group, ObjectLabels: workerLabels}, nil
@@ -479,8 +477,6 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &group.WorkerTemplate.Annotations, nonPropagatedSpecAnnotations...)
 	}
 
-	applyDataParallelActivePorts(llmSvc, group.LeaderTemplate)
-	applyDataParallelActivePorts(llmSvc, &group.WorkerTemplate)
 	applyLeaderWorkerSetWorkloadRevision(&group, config)
 
 	return &multiNodeTemplate{Template: group, ObjectLabels: workerLabels}, nil

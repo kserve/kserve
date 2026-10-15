@@ -233,7 +233,6 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 		}
 	}
 
-	applyDataParallelActivePorts(llmSvc, &template)
 	applyWorkloadRevision(&template, config)
 
 	return &singleNodePodTemplate{Template: template, IdentityLabels: labels}, nil
@@ -368,7 +367,6 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 		}
 	}
 
-	applyDataParallelActivePorts(llmSvc, &template)
 	applyWorkloadRevision(&template, config)
 
 	return &singleNodePodTemplate{Template: template, IdentityLabels: labels}, nil
