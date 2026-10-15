@@ -69,6 +69,19 @@ func (in *LocalModelNamespaceCache) IsReady() bool {
 	return condition != nil && condition.Status == metav1.ConditionTrue && condition.ObservedGeneration == in.Generation
 }
 
+// NotReadySummary describes why a cache is not Ready, for use in user-facing
+// admission and reconciliation errors.
+func (in *LocalModelNamespaceCache) NotReadySummary() string {
+	condition := in.Status.GetCondition(LocalModelCacheReady)
+	if condition == nil {
+		return "no Ready condition reported yet"
+	}
+	if condition.Message != "" {
+		return "reason " + condition.Reason + ": " + condition.Message
+	}
+	return "reason " + condition.Reason
+}
+
 // setCondition sets a condition, preserving lastTransitionTime unless the status changed.
 // meta.SetStatusCondition updates observedGeneration and only bumps lastTransitionTime
 // when the status (True/False/Unknown) changes.
