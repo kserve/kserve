@@ -394,12 +394,16 @@ func TestMutator_CachedOCIModelUsesPVC(t *testing.T) {
 
 	g.Expect(mutator.mutate(t.Context(), pod, configMap, &v1beta1.InferenceService{})).To(gomega.Succeed())
 	g.Expect(pod.Spec.Containers).To(gomega.HaveLen(1), "a cached OCI model must not inject modelcar")
+	g.Expect(pod.Spec.InitContainers).To(gomega.BeEmpty(), "a cached OCI model must not inject modelcar-init")
+	g.Expect(pod.Spec.ShareProcessNamespace).To(gomega.BeNil())
+	g.Expect(pod.Spec.Containers[0].VolumeMounts).To(gomega.HaveLen(1), "the cache PVC must be the only model mount")
 	g.Expect(pod.Spec.Containers[0].VolumeMounts).To(gomega.ContainElement(corev1.VolumeMount{
 		Name:      "kserve-pvc-source",
 		MountPath: constants.DefaultModelLocalMountPath,
 		ReadOnly:  true,
 		SubPath:   "models/" + v1alpha1.GetStorageKey(uri) + "/",
 	}))
+	g.Expect(pod.Spec.Volumes).To(gomega.HaveLen(1), "the cache PVC must be the only model volume")
 	g.Expect(pod.Spec.Volumes).To(gomega.ContainElement(corev1.Volume{
 		Name: "kserve-pvc-source",
 		VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
