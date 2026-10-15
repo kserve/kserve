@@ -324,6 +324,28 @@ class TestOpenAIParamsConversion:
         )
         assert converted_params == expected_params
 
+    @pytest.mark.parametrize(
+        "limits,expected",
+        [
+            ({"max_completion_tokens": 5}, 5),
+            ({"max_tokens": 7, "max_completion_tokens": 5}, 5),
+            ({"max_tokens": 7}, 7),
+            ({}, None),
+        ],
+    )
+    def test_convert_max_tokens(self, limits, expected):
+        request = ChatCompletionRequest(
+            model="test-model",
+            messages=[{"role": "user", "content": "hello"}],
+            **limits,
+        )
+        converted_params = (
+            OpenAIChatAdapterModel.chat_completion_params_to_completion_params(
+                request, prompt="hello"
+            )
+        )
+        assert converted_params.max_tokens == expected
+
 
 class TestOpenAIProxyModelCompletion:
     @pytest.mark.asyncio
