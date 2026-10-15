@@ -47,6 +47,7 @@ class V1beta1LoggerSpec(object):
                             and the value is json key in definition.
     """
     openapi_types = {
+        'agent': 'V1beta1LoggerAgentSpec',
         'batch_interval': 'str',
         'batch_size': 'int',
         'marshaller_url': 'str',
@@ -58,6 +59,7 @@ class V1beta1LoggerSpec(object):
     }
 
     attribute_map = {
+        'agent': 'agent',
         'batch_interval': 'batchInterval',
         'batch_size': 'batchSize',
         'marshaller_url': 'marshallerUrl',
@@ -68,12 +70,13 @@ class V1beta1LoggerSpec(object):
         'url': 'url'
     }
 
-    def __init__(self, batch_interval=None, batch_size=None, marshaller_url=None, metadata_annotations=None, metadata_headers=None, mode=None, storage=None, url=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, agent=None, batch_interval=None, batch_size=None, marshaller_url=None, metadata_annotations=None, metadata_headers=None, mode=None, storage=None, url=None, local_vars_configuration=None):  # noqa: E501
         """V1beta1LoggerSpec - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
         self.local_vars_configuration = local_vars_configuration
 
+        self._agent = None
         self._batch_interval = None
         self._batch_size = None
         self._marshaller_url = None
@@ -84,6 +87,8 @@ class V1beta1LoggerSpec(object):
         self._url = None
         self.discriminator = None
 
+        if agent is not None:
+            self.agent = agent
         if batch_interval is not None:
             self.batch_interval = batch_interval
         if batch_size is not None:
@@ -100,6 +105,27 @@ class V1beta1LoggerSpec(object):
             self.storage = storage
         if url is not None:
             self.url = url
+
+    @property
+    def agent(self):
+        """Gets the agent of this V1beta1LoggerSpec.  # noqa: E501
+
+
+        :return: The agent of this V1beta1LoggerSpec.  # noqa: E501
+        :rtype: V1beta1LoggerAgentSpec
+        """
+        return self._agent
+
+    @agent.setter
+    def agent(self, agent):
+        """Sets the agent of this V1beta1LoggerSpec.
+
+
+        :param agent: The agent of this V1beta1LoggerSpec.  # noqa: E501
+        :type: V1beta1LoggerAgentSpec
+        """
+
+        self._agent = agent
 
     @property
     def batch_interval(self):
