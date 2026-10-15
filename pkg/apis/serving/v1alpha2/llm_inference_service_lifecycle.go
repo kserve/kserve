@@ -155,7 +155,7 @@ const (
 	// DisaggregatedSet backend, by default through its P/D presets or in its own
 	// spec.annotations, runs on it. False when the service keeps its current
 	// workloads, with reason FeatureGateDisabled, CRDNotInstalled,
-	// NoPrefillWorkload, AutoscalingNotSupported or ReplicasMismatch.
+	// NoPrefillWorkload, RoleScalerNotInstalled or ReplicasMismatch.
 	// Independent of the Ready rollup - the current workloads keep serving.
 	// Only present when the backend is requested; absent means not requested.
 	DisaggregatedSetUsed apis.ConditionType = "DisaggregatedSetUsed"

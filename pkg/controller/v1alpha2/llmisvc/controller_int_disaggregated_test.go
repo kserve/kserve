@@ -20,6 +20,7 @@ import (
 	"context"
 	"time"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -255,37 +256,119 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			expectNotFound(ctx, &lwsapi.LeaderWorkerSet{}, llmSvc.Name+"-kserve-mn-prefill", llmSvc.Namespace)
 		})
 
-		It("keeps the current workloads when autoscaling is configured", func(ctx SpecContext) {
+		It("runs a P/D service autoscaled by KEDA on a DisaggregatedSet", func(ctx SpecContext) {
 			// given
 			enableDisaggregatedSetGate(ctx)
 			testNs := NewTestNamespace(ctx, envTest)
-			llmSvc := singleNodePD("ds-scaling", testNs.Name, optIn, WithScaling(DirectKEDAScaling(1, 2)))
+			llmSvc := singleNodePD("ds-keda", testNs.Name, optIn, WithScaling(DirectKEDAScaling(1, 4,
+				kedav1alpha1.ScaleTriggers{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+			)))
 
 			// when
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer testNs.DeleteAndWait(ctx, llmSvc)
 
+			// then the autoscaled decode role hands its replicas to its scaler
+			ds := getDisaggregatedSet(ctx, llmSvc)
+			decode, prefill := ds.Spec.Roles[0], ds.Spec.Roles[1]
+			Expect(decode.Scaling).To(Equal(&disaggregatedsetv1.RoleScaling{Mode: disaggregatedsetv1.RoleScalingExternal}))
+			// the API server defaults the unset replicas to 1
+			Expect(ptr.Deref(decode.Spec.Replicas, 1)).To(Equal(int32(1)))
+			Expect(prefill.Scaling).To(BeNil())
+			Expect(prefill.Spec.Replicas).To(Equal(ptr.To[int32](1)))
+			expectNotFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve", llmSvc.Namespace)
+
+			// and KEDA scales that scaler
+			scaledObject := &kedav1alpha1.ScaledObject{}
+			expectFound(ctx, scaledObject, llmSvc.Name+"-kserve-keda", llmSvc.Namespace)
+			Expect(scaledObject.Spec.ScaleTargetRef).To(Equal(&kedav1alpha1.ScaleTarget{
+				APIVersion: disaggregatedsetv1.GroupVersion.String(),
+				Kind:       "DisaggregatedSetRoleScaler",
+				Name:       ds.Name + "-decode",
+			}))
+			expectNotFound(ctx, &kedav1alpha1.ScaledObject{}, llmSvc.Name+"-kserve-prefill-keda", llmSvc.Namespace)
+
+			// when the roles are ready before the DisaggregatedSet creates the scaler
+			setDisaggregatedSetStatus(ctx, llmSvc, 1, 1)
+
+			// then decode has no target to be ready against
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				main := current.Status.GetCondition(v1alpha2.MainWorkloadReady)
+				g.Expect(main).NotTo(BeNil())
+				g.Expect(main.Status).To(Equal(corev1.ConditionFalse))
+				g.Expect(main.Message).To(ContainSubstring("waiting for DisaggregatedSetRoleScaler " + ds.Name + "-decode"))
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PrefillWorkloadReady), "True"))
+			}).WithContext(ctx).Should(Succeed())
+
+			// when the DisaggregatedSet creates the scaler, asking for two decode replicas
+			// while one is ready
+			createRoleScaler(ctx, ds, constants.LLMDRoleDecode, 2)
+
+			// then decode is ready only against the scaler's replicas
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				main := current.Status.GetCondition(v1alpha2.MainWorkloadReady)
+				g.Expect(main).NotTo(BeNil())
+				g.Expect(main.Status).To(Equal(corev1.ConditionFalse))
+				g.Expect(main.Message).To(ContainSubstring("needs at least 2 of 2"))
+			}).WithContext(ctx).Should(Succeed())
+
+			// when both are ready
+			setDisaggregatedSetStatus(ctx, llmSvc, 2, 1)
+
 			// then
-			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve", llmSvc.Namespace)
-			expectNotUsed(ctx, llmSvc, "AutoscalingNotSupported")
-			expectNotFound(ctx, &disaggregatedsetv1.DisaggregatedSet{}, llmSvc.Name+"-kserve-pd", llmSvc.Namespace)
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.MainWorkloadReady), "True"))
+			}).WithContext(ctx).Should(Succeed())
+
+			// when the autoscaler asks for four decode replicas
+			scaleRoleScaler(ctx, ds, constants.LLMDRoleDecode, 4)
+
+			// then decode is no longer ready
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				main := current.Status.GetCondition(v1alpha2.MainWorkloadReady)
+				g.Expect(main).NotTo(BeNil())
+				g.Expect(main.Status).To(Equal(corev1.ConditionFalse))
+				g.Expect(main.Message).To(ContainSubstring("needs at least 3 of 4"))
+			}).WithContext(ctx).Should(Succeed())
 		})
 
-		It("keeps the current workloads when autoscaling meets the preset default", func(ctx SpecContext) {
+		It("returns an autoscaled role to its own replicas when scaling is removed", func(ctx SpecContext) {
 			// given
 			enableDisaggregatedSetGate(ctx)
 			testNs := NewTestNamespace(ctx, envTest)
-			llmSvc := singleNodePD("ds-scaling-default", testNs.Name, WithScaling(DirectKEDAScaling(1, 2)))
-
-			// when
+			llmSvc := singleNodePD("ds-keda-off", testNs.Name, optIn, WithScaling(DirectKEDAScaling(1, 4,
+				kedav1alpha1.ScaleTriggers{Type: "cpu", Metadata: map[string]string{"value": "80"}},
+			)))
 			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 			defer testNs.DeleteAndWait(ctx, llmSvc)
+			Expect(getDisaggregatedSet(ctx, llmSvc).Spec.Roles[0].Scaling).NotTo(BeNil())
+
+			// when
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current); err != nil {
+					return err
+				}
+				current.Spec.Scaling = nil
+				return envTest.Update(ctx, current)
+			})).To(Succeed())
 
 			// then
-			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve", llmSvc.Namespace)
-			expectFound(ctx, &appsv1.Deployment{}, llmSvc.Name+"-kserve-prefill", llmSvc.Namespace)
-			expectNotUsed(ctx, llmSvc, "AutoscalingNotSupported")
-			expectNotFound(ctx, &disaggregatedsetv1.DisaggregatedSet{}, llmSvc.Name+"-kserve-pd", llmSvc.Namespace)
+			Eventually(func(g Gomega, ctx context.Context) {
+				ds := &disaggregatedsetv1.DisaggregatedSet{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{Name: llmSvc.Name + "-kserve-pd", Namespace: llmSvc.Namespace}, ds)).To(Succeed())
+				g.Expect(ds.Spec.Roles[0].Scaling).To(BeNil())
+				g.Expect(ds.Spec.Roles[0].Spec.Replicas).To(Equal(ptr.To[int32](1)))
+			}).WithContext(ctx).Should(Succeed())
+			expectNotFound(ctx, &kedav1alpha1.ScaledObject{}, llmSvc.Name+"-kserve-keda", llmSvc.Namespace)
 		})
 
 		It("deletes the DisaggregatedSet when the service is stopped", func(ctx SpecContext) {
@@ -413,6 +496,39 @@ func setDisaggregatedSetStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenc
 		ds.Status.Conditions = conditions
 		g.Expect(envTest.Status().Update(ctx, ds)).To(Succeed())
 	}).WithContext(ctx).Should(Succeed())
+}
+
+// createRoleScaler simulates the DisaggregatedSet controller, which envtest does not
+// run, creating the DisaggregatedSetRoleScaler of an autoscaled role with the replicas
+// an autoscaler asks for.
+func createRoleScaler(ctx context.Context, ds *disaggregatedsetv1.DisaggregatedSet, role string, replicas int32) {
+	GinkgoHelper()
+	scaler := &disaggregatedsetv1.DisaggregatedSetRoleScaler{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ds.Name + "-" + role,
+			Namespace: ds.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(ds, disaggregatedsetv1.GroupVersion.WithKind("DisaggregatedSet")),
+			},
+		},
+		Spec: disaggregatedsetv1.DisaggregatedSetRoleScalerSpec{Replicas: replicas},
+	}
+	Expect(envTest.Create(ctx, scaler)).To(Succeed())
+}
+
+// scaleRoleScaler simulates an autoscaler setting the replicas of a role through its
+// DisaggregatedSetRoleScaler.
+func scaleRoleScaler(ctx context.Context, ds *disaggregatedsetv1.DisaggregatedSet, role string, replicas int32) {
+	GinkgoHelper()
+	scaler := &disaggregatedsetv1.DisaggregatedSetRoleScaler{}
+	key := client.ObjectKey{Name: ds.Name + "-" + role, Namespace: ds.Namespace}
+	Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := envTest.Get(ctx, key, scaler); err != nil {
+			return err
+		}
+		scaler.Spec.Replicas = replicas
+		return envTest.Update(ctx, scaler)
+	})).To(Succeed())
 }
 
 func setDisaggregatedSetAnnotation(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, value string) {

@@ -31,6 +31,7 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	disaggregatedsetv1 "sigs.k8s.io/lws/api/disaggregatedset/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -348,7 +349,7 @@ func TestNamingHelpers(t *testing.T) {
 func TestScaleTargetRefHelpers(t *testing.T) {
 	t.Run("mainScaleTargetRef returns Deployment when no worker", func(t *testing.T) {
 		svc := newTestLLMISVC("test-svc", "test-ns")
-		ref := mainScaleTargetRef(svc)
+		ref := mainScaleTargetRef(svc, false)
 		assert.Equal(t, "apps/v1", ref.APIVersion)
 		assert.Equal(t, "Deployment", ref.Kind)
 		assert.Equal(t, mainDeploymentName(svc), ref.Name)
@@ -357,7 +358,7 @@ func TestScaleTargetRefHelpers(t *testing.T) {
 	t.Run("mainScaleTargetRef returns LWS when worker is set", func(t *testing.T) {
 		svc := newTestLLMISVC("test-svc", "test-ns")
 		svc.Spec.Worker = &corev1.PodSpec{}
-		ref := mainScaleTargetRef(svc)
+		ref := mainScaleTargetRef(svc, false)
 		assert.Equal(t, lwsapi.GroupVersion.String(), ref.APIVersion)
 		assert.Equal(t, "LeaderWorkerSet", ref.Kind)
 		assert.Equal(t, mainLWSName(svc), ref.Name)
@@ -365,7 +366,7 @@ func TestScaleTargetRefHelpers(t *testing.T) {
 
 	t.Run("prefillScaleTargetRef returns Deployment when no prefill worker", func(t *testing.T) {
 		svc := newTestLLMISVC("test-svc", "test-ns")
-		ref := prefillScaleTargetRef(svc)
+		ref := prefillScaleTargetRef(svc, false)
 		assert.Equal(t, "apps/v1", ref.APIVersion)
 		assert.Equal(t, "Deployment", ref.Kind)
 		assert.Equal(t, prefillDeploymentName(svc), ref.Name)
@@ -376,7 +377,7 @@ func TestScaleTargetRefHelpers(t *testing.T) {
 		svc.Spec.Prefill = &v1alpha2.WorkloadSpec{
 			Worker: &corev1.PodSpec{},
 		}
-		ref := prefillScaleTargetRef(svc)
+		ref := prefillScaleTargetRef(svc, false)
 		assert.Equal(t, lwsapi.GroupVersion.String(), ref.APIVersion)
 		assert.Equal(t, "LeaderWorkerSet", ref.Kind)
 		assert.Equal(t, prefillLWSName(svc), ref.Name)
@@ -385,10 +386,26 @@ func TestScaleTargetRefHelpers(t *testing.T) {
 	t.Run("prefillScaleTargetRef returns Deployment when prefill has no worker", func(t *testing.T) {
 		svc := newTestLLMISVC("test-svc", "test-ns")
 		svc.Spec.Prefill = &v1alpha2.WorkloadSpec{}
-		ref := prefillScaleTargetRef(svc)
+		ref := prefillScaleTargetRef(svc, false)
 		assert.Equal(t, "apps/v1", ref.APIVersion)
 		assert.Equal(t, "Deployment", ref.Kind)
 		assert.Equal(t, prefillDeploymentName(svc), ref.Name)
+	})
+
+	t.Run("scale target refs return the role scalers on a DisaggregatedSet", func(t *testing.T) {
+		svc := newTestLLMISVC("test-svc", "test-ns")
+		svc.Spec.Worker = &corev1.PodSpec{}
+		svc.Spec.Prefill = &v1alpha2.WorkloadSpec{Worker: &corev1.PodSpec{}}
+
+		decode := mainScaleTargetRef(svc, true)
+		assert.Equal(t, disaggregatedsetv1.GroupVersion.String(), decode.APIVersion)
+		assert.Equal(t, "DisaggregatedSetRoleScaler", decode.Kind)
+		assert.Equal(t, "test-svc-kserve-pd-decode", decode.Name)
+
+		prefill := prefillScaleTargetRef(svc, true)
+		assert.Equal(t, disaggregatedsetv1.GroupVersion.String(), prefill.APIVersion)
+		assert.Equal(t, "DisaggregatedSetRoleScaler", prefill.Kind)
+		assert.Equal(t, "test-svc-kserve-pd-prefill", prefill.Name)
 	})
 }
 

@@ -127,7 +127,12 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 
 	if useDisaggregatedSet {
 		// After the other workloads, which clear the conditions of the workloads they delete.
-		propagateDisaggregatedSetStatus(llmSvc, disaggregatedSet)
+		targets, err := r.disaggregatedRoleTargets(ctx, disaggregatedSet)
+		if err != nil {
+			llmSvc.MarkMainWorkloadNotReady("ReconcileDisaggregatedSetError", err.Error())
+			return fmt.Errorf("failed to get disaggregated set replica targets: %w", err)
+		}
+		propagateDisaggregatedSetStatus(llmSvc, disaggregatedSet, targets)
 	}
 
 	// Create Service to expose workload pods
@@ -138,7 +143,7 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 
 	// Reconcile the KEDA ScaledObject when scaling is configured.
 	// A missing CRD is a hard error: the LLMISVC is misconfigured and deployment is blocked.
-	if err := r.reconcileScaling(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileScaling(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		if meta.IsNoMatchError(err) {
 			r.Eventf(llmSvc, corev1.EventTypeWarning, "ScalingCRDNotFound",
 				"Required scaling CRD not installed: %v", err)
