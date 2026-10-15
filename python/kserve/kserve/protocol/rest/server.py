@@ -203,7 +203,8 @@ class RESTServer:
             client=PrintTimings(),
             metric_namer=StarletteScopeToName(prefix="kserve.io", starlette_app=app),
         )
-        app.add_middleware(TraceResponseHeaderMiddleware)
+        if get_tracer_provider():
+            app.add_middleware(TraceResponseHeaderMiddleware)
 
         # More context in https://github.com/encode/uvicorn/pull/947
         # At the time of writing the ASGI specs are not clear when it comes
