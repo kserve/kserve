@@ -33,6 +33,7 @@ limitations under the License.
 // +kubebuilder:rbac:groups=serving.kserve.io,resources=clusterstoragecontainers,verbs=get;list;watch
 // +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=jobs/status,verbs=get
+// +kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 package localmodel
@@ -45,4 +46,8 @@ import (
 type (
 	LocalModelReconciler               = reconcilers.LocalModelReconciler
 	LocalModelNamespaceCacheReconciler = reconcilers.LocalModelNamespaceCacheReconciler
+	AgentDaemonSetReconciler           = reconcilers.AgentDaemonSetReconciler
 )
+
+// AgentDaemonSetName is the name of the localmodelnode agent DaemonSet managed by this controller.
+const AgentDaemonSetName = reconcilers.AgentDaemonSetName
