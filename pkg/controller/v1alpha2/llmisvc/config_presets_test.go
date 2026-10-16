@@ -35,6 +35,7 @@ import (
 
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+	"github.com/kserve/kserve/pkg/utils"
 
 	kservetesting "github.com/kserve/kserve/pkg/testing"
 
@@ -1292,6 +1293,9 @@ func TestTokenizerPresetForwardsTracingArgs(t *testing.T) {
 				t.Fatal(err)
 			}
 			container := out.Spec.Router.Scheduler.Tokenizer.Template.Containers[0]
+			if version, _ := utils.GetEnvVarValue(container.Env, "KSERVE_TRACING_CONFIG_VERSION"); version != "1" {
+				t.Fatal("tokenizer preset must opt in to tracing injection")
+			}
 			// Capture the actual shell argv without starting a model server.
 			script := strings.Replace(container.Command[2], "exec vllm ", "printf '%s\\n' ", 1)
 			args := append([]string{container.Command[1], script}, container.Command[3:]...)

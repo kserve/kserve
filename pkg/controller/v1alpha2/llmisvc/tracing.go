@@ -30,7 +30,15 @@ const (
 	defaultServerServiceName         = "inference-server"
 	defaultRoutingSidecarServiceName = "routing-sidecar"
 	defaultTokenizerServiceName      = "tokenizer"
+	tracingConfigVersionEnvVar       = "KSERVE_TRACING_CONFIG_VERSION"
 )
+
+// New presets opt in to component tracing so controller upgrades leave old
+// pinned Pod templates unchanged. A different injection contract needs a new version.
+func supportsComponentTracing(container *corev1.Container) bool {
+	version, _ := utils.GetEnvVarValue(container.Env, tracingConfigVersionEnvVar)
+	return version == "1"
+}
 
 // otelResourceAttributeEnvVars returns the standard k8s resource attribute env
 // vars that are always injected when tracing is enabled. These use the downward
