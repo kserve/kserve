@@ -502,7 +502,9 @@ func convertSecondaryTierToV1Alpha2(src *SecondaryTierSpec) v1alpha2.SecondaryTi
 		}
 		if src.FileSystem.PVC != nil {
 			dst.FileSystem.PVC = &v1alpha2.PVCTierSpec{
-				Spec: src.FileSystem.PVC.Spec,
+				Evictor:                src.FileSystem.PVC.Evictor,
+				EvictorSecurityContext: src.FileSystem.PVC.EvictorSecurityContext,
+				Spec:                   src.FileSystem.PVC.Spec,
 			}
 			if src.FileSystem.PVC.Ref != nil {
 				dst.FileSystem.PVC.Ref = &v1alpha2.PVCRefTierSpec{
@@ -526,7 +528,9 @@ func convertSecondaryTierFromV1Alpha2(src *v1alpha2.SecondaryTierSpec) Secondary
 		}
 		if src.FileSystem.PVC != nil {
 			dst.FileSystem.PVC = &PVCTierSpec{
-				Spec: src.FileSystem.PVC.Spec,
+				Evictor:                src.FileSystem.PVC.Evictor,
+				EvictorSecurityContext: src.FileSystem.PVC.EvictorSecurityContext,
+				Spec:                   src.FileSystem.PVC.Spec,
 			}
 			if src.FileSystem.PVC.Ref != nil {
 				dst.FileSystem.PVC.Ref = &PVCRefTierSpec{

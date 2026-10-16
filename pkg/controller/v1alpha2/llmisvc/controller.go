@@ -165,6 +165,7 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceserviceconfigs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=servingruntimes;clusterservingruntimes,verbs=get;list;watch
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get
 //+kubebuilder:rbac:groups=leaderworkerset.x-k8s.io,resources=leaderworkersets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=disaggregatedset.x-k8s.io,resources=disaggregatedsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=disaggregatedset.x-k8s.io,resources=disaggregatedsetrolescalers,verbs=get;list;watch
@@ -355,6 +356,9 @@ func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMIn
 	if err := r.finalizePlatformResources(ctx, llmSvc); err != nil {
 		return false, err
 	}
+	if err := r.finalizePVCEvictors(ctx, llmSvc); err != nil {
+		return false, fmt.Errorf("failed to finalize PVC evictors: %w", err)
+	}
 
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
 		return false, fmt.Errorf("failed to finalize scheduler service account: %w", err)
@@ -457,6 +461,7 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&v1alpha2.LLMInferenceServiceConfig{}, r.enqueueOnLLMInferenceServiceConfigChange(logger)).
 		Owns(&netv1.Ingress{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(childResourcesPredicate)).
+		Watches(&appsv1.Deployment{}, r.enqueueOnPVCEvictorDeploymentChange(), builder.WithPredicates(pvcEvictorDeploymentPredicate())).
 		Owns(&corev1.Secret{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&autoscalingv2.HorizontalPodAutoscaler{}, builder.WithPredicates(childResourcesPredicate)).

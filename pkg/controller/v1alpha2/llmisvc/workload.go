@@ -125,6 +125,11 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		return fmt.Errorf("failed to reconcile single node workload: %w", err)
 	}
 
+	if err := r.reconcilePVCEvictors(ctx, llmSvc, config); err != nil {
+		llmSvc.MarkMainWorkloadNotReady("ReconcilePVCEvictorError", err.Error())
+		return fmt.Errorf("failed to reconcile PVC evictors: %w", err)
+	}
+
 	if useDisaggregatedSet {
 		// After the other workloads, which clear the conditions of the workloads they delete.
 		targets, err := r.disaggregatedRoleTargets(ctx, disaggregatedSet)
