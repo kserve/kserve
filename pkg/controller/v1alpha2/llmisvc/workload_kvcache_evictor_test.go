@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
@@ -178,6 +179,97 @@ func TestExpectedPVCEvictorDeploymentForPVCRef(t *testing.T) {
 	noAffinity := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{claimName: "shared-pvc", subPath: "kv-cache"})
 	if noAffinity.Spec.Template.Spec.Affinity != nil {
 		t.Fatalf("RWX evictor Deployment must not set node affinity")
+	}
+}
+
+func TestPVCEvictorDeploymentPredicateIncludesStatusUpdates(t *testing.T) {
+	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
+	oldDeployment := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{claimName: "shared-pvc", subPath: "kv-cache"})
+	newDeployment := oldDeployment.DeepCopy()
+	newDeployment.Status.AvailableReplicas = 1
+
+	if !pvcEvictorDeploymentPredicate().Update(event.UpdateEvent{ObjectOld: oldDeployment, ObjectNew: newDeployment}) {
+		t.Fatal("status-only evictor Deployment update was filtered")
+	}
+}
+
+func TestPVCEvictorServiceAccountPredicateIncludesLabelRemoval(t *testing.T) {
+	oldServiceAccount := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
+		Labels: map[string]string{pvcEvictorLabel: "true"},
+	}}
+	newServiceAccount := oldServiceAccount.DeepCopy()
+	newServiceAccount.Labels = nil
+
+	if !pvcEvictorServiceAccountPredicate().Update(event.UpdateEvent{
+		ObjectOld: oldServiceAccount,
+		ObjectNew: newServiceAccount,
+	}) {
+		t.Fatal("ServiceAccount label removal was filtered")
+	}
+}
+
+func TestMarkPVCEvictorReadinessMarksUnavailableDeployment(t *testing.T) {
+	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
+	svc.MarkPVCEvictorReady()
+	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{claimName: "shared-pvc", subPath: "kv-cache"})
+	current := expected.DeepCopy()
+	current.Status.Conditions = []appsv1.DeploymentCondition{{
+		Type:    appsv1.DeploymentAvailable,
+		Status:  corev1.ConditionFalse,
+		Message: "pods are unavailable",
+	}}
+
+	markPVCEvictorReadiness(svc, map[string]*appsv1.Deployment{expected.Name: expected}, []appsv1.Deployment{*current})
+
+	condition := svc.Status.GetCondition(v1alpha2.PVCEvictorReady)
+	if condition == nil {
+		t.Fatal("PVCEvictorReady condition was not set")
+	}
+	if condition.Status != corev1.ConditionFalse || condition.Reason != "PVCEvictorNotReady" {
+		t.Fatalf("PVCEvictorReady = %#v, want False/PVCEvictorNotReady", condition)
+	}
+}
+
+func TestMarkPVCEvictorReadinessMarksReadyAndUnsets(t *testing.T) {
+	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
+	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{claimName: "shared-pvc", subPath: "kv-cache"})
+	current := expected.DeepCopy()
+	current.Status.AvailableReplicas = 1
+
+	markPVCEvictorReadiness(svc, map[string]*appsv1.Deployment{expected.Name: expected}, []appsv1.Deployment{*current})
+	condition := svc.Status.GetCondition(v1alpha2.PVCEvictorReady)
+	if condition == nil || condition.Status != corev1.ConditionTrue {
+		t.Fatalf("PVCEvictorReady = %#v, want True", condition)
+	}
+
+	markPVCEvictorReadiness(svc, nil, nil)
+	if condition := svc.Status.GetCondition(v1alpha2.PVCEvictorReady); condition != nil {
+		t.Fatalf("PVCEvictorReady = %#v, want unset", condition)
+	}
+}
+
+func TestEnsurePVCEvictorServiceAccountRepairsTokenAutomount(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	serviceAccount := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
+		Name:      pvcEvictorServiceAccount,
+		Namespace: "test",
+		Labels:    map[string]string{pvcEvictorLabel: "true"},
+	}}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(serviceAccount).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+
+	if err := reconciler.ensurePVCEvictorServiceAccount(t.Context(), "test"); err != nil {
+		t.Fatalf("ensurePVCEvictorServiceAccount() error = %v", err)
+	}
+	updated := &corev1.ServiceAccount{}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(serviceAccount), updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.AutomountServiceAccountToken == nil || *updated.AutomountServiceAccountToken {
+		t.Fatal("PVC evictor ServiceAccount token automount was not disabled")
 	}
 }
 
