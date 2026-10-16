@@ -234,20 +234,6 @@ type AMDListInfo struct {
 	PartitionID int    `json:"partition_id"`
 }
 
-var gpuToGFXMap = map[string]string{
-	"Instinct MI210":                                 gfxArchMI210, // Aldebaran/MI200 [Instinct MI210]
-	"Instinct MI300":                                 "gfx90c",     // MI300 series
-	"Polaris 10 (RX 400 series)":                     "gfx803",
-	"Polaris 11 (RX 500 series)":                     "gfx804",
-	"Polaris 30 (RX Vega series)":                    "gfx810",
-	"Vega 10 (Radeon VII)":                           "gfx900",
-	"Vega 20 (Vega Frontier Edition, Radeon Pro WX)": "gfx906",
-	"Navi 10 (RX 5000 series)":                       "gfx908",
-	"RDNA (Radeon RX 6000 series)":                   "gfx1010",
-	"RDNA 2 (Radeon RX 6000 series)":                 "gfx1030",
-	"RDNA 3 (future models)":                         "gfx1100",
-}
-
 // Translate product name to GFX architecture
 func TranslateGPUToArch(productName string) string {
 	switch {

@@ -1738,13 +1738,6 @@ func TestValidateMultiNodeVariables(t *testing.T) {
 func TestServingRuntimeValidator_Handle(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	type fields struct {
-		Client  client.Client
-		Decoder admission.Decoder
-	}
-	type args struct {
-		req admission.Request
-	}
 	tests := []struct {
 		name           string
 		setupObjs      []client.Object

@@ -21,7 +21,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -337,25 +336,3 @@ var _ = Describe("InferencePool Migration", func() {
 		})
 	})
 })
-
-// Helper to list managed InferencePools
-func managedInferencePools(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*igwapi.InferencePoolList, error) {
-	pools := &igwapi.InferencePoolList{}
-	listOpts := &client.ListOptions{
-		Namespace:     llmSvc.Namespace,
-		LabelSelector: labels.SelectorFromSet(llmisvc.SchedulerLabels(llmSvc)),
-	}
-	err := envTest.List(ctx, pools, listOpts)
-	return pools, err
-}
-
-// Helper to list managed v1alpha2 InferencePools
-func managedInferencePoolsV1Alpha2(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (*igwapiv1alpha2.InferencePoolList, error) {
-	pools := &igwapiv1alpha2.InferencePoolList{}
-	listOpts := &client.ListOptions{
-		Namespace:     llmSvc.Namespace,
-		LabelSelector: labels.SelectorFromSet(llmisvc.SchedulerLabels(llmSvc)),
-	}
-	err := envTest.List(ctx, pools, listOpts)
-	return pools, err
-}
