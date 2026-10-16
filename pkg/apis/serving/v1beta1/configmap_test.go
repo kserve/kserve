@@ -18,16 +18,21 @@ package v1beta1
 
 import (
 	"fmt"
+	"os"
 	"strconv"
+	"sync"
 	"testing"
 
+	"github.com/go-logr/logr/funcr"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fakeclientset "k8s.io/client-go/kubernetes/fake"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/constants"
 	kernelcachetypes "github.com/kserve/kserve/pkg/kernelcache/types"
+	"github.com/kserve/kserve/pkg/types"
 )
 
 var (
@@ -1201,6 +1206,131 @@ func TestGetStorageInitializerConfigs(t *testing.T) {
 		cfg, err := GetStorageInitializerConfigs(cm)
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(cfg.OciModelMode).To(gomega.Equal("fetch"))
+	})
+}
+
+// captureLegacyModelcarWarnings redirects the storage initializer config logger and
+// resets the once-per-process guard so each test observes the warning independently.
+func captureLegacyModelcarWarnings(t *testing.T) *[]string {
+	t.Helper()
+	var msgs []string
+	origLogger := storageInitializerConfigLogger
+	storageInitializerConfigLogger = funcr.New(func(_, args string) {
+		msgs = append(msgs, args)
+	}, funcr.Options{})
+	warnLegacyModelcarKeyOnce = sync.Once{}
+	t.Cleanup(func() {
+		storageInitializerConfigLogger = origLogger
+		warnLegacyModelcarKeyOnce = sync.Once{}
+	})
+	return &msgs
+}
+
+func TestGetStorageInitializerConfigsLegacyModelcarWarning(t *testing.T) {
+	baseJSON := func(extra string) string {
+		return `{"image":"kserve/storage-initializer:latest","memoryRequest":"100Mi","memoryLimit":"1Gi","cpuRequest":"100m","cpuLimit":"1"` + extra + `}`
+	}
+
+	for _, tt := range []struct {
+		name     string
+		extra    string
+		wantWarn bool
+		wantMode string
+	}{
+		{
+			name:     "legacy key true warns and keeps modelcar",
+			extra:    `,"enableModelcar":true`,
+			wantWarn: true,
+			wantMode: types.OciModelModeModelcar,
+		},
+		{
+			name:     "legacy key explicitly false warns and keeps OCI disabled",
+			extra:    `,"enableModelcar":false`,
+			wantWarn: true,
+			wantMode: "",
+		},
+		{
+			name:     "legacy key absent does not warn",
+			extra:    ``,
+			wantWarn: false,
+			wantMode: "",
+		},
+		{
+			name:     "new flags only do not warn",
+			extra:    `,"enableOciModelSupport":true,"ociModelMode":"native"`,
+			wantWarn: false,
+			wantMode: types.OciModelModeNative,
+		},
+		{
+			name:     "legacy true with ociModelMode warns and ociModelMode wins",
+			extra:    `,"enableModelcar":true,"ociModelMode":"fetch"`,
+			wantWarn: true,
+			wantMode: types.OciModelModeFetch,
+		},
+		{
+			name:     "legacy false with enableOciModelSupport warns and does not veto",
+			extra:    `,"enableModelcar":false,"enableOciModelSupport":true`,
+			wantWarn: true,
+			wantMode: types.OciModelModeModelcar,
+		},
+		{
+			name:     "legacy key matched case-insensitively like encoding/json",
+			extra:    `,"EnableModelcar":true`,
+			wantWarn: true,
+			wantMode: types.OciModelModeModelcar,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			msgs := captureLegacyModelcarWarnings(t)
+			cm := &corev1.ConfigMap{
+				Data: map[string]string{StorageInitializerConfigMapKeyName: baseJSON(tt.extra)},
+			}
+
+			cfg, err := GetStorageInitializerConfigs(cm)
+
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+			g.Expect(types.ResolveOciModelMode(cfg)).To(gomega.Equal(tt.wantMode))
+			if tt.wantWarn {
+				g.Expect(*msgs).To(gomega.HaveLen(1))
+				g.Expect((*msgs)[0]).To(gomega.ContainSubstring("enableModelcar is deprecated"))
+				g.Expect((*msgs)[0]).To(gomega.ContainSubstring("enableOciModelSupport"))
+				g.Expect((*msgs)[0]).To(gomega.ContainSubstring("ociModelMode"))
+				g.Expect((*msgs)[0]).To(gomega.ContainSubstring("issues/5679"))
+			} else {
+				g.Expect(*msgs).To(gomega.BeEmpty())
+			}
+		})
+	}
+
+	t.Run("warns once per process across repeated parses", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		msgs := captureLegacyModelcarWarnings(t)
+		cm := &corev1.ConfigMap{
+			Data: map[string]string{StorageInitializerConfigMapKeyName: baseJSON(`,"enableModelcar":true`)},
+		}
+
+		for range 3 {
+			_, err := GetStorageInitializerConfigs(cm)
+			g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		}
+
+		g.Expect(*msgs).To(gomega.HaveLen(1))
+	})
+
+	t.Run("shipped default configmap does not warn and resolves to modelcar", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
+		msgs := captureLegacyModelcarWarnings(t)
+		raw, err := os.ReadFile("../../../../config/configmap/inferenceservice.yaml")
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		cm := &corev1.ConfigMap{}
+		g.Expect(yaml.Unmarshal(raw, cm)).To(gomega.Succeed())
+
+		cfg, err := GetStorageInitializerConfigs(cm)
+
+		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		g.Expect(types.ResolveOciModelMode(cfg)).To(gomega.Equal(types.OciModelModeModelcar))
+		g.Expect(*msgs).To(gomega.BeEmpty())
 	})
 }
 
