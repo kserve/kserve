@@ -143,7 +143,9 @@ const DefaultMaxConcurrentReconciles = 8
 // It orchestrates the reconciliation of child resources based on the spec.
 type LLMISVCReconciler struct {
 	client.Client
-	Config *rest.Config
+	// APIReader reads resources directly from the API server without using the cache.
+	APIReader client.Reader
+	Config    *rest.Config
 	record.EventRecorder
 	Clientset kubernetes.Interface
 
@@ -451,6 +453,7 @@ func GetFailConditions(svc *v1alpha2.LLMInferenceService) string {
 // The controller conditionally registers watchers based on CRD availability to avoid errors in environments where optional CRDs are not installed.
 func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	logger := mgr.GetLogger().WithName("LLMInferenceService.SetupWithManager")
+	r.APIReader = mgr.GetAPIReader()
 
 	if err := setupGroupFieldIndex(context.Background(), mgr.GetFieldIndexer()); err != nil {
 		return fmt.Errorf("failed to set up field indexer for routing group: %w", err)
