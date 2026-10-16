@@ -289,24 +289,37 @@ func (r *LLMISVCReconciler) reconcileExistingPVCEvictorDeployment(ctx context.Co
 		}
 		return nil
 	}
-	if equality.Semantic.DeepEqual(current.Spec, expected.Spec) &&
+	normalizedExpected := expected.DeepCopy()
+	normalizedExpected.SetResourceVersion(current.GetResourceVersion())
+	if err := r.Update(ctx, normalizedExpected, client.DryRunAll); err != nil {
+		return fmt.Errorf("failed to get defaults for shared PVC evictor Deployment %s/%s: %w", current.Namespace, current.Name, err)
+	}
+	expectedOwnerReferences := retainExternalOwnerReferences(current.OwnerReferences)
+	if equality.Semantic.DeepEqual(current.Spec, normalizedExpected.Spec) &&
 		managedPVCEvictorMetadataEqual(current.Labels, expected.Labels) &&
 		managedPVCEvictorMetadataEqual(current.Annotations, expected.Annotations) &&
-		equality.Semantic.DeepEqual(current.OwnerReferences, retainExternalOwnerReferences(current.OwnerReferences)) {
+		ownerReferencesEqual(current.OwnerReferences, expectedOwnerReferences) {
 		return nil
 	}
 
 	updated := current.DeepCopy()
-	updated.Spec = *expected.Spec.DeepCopy()
+	updated.Spec = *normalizedExpected.Spec.DeepCopy()
 	updated.Labels = maps.Clone(current.Labels)
 	maps.Copy(updated.Labels, expected.Labels)
 	updated.Annotations = maps.Clone(current.Annotations)
 	maps.Copy(updated.Annotations, expected.Annotations)
-	updated.OwnerReferences = retainExternalOwnerReferences(current.OwnerReferences)
+	updated.OwnerReferences = expectedOwnerReferences
 	if err := r.Update(ctx, updated); err != nil {
 		return fmt.Errorf("failed to update shared PVC evictor Deployment %s/%s: %w", current.Namespace, current.Name, err)
 	}
 	return nil
+}
+
+func ownerReferencesEqual(current, expected []metav1.OwnerReference) bool {
+	if len(current) == 0 && len(expected) == 0 {
+		return true
+	}
+	return equality.Semantic.DeepEqual(current, expected)
 }
 
 func managedPVCEvictorMetadataEqual(current, expected map[string]string) bool {
@@ -319,7 +332,7 @@ func managedPVCEvictorMetadataEqual(current, expected map[string]string) bool {
 }
 
 func retainExternalOwnerReferences(ownerReferences []metav1.OwnerReference) []metav1.OwnerReference {
-	retained := make([]metav1.OwnerReference, 0, len(ownerReferences))
+	var retained []metav1.OwnerReference
 	for _, ownerReference := range ownerReferences {
 		if ownerReference.Kind == "LLMInferenceService" && strings.HasPrefix(ownerReference.APIVersion, "serving.kserve.io/") {
 			continue
