@@ -800,6 +800,7 @@ const (
 	// have the same admission-ordering gap, and the AWS SDKs give this pair
 	// precedence over the web identity pair, so it must be copied together
 	// with the mount of its authorization token file.
+	// #nosec G101 -- the env var name is not a credential value.
 	podIdentityCredentialsFullURIEnv = "AWS_CONTAINER_CREDENTIALS_FULL_URI"
 	// #nosec G101 -- the env var name is not a credential value.
 	podIdentityAuthorizationTokenFileEnv = "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE"

@@ -794,9 +794,11 @@ func irsaTestSourceContainer() corev1.Container {
 	}
 }
 
-const podIdentityTestTokenMountPath = "/var/run/secrets/pods.eks.amazonaws.com/serviceaccount" // #nosec G101 -- test fixture path, not a credential.
-const podIdentityTestTokenFile = podIdentityTestTokenMountPath + "/eks-pod-identity-token"     // #nosec G101 -- test fixture path, not a credential.
-const podIdentityTestCredentialsURI = "http://169.254.170.23/v1/credentials"                   // #nosec G101 -- test fixture value, not a credential.
+const (
+	podIdentityTestTokenMountPath = "/var/run/secrets/pods.eks.amazonaws.com/serviceaccount"  // #nosec G101 -- test fixture path, not a credential.
+	podIdentityTestTokenFile      = podIdentityTestTokenMountPath + "/eks-pod-identity-token" // #nosec G101 -- test fixture path, not a credential.
+	podIdentityTestCredentialsURI = "http://169.254.170.23/v1/credentials"                    // #nosec G101 -- test fixture value, not a credential.
+)
 
 func podIdentityTestSourceContainer() corev1.Container {
 	return corev1.Container{
