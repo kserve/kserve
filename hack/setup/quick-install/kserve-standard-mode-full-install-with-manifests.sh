@@ -2540,6 +2540,8 @@ spec:
       - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites
         }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
       env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:
@@ -2933,6 +2935,8 @@ spec:
       - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites
         }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
       env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:
@@ -3661,6 +3665,8 @@ spec:
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
       env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:
@@ -4106,6 +4112,8 @@ spec:
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
       env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:

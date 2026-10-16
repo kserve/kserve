@@ -119,6 +119,7 @@ func TestPresetFiles(t *testing.T) {
 										"",
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: "1"},
 										{
 											Name: "INFERENCE_POOL_NAMESPACE",
 											ValueFrom: &corev1.EnvVarSource{
@@ -1158,6 +1159,13 @@ func TestPresetRenderingInvariants(t *testing.T) {
 			// preset carrying anything else would change --shutdown-timeout for every
 			// service that relies on that fallback.
 			for path, pod := range podSpecs(config) {
+				for _, container := range pod.InitContainers {
+					if container.Name == constants.LLMISVCRoutingSidecarContainerName {
+						if version, _ := utils.GetEnvVarValue(container.Env, "KSERVE_TRACING_CONFIG_VERSION"); version != "1" {
+							t.Errorf("%s routing sidecar must opt in to tracing injection", path)
+						}
+					}
+				}
 				if pod.TerminationGracePeriodSeconds == nil {
 					continue
 				}

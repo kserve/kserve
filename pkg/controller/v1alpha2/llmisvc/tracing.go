@@ -161,7 +161,7 @@ func injectVLLMTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, serviceN
 // injectServerTracingIntoPodSpec configures the inference server and routing sidecar.
 func injectServerTracingIntoPodSpec(t *v1alpha2.TracingSpec, namespace, llmisvcName, roleSuffix string, podSpec *corev1.PodSpec) bool {
 	mutated := false
-	if sidecar := routingSidecar(podSpec); sidecar != nil {
+	if sidecar := routingSidecar(podSpec); sidecar != nil && supportsComponentTracing(sidecar) {
 		mutated = injectGoTracing(t, namespace, llmisvcName, defaultRoutingSidecarServiceName, sidecar)
 	}
 	for i := range podSpec.Containers {

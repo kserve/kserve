@@ -602,6 +602,7 @@ func TestDisaggregatedRolesMatchWorkloadBuilders(t *testing.T) {
 	tests := []struct {
 		name   string
 		mutate func(svc *v1alpha2.LLMInferenceService)
+		legacy bool
 	}{
 		{
 			name: "single node",
@@ -622,9 +623,9 @@ func TestDisaggregatedRolesMatchWorkloadBuilders(t *testing.T) {
 			name: "multi node with leaders",
 			mutate: func(svc *v1alpha2.LLMInferenceService) {
 				svc.Spec.Template = disaggTestPodWithSidecar()
-				svc.Spec.Worker = disaggTestPod()
+				svc.Spec.Worker = disaggTestPodWithSidecar()
 				svc.Spec.Parallelism = disaggTestParallelism()
-				svc.Spec.Prefill.Worker = disaggTestPod()
+				svc.Spec.Prefill.Worker = disaggTestPodWithSidecar()
 				svc.Spec.Prefill.Parallelism = &v1alpha2.ParallelismSpec{Data: ptr.To[int32](4), DataLocal: ptr.To[int32](2)}
 				withRouter(svc)
 				withFeatures(svc)
@@ -661,11 +662,23 @@ func TestDisaggregatedRolesMatchWorkloadBuilders(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+	legacyTests := slices.Clone(tests)
+	for i := range legacyTests {
+		legacyTests[i].name += " with legacy presets"
+		legacyTests[i].legacy = true
+	}
+	for _, tt := range slices.Concat(tests, legacyTests) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			svc := disaggTestService(t)
 			tt.mutate(svc)
+			if !tt.legacy {
+				for _, pod := range []*corev1.PodSpec{svc.Spec.Template, svc.Spec.Worker, svc.Spec.Prefill.Template, svc.Spec.Prefill.Worker} {
+					if sidecar := routingSidecar(pod); sidecar != nil {
+						sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: "1"})
+					}
+				}
+			}
 			r := disaggTestReconciler(t)
 
 			ds, err := r.expectedDisaggregatedSet(ctx, svc.DeepCopy(), disaggTestConfig(), nil)
@@ -681,7 +694,7 @@ func TestDisaggregatedRolesMatchWorkloadBuilders(t *testing.T) {
 				}
 				for _, pod := range pods {
 					if sidecar := routingSidecar(pod); sidecar != nil {
-						assert.Equal(t, svc.Spec.Tracing != nil, slices.Contains(sidecar.Args, "--tracing=true"))
+						assert.Equal(t, svc.Spec.Tracing != nil && !tt.legacy, slices.Contains(sidecar.Args, "--tracing=true"))
 					}
 				}
 			}
