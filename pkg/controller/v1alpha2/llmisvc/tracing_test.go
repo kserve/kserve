@@ -105,6 +105,27 @@ func TestInjectSchedulerTracing_PreservesExistingEnv(t *testing.T) {
 	g.Expect(envMap).To(HaveKeyWithValue("OTEL_SERVICE_NAME", "user-override"))
 }
 
+func TestInjectSchedulerTracing_CommandOverrideCompatibility(t *testing.T) {
+	for _, version := range []string{"", "1", "2"} {
+		t.Run("version="+version, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			command := []string{"epp", "--tracing=false"}
+			container := &corev1.Container{Name: "main", Command: command}
+			if version != "" {
+				container.Env = []corev1.EnvVar{{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: version}}
+			}
+			injectSchedulerTracing(&v1alpha2.TracingSpec{}, "ns", "svc", container)
+			// Legacy controllers appended this flag even when Command supplied it.
+			want := []string{"--tracing=true"}
+			if version == "1" {
+				want = nil
+			}
+			g.Expect(container.Args).To(Equal(want))
+			g.Expect(container.Command).To(Equal(command))
+		})
+	}
+}
+
 func TestInjectServerTracing_NilSpec(t *testing.T) {
 	g := NewGomegaWithT(t)
 	container := &corev1.Container{Name: "main"}
@@ -206,6 +227,26 @@ func TestInjectServerTracing_PreservesExistingEnv(t *testing.T) {
 
 	envMap := envToMap(container.Env)
 	g.Expect(envMap).To(HaveKeyWithValue("OTEL_TRACES_SAMPLER", "user-sampler"))
+}
+
+func TestInjectServerTracing_CommandOverrideCompatibility(t *testing.T) {
+	for _, version := range []string{"", "1", "2"} {
+		t.Run("version="+version, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			command := []string{"vllm", "serve", "model", "--otlp-traces-endpoint=http://custom:4317"}
+			container := &corev1.Container{Name: "main", Command: command}
+			if version != "" {
+				container.Env = []corev1.EnvVar{{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: version}}
+			}
+			injectServerTracing(&v1alpha2.TracingSpec{ExporterEndpoint: ptr.To("http://collector:4317")}, "ns", "svc", "-decode", container)
+			want := []string{"--collect-detailed-traces", "all"}
+			if version != "1" {
+				want = append([]string{"--otlp-traces-endpoint", "http://collector:4317"}, want...)
+			}
+			g.Expect(container.Args).To(Equal(want))
+			g.Expect(container.Command).To(Equal(command))
+		})
+	}
 }
 
 func TestInjectServerTracingIntoPodSpec_FindsMainContainer(t *testing.T) {

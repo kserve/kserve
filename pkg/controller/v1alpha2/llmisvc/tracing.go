@@ -88,10 +88,11 @@ func injectGoTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, serviceNam
 		return false
 	}
 
+	// Checking Command is opt-in too, so old presets keep their existing Args.
+	commandOverride := supportsComponentTracing(container) &&
+		(tracing.HasArg(container.Command, "--tracing") || tracing.HasArg(container.Command, "-tracing"))
 	if !tracing.HasArg(container.Args, "--tracing") &&
-		!tracing.HasArg(container.Args, "-tracing") &&
-		!tracing.HasArg(container.Command, "--tracing") &&
-		!tracing.HasArg(container.Command, "-tracing") {
+		!tracing.HasArg(container.Args, "-tracing") && !commandOverride {
 		container.Args = append(container.Args, "--tracing=true")
 	}
 
@@ -137,8 +138,8 @@ func injectVLLMTracing(t *v1alpha2.TracingSpec, namespace, llmisvcName, serviceN
 		return false
 	}
 
-	if !tracing.HasArg(container.Args, "--otlp-traces-endpoint") &&
-		!tracing.HasArg(container.Command, "--otlp-traces-endpoint") {
+	commandOverride := supportsComponentTracing(container) && tracing.HasArg(container.Command, "--otlp-traces-endpoint")
+	if !tracing.HasArg(container.Args, "--otlp-traces-endpoint") && !commandOverride {
 		container.Args = append(container.Args, "--otlp-traces-endpoint", endpoint)
 	}
 
