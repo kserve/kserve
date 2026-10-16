@@ -402,29 +402,31 @@ func (c *LocalModelNamespaceCacheReconciler) validateExistingImportJob(ctx conte
 }
 
 // reimportGate decides whether a replacement import Job may be created. The cached object is
-// checked first so the common path (no prior import onto this claim) costs nothing. When
-// consumers are present the record is then confirmed against the apiserver: this controller
-// writes the record itself and the informer cache gives no read-your-write guarantee, so a Job
-// deleted shortly after completion can look missing while the record is still in flight.
-// Trusting the cached read there would start the second writer this gate exists to prevent. A
-// missing cache is reported as an error rather than treated as unblocked; the next reconcile
-// observes the deletion and stops. When no consumer object remains but the record matches the
-// claim, the gate additionally waits for every Pod still mounting the claim to exit.
+// checked first so a block already visible there costs no apiserver round trip. Otherwise the
+// record is confirmed against the apiserver before any Job is created: this controller writes
+// the record itself and the informer cache gives no read-your-write guarantee, so a Job deleted
+// shortly after completion can look missing while the record is still in flight. Trusting the
+// cached read would start the second writer this gate exists to prevent, whether consumer
+// objects remain or only their terminating Pods do. The gate runs only when the Job is
+// missing, so the extra read is paid once per Job creation. A missing cache is reported as an
+// error rather than treated as unblocked; the next reconcile observes the deletion and stops.
+// With the record confirmed and no consumer object left, the gate additionally waits for every
+// Pod still mounting the claim to exit.
 func (c *LocalModelNamespaceCacheReconciler) reimportGate(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim, consumers cacheConsumers) error {
 	if err := reimportBlocked(localModel, pvc, consumers); err != nil {
 		return err
-	}
-	if len(consumers.isvcs) == 0 && len(consumers.llmSvcs) == 0 {
-		if !importedOnto(localModel, pvc) {
-			return nil
-		}
-		return c.podsBlockReimport(ctx, localModel, pvc)
 	}
 	fresh := &v1alpha1.LocalModelNamespaceCache{}
 	if err := c.authoritativeReader().Get(ctx, client.ObjectKeyFromObject(localModel), fresh); err != nil {
 		return err
 	}
-	return reimportBlocked(fresh, pvc, consumers)
+	if err := reimportBlocked(fresh, pvc, consumers); err != nil {
+		return err
+	}
+	if !importedOnto(fresh, pvc) {
+		return nil
+	}
+	return c.podsBlockReimport(ctx, localModel, pvc)
 }
 
 // podsBlockReimport returns errReimportBlocked while any Pod in the cache namespace still

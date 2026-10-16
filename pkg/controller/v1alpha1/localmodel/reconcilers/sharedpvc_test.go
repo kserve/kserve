@@ -1194,6 +1194,37 @@ func TestReconcileSharedPVCInitialImportIgnoresPodsMountingClaim(t *testing.T) {
 	}
 }
 
+// The no-consumer branch is exposed to the same informer staleness as the consumer branch:
+// a Job deleted moments after completion, with the consumer objects already gone but their
+// Pods still terminating, can reconcile against a cached object that does not yet carry the
+// record. The record must be confirmed against the apiserver before any Job is created, so
+// the Pod check runs on what the apiserver holds rather than on the stale cached read.
+func TestReconcileSharedPVCBlocksReimportWhenRecordNotYetInInformerCacheAndPodsMountClaim(t *testing.T) {
+	recorded := importedSharedCache("pvc-uid")
+	pvc := boundSharedPVC("pvc-uid")
+	cl, scheme := sharedPVCFixture(t, recorded, pvc, claimPod("terminating", "pvc", corev1.PodRunning))
+	stale := &v1alpha1.LocalModelNamespaceCache{}
+	if err := cl.Get(context.Background(), client.ObjectKeyFromObject(recorded), stale); err != nil {
+		t.Fatalf("get cache: %v", err)
+	}
+	stale.Status.SharedPVCImport = nil
+	reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, APIReader: cl, Scheme: scheme}
+
+	if _, err := reconciler.reconcileSharedPVC(context.Background(), stale, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, cacheConsumers{}); err != nil {
+		t.Fatalf("reconcileSharedPVC() error = %v, want nil", err)
+	}
+	if jobs := listImportJobs(t, cl); len(jobs) != 0 {
+		t.Fatalf("a stale cached read must not start a second writer while Pods still mount the claim, got %d import Job(s)", len(jobs))
+	}
+	condition := stale.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+	if condition == nil || condition.Status != metav1.ConditionFalse || condition.Reason != v1alpha1.ReasonReimportBlocked {
+		t.Fatalf("cache Ready condition = %#v, want False/%s", condition, v1alpha1.ReasonReimportBlocked)
+	}
+	if !strings.Contains(condition.Message, "1 Pod(s) still mount the claim") {
+		t.Fatalf("condition message %q should count the Pods mounting the claim", condition.Message)
+	}
+}
+
 func TestReconcileSharedPVCReimportsOntoRecreatedPVCDespiteConsumers(t *testing.T) {
 	cache := importedSharedCache("old-pvc-uid")
 	pvc := boundSharedPVC("new-pvc-uid")
