@@ -264,7 +264,15 @@ func TestEnsurePVCEvictorServiceAccountRepairsTokenAutomount(t *testing.T) {
 		Namespace: "test",
 		Labels:    map[string]string{pvcEvictorLabel: "true"},
 	}}
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(serviceAccount).Build()
+	defaultServiceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "default",
+			Namespace: "test",
+		},
+		ImagePullSecrets: []corev1.LocalObjectReference{{Name: "registry-pull"}},
+		Secrets:          []corev1.ObjectReference{{Name: "regular-secret"}},
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(serviceAccount, defaultServiceAccount).Build()
 	reconciler := &LLMISVCReconciler{Client: fakeClient}
 
 	if err := reconciler.ensurePVCEvictorServiceAccount(t.Context(), "test"); err != nil {
@@ -276,6 +284,12 @@ func TestEnsurePVCEvictorServiceAccountRepairsTokenAutomount(t *testing.T) {
 	}
 	if updated.AutomountServiceAccountToken == nil || *updated.AutomountServiceAccountToken {
 		t.Fatal("PVC evictor ServiceAccount token automount was not disabled")
+	}
+	if len(updated.ImagePullSecrets) != 1 || updated.ImagePullSecrets[0].Name != "registry-pull" {
+		t.Fatalf("imagePullSecrets = %#v, want registry-pull", updated.ImagePullSecrets)
+	}
+	if len(updated.Secrets) != 0 {
+		t.Fatalf("secrets = %#v, want no regular secrets", updated.Secrets)
 	}
 }
 
