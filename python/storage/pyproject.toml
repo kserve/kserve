@@ -29,7 +29,7 @@ dependencies = [
     "cryptography>=48.0.1", # GHSA-537c-gmf6-5ccf, PYSEC-2026-36
     # CVE-2026-32597 PyJWT accepts unknown `crit` header extensions (RFC 7515 §4.1.11 MUST violation)
     # Pinning because it is a transitive dependency.
-    "pyjwt>=2.12.0",
+    "pyjwt>=2.14.0,<2.15.0",
     # CVE-2026-30922 pyasn1 Vulnerable to Denial of Service via Unbounded Recursion
     # CVE-2026-59885 pyasn1 Quadratic complexity in OID processing allows DoS
     # Pinning because it is a transitive dependency.
@@ -57,4 +57,3 @@ confidential = ["jwcrypto>=1.5.0"]
 
 [project.scripts]
 kserve-decrypt = "kserve_storage.confidential.cli:main"
-
