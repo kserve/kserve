@@ -82,6 +82,10 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 	envTest := pkgtest.NewEnvTest(append([]pkgtest.Option{webhookManifests}, additionalEnvTestOptions()...)...).
 		WithWebhooks(SetupWebhooks).
 		WithControllers(llmCtrlFunc, llmConfigCtrlFunc).
+		WithManagerOptions(func(opts *ctrl.Options) {
+			opts.Cache.ReaderFailOnMissingInformer = true
+			opts.Client = llmisvc.NewClientOptions()
+		}).
 		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background()) //nolint:contextcheck // intentional: manager context must not be tied to BeforeSuite
 

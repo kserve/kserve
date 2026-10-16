@@ -30,8 +30,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
@@ -57,6 +59,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(err).ToNot(HaveOccurred())
 
 	ctrlFunc := func(restCfg *rest.Config, mgr ctrl.Manager) error {
+		// Production also runs the TrainedModel controller on this manager.
+		// ISVC finalization reads its informer when deleting child models.
+		if _, err := mgr.GetCache().GetInformer(context.Background(), &v1alpha1.TrainedModel{}, cache.BlockUntilSynced(false)); err != nil {
+			return err
+		}
 		var csErr error
 		clientset, csErr = kubernetes.NewForConfig(restCfg)
 		if csErr != nil {
@@ -90,6 +97,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		WithControllers(ctrlFunc).
 		WithManagerOptions(func(opts *ctrl.Options) {
 			opts.Cache = cacheOpts
+			opts.Client = NewClientOptions()
 		}).
 		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background())

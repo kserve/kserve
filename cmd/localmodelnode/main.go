@@ -18,9 +18,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"os"
 
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -115,6 +117,22 @@ func main() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	setupLog.Info("Setting up manager")
+	currentNode := os.Getenv("NODE_NAME")
+	if currentNode == "" {
+		setupLog.Error(errors.New("NODE_NAME must be set"), "unable to configure node cache")
+		os.Exit(1)
+	}
+	cacheOpts, err := localmodelnodecontroller.NewCacheOptions(currentNode)
+	if err != nil {
+		setupLog.Error(err, "unable to configure node cache")
+		os.Exit(1)
+	}
+	// Cache policies resolve custom resource types while the manager is created.
+	scheme := runtime.NewScheme()
+	if err := kservescheme.AddControllerAPIs(scheme); err != nil {
+		setupLog.Error(err, "unable to add controller APIs to scheme")
+		os.Exit(1)
+	}
 	metricsServerOptions, err := kservemetrics.ConfigureServerOptions(metricsserver.Options{
 		BindAddress:   options.metricsAddr,
 		SecureServing: options.metricsSecure,
@@ -127,10 +145,13 @@ func main() {
 	}
 
 	mgr, err := manager.New(cfg, manager.Options{
+		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
 		LeaderElection:         options.enableLeaderElection,
 		LeaderElectionID:       LeaderLockName,
 		HealthProbeBindAddress: options.probeAddr,
+		Cache:                  cacheOpts,
+		Client:                 localmodelnodecontroller.NewClientOptions(),
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to set up overall controller manager")
@@ -138,12 +159,6 @@ func main() {
 	}
 
 	setupLog.Info("Registering Components.")
-
-	setupLog.Info("Setting up controller schemes")
-	if err := kservescheme.AddControllerAPIs(mgr.GetScheme()); err != nil {
-		setupLog.Error(err, "unable to add controller APIs to scheme")
-		os.Exit(1)
-	}
 
 	// Setup LocalModelNode controller
 	localModelNodeEventBroadcaster := record.NewBroadcaster()

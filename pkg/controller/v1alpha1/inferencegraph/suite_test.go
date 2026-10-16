@@ -29,10 +29,12 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/controller/v1beta1/inferenceservice"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
 )
 
@@ -50,7 +52,13 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
+	cacheOpts, err := inferenceservice.NewCacheOptions()
+	Expect(err).NotTo(HaveOccurred())
 	ctrlFunc := func(restCfg *rest.Config, mgr ctrl.Manager) error {
+		// Production shares the manager with the InferenceService controller.
+		if _, err := mgr.GetCache().GetInformer(context.Background(), &v1beta1.InferenceService{}, cache.BlockUntilSynced(false)); err != nil {
+			return err
+		}
 		clientset, err := kubernetes.NewForConfig(restCfg)
 		if err != nil {
 			return err
@@ -75,6 +83,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 	envTest := pkgtest.NewEnvTest().
 		WithControllers(ctrlFunc).
+		WithManagerOptions(func(opts *ctrl.Options) {
+			opts.Cache = cacheOpts
+			opts.Client = inferenceservice.NewClientOptions()
+		}).
 		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background())
 

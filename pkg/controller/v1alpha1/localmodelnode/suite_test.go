@@ -69,6 +69,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 
 	envTest := pkgtest.NewEnvTest().
 		WithControllers(ctrlFunc).
+		WithManagerOptions(func(opts *ctrl.Options) {
+			// This suite exercises multiple nodes with one manager. Production
+			// additionally restricts Jobs and LocalModelNodes to NODE_NAME.
+			var err error
+			opts.Cache, err = NewCacheOptions("")
+			Expect(err).NotTo(HaveOccurred())
+			opts.Client = NewClientOptions()
+		}).
 		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background())
 
