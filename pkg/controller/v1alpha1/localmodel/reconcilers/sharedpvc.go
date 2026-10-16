@@ -65,7 +65,7 @@ var (
 	// (serviceAccountName or storage spec). No Job is created in that case; the reconcile is
 	// retried with backoff so the import starts once the referenced secret/SA exists.
 	errImportCredentials = errors.New("import credential resolution failed")
-	errReimportBlocked   = errors.New("re-import blocked by active consumers")
+	errReimportBlocked   = errors.New("re-import blocked")
 )
 
 // sharedState is the derived readiness/copies outcome for a shared-PVC cache.
@@ -144,8 +144,9 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 		if errors.Is(err, errReimportBlocked) {
 			// Not an error to retry: removing a consumer enqueues this cache via the
 			// InferenceService/LLMInferenceService watches. Those watches are not registered
-			// under disableVolumeManagement, so the blocked state also re-checks on a timer.
-			log.Info("Re-import blocked by active consumers", "message", err.Error())
+			// under disableVolumeManagement, and nothing enqueues the cache when the last Pod
+			// mounting the claim exits, so the blocked state also re-checks on a timer.
+			log.Info("Re-import blocked", "message", err.Error())
 			result, statusErr := c.applySharedStatus(ctx, localModel, sharedState{
 				status:  metav1.ConditionFalse,
 				reason:  v1alpha1.ReasonReimportBlocked,
@@ -401,24 +402,76 @@ func (c *LocalModelNamespaceCacheReconciler) validateExistingImportJob(ctx conte
 }
 
 // reimportGate decides whether a replacement import Job may be created. The cached object is
-// checked first so the common path costs nothing. When consumers are present the record is then
-// confirmed against the apiserver: this controller writes the record itself and the informer
-// cache gives no read-your-write guarantee, so a Job deleted shortly after completion can look
-// missing while the record is still in flight. Trusting the cached read there would start the
-// second writer this gate exists to prevent. A missing cache is reported as an error rather than
-// treated as unblocked; the next reconcile observes the deletion and stops.
+// checked first so the common path (no prior import onto this claim) costs nothing. When
+// consumers are present the record is then confirmed against the apiserver: this controller
+// writes the record itself and the informer cache gives no read-your-write guarantee, so a Job
+// deleted shortly after completion can look missing while the record is still in flight.
+// Trusting the cached read there would start the second writer this gate exists to prevent. A
+// missing cache is reported as an error rather than treated as unblocked; the next reconcile
+// observes the deletion and stops. When no consumer object remains but the record matches the
+// claim, the gate additionally waits for every Pod still mounting the claim to exit.
 func (c *LocalModelNamespaceCacheReconciler) reimportGate(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim, consumers cacheConsumers) error {
 	if err := reimportBlocked(localModel, pvc, consumers); err != nil {
 		return err
 	}
 	if len(consumers.isvcs) == 0 && len(consumers.llmSvcs) == 0 {
-		return nil
+		if !importedOnto(localModel, pvc) {
+			return nil
+		}
+		return c.podsBlockReimport(ctx, localModel, pvc)
 	}
 	fresh := &v1alpha1.LocalModelNamespaceCache{}
 	if err := c.authoritativeReader().Get(ctx, client.ObjectKeyFromObject(localModel), fresh); err != nil {
 		return err
 	}
 	return reimportBlocked(fresh, pvc, consumers)
+}
+
+// podsBlockReimport returns errReimportBlocked while any Pod in the cache namespace still
+// mounts the claim. Consumer objects are deleted before their Pods finish terminating, and a
+// Pod that mounts the claim outside any InferenceService (a debug Pod, a user's own workload)
+// is never a consumer object at all, so the object count alone would start the replacement
+// writer while the destination is still being read. The rule is the one pvc-protection uses:
+// a Pod that references the claim and has not reached Succeeded or Failed is using it,
+// terminating Pods included. This runs only on the path that would otherwise create a
+// replacement Job, so the list goes to the apiserver rather than through a Pod informer.
+func (c *LocalModelNamespaceCacheReconciler) podsBlockReimport(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim) error {
+	pods := &corev1.PodList{}
+	if err := c.authoritativeReader().List(ctx, pods, client.InNamespace(localModel.Namespace)); err != nil {
+		return fmt.Errorf("list Pods in namespace %s: %w", localModel.Namespace, err)
+	}
+	mounting := 0
+	for i := range pods.Items {
+		if podMountsClaim(&pods.Items[i], pvc.Name) {
+			mounting++
+		}
+	}
+	if mounting == 0 {
+		return nil
+	}
+	return fmt.Errorf("%w: import Job %s/%s is missing after a successful import onto PVC %q; "+
+		"%d Pod(s) still mount the claim; waiting for them to exit before one replacement import",
+		errReimportBlocked, localModel.Namespace, importJobName(localModel.Name), pvc.Name, mounting)
+}
+
+// podMountsClaim reports whether pod references claimName and may still read it.
+func podMountsClaim(pod *corev1.Pod, claimName string) bool {
+	if pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed {
+		return false
+	}
+	for i := range pod.Spec.Volumes {
+		if pvcSource := pod.Spec.Volumes[i].PersistentVolumeClaim; pvcSource != nil && pvcSource.ClaimName == claimName {
+			return true
+		}
+	}
+	return false
+}
+
+// importedOnto reports whether the cache's import record names this exact claim (same UID). A
+// claim recreated under the same name has a new UID and holds no data.
+func importedOnto(localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim) bool {
+	imported := localModel.Status.SharedPVCImport
+	return imported != nil && imported.PVCUID == pvc.UID
 }
 
 // authoritativeReader returns a reader that bypasses the informer cache, falling back to the
@@ -435,8 +488,7 @@ func (c *LocalModelNamespaceCacheReconciler) authoritativeReader() client.Reader
 // name has a new UID and holds no data, so it is imported again regardless of consumers. An
 // import that never succeeded leaves no record and is retried as before.
 func reimportBlocked(localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim, consumers cacheConsumers) error {
-	imported := localModel.Status.SharedPVCImport
-	if imported == nil || imported.PVCUID != pvc.UID {
+	if !importedOnto(localModel, pvc) {
 		return nil
 	}
 	isvcCount, llmSvcCount := len(consumers.isvcs), len(consumers.llmSvcs)

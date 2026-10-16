@@ -123,11 +123,12 @@ kubectl apply -f shared-pvc.yaml
   its consumers once a minute, which covers `disableVolumeManagement`, where those
   watches are not registered. A recreated PVC (new UID) is imported again regardless
   of consumers, since it holds no data.
-- Consumers are counted by object, not by running Pod. Deleting the last consumer
-  unblocks the re-import immediately, so the replacement Job can start writing the
-  destination while that consumer's Pods are still terminating. Wait for those Pods
-  to be gone before expecting a clean replacement import; runtimes that memory-map
-  model files can fault on data overwritten underneath them.
+- Once the last consumer object is gone, the replacement Job is still held back while
+  any Pod in the namespace mounts the claim (terminating Pods of a deleted consumer, or
+  a Pod that mounts the claim outside any InferenceService). The rule is the one
+  `pvc-protection` uses: a Pod referencing the claim that has not reached `Succeeded`
+  or `Failed` is still reading it. The cache keeps reporting `ReimportBlocked` with the
+  Pod count and re-checks once a minute, since no watch fires when a Pod exits.
 - A Job with the deterministic name that is not owned by the cache is never adopted
   or deleted; the cache reports `ImportJobConflict` until the collision is removed.
 
@@ -149,7 +150,7 @@ The cache reports a single positive-polarity `Ready` condition (with
 | `False` | `ImportFailed` | The import Job failed; delete the Job to retry. |
 | `False` | `ImportCredentialError` | The `serviceAccountName`/`storage` credentials could not be resolved; no Job is created and the import is retried with backoff once they exist. |
 | `False` | `ImportJobConflict` | The deterministic import Job name is occupied by a Job the cache does not own. |
-| `False` | `ReimportBlocked` | The completed import Job is gone but consumers still reference the cache; remove them to allow one replacement import. |
+| `False` | `ReimportBlocked` | The completed import Job is gone but consumers still reference the cache, or Pods still mount the claim; once both are gone one replacement import is created. |
 | `True`  | `ImportSucceeded` | The model is imported and available for serving. |
 
 `lastTransitionTime` changes only when the `Ready` status (True/False/Unknown)

@@ -1051,6 +1051,149 @@ func TestReconcileSharedPVCReimportsOnceConsumersRemoved(t *testing.T) {
 	}
 }
 
+// claimPod is a Pod in the cache namespace that mounts the shared claim.
+func claimPod(name, claimName string, phase corev1.PodPhase) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns"},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{Name: "server", Image: "server"}},
+			Volumes: []corev1.Volume{{
+				Name:         "model",
+				VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: claimName}},
+			}},
+		},
+		Status: corev1.PodStatus{Phase: phase},
+	}
+}
+
+// Consumer objects are deleted before their Pods finish terminating, and a Pod can mount the
+// claim without belonging to any consumer object. Either way the object count reads zero
+// while the destination is still being read, so the gate also waits for the Pods.
+func TestReconcileSharedPVCBlocksReimportWhilePodsMountClaim(t *testing.T) {
+	terminating := claimPod("terminating", "pvc", corev1.PodRunning)
+	terminating.Finalizers = []string{"test.kserve.io/hold"}
+	tests := []struct {
+		name string
+		pod  *corev1.Pod
+	}{
+		{name: "running", pod: claimPod("running", "pvc", corev1.PodRunning)},
+		{name: "pending", pod: claimPod("pending", "pvc", corev1.PodPending)},
+		{name: "terminating", pod: terminating},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cache := importedSharedCache("pvc-uid")
+			pvc := boundSharedPVC("pvc-uid")
+			cl, scheme := sharedPVCFixture(t, cache, pvc, tt.pod)
+			if tt.name == "terminating" {
+				if err := cl.Delete(context.Background(), tt.pod); err != nil {
+					t.Fatalf("delete pod: %v", err)
+				}
+			}
+			reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, APIReader: cl, Scheme: scheme}
+
+			for i := range 2 {
+				result, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, cacheConsumers{})
+				if err != nil {
+					t.Fatalf("reconcileSharedPVC() #%d error = %v, want nil", i+1, err)
+				}
+				if result.RequeueAfter != reimportBlockedRequeueInterval {
+					t.Fatalf("reconcileSharedPVC() #%d RequeueAfter = %v, want %v: nothing enqueues the cache when the Pod exits", i+1, result.RequeueAfter, reimportBlockedRequeueInterval)
+				}
+			}
+			if jobs := listImportJobs(t, cl); len(jobs) != 0 {
+				t.Fatalf("expected no replacement import Job while a Pod mounts the claim, got %d", len(jobs))
+			}
+			condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+			if condition == nil || condition.Status != metav1.ConditionFalse || condition.Reason != v1alpha1.ReasonReimportBlocked {
+				t.Fatalf("cache Ready condition = %#v, want False/%s", condition, v1alpha1.ReasonReimportBlocked)
+			}
+			if !strings.Contains(condition.Message, "1 Pod(s) still mount the claim") {
+				t.Fatalf("condition message %q should count the Pods mounting the claim", condition.Message)
+			}
+			if cache.Status.SharedPVCImport == nil || cache.Status.SharedPVCImport.PVCUID != "pvc-uid" {
+				t.Fatalf("import record %#v must survive the blocked state", cache.Status.SharedPVCImport)
+			}
+		})
+	}
+}
+
+func TestReconcileSharedPVCIgnoresPodsNotReadingClaim(t *testing.T) {
+	elsewhere := claimPod("elsewhere", "pvc", corev1.PodRunning)
+	elsewhere.Namespace = "other-ns"
+	tests := []struct {
+		name string
+		pod  *corev1.Pod
+	}{
+		{name: "succeeded", pod: claimPod("succeeded", "pvc", corev1.PodSucceeded)},
+		{name: "failed", pod: claimPod("failed", "pvc", corev1.PodFailed)},
+		{name: "other claim", pod: claimPod("other-claim", "other-pvc", corev1.PodRunning)},
+		{name: "same claim name, other namespace", pod: elsewhere},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cache := importedSharedCache("pvc-uid")
+			pvc := boundSharedPVC("pvc-uid")
+			cl, scheme := sharedPVCFixture(t, cache, pvc, tt.pod)
+			reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, APIReader: cl, Scheme: scheme}
+
+			if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, cacheConsumers{}); err != nil {
+				t.Fatalf("reconcileSharedPVC() error = %v", err)
+			}
+			if jobs := listImportJobs(t, cl); len(jobs) != 1 {
+				t.Fatalf("a Pod that cannot read the claim must not block the replacement import, got %d Job(s)", len(jobs))
+			}
+			if cache.Status.SharedPVCImport != nil {
+				t.Fatalf("import record %#v must be cleared once a fresh import is underway", cache.Status.SharedPVCImport)
+			}
+		})
+	}
+}
+
+func TestReconcileSharedPVCReimportsOncePodsGone(t *testing.T) {
+	cache := importedSharedCache("pvc-uid")
+	pvc := boundSharedPVC("pvc-uid")
+	pod := claimPod("reader", "pvc", corev1.PodRunning)
+	cl, scheme := sharedPVCFixture(t, cache, pvc, pod)
+	reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, APIReader: cl, Scheme: scheme}
+
+	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, cacheConsumers{}); err != nil {
+		t.Fatalf("blocked reconcile error = %v", err)
+	}
+	if jobs := listImportJobs(t, cl); len(jobs) != 0 {
+		t.Fatalf("expected no Job while the Pod mounts the claim, got %d", len(jobs))
+	}
+	if err := cl.Delete(context.Background(), pod); err != nil {
+		t.Fatalf("delete pod: %v", err)
+	}
+	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, cacheConsumers{}); err != nil {
+		t.Fatalf("reconcile after Pod exit error = %v", err)
+	}
+	if jobs := listImportJobs(t, cl); len(jobs) != 1 {
+		t.Fatalf("expected exactly one replacement import Job, got %d", len(jobs))
+	}
+	if cache.Status.SharedPVCImport != nil {
+		t.Fatalf("import record %#v must be cleared once a fresh import is underway", cache.Status.SharedPVCImport)
+	}
+}
+
+// A Pod mounting the claim only matters once data has been published onto it. Before the
+// first successful import there is nothing to protect, so the initial import proceeds.
+func TestReconcileSharedPVCInitialImportIgnoresPodsMountingClaim(t *testing.T) {
+	cache := importedSharedCache("")
+	cache.Status = v1alpha1.LocalModelCacheStatus{}
+	pvc := boundSharedPVC("pvc-uid")
+	cl, scheme := sharedPVCFixture(t, cache, pvc, claimPod("reader", "pvc", corev1.PodRunning))
+	reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, APIReader: cl, Scheme: scheme}
+
+	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, cacheConsumers{}); err != nil {
+		t.Fatalf("reconcileSharedPVC() error = %v", err)
+	}
+	if jobs := listImportJobs(t, cl); len(jobs) != 1 {
+		t.Fatalf("expected the initial import Job, got %d", len(jobs))
+	}
+}
+
 func TestReconcileSharedPVCReimportsOntoRecreatedPVCDespiteConsumers(t *testing.T) {
 	cache := importedSharedCache("old-pvc-uid")
 	pvc := boundSharedPVC("new-pvc-uid")

@@ -838,15 +838,62 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			Consistently(importJobCount, duration, interval).Should(Equal(0), "no replacement Job while an LLMInferenceService references the cache")
 			Expect(blockedReason()).To(Equal(v1alpha1.ReasonReimportBlocked))
 
-			// Removing the last consumer allows exactly one replacement import.
+			// A consumer's Pod outlives the consumer object while it terminates. The gate
+			// waits for it: envtest runs no kubelet, so the Pod stays Pending until deleted.
+			readerPod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{Name: "reimport-reader", Namespace: ns},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "server", Image: "server"}},
+					Volumes: []corev1.Volume{{
+						Name:         "model",
+						VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: pvc.Name}},
+					}},
+				},
+			}
+			Expect(k8sClient.Create(ctx, readerPod)).Should(Succeed())
+			defer k8sClient.Delete(ctx, readerPod, client.GracePeriodSeconds(0))
+
+			// Removing the last consumer object is not enough while its Pod mounts the claim.
 			Expect(k8sClient.Delete(ctx, llmSvc)).Should(Succeed())
+			Eventually(func() string {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
+					return ""
+				}
+				if condition := current.Status.GetCondition(v1alpha1.LocalModelCacheReady); condition != nil {
+					return condition.Message
+				}
+				return ""
+			}, timeout, interval).Should(ContainSubstring("1 Pod(s) still mount the claim"))
+			Consistently(importJobCount, duration, interval).Should(Equal(0), "no replacement Job while a Pod mounts the claim")
+			Expect(blockedReason()).To(Equal(v1alpha1.ReasonReimportBlocked))
+
+			// Once the Pod is gone, exactly one replacement import is created. No watch fires
+			// for the Pod's exit; the blocked state's timed requeue (one minute) covers it in
+			// production, and the unit tests pin that. Here the cache is nudged instead of
+			// waiting out the timer.
+			Expect(k8sClient.Delete(ctx, readerPod, client.GracePeriodSeconds(0))).Should(Succeed())
+			Eventually(func() bool {
+				return errors.IsNotFound(k8sClient.Get(ctx, client.ObjectKeyFromObject(readerPod), &corev1.Pod{}))
+			}, timeout, interval).Should(BeTrue())
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
+					return err
+				}
+				if current.Annotations == nil {
+					current.Annotations = map[string]string{}
+				}
+				current.Annotations["test.kserve.io/nudge"] = "pods-gone"
+				return k8sClient.Update(ctx, current)
+			})).Should(Succeed())
 			Eventually(func() bool {
 				replacement := &batchv1.Job{}
 				if err := k8sClient.Get(ctx, jobKey, replacement); err != nil {
 					return false
 				}
 				return replacement.UID != originalJob.UID
-			}, timeout, interval).Should(BeTrue(), "one replacement Job once consumers are gone")
+			}, timeout, interval).Should(BeTrue(), "one replacement Job once consumers and their Pods are gone")
 			Consistently(func() int {
 				jobs := &batchv1.JobList{}
 				_ = k8sClient.List(ctx, jobs, client.InNamespace(ns))
