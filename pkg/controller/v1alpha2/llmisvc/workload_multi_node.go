@@ -197,8 +197,8 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
-	if llmSvc.Spec.Template == nil {
-		// When there is no leader template, workers become part of the InferencePool selector.
+	if llmSvc.Spec.Template == nil || workerServesDataParallelRanks(&llmSvc.Spec.WorkloadSpec) {
+		// Workers with their own rank endpoints also belong to the InferencePool.
 		workerLabels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
 		workerLabels[constants.LLMDRoleLabelKey] = constants.LLMDRoleDecode
 
@@ -381,8 +381,8 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
-	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template == nil {
-		// When there is no leader template, workers become part of the InferencePool selector.
+	if llmSvc.Spec.Prefill != nil && (llmSvc.Spec.Prefill.Template == nil || workerServesDataParallelRanks(llmSvc.Spec.Prefill)) {
+		// Workers with their own rank endpoints also belong to the InferencePool.
 		workerLabels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
 		workerLabels[constants.LLMDRoleLabelKey] = constants.LLMDRolePrefill
 
