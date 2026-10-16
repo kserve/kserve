@@ -1178,10 +1178,11 @@ func TestLLMInferenceServiceConversion_PreservesKVCacheOffloading(t *testing.T) 
 						{
 							FileSystem: &FileSystemTierSpec{
 								PVC: &PVCTierSpec{
-									EvictorSecurityContext: &corev1.PodSecurityContext{FSGroup: ptr.To(int64(1000))},
+									Evictor: ptr.To(true),
 									Ref: &PVCRefTierSpec{
-										Name: "my-pvc",
-										Path: "kv-cache/",
+										Name:                   "my-pvc",
+										Path:                   "kv-cache/",
+										EvictorSecurityContext: &corev1.PodSecurityContext{FSGroup: ptr.To(int64(1000))},
 									},
 								},
 							},
@@ -1221,7 +1222,7 @@ func TestLLMInferenceServiceConversion_PreservesKVCacheOffloading(t *testing.T) 
 	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref)
 	assert.Equal(t, "my-pvc", hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Name)
 	assert.Equal(t, "kv-cache/", hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Path)
-	assert.Equal(t, int64(1000), *hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.EvictorSecurityContext.FSGroup)
+	assert.Equal(t, int64(1000), *hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.EvictorSecurityContext.FSGroup)
 
 	// v1alpha2 -> v1alpha1
 	restored := &LLMInferenceService{}
@@ -1247,7 +1248,7 @@ func TestLLMInferenceServiceConversion_PreservesKVCacheOffloading(t *testing.T) 
 	require.NotNil(t, restored.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref)
 	assert.Equal(t, "my-pvc", restored.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Name)
 	assert.Equal(t, "kv-cache/", restored.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Path)
-	assert.Equal(t, int64(1000), *restored.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.EvictorSecurityContext.FSGroup)
+	assert.Equal(t, int64(1000), *restored.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.EvictorSecurityContext.FSGroup)
 }
 
 func TestLLMInferenceServiceConversion_NilKVCacheOffloadingPreserved(t *testing.T) {

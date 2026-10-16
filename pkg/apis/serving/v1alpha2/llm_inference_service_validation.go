@@ -779,9 +779,10 @@ func ValidateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Pat
 							}
 						}
 					}
-					if fs.PVC.EvictorSecurityContext != nil && fs.PVC.Ref == nil {
-						allErrs = append(allErrs, field.Invalid(pvcp.Child("evictorSecurityContext"), fs.PVC.EvictorSecurityContext,
-							"evictorSecurityContext is supported only with ref"))
+					if fs.PVC.Ref != nil && fs.PVC.Ref.EvictorSecurityContext != nil &&
+						(fs.PVC.Evictor == nil || !*fs.PVC.Evictor) {
+						allErrs = append(allErrs, field.Invalid(pvcp.Child("ref").Child("evictorSecurityContext"), fs.PVC.Ref.EvictorSecurityContext,
+							"evictorSecurityContext requires evictor=true"))
 					}
 				default:
 					allErrs = append(allErrs, field.Invalid(pvcp, fs.PVC,

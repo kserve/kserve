@@ -66,7 +66,7 @@ var _ = Describe("LLMInferenceServiceConfig CRD", func() {
 				Namespace: ns,
 			},
 			Spec: v1alpha2.LLMInferenceServiceSpec{
-				Model: v1alpha2.LLMModelSpec{URI: mustParseURL("gs://dummy")},
+				Model: v1alpha2.LLMModelSpec{URI: mustParseURL()},
 				Router: &v1alpha2.RouterSpec{
 					Route: &v1alpha2.GatewayRoutesSpec{
 						HTTP: &v1alpha2.HTTPRouteSpec{
@@ -106,7 +106,7 @@ var _ = Describe("LLMInferenceServiceConfig CRD", func() {
 				Namespace: ns,
 			},
 			Spec: v1alpha2.LLMInferenceServiceSpec{
-				Model: v1alpha2.LLMModelSpec{URI: mustParseURL("gs://dummy")},
+				Model: v1alpha2.LLMModelSpec{URI: mustParseURL()},
 				WorkloadSpec: v1alpha2.WorkloadSpec{
 					KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 						CPU: resource.MustParse("1Gi"),
@@ -148,7 +148,7 @@ var _ = Describe("LLMInferenceServiceConfig CRD", func() {
 				Namespace: ns,
 			},
 			Spec: v1alpha2.LLMInferenceServiceSpec{
-				Model: v1alpha2.LLMModelSpec{URI: mustParseURL("gs://dummy")},
+				Model: v1alpha2.LLMModelSpec{URI: mustParseURL()},
 				WorkloadSpec: v1alpha2.WorkloadSpec{
 					KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 						CPU:       resource.MustParse("1Gi"),
@@ -162,10 +162,33 @@ var _ = Describe("LLMInferenceServiceConfig CRD", func() {
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring("must have at most 8 items"))
 	})
+
+	It("should enforce PVC evictor security context scope", func(ctx SpecContext) {
+		securityContext := &corev1.PodSecurityContext{FSGroup: ptrTo(int64(1000))}
+		probe := &v1alpha2.LLMInferenceServiceConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: "pvc-evictor-security-ref", Namespace: ns},
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				Model: v1alpha2.LLMModelSpec{URI: mustParseURL()},
+				WorkloadSpec: v1alpha2.WorkloadSpec{KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					CPU: resource.MustParse("1Gi"),
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{
+							Evictor: ptrTo(true),
+							Ref: &v1alpha2.PVCRefTierSpec{
+								Name:                   "my-pvc",
+								EvictorSecurityContext: securityContext,
+							},
+						},
+					}}},
+				}},
+			},
+		}
+		Expect(envTest.Client.Create(ctx, probe)).To(Succeed())
+	})
 })
 
-func mustParseURL(s string) apis.URL {
-	u, err := apis.ParseURL(s)
+func mustParseURL() apis.URL {
+	u, err := apis.ParseURL("gs://dummy")
 	if err != nil {
 		panic(err)
 	}
