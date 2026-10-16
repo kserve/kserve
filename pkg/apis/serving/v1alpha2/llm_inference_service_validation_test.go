@@ -997,7 +997,7 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 			CPU: resource.MustParse("10Gi"),
 			Secondary: []SecondaryTierSpec{{FileSystem: &FileSystemTierSpec{
 				PVC: &PVCTierSpec{
-					Evictor: ptr.To(true),
+					EvictorEnabled: ptr.To(true),
 					Spec: &corev1.PersistentVolumeClaimSpec{
 						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany},
 					},
@@ -1014,7 +1014,7 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 			CPU: resource.MustParse("10Gi"),
 			Secondary: []SecondaryTierSpec{{FileSystem: &FileSystemTierSpec{
 				PVC: &PVCTierSpec{
-					Evictor: ptr.To(true),
+					EvictorEnabled: ptr.To(true),
 					Ref: &PVCRefTierSpec{
 						Name:                   "my-pvc",
 						EvictorSecurityContext: &corev1.PodSecurityContext{FSGroup: ptr.To(int64(1000))},
@@ -1026,18 +1026,18 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 	})
 
 	for _, tc := range []struct {
-		name    string
-		evictor *bool
+		name           string
+		evictorEnabled *bool
 	}{
-		{name: "false", evictor: ptr.To(false)},
-		{name: "omitted", evictor: nil},
+		{name: "false", evictorEnabled: ptr.To(false)},
+		{name: "omitted", evictorEnabled: nil},
 	} {
 		t.Run("pvc.ref evictor security context rejects evictor "+tc.name, func(t *testing.T) {
 			errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
 				CPU: resource.MustParse("10Gi"),
 				Secondary: []SecondaryTierSpec{{FileSystem: &FileSystemTierSpec{
 					PVC: &PVCTierSpec{
-						Evictor: tc.evictor,
+						EvictorEnabled: tc.evictorEnabled,
 						Ref: &PVCRefTierSpec{
 							Name:                   "my-pvc",
 							EvictorSecurityContext: &corev1.PodSecurityContext{FSGroup: ptr.To(int64(1000))},
@@ -1046,7 +1046,7 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 				}}},
 			}))
 			require.Len(t, errs, 1)
-			assert.Contains(t, errs[0].Detail, "requires evictor=true")
+			assert.Contains(t, errs[0].Detail, "requires evictorEnabled=true")
 		})
 	}
 

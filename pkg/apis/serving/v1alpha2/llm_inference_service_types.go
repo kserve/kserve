@@ -285,13 +285,13 @@ type EmptyDirTierSpec struct {
 
 // PVCTierSpec configures a PVC-backed KV cache tier.
 // Exactly one of Spec or Ref must be set.
-// +kubebuilder:validation:XValidation:rule="!(has(self.evictor) && self.evictor && has(self.spec) && 'ReadOnlyMany' in self.spec.accessModes)",message="evictor requires a writable PVC; ReadOnlyMany cannot delete cache files"
+// +kubebuilder:validation:XValidation:rule="!(has(self.evictorEnabled) && self.evictorEnabled && has(self.spec) && 'ReadOnlyMany' in self.spec.accessModes)",message="evictor requires a writable PVC; ReadOnlyMany cannot delete cache files"
 type PVCTierSpec struct {
-	// Evictor enables the PVC evictor for this tier. For Spec, the evictor runs
+	// EvictorEnabled enables the PVC evictor for this tier. For Spec, the evictor runs
 	// as a sidecar in the vLLM pod. For Ref, the controller creates one evictor
 	// Deployment for the referenced PVC and path.
 	// +optional
-	Evictor *bool `json:"evictor,omitempty"`
+	EvictorEnabled *bool `json:"evictorEnabled,omitempty"`
 
 	// Spec creates one ephemeral PVC per pod automatically. The PVC is owned by the pod
 	// and deleted when the pod is deleted — it does not survive pod restarts.
@@ -317,7 +317,7 @@ type PVCRefTierSpec struct {
 
 	// EvictorSecurityContext sets the PodSecurityContext for the dedicated
 	// evictor Deployment created for this PVC ref. Set the UID, GID, and fsGroup
-	// required by the PVC's storage permissions. It is used when pvc.evictor is true.
+	// required by the PVC's storage permissions. It is used when pvc.evictorEnabled is true.
 	// +optional
 	EvictorSecurityContext *corev1.PodSecurityContext `json:"evictorSecurityContext,omitempty"`
 }

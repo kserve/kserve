@@ -1163,7 +1163,7 @@ func TestLLMInferenceServiceConversion_PreservesKVCacheOffloading(t *testing.T) 
 						{
 							FileSystem: &FileSystemTierSpec{
 								PVC: &PVCTierSpec{
-									Evictor: ptr.To(true),
+									EvictorEnabled: ptr.To(true),
 									Spec: &corev1.PersistentVolumeClaimSpec{
 										StorageClassName: &storageClass,
 										Resources: corev1.VolumeResourceRequirements{
@@ -1178,7 +1178,7 @@ func TestLLMInferenceServiceConversion_PreservesKVCacheOffloading(t *testing.T) 
 						{
 							FileSystem: &FileSystemTierSpec{
 								PVC: &PVCTierSpec{
-									Evictor: ptr.To(true),
+									EvictorEnabled: ptr.To(true),
 									Ref: &PVCRefTierSpec{
 										Name:                   "my-pvc",
 										Path:                   "kv-cache/",
@@ -1211,8 +1211,8 @@ func TestLLMInferenceServiceConversion_PreservesKVCacheOffloading(t *testing.T) 
 	// PVC spec tier
 	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[1].FileSystem)
 	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC)
-	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Evictor)
-	assert.True(t, *hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Evictor)
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.EvictorEnabled)
+	assert.True(t, *hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.EvictorEnabled)
 	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec)
 	assert.Equal(t, storageClass, *hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec.StorageClassName)
 
@@ -1239,8 +1239,8 @@ func TestLLMInferenceServiceConversion_PreservesKVCacheOffloading(t *testing.T) 
 	assert.True(t, restored.Spec.KVCacheOffloading.Secondary[0].FileSystem.EmptyDir.Size.Equal(resource.MustParse("100Gi")))
 
 	// PVC spec round-trip
-	require.NotNil(t, restored.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Evictor)
-	assert.True(t, *restored.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Evictor)
+	require.NotNil(t, restored.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.EvictorEnabled)
+	assert.True(t, *restored.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.EvictorEnabled)
 	require.NotNil(t, restored.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec)
 	assert.Equal(t, storageClass, *restored.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec.StorageClassName)
 

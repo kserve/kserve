@@ -420,7 +420,7 @@ func attachFileSystemKVCacheTier(podSpec *corev1.PodSpec, fs *v1alpha2.FileSyste
 		}
 	}
 
-	if fs.PVC != nil && fs.PVC.Spec != nil && fs.PVC.Evictor != nil && *fs.PVC.Evictor {
+	if fs.PVC != nil && fs.PVC.Spec != nil && fs.PVC.EvictorEnabled != nil && *fs.PVC.EvictorEnabled {
 		attachPVCEvictor(podSpec, volumeName, mountPath, subPath)
 	}
 }

@@ -62,7 +62,7 @@ spec:
       # Services sharing this PVC and path must use matching values.
       # - fileSystem:
       #     pvc:
-      #       evictor: true
+      #       evictorEnabled: true
       #       ref:
       #         name: my-shared-kv-cache-pvc
       #         path: kv-cache/   # optional subdirectory within the PVC
