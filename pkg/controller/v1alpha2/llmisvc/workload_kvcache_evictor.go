@@ -108,6 +108,7 @@ func pvcEvictorDeploymentPredicate() predicate.Predicate {
 				return true
 			}
 			return !equality.Semantic.DeepEqual(oldDeployment.Spec, newDeployment.Spec) ||
+				!equality.Semantic.DeepEqual(oldDeployment.Status, newDeployment.Status) ||
 				!equality.Semantic.DeepEqual(e.ObjectOld.GetLabels(), e.ObjectNew.GetLabels()) ||
 				!equality.Semantic.DeepEqual(e.ObjectOld.GetAnnotations(), e.ObjectNew.GetAnnotations()) ||
 				!equality.Semantic.DeepEqual(e.ObjectOld.GetOwnerReferences(), e.ObjectNew.GetOwnerReferences())
@@ -115,7 +116,21 @@ func pvcEvictorDeploymentPredicate() predicate.Predicate {
 	}
 }
 
-func (r *LLMISVCReconciler) enqueueOnPVCEvictorDeploymentChange() handler.EventHandler {
+func pvcEvictorServiceAccountPredicate() predicate.Predicate {
+	isEvictor := func(object client.Object) bool {
+		return object != nil && object.GetLabels()[pvcEvictorLabel] == "true"
+	}
+	return predicate.Funcs{
+		CreateFunc:  func(e event.CreateEvent) bool { return isEvictor(e.Object) },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return isEvictor(e.Object) },
+		GenericFunc: func(e event.GenericEvent) bool { return isEvictor(e.Object) },
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return isEvictor(e.ObjectOld) || isEvictor(e.ObjectNew)
+		},
+	}
+}
+
+func (r *LLMISVCReconciler) enqueueOnPVCEvictorResourceChange() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 		services := &v1alpha2.LLMInferenceServiceList{}
 		if err := r.List(ctx, services, client.InNamespace(object.GetNamespace())); err != nil {
@@ -200,13 +215,49 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 			logger.Info("Shared PVC evictor Deployment was created concurrently; reusing it", "deployment", deployment.Name)
 		}
 	}
+	markPVCEvictorReadiness(llmSvc, expected, current.Items)
 	return r.cleanupUnusedPVCEvictors(ctx, llmSvc.Namespace, config, llmSvc, "")
+}
+
+func markPVCEvictorReadiness(llmSvc *v1alpha2.LLMInferenceService, expected map[string]*appsv1.Deployment, current []appsv1.Deployment) {
+	if len(expected) == 0 {
+		llmSvc.MarkPVCEvictorUnset()
+		return
+	}
+	for _, deployment := range expected {
+		matches := findPVCEvictorDeployments(current, deployment.Name, deployment.Annotations[pvcEvictorPVCName], deployment.Annotations[pvcEvictorPVCPath])
+		if len(matches) == 0 || matches[0].Status.AvailableReplicas == 0 {
+			message := fmt.Sprintf("PVC evictor Deployment %s/%s has no available replicas", deployment.Namespace, deployment.Name)
+			if len(matches) > 0 {
+				for _, condition := range matches[0].Status.Conditions {
+					if condition.Status == corev1.ConditionFalse && condition.Message != "" {
+						message = fmt.Sprintf("PVC evictor Deployment %s/%s is not ready: %s", deployment.Namespace, deployment.Name, condition.Message)
+						break
+					}
+				}
+			}
+			llmSvc.MarkPVCEvictorNotReady("PVCEvictorNotReady", "%s", message)
+			return
+		}
+	}
+	llmSvc.MarkPVCEvictorReady()
 }
 
 func (r *LLMISVCReconciler) ensurePVCEvictorServiceAccount(ctx context.Context, namespace string) error {
 	serviceAccount := &corev1.ServiceAccount{}
 	err := r.Get(ctx, types.NamespacedName{Name: pvcEvictorServiceAccount, Namespace: namespace}, serviceAccount)
 	if err == nil {
+		updated := serviceAccount.DeepCopy()
+		if updated.Labels == nil {
+			updated.Labels = map[string]string{}
+		}
+		updated.Labels[pvcEvictorLabel] = "true"
+		updated.AutomountServiceAccountToken = ptr.To(false)
+		if !equality.Semantic.DeepEqual(serviceAccount, updated) {
+			if err := r.Update(ctx, updated); err != nil {
+				return fmt.Errorf("failed to repair PVC evictor ServiceAccount %s/%s: %w", namespace, pvcEvictorServiceAccount, err)
+			}
+		}
 		return nil
 	}
 	if !apierrors.IsNotFound(err) {

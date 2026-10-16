@@ -131,7 +131,7 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	}
 
 	if err := r.reconcilePVCEvictors(ctx, llmSvc, config); err != nil {
-		llmSvc.MarkMainWorkloadNotReady("ReconcilePVCEvictorError", err.Error())
+		llmSvc.MarkPVCEvictorNotReady("ReconcilePVCEvictorError", "%s", err.Error())
 		return fmt.Errorf("failed to reconcile PVC evictors: %w", err)
 	}
 

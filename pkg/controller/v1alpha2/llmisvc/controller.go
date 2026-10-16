@@ -464,7 +464,8 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&v1alpha2.LLMInferenceServiceConfig{}, r.enqueueOnLLMInferenceServiceConfigChange(logger)).
 		Owns(&netv1.Ingress{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(childResourcesPredicate)).
-		Watches(&appsv1.Deployment{}, r.enqueueOnPVCEvictorDeploymentChange(), builder.WithPredicates(pvcEvictorDeploymentPredicate())).
+		Watches(&appsv1.Deployment{}, r.enqueueOnPVCEvictorResourceChange(), builder.WithPredicates(pvcEvictorDeploymentPredicate())).
+		Watches(&corev1.ServiceAccount{}, r.enqueueOnPVCEvictorResourceChange(), builder.WithPredicates(pvcEvictorServiceAccountPredicate())).
 		Owns(&corev1.Secret{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&autoscalingv2.HorizontalPodAutoscaler{}, builder.WithPredicates(childResourcesPredicate)).
