@@ -346,9 +346,14 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 				}
 				// Creation: fall back to the main workload's ServiceAccount
 				// so prefill pods run with the same identity, including IRSA
-				// annotations for model download.
+				// annotations for model download. In a mixed topology the
+				// main workload is multi-node and can name its
+				// ServiceAccount on the worker spec, so fall back to it the
+				// same way the tokenizer does.
 				if llmSvc.Spec.Template != nil && llmSvc.Spec.Template.ServiceAccountName != "" {
 					template.Spec.ServiceAccountName = llmSvc.Spec.Template.ServiceAccountName
+				} else if llmSvc.Spec.Worker != nil && llmSvc.Spec.Worker.ServiceAccountName != "" {
+					template.Spec.ServiceAccountName = llmSvc.Spec.Worker.ServiceAccountName
 				}
 			} else {
 				template.Spec.ServiceAccountName = curr.Spec.Template.Spec.ServiceAccountName
