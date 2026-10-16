@@ -19,6 +19,7 @@ package inferenceservice
 import (
 	"fmt"
 	"maps"
+	"sort"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -161,25 +162,10 @@ func getExpectedIsvcStatusWithPort(serviceKey types.NamespacedName, port string)
 	predictorURLHost := fmt.Sprintf("%s-predictor-%s.%s", serviceKey.Name, serviceKey.Namespace, domain)
 	return v1beta1.InferenceServiceStatus{
 		Status: duckv1.Status{
-			Conditions: duckv1.Conditions{
-				{
-					Type:   v1beta1.IngressReady,
-					Status: "True",
-				},
-				{
-					Type:   v1beta1.PredictorReady,
-					Status: "True",
-				},
-				{
-					Type:   apis.ConditionReady,
-					Status: "True",
-				},
-				{
-					Type:     v1beta1.Stopped,
-					Status:   "False",
-					Severity: apis.ConditionSeverityInfo,
-				},
-			},
+			ObservedGeneration: 1,
+			Conditions: expectedRawDeploymentReadyConditions(
+				v1beta1.PredictorComponent,
+			),
 		},
 		URL: &apis.URL{
 			Scheme: "http",
@@ -412,4 +398,52 @@ func getDeploymentWithKServiceLabel(predictorDeploymentKey types.NamespacedName,
 			ProgressDeadlineSeconds: ptr.To(PROGRESSION_DEADLINE_SECODS),
 		},
 	}
+}
+
+const (
+	expectedDeploymentReadyReason  = "NewReplicaSetAvailable"
+	expectedDeploymentReadyMessage = "All Deployments have completed rollout and are available."
+)
+
+func expectedRawDeploymentReadyConditions(components ...v1beta1.ComponentType) duckv1.Conditions {
+	componentConditions := map[v1beta1.ComponentType]struct {
+		configuration apis.ConditionType
+		ready         apis.ConditionType
+	}{
+		v1beta1.PredictorComponent:   {v1beta1.PredictorConfigurationReady, v1beta1.PredictorReady},
+		v1beta1.TransformerComponent: {v1beta1.TransformerConfigurationReady, v1beta1.TransformerReady},
+		v1beta1.ExplainerComponent:   {v1beta1.ExplainerConfigurationReady, v1beta1.ExplainerReady},
+	}
+	conditions := duckv1.Conditions{
+		{Type: v1beta1.IngressReady, Status: corev1.ConditionTrue},
+		{Type: v1beta1.LatestDeploymentReady, Status: corev1.ConditionTrue, Severity: apis.ConditionSeverityInfo},
+		{Type: apis.ConditionReady, Status: corev1.ConditionTrue},
+		{Type: v1beta1.Stopped, Status: corev1.ConditionFalse, Severity: apis.ConditionSeverityInfo},
+	}
+
+	for _, component := range components {
+		types, ok := componentConditions[component]
+		if !ok {
+			panic(fmt.Sprintf("unsupported component type: %s", component))
+		}
+		conditions = append(conditions,
+			apis.Condition{
+				Type: types.configuration, Status: corev1.ConditionTrue,
+				Severity: apis.ConditionSeverityInfo, Reason: expectedDeploymentReadyReason,
+				Message: expectedDeploymentReadyMessage,
+			},
+			apis.Condition{
+				Type: types.ready, Status: corev1.ConditionTrue,
+				Reason: expectedDeploymentReadyReason,
+			},
+		)
+		if component != v1beta1.PredictorComponent {
+			conditions[len(conditions)-1].Severity = apis.ConditionSeverityInfo
+		}
+	}
+
+	sort.Slice(conditions, func(i, j int) bool {
+		return conditions[i].Type < conditions[j].Type
+	})
+	return conditions
 }
