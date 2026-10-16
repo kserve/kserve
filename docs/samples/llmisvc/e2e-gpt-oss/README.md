@@ -291,6 +291,16 @@ names `inference-scheduler`, `inference-server-decode`,
 `inference-server-prefill`, `routing-sidecar`, and `tokenizer`, with Kubernetes
 resource attributes to identify the namespace and pods.
 
+Routing-sidecar and tokenizer tracing also require the container environment
+marker `KSERVE_TRACING_CONFIG_VERSION=1`, supplied by the updated presets. Old
+pinned presets lack this marker and retain their existing Pod templates and
+EPP/inference-server tracing behavior when only the controller is upgraded.
+To adopt the additional tracing, move the service to updated tokenizer and
+sidecar-bearing presets; check `status.appliedConfigRefs` for the configs it uses.
+This can roll the affected workloads, so plan the change accordingly. Updating
+presets in place, rather than using release-versioned names, can also trigger
+rollouts for services referencing them.
+
 The default tokenizer preset pins vLLM v0.23.0, whose `vllm launch render` path
 does not initialize tracing or emit render-request spans. Tokenizer span export
 requires an image containing the
@@ -301,8 +311,9 @@ Use runtime images that support the injected tracing options. Tool-calling spans
 also require images containing the corresponding llm-d-router and vLLM
 instrumentation; configuring tracing alone does not add those spans to older
 images. Custom launch scripts must forward container arguments, for example
-using `"$@"`, to receive the tracing flags. Existing tracing flags and environment
-variables in container templates are preserved.
+using `"$@"`, to receive the tracing flags. Custom tokenizer and sidecar templates
+must retain the marker to opt in. For these marked containers, explicit tracing
+flags in `command` or `args` and existing environment variables are preserved.
 
 Without a tracing configuration in the service or its configs, KServe does not
 inject tracing settings. Setting `spec.tracing` to `{}` uses the
