@@ -156,13 +156,13 @@ secondary:
           path: kv-cache/
 ```
 
-To enable the PVC evictor, add `evictor: true` under `pvc`:
+To enable the PVC evictor, add `evictorEnabled: true` under `pvc`:
 
 ```yaml
 secondary:
   - fileSystem:
       pvc:
-        evictor: true
+        evictorEnabled: true
         ref:
           name: my-cephfs-pvc
           path: kv-cache/

@@ -404,7 +404,7 @@ func addPVCEvictorConsumerLabels(labels map[string]string, secondary []v1alpha2.
 	}
 	for _, tier := range secondary {
 		if tier.FileSystem == nil || tier.FileSystem.PVC == nil ||
-			tier.FileSystem.PVC.Evictor == nil || !*tier.FileSystem.PVC.Evictor ||
+			tier.FileSystem.PVC.EvictorEnabled == nil || !*tier.FileSystem.PVC.EvictorEnabled ||
 			tier.FileSystem.PVC.Ref == nil {
 			continue
 		}
@@ -526,7 +526,7 @@ func collectPVCEvictorTargets(llmSvc *v1alpha2.LLMInferenceService) []pvcEvictor
 		}
 		for _, tier := range workload.KVCacheOffloading.Secondary {
 			if tier.FileSystem == nil || tier.FileSystem.PVC == nil ||
-				tier.FileSystem.PVC.Evictor == nil || !*tier.FileSystem.PVC.Evictor ||
+				tier.FileSystem.PVC.EvictorEnabled == nil || !*tier.FileSystem.PVC.EvictorEnabled ||
 				tier.FileSystem.PVC.Ref == nil {
 				continue
 			}
@@ -704,7 +704,7 @@ func attachPVCEvictor(podSpec *corev1.PodSpec, volumeName, mountPath, subPath st
 }
 
 func kvCacheSecondaryRootDir(_ int, tier v1alpha2.SecondaryTierSpec, rootDir string) string {
-	if tier.FileSystem != nil && tier.FileSystem.PVC != nil && tier.FileSystem.PVC.Evictor != nil && *tier.FileSystem.PVC.Evictor {
+	if tier.FileSystem != nil && tier.FileSystem.PVC != nil && tier.FileSystem.PVC.EvictorEnabled != nil && *tier.FileSystem.PVC.EvictorEnabled {
 		return path.Join(rootDir, pvcEvictorCacheDirectory)
 	}
 	return rootDir

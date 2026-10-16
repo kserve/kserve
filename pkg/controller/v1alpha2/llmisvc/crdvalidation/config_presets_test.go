@@ -113,7 +113,7 @@ var _ = Describe("LLMInferenceServiceConfig CRD", func() {
 						Secondary: []v1alpha2.SecondaryTierSpec{{
 							FileSystem: &v1alpha2.FileSystemTierSpec{
 								PVC: &v1alpha2.PVCTierSpec{
-									Evictor: ptrTo(true),
+									EvictorEnabled: ptrTo(true),
 									Spec: &corev1.PersistentVolumeClaimSpec{
 										AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany},
 									},
@@ -173,7 +173,7 @@ var _ = Describe("LLMInferenceServiceConfig CRD", func() {
 					CPU: resource.MustParse("1Gi"),
 					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 						PVC: &v1alpha2.PVCTierSpec{
-							Evictor: ptrTo(true),
+							EvictorEnabled: ptrTo(true),
 							Ref: &v1alpha2.PVCRefTierSpec{
 								Name:                   "my-pvc",
 								EvictorSecurityContext: securityContext,
