@@ -47,6 +47,9 @@ type LocalModelCacheStatus struct {
 	// LocalModelNamespaceCache in shared-PVC mode and is the durable evidence that the
 	// destination was published as Ready, so the controller does not start a new import
 	// writer against data that active consumers still read once the retained Job is gone.
+	// While it is present, a consumer already bound to the cache keeps its binding through
+	// NotReady; it is cleared when a fresh import starts, which releases bound consumers
+	// from a recreated claim that holds no data yet.
 	// +optional
 	SharedPVCImport *SharedPVCImportStatus `json:"sharedPVCImport,omitempty"`
 }

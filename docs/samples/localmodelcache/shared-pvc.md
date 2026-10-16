@@ -169,11 +169,14 @@ shared copy **only after** the cache reaches `Ready: True`. Until then the workl
 falls back to its original `storageUri` as if the cache were absent.
 
 A workload that is already bound to the cache stays bound if the cache later reports
-`Ready: False` (for example `ReimportBlocked` or a spec-generation bump): the data is
-still on the claim, so an unrelated update to the InferenceService or
-LLMInferenceService does not strip the binding or roll its pods back to downloading
-from source. The binding is released only when the workload no longer matches the
-cache's `sourceModelUri`, or when it is deleted.
+`Ready: False` (for example `ReimportBlocked` or a spec-generation bump) while
+`status.sharedPVCImport` still records the import: the data is still on the claim, so
+an unrelated update to the InferenceService or LLMInferenceService does not strip the
+binding or roll its pods back to downloading from source. The record is cleared when a
+fresh import starts onto a recreated claim; the claim holds no data yet, so a bound
+workload updated during that import is released to its original `storageUri` and
+binds again on a later update once the cache is `Ready: True`. The binding is also
+released when the workload no longer matches the cache's `sourceModelUri`.
 
 Once ready, the served model resolves to:
 

@@ -522,9 +522,13 @@ func (isvc *InferenceService) setLocalModelLabel(models *v1alpha1.LocalModelCach
 					// Shared-PVC mode: select only once Ready=True; the serving PVC is the
 					// referenced claim itself (node groups do not apply). An ISVC already
 					// bound to this cache stays bound if the cache later drops to NotReady
-					// (spec-generation bump, Job re-import), so a concurrent ISVC update does
-					// not strip the labels and roll pods back to downloading from source.
-					if !nsModel.IsReady() && isvc.Labels[constants.LocalModelLabel] != nsModel.Name {
+					// (spec-generation bump, re-import blocked) while its import record still
+					// attests that the data is on the claim, so a concurrent ISVC update does
+					// not strip the labels and roll pods back to downloading from source. The
+					// record is cleared once a fresh import starts onto a recreated claim;
+					// the binding is released then, since the claim holds no data yet.
+					bound := isvc.Labels[constants.LocalModelLabel] == nsModel.Name && nsModel.Status.SharedPVCImport != nil
+					if !nsModel.IsReady() && !bound {
 						continue
 					}
 					localModelPVCName = *nsModel.Spec.PVCRef

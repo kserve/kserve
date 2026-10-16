@@ -483,6 +483,14 @@ func sharedPVCNSCacheList(name, sourceURI string, ready bool) *v1alpha1.LocalMod
 	return &v1alpha1.LocalModelNamespaceCacheList{Items: []v1alpha1.LocalModelNamespaceCache{cache}}
 }
 
+// importedSharedPVCNSCacheList is a shared-PVC cache that imported successfully and then
+// dropped to NotReady (re-import blocked, spec-generation bump): the record names the claim.
+func importedSharedPVCNSCacheList(name, sourceURI string) *v1alpha1.LocalModelNamespaceCacheList {
+	list := sharedPVCNSCacheList(name, sourceURI, false)
+	list.Items[0].Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "claim-uid"}
+	return list
+}
+
 func TestSetLocalModelLabel_SharedPVCReadyBindsBaseModel(t *testing.T) {
 	llmSvc := newLLMSvc("hf://org/model")
 
@@ -513,12 +521,34 @@ func TestSetLocalModelLabel_SharedPVCNotReadyKeepsBoundBaseModel(t *testing.T) {
 		constants.LocalModelNamespaceLabel: "default",
 	}
 
-	SetLocalModelLabel(llmSvc, nil, sharedPVCNSCacheList("shared-cache", "hf://org/model", false))
+	SetLocalModelLabel(llmSvc, nil, importedSharedPVCNSCacheList("shared-cache", "hf://org/model"))
 
 	assert.Equal(t, "shared-cache", llmSvc.Labels[constants.LocalModelLabel])
 	assert.Equal(t, "default", llmSvc.Labels[constants.LocalModelNamespaceLabel])
 	assert.Equal(t, "shared-pvc", llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey])
 	assert.Equal(t, "hf://org/model", llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey])
+}
+
+// A recreated claim holds no data: the cache clears its import record when the fresh import
+// starts, and a bound base model updated during that import falls back to its source URI
+// rather than staying pointed at the empty claim.
+func TestSetLocalModelLabel_SharedPVCNotReadyReleasesBoundBaseModelWithoutRecord(t *testing.T) {
+	llmSvc := newLLMSvc("hf://org/model")
+	llmSvc.Labels = map[string]string{
+		constants.LocalModelLabel:          "shared-cache",
+		constants.LocalModelNamespaceLabel: "default",
+	}
+	llmSvc.Annotations = map[string]string{
+		constants.LocalModelPVCNameAnnotationKey:   "shared-pvc",
+		constants.LocalModelSourceUriAnnotationKey: "hf://org/model",
+	}
+
+	SetLocalModelLabel(llmSvc, nil, sharedPVCNSCacheList("shared-cache", "hf://org/model", false))
+
+	assert.NotContains(t, llmSvc.Labels, constants.LocalModelLabel)
+	assert.NotContains(t, llmSvc.Labels, constants.LocalModelNamespaceLabel)
+	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
+	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
 }
 
 func TestSetLocalModelLabel_SharedPVCNotReadySkipsBaseModelBoundElsewhere(t *testing.T) {
@@ -537,11 +567,22 @@ func TestSetLocalModelLabel_SharedPVCNotReadyKeepsBoundLoRAAdapter(t *testing.T)
 		constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"shared-adapter-cache","namespace":"default"}}`,
 	}
 
-	SetLocalModelLabel(llmSvc, nil, sharedPVCNSCacheList("shared-adapter-cache", "hf://org/adapter", false))
+	SetLocalModelLabel(llmSvc, nil, importedSharedPVCNSCacheList("shared-adapter-cache", "hf://org/adapter"))
 
 	entries := parseLoRAAnnotation(t, llmSvc)
 	assert.Equal(t, "shared-adapter-cache", entries["my-adapter"].Cache)
 	assert.Equal(t, "default", entries["my-adapter"].Namespace)
+}
+
+func TestSetLocalModelLabel_SharedPVCNotReadyReleasesBoundLoRAAdapterWithoutRecord(t *testing.T) {
+	llmSvc := newLLMSvcWithLoRA("s3://mybucket/remote-base", newLoRAAdapter("hf://org/adapter"))
+	llmSvc.Annotations = map[string]string{
+		constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"shared-adapter-cache","namespace":"default"}}`,
+	}
+
+	SetLocalModelLabel(llmSvc, nil, sharedPVCNSCacheList("shared-adapter-cache", "hf://org/adapter", false))
+
+	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelLoRAAnnotationKey)
 }
 
 func TestSetLocalModelLabel_SharedPVCNotReadySkipsUnboundLoRAAdapter(t *testing.T) {

@@ -958,6 +958,16 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 				}
 				return replacement.UID != originalJob.UID && replacement.Annotations["serving.kserve.io/import-pvc-uid"] == string(recreated.UID)
 			}, timeout, interval).Should(BeTrue(), "a recreated claim must be imported again even with consumers")
+			// The record is what holds a bound consumer's binding through NotReady. Clearing it
+			// as soon as the fresh import starts is what releases the consumer, on its next
+			// admission, from a claim that holds no data yet.
+			Eventually(func() bool {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
+					return false
+				}
+				return current.Status.SharedPVCImport == nil && !current.IsReady()
+			}, timeout, interval).Should(BeTrue(), "the stale record for the old claim must be cleared while the fresh import runs")
 		})
 
 		It("Should delete the cache cleanly and preserve the referenced PVC", func() {

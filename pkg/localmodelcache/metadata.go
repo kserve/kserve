@@ -52,11 +52,13 @@ func MatchCacheForURI(
 // cache for this storageURI. bound names that cache (Cache and Namespace; nil when unbound).
 //
 // A shared-PVC cache is selected only once Ready=True, so a new consumer is never routed to a
-// claim that may hold no data yet. The bound cache is still returned while NotReady: every
-// NotReady reason after a successful import (re-import blocked, spec-generation bump) leaves
-// the data on the claim, and dropping the binding on an unrelated update would roll the
+// claim that may hold no data yet. The bound cache is still returned while NotReady as long
+// as its import record attests that the data is on the current claim (re-import blocked,
+// spec-generation bump): dropping the binding on an unrelated update there would roll the
 // consumer's pods back to downloading from source and remove it from the cache's re-import
-// gate while those pods still read the destination.
+// gate while those pods still read the destination. Once the record is gone the claim holds
+// no data the consumer can use (it was recreated and a fresh import is underway), so the
+// binding is released like any other NotReady match.
 func MatchCacheForURIBound(
 	storageURI string,
 	nodeGroup string,
@@ -78,7 +80,7 @@ func MatchCacheForURIBound(
 			// Shared-PVC mode: the serving PVC is the referenced claim itself (node groups
 			// do not apply).
 			if nsModel.Spec.SharedPVCMode() {
-				if !nsModel.IsReady() && !boundTo(bound, nsModel) {
+				if !nsModel.IsReady() && !HoldsBinding(bound, nsModel) {
 					continue
 				}
 				return &CacheEntry{
@@ -120,6 +122,16 @@ func MatchCacheForURIBound(
 		}
 	}
 	return nil
+}
+
+// HoldsBinding reports whether a consumer bound to this NotReady shared-PVC cache keeps its
+// binding. It does so only while the cache's import record is present: the record is written
+// when an import completes onto the current claim and cleared the moment a fresh import
+// starts, which after a successful import happens only when the claim was recreated under the
+// same name. A consumer updated during that import is released to its source URI instead of
+// being kept on a claim that holds no data yet.
+func HoldsBinding(bound *CacheEntry, nsModel *v1alpha1.LocalModelNamespaceCache) bool {
+	return boundTo(bound, nsModel) && nsModel.Status.SharedPVCImport != nil
 }
 
 // boundTo reports whether bound names this namespace-scoped cache.

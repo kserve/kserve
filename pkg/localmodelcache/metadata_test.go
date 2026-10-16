@@ -111,13 +111,21 @@ func TestMatchCacheForURI_SharedPVCNotReadySkipped(t *testing.T) {
 	assert.Nil(t, match)
 }
 
+// importedSharedNSCache is a shared-PVC cache that imported successfully and then dropped to
+// NotReady (re-import blocked, spec-generation bump): the import record still names the claim.
+func importedSharedNSCache() v1alpha1.LocalModelNamespaceCache {
+	c := sharedNSCache(false)
+	c.Status.SharedPVCImport = &v1alpha1.SharedPVCImportStatus{PVCUID: "claim-uid"}
+	return c
+}
+
 // A consumer already bound to a shared-PVC cache keeps its binding when the cache drops to
 // NotReady after a successful import (re-import blocked, spec-generation bump): the data is
 // still on the claim, and stripping the binding would roll pods back to downloading from
 // source and drop the consumer out of the cache's re-import gate.
 func TestMatchCacheForURI_SharedPVCNotReadyKeepsBoundConsumer(t *testing.T) {
 	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
-		Items: []v1alpha1.LocalModelNamespaceCache{sharedNSCache(false)},
+		Items: []v1alpha1.LocalModelNamespaceCache{importedSharedNSCache()},
 	}
 	match := MatchCacheForURIBound("hf://org/model", "", false, nil, nsModels,
 		&CacheEntry{Cache: "ns-cache", Namespace: "default"})
@@ -127,9 +135,20 @@ func TestMatchCacheForURI_SharedPVCNotReadyKeepsBoundConsumer(t *testing.T) {
 	assert.Equal(t, "shared-pvc", match.PVCName)
 }
 
-func TestMatchCacheForURI_SharedPVCNotReadySkipsConsumerBoundElsewhere(t *testing.T) {
+// The binding is held only by the import record. Once the claim is recreated under the same
+// name, a fresh import starts and clears the record; the claim holds no data yet, so a bound
+// consumer updated during that import is released to its source URI like any unbound one.
+func TestMatchCacheForURI_SharedPVCNotReadyReleasesBoundConsumerWithoutRecord(t *testing.T) {
 	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
 		Items: []v1alpha1.LocalModelNamespaceCache{sharedNSCache(false)},
+	}
+	assert.Nil(t, MatchCacheForURIBound("hf://org/model", "", false, nil, nsModels,
+		&CacheEntry{Cache: "ns-cache", Namespace: "default"}))
+}
+
+func TestMatchCacheForURI_SharedPVCNotReadySkipsConsumerBoundElsewhere(t *testing.T) {
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{importedSharedNSCache()},
 	}
 	for name, bound := range map[string]*CacheEntry{
 		"other cache":                    {Cache: "other-cache", Namespace: "default"},
