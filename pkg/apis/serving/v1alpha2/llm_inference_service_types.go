@@ -246,6 +246,7 @@ type KVCacheOffloadingSpec struct {
 	// through tiers in the order listed. Currently only fileSystem tiers are
 	// supported; the array shape is designed to accommodate object store tiers
 	// in a future follow-up without an API break.
+	// +kubebuilder:validation:MaxItems=8
 	// +optional
 	Secondary []SecondaryTierSpec `json:"secondary,omitempty"`
 }
@@ -284,7 +285,7 @@ type EmptyDirTierSpec struct {
 
 // PVCTierSpec configures a PVC-backed KV cache tier.
 // Exactly one of Spec or Ref must be set.
-// +kubebuilder:validation:XValidation:rule="!(has(self.evictor) && self.evictor && has(self.spec) && self.spec.accessModes.exists(mode, mode == 'ReadOnlyMany'))",message="evictor requires a writable PVC; ReadOnlyMany cannot delete cache files"
+// +kubebuilder:validation:XValidation:rule="!(has(self.evictor) && self.evictor && has(self.spec) && 'ReadOnlyMany' in self.spec.accessModes)",message="evictor requires a writable PVC; ReadOnlyMany cannot delete cache files"
 type PVCTierSpec struct {
 	// Evictor enables the PVC evictor for this tier. For Spec, the evictor runs
 	// as a sidecar in the vLLM pod. For Ref, the controller creates one evictor

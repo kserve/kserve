@@ -51905,9 +51905,10 @@ spec:
                               - message: evictor requires a writable PVC; ReadOnlyMany
                                   cannot delete cache files
                                 rule: '!(has(self.evictor) && self.evictor && has(self.spec)
-                                  && self.spec.accessModes.exists(mode, mode == ''ReadOnlyMany''))'
+                                  && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
+                    maxItems: 8
                     type: array
                 required:
                 - cpu
@@ -52195,10 +52196,10 @@ spec:
                                   - message: evictor requires a writable PVC; ReadOnlyMany
                                       cannot delete cache files
                                     rule: '!(has(self.evictor) && self.evictor &&
-                                      has(self.spec) && self.spec.accessModes.exists(mode,
-                                      mode == ''ReadOnlyMany''))'
+                                      has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                               type: object
                           type: object
+                        maxItems: 8
                         type: array
                     required:
                     - cpu
@@ -77841,9 +77842,10 @@ spec:
                               - message: evictor requires a writable PVC; ReadOnlyMany
                                   cannot delete cache files
                                 rule: '!(has(self.evictor) && self.evictor && has(self.spec)
-                                  && self.spec.accessModes.exists(mode, mode == ''ReadOnlyMany''))'
+                                  && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
+                    maxItems: 8
                     type: array
                 required:
                 - cpu
@@ -78134,10 +78136,10 @@ spec:
                                   - message: evictor requires a writable PVC; ReadOnlyMany
                                       cannot delete cache files
                                     rule: '!(has(self.evictor) && self.evictor &&
-                                      has(self.spec) && self.spec.accessModes.exists(mode,
-                                      mode == ''ReadOnlyMany''))'
+                                      has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                               type: object
                           type: object
+                        maxItems: 8
                         type: array
                     required:
                     - cpu
@@ -103864,9 +103866,10 @@ spec:
                               - message: evictor requires a writable PVC; ReadOnlyMany
                                   cannot delete cache files
                                 rule: '!(has(self.evictor) && self.evictor && has(self.spec)
-                                  && self.spec.accessModes.exists(mode, mode == ''ReadOnlyMany''))'
+                                  && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
+                    maxItems: 8
                     type: array
                 required:
                 - cpu
@@ -104154,10 +104157,10 @@ spec:
                                   - message: evictor requires a writable PVC; ReadOnlyMany
                                       cannot delete cache files
                                     rule: '!(has(self.evictor) && self.evictor &&
-                                      has(self.spec) && self.spec.accessModes.exists(mode,
-                                      mode == ''ReadOnlyMany''))'
+                                      has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                               type: object
                           type: object
+                        maxItems: 8
                         type: array
                     required:
                     - cpu
@@ -130684,9 +130687,10 @@ spec:
                               - message: evictor requires a writable PVC; ReadOnlyMany
                                   cannot delete cache files
                                 rule: '!(has(self.evictor) && self.evictor && has(self.spec)
-                                  && self.spec.accessModes.exists(mode, mode == ''ReadOnlyMany''))'
+                                  && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
+                    maxItems: 8
                     type: array
                 required:
                 - cpu
@@ -130977,10 +130981,10 @@ spec:
                                   - message: evictor requires a writable PVC; ReadOnlyMany
                                       cannot delete cache files
                                     rule: '!(has(self.evictor) && self.evictor &&
-                                      has(self.spec) && self.spec.accessModes.exists(mode,
-                                      mode == ''ReadOnlyMany''))'
+                                      has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                               type: object
                           type: object
+                        maxItems: 8
                         type: array
                     required:
                     - cpu

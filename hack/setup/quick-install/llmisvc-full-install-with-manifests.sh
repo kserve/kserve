@@ -8915,6 +8915,87 @@ spec:
                               type: object
                             pvc:
                               properties:
+                                evictor:
+                                  type: boolean
+                                evictorSecurityContext:
+                                  properties:
+                                    appArmorProfile:
+                                      properties:
+                                        localhostProfile:
+                                          type: string
+                                        type:
+                                          type: string
+                                      required:
+                                      - type
+                                      type: object
+                                    fsGroup:
+                                      format: int64
+                                      type: integer
+                                    fsGroupChangePolicy:
+                                      type: string
+                                    runAsGroup:
+                                      format: int64
+                                      type: integer
+                                    runAsNonRoot:
+                                      type: boolean
+                                    runAsUser:
+                                      format: int64
+                                      type: integer
+                                    seLinuxChangePolicy:
+                                      type: string
+                                    seLinuxOptions:
+                                      properties:
+                                        level:
+                                          type: string
+                                        role:
+                                          type: string
+                                        type:
+                                          type: string
+                                        user:
+                                          type: string
+                                      type: object
+                                    seccompProfile:
+                                      properties:
+                                        localhostProfile:
+                                          type: string
+                                        type:
+                                          type: string
+                                      required:
+                                      - type
+                                      type: object
+                                    supplementalGroups:
+                                      items:
+                                        format: int64
+                                        type: integer
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    supplementalGroupsPolicy:
+                                      type: string
+                                    sysctls:
+                                      items:
+                                        properties:
+                                          name:
+                                            type: string
+                                          value:
+                                            type: string
+                                        required:
+                                        - name
+                                        - value
+                                        type: object
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    windowsOptions:
+                                      properties:
+                                        gmsaCredentialSpec:
+                                          type: string
+                                        gmsaCredentialSpecName:
+                                          type: string
+                                        hostProcess:
+                                          type: boolean
+                                        runAsUserName:
+                                          type: string
+                                      type: object
+                                  type: object
                                 ref:
                                   properties:
                                     name:
@@ -9013,8 +9094,14 @@ spec:
                                       type: string
                                   type: object
                               type: object
+                              x-kubernetes-validations:
+                              - message: evictor requires a writable PVC; ReadOnlyMany
+                                  cannot delete cache files
+                                rule: '!(has(self.evictor) && self.evictor && has(self.spec)
+                                  && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
+                    maxItems: 8
                     type: array
                 required:
                 - cpu
@@ -9119,6 +9206,87 @@ spec:
                                   type: object
                                 pvc:
                                   properties:
+                                    evictor:
+                                      type: boolean
+                                    evictorSecurityContext:
+                                      properties:
+                                        appArmorProfile:
+                                          properties:
+                                            localhostProfile:
+                                              type: string
+                                            type:
+                                              type: string
+                                          required:
+                                          - type
+                                          type: object
+                                        fsGroup:
+                                          format: int64
+                                          type: integer
+                                        fsGroupChangePolicy:
+                                          type: string
+                                        runAsGroup:
+                                          format: int64
+                                          type: integer
+                                        runAsNonRoot:
+                                          type: boolean
+                                        runAsUser:
+                                          format: int64
+                                          type: integer
+                                        seLinuxChangePolicy:
+                                          type: string
+                                        seLinuxOptions:
+                                          properties:
+                                            level:
+                                              type: string
+                                            role:
+                                              type: string
+                                            type:
+                                              type: string
+                                            user:
+                                              type: string
+                                          type: object
+                                        seccompProfile:
+                                          properties:
+                                            localhostProfile:
+                                              type: string
+                                            type:
+                                              type: string
+                                          required:
+                                          - type
+                                          type: object
+                                        supplementalGroups:
+                                          items:
+                                            format: int64
+                                            type: integer
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        supplementalGroupsPolicy:
+                                          type: string
+                                        sysctls:
+                                          items:
+                                            properties:
+                                              name:
+                                                type: string
+                                              value:
+                                                type: string
+                                            required:
+                                            - name
+                                            - value
+                                            type: object
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        windowsOptions:
+                                          properties:
+                                            gmsaCredentialSpec:
+                                              type: string
+                                            gmsaCredentialSpecName:
+                                              type: string
+                                            hostProcess:
+                                              type: boolean
+                                            runAsUserName:
+                                              type: string
+                                          type: object
+                                      type: object
                                     ref:
                                       properties:
                                         name:
@@ -9217,8 +9385,14 @@ spec:
                                           type: string
                                       type: object
                                   type: object
+                                  x-kubernetes-validations:
+                                  - message: evictor requires a writable PVC; ReadOnlyMany
+                                      cannot delete cache files
+                                    rule: '!(has(self.evictor) && self.evictor &&
+                                      has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                               type: object
                           type: object
+                        maxItems: 8
                         type: array
                     required:
                     - cpu
@@ -34678,6 +34852,87 @@ spec:
                               type: object
                             pvc:
                               properties:
+                                evictor:
+                                  type: boolean
+                                evictorSecurityContext:
+                                  properties:
+                                    appArmorProfile:
+                                      properties:
+                                        localhostProfile:
+                                          type: string
+                                        type:
+                                          type: string
+                                      required:
+                                      - type
+                                      type: object
+                                    fsGroup:
+                                      format: int64
+                                      type: integer
+                                    fsGroupChangePolicy:
+                                      type: string
+                                    runAsGroup:
+                                      format: int64
+                                      type: integer
+                                    runAsNonRoot:
+                                      type: boolean
+                                    runAsUser:
+                                      format: int64
+                                      type: integer
+                                    seLinuxChangePolicy:
+                                      type: string
+                                    seLinuxOptions:
+                                      properties:
+                                        level:
+                                          type: string
+                                        role:
+                                          type: string
+                                        type:
+                                          type: string
+                                        user:
+                                          type: string
+                                      type: object
+                                    seccompProfile:
+                                      properties:
+                                        localhostProfile:
+                                          type: string
+                                        type:
+                                          type: string
+                                      required:
+                                      - type
+                                      type: object
+                                    supplementalGroups:
+                                      items:
+                                        format: int64
+                                        type: integer
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    supplementalGroupsPolicy:
+                                      type: string
+                                    sysctls:
+                                      items:
+                                        properties:
+                                          name:
+                                            type: string
+                                          value:
+                                            type: string
+                                        required:
+                                        - name
+                                        - value
+                                        type: object
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    windowsOptions:
+                                      properties:
+                                        gmsaCredentialSpec:
+                                          type: string
+                                        gmsaCredentialSpecName:
+                                          type: string
+                                        hostProcess:
+                                          type: boolean
+                                        runAsUserName:
+                                          type: string
+                                      type: object
+                                  type: object
                                 ref:
                                   properties:
                                     name:
@@ -34776,8 +35031,14 @@ spec:
                                       type: string
                                   type: object
                               type: object
+                              x-kubernetes-validations:
+                              - message: evictor requires a writable PVC; ReadOnlyMany
+                                  cannot delete cache files
+                                rule: '!(has(self.evictor) && self.evictor && has(self.spec)
+                                  && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
+                    maxItems: 8
                     type: array
                 required:
                 - cpu
@@ -34885,6 +35146,87 @@ spec:
                                   type: object
                                 pvc:
                                   properties:
+                                    evictor:
+                                      type: boolean
+                                    evictorSecurityContext:
+                                      properties:
+                                        appArmorProfile:
+                                          properties:
+                                            localhostProfile:
+                                              type: string
+                                            type:
+                                              type: string
+                                          required:
+                                          - type
+                                          type: object
+                                        fsGroup:
+                                          format: int64
+                                          type: integer
+                                        fsGroupChangePolicy:
+                                          type: string
+                                        runAsGroup:
+                                          format: int64
+                                          type: integer
+                                        runAsNonRoot:
+                                          type: boolean
+                                        runAsUser:
+                                          format: int64
+                                          type: integer
+                                        seLinuxChangePolicy:
+                                          type: string
+                                        seLinuxOptions:
+                                          properties:
+                                            level:
+                                              type: string
+                                            role:
+                                              type: string
+                                            type:
+                                              type: string
+                                            user:
+                                              type: string
+                                          type: object
+                                        seccompProfile:
+                                          properties:
+                                            localhostProfile:
+                                              type: string
+                                            type:
+                                              type: string
+                                          required:
+                                          - type
+                                          type: object
+                                        supplementalGroups:
+                                          items:
+                                            format: int64
+                                            type: integer
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        supplementalGroupsPolicy:
+                                          type: string
+                                        sysctls:
+                                          items:
+                                            properties:
+                                              name:
+                                                type: string
+                                              value:
+                                                type: string
+                                            required:
+                                            - name
+                                            - value
+                                            type: object
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        windowsOptions:
+                                          properties:
+                                            gmsaCredentialSpec:
+                                              type: string
+                                            gmsaCredentialSpecName:
+                                              type: string
+                                            hostProcess:
+                                              type: boolean
+                                            runAsUserName:
+                                              type: string
+                                          type: object
+                                      type: object
                                     ref:
                                       properties:
                                         name:
@@ -34983,8 +35325,14 @@ spec:
                                           type: string
                                       type: object
                                   type: object
+                                  x-kubernetes-validations:
+                                  - message: evictor requires a writable PVC; ReadOnlyMany
+                                      cannot delete cache files
+                                    rule: '!(has(self.evictor) && self.evictor &&
+                                      has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                               type: object
                           type: object
+                        maxItems: 8
                         type: array
                     required:
                     - cpu
@@ -60528,6 +60876,87 @@ spec:
                               type: object
                             pvc:
                               properties:
+                                evictor:
+                                  type: boolean
+                                evictorSecurityContext:
+                                  properties:
+                                    appArmorProfile:
+                                      properties:
+                                        localhostProfile:
+                                          type: string
+                                        type:
+                                          type: string
+                                      required:
+                                      - type
+                                      type: object
+                                    fsGroup:
+                                      format: int64
+                                      type: integer
+                                    fsGroupChangePolicy:
+                                      type: string
+                                    runAsGroup:
+                                      format: int64
+                                      type: integer
+                                    runAsNonRoot:
+                                      type: boolean
+                                    runAsUser:
+                                      format: int64
+                                      type: integer
+                                    seLinuxChangePolicy:
+                                      type: string
+                                    seLinuxOptions:
+                                      properties:
+                                        level:
+                                          type: string
+                                        role:
+                                          type: string
+                                        type:
+                                          type: string
+                                        user:
+                                          type: string
+                                      type: object
+                                    seccompProfile:
+                                      properties:
+                                        localhostProfile:
+                                          type: string
+                                        type:
+                                          type: string
+                                      required:
+                                      - type
+                                      type: object
+                                    supplementalGroups:
+                                      items:
+                                        format: int64
+                                        type: integer
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    supplementalGroupsPolicy:
+                                      type: string
+                                    sysctls:
+                                      items:
+                                        properties:
+                                          name:
+                                            type: string
+                                          value:
+                                            type: string
+                                        required:
+                                        - name
+                                        - value
+                                        type: object
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    windowsOptions:
+                                      properties:
+                                        gmsaCredentialSpec:
+                                          type: string
+                                        gmsaCredentialSpecName:
+                                          type: string
+                                        hostProcess:
+                                          type: boolean
+                                        runAsUserName:
+                                          type: string
+                                      type: object
+                                  type: object
                                 ref:
                                   properties:
                                     name:
@@ -60626,8 +61055,14 @@ spec:
                                       type: string
                                   type: object
                               type: object
+                              x-kubernetes-validations:
+                              - message: evictor requires a writable PVC; ReadOnlyMany
+                                  cannot delete cache files
+                                rule: '!(has(self.evictor) && self.evictor && has(self.spec)
+                                  && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
+                    maxItems: 8
                     type: array
                 required:
                 - cpu
@@ -60732,6 +61167,87 @@ spec:
                                   type: object
                                 pvc:
                                   properties:
+                                    evictor:
+                                      type: boolean
+                                    evictorSecurityContext:
+                                      properties:
+                                        appArmorProfile:
+                                          properties:
+                                            localhostProfile:
+                                              type: string
+                                            type:
+                                              type: string
+                                          required:
+                                          - type
+                                          type: object
+                                        fsGroup:
+                                          format: int64
+                                          type: integer
+                                        fsGroupChangePolicy:
+                                          type: string
+                                        runAsGroup:
+                                          format: int64
+                                          type: integer
+                                        runAsNonRoot:
+                                          type: boolean
+                                        runAsUser:
+                                          format: int64
+                                          type: integer
+                                        seLinuxChangePolicy:
+                                          type: string
+                                        seLinuxOptions:
+                                          properties:
+                                            level:
+                                              type: string
+                                            role:
+                                              type: string
+                                            type:
+                                              type: string
+                                            user:
+                                              type: string
+                                          type: object
+                                        seccompProfile:
+                                          properties:
+                                            localhostProfile:
+                                              type: string
+                                            type:
+                                              type: string
+                                          required:
+                                          - type
+                                          type: object
+                                        supplementalGroups:
+                                          items:
+                                            format: int64
+                                            type: integer
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        supplementalGroupsPolicy:
+                                          type: string
+                                        sysctls:
+                                          items:
+                                            properties:
+                                              name:
+                                                type: string
+                                              value:
+                                                type: string
+                                            required:
+                                            - name
+                                            - value
+                                            type: object
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        windowsOptions:
+                                          properties:
+                                            gmsaCredentialSpec:
+                                              type: string
+                                            gmsaCredentialSpecName:
+                                              type: string
+                                            hostProcess:
+                                              type: boolean
+                                            runAsUserName:
+                                              type: string
+                                          type: object
+                                      type: object
                                     ref:
                                       properties:
                                         name:
@@ -60830,8 +61346,14 @@ spec:
                                           type: string
                                       type: object
                                   type: object
+                                  x-kubernetes-validations:
+                                  - message: evictor requires a writable PVC; ReadOnlyMany
+                                      cannot delete cache files
+                                    rule: '!(has(self.evictor) && self.evictor &&
+                                      has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                               type: object
                           type: object
+                        maxItems: 8
                         type: array
                     required:
                     - cpu
@@ -87175,6 +87697,87 @@ spec:
                               type: object
                             pvc:
                               properties:
+                                evictor:
+                                  type: boolean
+                                evictorSecurityContext:
+                                  properties:
+                                    appArmorProfile:
+                                      properties:
+                                        localhostProfile:
+                                          type: string
+                                        type:
+                                          type: string
+                                      required:
+                                      - type
+                                      type: object
+                                    fsGroup:
+                                      format: int64
+                                      type: integer
+                                    fsGroupChangePolicy:
+                                      type: string
+                                    runAsGroup:
+                                      format: int64
+                                      type: integer
+                                    runAsNonRoot:
+                                      type: boolean
+                                    runAsUser:
+                                      format: int64
+                                      type: integer
+                                    seLinuxChangePolicy:
+                                      type: string
+                                    seLinuxOptions:
+                                      properties:
+                                        level:
+                                          type: string
+                                        role:
+                                          type: string
+                                        type:
+                                          type: string
+                                        user:
+                                          type: string
+                                      type: object
+                                    seccompProfile:
+                                      properties:
+                                        localhostProfile:
+                                          type: string
+                                        type:
+                                          type: string
+                                      required:
+                                      - type
+                                      type: object
+                                    supplementalGroups:
+                                      items:
+                                        format: int64
+                                        type: integer
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    supplementalGroupsPolicy:
+                                      type: string
+                                    sysctls:
+                                      items:
+                                        properties:
+                                          name:
+                                            type: string
+                                          value:
+                                            type: string
+                                        required:
+                                        - name
+                                        - value
+                                        type: object
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    windowsOptions:
+                                      properties:
+                                        gmsaCredentialSpec:
+                                          type: string
+                                        gmsaCredentialSpecName:
+                                          type: string
+                                        hostProcess:
+                                          type: boolean
+                                        runAsUserName:
+                                          type: string
+                                      type: object
+                                  type: object
                                 ref:
                                   properties:
                                     name:
@@ -87273,8 +87876,14 @@ spec:
                                       type: string
                                   type: object
                               type: object
+                              x-kubernetes-validations:
+                              - message: evictor requires a writable PVC; ReadOnlyMany
+                                  cannot delete cache files
+                                rule: '!(has(self.evictor) && self.evictor && has(self.spec)
+                                  && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
+                    maxItems: 8
                     type: array
                 required:
                 - cpu
@@ -87382,6 +87991,87 @@ spec:
                                   type: object
                                 pvc:
                                   properties:
+                                    evictor:
+                                      type: boolean
+                                    evictorSecurityContext:
+                                      properties:
+                                        appArmorProfile:
+                                          properties:
+                                            localhostProfile:
+                                              type: string
+                                            type:
+                                              type: string
+                                          required:
+                                          - type
+                                          type: object
+                                        fsGroup:
+                                          format: int64
+                                          type: integer
+                                        fsGroupChangePolicy:
+                                          type: string
+                                        runAsGroup:
+                                          format: int64
+                                          type: integer
+                                        runAsNonRoot:
+                                          type: boolean
+                                        runAsUser:
+                                          format: int64
+                                          type: integer
+                                        seLinuxChangePolicy:
+                                          type: string
+                                        seLinuxOptions:
+                                          properties:
+                                            level:
+                                              type: string
+                                            role:
+                                              type: string
+                                            type:
+                                              type: string
+                                            user:
+                                              type: string
+                                          type: object
+                                        seccompProfile:
+                                          properties:
+                                            localhostProfile:
+                                              type: string
+                                            type:
+                                              type: string
+                                          required:
+                                          - type
+                                          type: object
+                                        supplementalGroups:
+                                          items:
+                                            format: int64
+                                            type: integer
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        supplementalGroupsPolicy:
+                                          type: string
+                                        sysctls:
+                                          items:
+                                            properties:
+                                              name:
+                                                type: string
+                                              value:
+                                                type: string
+                                            required:
+                                            - name
+                                            - value
+                                            type: object
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        windowsOptions:
+                                          properties:
+                                            gmsaCredentialSpec:
+                                              type: string
+                                            gmsaCredentialSpecName:
+                                              type: string
+                                            hostProcess:
+                                              type: boolean
+                                            runAsUserName:
+                                              type: string
+                                          type: object
+                                      type: object
                                     ref:
                                       properties:
                                         name:
@@ -87480,8 +88170,14 @@ spec:
                                           type: string
                                       type: object
                                   type: object
+                                  x-kubernetes-validations:
+                                  - message: evictor requires a writable PVC; ReadOnlyMany
+                                      cannot delete cache files
+                                    rule: '!(has(self.evictor) && self.evictor &&
+                                      has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                               type: object
                           type: object
+                        maxItems: 8
                         type: array
                     required:
                     - cpu
@@ -114040,6 +114736,12 @@ rules:
   - create
   - patch
   - update
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - get
 - apiGroups:
   - ""
   resources:
