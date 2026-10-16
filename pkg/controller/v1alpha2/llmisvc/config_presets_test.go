@@ -1417,7 +1417,7 @@ func TestVLLMPresetsDeclareModelArgsSlot(t *testing.T) {
 			}
 		}
 	}
-	if engines != 9 {
-		t.Errorf("Found %d vLLM engine containers across presets, want 9; update this count when adding a preset", engines)
+	if engines != 13 {
+		t.Errorf("Found %d vLLM engine containers across presets, want 13; update this count when adding a preset", engines)
 	}
 }
