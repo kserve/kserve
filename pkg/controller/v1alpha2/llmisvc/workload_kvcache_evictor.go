@@ -48,7 +48,7 @@ import (
 )
 
 const (
-	pvcEvictorImage          = "quay.io/wenzhou/llm-d-kv-cache-pvc-evictor:latest" // TODO: replace once we have the new image
+	pvcEvictorImage          = "quay.io/opendatahub/odh-llm-d-kv-pvc-evictor:odh-stable"
 	pvcEvictorCacheDirectory = "kv/model-cache/models"
 	pvcEvictorMountPath      = "/mnt/kv-cache-evictor"
 	pvcEvictorNamePrefix     = "kserve-llm-isvc-kv-pvc-evictor"
