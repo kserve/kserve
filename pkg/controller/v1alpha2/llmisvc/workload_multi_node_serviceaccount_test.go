@@ -33,6 +33,7 @@ import (
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	"github.com/kserve/kserve/pkg/credentials"
 
@@ -873,4 +874,193 @@ func TestExpectedMultiNodePrefillLeaderWorkerTemplate_CascadesWorkerServiceAccou
 		"prefill leader pod must run with the worker ServiceAccount in a worker-only configuration")
 	g.Expect(group.Template.WorkerTemplate.Spec.ServiceAccountName).To(Equal(workerSAName),
 		"prefill worker pod must run with the worker ServiceAccount in a worker-only configuration")
+}
+
+func TestReconcileMultiNodePrefillServiceAccount_RolloutInFlight_KeepsManagedSA(t *testing.T) {
+	g := NewGomegaWithT(t)
+	ctx := t.Context()
+
+	scheme := runtime.NewScheme()
+	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(lwsapi.AddToScheme(scheme)).To(Succeed())
+	g.Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+
+	ns := "test-ns"
+	llmName := "test-llm-prefill-rollout"
+	existingSAName := llmName + "-prefill-sa"
+	managedSAName := llmName + "-kserve-mn-prefill"
+
+	existingSA := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      existingSAName,
+			Namespace: ns,
+		},
+	}
+
+	// The prefill workload is switched to an existing ServiceAccount after
+	// the managed one was in use. The prefill spec keeps its worker so the
+	// reconciler resolves the existing ServiceAccount for the multi-node
+	// prefill workload.
+	llmSvc := LLMInferenceService(
+		llmName,
+		InNamespace[*v1alpha2.LLMInferenceService](ns),
+		WithModelURI("pvc://test-pvc"),
+		WithPrefill(&corev1.PodSpec{
+			ServiceAccountName: existingSAName,
+		}),
+		WithPrefillWorker(SimpleWorkerPodSpec()),
+	)
+
+	// The managed ServiceAccount an earlier reconcile created.
+	managedSA := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      managedSAName,
+			Namespace: ns,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
+		},
+	}
+
+	// The deployed LeaderWorkerSet already runs with the existing
+	// ServiceAccount (none is deployed in this test, so the deployed
+	// workload references none), but a pod of the previous revision of the
+	// in-flight rollout still runs with the managed ServiceAccount: pods
+	// keep the ServiceAccount they were created with until they are
+	// replaced.
+	rolloutPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      llmName + "-prefill-worker-0",
+			Namespace: ns,
+			Labels: map[string]string{
+				constants.KubernetesAppNameLabelKey: llmName,
+			},
+		},
+		Spec: corev1.PodSpec{
+			ServiceAccountName: managedSAName,
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(existingSA, managedSA, llmSvc, rolloutPod).
+		Build()
+
+	reconciler := &llmisvc.LLMISVCReconciler{
+		Client:        fakeClient,
+		EventRecorder: record.NewFakeRecorder(10),
+		Clientset:     k8sfake.NewSimpleClientset(),
+	}
+
+	g.Expect(llmisvc.ReconcileMultiNodePrefillServiceAccountForTest(ctx, reconciler, llmSvc)).To(Succeed())
+
+	gotManaged := &corev1.ServiceAccount{}
+	g.Expect(fakeClient.Get(ctx, types.NamespacedName{
+		Name:      managedSAName,
+		Namespace: ns,
+	}, gotManaged)).To(Succeed(),
+		"managed prefill ServiceAccount must be kept while rollout pods still run with it")
+
+	// Once the rollout finishes and the last pod using the managed
+	// ServiceAccount is gone, the managed ServiceAccount is deleted.
+	g.Expect(fakeClient.Delete(ctx, rolloutPod)).To(Succeed())
+	g.Expect(llmisvc.ReconcileMultiNodePrefillServiceAccountForTest(ctx, reconciler, llmSvc)).To(Succeed())
+
+	err := fakeClient.Get(ctx, types.NamespacedName{
+		Name:      managedSAName,
+		Namespace: ns,
+	}, gotManaged)
+	g.Expect(apierrors.IsNotFound(err)).To(BeTrue(),
+		"managed prefill ServiceAccount must be deleted once no pod runs with it")
+}
+
+func TestReconcileMultiNodePrefillServiceAccount_TerminatedPod_DoesNotBlockDeletion(t *testing.T) {
+	g := NewGomegaWithT(t)
+	ctx := t.Context()
+
+	scheme := runtime.NewScheme()
+	g.Expect(corev1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(lwsapi.AddToScheme(scheme)).To(Succeed())
+	g.Expect(rbacv1.AddToScheme(scheme)).To(Succeed())
+	g.Expect(v1alpha2.AddToScheme(scheme)).To(Succeed())
+
+	ns := "test-ns"
+	llmName := "test-llm-prefill-terminated"
+	existingSAName := llmName + "-prefill-sa"
+	managedSAName := llmName + "-kserve-mn-prefill"
+
+	existingSA := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      existingSAName,
+			Namespace: ns,
+		},
+	}
+
+	// The prefill workload is switched to an existing ServiceAccount after
+	// the managed one was in use. The prefill spec keeps its worker so the
+	// reconciler resolves the existing ServiceAccount for the multi-node
+	// prefill workload.
+	llmSvc := LLMInferenceService(
+		llmName,
+		InNamespace[*v1alpha2.LLMInferenceService](ns),
+		WithModelURI("pvc://test-pvc"),
+		WithPrefill(&corev1.PodSpec{
+			ServiceAccountName: existingSAName,
+		}),
+		WithPrefillWorker(SimpleWorkerPodSpec()),
+	)
+
+	// The managed ServiceAccount an earlier reconcile created.
+	managedSA := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      managedSAName,
+			Namespace: ns,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
+			},
+		},
+	}
+
+	// A terminated pod no longer refreshes its projected tokens, so it does
+	// not keep the managed ServiceAccount in use.
+	terminatedPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      llmName + "-prefill-worker-0",
+			Namespace: ns,
+			Labels: map[string]string{
+				constants.KubernetesAppNameLabelKey: llmName,
+			},
+		},
+		Spec: corev1.PodSpec{
+			ServiceAccountName: managedSAName,
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodSucceeded,
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(existingSA, managedSA, llmSvc, terminatedPod).
+		Build()
+
+	reconciler := &llmisvc.LLMISVCReconciler{
+		Client:        fakeClient,
+		EventRecorder: record.NewFakeRecorder(10),
+		Clientset:     k8sfake.NewSimpleClientset(),
+	}
+
+	g.Expect(llmisvc.ReconcileMultiNodePrefillServiceAccountForTest(ctx, reconciler, llmSvc)).To(Succeed())
+
+	gotManaged := &corev1.ServiceAccount{}
+	err := fakeClient.Get(ctx, types.NamespacedName{
+		Name:      managedSAName,
+		Namespace: ns,
+	}, gotManaged)
+	g.Expect(apierrors.IsNotFound(err)).To(BeTrue(),
+		"managed prefill ServiceAccount must be deleted when only terminated pods ran with it")
 }

@@ -512,16 +512,30 @@ func (r *LLMISVCReconciler) reconcileMultiNodePrefillServiceAccount(ctx context.
 		// The prefill workload runs with an existing ServiceAccount. Delete
 		// the managed ServiceAccount that an earlier reconcile may have
 		// created, so that switching to the existing ServiceAccount does not
-		// leave a stale one behind — but only after the deployed workload no
-		// longer references it: the workload is updated after this step, and
-		// the pods of a slow or failed rollout must not lose the
-		// ServiceAccount they still run with. Delete is a no-op when it does
-		// not exist.
+		// leave a stale one behind — but only after nothing that still runs
+		// references it: the workload is updated after this step, and both
+		// the deployed workload and the pods of a slow or failed rollout must
+		// not lose the ServiceAccount they still run with. Delete is a no-op
+		// when it does not exist.
 		deployed, err := r.deployedPrefillLWS(ctx, llmSvc)
 		if err != nil {
 			return err
 		}
 		if prefillLWSReferencesServiceAccount(deployed, prefillLWSName(llmSvc)) {
+			return nil
+		}
+		// The deployed LeaderWorkerSet can already run with the existing
+		// ServiceAccount while pods of its previous revision still run with
+		// the managed one: a LeaderWorkerSet rollout replaces pods
+		// progressively, and every pod keeps the ServiceAccount it was
+		// created with. Deleting the managed ServiceAccount then breaks the
+		// projected-token refresh of those pods, so keep it until the last
+		// of them is gone.
+		inUse, err := r.managedPrefillServiceAccountInUse(ctx, llmSvc)
+		if err != nil {
+			return err
+		}
+		if inUse {
 			return nil
 		}
 		managedServiceAccount := &corev1.ServiceAccount{
@@ -757,6 +771,38 @@ func prefillLWSReferencesServiceAccount(lws *lwsapi.LeaderWorkerSet, name string
 	}
 	return lws.Spec.LeaderWorkerTemplate.LeaderTemplate != nil &&
 		lws.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec.ServiceAccountName == name
+}
+
+// managedPrefillServiceAccountInUse reports whether any pod of the
+// LLMInferenceService still runs with the managed prefill ServiceAccount.
+// Pods of a LeaderWorkerSet rollout keep the ServiceAccount they were created
+// with until they are replaced, so the deployed LeaderWorkerSet no longer
+// referencing the ServiceAccount does not mean the pods that still run with it
+// are gone. Every pod the controller creates carries the app-name label, and
+// terminated pods no longer refresh their projected tokens, so they do not
+// block deletion.
+func (r *LLMISVCReconciler) managedPrefillServiceAccountInUse(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (bool, error) {
+	pods := &corev1.PodList{}
+	err := r.List(ctx, pods,
+		client.InNamespace(llmSvc.GetNamespace()),
+		client.MatchingLabels{constants.KubernetesAppNameLabelKey: llmSvc.GetName()},
+	)
+	if err != nil {
+		return false, fmt.Errorf("failed to list pods of %s/%s: %w", llmSvc.GetNamespace(), llmSvc.GetName(), err)
+	}
+	managedServiceAccountName := prefillLWSName(llmSvc)
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		if pod.Spec.ServiceAccountName != managedServiceAccountName {
+			continue
+		}
+		switch pod.Status.Phase {
+		case corev1.PodSucceeded, corev1.PodFailed:
+			continue
+		}
+		return true, nil
+	}
+	return false, nil
 }
 
 func (r *LLMISVCReconciler) expectedMultiNodeMainRole(llmSvc *v1alpha2.LLMInferenceService) *rbacv1.Role {
