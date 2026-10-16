@@ -161,11 +161,26 @@ func applyDefaults(
 // SetLocalModelLabel sets local model labels on the LLMInferenceService if a matching cache exists.
 // Namespace-scoped LocalModelNamespaceCache takes precedence over cluster-scoped LocalModelCache.
 // LoRA adapter URIs are matched independently and recorded in the LoRA JSON annotation.
+//
+// Selection is deterministic and binding-aware: a cache the LLMInferenceService is
+// already bound to keeps winning while it still matches, so a transient cache
+// readiness change never reverts the workload to its original source URI. A
+// not-ready shared-PVC cache is still selected for an unbound workload: the
+// binding records the intent to serve from that cache, and workload
+// reconciliation fails closed (waits for Ready) instead of downloading from the
+// original source URI.
 func SetLocalModelLabel(llmSvc *v1alpha2.LLMInferenceService, models *v1alpha1.LocalModelCacheList, nsModels *v1alpha1.LocalModelNamespaceCacheList) {
 	isvcNodeGroup, isvcNodeGroupExists := llmSvc.Annotations[constants.NodeGroupAnnotationKey]
 
 	modelUri := llmSvc.Spec.Model.URI.String()
-	if match := localmodelcache.MatchCacheForURI(modelUri, isvcNodeGroup, isvcNodeGroupExists, models, nsModels); match != nil {
+	baseSelection := v1alpha1.LocalModelCacheSelection{
+		StorageURI:      modelUri,
+		NodeGroup:       isvcNodeGroup,
+		NodeGroupExists: isvcNodeGroupExists,
+		BoundCache:      llmSvc.Labels[constants.LocalModelLabel],
+		BoundNamespace:  llmSvc.Labels[constants.LocalModelNamespaceLabel],
+	}
+	if match := localmodelcache.MatchCacheForURI(baseSelection, models, nsModels); match != nil {
 		applyBaseLocalModelCache(llmSvc, match)
 	} else {
 		clearBaseLocalModelMetadata(llmSvc)
@@ -206,13 +221,30 @@ func setLoRALocalModelMetadata(
 		return
 	}
 
+	// The current LoRA annotation carries each adapter's binding, so adapters stay
+	// bound to their cache across transient readiness changes. A malformed
+	// annotation is recomputed from scratch.
+	boundEntries, err := localmodelcache.ParseLoRACacheAnnotation(llmSvc.Annotations[constants.LocalModelLoRAAnnotationKey])
+	if err != nil {
+		boundEntries = nil
+	}
+
 	entries := make(map[string]localmodelcache.CacheEntry)
 	for _, adapter := range llmSvc.Spec.Model.LoRA.Adapters {
 		if adapter.Name == nil {
 			continue
 		}
 		adapterURI := adapter.URI.String()
-		if match := localmodelcache.MatchCacheForURI(adapterURI, nodeGroup, nodeGroupExists, models, nsModels); match != nil {
+		adapterSelection := v1alpha1.LocalModelCacheSelection{
+			StorageURI:      adapterURI,
+			NodeGroup:       nodeGroup,
+			NodeGroupExists: nodeGroupExists,
+		}
+		if bound, ok := boundEntries[*adapter.Name]; ok {
+			adapterSelection.BoundCache = bound.Cache
+			adapterSelection.BoundNamespace = bound.Namespace
+		}
+		if match := localmodelcache.MatchCacheForURI(adapterSelection, models, nsModels); match != nil {
 			// json:"-" omits sourceUri/PVC from the annotation; reconcile-time Get derives them.
 			entries[*adapter.Name] = *match
 			defaulterLogger.Info("LocalModelCache found for LoRA adapter", "adapter", *adapter.Name,
