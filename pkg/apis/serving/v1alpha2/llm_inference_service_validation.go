@@ -103,6 +103,10 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	warnings = append(warnings, confidentialWarnings...)
 	allErrs = append(allErrs, confidentialErrs...)
 
+	verificationWarnings, verificationErrs := l.validateVerification(llmSvc)
+	warnings = append(warnings, verificationWarnings...)
+	allErrs = append(allErrs, verificationErrs...)
+
 	if len(allErrs) == 0 {
 		logger.V(2).Info("LLMInferenceService v1alpha2 is valid", "llmisvc", llmSvc)
 		return warnings, nil
@@ -800,6 +804,27 @@ func (l *LLMInferenceServiceValidator) validateConfidential(llmSvc *LLMInference
 		llmSvc.Spec.Model.URI.String(),
 		field.NewPath("spec", "model"),
 	)
+}
+
+// validateVerification validates the verification spec on the model.
+func (l *LLMInferenceServiceValidator) validateVerification(llmSvc *LLMInferenceService) (admission.Warnings, field.ErrorList) {
+	verification := llmSvc.Spec.Model.Verification
+	if verification == nil {
+		return nil, nil
+	}
+
+	var allErrs field.ErrorList
+	modelPath := field.NewPath("spec", "model")
+
+	// In PR1, LoRA adapters are not supported with digest verification
+	if llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0 {
+		allErrs = append(allErrs, field.Forbidden(
+			modelPath.Child("verification"),
+			"model digest verification is not supported when LoRA adapters are specified",
+		))
+	}
+
+	return nil, allErrs
 }
 
 func (l *LLMInferenceServiceValidator) validateTrafficFields(

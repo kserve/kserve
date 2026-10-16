@@ -96,6 +96,9 @@ type StorageInitializerParams struct {
 	// models. When nil, the default storage initializer is used.
 	StorageContainerSpec *v1alpha1.StorageContainerSpec
 
+	// Verification contains optional digest verification specification for downloaded model artifacts.
+	Verification *v1beta1.VerificationSpec
+
 	// Indicates whether to use the legacy logic for storage initialization.
 	IsLegacyURI bool
 }
@@ -103,6 +106,7 @@ type StorageInitializerParams struct {
 // GetStorageContainerSpec finds and returns a ClusterStorageContainer specification
 // that supports the given storage URI.
 //
+
 // When storageContainerName is provided (non-nil and non-empty), the function
 // performs a direct lookup by name via GetStorageContainerSpecByName, which
 // applies full eligibility checks (not disabled, correct workload type, URI
@@ -708,6 +712,9 @@ func CommonStorageInitialization(ctx context.Context, params *StorageInitializer
 		// InferenceService env is applied to the serving container. hf:// downloads
 		// run here, so copy auth variables the initializer does not already have.
 		propagateStorageAuthEnvVars(params.StorageURIs, params.PodSpec, initContainer)
+
+		// Apply model digest verification configuration if enabled
+		applyVerificationConfig(initContainer, params.Verification)
 	}
 
 	return nil
@@ -790,6 +797,15 @@ func applyConfidentialConfig(initContainer *corev1.Container, annotations map[st
 	)
 }
 
+// applyVerificationConfig injects environment variables for model digest verification.
+func applyVerificationConfig(initContainer *corev1.Container, verification *v1beta1.VerificationSpec) {
+	if verification == nil {
+		return
+	}
+
+	utils.ApplyVerificationContainerConfig(initContainer, &verification.Digest)
+}
+
 // InjectStorageInitializer injects an init container to provision model data
 // for the serving container in a unified way across storage tech by injecting
 // a provisioning INIT container. This is a workaround because Knative does not
@@ -850,6 +866,14 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 		return err
 	}
 
+	// Extract verification spec from annotation if present
+	var verification *v1beta1.VerificationSpec
+	if digest, ok := pod.Annotations[constants.VerificationDigestInternalAnnotationKey]; ok && digest != "" {
+		verification = &v1beta1.VerificationSpec{
+			Digest: digest,
+		}
+	}
+
 	storageInitializerParams := &StorageInitializerParams{
 		Namespace:            pod.Namespace,
 		StorageURIs:          storageURIs,
@@ -861,6 +885,7 @@ func (mi *StorageInitializerInjector) InjectStorageInitializer(ctx context.Conte
 		IsvcAnnotations:      pod.Annotations,
 		StorageSpec:          &storageSpec,
 		StorageContainerSpec: storageContainerSpec,
+		Verification:         verification,
 		IsLegacyURI:          true,
 	}
 

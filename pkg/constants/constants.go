@@ -193,6 +193,7 @@ var (
 	ConfidentialEnabledAnnotationKey                 = InferenceServiceInternalAnnotationsPrefix + "/confidential-enabled"
 	ConfidentialResourceIdAnnotationKey              = InferenceServiceInternalAnnotationsPrefix + "/confidential-resource-id"
 	LocalModelLoRAAnnotationKey                      = InferenceServiceInternalAnnotationsPrefix + "/localmodel-lora"
+	VerificationDigestInternalAnnotationKey          = InferenceServiceInternalAnnotationsPrefix + "/verification-digest"
 )
 
 // kserve networking constants
@@ -341,6 +342,7 @@ var DefaultGPUResourceTypeList = []string{
 const (
 	ConfidentialEnabledEnvVar    = "CONFIDENTIAL_ENABLED"
 	ConfidentialResourceIdEnvVar = "CONFIDENTIAL_RESOURCE_ID"
+	VerificationDigestEnvVar     = "VERIFICATION_DIGEST"
 )
 
 // InferenceService Environment Variables

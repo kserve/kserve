@@ -2047,6 +2047,16 @@ class Storage(object):
         if not target_dir:
             target_dir = os.path.dirname(file_path)
 
+        expected_digest = os.environ.get("VERIFICATION_DIGEST")
+        if expected_digest:
+            from kserve_storage.verification import verify_digest
+
+            verify_digest(file_path, expected_digest)
+            try:
+                open(os.path.join(target_dir, ".digest_verified"), "a").close()
+            except OSError:
+                pass
+
         try:
             logger.info("Unpacking: %s", file_path)
             if mimetype == "application/x-tar":

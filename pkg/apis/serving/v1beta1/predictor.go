@@ -141,6 +141,11 @@ type PredictorExtensionSpec struct {
 	// from a Key Broker Service (KBS) via TEE attestation.
 	// +optional
 	Confidential *ConfidentialSpec `json:"confidential,omitempty"`
+	// Verification enables integrity verification of downloaded model artifacts.
+	// The storage initializer verifies the downloaded model against the expected
+	// digest before the model server starts.
+	// +optional
+	Verification *VerificationSpec `json:"verification,omitempty"`
 }
 
 type ModelStorageSpec struct {
@@ -162,6 +167,17 @@ type ConfidentialSpec struct {
 	// in the format kbs:///<repo>/<type>/<tag>.
 	// +optional
 	ResourceId *string `json:"resourceId,omitempty"`
+}
+
+// VerificationSpec configures integrity verification for downloaded model artifacts.
+// The storage initializer verifies the downloaded model before it is loaded by
+// the model server.
+type VerificationSpec struct {
+	// Digest is the expected SHA-256 digest of the downloaded model artifact.
+	// Format: sha256:<hex-digest>
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^(sha256:)?[a-fA-F0-9]{64}$`
+	Digest string `json:"digest"`
 }
 
 // GetImplementations returns the implementations for the component
