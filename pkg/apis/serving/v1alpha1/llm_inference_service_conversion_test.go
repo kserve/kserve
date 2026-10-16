@@ -1163,6 +1163,7 @@ func TestLLMInferenceServiceConversion_PreservesKVCacheOffloading(t *testing.T) 
 						{
 							FileSystem: &FileSystemTierSpec{
 								PVC: &PVCTierSpec{
+									Evictor: ptr.To(true),
 									Spec: &corev1.PersistentVolumeClaimSpec{
 										StorageClassName: &storageClass,
 										Resources: corev1.VolumeResourceRequirements{
@@ -1177,6 +1178,7 @@ func TestLLMInferenceServiceConversion_PreservesKVCacheOffloading(t *testing.T) 
 						{
 							FileSystem: &FileSystemTierSpec{
 								PVC: &PVCTierSpec{
+									EvictorSecurityContext: &corev1.PodSecurityContext{FSGroup: ptr.To(int64(1000))},
 									Ref: &PVCRefTierSpec{
 										Name: "my-pvc",
 										Path: "kv-cache/",
@@ -1208,6 +1210,8 @@ func TestLLMInferenceServiceConversion_PreservesKVCacheOffloading(t *testing.T) 
 	// PVC spec tier
 	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[1].FileSystem)
 	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC)
+	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Evictor)
+	assert.True(t, *hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Evictor)
 	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec)
 	assert.Equal(t, storageClass, *hub.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec.StorageClassName)
 
@@ -1217,6 +1221,7 @@ func TestLLMInferenceServiceConversion_PreservesKVCacheOffloading(t *testing.T) 
 	require.NotNil(t, hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref)
 	assert.Equal(t, "my-pvc", hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Name)
 	assert.Equal(t, "kv-cache/", hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Path)
+	assert.Equal(t, int64(1000), *hub.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.EvictorSecurityContext.FSGroup)
 
 	// v1alpha2 -> v1alpha1
 	restored := &LLMInferenceService{}
@@ -1233,6 +1238,8 @@ func TestLLMInferenceServiceConversion_PreservesKVCacheOffloading(t *testing.T) 
 	assert.True(t, restored.Spec.KVCacheOffloading.Secondary[0].FileSystem.EmptyDir.Size.Equal(resource.MustParse("100Gi")))
 
 	// PVC spec round-trip
+	require.NotNil(t, restored.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Evictor)
+	assert.True(t, *restored.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Evictor)
 	require.NotNil(t, restored.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec)
 	assert.Equal(t, storageClass, *restored.Spec.KVCacheOffloading.Secondary[1].FileSystem.PVC.Spec.StorageClassName)
 
@@ -1240,6 +1247,7 @@ func TestLLMInferenceServiceConversion_PreservesKVCacheOffloading(t *testing.T) 
 	require.NotNil(t, restored.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref)
 	assert.Equal(t, "my-pvc", restored.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Name)
 	assert.Equal(t, "kv-cache/", restored.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.Ref.Path)
+	assert.Equal(t, int64(1000), *restored.Spec.KVCacheOffloading.Secondary[2].FileSystem.PVC.EvictorSecurityContext.FSGroup)
 }
 
 func TestLLMInferenceServiceConversion_NilKVCacheOffloadingPreserved(t *testing.T) {
