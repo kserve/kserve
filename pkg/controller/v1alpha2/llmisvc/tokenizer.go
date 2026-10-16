@@ -227,7 +227,56 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Tokenizer.Template.DeepCopy()
 	}
 
-	// Attach model artifacts so the tokenizer has access to tokenizer files
+	// Fetch the current deployment before resolving the ServiceAccount: a
+	// tokenizer that already runs keeps the ServiceAccount it runs with, so
+	// a controller upgrade never rewrites the tokenizer identity and never
+	// rolls the deployment. The main-workload fallback below applies at
+	// creation only.
+	curr := &appsv1.Deployment{}
+	currFound := false
+	if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return d, fmt.Errorf("failed to get current tokenizer deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+		}
+	} else {
+		currFound = true
+	}
+
+	// The tokenizer downloads model files, so a newly created tokenizer runs
+	// with the same ServiceAccount as the main workload unless it sets its
+	// own. Resolution: the tokenizer template, then the deployed
+	// ServiceAccount, then — at creation only — the main template and the
+	// main worker.
+	if d.Spec.Template.Spec.ServiceAccountName == "" && currFound {
+		d.Spec.Template.Spec.ServiceAccountName = curr.Spec.Template.Spec.ServiceAccountName
+	} else if d.Spec.Template.Spec.ServiceAccountName == "" {
+		tokenizerServiceAccountName := ""
+		if llmSvc.Spec.Template != nil && llmSvc.Spec.Template.ServiceAccountName != "" {
+			tokenizerServiceAccountName = llmSvc.Spec.Template.ServiceAccountName
+		} else if llmSvc.Spec.Worker != nil && llmSvc.Spec.Worker.ServiceAccountName != "" {
+			tokenizerServiceAccountName = llmSvc.Spec.Worker.ServiceAccountName
+		}
+		if tokenizerServiceAccountName != "" {
+			// Fail closed at creation: a ServiceAccount that does not exist
+			// would leave the tokenizer downloading without the identity
+			// the spec asks for.
+			cascadeServiceAccount := &corev1.ServiceAccount{}
+			if err := r.Get(ctx, types.NamespacedName{
+				Name:      tokenizerServiceAccountName,
+				Namespace: llmSvc.Namespace,
+			}, cascadeServiceAccount); err != nil {
+				return d, fmt.Errorf("failed to fetch tokenizer service account %s/%s: %w",
+					llmSvc.Namespace, tokenizerServiceAccountName, err)
+			}
+			d.Spec.Template.Spec.ServiceAccountName = tokenizerServiceAccountName
+		}
+	}
+
+	// Static storage credentials keep coming from the scheduler (EPP)
+	// ServiceAccount, exactly as in releases before this change, so an
+	// existing tokenizer keeps its credential environment on upgrade. IRSA
+	// needs no credential lookup here: it follows the ServiceAccount the
+	// pod runs with.
 	var existingServiceAccount *corev1.ServiceAccount
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil &&
 		llmSvc.Spec.Router.Scheduler.Template != nil && llmSvc.Spec.Router.Scheduler.Template.ServiceAccountName != "" {
@@ -243,11 +292,6 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 			}
 			existingServiceAccount = nil
 		}
-	}
-
-	curr := &appsv1.Deployment{}
-	if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
-		return d, fmt.Errorf("failed to get current tokenizer deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
 	}
 
 	config, err := r.loadConfig(ctx)
