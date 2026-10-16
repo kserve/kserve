@@ -523,7 +523,7 @@ func collectPVCEvictorTargets(llmSvc *v1alpha2.LLMInferenceService) []pvcEvictor
 			targets = append(targets, pvcEvictorTarget{
 				claimName:       ref.Name,
 				subPath:         subPath,
-				securityContext: tier.FileSystem.PVC.EvictorSecurityContext.DeepCopy(),
+				securityContext: ref.EvictorSecurityContext.DeepCopy(),
 			})
 		}
 	}

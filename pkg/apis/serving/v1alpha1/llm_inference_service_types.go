@@ -265,13 +265,6 @@ type PVCTierSpec struct {
 	// +optional
 	Evictor *bool `json:"evictor,omitempty"`
 
-	// EvictorSecurityContext sets the PodSecurityContext for the dedicated
-	// evictor Deployment created for a PVC ref. Set the UID, GID, and fsGroup
-	// required by the PVC's storage permissions. It is ignored for pvc.spec,
-	// where the evictor runs in the vLLM pod and uses that pod's context.
-	// +optional
-	EvictorSecurityContext *corev1.PodSecurityContext `json:"evictorSecurityContext,omitempty"`
-
 	// Spec creates one ephemeral PVC per pod automatically. The PVC is owned by the pod
 	// and deleted when the pod is deleted — it does not survive pod restarts.
 	// +optional
@@ -293,6 +286,12 @@ type PVCRefTierSpec struct {
 	// Path is a subdirectory within the PVC used as VolumeMount.subPath.
 	// +optional
 	Path string `json:"path,omitempty"`
+
+	// EvictorSecurityContext sets the PodSecurityContext for the dedicated
+	// evictor Deployment created for this PVC ref. Set the UID, GID, and fsGroup
+	// required by the PVC's storage permissions. It is used when pvc.evictor is true.
+	// +optional
+	EvictorSecurityContext *corev1.PodSecurityContext `json:"evictorSecurityContext,omitempty"`
 }
 
 // RolloutStrategy configures the rolling update behavior for a workload.

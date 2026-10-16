@@ -1009,6 +1009,47 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 		assert.Contains(t, errs[0].Field, "accessModes")
 	})
 
+	t.Run("pvc.ref evictor security context is accepted when evictor is enabled", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+			CPU: resource.MustParse("10Gi"),
+			Secondary: []SecondaryTierSpec{{FileSystem: &FileSystemTierSpec{
+				PVC: &PVCTierSpec{
+					Evictor: ptr.To(true),
+					Ref: &PVCRefTierSpec{
+						Name:                   "my-pvc",
+						EvictorSecurityContext: &corev1.PodSecurityContext{FSGroup: ptr.To(int64(1000))},
+					},
+				},
+			}}},
+		}))
+		require.Empty(t, errs)
+	})
+
+	for _, tc := range []struct {
+		name    string
+		evictor *bool
+	}{
+		{name: "false", evictor: ptr.To(false)},
+		{name: "omitted", evictor: nil},
+	} {
+		t.Run("pvc.ref evictor security context rejects evictor "+tc.name, func(t *testing.T) {
+			errs := validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{
+				CPU: resource.MustParse("10Gi"),
+				Secondary: []SecondaryTierSpec{{FileSystem: &FileSystemTierSpec{
+					PVC: &PVCTierSpec{
+						Evictor: tc.evictor,
+						Ref: &PVCRefTierSpec{
+							Name:                   "my-pvc",
+							EvictorSecurityContext: &corev1.PodSecurityContext{FSGroup: ptr.To(int64(1000))},
+						},
+					},
+				}}},
+			}))
+			require.Len(t, errs, 1)
+			assert.Contains(t, errs[0].Detail, "requires evictor=true")
+		})
+	}
+
 	t.Run("prefill kvCacheOffloading is also validated", func(t *testing.T) {
 		svc := &LLMInferenceService{
 			Spec: LLMInferenceServiceSpec{

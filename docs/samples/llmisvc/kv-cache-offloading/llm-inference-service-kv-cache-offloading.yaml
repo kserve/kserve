@@ -66,3 +66,7 @@ spec:
       #       ref:
       #         name: my-shared-kv-cache-pvc
       #         path: kv-cache/   # optional subdirectory within the PVC
+      #         evictorSecurityContext:
+      #           runAsUser: 1000
+      #           runAsGroup: 1000
+      #           fsGroup: 1000
