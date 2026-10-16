@@ -12,6 +12,9 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
   annotations:
+    prometheus.io/port: {{ .Values.kserve.llmisvc.controller.service.port | quote }}
+    prometheus.io/scheme: https
+    prometheus.io/scrape: "true"
     {{- with .Values.kserve.llmisvc.controller.serviceAnnotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}

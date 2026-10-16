@@ -48,7 +48,7 @@ spec:
           seccompProfile:
             type: RuntimeDefault
         args:
-        - "--metrics-addr=127.0.0.1:8443"
+        - "--metrics-addr=:8443"
         - "--leader-elect"
         env:
           - name: POD_NAMESPACE
