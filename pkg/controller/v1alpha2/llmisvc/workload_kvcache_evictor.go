@@ -248,6 +248,7 @@ func (r *LLMISVCReconciler) ensurePVCEvictorServiceAccount(ctx context.Context, 
 	err := r.Get(ctx, types.NamespacedName{Name: pvcEvictorServiceAccount, Namespace: namespace}, serviceAccount)
 	if err == nil {
 		updated := serviceAccount.DeepCopy()
+		r.injectImagePullSecretsFromDefaultServiceAccount(ctx, updated)
 		if updated.Labels == nil {
 			updated.Labels = map[string]string{}
 		}
@@ -263,14 +264,16 @@ func (r *LLMISVCReconciler) ensurePVCEvictorServiceAccount(ctx context.Context, 
 	if !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to get PVC evictor ServiceAccount %s/%s: %w", namespace, pvcEvictorServiceAccount, err)
 	}
-	if err := r.Create(ctx, &corev1.ServiceAccount{
+	expected := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcEvictorServiceAccount,
 			Namespace: namespace,
 			Labels:    map[string]string{pvcEvictorLabel: "true"},
 		},
 		AutomountServiceAccountToken: ptr.To(false),
-	}); err != nil && !apierrors.IsAlreadyExists(err) {
+	}
+	r.injectImagePullSecretsFromDefaultServiceAccount(ctx, expected)
+	if err := r.Create(ctx, expected); err != nil && !apierrors.IsAlreadyExists(err) {
 		return fmt.Errorf("failed to create PVC evictor ServiceAccount %s/%s: %w", namespace, pvcEvictorServiceAccount, err)
 	}
 	return nil

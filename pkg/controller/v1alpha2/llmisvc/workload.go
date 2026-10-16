@@ -357,6 +357,17 @@ func (r *LLMISVCReconciler) injectSecretsFromDefaultServiceAccount(ctx context.C
 	target.Secrets = defaultSa.Secrets
 }
 
+// injectImagePullSecretsFromDefaultServiceAccount copies only ImagePullSecrets
+// from the namespace's default ServiceAccount onto the target ServiceAccount.
+func (r *LLMISVCReconciler) injectImagePullSecretsFromDefaultServiceAccount(ctx context.Context, target *corev1.ServiceAccount) {
+	defaultSa := &corev1.ServiceAccount{}
+	if err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: target.Namespace}, defaultSa); err != nil {
+		log.FromContext(ctx).Error(err, "Warning: failed to retrieve 'default' service account, continuing ...")
+		return
+	}
+	target.ImagePullSecrets = append([]corev1.LocalObjectReference(nil), defaultSa.ImagePullSecrets...)
+}
+
 func hasRoutingSidecar(pod corev1.PodSpec) bool {
 	return routingSidecar(&pod) != nil
 }
