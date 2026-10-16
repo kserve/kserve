@@ -17,6 +17,7 @@ limitations under the License.
 package llmisvc
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -29,6 +30,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
@@ -218,6 +220,42 @@ func TestReconcileExistingPVCEvictorDeploymentRepairsDrift(t *testing.T) {
 	}
 	if got.Labels["example.com/keep"] != "label" || got.Annotations["example.com/keep"] != "annotation" {
 		t.Fatalf("unmanaged metadata was not preserved: labels=%v annotations=%v", got.Labels, got.Annotations)
+	}
+}
+
+func TestReconcileExistingPVCEvictorDeploymentSkipsNoOpUpdate(t *testing.T) {
+	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
+	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{claimName: "shared-pvc", subPath: "kv-cache"})
+	current := expected.DeepCopy()
+	nonDryRunUpdates := 0
+
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(current).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+				updateOptions := &client.UpdateOptions{}
+				for _, opt := range opts {
+					opt.ApplyToUpdate(updateOptions)
+				}
+				if len(updateOptions.DryRun) == 0 {
+					nonDryRunUpdates++
+				}
+				return c.Update(ctx, obj, opts...)
+			},
+		}).
+		Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+
+	if err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), current, expected); err != nil {
+		t.Fatalf("reconcileExistingPVCEvictorDeployment() error = %v", err)
+	}
+	if nonDryRunUpdates != 0 {
+		t.Fatalf("non-dry-run updates = %d, want 0", nonDryRunUpdates)
 	}
 }
 
