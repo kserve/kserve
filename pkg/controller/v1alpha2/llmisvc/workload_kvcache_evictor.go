@@ -51,7 +51,8 @@ const (
 	pvcEvictorImage          = "quay.io/wenzhou/llm-d-kv-cache-pvc-evictor:latest" // TODO: replace once we have the new image
 	pvcEvictorCacheDirectory = "kv/model-cache/models"
 	pvcEvictorMountPath      = "/mnt/kv-cache-evictor"
-	pvcEvictorServiceAccount = "llm-d-kv-cache-pvc-evictor"
+	pvcEvictorNamePrefix     = "kserve-llm-isvc-kv-pvc-evictor"
+	pvcEvictorServiceAccount = pvcEvictorNamePrefix
 	pvcEvictorLabel          = "serving.kserve.io/pvc-evictor"
 	pvcEvictorKeyLabel       = "serving.kserve.io/pvc-evictor-key"
 	pvcEvictorConsumerPrefix = "serving.kserve.io/pvc-evictor-consumer-"
@@ -567,7 +568,7 @@ func pvcEvictorSecurityContextHash(securityContext *corev1.PodSecurityContext) s
 
 func expectedPVCEvictorDeployment(llmSvc *v1alpha2.LLMInferenceService, target pvcEvictorTarget) *appsv1.Deployment {
 	key := pvcEvictorKey(target.claimName, target.subPath)
-	name := kmeta.ChildName("pvc-evictor", "-"+key)
+	name := kmeta.ChildName(pvcEvictorNamePrefix, "-"+key)
 	labels := map[string]string{
 		pvcEvictorLabel:                    "true",
 		pvcEvictorKeyLabel:                 key,
