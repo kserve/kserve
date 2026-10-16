@@ -108,7 +108,7 @@ func TestExpectedPVCEvictorDeploymentForPVCRef(t *testing.T) {
 	}
 	deployment := expectedPVCEvictorDeployment(svc, target)
 	{
-		if got, want := deployment.Name[:len("pvc-evictor-")], "pvc-evictor-"; got != want {
+		if got, want := deployment.Name[:len(pvcEvictorNamePrefix)], pvcEvictorNamePrefix; got != want {
 			t.Errorf("deployment name prefix = %q, want %q", got, want)
 		}
 		if got, want := deployment.Labels[pvcEvictorLabel], "true"; got != want {
@@ -139,7 +139,7 @@ func TestExpectedPVCEvictorDeploymentForPVCRef(t *testing.T) {
 		if got, want := container.Env[0].Value, pvcEvictorMountPath; got != want {
 			t.Errorf("PVC_MOUNT_PATH = %q, want %q", got, want)
 		}
-		if got, want := deployment.Spec.Template.Spec.ServiceAccountName, pvcEvictorServiceAccount; got != want {
+		if got, want := deployment.Spec.Template.Spec.ServiceAccountName, "kserve-llm-isvc-kv-pvc-evictor"; got != want {
 			t.Errorf("service account = %q, want %q", got, want)
 		}
 		if deployment.Spec.Template.Spec.AutomountServiceAccountToken == nil || *deployment.Spec.Template.Spec.AutomountServiceAccountToken {
@@ -265,7 +265,7 @@ func TestReconcilePVCEvictorsDeletesDuplicateDeployments(t *testing.T) {
 	}
 	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{claimName: "shared-pvc", subPath: "kv-cache"})
 	duplicate := expected.DeepCopy()
-	duplicate.Name = "pvc-evictor-duplicate"
+	duplicate.Name = pvcEvictorNamePrefix + "-duplicate"
 
 	scheme := runtime.NewScheme()
 	for _, addToScheme := range []func(*runtime.Scheme) error{
