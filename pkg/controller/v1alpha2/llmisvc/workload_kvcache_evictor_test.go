@@ -37,7 +37,10 @@ import (
 )
 
 func TestAttachPVCEvictor(t *testing.T) {
-	podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: mainContainerName}}}
+	podSpec := &corev1.PodSpec{
+		AutomountServiceAccountToken: ptr.To(true),
+		Containers:                   []corev1.Container{{Name: mainContainerName}},
+	}
 	secondary := []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 		PVC: &v1alpha2.PVCTierSpec{
 			EvictorEnabled: ptr.To(true),
@@ -49,6 +52,9 @@ func TestAttachPVCEvictor(t *testing.T) {
 
 	if got, want := len(podSpec.Containers), 2; got != want {
 		t.Fatalf("container count = %d, want %d", got, want)
+	}
+	if podSpec.AutomountServiceAccountToken == nil || !*podSpec.AutomountServiceAccountToken {
+		t.Fatal("PVC evictor sidecar changed Pod ServiceAccount token automount")
 	}
 	evictor := podSpec.Containers[1]
 	if got, want := evictor.Name, "pvc-evictor-kv-cache-secondary-0"; got != want {
