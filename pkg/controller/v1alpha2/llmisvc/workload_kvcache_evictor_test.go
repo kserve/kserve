@@ -277,8 +277,9 @@ func TestReconcilePVCEvictorsDeletesDuplicateDeployments(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(svc, pvc, expected, duplicate).Build()
-	reconciler := &LLMISVCReconciler{Client: fakeClient}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(svc, expected, duplicate).Build()
+	pvcReader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: pvcReader}
 	if err := reconciler.reconcilePVCEvictors(t.Context(), svc, &Config{}); err != nil {
 		t.Fatalf("reconcilePVCEvictors() error = %v", err)
 	}
@@ -326,8 +327,9 @@ func TestReconcilePVCEvictorsSharedPVCAndFinalCleanup(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(first, second, pvc).Build()
-	reconciler := &LLMISVCReconciler{Client: fakeClient}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(first, second).Build()
+	pvcReader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: pvcReader}
 
 	if err := reconciler.reconcilePVCEvictors(t.Context(), first, &Config{}); err != nil {
 		t.Fatalf("first reconcilePVCEvictors() error = %v", err)
