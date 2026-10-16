@@ -205,6 +205,61 @@ class TestInferRequest:
         res = InferRequest.from_grpc(infer_req)
         assert res == expected
 
+    def test_as_dataframe_from_grpc_raw_input_contents(self):
+        infer_req = ModelInferRequest(
+            model_name="TestModel",
+            parameters={"content_type": InferParameter(string_param="pd")},
+            inputs=[
+                {"name": "x", "shape": [3], "datatype": "FP32"},
+                {"name": "text", "shape": [3], "datatype": "BYTES"},
+            ],
+            raw_input_contents=[
+                np.array([1.0, 2.0, 3.0], dtype=np.float32).tobytes(),
+                serialize_byte_tensor(
+                    np.array([b"a", b"b", b"c"], dtype=np.object_)
+                ).item(),
+            ],
+        )
+        df = InferRequest.from_grpc(infer_req).as_dataframe()
+        assert df["x"].tolist() == [1.0, 2.0, 3.0]
+        assert df["text"].tolist() == ["a", "b", "c"]
+
+    def test_as_dataframe_from_grpc_contents(self):
+        infer_req = ModelInferRequest(
+            model_name="TestModel",
+            inputs=[
+                {
+                    "name": "x",
+                    "shape": [3],
+                    "datatype": "FP32",
+                    "contents": {"fp32_contents": [1.0, 2.0, 3.0]},
+                },
+                {
+                    "name": "text",
+                    "shape": [3],
+                    "datatype": "BYTES",
+                    "contents": {"bytes_contents": [b"a", b"b", b"c"]},
+                },
+            ],
+        )
+        df = InferRequest.from_grpc(infer_req).as_dataframe()
+        assert df["x"].tolist() == [1.0, 2.0, 3.0]
+        assert df["text"].tolist() == ["a", "b", "c"]
+
+    def test_as_dataframe_from_json_data(self):
+        infer_request = InferRequest(
+            model_name="TestModel",
+            infer_inputs=[
+                InferInput(name="x", shape=[3], datatype="INT32", data=[1, 2, 3]),
+                InferInput(
+                    name="text", shape=[3], datatype="BYTES", data=["a", "b", "c"]
+                ),
+            ],
+        )
+        df = infer_request.as_dataframe()
+        assert df["x"].tolist() == [1, 2, 3]
+        assert df["text"].tolist() == ["a", "b", "c"]
+
     def test_to_rest_with_mixed_binary_data(self):
         infer_input_1 = InferInput(
             name="input1",
