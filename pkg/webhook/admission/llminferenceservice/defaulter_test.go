@@ -551,6 +551,25 @@ func TestSetLocalModelLabel_SharedPVCNotReadyReleasesBoundBaseModelWithoutRecord
 	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
 }
 
+// The referenced claim was deleted: the cache reports PVCNotFound with its record cleared,
+// and a bound base model falls back to its source URI rather than staying pointed at a claim
+// that no longer exists.
+func TestSetLocalModelLabel_SharedPVCNotFoundReleasesBoundBaseModel(t *testing.T) {
+	llmSvc := newLLMSvc("hf://org/model")
+	llmSvc.Labels = map[string]string{
+		constants.LocalModelLabel:          "shared-cache",
+		constants.LocalModelNamespaceLabel: "default",
+	}
+	llmSvc.Annotations = map[string]string{constants.LocalModelPVCNameAnnotationKey: "shared-pvc"}
+	gone := sharedPVCNSCacheList("shared-cache", "hf://org/model", false)
+	gone.Items[0].Status.MarkNotReady(v1alpha1.ReasonPVCNotFound, "PersistentVolumeClaim \"shared-pvc\" not found", 1)
+
+	SetLocalModelLabel(llmSvc, nil, gone)
+
+	assert.NotContains(t, llmSvc.Labels, constants.LocalModelLabel)
+	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
+}
+
 func TestSetLocalModelLabel_SharedPVCNotReadySkipsBaseModelBoundElsewhere(t *testing.T) {
 	llmSvc := newLLMSvc("hf://org/model")
 	llmSvc.Labels = map[string]string{constants.LocalModelLabel: "other-cache"}

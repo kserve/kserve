@@ -423,8 +423,25 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			markJobCondition(ctx, jobKey, batchv1.JobComplete)
 			Eventually(func() bool {
 				current := &v1alpha1.LocalModelNamespaceCache{}
-				return k8sClient.Get(ctx, cacheKey, current) == nil && current.IsReady()
+				return k8sClient.Get(ctx, cacheKey, current) == nil && current.IsReady() && current.Status.SharedPVCImport != nil
 			}, timeout, interval).Should(BeTrue())
+
+			// An LLMInferenceService bound while the cache was Ready.
+			baseModelURI, err := apis.ParseURL(sourceModelUri)
+			Expect(err).NotTo(HaveOccurred())
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "replace-llm-consumer",
+					Namespace: ns,
+					Labels: map[string]string{
+						constants.LocalModelLabel:          cache.Name,
+						constants.LocalModelNamespaceLabel: ns,
+					},
+				},
+				Spec: v1alpha2.LLMInferenceServiceSpec{Model: v1alpha2.LLMModelSpec{URI: *baseModelURI}},
+			}
+			Expect(k8sClient.Create(ctx, llmSvc)).Should(Succeed())
+			defer k8sClient.Delete(ctx, llmSvc)
 
 			// envtest has no PVC-protection controller to clear the admission-added finalizer.
 			currentPVC := &corev1.PersistentVolumeClaim{}
@@ -436,6 +453,25 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: pvc.Name, Namespace: ns}, &corev1.PersistentVolumeClaim{})
 				return errors.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
+
+			// The claim is gone and the data with it: PVCNotFound, record cleared, so the bound
+			// LLMInferenceService is released on its next admission. The completed Job is
+			// retained as before; nothing is created without a claim.
+			Eventually(func() bool {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
+					return false
+				}
+				condition := current.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+				return condition != nil && condition.Reason == v1alpha1.ReasonPVCNotFound && current.Status.SharedPVCImport == nil
+			}, timeout, interval).Should(BeTrue(), "a deleted claim must report PVCNotFound and clear the import record")
+			Consistently(func() string {
+				current := &batchv1.Job{}
+				if err := k8sClient.Get(ctx, jobKey, current); err != nil {
+					return ""
+				}
+				return string(current.UID)
+			}, duration, interval).Should(Equal(string(originalJob.UID)), "no replacement Job without a claim")
 
 			replacementPVC := makeRWXPVC(pvc.Name, ns)
 			Expect(k8sClient.Create(ctx, replacementPVC)).Should(Succeed())

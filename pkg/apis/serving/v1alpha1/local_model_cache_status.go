@@ -48,8 +48,8 @@ type LocalModelCacheStatus struct {
 	// destination was published as Ready, so the controller does not start a new import
 	// writer against data that active consumers still read once the retained Job is gone.
 	// While it is present, a consumer already bound to the cache keeps its binding through
-	// NotReady; it is cleared when a fresh import starts, which releases bound consumers
-	// from a recreated claim that holds no data yet.
+	// NotReady; it is cleared when the referenced claim is gone or a fresh import starts,
+	// which releases bound consumers from a claim that holds no data they can use.
 	// +optional
 	SharedPVCImport *SharedPVCImportStatus `json:"sharedPVCImport,omitempty"`
 }

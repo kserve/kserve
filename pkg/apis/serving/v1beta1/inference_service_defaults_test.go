@@ -1844,6 +1844,19 @@ func TestSetLocalModelLabel_SharedPVCNotReadyReleasesBoundISVCWithoutRecord(t *t
 	g.Expect(isvc.Annotations).ToNot(gomega.HaveKey(constants.LocalModelPVCNameAnnotationKey))
 }
 
+func TestSetLocalModelLabel_SharedPVCNotFoundReleasesBoundISVC(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	isvc := makeSharedPVCTestISVC()
+	isvc.Labels = map[string]string{constants.LocalModelLabel: "shared-ns-cache"}
+	isvc.Annotations = map[string]string{constants.LocalModelPVCNameAnnotationKey: "shared-pvc"}
+	gone := makeSharedPVCNSCache(false)
+	gone.Items[0].Status.MarkNotReady(v1alpha1.ReasonPVCNotFound, "PersistentVolumeClaim \"shared-pvc\" not found", 1)
+	isvc.setLocalModelLabel(nil, gone)
+
+	g.Expect(isvc.Labels).ToNot(gomega.HaveKey(constants.LocalModelLabel))
+	g.Expect(isvc.Annotations).ToNot(gomega.HaveKey(constants.LocalModelPVCNameAnnotationKey))
+}
+
 func TestSetLocalModelLabel_SharedPVCNotReadySkipsISVCBoundElsewhere(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	isvc := makeSharedPVCTestISVC()

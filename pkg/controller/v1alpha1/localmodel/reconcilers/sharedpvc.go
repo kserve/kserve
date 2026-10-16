@@ -110,11 +110,18 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 	pvc := &corev1.PersistentVolumeClaim{}
 	if err := c.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: localModel.Namespace}, pvc); err != nil {
 		if apierr.IsNotFound(err) {
+			// The claim is gone and the data with it. pvc-protection keeps the object alive
+			// while any scheduled Pod mounts it, so NotFound means nothing reads it any more.
+			// Clear the import record: it holds bound consumers on the claim, and a consumer
+			// kept bound here would point at a claim that no longer exists instead of falling
+			// back to its source URI. A replacement claim has a new UID and is imported
+			// regardless, so the re-import gate loses nothing.
 			log.Info("Referenced PVC not found")
 			return c.applySharedStatus(ctx, localModel, sharedState{
-				status:  metav1.ConditionFalse,
-				reason:  v1alpha1.ReasonPVCNotFound,
-				message: fmt.Sprintf("PersistentVolumeClaim %q not found in namespace %q", pvcName, localModel.Namespace),
+				status:        metav1.ConditionFalse,
+				reason:        v1alpha1.ReasonPVCNotFound,
+				message:       fmt.Sprintf("PersistentVolumeClaim %q not found in namespace %q", pvcName, localModel.Namespace),
+				clearImported: true,
 			}, consumers)
 		}
 		return ctrl.Result{}, err
