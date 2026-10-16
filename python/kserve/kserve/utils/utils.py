@@ -54,6 +54,47 @@ def get_ig_namespace(inferencegraph):
     return inferencegraph.metadata.namespace or get_default_target_namespace()
 
 
+def _cgroup_v1_cpu_limit():
+    """Return the cgroup v1 CPU limit as a whole number of cpus, or None if unset."""
+    try:
+        with open("/sys/fs/cgroup/cpu,cpuacct/cpu.cfs_quota_us") as f:
+            quota = int(f.read())
+        with open("/sys/fs/cgroup/cpu,cpuacct/cpu.cfs_period_us") as f:
+            period = int(f.read())
+        return int(quota / period)
+    except Exception:
+        return None
+
+
+def _cgroup_v2_cpu_limit():
+    """Return the cgroup v2 CPU limit as a whole number of cpus, or None if unset.
+
+    cpu.max holds "<quota> <period>", or "max <period>" when there is no limit.
+    The file for the process's own cgroup is tried first, then the mount root,
+    which is the process's cgroup when it runs in its own cgroup namespace.
+    """
+    paths = []
+    try:
+        with open("/proc/self/cgroup") as f:
+            for line in f:
+                hierarchy, _, path = line.strip().partition("::")
+                if hierarchy == "0" and path:
+                    paths.append("/sys/fs/cgroup" + path + "/cpu.max")
+    except Exception:
+        pass
+    paths.append("/sys/fs/cgroup/cpu.max")
+    for path in paths:
+        try:
+            with open(path) as f:
+                quota, period = f.read().split()[:2]
+            if quota == "max":
+                return None
+            return int(int(quota) / int(period))
+        except Exception:
+            continue
+    return None
+
+
 def cpu_count():
     """Get the available CPU count for this system.
     Takes the minimum value from the following locations:
@@ -76,16 +117,11 @@ def cpu_count():
 
     # Check cgroups if available
     if sys.platform == "linux":
-        try:
-            with open("/sys/fs/cgroup/cpu,cpuacct/cpu.cfs_quota_us") as f:
-                quota = int(f.read())
-            with open("/sys/fs/cgroup/cpu,cpuacct/cpu.cfs_period_us") as f:
-                period = int(f.read())
-            cgroups_count = int(quota / period)
-            if cgroups_count > 0:
-                count = min(count, cgroups_count)
-        except Exception:
-            pass
+        cgroups_count = _cgroup_v2_cpu_limit()
+        if cgroups_count is None:
+            cgroups_count = _cgroup_v1_cpu_limit()
+        if cgroups_count is not None and cgroups_count > 0:
+            count = min(count, cgroups_count)
 
     return count
 
