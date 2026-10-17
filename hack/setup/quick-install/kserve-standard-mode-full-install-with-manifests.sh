@@ -8999,6 +8999,8 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+              runtimeClassName:
+                type: string
               schedulerName:
                 type: string
               storageHelper:
@@ -11115,6 +11117,8 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  runtimeClassName:
+                    type: string
                   schedulerName:
                     type: string
                   tensorParallelSize:
@@ -55353,6 +55357,8 @@ spec:
                 x-kubernetes-list-map-keys:
                 - name
                 x-kubernetes-list-type: map
+              runtimeClassName:
+                type: string
               schedulerName:
                 type: string
               storageHelper:
@@ -57469,6 +57475,8 @@ spec:
                     x-kubernetes-list-map-keys:
                     - name
                     x-kubernetes-list-type: map
+                  runtimeClassName:
+                    type: string
                   schedulerName:
                     type: string
                   tensorParallelSize:
