@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"knative.dev/pkg/apis"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -65,6 +66,119 @@ func predictorHost() string {
 
 func transformerHost() string {
 	return fmt.Sprintf("%s-transformer.%s.svc.cluster.local", testIsvcName, testNamespace)
+}
+
+func readyTemplateISVC(name, namespace string) *v1beta1.InferenceService {
+	isvc := &v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+	isvc.Status.SetCondition(v1beta1.PredictorReady, &apis.Condition{
+		Type:   v1beta1.PredictorReady,
+		Status: corev1.ConditionTrue,
+	})
+	return isvc
+}
+
+func templateIngressConfig() *v1beta1.IngressConfig {
+	class := "nginx"
+	return &v1beta1.IngressConfig{
+		KserveIngressGateway:       "kserve/kserve-ingress-gateway",
+		IngressGateway:             "knative-serving/knative-ingress-gateway",
+		KnativeLocalGatewayService: "knative-local-gateway.istio-system.svc.cluster.local",
+		LocalGateway:               "knative-serving/knative-local-gateway",
+		LocalGatewayServiceName:    "knative-local-gateway",
+		IngressDomain:              "example.com",
+		UrlScheme:                  "https",
+		IngressClassName:           &class,
+		DomainTemplate:             "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}",
+	}
+}
+
+func minimalIsvcConfig() *v1beta1.InferenceServicesConfig {
+	return &v1beta1.InferenceServicesConfig{}
+}
+
+func TestCreateRawIngress_Templates_Rendered(t *testing.T) {
+	g := NewGomegaWithT(t)
+	scheme := testScheme()
+	isvc := readyTemplateISVC("my-model", "ml")
+
+	ingCfg := templateIngressConfig()
+	ingCfg.AnnotationsTemplate = map[string]string{
+		"external-dns.alpha.kubernetes.io/hostname": "{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}",
+	}
+	ingCfg.TLSTemplate = []v1beta1.IngressTLSItem{
+		{
+			Hosts:      []string{"{{ .Name }}.{{ .Namespace }}.{{ .IngressDomain }}"},
+			SecretName: "tls-{{ .Namespace }}",
+		},
+	}
+
+	ing, err := createRawIngress(scheme, isvc, ingCfg, minimalIsvcConfig())
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(ing).ToNot(BeNil())
+	g.Expect(ing.Annotations).To(HaveKeyWithValue("external-dns.alpha.kubernetes.io/hostname", "my-model.ml.example.com"))
+	g.Expect(ing.Spec.TLS).To(HaveLen(1))
+	g.Expect(ing.Spec.TLS[0].Hosts).To(Equal([]string{"my-model.ml.example.com"}))
+	g.Expect(ing.Spec.TLS[0].SecretName).To(Equal("tls-ml"))
+}
+
+func TestCreateRawIngress_Templates_Malformed_Skips(t *testing.T) {
+	g := NewGomegaWithT(t)
+	scheme := testScheme()
+	isvc := readyTemplateISVC("bad", "ns")
+
+	ingCfg := templateIngressConfig()
+	ingCfg.AnnotationsTemplate = map[string]string{
+		"external-dns.alpha.kubernetes.io/hostname": "{{ .Name ",
+	}
+	ingCfg.TLSTemplate = []v1beta1.IngressTLSItem{
+		{
+			Hosts:      []string{"{{ .Name ", "{{ .Namespace }}.{{ .IngressDomain }}"},
+			SecretName: "tls-{{ .Namespace }}",
+		},
+	}
+
+	ing, err := createRawIngress(scheme, isvc, ingCfg, minimalIsvcConfig())
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(ing).ToNot(BeNil())
+	g.Expect(ing.Annotations).ToNot(HaveKey("external-dns.alpha.kubernetes.io/hostname"))
+	g.Expect(ing.Spec.TLS).To(HaveLen(1))
+	g.Expect(ing.Spec.TLS[0].Hosts).To(ContainElement("ns.example.com"))
+	g.Expect(ing.Spec.TLS[0].SecretName).To(Equal("tls-ns"))
+}
+
+func TestCreateRawIngress_NoTemplates_NoTLS_NoExtraAnno(t *testing.T) {
+	g := NewGomegaWithT(t)
+	scheme := testScheme()
+	isvc := readyTemplateISVC("plain", "default")
+	isvc.Annotations = map[string]string{"keep": "me"}
+
+	ing, err := createRawIngress(scheme, isvc, templateIngressConfig(), minimalIsvcConfig())
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(ing).ToNot(BeNil())
+	g.Expect(ing.Spec.TLS).To(BeEmpty())
+	g.Expect(ing.Annotations).To(Equal(map[string]string{"keep": "me"}))
+}
+
+func TestCreateRawIngress_DoesNotChangeClassName(t *testing.T) {
+	g := NewGomegaWithT(t)
+	scheme := testScheme()
+	isvc := readyTemplateISVC("classy", "ns")
+
+	class := "nginx"
+	ingCfg := templateIngressConfig()
+	ingCfg.IngressClassName = &class
+	ingCfg.AnnotationsTemplate = map[string]string{"foo/bar": "{{ .Name }}"}
+
+	ing, err := createRawIngress(scheme, isvc, ingCfg, minimalIsvcConfig())
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(ing).ToNot(BeNil())
+	g.Expect(ing.Spec.IngressClassName).ToNot(BeNil())
+	g.Expect(*ing.Spec.IngressClassName).To(Equal("nginx"))
 }
 
 // ---------------------------------------------------------------------------
