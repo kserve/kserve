@@ -95,6 +95,10 @@ manifests: controller-gen kustomize yq
 			done; \
 		done; \
 	done
+	# The v1alpha2 inline route accepts more rules than one HTTPRoute (see LogicalHTTPRouteSpec), which multiplies the
+	# estimated cost of the per-match path character regex past the CEL budget. Drop only that rule from the logical
+	# route; every HTTPRoute the controller emits is still validated against it by the Gateway API CRD.
+	@$(YQ) '(.spec.versions[] | select(.name == "v1alpha2") | .schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.matches.items.properties.path."x-kubernetes-validations") |= map(select(.message | test("must only contain valid characters") | not))' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
 	# Remove validation for the LLMInferenceServiceConfig API so that we can override only specific values (both versions).
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml

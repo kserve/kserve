@@ -207,6 +207,9 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 		if err := Delete(ctx, r, llmSvc, expectedHTTPRoute); err != nil {
 			return nil, err
 		}
+		if err := r.deleteStaleHTTPRouteShards(ctx, llmSvc, 0); err != nil {
+			return nil, err
+		}
 		r.EvaluateHTTPRouteConditions(ctx, llmSvc, nil)
 		return nil, nil
 	}
@@ -258,6 +261,9 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 		if err := Delete(ctx, r, llmSvc, expectedHTTPRoute); err != nil {
 			return nil, err
 		}
+		if err := r.deleteStaleHTTPRouteShards(ctx, llmSvc, 0); err != nil {
+			return nil, err
+		}
 	}
 
 	if route.HTTP.HasSpec() {
@@ -277,16 +283,26 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 				llmSvc.Namespace, llmSvc.Name)
 		}
 
-		if err := Reconcile(ctx, r, llmSvc, &gwapiv1.HTTPRoute{}, expectedHTTPRoute, semanticHTTPRouteIsEqual); err != nil {
-			var invalid *apierrors.StatusError
-			if apierrors.IsInvalid(err) && errors.As(err, &invalid) {
-				// Report the API server's own field errors rather than Update's
-				// "failed to get defaults for" wrapper.
-				err = invalid
+		// The logical route may hold more rules and matches than one HTTPRoute
+		// allows, so it is written as one or more resources that each fit.
+		shards := shardHTTPRoute(llmSvc, expectedHTTPRoute)
+		for _, shard := range shards {
+			if err := Reconcile(ctx, r, llmSvc, &gwapiv1.HTTPRoute{}, shard, semanticHTTPRouteIsEqual); err != nil {
+				var invalid *apierrors.StatusError
+				if apierrors.IsInvalid(err) && errors.As(err, &invalid) {
+					// Report the API server's own field errors rather than Update's
+					// "failed to get defaults for" wrapper.
+					err = invalid
+				}
+				return nil, fmt.Errorf("failed to reconcile HTTPRoute %s/%s: %w", shard.GetNamespace(), shard.GetName(), err)
 			}
-			return nil, fmt.Errorf("failed to reconcile HTTPRoute %s/%s: %w", expectedHTTPRoute.GetNamespace(), expectedHTTPRoute.GetName(), err)
 		}
-		referencedRoutes = append(referencedRoutes, expectedHTTPRoute)
+		// Only after every current shard is written, so traffic covered by a
+		// shrinking route never loses its rules in between.
+		if err := r.deleteStaleHTTPRouteShards(ctx, llmSvc, len(shards)); err != nil {
+			return nil, err
+		}
+		referencedRoutes = append(referencedRoutes, shards...)
 	}
 
 	// After the route write, so the condition describes the stored route; any
@@ -344,7 +360,7 @@ func (r *LLMISVCReconciler) collectReferencedRoutes(ctx context.Context, llmSvc 
 func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, cfg *Config) (*gwapiv1.HTTPRoute, error) {
 	httpRoute := &gwapiv1.HTTPRoute{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      kmeta.ChildName(llmSvc.GetName(), "-kserve-route"),
+			Name:      managedHTTPRouteName(llmSvc.GetName(), 0),
 			Namespace: llmSvc.GetNamespace(),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK),
@@ -354,7 +370,7 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 	}
 
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Route != nil && llmSvc.Spec.Router.Route.HTTP.HasSpec() {
-		httpRoute.Spec = *llmSvc.Spec.Router.Route.HTTP.Spec.DeepCopy()
+		httpRoute.Spec = llmSvc.Spec.Router.Route.HTTP.Spec.ToHTTPRouteSpec()
 
 		// The route preset ships modality rules for the omni runtime. Strip
 		// them for every other runtime so they do not consume the Gateway API
@@ -616,6 +632,7 @@ func hasStaleControllerLabels(expected, current map[string]string) bool {
 
 var controllerManagedLabelKeys = []string{
 	constants.LLMRoutingGroupLabelKey,
+	constants.LLMHTTPRouteShardLabelKey,
 }
 
 // EvaluateGatewayConditions evaluates the readiness of all Gateways referenced by the LLMInferenceService

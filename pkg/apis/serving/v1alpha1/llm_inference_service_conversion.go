@@ -18,10 +18,12 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	"maps"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 	igwapiv1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	igwapiv1alpha2 "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
 
@@ -33,6 +35,12 @@ const (
 	ModelCriticalityAnnotationKey = "internal.serving.kserve.io/model-criticality"
 	// LoRACriticalitiesAnnotationKey stores LoRA adapter criticalities as JSON when converting to v1alpha2.
 	LoRACriticalitiesAnnotationKey = "internal.serving.kserve.io/lora-criticalities"
+	// OverflowRouteRulesAnnotationKey stores, as JSON, the inline HTTPRoute rules of a v1alpha2
+	// resource beyond the 16 that a v1alpha1 HTTPRouteSpec can hold, so a round trip keeps them.
+	OverflowRouteRulesAnnotationKey = "internal.serving.kserve.io/overflow-route-rules"
+
+	// v1alpha1MaxHTTPRouteRules is the Gateway API HTTPRouteSpec rule limit enforced on v1alpha1.
+	v1alpha1MaxHTTPRouteRules = 16
 )
 
 // Compile-time interface compliance checks.
@@ -53,6 +61,9 @@ func (src *LLMInferenceService) ConvertTo(dstRaw conversion.Hub) error {
 
 	// Spec conversion
 	dst.Spec = convertSpecToV1Alpha2(&src.Spec)
+
+	// Restore inline route rules that did not fit in v1alpha1
+	restoreOverflowRouteRules(&dst.ObjectMeta, &dst.Spec)
 
 	// Status conversion
 	dst.Status = v1alpha2.LLMInferenceServiceStatus{
@@ -78,6 +89,9 @@ func (dst *LLMInferenceService) ConvertFrom(srcRaw conversion.Hub) error {
 
 	// Spec conversion
 	dst.Spec = convertSpecFromV1Alpha2(&src.Spec)
+
+	// Preserve inline route rules beyond the v1alpha1 limit in annotations
+	saveOverflowRouteRules(&dst.ObjectMeta, &dst.Spec)
 
 	// Restore criticality values from annotations
 	restoreCriticalityFromAnnotations(&dst.ObjectMeta, &dst.Spec.Model)
@@ -109,6 +123,9 @@ func (src *LLMInferenceServiceConfig) ConvertTo(dstRaw conversion.Hub) error {
 	// Spec conversion
 	dst.Spec = convertSpecToV1Alpha2(&src.Spec)
 
+	// Restore inline route rules that did not fit in v1alpha1
+	restoreOverflowRouteRules(&dst.ObjectMeta, &dst.Spec)
+
 	// Status conversion (controller-managed, only duckv1.Status)
 	dst.Status = v1alpha2.LLMInferenceServiceConfigStatus{
 		Status: src.Status.Status,
@@ -126,6 +143,9 @@ func (dst *LLMInferenceServiceConfig) ConvertFrom(srcRaw conversion.Hub) error {
 
 	// Spec conversion
 	dst.Spec = convertSpecFromV1Alpha2(&src.Spec)
+
+	// Preserve inline route rules beyond the v1alpha1 limit in annotations
+	saveOverflowRouteRules(&dst.ObjectMeta, &dst.Spec)
 
 	// ReferencedBy is intentionally not converted: v1alpha1 has no equivalent field,
 	// and the controller re-populates it on the next reconciliation of the hub type.
@@ -551,7 +571,7 @@ func convertRouterSpecToV1Alpha2(src *RouterSpec) *v1alpha2.RouterSpec {
 		if src.Route.HTTP != nil {
 			dst.Route.HTTP = &v1alpha2.HTTPRouteSpec{
 				Refs: src.Route.HTTP.Refs,
-				Spec: src.Route.HTTP.Spec,
+				Spec: v1alpha2.LogicalHTTPRouteSpecFrom(src.Route.HTTP.Spec),
 			}
 		}
 		dst.Route.Group = src.Route.Group
@@ -642,7 +662,10 @@ func convertRouterSpecFromV1Alpha2(src *v1alpha2.RouterSpec) *RouterSpec {
 		if src.Route.HTTP != nil {
 			dst.Route.HTTP = &HTTPRouteSpec{
 				Refs: src.Route.HTTP.Refs,
-				Spec: src.Route.HTTP.Spec,
+			}
+			if src.Route.HTTP.Spec != nil {
+				spec := src.Route.HTTP.Spec.ToHTTPRouteSpec()
+				dst.Route.HTTP.Spec = &spec
 			}
 		}
 		dst.Route.Group = src.Route.Group
@@ -787,4 +810,62 @@ func restoreCriticalityFromAnnotations(meta *metav1.ObjectMeta, model *LLMModelS
 	if len(meta.Annotations) == 0 {
 		meta.Annotations = nil
 	}
+}
+
+// saveOverflowRouteRules moves inline HTTPRoute rules beyond the v1alpha1 limit into an
+// annotation. v1alpha2 accepts up to 64 rules and shards them across HTTPRoutes, while a
+// v1alpha1 HTTPRouteSpec holds at most 16; without this the down conversion would either fail
+// validation or drop rules. The rules are restored by restoreOverflowRouteRules.
+func saveOverflowRouteRules(meta *metav1.ObjectMeta, spec *LLMInferenceServiceSpec) {
+	if _, stale := meta.Annotations[OverflowRouteRulesAnnotationKey]; stale {
+		meta.Annotations = maps.Clone(meta.Annotations)
+		delete(meta.Annotations, OverflowRouteRulesAnnotationKey)
+	}
+	if spec.Router == nil || spec.Router.Route == nil || spec.Router.Route.HTTP == nil || spec.Router.Route.HTTP.Spec == nil {
+		return
+	}
+	routeSpec := spec.Router.Route.HTTP.Spec
+	if len(routeSpec.Rules) <= v1alpha1MaxHTTPRouteRules {
+		return
+	}
+	data, err := json.Marshal(routeSpec.Rules[v1alpha1MaxHTTPRouteRules:])
+	if err != nil {
+		return
+	}
+	// Copy the map so the source object's annotations are not mutated
+	annotations := maps.Clone(meta.Annotations)
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[OverflowRouteRulesAnnotationKey] = string(data)
+	meta.Annotations = annotations
+	routeSpec.Rules = routeSpec.Rules[:v1alpha1MaxHTTPRouteRules]
+}
+
+// restoreOverflowRouteRules appends inline HTTPRoute rules saved by saveOverflowRouteRules
+// and removes the annotation.
+func restoreOverflowRouteRules(meta *metav1.ObjectMeta, spec *v1alpha2.LLMInferenceServiceSpec) {
+	if meta.Annotations == nil {
+		return
+	}
+	data, ok := meta.Annotations[OverflowRouteRulesAnnotationKey]
+	if !ok {
+		return
+	}
+	// Copy the map so the source object's annotations are not mutated
+	annotations := maps.Clone(meta.Annotations)
+	delete(annotations, OverflowRouteRulesAnnotationKey)
+	if len(annotations) == 0 {
+		annotations = nil
+	}
+	meta.Annotations = annotations
+
+	if data == "" || spec.Router == nil || spec.Router.Route == nil || spec.Router.Route.HTTP == nil || spec.Router.Route.HTTP.Spec == nil {
+		return
+	}
+	var overflow []gwapiv1.HTTPRouteRule
+	if err := json.Unmarshal([]byte(data), &overflow); err != nil {
+		return
+	}
+	spec.Router.Route.HTTP.Spec.Rules = append(spec.Router.Route.HTTP.Spec.Rules, overflow...)
 }

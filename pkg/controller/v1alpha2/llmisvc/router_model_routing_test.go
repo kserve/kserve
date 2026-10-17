@@ -497,7 +497,7 @@ func TestApplyModelBasedRoutingOnly_KeepsPathsWithoutModelRoutingTree(t *testing
 			Spec: v1alpha2.LLMInferenceServiceSpec{
 				WorkloadSpec: v1alpha2.WorkloadSpec{Annotations: map[string]string{AnnotationModelBasedRoutingOnly: "true"}},
 				Router: &v1alpha2.RouterSpec{Route: &v1alpha2.GatewayRoutesSpec{HTTP: &v1alpha2.HTTPRouteSpec{
-					Spec: &gwapiv1.HTTPRouteSpec{Rules: rules},
+					Spec: &v1alpha2.LogicalHTTPRouteSpec{Rules: rules},
 				}}},
 			},
 		}
@@ -583,7 +583,7 @@ func TestReconcileRouter_StrippedRouteSurvivesGatewayClassLookupFailure(t *testi
 
 	llmSvc := invalidRouteService()
 	llmSvc.Spec.Annotations = map[string]string{AnnotationModelBasedRoutingEnabled: "true"}
-	llmSvc.Spec.Router.Route.HTTP.Spec = &gwapiv1.HTTPRouteSpec{
+	llmSvc.Spec.Router.Route.HTTP.Spec = &v1alpha2.LogicalHTTPRouteSpec{
 		CommonRouteSpec: gwapiv1.CommonRouteSpec{ParentRefs: parents},
 		Rules:           []gwapiv1.HTTPRouteRule{pathRule, modelRoutingRule},
 	}

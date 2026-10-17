@@ -9945,8 +9945,6 @@ spec:
                                                   rule: '(self.type in [''Exact'',''PathPrefix'']) ? !self.value.endsWith(''/.'') : true'
                                                 - message: type must be one of ['Exact', 'PathPrefix', 'RegularExpression']
                                                   rule: self.type in ['Exact','PathPrefix'] || self.type == 'RegularExpression'
-                                                - message: must only contain valid characters (matching ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$) for types ['Exact', 'PathPrefix']
-                                                  rule: '(self.type in [''Exact'',''PathPrefix'']) ? self.value.matches(r"""^(?:[-A-Za-z0-9/._~!$&''()*+,;=:@]|[%][0-9a-fA-F]{2})+$""") : true'
                                             queryParams:
                                               items:
                                                 properties:
@@ -10054,13 +10052,10 @@ spec:
                                         rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b, (has(b.filters) && b.filters.exists_one(f, has(f.requestRedirect) && has(f.requestRedirect.path) && f.requestRedirect.path.type == ''ReplacePrefixMatch'' && has(f.requestRedirect.path.replacePrefixMatch))) )) ? ((size(self.matches) != 1 || !has(self.matches[0].path) || self.matches[0].path.type != ''PathPrefix'') ? false : true) : true'
                                       - message: Within backendRefs, When using URLRewrite filter with path.replacePrefixMatch, exactly one PathPrefix match must be specified
                                         rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b, (has(b.filters) && b.filters.exists_one(f, has(f.urlRewrite) && has(f.urlRewrite.path) && f.urlRewrite.path.type == ''ReplacePrefixMatch'' && has(f.urlRewrite.path.replacePrefixMatch))) )) ? ((size(self.matches) != 1 || !has(self.matches[0].path) || self.matches[0].path.type != ''PathPrefix'') ? false : true) : true'
-                                  maxItems: 16
+                                  maxItems: 64
                                   minItems: 1
                                   type: array
                                   x-kubernetes-list-type: atomic
-                                  x-kubernetes-validations:
-                                    - message: While 16 rules and 64 matches per rule are allowed, the total number of matches across all rules in a route must be less than 128
-                                      rule: '(self.size() > 0 ? self[0].matches.size() : 0) + (self.size() > 1 ? self[1].matches.size() : 0) + (self.size() > 2 ? self[2].matches.size() : 0) + (self.size() > 3 ? self[3].matches.size() : 0) + (self.size() > 4 ? self[4].matches.size() : 0) + (self.size() > 5 ? self[5].matches.size() : 0) + (self.size() > 6 ? self[6].matches.size() : 0) + (self.size() > 7 ? self[7].matches.size() : 0) + (self.size() > 8 ? self[8].matches.size() : 0) + (self.size() > 9 ? self[9].matches.size() : 0) + (self.size() > 10 ? self[10].matches.size() : 0) + (self.size() > 11 ? self[11].matches.size() : 0) + (self.size() > 12 ? self[12].matches.size() : 0) + (self.size() > 13 ? self[13].matches.size() : 0) + (self.size() > 14 ? self[14].matches.size() : 0) + (self.size() > 15 ? self[15].matches.size() : 0) <= 128'
                                 useDefaultGateways:
                                   enum:
                                     - All

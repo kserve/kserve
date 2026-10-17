@@ -89,7 +89,7 @@ func invalidRouteService() *v1alpha2.LLMInferenceService {
 			Router: &v1alpha2.RouterSpec{
 				Route: &v1alpha2.GatewayRoutesSpec{
 					HTTP: &v1alpha2.HTTPRouteSpec{
-						Spec: &gwapiv1.HTTPRouteSpec{
+						Spec: &v1alpha2.LogicalHTTPRouteSpec{
 							Rules: []gwapiv1.HTTPRouteRule{{
 								Matches: []gwapiv1.HTTPRouteMatch{{
 									Path: &gwapiv1.HTTPPathMatch{
