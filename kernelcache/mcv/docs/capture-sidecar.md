@@ -2,6 +2,25 @@
 
 The MCV capture sidecar runs next to a model workload during KernelCache capture. It creates a baseline cache snapshot, waits for the workload to become ready, packages the cache changes, and reports the result to the `KernelCacheCapture` resource.
 
+## Selecting a user-created capture
+
+With KernelCache capture and sidecar injection enabled, add this annotation to a
+Deployment-backed InferenceService to select an existing `KernelCacheCapture`:
+
+```yaml
+metadata:
+  annotations:
+    serving.kserve.io/kernelcache-capture: my-custom-capture
+```
+
+The capture must exist in the same namespace and have a `sourceRef` pointing to
+this InferenceService. An invalid reference, missing capture, or deleting capture
+causes Pod admission to fail without falling back to an automatic capture.
+
+New ReplicaSets and Pods reuse the selected capture through the existing lifecycle.
+Without the annotation, automatic capture creation is unchanged. User-created
+captures remain outside the generated-capture cleanup path.
+
 ## Capture flow
 
 1. Read the capture and readiness configuration.
