@@ -22,7 +22,14 @@ keypair in the Secret named by `kserve.llmisvc.selfSignedCerts.caSecretName` (an
 the CA certificate directly as the conversion-webhook `caBundle` in place of the annotation.
 
 Enable the matching `kserve.llmisvc.selfSignedCerts.enabled` flag on the `kserve-llmisvc-resources`
-chart so the webhook serving certificate is issued from the same CA.
+chart so the webhook serving certificate is issued from the same CA. To switch an existing
+cert-manager install, see the `kserve-llmisvc-resources` chart README.
+
+Self-signed mode relies on Helm's `lookup` to reuse the CA already on the cluster, so it requires a
+real `helm install`/`helm upgrade` (including Flux's `HelmRelease`). It is not supported with tools
+that render with `helm template` and no cluster access — e.g. Argo CD, `helm template | kubectl apply`,
+or kustomize `helmCharts` — where the two charts' CAs never match; see the `kserve-llmisvc-resources`
+chart README. Use the default cert-manager mode with these tools.
 
 ## Values
 

@@ -28,6 +28,32 @@ and never rotated.
 Enable the flag on both charts together so the conversion webhook and the admission webhooks trust
 the same CA.
 
+### Switching an existing cert-manager install
+
+On an install that already uses cert-manager, the `llmisvc-webhook-server-cert` Secret was issued by
+cert-manager and is not owned by the Helm release, so the upgrade stops with an error until it is
+removed. Delete the `Certificate` first (otherwise cert-manager re-creates the Secret), then the
+Secret, then upgrade the `kserve-llmisvc-crd` chart followed by this chart with the flag enabled
+(adjust `-n` to the release namespace):
+
+```console
+$ kubectl delete certificate llmisvc-serving-cert -n kserve --ignore-not-found
+$ kubectl delete secret llmisvc-webhook-server-cert -n kserve
+```
+
+Expect brief admission and conversion webhook failures until both upgrades finish and the controller
+serves the new certificate.
+
+### GitOps and `helm template`
+
+Self-signed mode relies on Helm's `lookup` to reuse the CA and serving certificate already on the
+cluster, so it requires a real `helm install`/`helm upgrade` (including Flux's `HelmRelease`). It is
+not supported with tools that render with `helm template` and no cluster access — e.g. Argo CD,
+`helm template | kubectl apply`, or kustomize `helmCharts`. There, the two charts generate their CAs
+independently, so the CRD conversion webhook never trusts the webhook serving certificate (even on a
+one-off render), and continuously syncing tools also get new certificates on every render and never
+converge. Use the default cert-manager mode with these tools.
+
 {{ template "chart.maintainersSection" . }}
 
 {{ template "chart.sourcesSection" . }}
