@@ -2403,7 +2403,7 @@ requires-dist = [
     { name = "modelscope-hub", specifier = ">=0.1.4" },
     { name = "oras", specifier = ">=0.2.42,<1.0.0" },
     { name = "pyasn1", specifier = ">=0.6.4" },
-    { name = "pyjwt", specifier = ">=2.12.0" },
+    { name = "pyjwt", specifier = ">=2.14.0,<2.15.0" },
     { name = "requests", specifier = ">=2.32.2,<3.0.0" },
     { name = "urllib3", specifier = ">=2.6.3" },
     { name = "zstandard", specifier = ">=0.21.0" },
