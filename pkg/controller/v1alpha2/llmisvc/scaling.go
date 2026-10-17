@@ -28,6 +28,7 @@ import (
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	disaggregatedsetv1 "sigs.k8s.io/lws/api/disaggregatedset/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -37,12 +38,13 @@ import (
 
 // reconcileScaling manages direct spec.scaling.keda. HPA cleanup is retained so
 // resources created by older configurations are removed after an upgrade.
-func (r *LLMISVCReconciler) reconcileScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, _ *Config) error {
+// A service on a DisaggregatedSet scales each role through its DisaggregatedSetRoleScaler.
+func (r *LLMISVCReconciler) reconcileScaling(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, _ *Config, useDisaggregatedSet bool) error {
 	ctx = log.IntoContext(ctx, log.FromContext(ctx).WithName("reconcileScaling"))
-	if err := r.reconcileWorkloadScaling(ctx, llmSvc, mainWorkloadScalingParams(llmSvc)); err != nil {
+	if err := r.reconcileWorkloadScaling(ctx, llmSvc, mainWorkloadScalingParams(llmSvc, useDisaggregatedSet)); err != nil {
 		return fmt.Errorf("failed to reconcile main workload scaling: %w", err)
 	}
-	if err := r.reconcileWorkloadScaling(ctx, llmSvc, prefillWorkloadScalingParams(llmSvc)); err != nil {
+	if err := r.reconcileWorkloadScaling(ctx, llmSvc, prefillWorkloadScalingParams(llmSvc, useDisaggregatedSet)); err != nil {
 		return fmt.Errorf("failed to reconcile prefill workload scaling: %w", err)
 	}
 	return nil
@@ -58,16 +60,16 @@ type workloadScalingParams struct {
 	markUnset                 func()
 }
 
-func mainWorkloadScalingParams(s *v1alpha2.LLMInferenceService) workloadScalingParams {
-	return workloadScalingParams{name: "main", scaling: s.Spec.Scaling, scaleTargetRef: mainScaleTargetRef(s), hpaName: mainHPAName(s), scaledObjectName: mainScaledObjectName(s), markReady: s.MarkScalingReady, markNotReady: s.MarkScalingNotReady, markUnset: s.MarkScalingUnset}
+func mainWorkloadScalingParams(s *v1alpha2.LLMInferenceService, useDisaggregatedSet bool) workloadScalingParams {
+	return workloadScalingParams{name: "main", scaling: s.Spec.Scaling, scaleTargetRef: mainScaleTargetRef(s, useDisaggregatedSet), hpaName: mainHPAName(s), scaledObjectName: mainScaledObjectName(s), markReady: s.MarkScalingReady, markNotReady: s.MarkScalingNotReady, markUnset: s.MarkScalingUnset}
 }
 
-func prefillWorkloadScalingParams(s *v1alpha2.LLMInferenceService) workloadScalingParams {
+func prefillWorkloadScalingParams(s *v1alpha2.LLMInferenceService, useDisaggregatedSet bool) workloadScalingParams {
 	var sc *v1alpha2.ScalingSpec
 	if s.Spec.Prefill != nil {
 		sc = s.Spec.Prefill.Scaling
 	}
-	return workloadScalingParams{name: "prefill", scaling: sc, scaleTargetRef: prefillScaleTargetRef(s), hpaName: prefillHPAName(s), scaledObjectName: prefillScaledObjectName(s), markReady: s.MarkPrefillScalingReady, markNotReady: s.MarkPrefillScalingNotReady, markUnset: s.MarkPrefillScalingUnset}
+	return workloadScalingParams{name: "prefill", scaling: sc, scaleTargetRef: prefillScaleTargetRef(s, useDisaggregatedSet), hpaName: prefillHPAName(s), scaledObjectName: prefillScaledObjectName(s), markReady: s.MarkPrefillScalingReady, markNotReady: s.MarkPrefillScalingNotReady, markUnset: s.MarkPrefillScalingUnset}
 }
 
 func (r *LLMISVCReconciler) reconcileWorkloadScaling(ctx context.Context, s *v1alpha2.LLMInferenceService, p workloadScalingParams) error {
@@ -162,18 +164,30 @@ func scalingLabels(s *v1alpha2.LLMInferenceService) map[string]string {
 	return map[string]string{constants.KubernetesComponentLabelKey: constants.LLMComponentWorkload, constants.KubernetesAppNameLabelKey: s.GetName(), constants.KubernetesPartOfLabelKey: constants.LLMInferenceServicePartOfValue}
 }
 
-func mainScaleTargetRef(s *v1alpha2.LLMInferenceService) autoscalingv2.CrossVersionObjectReference {
+func mainScaleTargetRef(s *v1alpha2.LLMInferenceService, useDisaggregatedSet bool) autoscalingv2.CrossVersionObjectReference {
+	if useDisaggregatedSet {
+		return disaggregatedRoleScaleTargetRef(s, constants.LLMDRoleDecode)
+	}
 	if s.Spec.Worker != nil {
 		return autoscalingv2.CrossVersionObjectReference{APIVersion: lwsapi.GroupVersion.String(), Kind: "LeaderWorkerSet", Name: mainLWSName(s)}
 	}
 	return autoscalingv2.CrossVersionObjectReference{APIVersion: "apps/v1", Kind: "Deployment", Name: mainDeploymentName(s)}
 }
 
-func prefillScaleTargetRef(s *v1alpha2.LLMInferenceService) autoscalingv2.CrossVersionObjectReference {
+func prefillScaleTargetRef(s *v1alpha2.LLMInferenceService, useDisaggregatedSet bool) autoscalingv2.CrossVersionObjectReference {
+	if useDisaggregatedSet {
+		return disaggregatedRoleScaleTargetRef(s, constants.LLMDRolePrefill)
+	}
 	if s.Spec.Prefill != nil && s.Spec.Prefill.Worker != nil {
 		return autoscalingv2.CrossVersionObjectReference{APIVersion: lwsapi.GroupVersion.String(), Kind: "LeaderWorkerSet", Name: prefillLWSName(s)}
 	}
 	return autoscalingv2.CrossVersionObjectReference{APIVersion: "apps/v1", Kind: "Deployment", Name: prefillDeploymentName(s)}
+}
+
+// disaggregatedRoleScaleTargetRef points an autoscaler at the DisaggregatedSetRoleScaler
+// of a role, whose scale subresource sets the replicas the DisaggregatedSet runs for it.
+func disaggregatedRoleScaleTargetRef(s *v1alpha2.LLMInferenceService, role string) autoscalingv2.CrossVersionObjectReference {
+	return autoscalingv2.CrossVersionObjectReference{APIVersion: disaggregatedsetv1.GroupVersion.String(), Kind: "DisaggregatedSetRoleScaler", Name: disaggregatedRoleScalerName(s, role)}
 }
 
 func mainHPAName(s *v1alpha2.LLMInferenceService) string {

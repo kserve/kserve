@@ -197,8 +197,8 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
-	if llmSvc.Spec.Template == nil {
-		// When there is no leader template, workers become part of the InferencePool selector.
+	if llmSvc.Spec.Template == nil || workerServesDataParallelRanks(&llmSvc.Spec.WorkloadSpec) {
+		// Workers with their own rank endpoints also belong to the InferencePool.
 		workerLabels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
 		workerLabels[constants.LLMDRoleLabelKey] = constants.LLMDRoleDecode
 
@@ -260,6 +260,9 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 		if llmSvc.Spec.KVCacheOffloading != nil {
 			attachKVCacheSecondaryTiers(&group.LeaderTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
 		}
+		if err := attachModelExpress(llmSvc, &group.LeaderTemplate.Spec, config.ModelExpress); err != nil {
+			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
+		}
 
 		if hasRoutingSidecar(group.LeaderTemplate.Spec) {
 			log.FromContext(ctx).V(2).Info("Main container has a routing sidecar")
@@ -287,6 +290,9 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
 			attachKVCacheSecondaryTiers(&group.WorkerTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+		}
+		if err := attachModelExpress(llmSvc, &group.WorkerTemplate.Spec, config.ModelExpress); err != nil {
+			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
 		}
 
 		if hasRoutingSidecar(group.WorkerTemplate.Spec) {
@@ -381,8 +387,8 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 		constants.KubernetesAppNameLabelKey:   llmSvc.GetName(),
 		constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
 	}
-	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template == nil {
-		// When there is no leader template, workers become part of the InferencePool selector.
+	if llmSvc.Spec.Prefill != nil && (llmSvc.Spec.Prefill.Template == nil || workerServesDataParallelRanks(llmSvc.Spec.Prefill)) {
+		// Workers with their own rank endpoints also belong to the InferencePool.
 		workerLabels[constants.KServeComponentLabelKey] = constants.KServeComponentWorkload
 		workerLabels[constants.LLMDRoleLabelKey] = constants.LLMDRolePrefill
 
@@ -437,6 +443,9 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
 				attachKVCacheSecondaryTiers(&group.LeaderTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
 			}
+			if err := attachModelExpress(llmSvc, &group.LeaderTemplate.Spec, config.ModelExpress); err != nil {
+				return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
+			}
 		}
 		if llmSvc.Spec.Prefill.Worker != nil {
 			group.WorkerTemplate.Spec = *llmSvc.Spec.Prefill.Worker.DeepCopy()
@@ -448,6 +457,9 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 			}
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
 				attachKVCacheSecondaryTiers(&group.WorkerTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+			}
+			if err := attachModelExpress(llmSvc, &group.WorkerTemplate.Spec, config.ModelExpress); err != nil {
+				return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
 			}
 		}
 

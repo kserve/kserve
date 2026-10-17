@@ -30,6 +30,7 @@ import (
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/version"
@@ -134,6 +135,10 @@ const (
 	LLMInferenceServiceNotReadyState LLMInferenceServiceState = "LLMInferenceServiceNotReady"
 )
 
+// DefaultMaxConcurrentReconciles is how many objects each llmisvc controller reconciles at once
+// unless --max-concurrent-reconciles says otherwise.
+const DefaultMaxConcurrentReconciles = 8
+
 // LLMISVCReconciler reconciles an LLMInferenceService object.
 // It orchestrates the reconciliation of child resources based on the spec.
 type LLMISVCReconciler struct {
@@ -147,6 +152,10 @@ type LLMISVCReconciler struct {
 	// installing the LWS operator after startup requires a controller restart, the
 	// same constraint that already applies to LeaderWorkerSet.
 	DisaggregatedSetAvailable bool
+
+	// DisaggregatedSetRoleScalerAvailable reports whether the DisaggregatedSetRoleScaler
+	// CRD was present when SetupWithManager ran.
+	DisaggregatedSetRoleScalerAvailable bool
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -158,6 +167,7 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=leaderworkerset.x-k8s.io,resources=leaderworkersets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=disaggregatedset.x-k8s.io,resources=disaggregatedsets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=disaggregatedset.x-k8s.io,resources=disaggregatedsetrolescalers,verbs=get;list;watch
 //+kubebuilder:rbac:groups=core,resources=services,verbs=get;list;watch;create;update;patch;delete
 // Secret access stays cluster-scoped so Owns() can watch TLS cert secrets in workload namespaces.
 // Keep create/update/patch/delete so reconcile and force-stop can manage TLS secrets.
@@ -497,6 +507,13 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		b = b.Owns(&disaggregatedsetv1.DisaggregatedSet{}, builder.WithPredicates(childResourcesPredicate))
 	}
 
+	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), disaggregatedsetv1.GroupVersion.String(), "DisaggregatedSetRoleScaler"); ok && err == nil {
+		r.DisaggregatedSetRoleScalerAvailable = true
+		b = b.Watches(&disaggregatedsetv1.DisaggregatedSetRoleScaler{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueOnDisaggregatedSetRoleScalerChange(logger)),
+			builder.WithPredicates(predicate.GenerationChangedPredicate{}))
+	}
+
 	if ok, err := utils.IsCrdAvailable(mgr.GetConfig(), resourcev1.SchemeGroupVersion.String(), "ResourceClaimTemplate"); ok && err == nil {
 		b = b.Owns(&resourcev1.ResourceClaimTemplate{}, builder.WithPredicates(childResourcesPredicate))
 	}
@@ -710,6 +727,30 @@ func (r *LLMISVCReconciler) enqueueOnInferencePoolChange(logger logr.Logger) han
 
 		return reqs
 	})
+}
+
+// enqueueOnDisaggregatedSetRoleScalerChange triggers reconciliation of the
+// LLMInferenceService whose DisaggregatedSet owns a changed DisaggregatedSetRoleScaler.
+func (r *LLMISVCReconciler) enqueueOnDisaggregatedSetRoleScalerChange(logger logr.Logger) handler.MapFunc {
+	logger = logger.WithName("enqueueOnDisaggregatedSetRoleScalerChange")
+	return func(ctx context.Context, object client.Object) []reconcile.Request {
+		dsRef := metav1.GetControllerOf(object)
+		if dsRef == nil || dsRef.Kind != "DisaggregatedSet" || dsRef.APIVersion != disaggregatedsetv1.GroupVersion.String() {
+			return nil
+		}
+		ds := &disaggregatedsetv1.DisaggregatedSet{}
+		if err := r.Get(ctx, types.NamespacedName{Namespace: object.GetNamespace(), Name: dsRef.Name}, ds); err != nil {
+			if !apierrors.IsNotFound(err) {
+				logger.Error(err, "Failed to get DisaggregatedSet", "name", dsRef.Name, "namespace", object.GetNamespace())
+			}
+			return nil
+		}
+		ownerRef := metav1.GetControllerOf(ds)
+		if ownerRef == nil || ownerRef.Kind != "LLMInferenceService" || ownerRef.APIVersion != v1alpha2.LLMInferenceServiceGVK.GroupVersion().String() {
+			return nil
+		}
+		return []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: ds.Namespace, Name: ownerRef.Name}}}
+	}
 }
 
 // enqueueOnLLMInferenceServiceConfigChange triggers reconciliation of every LLMInferenceService

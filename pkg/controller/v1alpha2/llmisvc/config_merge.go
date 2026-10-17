@@ -67,9 +67,11 @@ const (
 	configWorkerPipelineParallelNameSuffix        = "config-llm-worker-pipeline-parallel"
 	configPrefillWorkerPipelineParallelNameSuffix = "config-llm-prefill-worker-pipeline-parallel"
 	// Data parallel worker configurations
-	configWorkerDataParallelNameSuffix        = "config-llm-worker-data-parallel"
-	configDecodeWorkerDataParallelNameSuffix  = "config-llm-decode-worker-data-parallel"
-	configPrefillWorkerDataParallelNameSuffix = "config-llm-prefill-worker-data-parallel"
+	configWorkerDataParallelNameSuffix                 = "config-llm-worker-data-parallel"
+	configDecodeWorkerDataParallelNameSuffix           = "config-llm-decode-worker-data-parallel"
+	configPrefillWorkerDataParallelNameSuffix          = "config-llm-prefill-worker-data-parallel"
+	configDecodeWorkerDataParallelMultiPortNameSuffix  = "config-llm-decode-worker-data-parallel-multi-port"
+	configPrefillWorkerDataParallelMultiPortNameSuffix = "config-llm-prefill-worker-data-parallel-multi-port"
 	// Router and scheduler configurations
 	configRouterSchedulerNameSuffix                   = "config-llm-scheduler"
 	configRouterSchedulerDefaultEPPConfigNameSuffix   = "config-llm-scheduler-eppconfig-default"    // default EPPConfig
@@ -128,6 +130,14 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configRouterRouteName,
 	configTokenizerName,
 	configTracingName,
+)
+
+// WellKnownBaseRefConfigs are shipped presets selected only through baseRefs.
+// They must not enter WellKnownDefaultConfigs: existing services should neither
+// adopt nor implicitly pin them during a controller upgrade.
+var WellKnownBaseRefConfigs = sets.New[string](
+	configPrefix+configDecodeWorkerDataParallelMultiPortNameSuffix,
+	configPrefix+configPrefillWorkerDataParallelMultiPortNameSuffix,
 )
 
 const (
@@ -393,6 +403,12 @@ func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alp
 			return nil, reconcile.TerminalError(slotConflict)
 		}
 
+		var dpRouting *dataParallelRoutingError
+		if errors.As(err, &dpRouting) {
+			llmSvc.MarkPresetsCombinedNotReady("DataParallelRoutingInvalid", "%s", dpRouting.Error())
+			return nil, reconcile.TerminalError(dpRouting)
+		}
+
 		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", "%s", conditionMessage(err))
 		return nil, fmt.Errorf("failed to combine base-configurations: %w", err)
 	}
@@ -541,6 +557,8 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	wr := &WellKnownConfigResolver{}
 	wr.Attach(llmSvc)
 
+	dpConfigs := dataParallelConfigSelection{}
+	baseRefPresets := sets.New[string]()
 	baseRefSpecs := make([]v1alpha2.LLMInferenceServiceSpec, 0, len(llmSvc.Spec.BaseRefs))
 	for _, ref := range llmSvc.Spec.BaseRefs {
 		cfg, err := r.getConfig(ctx, llmSvc, ref.Name)
@@ -548,6 +566,12 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			return nil, err
 		}
 		if cfg != nil {
+			if err := dpConfigs.add(cfg); err != nil {
+				return nil, &dataParallelRoutingError{err}
+			}
+			if cfg.Annotations[configReplacesPresetAnnotation] != "" {
+				baseRefPresets.Insert(ref.Name)
+			}
 			baseRefSpecs = append(baseRefSpecs, cfg.Spec)
 		}
 	}
@@ -637,7 +661,9 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			refs = append(refs, presetRef(wr.Resolve(llmSvc, configPrefillTemplateName)))
 		case resolvedSpec.Prefill.Worker != nil && resolvedSpec.Prefill.Parallelism.IsDataParallel():
 			// multi-node Data Parallel prefill
-			refs = append(refs, presetRef(wr.Resolve(llmSvc, configPrefillWorkerDataParallelName)))
+			if !dpConfigs.prefill {
+				refs = append(refs, presetRef(wr.Resolve(llmSvc, configPrefillWorkerDataParallelName)))
+			}
 		case resolvedSpec.Prefill.Worker != nil && resolvedSpec.Prefill.Parallelism.IsPipelineParallel():
 			// multi-node Pipeline Parallel prefill
 			refs = append(refs, presetRef(wr.Resolve(llmSvc, configPrefillWorkerPipelineParallelName)))
@@ -649,7 +675,9 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			refs = append(refs, presetRef(wr.Resolve(llmSvc, configDecodeTemplateName)))
 		case resolvedSpec.Worker != nil && resolvedSpec.Parallelism.IsDataParallel():
 			// multi-node Data Parallel decode
-			refs = append(refs, presetRef(wr.Resolve(llmSvc, configDecodeWorkerDataParallelName)))
+			if !dpConfigs.decode {
+				refs = append(refs, presetRef(wr.Resolve(llmSvc, configDecodeWorkerDataParallelName)))
+			}
 		case resolvedSpec.Worker != nil && resolvedSpec.Parallelism.IsPipelineParallel():
 			// multi-node Pipeline Parallel decode
 			refs = append(refs, presetRef(wr.Resolve(llmSvc, configDecodeWorkerPipelineParallelName)))
@@ -672,7 +700,13 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 
 	// Append explicit base refs to override well know configs.
 	for _, ref := range llmSvc.Spec.BaseRefs {
-		refs = append(refs, userRef(ref))
+		// Standalone topology presets keep their sizing policy across renamed
+		// release prefixes. Namespace-local copies remain user-owned below.
+		if baseRefPresets.Has(ref.Name) {
+			refs = append(refs, presetRef(ref.Name))
+		} else {
+			refs = append(refs, userRef(ref))
+		}
 	}
 
 	specs := make([]v1alpha2.LLMInferenceServiceSpec, 0, len(refs)+1)
@@ -746,6 +780,11 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		ObjectMeta: *llmSvc.ObjectMeta.DeepCopy(),
 		Spec:       spec,
 	}
+	// Validate selected topology counts before evaluating any rank templates.
+	if err := dpConfigs.configurePool(llmSvcCfg, resolvedSpec); err != nil {
+		return nil, &dataParallelRoutingError{err}
+	}
+	dpConfigs.configureActivePorts(llmSvcCfg)
 	var resolvedSchedulerConfigMap *types.NamespacedName
 
 	if llmSvcCfg.Spec.Router != nil &&
@@ -1108,6 +1147,9 @@ type templateGlobalConfig struct {
 	IngressGatewayName      string
 	IngressGatewayNamespace string
 	EnableTLS               bool
+	TLSMinVersion           string
+	TLSCipherSuites         string
+	TLSCipherSuitesOpenSSL  string
 
 	// ModelBasedRoutingHeaderName is the HTTP header used to select a model in
 	// shared-gateway deployments (e.g. "X-Gateway-Model-Name"). Exposed here so
@@ -1129,6 +1171,32 @@ type templateGlobalConfig struct {
 // deleting it in place.
 var templateFuncs = map[string]any{
 	"ChildName": kmeta.ChildName,
+	// Frozen v1 contract for standalone rank configs. Template comparisons need
+	// a numeric value rather than the API's *int32. Missing counts mean one rank.
+	"localDataParallelRanksV1": func(value any) int32 {
+		parallelism, ok := value.(*v1alpha2.ParallelismSpec)
+		if !ok || parallelism == nil || parallelism.DataLocal == nil {
+			return 1
+		}
+		return *parallelism.DataLocal
+	},
+	// Frozen v1 contract for the bundled presets: rank ports are consecutive,
+	// beginning at 8000. Custom traffic ports require an explicit active-ports
+	// annotation and matching InferencePool targetPorts in the service or baseRef.
+	"activeDataParallelPortsV1": func(value any) string {
+		local := int32(1)
+		if parallelism, ok := value.(*v1alpha2.ParallelismSpec); ok && parallelism != nil && parallelism.DataLocal != nil {
+			local = *parallelism.DataLocal
+		}
+		if local < 1 || local > 8 {
+			return ""
+		}
+		ports := make([]string, 0, local)
+		for rank := range local {
+			ports = append(ports, strconv.Itoa(8000+int(rank)))
+		}
+		return strings.Join(ports, ",")
+	},
 	// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
 	// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
 	// The 5-second buffer reserves time for signal propagation and final process cleanup
@@ -1232,6 +1300,9 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 			IngressGatewayName:          reconcilerConfig.IngressGatewayName,
 			IngressGatewayNamespace:     reconcilerConfig.IngressGatewayNamespace,
 			EnableTLS:                   reconcilerConfig.EnableTLS,
+			TLSMinVersion:               reconcilerConfig.TLSMinVersion,
+			TLSCipherSuites:             reconcilerConfig.TLSCipherSuites,
+			TLSCipherSuitesOpenSSL:      reconcilerConfig.TLSCipherSuitesOpenSSL,
 			ModelBasedRoutingHeaderName: reconcilerConfig.ModelBasedRoutingHeaderName,
 		}
 		infPoolNamespacedName := types.NamespacedName{
@@ -1266,7 +1337,48 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	if err := json.Unmarshal(buf.Bytes(), out); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config from template: %w", err)
 	}
+	dropOmittedArgs(out)
 	return out, nil
+}
+
+// OmittedArgMarker lets a preset drop an argv entry when its value is unset,
+// which a template cannot do alone: rendering runs over the JSON encoding, so an
+// action can blank a list element but not remove it.
+const OmittedArgMarker = "__KSERVE_OMIT_ARG__"
+
+// dropOmittedArgs removes marked entries from the command and args of every
+// container in every pod spec. Only those fields are filtered so a marker in a
+// probe or environment value cannot be silently removed.
+func dropOmittedArgs(cfg *v1alpha2.LLMInferenceServiceConfig) {
+	if cfg == nil {
+		return
+	}
+	podSpecs := []*corev1.PodSpec{cfg.Spec.Template, cfg.Spec.Worker}
+	if cfg.Spec.Prefill != nil {
+		podSpecs = append(podSpecs, cfg.Spec.Prefill.Template, cfg.Spec.Prefill.Worker)
+	}
+	if cfg.Spec.Router != nil && cfg.Spec.Router.Scheduler != nil {
+		podSpecs = append(podSpecs, cfg.Spec.Router.Scheduler.Template)
+		if cfg.Spec.Router.Scheduler.Tokenizer != nil {
+			podSpecs = append(podSpecs, cfg.Spec.Router.Scheduler.Tokenizer.Template)
+		}
+	}
+
+	for _, podSpec := range podSpecs {
+		if podSpec == nil {
+			continue
+		}
+		for _, containers := range [][]corev1.Container{podSpec.InitContainers, podSpec.Containers} {
+			for i := range containers {
+				containers[i].Command = slices.DeleteFunc(containers[i].Command, func(arg string) bool {
+					return arg == OmittedArgMarker
+				})
+				containers[i].Args = slices.DeleteFunc(containers[i].Args, func(arg string) bool {
+					return arg == OmittedArgMarker
+				})
+			}
+		}
+	}
 }
 
 // configNotFoundError is returned by getConfig when an LLMInferenceServiceConfig

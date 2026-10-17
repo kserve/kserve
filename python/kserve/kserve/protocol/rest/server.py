@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+import os
 import sys
 from socket import socket
 from typing import List, Optional
@@ -55,6 +56,11 @@ from .middleware import TraceResponseHeaderMiddleware
 from .ssl_cert_refresher import SSLCertRefresher
 from .v1_endpoints import register_v1_endpoints
 from .v2_endpoints import register_v2_endpoints
+from .tls_profile import (
+    TLS_PROFILE_PROVIDER_ENV,
+    TLSProfileProvider,
+    load_tls_profile_provider,
+)
 
 
 async def metrics_handler(request: Request) -> Response:
@@ -82,28 +88,44 @@ class _RefreshingServer(uvicorn.Server):
     def __init__(self, config: uvicorn.Config):
         super().__init__(config)
         self._ssl_cert_refresher: Optional[SSLCertRefresher] = None
+        self._tls_profile_provider: Optional[TLSProfileProvider] = None
 
     async def serve(self, sockets: Optional[List[socket]] = None) -> None:
         if not self.config.loaded:
             self.config.load()
 
-        if (
-            self.config.ssl is not None
-            and self.config.ssl_keyfile is not None
-            and self.config.ssl_certfile is not None
-        ):
-            self._ssl_cert_refresher = SSLCertRefresher(
-                ssl_context=self.config.ssl,
-                key_path=str(self.config.ssl_keyfile),
-                cert_path=str(self.config.ssl_certfile),
+        provider_name = os.getenv(TLS_PROFILE_PROVIDER_ENV)
+        if provider_name and self.config.ssl is None:
+            raise ValueError(
+                f"{TLS_PROFILE_PROVIDER_ENV} requires TLS to be configured "
+                "with ssl_certfile and ssl_keyfile"
             )
 
         try:
+            if (
+                self.config.ssl is not None
+                and self.config.ssl_keyfile is not None
+                and self.config.ssl_certfile is not None
+            ):
+                self._ssl_cert_refresher = SSLCertRefresher(
+                    ssl_context=self.config.ssl,
+                    key_path=str(self.config.ssl_keyfile),
+                    cert_path=str(self.config.ssl_certfile),
+                )
+                if provider_name:
+                    self._tls_profile_provider = load_tls_profile_provider(
+                        provider_name, self.config.ssl
+                    )
+                    self._tls_profile_provider.start()
+
             await super().serve(sockets=sockets)
         finally:
             if self._ssl_cert_refresher is not None:
                 self._ssl_cert_refresher.stop()
                 self._ssl_cert_refresher = None
+            if self._tls_profile_provider is not None:
+                self._tls_profile_provider.stop()
+                self._tls_profile_provider = None
 
 
 class RESTServer:
@@ -121,6 +143,8 @@ class RESTServer:
         ssl_certfile: Optional[str] = None,
         ssl_keyfile: Optional[str] = None,
     ):
+        if bool(ssl_certfile) != bool(ssl_keyfile):
+            raise ValueError("ssl_certfile and ssl_keyfile must be configured together")
         self.dataplane = data_plane
         self.model_repository_extension = model_repository_extension
         self.access_log_format = access_log_format

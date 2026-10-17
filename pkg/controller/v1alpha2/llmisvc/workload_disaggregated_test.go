@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-logr/logr"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
@@ -29,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/record"
@@ -36,6 +39,7 @@ import (
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	disaggregatedsetv1 "sigs.k8s.io/lws/api/disaggregatedset/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
@@ -94,6 +98,26 @@ func disaggTestService(t *testing.T) *v1alpha2.LLMInferenceService {
 	}
 }
 
+func disaggTestKEDAScaling(minReplicas, maxReplicas int32) *v1alpha2.ScalingSpec {
+	return &v1alpha2.ScalingSpec{
+		MinReplicas: ptr.To(minReplicas),
+		MaxReplicas: maxReplicas,
+		KEDA: &v1alpha2.DirectKEDAScalingSpec{
+			Triggers: []kedav1alpha1.ScaleTriggers{{Type: "cpu", Metadata: map[string]string{"value": "80"}}},
+		},
+	}
+}
+
+// disaggTestWVAScaling returns scaling that only configures WVA, which is no longer
+// supported: the controller creates no autoscaler for it, so the role is not autoscaled.
+func disaggTestWVAScaling(minReplicas, maxReplicas int32) *v1alpha2.ScalingSpec {
+	return &v1alpha2.ScalingSpec{
+		MinReplicas: ptr.To(minReplicas),
+		MaxReplicas: maxReplicas,
+		WVA:         &v1alpha2.WVASpec{ActuatorSpec: v1alpha2.ActuatorSpec{HPA: &v1alpha2.HPAScalingSpec{}}},
+	}
+}
+
 func disaggTestPod() *corev1.PodSpec {
 	return &corev1.PodSpec{Containers: []corev1.Container{{Name: "main", Image: "vllm:latest"}}}
 }
@@ -142,9 +166,10 @@ func disaggTestReconciler(t *testing.T) *LLMISVCReconciler {
 		&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: disaggTestUserSA, Namespace: disaggTestNamespace}},
 	}
 	return &LLMISVCReconciler{
-		Client:                    fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build(),
-		Clientset:                 k8sfake.NewClientset(),
-		DisaggregatedSetAvailable: true,
+		Client:                              fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build(),
+		Clientset:                           k8sfake.NewClientset(),
+		DisaggregatedSetAvailable:           true,
+		DisaggregatedSetRoleScalerAvailable: true,
 	}
 }
 
@@ -195,18 +220,75 @@ func TestDecideDisaggregatedSet(t *testing.T) {
 			wantReason: reasonNoPrefillWorkload,
 		},
 		{
-			name: "decode autoscaling",
-			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, _ *LLMISVCReconciler) {
-				svc.Spec.Scaling = &v1alpha2.ScalingSpec{MaxReplicas: 3}
+			name: "decode autoscaled without the DisaggregatedSetRoleScaler CRD",
+			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, r *LLMISVCReconciler) {
+				svc.Spec.Scaling = disaggTestKEDAScaling(1, 3)
+				r.DisaggregatedSetRoleScalerAvailable = false
 			},
-			wantReason: reasonAutoscalingNotSupported,
+			wantReason: reasonRoleScalerNotInstalled,
 		},
 		{
-			name: "prefill autoscaling",
-			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, _ *LLMISVCReconciler) {
-				svc.Spec.Prefill.Scaling = &v1alpha2.ScalingSpec{MaxReplicas: 3}
+			name: "prefill autoscaled without the DisaggregatedSetRoleScaler CRD",
+			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, r *LLMISVCReconciler) {
+				svc.Spec.Prefill.Scaling = disaggTestKEDAScaling(1, 3)
+				r.DisaggregatedSetRoleScalerAvailable = false
 			},
-			wantReason: reasonAutoscalingNotSupported,
+			wantReason: reasonRoleScalerNotInstalled,
+		},
+		{
+			// WVA is no longer supported, so a role that only configures it is static.
+			name: "decode with only WVA scaling without the DisaggregatedSetRoleScaler CRD",
+			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, r *LLMISVCReconciler) {
+				svc.Spec.Scaling = disaggTestWVAScaling(1, 3)
+				r.DisaggregatedSetRoleScalerAvailable = false
+			},
+			wantUse: true,
+		},
+		{
+			name: "static roles without the DisaggregatedSetRoleScaler CRD",
+			mutate: func(_ *v1alpha2.LLMInferenceService, _ *Config, r *LLMISVCReconciler) {
+				r.DisaggregatedSetRoleScalerAvailable = false
+			},
+			wantUse: true,
+		},
+		{
+			name: "decode autoscaled by KEDA",
+			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, _ *LLMISVCReconciler) {
+				svc.Spec.Scaling = disaggTestKEDAScaling(1, 3)
+			},
+			wantUse: true,
+		},
+		{
+			name: "prefill autoscaled by KEDA",
+			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, _ *LLMISVCReconciler) {
+				svc.Spec.Prefill.Scaling = disaggTestKEDAScaling(1, 3)
+			},
+			wantUse: true,
+		},
+		{
+			name: "both autoscaled by KEDA",
+			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, _ *LLMISVCReconciler) {
+				svc.Spec.Scaling = disaggTestKEDAScaling(1, 3)
+				svc.Spec.Prefill.Scaling = disaggTestKEDAScaling(1, 3)
+			},
+			wantUse: true,
+		},
+		{
+			// A DisaggregatedSet checks zero and non-zero replicas only across static roles.
+			name: "static prefill scaled to zero next to an autoscaled decode",
+			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, _ *LLMISVCReconciler) {
+				svc.Spec.Scaling = disaggTestKEDAScaling(1, 3)
+				svc.Spec.Prefill.Replicas = ptr.To[int32](0)
+			},
+			wantUse: true,
+		},
+		{
+			name: "prefill scaled to zero next to a decode with only WVA scaling",
+			mutate: func(svc *v1alpha2.LLMInferenceService, _ *Config, _ *LLMISVCReconciler) {
+				svc.Spec.Scaling = disaggTestWVAScaling(1, 3)
+				svc.Spec.Prefill.Replicas = ptr.To[int32](0)
+			},
+			wantReason: reasonReplicasMismatch,
 		},
 		{
 			name: "only prefill scaled to zero",
@@ -227,7 +309,7 @@ func TestDecideDisaggregatedSet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc, config, r := disaggTestService(t), disaggTestConfig(), &LLMISVCReconciler{DisaggregatedSetAvailable: true}
+			svc, config, r := disaggTestService(t), disaggTestConfig(), &LLMISVCReconciler{DisaggregatedSetAvailable: true, DisaggregatedSetRoleScalerAvailable: true}
 			tt.mutate(svc, config, r)
 
 			got := r.decideDisaggregatedSet(svc, config)
@@ -247,7 +329,7 @@ func TestDecideDisaggregatedSet(t *testing.T) {
 // misleading status to check it is ignored.
 func TestMarkDisaggregatedSetDecision(t *testing.T) {
 	use := disaggregatedSetDecision{Requested: true, Use: true}
-	fallback := disaggregatedSetDecision{Requested: true, Reason: reasonAutoscalingNotSupported, Message: "autoscaling is not supported"}
+	fallback := disaggregatedSetDecision{Requested: true, Reason: reasonReplicasMismatch, Message: "replicas mismatch"}
 
 	deployments := func(svc *v1alpha2.LLMInferenceService) []client.Object {
 		return []client.Object{
@@ -334,9 +416,9 @@ func TestMarkDisaggregatedSetDecision(t *testing.T) {
 			existing:      disaggregatedSet,
 			decision:      fallback,
 			wantStatus:    corev1.ConditionFalse,
-			wantReason:    reasonAutoscalingNotSupported,
+			wantReason:    reasonReplicasMismatch,
 			wantEvent:     disaggregatedSetMigratingFromReason,
-			wantInMessage: "autoscaling is not supported",
+			wantInMessage: "replicas mismatch",
 		},
 		{
 			// The condition says why; only a migration, which replaces running
@@ -344,14 +426,14 @@ func TestMarkDisaggregatedSetDecision(t *testing.T) {
 			name:       "falling back without a DisaggregatedSet only records why",
 			decision:   fallback,
 			wantStatus: corev1.ConditionFalse,
-			wantReason: reasonAutoscalingNotSupported,
+			wantReason: reasonReplicasMismatch,
 		},
 		{
 			name:       "falling back again only records why",
 			status:     staleNotUsed,
 			decision:   fallback,
 			wantStatus: corev1.ConditionFalse,
-			wantReason: reasonAutoscalingNotSupported,
+			wantReason: reasonReplicasMismatch,
 		},
 		{
 			name:       "stopping a service on Deployments is not a migration",
@@ -697,6 +779,95 @@ func TestExpectedDisaggregatedSetResolvesZeroRollout(t *testing.T) {
 	require.ErrorContains(t, err, "prefill")
 }
 
+// TestExpectedDisaggregatedSetAutoscaledRole checks that an autoscaled role hands its
+// replicas to the DisaggregatedSetRoleScaler the DisaggregatedSet creates for it, while
+// a static role next to it keeps its own.
+func TestExpectedDisaggregatedSetAutoscaledRole(t *testing.T) {
+	svc := disaggTestService(t)
+	svc.Spec.Scaling = disaggTestKEDAScaling(2, 8)
+	svc.Spec.Prefill.Replicas = ptr.To[int32](3)
+
+	ds, err := disaggTestReconciler(t).expectedDisaggregatedSet(context.Background(), svc, disaggTestConfig(), nil)
+	require.NoError(t, err)
+
+	decode, prefill := ds.Spec.Roles[0], ds.Spec.Roles[1]
+	assert.Equal(t, &disaggregatedsetv1.RoleScaling{Mode: disaggregatedsetv1.RoleScalingExternal}, decode.Scaling)
+	assert.Nil(t, decode.Spec.Replicas, "the DisaggregatedSet ignores the replicas of an autoscaled role and warns when they are more than one")
+	assert.Nil(t, prefill.Scaling)
+	assert.Equal(t, ptr.To[int32](3), prefill.Spec.Replicas)
+	assert.Equal(t, "llama-kserve-pd-decode", disaggregatedRoleScalerName(svc, constants.LLMDRoleDecode))
+}
+
+// TestExpectedDisaggregatedSetWVAOnlyRole checks that a role that only configures WVA,
+// which is no longer supported and creates no autoscaler, stays static and keeps its
+// replicas instead of handing them to a scaler nothing drives.
+func TestExpectedDisaggregatedSetWVAOnlyRole(t *testing.T) {
+	svc := disaggTestService(t)
+	svc.Spec.Replicas = ptr.To[int32](3)
+	svc.Spec.Scaling = disaggTestWVAScaling(2, 8)
+
+	ds, err := disaggTestReconciler(t).expectedDisaggregatedSet(context.Background(), svc, disaggTestConfig(), nil)
+	require.NoError(t, err)
+
+	decode := ds.Spec.Roles[0]
+	assert.Nil(t, decode.Scaling)
+	assert.Equal(t, ptr.To[int32](3), decode.Spec.Replicas)
+}
+
+// TestDisaggregatedRoleTargets checks that an autoscaled role is ready against the
+// replicas its DisaggregatedSetRoleScaler asks for, and has no target while the
+// DisaggregatedSet has not created that scaler or does not control it.
+func TestDisaggregatedRoleTargets(t *testing.T) {
+	ctx := context.Background()
+	ds := &disaggregatedsetv1.DisaggregatedSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "llama-kserve-pd", Namespace: disaggTestNamespace, UID: "ds-uid"},
+		Spec: disaggregatedsetv1.DisaggregatedSetSpec{Roles: []disaggregatedsetv1.DisaggregatedRoleSpec{
+			{Name: constants.LLMDRoleDecode, Scaling: &disaggregatedsetv1.RoleScaling{Mode: disaggregatedsetv1.RoleScalingExternal}},
+			{Name: constants.LLMDRolePrefill, LeaderWorkerSetTemplateSpec: lwsapi.LeaderWorkerSetTemplateSpec{
+				Spec: lwsapi.LeaderWorkerSetSpec{Replicas: ptr.To[int32](3)},
+			}},
+		}},
+	}
+	scaler := func(owner *disaggregatedsetv1.DisaggregatedSet, replicas int32) *disaggregatedsetv1.DisaggregatedSetRoleScaler {
+		return &disaggregatedsetv1.DisaggregatedSetRoleScaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            "llama-kserve-pd-decode",
+				Namespace:       disaggTestNamespace,
+				OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(owner, disaggregatedsetv1.GroupVersion.WithKind("DisaggregatedSet"))},
+			},
+			Spec: disaggregatedsetv1.DisaggregatedSetRoleScalerSpec{Replicas: replicas},
+		}
+	}
+	foreign := ds.DeepCopy()
+	foreign.UID = "other-uid"
+
+	tests := []struct {
+		name   string
+		scaler *disaggregatedsetv1.DisaggregatedSetRoleScaler
+		want   map[string]int32
+	}{
+		{name: "scaler not created yet", want: map[string]int32{constants.LLMDRolePrefill: 3}},
+		{name: "scaler controlled by the DisaggregatedSet", scaler: scaler(ds, 5), want: map[string]int32{constants.LLMDRoleDecode: 5, constants.LLMDRolePrefill: 3}},
+		{name: "scaler scaled to zero", scaler: scaler(ds, 0), want: map[string]int32{constants.LLMDRoleDecode: 0, constants.LLMDRolePrefill: 3}},
+		{name: "scaler controlled by something else", scaler: scaler(foreign, 5), want: map[string]int32{constants.LLMDRolePrefill: 3}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := disaggTestReconciler(t)
+			if tt.scaler != nil {
+				require.NoError(t, r.Create(ctx, tt.scaler))
+			}
+			got, err := r.disaggregatedRoleTargets(ctx, ds)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+
+	got, err := disaggTestReconciler(t).disaggregatedRoleTargets(ctx, nil)
+	require.NoError(t, err)
+	assert.Nil(t, got)
+}
+
 func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 	deploymentDefaults := &lwsapi.RollingUpdateConfiguration{
 		MaxUnavailable: intstr.FromString("25%"),
@@ -819,13 +990,69 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromString("10%"), MaxSurge: intstr.FromString("10%")},
 		},
 		{
-			name: "single-node scaled to zero is left as set",
+			// An autoscaled role is resolved against its minimum replicas.
+			name: "autoscaled single-node is resolved against its minimum replicas",
+			workload: &v1alpha2.WorkloadSpec{
+				Template: disaggTestPod(),
+				Scaling:  disaggTestKEDAScaling(8, 16),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{
+					MaxUnavailable: ptr.To(intstr.FromString("25%")),
+					MaxSurge:       ptr.To(intstr.FromInt32(0)),
+				},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(2), MaxSurge: intstr.FromInt32(0)},
+		},
+		{
+			// WVA is no longer supported, so the role is static and keeps its replicas.
+			name: "single-node with only WVA scaling is resolved against its replicas",
+			workload: &v1alpha2.WorkloadSpec{
+				Template: disaggTestPod(),
+				Replicas: ptr.To[int32](4),
+				Scaling:  disaggTestWVAScaling(8, 16),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{
+					MaxUnavailable: ptr.To(intstr.FromString("25%")),
+					MaxSurge:       ptr.To(intstr.FromInt32(0)),
+				},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)},
+		},
+		{
+			name: "autoscaled single-node with a minimum of zero is resolved against one replica",
+			workload: &v1alpha2.WorkloadSpec{
+				Template:        disaggTestPod(),
+				Scaling:         disaggTestKEDAScaling(0, 4),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxSurge: ptr.To(intstr.FromInt32(0))},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)},
+		},
+		{
+			// The DisaggregatedSet creates its LeaderWorkerSets with these settings even at
+			// zero replicas and never updates them afterwards, only their replicas: the
+			// settings must stay valid once the role scales up.
+			name: "single-node scaled to zero is resolved against one replica",
 			workload: &v1alpha2.WorkloadSpec{
 				Template:        disaggTestPod(),
 				Replicas:        ptr.To[int32](0),
 				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxSurge: ptr.To(intstr.FromInt32(0))},
 			},
-			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromString("25%"), MaxSurge: intstr.FromInt32(0)},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)},
+		},
+		{
+			name: "single-node scaled to zero with a maxUnavailable of 0 removes one replica at a time",
+			workload: &v1alpha2.WorkloadSpec{
+				Template: disaggTestPod(),
+				Replicas: ptr.To[int32](0),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{
+					MaxUnavailable: ptr.To(intstr.FromInt32(0)),
+					MaxSurge:       ptr.To(intstr.FromInt32(0)),
+				},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)},
+		},
+		{
+			name:     "single-node scaled to zero with a surge is left as set",
+			workload: &v1alpha2.WorkloadSpec{Template: disaggTestPod(), Replicas: ptr.To[int32](0)},
+			want:     deploymentDefaults,
 		},
 		{
 			name: "single-node with a malformed value is an error",
@@ -874,6 +1101,16 @@ func TestDisaggregatedRollingUpdateConfig(t *testing.T) {
 				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxUnavailable: ptr.To(intstr.FromString("50%"))},
 			},
 			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(2), MaxSurge: intstr.FromInt32(0)},
+		},
+		{
+			name: "multi-node scaled to zero is resolved against one replica",
+			workload: &v1alpha2.WorkloadSpec{
+				Template:        disaggTestPod(),
+				Worker:          disaggTestPod(),
+				Replicas:        ptr.To[int32](0),
+				RolloutStrategy: &v1alpha2.RolloutStrategy{MaxUnavailable: ptr.To(intstr.FromString("50%"))},
+			},
+			want: &lwsapi.RollingUpdateConfiguration{MaxUnavailable: intstr.FromInt32(1), MaxSurge: intstr.FromInt32(0)},
 		},
 		{
 			name: "multi-node with only maxUnavailable keeps the LeaderWorkerSet default for maxSurge",
@@ -1023,9 +1260,14 @@ func TestDisaggregatedRoleReadiness(t *testing.T) {
 	four := role{replicas: 4, maxUnavailable: ptr.To(intstr.FromString("25%"))}
 
 	tests := []struct {
-		name        string
-		multiNode   bool
-		ds          *disaggregatedsetv1.DisaggregatedSet
+		name      string
+		multiNode bool
+		ds        *disaggregatedsetv1.DisaggregatedSet
+		// desired overrides the role's replicas as its target, as the
+		// DisaggregatedSetRoleScaler of an autoscaled role does; noTarget leaves the
+		// role without one, as before its scaler exists.
+		desired     *int32
+		noTarget    bool
 		wantReady   bool
 		wantReason  string
 		wantMessage string
@@ -1080,11 +1322,37 @@ func TestDisaggregatedRoleReadiness(t *testing.T) {
 		},
 		{name: "multi-node with old replicas not yet removed", multiNode: true, ds: dsWith(1, 1, two, status(3, 3, 2)), wantReason: "Progressing", wantMessage: "3/2 replicas ready, 2 updated and 3 in total"},
 		{name: "multi-node mid-rollout with enough replicas serving is not ready", multiNode: true, ds: dsWith(1, 1, four, status(6, 4, 4)), wantReason: "Progressing"},
+
+		// An autoscaled role is ready against the replicas its DisaggregatedSetRoleScaler
+		// asks for, not its own replicas.
+		{
+			name:        "autoscaled single-node scaling up is not ready until enough new replicas serve",
+			ds:          dsWith(1, 1, four, status(8, 4, 8)),
+			desired:     ptr.To[int32](8),
+			wantReason:  "Progressing",
+			wantMessage: "decode role has 4 ready replicas, needs at least 6 of 8",
+		},
+		{name: "autoscaled single-node scaled up", ds: dsWith(1, 1, four, status(8, 8, 8)), desired: ptr.To[int32](8), wantReady: true},
+		{name: "autoscaled single-node scaled to zero", ds: dsWith(1, 1, four, status(0, 0, 0)), desired: ptr.To[int32](0), wantReady: true},
+		{name: "autoscaled multi-node scaled up", multiNode: true, ds: dsWith(1, 1, two, status(3, 3, 3)), desired: ptr.To[int32](3), wantReady: true},
+		{
+			name:        "autoscaled role without its scaler",
+			ds:          dsWith(1, 1, four, status(4, 4, 4)),
+			noTarget:    true,
+			wantReason:  "Progressing",
+			wantMessage: "decode role is waiting for DisaggregatedSetRoleScaler",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			reason, message, ready := disaggregatedRoleReadiness(tt.ds, constants.LLMDRoleDecode, tt.multiNode)
+			desired := tt.desired
+			if desired == nil && !tt.noTarget {
+				if role := findDisaggregatedRole(tt.ds, constants.LLMDRoleDecode); role != nil {
+					desired = ptr.To(ptr.Deref(role.Spec.Replicas, 1))
+				}
+			}
+			reason, message, ready := disaggregatedRoleReadiness(tt.ds, constants.LLMDRoleDecode, tt.multiNode, desired)
 			assert.Equal(t, tt.wantReady, ready)
 			assert.Equal(t, tt.wantReason, reason)
 			assert.Contains(t, message, tt.wantMessage)
@@ -1109,4 +1377,83 @@ func TestSemanticDisaggregatedSetIsEqual(t *testing.T) {
 	reordered := expected.DeepCopy()
 	reordered.Spec.Roles[0], reordered.Spec.Roles[1] = reordered.Spec.Roles[1], reordered.Spec.Roles[0]
 	assert.False(t, semanticDisaggregatedSetIsEqual(expected, reordered))
+
+	external := expected.DeepCopy()
+	external.Spec.Roles[0].Scaling = &disaggregatedsetv1.RoleScaling{Mode: disaggregatedsetv1.RoleScalingExternal}
+	assert.False(t, semanticDisaggregatedSetIsEqual(expected, external), "a static role is not equal to an External one")
+
+	autoscaledSvc := disaggTestService(t)
+	autoscaledSvc.Spec.Scaling = disaggTestKEDAScaling(1, 3)
+	autoscaled, err := disaggTestReconciler(t).expectedDisaggregatedSet(context.Background(), autoscaledSvc, disaggTestConfig(), nil)
+	require.NoError(t, err)
+	assert.False(t, semanticDisaggregatedSetIsEqual(autoscaled, expected), "an External role is not equal to a static one")
+	assert.True(t, semanticDisaggregatedSetIsEqual(autoscaled, autoscaled.DeepCopy()))
+}
+
+func TestEnqueueOnDisaggregatedSetRoleScalerChange(t *testing.T) {
+	svc := disaggTestService(t)
+	svc.UID = "svc-uid"
+	ds := &disaggregatedsetv1.DisaggregatedSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      disaggregatedSetName(svc),
+			Namespace: svc.Namespace,
+			UID:       "ds-uid",
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(svc, v1alpha2.LLMInferenceServiceGVK),
+			},
+		},
+	}
+	foreignDS := &disaggregatedsetv1.DisaggregatedSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "foreign", Namespace: svc.Namespace, UID: "foreign-uid"},
+	}
+	scalerOwnedBy := func(owner *disaggregatedsetv1.DisaggregatedSet) *disaggregatedsetv1.DisaggregatedSetRoleScaler {
+		return &disaggregatedsetv1.DisaggregatedSetRoleScaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      owner.Name + "-" + constants.LLMDRoleDecode,
+				Namespace: owner.Namespace,
+				OwnerReferences: []metav1.OwnerReference{
+					*metav1.NewControllerRef(owner, disaggregatedsetv1.GroupVersion.WithKind("DisaggregatedSet")),
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name   string
+		scaler *disaggregatedsetv1.DisaggregatedSetRoleScaler
+		want   []reconcile.Request
+	}{
+		{
+			name:   "a scaler of a service's DisaggregatedSet enqueues the service",
+			scaler: scalerOwnedBy(ds),
+			want:   []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: svc.Namespace, Name: svc.Name}}},
+		},
+		{
+			name:   "a scaler of a DisaggregatedSet no service owns is ignored",
+			scaler: scalerOwnedBy(foreignDS),
+		},
+		{
+			name: "a scaler of a DisaggregatedSet that is gone is ignored",
+			scaler: scalerOwnedBy(&disaggregatedsetv1.DisaggregatedSet{
+				ObjectMeta: metav1.ObjectMeta{Name: "gone", Namespace: svc.Namespace, UID: "gone-uid"},
+			}),
+		},
+		{
+			name: "a scaler no DisaggregatedSet controls is ignored",
+			scaler: &disaggregatedsetv1.DisaggregatedSetRoleScaler{
+				ObjectMeta: metav1.ObjectMeta{Name: "standalone", Namespace: svc.Namespace},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := disaggTestReconciler(t)
+			require.NoError(t, r.Create(t.Context(), ds.DeepCopy()))
+			require.NoError(t, r.Create(t.Context(), foreignDS.DeepCopy()))
+
+			got := r.enqueueOnDisaggregatedSetRoleScalerChange(logr.Discard())(t.Context(), tt.scaler)
+
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }

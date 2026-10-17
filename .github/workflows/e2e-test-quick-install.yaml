@@ -171,7 +171,7 @@ jobs:
           else
             ./hack/kserve-install.sh --ci --type kserve,localmodel,llmisvc --raw --kustomize --kserve-version ${TAG}
           fi
-      - name: Verify all controllers are running
+      - name: Verify all controllers and agents are running
         run: |
           echo "=== KServe namespace pods ==="
           kubectl get pods -n kserve
@@ -184,8 +184,14 @@ jobs:
           kubectl wait deployment/llmisvc-controller-manager \
             -n kserve --for=condition=Available --timeout=120s
 
+          echo "=== Waiting for LocalModel agent DaemonSets ==="
+          kubectl rollout status daemonset/kserve-localmodelnode-agent \
+            -n kserve --timeout=120s
+          kubectl rollout status daemonset/kserve-kernelcachenode-agent \
+            -n kserve --timeout=120s
+
           echo "=== CRDs ==="
-          kubectl get crd | grep -E "(inferenceservice|llminference|localmodel)"
+          kubectl get crd | grep -E "(inferenceservice|llminference|localmodel|kernelcache)"
       - name: Check system status
         if: always()
         run: |
