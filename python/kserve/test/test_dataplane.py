@@ -162,6 +162,19 @@ class TestDataPlane:
         )
         assert (resp, headers) == ({"predictions": [[1, 2]]}, {})
 
+    async def test_explain_does_not_return_request_headers(
+        self, dataplane_with_model: DataPlane
+    ):
+        body = b'{"instances":[[1,2]]}'
+        request_headers = {"authorization": "Bearer secret-token"}
+        infer_request, _ = dataplane_with_model.decode(body, None)
+        resp, response_headers = await dataplane_with_model.explain(
+            self.MODEL_NAME, infer_request, headers=request_headers
+        )
+        assert resp == {"predictions": [[1, 2]]}
+        assert response_headers == {}
+        assert request_headers == {"authorization": "Bearer secret-token"}
+
 
 @pytest.mark.asyncio
 class TestDataPlaneCloudEvent:
