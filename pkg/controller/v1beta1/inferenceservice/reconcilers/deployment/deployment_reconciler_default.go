@@ -21,6 +21,7 @@ package deployment
 import (
 	"context"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -30,5 +31,15 @@ import (
 // Deployments are built, before they are reconciled against the cluster. Conditions it
 // records in r.platformConditions are exposed through PlatformConditions.
 func (r *DeploymentReconciler) customizeDeployments(_ context.Context, _ metav1.ObjectMeta, _ *corev1.PodSpec) error {
+	return nil
+}
+
+// customizeExistingDeployment is the default (upstream) no-op hook for
+// platform-specific reconciliation of fields preserved from an existing
+// Deployment. It runs after the live Deployment is fetched and before the
+// desired and live specs are compared. A platform implementation can update
+// controller-managed fields on desired without replacing user-managed fields
+// that it intentionally preserves from existing.
+func (r *DeploymentReconciler) customizeExistingDeployment(_ context.Context, _ *appsv1.Deployment, _ *appsv1.Deployment) error {
 	return nil
 }
