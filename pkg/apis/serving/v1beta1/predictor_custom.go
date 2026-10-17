@@ -66,7 +66,18 @@ func (c *CustomPredictor) Default(config *InferenceServicesConfig) {
 	if len(c.Containers) == 0 {
 		c.Containers = append(c.Containers, corev1.Container{})
 	}
-	if len(c.Containers) == 1 || len(c.Containers[0].Name) == 0 {
+	// Ensure at least one container is named "kserve-container". GetContainer
+	// looks up the predictor container by this name, so when none of the
+	// user-supplied containers carry it the reconciler dereferences a nil
+	// pointer and panics (#4986).
+	hasKServeContainer := false
+	for _, container := range c.Containers {
+		if container.Name == constants.InferenceServiceContainerName {
+			hasKServeContainer = true
+			break
+		}
+	}
+	if !hasKServeContainer {
 		c.Containers[0].Name = constants.InferenceServiceContainerName
 	}
 	setResourceRequirementDefaults(config, &c.Containers[0].Resources)
