@@ -74,7 +74,10 @@ func (e *loRAMountPathCollisionError) Error() string {
 // Replaces anything that is not alphanumeric, dash, underscore, or dot.
 var loraPathInvalidCharsRe = regexp.MustCompile(`[^a-zA-Z0-9._-]`)
 
-// resolvedLoRAAdapter is one adapter after URI validation (hf/s3 downloads are handled in attachModelArtifacts).
+var ociDigestRe = regexp.MustCompile(`@sha256:[a-fA-F0-9]{64}$`)
+
+// resolvedLoRAAdapter is one adapter after URI validation. HF/S3 downloads are
+// handled in attachModelArtifacts; OCI adapters are mounted as ImageVolumes.
 type resolvedLoRAAdapter struct {
 	name      string
 	mountPath string
@@ -125,13 +128,17 @@ func enumerateLoRAAdapters(spec v1alpha2.LLMInferenceServiceSpec) ([]resolvedLoR
 			if storageInitializerDisabled {
 				return nil, fmt.Errorf("LoRA adapter %q: pvc:// requires a mounted volume - do not set storageInitializer.enabled to false (see %s)", adapterName, loraAdapterDocsURL)
 			}
-		case constants.OciURIPrefix:
-			// oci:// is intentionally not supported for LoRA adapters. OCI models run as sidecar
-			// containers ("modelcars") with shared process namespaces, but only one modelcar per pod
-			// is currently supported. Workaround: package the adapter in a PVC and use pvc://.
-			return nil, fmt.Errorf("LoRA adapter %q: oci:// is not supported for LoRA adapters; use hf://, s3://, or pvc:// instead (see %s)", adapterName, loraAdapterDocsURL)
+		case constants.OciURIPrefix, constants.OciNativeURIPrefix:
+			// Both OCI schemes use ImageVolumes for adapters, independently of the
+			// base model's OCI mode and without the storage initializer.
+			if !ociDigestRe.MatchString(uri) {
+				return nil, fmt.Errorf("LoRA adapter %q: OCI URI must use an immutable sha256 digest (see %s)", adapterName, loraAdapterDocsURL)
+			}
+			// Normalize the explicit native scheme for downstream storage handling.
+			_, uri, _ = utils.ParseOciScheme(uri)
+			scheme = constants.OciURIPrefix
 		default:
-			return nil, fmt.Errorf("LoRA adapter %q: unsupported URI scheme %q; supported schemes are hf://, s3://, pvc:// (see %s)", adapterName, scheme, loraAdapterDocsURL)
+			return nil, fmt.Errorf("LoRA adapter %q: unsupported URI scheme %q; supported schemes are hf://, s3://, pvc://, oci://, oci+native:// (see %s)", adapterName, scheme, loraAdapterDocsURL)
 		}
 
 		out = append(out, resolvedLoRAAdapter{
@@ -415,7 +422,7 @@ func collectLoRADownloadPairs(adapters []resolvedLoRAAdapter) []storageDownloadP
 
 // attachLoRAAdapters reconciles spec.model.lora.adapters into vLLM CLI flags appended to the main
 // container's Args. hf:// and s3:// adapters are downloaded in attachModelArtifacts via one
-// storage-initializer; pvc:// adapters are mounted here.
+// storage-initializer; pvc:// and OCI adapters are mounted here.
 func (r *LLMISVCReconciler) attachLoRAAdapters(
 	ctx context.Context,
 	llmSvc *v1alpha2.LLMInferenceService,
@@ -436,6 +443,10 @@ func (r *LLMISVCReconciler) attachLoRAAdapters(
 	var loraModules []string
 	for i, a := range adapters {
 		switch a.scheme {
+		case constants.OciURIPrefix:
+			if err := utils.ConfigureOciNativeToContainer(a.uri, podSpec, containerName, a.mountPath, nil); err != nil {
+				return fmt.Errorf("LoRA adapter %q: %w", a.name, err)
+			}
 		case constants.PvcURIPrefix:
 			// A workload-provided mount is trusted rather than rejected: the point of the
 			// boundary is to let a workload supply the adapter itself, and refusing here would

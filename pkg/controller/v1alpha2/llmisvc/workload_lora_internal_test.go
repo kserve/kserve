@@ -17,7 +17,9 @@ limitations under the License.
 package llmisvc
 
 import (
+	"encoding/json"
 	"errors"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -28,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
@@ -39,6 +42,103 @@ import (
 	"github.com/kserve/kserve/pkg/localmodelcache"
 	"github.com/kserve/kserve/pkg/utils"
 )
+
+func TestEnumerateLoRAAdaptersAcceptsOCI(t *testing.T) {
+	for _, scheme := range []string{constants.OciURIPrefix, constants.OciNativeURIPrefix} {
+		t.Run(scheme, func(t *testing.T) {
+			reference := "registry.example.com/lora/finance@sha256:" + strings.Repeat("a", 64)
+			adapters, err := enumerateLoRAAdapters(loRASpec(t, "finance", scheme+reference))
+			require.NoError(t, err)
+			require.Len(t, adapters, 1)
+			assert.Equal(t, constants.OciURIPrefix, adapters[0].scheme)
+			assert.Equal(t, constants.OciURIPrefix+reference, adapters[0].uri)
+			assert.Equal(t, "/mnt/lora/finance", adapters[0].mountPath)
+		})
+	}
+}
+
+func TestEnumerateLoRAAdaptersRejectsMutableOCIReference(t *testing.T) {
+	for _, scheme := range []string{constants.OciURIPrefix, constants.OciNativeURIPrefix} {
+		t.Run(scheme, func(t *testing.T) {
+			_, err := enumerateLoRAAdapters(loRASpec(t, "finance", scheme+"registry.example.com/lora/finance:v1"))
+			require.ErrorContains(t, err, "immutable sha256 digest")
+		})
+	}
+}
+
+func TestCollectLoRADownloadPairsExcludesOCI(t *testing.T) {
+	pairs := collectLoRADownloadPairs([]resolvedLoRAAdapter{
+		{scheme: constants.OciURIPrefix, uri: "oci://registry/lora", mountPath: "/mnt/lora/oci"},
+		{scheme: constants.HfURIPrefix, uri: "hf://org/lora", mountPath: "/mnt/lora/hf"},
+	})
+	if len(pairs) != 1 || pairs[0].uri != "hf://org/lora" {
+		t.Fatalf("unexpected download pairs: %#v", pairs)
+	}
+}
+
+func TestAttachLoRAAdaptersMountsOCIImageVolume(t *testing.T) {
+	uri, err := apis.ParseURL("oci://registry.example.com/lora/finance@sha256:" +
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	if err != nil {
+		t.Fatal(err)
+	}
+	llmSvc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{
+		Name: "test", Namespace: "default",
+	}}
+	llmSvc.Spec.Model.LoRA = &v1alpha2.LoRASpec{Adapters: []v1alpha2.LLMModelSpec{{
+		Name: ptr.To("finance"), URI: *uri,
+	}}}
+	adapters, err := enumerateLoRAAdapters(llmSvc.Spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+	if err := (&LLMISVCReconciler{}).attachLoRAAdapters(t.Context(), llmSvc, podSpec, adapters); err != nil {
+		t.Fatal(err)
+	}
+	if len(podSpec.InitContainers) != 0 || len(podSpec.Volumes) != 1 {
+		t.Fatalf("unexpected pod storage: init=%d volumes=%d", len(podSpec.InitContainers), len(podSpec.Volumes))
+	}
+	if got := podSpec.Volumes[0].Image; got == nil || got.Reference != "registry.example.com/lora/finance@sha256:"+"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
+		t.Fatalf("unexpected image volume: %#v", got)
+	}
+	mounts := podSpec.Containers[0].VolumeMounts
+	if len(mounts) != 1 || mounts[0].MountPath != "/mnt/lora/finance" || mounts[0].SubPath != "models" || !mounts[0].ReadOnly {
+		t.Fatalf("unexpected mounts: %#v", mounts)
+	}
+	wantArgs := []string{
+		"--enable-lora", "--lora-modules",
+		`'{"name":"finance","path":"/mnt/lora/finance"}'`,
+		`'{"name":"publishers/default/models/finance","path":"/mnt/lora/finance"}'`,
+	}
+	if strings.Join(podSpec.Containers[0].Args, " ") != strings.Join(wantArgs, " ") {
+		t.Fatalf("unexpected LoRA args: %#v", podSpec.Containers[0].Args)
+	}
+}
+
+func TestAttachLoRAAdaptersMountsMultipleOCIImageVolumes(t *testing.T) {
+	llmSvc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{
+		Name: "test", Namespace: "default",
+	}}
+	podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+	adapters := []resolvedLoRAAdapter{
+		{name: "finance", uri: "oci://registry/lora/finance@sha256:" + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", scheme: constants.OciURIPrefix, mountPath: "/mnt/lora/finance"},
+		{name: "sql", uri: "oci://registry/lora/sql@sha256:" + "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", scheme: constants.OciURIPrefix, mountPath: "/mnt/lora/sql"},
+	}
+
+	if err := (&LLMISVCReconciler{}).attachLoRAAdapters(t.Context(), llmSvc, podSpec, adapters); err != nil {
+		t.Fatal(err)
+	}
+	if len(podSpec.InitContainers) != 0 || len(podSpec.Volumes) != 2 {
+		t.Fatalf("unexpected pod storage: init=%d volumes=%d", len(podSpec.InitContainers), len(podSpec.Volumes))
+	}
+	if len(podSpec.Containers[0].VolumeMounts) != 2 {
+		t.Fatalf("expected two volume mounts, got %#v", podSpec.Containers[0].VolumeMounts)
+	}
+	if podSpec.Containers[0].VolumeMounts[0].Name == podSpec.Containers[0].VolumeMounts[1].Name {
+		t.Fatalf("expected distinct volume names, got %#v", podSpec.Containers[0].VolumeMounts)
+	}
+}
 
 func TestSanitizeLoRAPathSegment(t *testing.T) {
 	t.Parallel()
@@ -970,9 +1070,9 @@ func TestLoRAAdapterCollisionErrorsAreMarked(t *testing.T) {
 	}
 
 	// Other enumerate failures must not claim the collision reason.
-	_, err := enumerateLoRAAdapters(loRASpec(t, "a", "oci://registry/adapter"))
+	_, err := enumerateLoRAAdapters(loRASpec(t, "a", "gs://bucket/adapter"))
 	if err == nil {
-		t.Fatal("expected an error for oci://")
+		t.Fatal("expected an error for gs://")
 	}
 	var collision *loRAMountPathCollisionError
 	if errors.As(err, &collision) {
@@ -1055,16 +1155,85 @@ func TestEnumerateLoRAAdaptersSchemeErrorBeatsCollision(t *testing.T) {
 	_, err := enumerateLoRAAdapters(loRASpec(t,
 		"sql/v2", "pvc://adapters/one",
 		"sql-v2", "pvc://adapters/two",
-		"oci-adapter", "oci://registry/adapter",
+		"gs-adapter", "gs://bucket/adapter",
 	))
 	if err == nil {
 		t.Fatal("expected an error")
 	}
-	if !strings.Contains(err.Error(), "oci://") {
+	if !strings.Contains(err.Error(), "gs://") {
 		t.Errorf("got %q, want the unsupported scheme reported", err.Error())
 	}
 	var collision *loRAMountPathCollisionError
 	if errors.As(err, &collision) {
 		t.Error("scheme error must not carry the collision reason")
+	}
+}
+
+// API-valid names must survive the default template's eval and retain both
+// runtime aliases, including the name published in service discovery.
+func TestAttachLoRAAdaptersPreservesNames(t *testing.T) {
+	_, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash is required to exercise the default runtime entrypoint")
+	}
+	for _, name := range []string{"finance", "finance prod", "finance=v1", "finance,prod"} {
+		t.Run(name, func(t *testing.T) {
+			spec := loRASpec(t, name, "hf://org/adapter")
+			require.Empty(t, v1alpha2.ValidateLoRAAdapters(spec.Model.LoRA, "base", field.NewPath("spec", "model", "lora")))
+			svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "base", Namespace: "default"}, Spec: spec}
+			adapters, err := enumerateLoRAAdapters(spec)
+			require.NoError(t, err)
+			pod := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+			require.NoError(t, (&LLMISVCReconciler{}).attachLoRAAdapters(t.Context(), svc, pod, adapters))
+			cmdArgs := make([]string, 0, 3+len(pod.Containers[0].Args))
+			cmdArgs = append(cmdArgs, "-c", `capture() { printf '%s\0' "$@"; }; eval "capture $@"`, "--")
+			cmdArgs = append(cmdArgs, pod.Containers[0].Args...)
+			// #nosec G204 -- Exercise shell argument handling with fixed test fixtures, not external input.
+			out, err := exec.CommandContext(t.Context(), "bash", cmdArgs...).Output()
+			require.NoError(t, err)
+			args := strings.Split(strings.TrimSuffix(string(out), "\x00"), "\x00")
+			require.Len(t, args, 4)
+			got := make(map[string]string)
+			for _, arg := range args[2:] {
+				var module struct {
+					Name string `json:"name"`
+					Path string `json:"path"`
+				}
+				require.NoError(t, json.Unmarshal([]byte(arg), &module))
+				got[module.Name] = module.Path
+			}
+			fq := fullyQualifiedModelName(svc.Namespace, name)
+			assert.Equal(t, map[string]string{name: adapters[0].mountPath, fq: adapters[0].mountPath}, got)
+			u, err := apis.ParseURL("http://gateway.example.com/")
+			require.NoError(t, err)
+			status := SourcedAddress(t.Context(), DiscoveredURL{URL: u}, svc)
+			require.Contains(t, status.Models, v1alpha2.ModelSourcedAddressStatus{Name: fq})
+			assert.Contains(t, got, fq)
+		})
+	}
+}
+
+func TestAttachModelArtifactsOCIAdaptersWithoutStorageInitializer(t *testing.T) {
+	for _, scheme := range []string{constants.OciURIPrefix, constants.OciNativeURIPrefix} {
+		t.Run(scheme, func(t *testing.T) {
+			reference := "registry.example.com/finance@sha256:" + strings.Repeat("a", 64)
+			spec := loRASpec(t, "finance", scheme+reference)
+			spec.StorageInitializer = &v1alpha2.StorageInitializerSpec{Enabled: ptr.To(false)}
+			adapters, err := enumerateLoRAAdapters(spec)
+			require.NoError(t, err)
+			svc := &v1alpha2.LLMInferenceService{Spec: spec}
+			pod := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+			err = (&LLMISVCReconciler{}).attachModelArtifacts(t.Context(), nil, svc, corev1.PodSpec{}, pod, &Config{ResolvedLoRAAdapters: adapters}, "main", "/mnt/models", true)
+			require.NoError(t, err)
+			require.Len(t, pod.Volumes, 1)
+			require.NotNil(t, pod.Volumes[0].Image)
+			assert.Equal(t, reference, pod.Volumes[0].Image.Reference)
+			require.Len(t, pod.Containers[0].VolumeMounts, 1)
+			assert.Equal(t, "/mnt/lora/finance", pod.Containers[0].VolumeMounts[0].MountPath)
+			assert.Equal(t, "models", pod.Containers[0].VolumeMounts[0].SubPath)
+			assert.True(t, pod.Containers[0].VolumeMounts[0].ReadOnly)
+			assert.Empty(t, pod.InitContainers)
+			assert.Contains(t, pod.Containers[0].Args, "--lora-modules")
+		})
 	}
 }
