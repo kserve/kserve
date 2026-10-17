@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"path"
@@ -405,7 +406,7 @@ func (r *LLMISVCReconciler) expectedPVCEvictorDeployments(ctx context.Context, l
 	for i := range targets {
 		pvc := &corev1.PersistentVolumeClaim{}
 		if r.APIReader == nil {
-			return nil, fmt.Errorf("PVC API reader is not configured")
+			return nil, errors.New("PVC API reader is not configured")
 		}
 		if err := r.APIReader.Get(ctx, types.NamespacedName{Name: targets[i].claimName, Namespace: llmSvc.Namespace}, pvc); err != nil {
 			return nil, fmt.Errorf("failed to get PVC %s/%s for evictor: %w", llmSvc.Namespace, targets[i].claimName, err)
