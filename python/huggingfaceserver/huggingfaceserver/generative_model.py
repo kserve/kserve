@@ -442,9 +442,10 @@ class HuggingfaceGenerativeModel(OpenAIChatAdapterModel):  # pylint:disable=c-ex
         if request.presence_penalty and request.presence_penalty > 0:
             kwargs["repetition_penalty"] = request.presence_penalty
         if request.logit_bias is not None:
-            # transformers accepts a dict of token tuple to bias (i.e. Dict[Tuple, float])
+            # logit_bias maps token ids, sent as JSON string keys, to a bias;
+            # transformers takes a dict of token-id tuple to bias.
             kwargs["sequence_bias"] = {
-                tuple(token): bias for token, bias in request.logit_bias.items()
+                (int(token),): bias for token, bias in request.logit_bias.items()
             }
         return GenerationConfig(**kwargs)
 

@@ -54,3 +54,17 @@ def test_zero_temperature_maps_to_greedy_decoding(temperature):
 def test_positive_temperature_is_forwarded():
     config = _build_config(0.7)
     assert config.temperature == pytest.approx(0.7)
+
+
+def test_logit_bias_keys_are_token_ids():
+    # OpenAI logit_bias maps token ids, sent as JSON string keys, to a bias.
+    stub_self = SimpleNamespace(_tokenizer=SimpleNamespace(pad_token_id=0))
+    request = CompletionRequest(
+        model="test-model",
+        prompt="hello",
+        stream=False,
+        max_tokens=8,
+        logit_bias={"50256": -100, "9": 5},
+    )
+    config = HuggingfaceGenerativeModel.build_generation_config(stub_self, request)
+    assert config.sequence_bias == {(50256,): -100, (9,): 5}
