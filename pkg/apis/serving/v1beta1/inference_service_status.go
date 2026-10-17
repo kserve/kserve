@@ -737,6 +737,15 @@ func (ss *InferenceServiceStatus) PropagateModelStatus(statusSpec ComponentStatu
 					return true
 				}
 			}
+
+			// If the latest revision is ready and all Knative conditions are healthy,
+			// the service is intentionally scaled to zero. Preserve UpToDate rather
+			// than reporting an ongoing transition.
+			if statusSpec.LatestCreatedRevision != "" &&
+				statusSpec.LatestCreatedRevision == statusSpec.LatestReadyRevision {
+				ss.UpdateModelRevisionStates(Loaded, nil)
+				return true
+			}
 		}
 
 		// If we made it here then hopefully there are 0 pods because we're just getting started and therefore Pending seems appropriate
