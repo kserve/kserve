@@ -126,7 +126,7 @@ class V1Endpoints:
         response, res_headers = self.dataplane.encode(
             model_name=model_name,
             response=response,
-            headers=response_headers,
+            headers=headers,
             req_attributes=req_attributes,
         )
 

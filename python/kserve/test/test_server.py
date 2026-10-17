@@ -470,6 +470,22 @@ class TestV1Endpoints:
         assert resp.content == b'{"predictions":[[1,2]]}'
         assert resp.headers["content-type"] == "application/json"
 
+    def test_explain_v1_does_not_return_request_headers(self, http_server_client):
+        request_headers = {
+            "authorization": "Bearer secret-token",
+            "cookie": "session=secret",
+            "x-forwarded-for": "10.0.0.7",
+        }
+        resp = http_server_client.post(
+            "/v1/models/TestModel:explain",
+            content=b'{"instances":[[1,2]]}',
+            headers=request_headers,
+        )
+        assert resp.status_code == 200
+        assert resp.content == b'{"predictions":[[1,2]]}'
+        for name in request_headers:
+            assert name not in resp.headers
+
     def test_unknown_path_v1(self, http_server_client):
         resp = http_server_client.get("/unknown_path")
         assert resp.status_code == 404
@@ -1062,6 +1078,22 @@ class TestTFHttpServerCloudEvent:
         assert resp.headers["ce-source"] == "io.kserve.inference.TestModel"
         assert resp.headers["ce-type"] == "io.kserve.inference.response"
         assert resp.headers["ce-time"] > "2021-01-28T21:04:43.144141+00:00"
+        assert resp.content == b'{"predictions": [[1, 2]]}'
+
+    def test_explain_ce_binary_dict(self, http_server_client):
+        event = dummy_cloud_event({"instances": [[1, 2]]}, set_contenttype=True)
+        headers, body = to_binary(event)
+
+        resp = http_server_client.post(
+            "/v1/models/TestModel:explain", headers=headers, content=body
+        )
+
+        assert resp.status_code == 200
+        assert resp.headers["content-type"] == "application/json"
+        assert resp.headers["ce-specversion"] == "1.0"
+        assert resp.headers["ce-id"] != "36077800-0c23-4f38-a0b4-01f4369f670a"
+        assert resp.headers["ce-source"] == "io.kserve.inference.TestModel"
+        assert resp.headers["ce-type"] == "io.kserve.inference.response"
         assert resp.content == b'{"predictions": [[1, 2]]}'
 
     def test_predict_ce_binary_bytes(self, http_server_client):
