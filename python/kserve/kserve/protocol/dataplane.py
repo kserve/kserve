@@ -159,17 +159,23 @@ class DataPlane:
         ) as e:
             raise InvalidInput(f"Cloud Event Exceptions: {e}")
 
-    @staticmethod
-    async def live() -> Dict[str, str]:
+    async def live(self: Optional["DataPlane"] = None) -> Dict[str, str]:
         """Server live.
 
-        Returns ``{"status": "alive"}`` on successful invocation.
+        Returns ``{"status": "alive"}`` when all opted-in engine-backed models
+        are live, otherwise ``{"status": "unavailable"}``.
         Primarily meant to be used for Kubernetes liveness check.
 
         Returns:
-            Dict: {"status": "alive"}
+            Dict: Server liveness status.
         """
-        return {"status": "alive"}
+        # ``live`` historically supported the class-level ``DataPlane.live()``
+        # call because it was a static method. Keep that invocation compatible.
+        if self is None:
+            return {"status": "alive"}
+
+        is_live = await self._model_registry.is_server_live()
+        return {"status": "alive" if is_live else "unavailable"}
 
     def metadata(self) -> Dict:
         """Server metadata.
@@ -250,8 +256,11 @@ class DataPlane:
         Returns ``True``. Primarily meant to be used as Kubernetes readiness check.
 
         Returns:
-            bool: True
+            bool: Whether the server and any configured upstream are ready.
         """
+        if not await self._model_registry.is_server_ready():
+            return False
+
         # If predictor host is present, then it means this is a transformer,
         # We should also need to check the predictor server's health if predictor health check is enabled.
         if self.predictor_config and self.predictor_config.predictor_health_check:
