@@ -226,6 +226,9 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 
 	utils.PropagateMap(llmSvc.Spec.Labels, &template.Labels)
 	utils.PropagateMap(llmSvc.Spec.Annotations, &template.Annotations, nonPropagatedSpecAnnotations...)
+	if llmSvc.Spec.KVCacheOffloading != nil {
+		template.Labels = addPVCEvictorConsumerLabels(template.Labels, llmSvc.Spec.KVCacheOffloading.Secondary)
+	}
 
 	// Inject tracing instrumentation when spec.tracing is set
 	if llmSvc.Spec.Tracing != nil {
@@ -369,6 +372,9 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 	if llmSvc.Spec.Prefill != nil {
 		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &template.Labels)
 		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &template.Annotations, nonPropagatedSpecAnnotations...)
+		if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
+			template.Labels = addPVCEvictorConsumerLabels(template.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary)
+		}
 	}
 
 	// Inject tracing instrumentation when spec.tracing is set

@@ -130,6 +130,11 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		return fmt.Errorf("failed to reconcile single node workload: %w", err)
 	}
 
+	if err := r.reconcilePVCEvictors(ctx, llmSvc, config); err != nil {
+		llmSvc.MarkPVCEvictorNotReady("ReconcilePVCEvictorError", "%s", err.Error())
+		return fmt.Errorf("failed to reconcile PVC evictors: %w", err)
+	}
+
 	if useDisaggregatedSet {
 		// After the other workloads, which clear the conditions of the workloads they delete.
 		targets, err := r.disaggregatedRoleTargets(ctx, disaggregatedSet)
@@ -350,6 +355,17 @@ func (r *LLMISVCReconciler) injectSecretsFromDefaultServiceAccount(ctx context.C
 	}
 	target.ImagePullSecrets = defaultSa.ImagePullSecrets
 	target.Secrets = defaultSa.Secrets
+}
+
+// injectImagePullSecretsFromDefaultServiceAccount copies only ImagePullSecrets
+// from the namespace's default ServiceAccount onto the target ServiceAccount.
+func (r *LLMISVCReconciler) injectImagePullSecretsFromDefaultServiceAccount(ctx context.Context, target *corev1.ServiceAccount) {
+	defaultSa := &corev1.ServiceAccount{}
+	if err := r.Get(ctx, types.NamespacedName{Name: constants.LLMISVCDefaultServiceAccountName, Namespace: target.Namespace}, defaultSa); err != nil {
+		log.FromContext(ctx).Error(err, "Warning: failed to retrieve 'default' service account, continuing ...")
+		return
+	}
+	target.ImagePullSecrets = append([]corev1.LocalObjectReference(nil), defaultSa.ImagePullSecrets...)
 }
 
 func hasRoutingSidecar(pod corev1.PodSpec) bool {

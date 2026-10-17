@@ -502,12 +502,14 @@ func convertSecondaryTierToV1Alpha2(src *SecondaryTierSpec) v1alpha2.SecondaryTi
 		}
 		if src.FileSystem.PVC != nil {
 			dst.FileSystem.PVC = &v1alpha2.PVCTierSpec{
-				Spec: src.FileSystem.PVC.Spec,
+				EvictorEnabled: src.FileSystem.PVC.EvictorEnabled,
+				Spec:           src.FileSystem.PVC.Spec,
 			}
 			if src.FileSystem.PVC.Ref != nil {
 				dst.FileSystem.PVC.Ref = &v1alpha2.PVCRefTierSpec{
-					Name: src.FileSystem.PVC.Ref.Name,
-					Path: src.FileSystem.PVC.Ref.Path,
+					Name:                   src.FileSystem.PVC.Ref.Name,
+					Path:                   src.FileSystem.PVC.Ref.Path,
+					EvictorSecurityContext: src.FileSystem.PVC.Ref.EvictorSecurityContext,
 				}
 			}
 		}
@@ -526,12 +528,14 @@ func convertSecondaryTierFromV1Alpha2(src *v1alpha2.SecondaryTierSpec) Secondary
 		}
 		if src.FileSystem.PVC != nil {
 			dst.FileSystem.PVC = &PVCTierSpec{
-				Spec: src.FileSystem.PVC.Spec,
+				EvictorEnabled: src.FileSystem.PVC.EvictorEnabled,
+				Spec:           src.FileSystem.PVC.Spec,
 			}
 			if src.FileSystem.PVC.Ref != nil {
 				dst.FileSystem.PVC.Ref = &PVCRefTierSpec{
-					Name: src.FileSystem.PVC.Ref.Name,
-					Path: src.FileSystem.PVC.Ref.Path,
+					Name:                   src.FileSystem.PVC.Ref.Name,
+					Path:                   src.FileSystem.PVC.Ref.Path,
+					EvictorSecurityContext: src.FileSystem.PVC.Ref.EvictorSecurityContext,
 				}
 			}
 		}

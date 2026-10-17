@@ -246,6 +246,7 @@ type KVCacheOffloadingSpec struct {
 	// through tiers in the order listed. Currently only fileSystem tiers are
 	// supported; the array shape is designed to accommodate object store tiers
 	// in a future follow-up without an API break.
+	// +kubebuilder:validation:MaxItems=8
 	// +optional
 	Secondary []SecondaryTierSpec `json:"secondary,omitempty"`
 }
@@ -284,7 +285,14 @@ type EmptyDirTierSpec struct {
 
 // PVCTierSpec configures a PVC-backed KV cache tier.
 // Exactly one of Spec or Ref must be set.
+// +kubebuilder:validation:XValidation:rule="!(has(self.evictorEnabled) && self.evictorEnabled && has(self.spec) && 'ReadOnlyMany' in self.spec.accessModes)",message="evictor requires a writable PVC; ReadOnlyMany cannot delete cache files"
 type PVCTierSpec struct {
+	// EvictorEnabled enables the PVC evictor for this tier. For Spec, the evictor runs
+	// as a sidecar in the vLLM pod. For Ref, the controller creates one evictor
+	// Deployment for the referenced PVC and path.
+	// +optional
+	EvictorEnabled *bool `json:"evictorEnabled,omitempty"`
+
 	// Spec creates one ephemeral PVC per pod automatically. The PVC is owned by the pod
 	// and deleted when the pod is deleted — it does not survive pod restarts.
 	// +optional
@@ -306,6 +314,12 @@ type PVCRefTierSpec struct {
 	// Path is a subdirectory within the PVC used as VolumeMount.subPath.
 	// +optional
 	Path string `json:"path,omitempty"`
+
+	// EvictorSecurityContext sets the PodSecurityContext for the dedicated
+	// evictor Deployment created for this PVC ref. Set the UID, GID, and fsGroup
+	// required by the PVC's storage permissions. It is used when pvc.evictorEnabled is true.
+	// +optional
+	EvictorSecurityContext *corev1.PodSecurityContext `json:"evictorSecurityContext,omitempty"`
 }
 
 // ConfidentialSpec enables confidential model serving with encrypted model artifacts.

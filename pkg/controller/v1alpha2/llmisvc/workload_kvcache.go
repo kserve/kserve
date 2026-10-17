@@ -186,7 +186,7 @@ func kvTransferJSON(kv *v1alpha2.KVCacheOffloadingSpec) (string, error) {
 		}
 		entry := map[string]any{
 			"type":     "fs",
-			"root_dir": fmt.Sprintf("/mnt/kv-cache-%d", i),
+			"root_dir": kvCacheSecondaryRootDir(i, s, fmt.Sprintf("/mnt/kv-cache-%d", i)),
 		}
 		secondaryTiers = append(secondaryTiers, entry)
 	}
@@ -418,5 +418,9 @@ func attachFileSystemKVCacheTier(podSpec *corev1.PodSpec, fs *v1alpha2.FileSyste
 			}
 			break
 		}
+	}
+
+	if fs.PVC != nil && fs.PVC.Spec != nil && fs.PVC.EvictorEnabled != nil && *fs.PVC.EvictorEnabled {
+		attachPVCEvictor(podSpec, volumeName, mountPath, subPath)
 	}
 }

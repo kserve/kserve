@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -65,7 +66,7 @@ var _ = Describe("LLMInferenceServiceConfig CRD", func() {
 				Namespace: ns,
 			},
 			Spec: v1alpha2.LLMInferenceServiceSpec{
-				Model: v1alpha2.LLMModelSpec{URI: mustParseURL("gs://dummy")},
+				Model: v1alpha2.LLMModelSpec{URI: mustParseURL()},
 				Router: &v1alpha2.RouterSpec{
 					Route: &v1alpha2.GatewayRoutesSpec{
 						HTTP: &v1alpha2.HTTPRouteSpec{
@@ -97,10 +98,97 @@ var _ = Describe("LLMInferenceServiceConfig CRD", func() {
 		Expect(envTest.Client.Create(ctx, probe)).To(Succeed(),
 			"CRD schema rejected Go template in requestHeaderModifier - embedded type validation not stripped")
 	})
+
+	It("should reject a PVC evictor with ReadOnlyMany access", func(ctx SpecContext) {
+		probe := &v1alpha2.LLMInferenceServiceConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pvc-evictor-readonlymany",
+				Namespace: ns,
+			},
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				Model: v1alpha2.LLMModelSpec{URI: mustParseURL()},
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+						CPU: resource.MustParse("1Gi"),
+						Secondary: []v1alpha2.SecondaryTierSpec{{
+							FileSystem: &v1alpha2.FileSystemTierSpec{
+								PVC: &v1alpha2.PVCTierSpec{
+									EvictorEnabled: ptrTo(true),
+									Spec: &corev1.PersistentVolumeClaimSpec{
+										AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadOnlyMany},
+									},
+								},
+							},
+						}},
+					},
+				},
+			},
+		}
+
+		err := envTest.Create(ctx, probe)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("evictor requires a writable PVC"))
+	})
+
+	It("should reject more than eight secondary KV cache tiers", func(ctx SpecContext) {
+		secondary := make([]v1alpha2.SecondaryTierSpec, 9)
+		for i := range secondary {
+			secondary[i] = v1alpha2.SecondaryTierSpec{
+				FileSystem: &v1alpha2.FileSystemTierSpec{
+					EmptyDir: &v1alpha2.EmptyDirTierSpec{
+						Size: resource.MustParse("1Gi"),
+					},
+				},
+			}
+		}
+
+		probe := &v1alpha2.LLMInferenceServiceConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "too-many-secondary-tiers",
+				Namespace: ns,
+			},
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				Model: v1alpha2.LLMModelSpec{URI: mustParseURL()},
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+						CPU:       resource.MustParse("1Gi"),
+						Secondary: secondary,
+					},
+				},
+			},
+		}
+
+		err := envTest.Create(ctx, probe)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("must have at most 8 items"))
+	})
+
+	It("should enforce PVC evictor security context scope", func(ctx SpecContext) {
+		securityContext := &corev1.PodSecurityContext{FSGroup: ptrTo(int64(1000))}
+		probe := &v1alpha2.LLMInferenceServiceConfig{
+			ObjectMeta: metav1.ObjectMeta{Name: "pvc-evictor-security-ref", Namespace: ns},
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				Model: v1alpha2.LLMModelSpec{URI: mustParseURL()},
+				WorkloadSpec: v1alpha2.WorkloadSpec{KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					CPU: resource.MustParse("1Gi"),
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{
+							EvictorEnabled: ptrTo(true),
+							Ref: &v1alpha2.PVCRefTierSpec{
+								Name:                   "my-pvc",
+								EvictorSecurityContext: securityContext,
+							},
+						},
+					}}},
+				}},
+			},
+		}
+		Expect(envTest.Client.Create(ctx, probe)).To(Succeed())
+	})
 })
 
-func mustParseURL(s string) apis.URL {
-	u, err := apis.ParseURL(s)
+func mustParseURL() apis.URL {
+	u, err := apis.ParseURL("gs://dummy")
 	if err != nil {
 		panic(err)
 	}
