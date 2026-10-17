@@ -20,9 +20,11 @@ import pytest
 from google.protobuf.json_format import MessageToDict
 from unittest.mock import patch
 
-from kserve import Model, ModelServer
+from kserve import Model, ModelRepository, ModelServer
 from kserve.errors import InvalidInput
+from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.grpc import grpc_predict_v2_pb2, servicer
+from kserve.protocol.model_repository_extension import ModelRepositoryExtension
 from kserve.protocol.infer_type import serialize_byte_tensor, InferResponse
 from kserve.utils.utils import get_predict_response
 
@@ -678,3 +680,29 @@ async def test_grpc_raw_inputs_with_contents_specified(mock_to_headers, server):
     with pytest.raises(InvalidInput):
         response, _, _, _ = model_infer_method.termination()
         _ = await response
+
+
+@pytest.mark.asyncio
+async def test_grpc_repository_model_load_unload():
+    repo = ModelRepository()
+    model = DummyModel("LoadUnloadModel")
+    model.load()
+    repo.update(model)
+    grpc_servicer = servicer.InferenceServicer(
+        DataPlane(model_registry=repo), ModelRepositoryExtension(model_registry=repo)
+    )
+
+    load_response = await grpc_servicer.RepositoryModelLoad(
+        grpc_predict_v2_pb2.RepositoryModelLoadRequest(model_name="LoadUnloadModel"),
+        None,
+    )
+    assert load_response.model_name == "LoadUnloadModel"
+    assert load_response.isLoaded
+
+    unload_response = await grpc_servicer.RepositoryModelUnload(
+        grpc_predict_v2_pb2.RepositoryModelUnloadRequest(model_name="LoadUnloadModel"),
+        None,
+    )
+    assert unload_response.model_name == "LoadUnloadModel"
+    assert unload_response.isUnloaded
+    assert repo.get_model("LoadUnloadModel") is None
