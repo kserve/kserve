@@ -87,23 +87,35 @@ else
 fi
 echo "Normalized versions for the charts badge: prior: $pversion - new: $nversion"
 
+# Replace vPRIOR_VERSION only as a whole version. perl rather than sed: macOS sed has no \b,
+# and a plain match would also rewrite v0.21.0-rc1 when the prior version is 0.21.0.
+VERSION_SUB="s/\bv\Q${PRIOR_VERSION}\E(?![\w.-])/v${NEW_VERSION}/g"
+
 # Charts
 echo -e "\033[32mUpdating charts...\033[0m"
 for readmeFile in `find charts -name README.md`; do
   echo -e "\033[32mUpdating ${readmeFile}...\033[0m"
   # Update badge version first (before general version replacement)
-  sed "${SED_INPLACE[@]}" \
-    -e "s/Version-v${pversion}/Version-v${nversion}/g" \
-    -e "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" \
-    ${readmeFile}
+  sed "${SED_INPLACE[@]}" -e "s/Version-v${pversion}/Version-v${nversion}/g" "${readmeFile}"
+  perl -pi -e "${VERSION_SUB}" "${readmeFile}"
 done
 
 for yaml in `find charts \( -name "Chart.yaml" -o -name "values.yaml" \)`; do
   # skip empty files
   if [ -s "${yaml}" ]; then
      echo -e "\033[32mUpdating ${yaml}...\033[0m"
-     sed "${SED_INPLACE[@]}" "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" ${yaml}
+     perl -pi -e "${VERSION_SUB}" "${yaml}"
   fi
+done
+
+# helm-publish packages whatever version Chart.yaml has, so stop here if any chart missed the bump
+for chart in charts/*/Chart.yaml; do
+  for field in version appVersion; do
+    if ! grep -qxF "${field}: v${NEW_VERSION}" "${chart}"; then
+      echo -e "\033[31mError: ${chart} has '$(grep "^${field}:" "${chart}")', expected '${field}: v${NEW_VERSION}'.\033[0m"
+      exit 1
+    fi
+  done
 done
 
 # Add new version to RELEASES array(if not already present)
@@ -118,7 +130,7 @@ fi
 # Update kserve-deps.env
 echo -e "\033[32mUpdating kserve-deps.env...\033[0m"
 sed "${SED_INPLACE[@]}" "s/KSERVE_VERSION=v${PRIOR_VERSION}/KSERVE_VERSION=v${NEW_VERSION}/g" kserve-deps.env
-sed "${SED_INPLACE[@]}" "s/\bv${PRIOR_VERSION}\b/v${NEW_VERSION}/g" charts/_common/common-sections.yaml
+perl -pi -e "${VERSION_SUB}" charts/_common/common-sections.yaml
 
 # update python/kserve and docs versions
 echo -e "\033[32mUpdating python/kserve and docs versions...\033[0m"
