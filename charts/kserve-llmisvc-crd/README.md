@@ -22,7 +22,9 @@ keypair in the Secret named by `kserve.llmisvc.selfSignedCerts.caSecretName` (an
 the CA certificate directly as the conversion-webhook `caBundle` in place of the annotation.
 
 Enable the matching `kserve.llmisvc.selfSignedCerts.enabled` flag on the `kserve-llmisvc-resources`
-chart so the webhook serving certificate is issued from the same CA. To switch an existing
+chart so the webhook serving certificate is issued from the same CA. Install or upgrade this chart
+first, in the same namespace: the `kserve-llmisvc-resources` chart fails if the CA Secret is
+missing. To switch an existing
 cert-manager install, see the `kserve-llmisvc-resources` chart README.
 
 Self-signed mode relies on Helm's `lookup` to reuse the CA already on the cluster, so it requires a

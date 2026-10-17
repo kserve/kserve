@@ -16,11 +16,14 @@ Returns a JSON dict: {"enabled": bool, "caSecretName": str, "validityDays": int}
 Webhook serving-certificate material for the llmisvc webhook server,
 used when kserve.llmisvc.selfSignedCerts.enabled is true.
 
-CA selection: reuse the CA keypair from the <caSecretName> Secret when
-it exists on the cluster (the kserve-llmisvc-crd chart creates it, and
-embeds the same CA as the CRDs' conversion-webhook caBundle);
-otherwise generate an ephemeral CA (first render via `helm template`,
-or a standalone install without the CRD chart's flag).
+CA selection: reuse the CA keypair from the <caSecretName> Secret (the
+kserve-llmisvc-crd chart creates it, and embeds the same CA as the
+CRDs' conversion-webhook caBundle). If it is missing on a reachable
+cluster, fail: an independent CA here would never match the CRDs'
+conversion caBundle, so the CRD chart must be installed first. The
+kube-system Namespace lookup tells a real cluster apart from `helm
+template`, where every lookup is empty and an ephemeral CA is generated
+so the chart still renders.
 
 Ownership guard: if llmisvc-webhook-server-cert exists but is not owned
 by this release (typically issued by cert-manager on an install that
@@ -46,6 +49,9 @@ Returns a JSON dict: {"CACert": <pem>, "Cert": <pem>, "Key": <pem>}.
 {{- $caSecret := lookup "v1" "Secret" .Release.Namespace $cfg.caSecretName -}}
 {{- if and $caSecret $caSecret.data (index $caSecret.data "tls.crt") (index $caSecret.data "tls.key") -}}
 {{- $caCrtB64 = index $caSecret.data "tls.crt" -}}
+{{- end -}}
+{{- if and (eq $caCrtB64 "") (lookup "v1" "Namespace" "" "kube-system") -}}
+{{- fail (printf "kserve.llmisvc.selfSignedCerts.enabled=true, but the CA Secret %s/%s was not found or is incomplete. Install or upgrade the kserve-llmisvc-crd chart in namespace %s with kserve.llmisvc.selfSignedCerts.enabled=true (and the same caSecretName) first: it creates the CA that the CRD conversion webhook trusts. Then re-run this install/upgrade. See the chart README." .Release.Namespace $cfg.caSecretName .Release.Namespace) -}}
 {{- end -}}
 {{- $existing := lookup "v1" "Secret" .Release.Namespace "llmisvc-webhook-server-cert" -}}
 {{- if $existing -}}

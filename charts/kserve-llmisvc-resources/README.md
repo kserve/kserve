@@ -26,7 +26,9 @@ matching flag is enabled), embeds the CA certificate directly as the webhook con
 and never rotated.
 
 Enable the flag on both charts together so the conversion webhook and the admission webhooks trust
-the same CA.
+the same CA, and install or upgrade `kserve-llmisvc-crd` first, in the same namespace. This chart
+fails if the CA Secret is missing, because a CA of its own would not match the CRD conversion
+webhook's.
 
 ### Switching an existing cert-manager install
 
