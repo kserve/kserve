@@ -49,6 +49,14 @@ func NewVerifier(ctx context.Context, cfg types.SecurityConfig, src SecretSource
 		return v, nil
 	}
 
+	v, err = buildKeylessVerifier(cfg.Mode, cfg.Keyless)
+	if err != nil {
+		return nil, err
+	}
+	if v != nil {
+		return v, nil
+	}
+
 	switch cfg.Mode {
 	case types.ModeDisabled:
 		return noopVerifier{}, nil
@@ -112,6 +120,16 @@ func buildCertSigner(ctx context.Context, mode types.Mode, cfg types.CertConfig,
 		return nil, err
 	}
 	return cs, nil
+}
+
+// buildKeylessVerifier constructs a keylessVerifier for ModeKeyless or returns nil for
+// other modes. Ensures NewVerifier/NewSigner use the same nil-trap pattern and
+// logic flow for consistency.
+func buildKeylessVerifier(mode types.Mode, cfg types.KeylessConfig) (Verifier, error) {
+	if mode != types.ModeKeyless {
+		return nil, nil
+	}
+	return newKeylessVerifier(cfg)
 }
 
 // noopSigner signs nothing. It backs the disabled mode.
