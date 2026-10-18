@@ -140,7 +140,7 @@ The cache reports a single positive-polarity `Ready` condition (with
 
 | `Ready` status | Reason | Meaning |
 |----------------|--------|---------|
-| `False` | `PVCNotFound` | The referenced PVC does not exist in the namespace yet. |
+| `False` | `PVCNotFound` | The referenced PVC does not exist in the namespace. If it was deleted after an import, the import record is cleared and bound workloads are released on their next update. |
 | `False` | `UnsupportedVolumeMode` | The PVC uses `Block` volume mode. |
 | `False` | `UnsupportedAccessMode` | The PVC does not include `ReadWriteMany`. |
 | `False` | `InsufficientCapacity` | The PVC requested/bound storage is smaller than `modelSize`. |

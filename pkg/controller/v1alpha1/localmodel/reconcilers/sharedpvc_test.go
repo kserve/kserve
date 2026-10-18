@@ -1252,6 +1252,38 @@ func TestReconcileSharedPVCClearsRecordWhenPVCDeleted(t *testing.T) {
 	}
 }
 
+// The record is cleared on a NotFound claim, so that NotFound must be the apiserver's answer,
+// not a stale informer miss: dropping the record for a claim that still exists would let a
+// later Job deletion be treated as a first import against data consumers still read.
+func TestReconcileSharedPVCKeepsRecordWhenCachedPVCMissIsStale(t *testing.T) {
+	cache := importedSharedCache("pvc-uid")
+	pvc := boundSharedPVC("pvc-uid")
+	// The informer-backed client has not observed the claim; the apiserver has it.
+	unrelated := boundSharedPVC("other-uid")
+	unrelated.Name = "unrelated"
+	cached, scheme := sharedPVCFixture(t, cache, unrelated)
+	apiserver := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1alpha1.LocalModelNamespaceCache{}).
+		WithObjects(importedSharedCache("pvc-uid"), pvc).
+		Build()
+	reconciler := &LocalModelNamespaceCacheReconciler{Client: cached, APIReader: apiserver, Scheme: scheme}
+
+	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, sharedConsumer()); err != nil {
+		t.Fatalf("reconcileSharedPVC() error = %v", err)
+	}
+	if cache.Status.SharedPVCImport == nil || cache.Status.SharedPVCImport.PVCUID != "pvc-uid" {
+		t.Fatalf("import record %#v must survive a stale cached miss for a claim the apiserver still holds", cache.Status.SharedPVCImport)
+	}
+	condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+	if condition == nil || condition.Reason == v1alpha1.ReasonPVCNotFound {
+		t.Fatalf("cache Ready condition = %#v, must not report %s for a claim that exists", condition, v1alpha1.ReasonPVCNotFound)
+	}
+	if condition.Reason != v1alpha1.ReasonReimportBlocked {
+		t.Fatalf("cache Ready condition reason = %s, want %s: the reconcile continues against the confirmed claim", condition.Reason, v1alpha1.ReasonReimportBlocked)
+	}
+}
+
 // While the claim is Terminating under pvc-protection, scheduled Pods still read it. The
 // object is still served with its UID, so the record stays and bound consumers are held.
 func TestReconcileSharedPVCKeepsRecordWhilePVCTerminating(t *testing.T) {

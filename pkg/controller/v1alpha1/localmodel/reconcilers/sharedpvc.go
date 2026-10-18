@@ -108,7 +108,7 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 
 	// Fetch the referenced PVC from the cache namespace.
 	pvc := &corev1.PersistentVolumeClaim{}
-	if err := c.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: localModel.Namespace}, pvc); err != nil {
+	if err := c.getReferencedPVC(ctx, localModel, pvc); err != nil {
 		if apierr.IsNotFound(err) {
 			// The claim is gone and the data with it. pvc-protection keeps the object alive
 			// while any scheduled Pod mounts it, so NotFound means nothing reads it any more.
@@ -238,6 +238,21 @@ func (c *LocalModelNamespaceCacheReconciler) finalizeSharedPVC(ctx context.Conte
 
 func (c *LocalModelNamespaceCacheReconciler) deleteImportJob(ctx context.Context, job *batchv1.Job) error {
 	return c.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationForeground))
+}
+
+// getReferencedPVC reads the claim named by spec.pvcRef. The informer cache serves the common
+// path. A NotFound from the cache is confirmed against the apiserver when an import record is
+// present: that NotFound clears the record, which is the only evidence that data was published
+// onto the claim and what holds bound consumers on it. Trusting a stale cached miss would drop
+// that evidence for a claim that still exists, and a later Job deletion would then be treated
+// as a first import. Without a record there is nothing to protect, so the cached miss stands.
+func (c *LocalModelNamespaceCacheReconciler) getReferencedPVC(ctx context.Context, localModel *v1alpha1.LocalModelNamespaceCache, pvc *corev1.PersistentVolumeClaim) error {
+	key := types.NamespacedName{Name: *localModel.Spec.PVCRef, Namespace: localModel.Namespace}
+	err := c.Get(ctx, key, pvc)
+	if !apierr.IsNotFound(err) || localModel.Status.SharedPVCImport == nil {
+		return err
+	}
+	return c.authoritativeReader().Get(ctx, key, pvc)
 }
 
 // checkPVCPreflight validates the referenced PVC. It returns ok=false with a populated
