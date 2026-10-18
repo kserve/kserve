@@ -677,8 +677,13 @@ data:
          "jobNamespace": "kserve-kernelcache-jobs",
          # mcvImage is the MCV container image used by cache capture and preparation flows.
          "mcvImage": "kserve/kserve-mcv:latest-minimal",
-         # prefetchImage is the lightweight image used by OCI prefetch Jobs.
+         # prefetchImage is the lightweight helper image used by prefetch Jobs.
          "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+         # runtimeImagePrefetch optionally pulls the captured workload's runtime image on each target node.
+         "runtimeImagePrefetch": {
+           "enabled": false,
+           "jobTTLSecondsAfterFinished": 86400
+         },
          # registry defines the OCI registry used by capture and prefetch.
          "registry": {
            # endpoint is required to identify the registry used by capture and prefetch operations.
@@ -705,7 +710,7 @@ data:
          # abandonedCapturePolicy controls generated captures whose producer Pod disappears
          # before completion. Supported values are retain and delete.
          "abandonedCapturePolicy": "retain",
-         # jobTTLSecondsAfterFinished controls how long completed preparation Jobs(Downloading OCI image to the node) are retained.
+         # jobTTLSecondsAfterFinished controls how long completed KernelCache artifact prefetch Jobs are retained.
          "jobTTLSecondsAfterFinished": 600,
          # mcvCaptureReadinessTimeoutSeconds limits how long MCV waits for runtime readiness before capture. Larger models may require a longer timeout.
          "mcvCaptureReadinessTimeoutSeconds": 600,
@@ -801,6 +806,10 @@ data:
       "jobNamespace": "kserve-kernelcache-jobs",
       "mcvImage": "kserve/kserve-mcv:latest-minimal",
       "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+      "runtimeImagePrefetch": {
+        "enabled": false,
+        "jobTTLSecondsAfterFinished": 86400
+      },
       "registry": {
         "auth": {
           "type": "none"

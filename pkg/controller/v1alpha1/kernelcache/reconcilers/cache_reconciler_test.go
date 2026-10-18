@@ -54,7 +54,12 @@ func TestKernelCacheReconcilerCreatesPrefetchJobAndAggregatesStatus(t *testing.T
 	cache := &v1alpha1.KernelCache{
 		ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "team"},
 		Spec: v1alpha1.KernelCacheSpec{
-			Artifact:     v1alpha1.KernelCacheArtifact{ImageReference: "registry.example/cache@sha256:" + strings.Repeat("a", 64)},
+			Artifact: v1alpha1.KernelCacheArtifact{
+				ImageReference: "registry.example/cache@sha256:" + strings.Repeat("a", 64),
+				Identity: v1alpha1.KernelCacheIdentity{Factors: map[string]string{
+					"runtimeImage": "registry.example/vllm@sha256:" + strings.Repeat("b", 64),
+				}},
+			},
 			NodeGroupRef: &corev1.LocalObjectReference{Name: "gpu"},
 		},
 	}
@@ -70,7 +75,7 @@ func TestKernelCacheReconcilerCreatesPrefetchJobAndAggregatesStatus(t *testing.T
 		"team/cache": {State: v1alpha1.KernelCacheNodePreparationStatePending},
 	}}}
 	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, Data: map[string]string{
-		"kernelcache": `{"enabled":true,"jobNamespace":"jobs","prefetchImage":"example/prefetch:latest","artifactSecurity":{"mode":"none"}}`,
+		"kernelcache": `{"enabled":true,"jobNamespace":"jobs","prefetchImage":"example/prefetch:latest","runtimeImagePrefetch":{"enabled":true},"artifactSecurity":{"mode":"none"}}`,
 	}}
 	jobNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "jobs"}}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(cache).WithObjects(cache, group, node, kernelCacheNode, configMap, jobNamespace).Build()
@@ -99,11 +104,20 @@ func TestKernelCacheReconcilerCreatesPrefetchJobAndAggregatesStatus(t *testing.T
 	if err := k8sClient.List(t.Context(), jobs, client.InNamespace("jobs")); err != nil {
 		t.Fatal(err)
 	}
-	if len(jobs.Items) != 1 {
-		t.Fatalf("expected one prefetch Job, got %d", len(jobs.Items))
+	if len(jobs.Items) != 2 {
+		t.Fatalf("expected OCI and runtime image prefetch Jobs, got %d", len(jobs.Items))
 	}
-	if jobs.Items[0].Spec.Template.Spec.ServiceAccountName != kernelCachePrefetchServiceAccount {
-		t.Fatalf("unexpected Job ServiceAccountName: %q", jobs.Items[0].Spec.Template.Spec.ServiceAccountName)
+	runtimeJobs := 0
+	for i := range jobs.Items {
+		if jobs.Items[i].Spec.Template.Spec.ServiceAccountName != kernelCachePrefetchServiceAccount {
+			t.Fatalf("unexpected Job ServiceAccountName: %q", jobs.Items[i].Spec.Template.Spec.ServiceAccountName)
+		}
+		if jobs.Items[i].Labels[runtimeImagePrefetchJobLabel] == "true" {
+			runtimeJobs++
+		}
+	}
+	if runtimeJobs != 1 {
+		t.Fatalf("expected one runtime image prefetch Job, got %d", runtimeJobs)
 	}
 }
 

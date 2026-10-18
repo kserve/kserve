@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -150,8 +151,15 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if !prefetchAccessReady {
 		return ctrl.Result{RequeueAfter: time.Minute}, nil
 	}
-	if err := r.ensureOCIPrefetchJobs(ctx, kernelCache, nodeGroup, readyNodes, config); err != nil {
+	if err := r.ensureKernelCacheArtifactPrefetchJobs(ctx, kernelCache, nodeGroup, readyNodes, config); err != nil {
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, len(readyNodes.Items), reasonStorageError, err.Error(), mountType)
+	}
+	if err := r.ensureRuntimeImagePrefetchJobs(ctx, kernelCache, nodeGroup, readyNodes, config); err != nil {
+		r.Log.Error(err, "Unable to prefetch runtime image", "kernelCache", client.ObjectKeyFromObject(kernelCache))
+		if r.Recorder != nil {
+			r.Recorder.Eventf(kernelCache, nil, corev1.EventTypeWarning, "RuntimeImagePrefetchFailed", "PrefetchRuntimeImage", "%v", err)
+		}
+		return ctrl.Result{}, err
 	}
 
 	aggregate, err := r.aggregateKernelCacheStatus(ctx, kernelCache, readyNodes)
