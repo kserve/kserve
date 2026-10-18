@@ -35,6 +35,9 @@ const (
 const (
 	// ReasonPVCNotFound indicates the referenced PVC does not exist in the cache namespace.
 	ReasonPVCNotFound = "PVCNotFound"
+	// ReasonPVCTerminating indicates the referenced PVC is being deleted and is held only while
+	// Pods still mount it. No new consumer is bound to it and no import Job is created onto it.
+	ReasonPVCTerminating = "PVCTerminating"
 	// ReasonUnsupportedVolumeMode indicates the referenced PVC is not filesystem volume mode.
 	ReasonUnsupportedVolumeMode = "UnsupportedVolumeMode"
 	// ReasonUnsupportedAccessMode indicates the referenced PVC does not include ReadWriteMany.

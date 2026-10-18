@@ -127,6 +127,20 @@ func (c *LocalModelNamespaceCacheReconciler) reconcileSharedPVC(ctx context.Cont
 		return ctrl.Result{}, err
 	}
 
+	if !pvc.DeletionTimestamp.IsZero() {
+		// A Terminating claim never returns to service; pvc-protection holds it only while
+		// scheduled Pods still mount it. Report NotReady so no new consumer is bound to a dying
+		// claim and no import Job is started onto it. The import record is kept: the data is
+		// still there for the Pods draining from it, so bound consumers are held until the
+		// claim is gone and PVCNotFound clears the record.
+		log.Info("Referenced PVC is terminating")
+		return c.applySharedStatus(ctx, localModel, sharedState{
+			status:  metav1.ConditionFalse,
+			reason:  v1alpha1.ReasonPVCTerminating,
+			message: fmt.Sprintf("PersistentVolumeClaim %q is being deleted", pvcName),
+		}, consumers)
+	}
+
 	// PVC preflight: volume mode, access mode, and capacity.
 	if state, ok := checkPVCPreflight(pvc, localModel.Spec.ModelSize); !ok {
 		log.Info("PVC preflight failed", "reason", state.reason, "message", state.message)

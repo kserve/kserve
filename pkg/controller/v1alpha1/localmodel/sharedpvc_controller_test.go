@@ -443,12 +443,28 @@ var _ = Describe("LocalModelNamespaceCache shared-PVC controller", func() {
 			Expect(k8sClient.Create(ctx, llmSvc)).Should(Succeed())
 			defer k8sClient.Delete(ctx, llmSvc)
 
-			// envtest has no PVC-protection controller to clear the admission-added finalizer.
-			currentPVC := &corev1.PersistentVolumeClaim{}
-			Expect(k8sClient.Get(ctx, types.NamespacedName{Name: pvc.Name, Namespace: ns}, currentPVC)).Should(Succeed())
-			currentPVC.Finalizers = nil
-			Expect(k8sClient.Update(ctx, currentPVC)).Should(Succeed())
-			Expect(k8sClient.Delete(ctx, currentPVC)).Should(Succeed())
+			// Delete the claim. envtest has no pvc-protection controller, so the admission-added
+			// finalizer holds it Terminating the way draining Pods would in a real cluster. The
+			// cache must stop binding new consumers while keeping the record for the bound one.
+			Expect(k8sClient.Delete(ctx, pvc)).Should(Succeed())
+			Eventually(func() bool {
+				current := &v1alpha1.LocalModelNamespaceCache{}
+				if err := k8sClient.Get(ctx, cacheKey, current); err != nil {
+					return false
+				}
+				condition := current.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+				return condition != nil && condition.Reason == v1alpha1.ReasonPVCTerminating && current.Status.SharedPVCImport != nil
+			}, timeout, interval).Should(BeTrue(), "a terminating claim reports PVCTerminating and keeps the import record")
+
+			// Release the finalizer: the last reader is gone and so is the claim.
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				currentPVC := &corev1.PersistentVolumeClaim{}
+				if err := k8sClient.Get(ctx, types.NamespacedName{Name: pvc.Name, Namespace: ns}, currentPVC); err != nil {
+					return err
+				}
+				currentPVC.Finalizers = nil
+				return k8sClient.Update(ctx, currentPVC)
+			})).Should(Succeed())
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, types.NamespacedName{Name: pvc.Name, Namespace: ns}, &corev1.PersistentVolumeClaim{})
 				return errors.IsNotFound(err)

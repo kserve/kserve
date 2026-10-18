@@ -1285,32 +1285,63 @@ func TestReconcileSharedPVCKeepsRecordWhenCachedPVCMissIsStale(t *testing.T) {
 }
 
 // While the claim is Terminating under pvc-protection, scheduled Pods still read it. The
-// object is still served with its UID, so the record stays and bound consumers are held.
-func TestReconcileSharedPVCKeepsRecordWhilePVCTerminating(t *testing.T) {
-	cache := importedSharedCache("pvc-uid")
-	pvc := boundSharedPVC("pvc-uid")
-	pvc.Finalizers = []string{"kubernetes.io/pvc-protection"}
-	cl, scheme := sharedPVCFixture(t, cache, pvc, claimPod("reader", "pvc", corev1.PodRunning))
-	if err := cl.Delete(context.Background(), pvc); err != nil {
-		t.Fatalf("delete pvc: %v", err)
+// cache reports PVCTerminating so no new consumer binds to a dying claim and no Job is
+// started onto it, and the record stays so bound consumers are held while the Pods drain.
+// A Terminating claim never returns to service, so this is not a transient state.
+func TestReconcileSharedPVCReportsTerminatingPVCAndKeepsRecord(t *testing.T) {
+	tests := []struct {
+		name      string
+		extra     []client.Object
+		consumers cacheConsumers
+	}{
+		{name: "retained completed Job, consumer bound", consumers: sharedLLMConsumer()},
+		{name: "Job gone, Pod still reading", extra: []client.Object{claimPod("reader", "pvc", corev1.PodRunning)}},
+		{name: "Job gone, nothing left", extra: nil},
 	}
-	terminating := &corev1.PersistentVolumeClaim{}
-	if err := cl.Get(context.Background(), client.ObjectKeyFromObject(pvc), terminating); err != nil || terminating.DeletionTimestamp.IsZero() {
-		t.Fatalf("pvc should be terminating, err=%v", err)
-	}
-	reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, APIReader: cl, Scheme: scheme}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cache := importedSharedCache("pvc-uid")
+			pvc := boundSharedPVC("pvc-uid")
+			pvc.Finalizers = []string{"kubernetes.io/pvc-protection"}
+			extra := tt.extra
+			if tt.name == "retained completed Job, consumer bound" {
+				completed := jobWithCondition(batchv1.JobComplete)
+				completed.Name = importJobName(cache.Name)
+				completed.Namespace = cache.Namespace
+				completed.Annotations = map[string]string{
+					importPVCUIDAnnotation:     string(pvc.UID),
+					importStorageKeyAnnotation: v1alpha1.GetStorageKey(cache.Spec.SourceModelUri),
+					importSpecHashAnnotation:   importSpecHash(cache),
+				}
+				extra = append(extra, completed)
+			}
+			cl, scheme := sharedPVCFixture(t, cache, pvc, extra...)
+			if err := cl.Delete(context.Background(), pvc); err != nil {
+				t.Fatalf("delete pvc: %v", err)
+			}
+			terminating := &corev1.PersistentVolumeClaim{}
+			if err := cl.Get(context.Background(), client.ObjectKeyFromObject(pvc), terminating); err != nil || terminating.DeletionTimestamp.IsZero() {
+				t.Fatalf("pvc should be terminating, err=%v", err)
+			}
+			reconciler := &LocalModelNamespaceCacheReconciler{Client: cl, APIReader: cl, Scheme: scheme}
 
-	if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, cacheConsumers{}); err != nil {
-		t.Fatalf("reconcileSharedPVC() error = %v", err)
-	}
-	if cache.Status.SharedPVCImport == nil || cache.Status.SharedPVCImport.PVCUID != "pvc-uid" {
-		t.Fatalf("import record %#v must survive while the claim is terminating and still read", cache.Status.SharedPVCImport)
-	}
-	if condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady); condition == nil || condition.Reason != v1alpha1.ReasonReimportBlocked {
-		t.Fatalf("cache Ready condition = %#v, want %s", condition, v1alpha1.ReasonReimportBlocked)
-	}
-	if jobs := listImportJobs(t, cl); len(jobs) != 0 {
-		t.Fatalf("no replacement Job while the Pod reads the terminating claim, got %d", len(jobs))
+			if _, err := reconciler.reconcileSharedPVC(context.Background(), cache, &corev1.ConfigMap{}, &v1beta1.LocalModelConfig{}, tt.consumers); err != nil {
+				t.Fatalf("reconcileSharedPVC() error = %v", err)
+			}
+			condition := cache.Status.GetCondition(v1alpha1.LocalModelCacheReady)
+			if condition == nil || condition.Status != metav1.ConditionFalse || condition.Reason != v1alpha1.ReasonPVCTerminating {
+				t.Fatalf("cache Ready condition = %#v, want False/%s", condition, v1alpha1.ReasonPVCTerminating)
+			}
+			if cache.Status.SharedPVCImport == nil || cache.Status.SharedPVCImport.PVCUID != "pvc-uid" {
+				t.Fatalf("import record %#v must survive while the claim is terminating", cache.Status.SharedPVCImport)
+			}
+			jobs := listImportJobs(t, cl)
+			for i := range jobs {
+				if !jobHasCondition(&jobs[i], batchv1.JobComplete) {
+					t.Fatalf("no import Job may be started onto a terminating claim, got %s", jobs[i].Name)
+				}
+			}
+		})
 	}
 }
 

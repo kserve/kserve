@@ -551,6 +551,27 @@ func TestSetLocalModelLabel_SharedPVCNotReadyReleasesBoundBaseModelWithoutRecord
 	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
 }
 
+// While the claim is Terminating the record is kept: a bound base model is held, since the
+// Pods draining from the claim still read the data, and an unbound one is not bound to it.
+func TestSetLocalModelLabel_SharedPVCTerminatingHoldsBoundBaseModelOnly(t *testing.T) {
+	terminating := importedSharedPVCNSCacheList("shared-cache", "hf://org/model")
+	terminating.Items[0].Status.MarkNotReady(v1alpha1.ReasonPVCTerminating, "PersistentVolumeClaim \"shared-pvc\" is being deleted", 1)
+
+	bound := newLLMSvc("hf://org/model")
+	bound.Labels = map[string]string{
+		constants.LocalModelLabel:          "shared-cache",
+		constants.LocalModelNamespaceLabel: "default",
+	}
+	SetLocalModelLabel(bound, nil, terminating)
+	assert.Equal(t, "shared-cache", bound.Labels[constants.LocalModelLabel])
+	assert.Equal(t, "shared-pvc", bound.Annotations[constants.LocalModelPVCNameAnnotationKey])
+
+	unbound := newLLMSvc("hf://org/model")
+	SetLocalModelLabel(unbound, nil, terminating)
+	assert.NotContains(t, unbound.Labels, constants.LocalModelLabel)
+	assert.NotContains(t, unbound.Annotations, constants.LocalModelPVCNameAnnotationKey)
+}
+
 // The referenced claim was deleted: the cache reports PVCNotFound with its record cleared,
 // and a bound base model falls back to its source URI rather than staying pointed at a claim
 // that no longer exists.

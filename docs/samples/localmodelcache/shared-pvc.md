@@ -141,6 +141,7 @@ The cache reports a single positive-polarity `Ready` condition (with
 | `Ready` status | Reason | Meaning |
 |----------------|--------|---------|
 | `False` | `PVCNotFound` | The referenced PVC does not exist in the namespace. If it was deleted after an import, the import record is cleared and bound workloads are released on their next update. |
+| `False` | `PVCTerminating` | The referenced PVC is being deleted and is held only while Pods still mount it. No new workload is bound and no import Job is created; the import record is kept for the workloads draining from it. |
 | `False` | `UnsupportedVolumeMode` | The PVC uses `Block` volume mode. |
 | `False` | `UnsupportedAccessMode` | The PVC does not include `ReadWriteMany`. |
 | `False` | `InsufficientCapacity` | The PVC requested/bound storage is smaller than `modelSize`. |
@@ -170,15 +171,16 @@ shared copy **only after** the cache reaches `Ready: True`. Until then the workl
 falls back to its original `storageUri` as if the cache were absent.
 
 A workload that is already bound to the cache stays bound if the cache later reports
-`Ready: False` (for example `ReimportBlocked` or a spec-generation bump) while
-`status.sharedPVCImport` still records the import: the data is still on the claim, so
-an unrelated update to the InferenceService or LLMInferenceService does not strip the
-binding or roll its pods back to downloading from source. The record is cleared when the
-referenced claim is deleted (`PVCNotFound`) and when a fresh import starts onto a
-recreated claim; in both cases the claim holds no data the workload can use, so a bound
-workload updated then is released to its original `storageUri` and binds again on a
-later update once the cache is `Ready: True`. The binding is also released when the
-workload no longer matches the cache's `sourceModelUri`.
+`Ready: False` (for example `ReimportBlocked`, `PVCTerminating`, or a spec-generation
+bump) while `status.sharedPVCImport` still records the import: the data is still on the
+claim, so an unrelated update to the InferenceService or LLMInferenceService does not
+strip the binding or roll its pods back to downloading from source. The record is
+cleared when the referenced claim is gone (`PVCNotFound`) and when a fresh import starts
+onto a recreated claim; in both cases the claim holds no data the workload can use. By
+default a bound workload updated then falls back to its original `storageUri` (the
+storage initializer, or a modelcar for `oci://`) and binds again on a later update once
+the cache is `Ready: True`. The binding is also released when the workload no longer
+matches the cache's `sourceModelUri`.
 
 Once ready, the served model resolves to:
 
