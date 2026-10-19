@@ -265,9 +265,11 @@ def kc_test_runtime(kc_config):
     Deletes any existing runtime with the same name before creating to ensure
     fresh state (handles interrupted prior runs and avoids testing against stale specs).
 
-    The container writes a file that DetectVLLMCache recognises (path containing
-    'inductor_cache') and runs a minimal HTTP server so the readiness probe
-    required by the MCV sidecar injection webhook passes.
+    Uses vllm-cpu to trigger torch.compile, which generates real compiled kernel
+    artifacts in the inductor_cache directory. This provides a realistic test of
+    KernelCache with actual kernel files rather than dummy data. The container
+    also runs a minimal HTTP server so the readiness probe required by the MCV
+    sidecar injection webhook passes.
     """
     _load_k8s_config()
     api = client.CustomObjectsApi()
@@ -317,29 +319,55 @@ def kc_test_runtime(kc_config):
             "containers": [
                 {
                     "name": "kserve-container",
-                    # python:3.11-slim provides Unix tools (sh, dd, mkdir) for creating
-                    # dummy cache files and python3 for running a simple HTTP server.
-                    # The HTTP server satisfies the MCV webhook's requirement that pods
-                    # have a readiness probe — without one, the webhook skips injection.
-                    "image": "python:3.11-slim",
-                    "command": ["/bin/sh", "-c"],
+                    # vllm-cpu generates real compiled kernels via torch.compile,
+                    # providing a realistic test of KernelCache with actual kernel
+                    # artifacts rather than dummy files. The CPU variant avoids GPU
+                    # requirements while still exercising the torch compilation path.
+                    # This image is already pulled by LLMISvc E2E tests, so no additional
+                    # download time in CI.
+                    "image": "vllm/vllm-openai-cpu:v0.19.0",
+                    "command": ["/bin/bash", "-c"],
                     "args": [
                         # Ordering matters for MCV capture:
                         # 1. Sleep so MCV starts and takes an empty baseline snapshot
-                        #    before we write the cache files. 30s is a conservative
-                        #    buffer for MCV image pull + container start on cold clusters.
-                        #    This could likely be reduced after testing, but erring on the
-                        #    side of reliability for now.
-                        # 2. Write the dummy cache file (now in the delta, not baseline).
-                        # 3. Start the HTTP server last — readiness probe passes only
-                        #    after the file exists, so MCV captures it immediately.
+                        #    before kernel compilation. 30s is a conservative buffer.
+                        # 2. Trigger torch.compile to generate FX graph cache files.
+                        #    On CPU, torch.compile writes FX graph cache to:
+                        #    $XDG_CACHE_HOME/torch/inductor-cache/
+                        #    By setting XDG_CACHE_HOME=/root/.cache/vllm, cache files
+                        #    are written where MCV can detect them.
+                        # 3. Sync filesystem and sleep to ensure cache files are flushed.
+                        # 4. Start HTTP server for readiness probe (required by MCV webhook).
                         "sleep 30\n"
-                        "mkdir -p /root/.cache/vllm/torch_compile_cache/inductor_cache\n"
-                        "dd if=/dev/urandom "
-                        "of=/root/.cache/vllm/torch_compile_cache/inductor_cache/dummy.cubin "
-                        "bs=1k count=10\n"
+                        "python3 -c 'import torch; "
+                        "torch._inductor.config.fx_graph_cache = True; "
+                        'compiled = torch.compile(lambda x: torch.matmul(x, x.T), backend="inductor"); '
+                        "compiled(torch.randn(100, 100))'\n"
+                        "sync\n"
+                        "sleep 5\n"
                         "python3 -m http.server 8080 &\n"
-                        "sleep 3600\n"
+                        "sleep 300\n"
+                    ],
+                    "env": [
+                        # Redirect torch cache to MCV-monitored directory.
+                        # XDG_CACHE_HOME controls where torch writes FX graph cache.
+                        # Default is ~/.cache/torch/inductor-cache/
+                        # Setting this to /root/.cache/vllm makes it:
+                        # /root/.cache/vllm/torch/inductor-cache/
+                        # MCV watches /root/.cache/vllm, so it will detect the cache.
+                        {"name": "XDG_CACHE_HOME", "value": "/root/.cache/vllm"},
+                        # Enable FX graph caching (stores compiled graph representations).
+                        {"name": "TORCHINDUCTOR_FX_GRAPH_CACHE", "value": "1"},
+                        # TORCHINDUCTOR_CACHE_DIR controls compiled kernel location
+                        # (Triton .cubin on GPU, C++ on CPU). On CPU this is often
+                        # in-memory only, but we set it for completeness.
+                        {
+                            "name": "TORCHINDUCTOR_CACHE_DIR",
+                            "value": "/root/.cache/vllm/torch_compile_cache/inductor_cache",
+                        },
+                        # Enable torch logging to see cache activity in pod logs.
+                        {"name": "TORCH_LOGS", "value": "+inductor"},
+                        {"name": "TORCHINDUCTOR_LOG_LEVEL", "value": "INFO"},
                     ],
                     "readinessProbe": {
                         "httpGet": {"path": "/", "port": 8080},
@@ -347,8 +375,8 @@ def kc_test_runtime(kc_config):
                         "periodSeconds": 10,
                     },
                     "resources": {
-                        "requests": {"cpu": "100m", "memory": "256Mi"},
-                        "limits": {"cpu": "500m", "memory": "512Mi"},
+                        "requests": {"cpu": "200m", "memory": "2Gi"},
+                        "limits": {"cpu": "2", "memory": "7Gi"},
                     },
                 }
             ],

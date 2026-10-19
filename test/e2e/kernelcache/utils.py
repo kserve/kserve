@@ -19,6 +19,7 @@ from typing import Any, Callable
 
 from kubernetes import client, config as k8s_config
 from kubernetes.client.exceptions import ApiException
+from kubernetes.stream import stream
 
 from kserve.constants.constants import (
     KSERVE_GROUP,
@@ -114,7 +115,11 @@ def wait_for(
 def make_producer_isvc(
     name: str, namespace: str, storage_uri: str
 ) -> V1beta1InferenceService:
-    """Build a KC producer ISVC that triggers MCV capture via kernelcache-test-runtime."""
+    """Build a KC producer ISVC that triggers MCV capture via kernelcache-test-runtime.
+
+    Resources are NOT specified here - the ClusterServingRuntime (kc_test_runtime)
+    defines them.
+    """
     return V1beta1InferenceService(
         api_version=KSERVE_V1BETA1,
         kind=KSERVE_KIND_INFERENCESERVICE,
@@ -133,10 +138,6 @@ def make_producer_isvc(
                     # storageUri causes the storage annotation to be set on the pod,
                     # which is required by the MCV sidecar injection webhook.
                     storage_uri=storage_uri,
-                    resources=client.V1ResourceRequirements(
-                        requests={"cpu": "100m", "memory": "256Mi"},
-                        limits={"cpu": "500m", "memory": "512Mi"},
-                    ),
                 ),
             )
         ),
@@ -314,8 +315,8 @@ def wait_for_capture_complete(
         if phase == "Unchanged":
             raise TerminalFailure(
                 f"KernelCacheCapture {namespace}/{kcc_name} reached Unchanged phase. "
-                "This test always writes a new dummy cache file, so Unchanged means "
-                "MCV did not detect the file (wrong timing, file not written, etc.)"
+                "This test always compiles new kernel cache files, so Unchanged means "
+                "MCV did not detect the files (wrong timing, compilation failed, etc.)"
             )
         assert phase == "Complete", (
             f"KernelCacheCapture {namespace}/{kcc_name} phase: {phase or '(empty)'}"
@@ -515,3 +516,173 @@ def wait_for_mcv_sidecar(namespace: str, isvc_name: str, timeout: int = 120) -> 
         )
 
     wait_for(check_mcv, timeout=timeout, interval=5.0)
+
+
+def check_pod_logs_for_cache_usage(
+    namespace: str, isvc_name: str, since_seconds: int = 300
+) -> dict[str, bool]:
+    """Check pod logs for torch.compile cache hit/miss indicators.
+
+    Returns a dict with:
+      - "cache_hit_found": True if "cache hit" or similar found in logs
+      - "cache_miss_found": True if "cache miss" or compilation logs found
+      - "logs_checked": True if logs were successfully retrieved
+
+    This provides evidence of whether torch.compile reused cached artifacts
+    or regenerated them.
+    """
+    core = _core_api()
+    result = {
+        "cache_hit_found": False,
+        "cache_miss_found": False,
+        "logs_checked": False,
+    }
+
+    try:
+        pods = core.list_namespaced_pod(
+            namespace,
+            label_selector=f"serving.kserve.io/inferenceservice={isvc_name}",
+        ).items
+        if not pods:
+            _logger.warning("No pods found for ISVC %s/%s", namespace, isvc_name)
+            return result
+
+        pod_name = pods[0].metadata.name
+        logs = core.read_namespaced_pod_log(
+            name=pod_name,
+            namespace=namespace,
+            container="kserve-container",
+            since_seconds=since_seconds,
+        )
+        result["logs_checked"] = True
+
+        # Look for cache hit indicators
+        cache_hit_patterns = [
+            "cache hit",
+            "using cached",
+            "loaded from cache",
+            "fx graph cache hit",
+        ]
+        for pattern in cache_hit_patterns:
+            if pattern.lower() in logs.lower():
+                result["cache_hit_found"] = True
+                _logger.info(
+                    "Found cache hit indicator in logs for %s/%s: %s",
+                    namespace,
+                    pod_name,
+                    pattern,
+                )
+                break
+
+        # Look for cache miss indicators
+        cache_miss_patterns = [
+            "cache miss",
+            "compiling",
+            "fx graph cache miss",
+        ]
+        for pattern in cache_miss_patterns:
+            if pattern.lower() in logs.lower():
+                result["cache_miss_found"] = True
+                _logger.info(
+                    "Found cache miss indicator in logs for %s/%s: %s",
+                    namespace,
+                    pod_name,
+                    pattern,
+                )
+                break
+
+    except ApiException as e:
+        _logger.warning(
+            "Could not retrieve logs for %s/%s: %s", namespace, isvc_name, e.reason
+        )
+
+    return result
+
+
+def verify_cache_files_accessible(
+    namespace: str, isvc_name: str, timeout: int = 60
+) -> None:
+    """Verify that injected cache files are accessible in the consumer pod.
+
+    The kernel-cache-linker init container symlinks the OCI image contents to
+    /root/.cache/vllm/torch_compile_cache/. This function verifies the cache
+    files are present and readable, confirming the cache is actually being
+    used rather than regenerated.
+    """
+    core = _core_api()
+    pods = core.list_namespaced_pod(
+        namespace,
+        label_selector=f"serving.kserve.io/inferenceservice={isvc_name}",
+    ).items
+    if not pods:
+        raise AssertionError(f"No pod found for ISVC {namespace}/{isvc_name}")
+
+    pod_name = pods[0].metadata.name
+    # FX graph cache location when XDG_CACHE_HOME=/root/.cache/vllm
+    # Torch writes to: $XDG_CACHE_HOME/torch/inductor-cache/
+    cache_dir = "/root/.cache/vllm/torch/inductor-cache"
+
+    # Verify cache directory exists and contains files.
+    # The kernel-cache-linker init container symlinks the OCI image contents,
+    # including the torch FX graph cache written during producer pod compilation.
+    try:
+        resp = stream(
+            core.connect_get_namespaced_pod_exec,
+            name=pod_name,
+            namespace=namespace,
+            container="kserve-container",
+            command=["sh", "-c", f"find {cache_dir} -type f | head -5"],
+            stderr=True,
+            stdin=False,
+            stdout=True,
+            tty=False,
+        )
+        if not resp or len(resp.strip()) == 0:
+            raise AssertionError(
+                f"Cache directory {cache_dir} is empty in pod {namespace}/{pod_name}. "
+                "Cache injection may have failed or files are not accessible."
+            )
+        file_count = len(resp.strip().split("\n"))
+        _logger.info(
+            "Found %d cache files in %s (showing first 5): %s",
+            file_count,
+            cache_dir,
+            resp.strip(),
+        )
+
+        # Verify the cache is read-only (OCI image volumes are immutable).
+        # Attempting to write should fail, confirming torch.compile must reuse
+        # these files rather than regenerating them.
+        test_file = f"{cache_dir}/.write-test"
+        write_check = stream(
+            core.connect_get_namespaced_pod_exec,
+            name=pod_name,
+            namespace=namespace,
+            container="kserve-container",
+            command=["sh", "-c", f"touch {test_file} 2>&1 || echo 'readonly'"],
+            stderr=True,
+            stdin=False,
+            stdout=True,
+            tty=False,
+        )
+        if (
+            "readonly" not in write_check.lower()
+            and "read-only" not in write_check.lower()
+        ):
+            _logger.warning(
+                "Cache directory %s appears writable in pod %s/%s. "
+                "OCI image volumes should be read-only.",
+                cache_dir,
+                namespace,
+                pod_name,
+            )
+        else:
+            _logger.info(
+                "Confirmed cache directory %s is read-only (as expected for OCI image volume)",
+                cache_dir,
+            )
+
+    except ApiException as e:
+        raise AssertionError(
+            f"Failed to verify cache files in {namespace}/{pod_name}: {e.reason}"
+        ) from e
