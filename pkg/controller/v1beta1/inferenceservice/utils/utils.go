@@ -459,6 +459,9 @@ func ValidateStorageURI(ctx context.Context, storageURI *string, client client.C
 	if storageURI == nil {
 		return nil
 	}
+	if err := kserveutils.CheckHTTPStorageURI(*storageURI); err != nil {
+		return err
+	}
 
 	// Step 1: Passes the validation if we have a storage container CR that supports this storageURI.
 	storageContainerSpec, err := pod.GetContainerSpecForStorageUri(ctx, *storageURI, client)

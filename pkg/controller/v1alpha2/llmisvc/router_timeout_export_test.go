@@ -26,6 +26,6 @@ import (
 
 // ExpectedHTTPRouteForTest exposes expectedHTTPRoute to package llmisvc_test, which
 // cannot be imported from within package llmisvc.
-func (r *LLMISVCReconciler) ExpectedHTTPRouteForTest(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, cfg *Config) *gwapiv1.HTTPRoute {
+func (r *LLMISVCReconciler) ExpectedHTTPRouteForTest(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, cfg *Config) (*gwapiv1.HTTPRoute, error) {
 	return r.expectedHTTPRoute(ctx, llmSvc, cfg)
 }

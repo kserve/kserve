@@ -13,7 +13,9 @@
 # limitations under the License.
 
 import io
+import json
 import os
+import socket
 import tempfile
 import binascii
 import unittest.mock as mock
@@ -22,9 +24,15 @@ from pathlib import Path
 
 import certifi
 import pytest
+import requests
 
 from kserve_storage import Storage
-from kserve_storage.kserve_storage import _should_download, _parse_patterns_from_env
+from kserve_storage.kserve_storage import (
+    _assert_http_storage_uri_allowed,
+    _parse_patterns_from_env,
+    _pinned_http_get,
+    _should_download,
+)
 
 STORAGE_MODULE = "kserve_storage.kserve_storage"
 HTTPS_URI_TARGZ = "https://foo.bar/model.tar.gz"
@@ -44,6 +52,159 @@ FILE_ZIP_RAW = binascii.unhexlify(
     "0000000a481000000006d6f64656c2e70746855540d000786c5506086c5506086c5506075780b000104f"
     "50100000414000000504b0506000000000100010057000000590000000000"
 )
+
+
+@pytest.fixture(autouse=True)
+def mock_public_http_dns(monkeypatch):
+    """Keep HTTP unit tests independent from the host's DNS availability."""
+    monkeypatch.setattr(
+        f"{STORAGE_MODULE}.socket.getaddrinfo",
+        lambda *_args: [(2, 1, 6, "", ("93.184.216.34", 443))],
+    )
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "http://127.0.0.1/model",
+        "http://[::1]/model",
+        "http://169.254.169.254/latest/meta-data",
+        "http://10.0.0.1/model",
+        "http://100.64.0.1/model",
+        "http://100.127.255.254/model",
+        "https://kubernetes.default.svc/api",
+        "http://metadata.google.internal/computeMetadata/v1",
+    ],
+)
+def test_http_storage_uri_rejects_internal_targets(uri):
+    with pytest.raises(RuntimeError, match="blocked host or IP"):
+        _assert_http_storage_uri_allowed(uri)
+
+
+def test_http_storage_uri_rejects_private_dns(monkeypatch):
+    monkeypatch.setattr(
+        f"{STORAGE_MODULE}.socket.getaddrinfo",
+        lambda *_args: [(2, 1, 6, "", ("169.254.169.254", 443))],
+    )
+    with pytest.raises(RuntimeError, match="blocked host or IP"):
+        _assert_http_storage_uri_allowed("https://evil.example/model")
+
+
+def test_http_storage_uri_fails_closed_when_dns_resolution_fails(monkeypatch):
+    def fail_resolution(*_args):
+        raise socket.gaierror(-3, "Temporary failure in name resolution")
+
+    monkeypatch.setattr(
+        f"{STORAGE_MODULE}.socket.getaddrinfo",
+        fail_resolution,
+    )
+    with pytest.raises(RuntimeError, match="Unable to safely resolve"):
+        _assert_http_storage_uri_allowed("https://unresolved.example/model")
+
+
+def test_http_storage_uri_rejects_redirect_to_internal_target(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        f"{STORAGE_MODULE}.socket.getaddrinfo",
+        lambda *_args: [(2, 1, 6, "", ("93.184.216.34", 443))],
+    )
+    response = mock.MagicMock()
+    response.status_code = 302
+    response.headers = {"Location": "http://169.254.169.254/latest/meta-data"}
+    monkeypatch.setattr(
+        f"{STORAGE_MODULE}.requests.Session.get", mock.Mock(return_value=response)
+    )
+
+    with pytest.raises(RuntimeError, match="blocked host or IP"):
+        Storage._download_from_uri("https://example.com/model", str(tmp_path))
+    response.close.assert_called_once()
+
+
+def test_http_storage_uri_strips_sensitive_headers_on_cross_origin_redirect(
+    monkeypatch, tmp_path
+):
+    redirect = mock.MagicMock()
+    redirect.status_code = 302
+    redirect.headers = {"Location": "https://other.example/model"}
+    success = MockHttpResponse(
+        status_code=200,
+        raw=b"model",
+        content_type="application/octet-stream",
+    )
+    request = mock.Mock(side_effect=[redirect, success])
+    monkeypatch.setattr(f"{STORAGE_MODULE}.requests.Session.get", request)
+    headers = {
+        "Authorization": "Bearer secret",
+        "Cookie": "session=secret",
+        "Proxy-Authorization": "Basic secret",
+        "X-Model-Header": "preserved",
+    }
+
+    with mock.patch.dict(
+        os.environ,
+        {"example.com-headers": json.dumps(headers)},
+    ):
+        Storage._download_from_uri("https://example.com/model", str(tmp_path))
+
+    redirected_headers = request.call_args_list[1].kwargs["headers"]
+    assert redirected_headers == {"X-Model-Header": "preserved"}
+    redirect.close.assert_called_once()
+
+
+def test_http_storage_uri_pins_validated_ip_against_dns_rebinding(monkeypatch):
+    lookups = 0
+
+    def changing_dns(*_args):
+        nonlocal lookups
+        lookups += 1
+        address = "93.184.216.34" if lookups == 1 else "10.0.0.1"
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, 443))]
+
+    captured = {}
+
+    def fake_adapter_send(adapter, request, *args, **kwargs):
+        captured["url"] = request.url
+        captured["host"] = request.headers["Host"]
+        _, pool_kwargs = adapter.build_connection_pool_key_attributes(request, True)
+        captured["server_hostname"] = pool_kwargs["server_hostname"]
+        captured["assert_hostname"] = pool_kwargs["assert_hostname"]
+        return MockHttpResponse(
+            status_code=200,
+            raw=b"model",
+            content_type="application/octet-stream",
+        )
+
+    def fake_session_get(session, uri, **kwargs):
+        request = requests.Request("GET", uri, headers=kwargs.get("headers")).prepare()
+        return session.adapters["https://"].send(request)
+
+    monkeypatch.setattr(f"{STORAGE_MODULE}.socket.getaddrinfo", changing_dns)
+    monkeypatch.setattr(requests.adapters.HTTPAdapter, "send", fake_adapter_send)
+    monkeypatch.setattr(requests.Session, "get", fake_session_get)
+
+    _pinned_http_get("https://rebind.example/model", stream=True, timeout=30)
+
+    assert lookups == 1
+    assert captured == {
+        "url": "https://93.184.216.34/model",
+        "host": "rebind.example",
+        "server_hostname": "rebind.example",
+        "assert_hostname": "rebind.example",
+    }
+
+
+def test_http_storage_uri_rejects_private_dns_before_git_dispatch(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(
+        f"{STORAGE_MODULE}.socket.getaddrinfo",
+        lambda *_args: [(2, 1, 6, "", ("10.0.0.1", 443))],
+    )
+    clone = mock.Mock()
+    monkeypatch.setattr("dulwich.porcelain.clone", clone)
+
+    with pytest.raises(RuntimeError, match="blocked host or IP"):
+        Storage.download("https://evil.example/repository.git", str(tmp_path))
+    clone.assert_not_called()
 
 
 def test_storage_local_path():
@@ -92,7 +253,7 @@ class MockHttpResponse(object):
 
 
 @mock.patch(
-    "requests.get",
+    "requests.Session.get",
     return_value=MockHttpResponse(
         status_code=200, content_type="application/octet-stream"
     ),
@@ -107,7 +268,7 @@ def test_http_uri_path(_):
 
 
 @mock.patch(
-    "requests.get",
+    "requests.Session.get",
     return_value=MockHttpResponse(
         status_code=200, content_type="application/octet-stream"
     ),
@@ -138,7 +299,7 @@ mjrvDJwPyARHZg==
 
 
 @mock.patch(
-    "requests.get",
+    "requests.Session.get",
     return_value=MockHttpResponse(
         status_code=200, content_type="application/octet-stream"
     ),
@@ -155,7 +316,7 @@ def test_https_uri_path_without_global_ca_bundle(_):
 
 
 @mock.patch(
-    "requests.get",
+    "requests.Session.get",
     return_value=MockHttpResponse(
         status_code=200, content_type="application/octet-stream"
     ),
@@ -182,7 +343,7 @@ def test_https_uri_path_with_global_ca_bundle(_, tmp_path):
 
 
 @mock.patch(
-    "requests.get",
+    "requests.Session.get",
     return_value=MockHttpResponse(
         status_code=200, content_type="application/octet-stream"
     ),
@@ -204,7 +365,7 @@ def test_https_uri_path_keeps_existing_ca_bundle_env(_, tmp_path):
 
 
 @mock.patch(
-    "requests.get",
+    "requests.Session.get",
     return_value=MockHttpResponse(
         status_code=200, content_type="application/octet-stream"
     ),
@@ -227,7 +388,7 @@ def test_https_uri_path_fills_unset_ca_bundle_env(_, tmp_path):
 
 
 @mock.patch(
-    "requests.get",
+    "requests.Session.get",
     return_value=MockHttpResponse(
         status_code=200, content_type="application/octet-stream"
     ),
@@ -273,7 +434,7 @@ def test_hdfs_uri_path_keeps_own_tls_configuration(_, uri, tmp_path):
 
 
 @mock.patch(
-    "requests.get",
+    "requests.Session.get",
     return_value=MockHttpResponse(
         status_code=200, content_type="application/octet-stream"
     ),
@@ -406,7 +567,7 @@ def test_http_uri_paths(uri, response, expected_error):
                 assert Storage.download(uri, out_dir=out_dir) == out_dir
                 assert os.path.exists(os.path.join(out_dir, "model.pth"))
 
-    mock.patch("requests.get", return_value=response)(test)()
+    mock.patch("requests.Session.get", return_value=response)(test)()
 
 
 def test_storage_blob_exception():
@@ -606,6 +767,11 @@ def test_git_repo_download_public_repo_no_auth(mock_clone):
     # No username or password should be passed for public repos
     assert "username" not in kwargs
     assert "password" not in kwargs
+
+    # Dulwich/urllib3 re-enters this pool manager for every redirect. A
+    # redirected request is rejected before urllib3 opens a connection.
+    with pytest.raises(RuntimeError, match="blocked host or IP"):
+        kwargs["pool_manager"].urlopen("GET", "http://169.254.169.254/latest/meta-data")
 
 
 # Tests for _should_download and _parse_patterns_from_env

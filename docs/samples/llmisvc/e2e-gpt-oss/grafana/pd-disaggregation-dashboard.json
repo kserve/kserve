@@ -80,7 +80,7 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by(decision_type) (rate(llm_d_inference_scheduler_pd_decision_total[5m]))", "legendFormat": "{{decision_type}}", "refId": "A" }
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by(decision_type) (rate(llm_d_epp_disagg_decision_total[5m]))", "legendFormat": "{{decision_type}}", "refId": "A" }
       ],
       "title": "P/D decision rate by type",
       "type": "timeseries"
@@ -94,7 +94,7 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_inference_scheduler_pd_decision_total{decision_type=\"decode-only\"}[5m]))", "legendFormat": "decode-only", "refId": "A" }
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_epp_disagg_decision_total{decision_type=\"decode-only\"}[5m]))", "legendFormat": "decode-only", "refId": "A" }
       ],
       "title": "Decode-only request rate",
       "type": "timeseries"
@@ -108,7 +108,7 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_inference_scheduler_pd_decision_total{decision_type=\"prefill-decode\"}[5m]))", "legendFormat": "prefill-decode", "refId": "A" }
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_epp_disagg_decision_total{decision_type=\"prefill-decode\"}[5m]))", "legendFormat": "prefill-decode", "refId": "A" }
       ],
       "title": "Prefill-decode request rate",
       "type": "timeseries"
@@ -122,7 +122,7 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_inference_scheduler_pd_decision_total{decision_type=\"prefill-decode\"}[5m])) / sum(rate(llm_d_inference_scheduler_pd_decision_total[5m]))", "refId": "A" }
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_epp_disagg_decision_total{decision_type=\"prefill-decode\"}[5m])) / sum(rate(llm_d_epp_disagg_decision_total[5m]))", "refId": "A" }
       ],
       "title": "P/D decision ratio (prefill-decode)",
       "type": "gauge"

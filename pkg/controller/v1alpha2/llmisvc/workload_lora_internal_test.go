@@ -650,6 +650,75 @@ func TestRewriteLoRAAdaptersFromLocalModelCache_NamespaceScoped(t *testing.T) {
 	assert.True(t, strings.HasPrefix(rewritten[0].uri, "pvc://ns-adapter-cache-gpu2/models/"))
 }
 
+func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCReady(t *testing.T) {
+	t.Parallel()
+
+	adapters := []resolvedLoRAAdapter{
+		{name: "my-adapter", uri: "hf://org/adapter", scheme: constants.HfURIPrefix},
+	}
+	ref := "shared-pvc"
+	nsCache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "ns-adapter-cache", Namespace: "default", Generation: 1},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "hf://org/adapter",
+			ModelSize:      resource.MustParse("1Gi"),
+			PVCRef:         &ref,
+		},
+	}
+	nsCache.Status.MarkReady(1)
+	c := fake.NewClientBuilder().WithScheme(newLoRARewriteScheme(t)).WithObjects(nsCache).Build()
+
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"ns-adapter-cache","namespace":"default"}}`,
+			},
+		},
+	}
+
+	rewritten, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters)
+	require.NoError(t, err)
+	assert.Equal(t, constants.PvcURIPrefix, rewritten[0].scheme)
+	assert.True(t, strings.HasPrefix(rewritten[0].uri, "pvc://shared-pvc/models/"))
+}
+
+// Readiness gates binding in the webhook, not resolution here: an adapter already bound to a
+// shared-PVC cache keeps resolving to the claim while the cache reports NotReady (re-import
+// blocked, spec-generation bump), since the data is still on the claim. Failing here would
+// make every LoRA-bound LLMInferenceService unreconcilable for the whole NotReady window.
+func TestRewriteLoRAAdaptersFromLocalModelCache_SharedPVCNotReadyKeepsBoundAdapter(t *testing.T) {
+	t.Parallel()
+
+	adapters := []resolvedLoRAAdapter{
+		{name: "my-adapter", uri: "hf://org/adapter", scheme: constants.HfURIPrefix},
+	}
+	ref := "shared-pvc"
+	nsCache := &v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{Name: "ns-adapter-cache", Namespace: "default", Generation: 1},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "hf://org/adapter",
+			ModelSize:      resource.MustParse("1Gi"),
+			PVCRef:         &ref,
+		},
+	}
+	c := fake.NewClientBuilder().WithScheme(newLoRARewriteScheme(t)).WithObjects(nsCache).Build()
+
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Annotations: map[string]string{
+				constants.LocalModelLoRAAnnotationKey: `{"my-adapter":{"cache":"ns-adapter-cache","namespace":"default"}}`,
+			},
+		},
+	}
+
+	rewritten, err := rewriteLoRAAdaptersFromLocalModelCache(t.Context(), c, llmSvc, adapters)
+	require.NoError(t, err)
+	assert.Equal(t, constants.PvcURIPrefix, rewritten[0].scheme)
+	assert.True(t, strings.HasPrefix(rewritten[0].uri, "pvc://shared-pvc/models/"))
+}
+
 func TestRewriteLoRAAdaptersFromLocalModelCache_MissingCache(t *testing.T) {
 	t.Parallel()
 

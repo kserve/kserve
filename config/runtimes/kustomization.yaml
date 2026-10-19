@@ -17,6 +17,7 @@ resources:
 - kserve-autogluonserver.yaml
 - kserve-vllmserver.yaml
 - kserve-llm-sglang.yaml
+- kserve-llm-omni.yaml
 
 images:
   # SMS Only Runtimes

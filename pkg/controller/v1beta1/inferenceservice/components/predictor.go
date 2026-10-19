@@ -164,7 +164,7 @@ func (p *Predictor) buildPredictorResources(ctx context.Context, isvc *v1beta1.I
 		variant := isvc.Spec.Predictor.Name
 
 		for i := range podSpec.Containers {
-			isvcutils.InjectPredictorTracing(isvc.Spec.Tracing, isvc.Namespace, isvc.Name, variant, serverType, &podSpec.Containers[i])
+			isvcutils.InjectComponentTracing(isvc.Spec.Tracing, isvc.Namespace, isvc.Name, variant, serverType, "", &podSpec.Containers[i])
 		}
 	}
 
@@ -836,6 +836,8 @@ func (p *Predictor) reconcileRawDeployment(ctx context.Context, isvc *v1beta1.In
 	if err != nil {
 		return nil, errors.Wrapf(err, "fails to reconcile predictor")
 	}
+
+	propagatePlatformWorkloadStatus(isvc, r.Workload)
 
 	if !utils.GetForceStopRuntime(isvc) {
 		isvc.Status.PropagateRawStatus(v1beta1.PredictorComponent, deploymentList, r.URL)

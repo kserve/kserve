@@ -1,0 +1,107 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: kernelcachenodes.serving.kserve.io
+spec:
+  group: serving.kserve.io
+  names:
+    kind: KernelCacheNode
+    listKind: KernelCacheNodeList
+    plural: kernelcachenodes
+    shortNames:
+    - kcn
+    singular: kernelcachenode
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.counts.cachesReady
+      name: Ready
+      type: integer
+    - jsonPath: .status.counts.cachesPreparing
+      name: Preparing
+      type: integer
+    - jsonPath: .status.counts.cachesError
+      name: Error
+      type: integer
+    - jsonPath: .status.counts.totalPodsUsing
+      name: Pods-Using
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          status:
+            properties:
+              cacheStatus:
+                additionalProperties:
+                  properties:
+                    footprints:
+                      properties:
+                        compatibilityFootprint:
+                          pattern: ^sha256:[a-f0-9]{64}$
+                          type: string
+                        workloadFootprint:
+                          pattern: ^sha256:[a-f0-9]{64}$
+                          type: string
+                      type: object
+                    imageReference:
+                      type: string
+                    kernelCacheRef:
+                      properties:
+                        name:
+                          type: string
+                        namespace:
+                          type: string
+                      type: object
+                    lastUpdate:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    state:
+                      enum:
+                      - Pending
+                      - Pulling
+                      - Extracting
+                      - Ready
+                      - Error
+                      type: string
+                  required:
+                  - footprints
+                  - kernelCacheRef
+                  type: object
+                type: object
+              counts:
+                properties:
+                  cachesError:
+                    type: integer
+                  cachesPreparing:
+                    type: integer
+                  cachesReady:
+                    type: integer
+                  totalPodsUsing:
+                    type: integer
+                required:
+                - cachesError
+                - cachesPreparing
+                - cachesReady
+                - totalPodsUsing
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

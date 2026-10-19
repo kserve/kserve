@@ -42,4 +42,5 @@ type buildContext struct {
 	ManifestBuildDir string
 	ManifestPath     string
 	BuildRoot        string
+	TempLayerFile    string
 }

@@ -6,14 +6,17 @@ namespace: kserve
 resources:
   - config-llm-decode-template.yaml
   - config-llm-decode-worker-data-parallel.yaml
+  - config-llm-decode-worker-data-parallel-multi-port.yaml
   - config-llm-prefill-template.yaml
   - config-llm-prefill-worker-data-parallel.yaml
+  - config-llm-prefill-worker-data-parallel-multi-port.yaml
   - config-llm-router-route.yaml
   - config-llm-scheduler.yaml
   - config-llm-scheduler-eppconfig-default.yaml
   - config-llm-scheduler-eppconfig-default-pd.yaml
-  - config-llm-scheduler-latency-predictor.yaml
+  - config-llm-scheduler-eppconfig-modality.yaml
   - config-llm-template.yaml
+  - config-llm-omni-template.yaml
   - config-llm-tokenizer.yaml
   - config-llm-tracing.yaml
   - config-llm-worker-data-parallel.yaml

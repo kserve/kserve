@@ -210,6 +210,12 @@ func resolveLoRACachePVC(
 		if err := c.Get(ctx, types.NamespacedName{Name: entry.Cache, Namespace: entry.Namespace}, nsCache); err != nil {
 			return "", "", fmt.Errorf("get LocalModelNamespaceCache %s/%s: %w", entry.Namespace, entry.Cache, err)
 		}
+		// Shared-PVC mode: the serving PVC is the referenced claim. Readiness is gated at
+		// bind time by the webhook, not here: an adapter already bound to the cache keeps
+		// resolving while the cache reports NotReady, since the data stays on the claim.
+		if nsCache.Spec.SharedPVCMode() {
+			return nsCache.Spec.SourceModelUri, *nsCache.Spec.PVCRef, nil
+		}
 		pvc, ok := localmodelcache.PVCNameForNodeGroup(nsCache.Spec.NodeGroups, nodeGroup, nodeGroupExists, nsCache.Name)
 		if !ok {
 			return "", "", fmt.Errorf("LocalModelNamespaceCache %s/%s has no matching node group for annotation %q=%q",

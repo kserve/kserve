@@ -642,6 +642,7 @@ POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
 RUFF_VERSION=0.14.13
 SHELLCHECK_VERSION=v0.11.0
+CODESPELL_VERSION=2.4.3
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
@@ -653,15 +654,14 @@ KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
 JAEGER_VERSION=4.7.0
-KSERVE_VERSION=v0.21.0-rc0
+KSERVE_VERSION=v0.21.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.20.2
 OPENTELEMETRY_OPERATOR_VERSION=0.114.1
-LWS_VERSION=v0.8.0
+LWS_VERSION=v0.11.0
 GATEWAY_API_VERSION=v1.5.1
-GIE_VERSION=v1.5.0
-LLMD_ROUTER_VERSION=v0.10.0
-WVA_VERSION=v0.9.0
+GIE_VERSION=v1.6.2
+LLMD_ROUTER_VERSION=v0.11.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -673,7 +673,6 @@ KEDA_NAMESPACE="${KEDA_NAMESPACE:-keda}"
 KSERVE_NAMESPACE="${KSERVE_NAMESPACE:-kserve}"
 PROMETHEUS_NAMESPACE="${PROMETHEUS_NAMESPACE:-monitoring}"
 PROMETHEUS_ADAPTER_NAMESPACE="${PROMETHEUS_ADAPTER_NAMESPACE:-monitoring}"
-WVA_NAMESPACE="${WVA_NAMESPACE:-wva-system}"
 OTEL_NAMESPACE="${OTEL_NAMESPACE:-opentelemetry-operator}"
 OPERATOR_NAMESPACE="${OPERATOR_NAMESPACE:-knative-operator}"
 SERVING_NAMESPACE="${SERVING_NAMESPACE:-knative-serving}"
@@ -1365,6 +1364,9 @@ install_kserve_helm() {
             config_args+=(--set "kserve.localmodel.enabled=true")
             config_args+=(--set "kserve.localmodel.defaultJobImage=kserve/storage-initializer")
             config_args+=(--set "kserve.localmodel.defaultJobImageTag=${KSERVE_VERSION}")
+            config_args+=(--set "kserve.kernelcache.enabled=true")
+            config_args+=(--set "kserve.kernelcache.mcvImage=kserve/kserve-mcv")
+            config_args+=(--set "kserve.kernelcache.mcvTag=${KSERVE_VERSION}-minimal")
         fi
         # Add custom configurations if provided
         if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
@@ -1598,7 +1600,7 @@ main() {
         if [ -n "${SET_KSERVE_VERSION}" ]; then
             PULL_POLICY_KSERVE="--set kserve.controller.imagePullPolicy=IfNotPresent"
             PULL_POLICY_LLMISVC="--set kserve.llmisvc.controller.imagePullPolicy=IfNotPresent"
-            PULL_POLICY_LOCALMODEL="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent"
+            PULL_POLICY_LOCALMODEL="--set kserve.localmodel.controller.imagePullPolicy=IfNotPresent --set kserve.localmodelnode.controller.imagePullPolicy=IfNotPresent --set kserve.kernelcachenode.controller.imagePullPolicy=IfNotPresent"
         fi
         
         if is_positive "${ENABLE_KSERVE}"; then

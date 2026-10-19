@@ -14,31 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script adds copyright to the python and go files.
+# This script adds copyright to the Git-visible Python and Go files.
 
-CURRENT_YEAR=$(date +%Y)
-
-# Returns the year the file was first committed, or the current year for untracked files.
-file_year() {
-  local year
-  year=$(git log --follow --diff-filter=A --format=%ad --date=format:%Y -- "$1" 2>/dev/null | tail -1)
-  echo "${year:-$CURRENT_YEAR}"
-}
-
-while IFS= read -r -d '' file
-do
-  if ! grep -q Copyright "$file"
-    then
-      local_year=$(file_year "$file")
-      sed "s/ YEAR/ ${local_year}/g" hack/boilerplate.go.txt | cat - "$file" > "$file".new && mv "$file".new "$file"
-    fi
-done <   <(find ./kernelcache/mcv/pkg ./kernelcache/mcv/cmd ./pkg ./cmd -name '*.go' -print0)
-
-while IFS= read -r -d '' file
-do
-  if ! grep -q Copyright "$file"
-    then
-      local_year=$(file_year "$file")
-      sed "s/ YEAR/ ${local_year}/g" hack/boilerplate.python.txt | cat - "$file" > "$file".new && mv "$file".new "$file"
-    fi
-done <   <(find ./python ./test/e2e -name '*.py' -not -name '*_pb2*.py' -print0)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec python3 "$SCRIPT_DIR/boilerplate.py" "$@"

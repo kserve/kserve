@@ -90,6 +90,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		WithControllers(ctrlFunc).
 		WithManagerOptions(func(opts *ctrl.Options) {
 			opts.Cache = cacheOpts
+			opts.Client = NewClientOptions()
 		}).
 		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background())

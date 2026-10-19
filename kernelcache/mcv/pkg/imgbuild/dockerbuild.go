@@ -22,15 +22,18 @@ import (
 	"io"
 	"os"
 
-	"github.com/docker/docker/api/types/build"
 	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/archive"
+	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	logging "github.com/sirupsen/logrus"
 )
 
 type dockerBuilder struct{}
 
-// Docker implementation of the ImageBuilder interface.
+// CreateImage loads a compat cache image into the Docker daemon using Docker
+// Schema 2 media types throughout. BuildKit's docker build path can produce an
+// OCI manifest with Docker layer types, which breaks docker save and kind load.
 func (d *dockerBuilder) CreateImage(imageName, cacheDir string) error {
 	prep, err := prepareBuildContext("docker", cacheDir)
 	if err != nil {
@@ -38,57 +41,51 @@ func (d *dockerBuilder) CreateImage(imageName, cacheDir string) error {
 	}
 	defer CleanupDirs(prep.CacheBuildDir, prep.ManifestBuildDir)
 
-	dockerfilePath := DockerfilePath(prep.BuildRoot)
-
-	err = GenerateDockerfile(imageName, prep.CacheTag, prep.ManifestTag, dockerfilePath)
+	imageWithTag := NormalizeImageTag(imageName)
+	tag, err := name.NewTag(imageWithTag)
 	if err != nil {
-		return fmt.Errorf("failed to generate Dockerfile: %w", err)
+		return fmt.Errorf("invalid image reference %q: %w", imageWithTag, err)
 	}
-	defer os.Remove(dockerfilePath)
 
+	img, err := schema2ImageFromBuildContext(prep, imageName)
+	if err != nil {
+		return fmt.Errorf("failed to build image: %w", err)
+	}
+	if prep.TempLayerFile != "" {
+		defer os.Remove(prep.TempLayerFile)
+	}
+
+	ctx := context.Background()
 	apiClient, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return fmt.Errorf("failed to create Docker client: %w", err)
 	}
 
-	tar, err := archive.TarWithOptions(prep.BuildRoot, &archive.TarOptions{IncludeSourceDir: false}) //nolint:staticcheck // SA1019: no non-deprecated alternative
-	if err != nil {
-		return fmt.Errorf("error creating tar: %w", err)
-	}
-	defer tar.Close()
-
-	buildOptions := build.ImageBuildOptions{
-		Dockerfile: "Dockerfile",
-		Tags:       []string{imageName},
-		NoCache:    true,
-		Remove:     false,
-		Labels:     prep.Labels,
-		// Multi-stage Dockerfile (see DockerfileTemplate) squashes content into a
-		// single rootfs layer. Docker BuildKit v23+ does not support --squash.
-	}
-
-	buildResponse, err := apiClient.ImageBuild(context.Background(), tar, buildOptions)
-	if err != nil {
-		return fmt.Errorf("error building image: %w", err)
-	}
-	defer buildResponse.Body.Close()
-
-	_, err = io.Copy(os.Stdout, buildResponse.Body)
-	if err != nil {
-		return fmt.Errorf("error reading build output: %w", err)
-	}
-
-	imageWithTag := NormalizeImageTag(imageName)
-
-	err = apiClient.ImageTag(context.Background(), imageName, imageWithTag)
-	if err != nil {
-		return fmt.Errorf("error tagging image: %w", err)
+	if err := loadImageIntoDocker(ctx, apiClient, tag, img); err != nil {
+		return err
 	}
 	logging.Info("Docker image built successfully")
 
-	// Cleanup
 	if err := CleanupWithTimeout(); err != nil {
 		return fmt.Errorf("cleanup error: %w", err)
+	}
+	return nil
+}
+
+func loadImageIntoDocker(ctx context.Context, apiClient *client.Client, tag name.Tag, img v1.Image) error {
+	pr, pw := io.Pipe()
+	defer pr.Close()
+	go func() {
+		pw.CloseWithError(tarball.Write(tag, img, pw))
+	}()
+
+	resp, err := apiClient.ImageLoad(ctx, pr)
+	if err != nil {
+		return fmt.Errorf("failed to load image into Docker: %w", err)
+	}
+	defer resp.Body.Close()
+	if _, err := io.Copy(io.Discard, resp.Body); err != nil {
+		return fmt.Errorf("failed to read Docker load response: %w", err)
 	}
 	return nil
 }

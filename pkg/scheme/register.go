@@ -31,6 +31,7 @@ import (
 	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	knservingv1 "knative.dev/serving/pkg/apis/serving/v1"
+	disaggregatedsetv1 "sigs.k8s.io/lws/api/disaggregatedset/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -38,7 +39,6 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-	igwapiv1alpha2 "sigs.k8s.io/gateway-api-inference-extension/apix/v1alpha2"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	igwv1alpha2pool "github.com/kserve/kserve/pkg/apis/gie/v1alpha2pool"
@@ -74,14 +74,16 @@ func AddGatewayAPIs(s *runtime.Scheme) error {
 	return addAll(s,
 		gwapiv1.Install,
 		igwapi.Install,
-		igwapiv1alpha2.Install,
 		igwv1alpha2pool.Install,
 	)
 }
 
-// AddLeaderWorkerSetAPIs registers LeaderWorkerSet APIs.
+// AddLeaderWorkerSetAPIs registers the LeaderWorkerSet APIs, both the
+// leaderworkerset.x-k8s.io and disaggregatedset.x-k8s.io groups. Both ship in the
+// same operator, so their availability is tied; each group is still watched
+// independently based on whether its CRD is installed.
 func AddLeaderWorkerSetAPIs(s *runtime.Scheme) error {
-	return addAll(s, lwsapi.AddToScheme)
+	return addAll(s, lwsapi.AddToScheme, disaggregatedsetv1.AddToScheme)
 }
 
 // AddKnativeAPIs registers Knative Serving APIs.

@@ -208,6 +208,8 @@ func (e *cacheExtractor) ExtractCache(img v1.Image) error {
 			constants.ExtractCacheDir = constants.TritonCacheDir
 		case constants.VLLM:
 			constants.ExtractCacheDir = constants.VLLMCacheDir
+		case constants.Habana:
+			constants.ExtractCacheDir = constants.HabanaCacheDir
 		default:
 			return fmt.Errorf("unsupported cache type: %s", cacheType)
 		}
@@ -215,7 +217,7 @@ func (e *cacheExtractor) ExtractCache(img v1.Image) error {
 
 	logging.Infof("Extracting cache to directory: %s", constants.ExtractCacheDir)
 
-	if config.IsGPUEnabled() && !config.IsSkipPrecheckEnabled() {
+	if config.IsGPUEnabled() {
 		devInfo, err := preflightcheck.GetAllGPUInfo(e.acc)
 		if err != nil {
 			return fmt.Errorf("failed to get GPU info: %w", err)
@@ -258,7 +260,7 @@ func (e *cacheExtractor) ExtractCache(img v1.Image) error {
 
 	// Full manifest compatibility check (after extraction)
 	manifestPath := filepath.Join(constants.ExtractManifestDir, constants.ManifestFileName)
-	if config.IsGPUEnabled() && config.IsBaremetalEnabled() && !config.IsSkipPrecheckEnabled() {
+	if config.IsGPUEnabled() && config.IsBaremetalEnabled() {
 		devInfo, err := preflightcheck.GetAllGPUInfo(e.acc)
 		if err != nil || devInfo == nil {
 			return fmt.Errorf("failed to get GPU info: %w", err)
@@ -366,16 +368,23 @@ func extractCompatImg(img v1.Image, cacheType string) (extractedDirs []string, e
 		return nil, 0, errors.New("number of layers must be greater than zero")
 	}
 
+	var compatLayers []v1.Layer
 	for _, layer := range layers {
 		mt, err := layer.MediaType()
 		if err != nil {
 			return nil, 0, fmt.Errorf("could not get media type: %w", err)
 		}
 
-		if !isCompatLayerMediaType(mt) {
-			return nil, 0, fmt.Errorf("invalid media type %s (expect compat layer type)", mt)
+		if isCompatLayerMediaType(mt) {
+			compatLayers = append(compatLayers, layer)
 		}
+	}
 
+	if len(compatLayers) == 0 {
+		return nil, 0, errors.New("no compat layers found (expect docker or OCI gzip layer media type)")
+	}
+
+	for _, layer := range compatLayers {
 		r, err := layer.Compressed()
 		if err != nil {
 			return nil, 0, fmt.Errorf("could not get layer content: %w", err)
@@ -400,6 +409,8 @@ func validateExtractedCacheSize(labels map[string]string, cacheType string, extr
 		labelKey = "cache.triton.image/cache-size-bytes"
 	case constants.VLLM:
 		labelKey = "cache.vllm.image/cache-size-bytes"
+	case constants.Habana:
+		labelKey = "cache.habana.image/cache-size-bytes"
 	default:
 		return fmt.Errorf("unsupported cache type: %s", cacheType)
 	}

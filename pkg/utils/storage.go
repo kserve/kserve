@@ -35,6 +35,9 @@ type StorageMountParams struct {
 	VolumeName string
 	PVCName    string
 	ReadOnly   bool
+	// DefaultVolumeSource overrides the emptyDir used when PVCName is empty.
+	// When nil, emptyDir is used (backward-compatible default).
+	DefaultVolumeSource *corev1.VolumeSource
 	// MountsPerPath identifies an existing mount by (VolumeName, MountPath, SubPath) rather
 	// than by VolumeName alone, so one volume can be mounted at several paths in the same
 	// container. Leave it unset unless the caller owns every mount on the volume: with the
@@ -122,14 +125,16 @@ func addVolumeMountToContainer(container *corev1.Container, storageMountParams S
 //   - error: An error if the modelUri is invalid or if any other issue occurs; otherwise, nil.
 func AddModelMount(storageMountParams StorageMountParams, containerName string, podSpec *corev1.PodSpec) error {
 	var volumeSource corev1.VolumeSource
-
-	if storageMountParams.PVCName != "" {
+	switch {
+	case storageMountParams.PVCName != "":
 		volumeSource = corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: storageMountParams.PVCName,
 			},
 		}
-	} else {
+	case storageMountParams.DefaultVolumeSource != nil:
+		volumeSource = *storageMountParams.DefaultVolumeSource
+	default:
 		volumeSource = corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{},
 		}
@@ -366,12 +371,19 @@ func ShellQuote(s string) string {
 		return "''"
 	}
 	for _, c := range s {
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
-			c == '/' || c == '.' || c == '_' || c == '-') {
+		if !isShellSafe(c) {
 			return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
 		}
 	}
 	return s
+}
+
+// isShellSafe reports whether c can appear unquoted in a sh -c command string.
+// Kept as a named predicate: inlined into ShellQuote it makes staticcheck QF1001
+// emit two conflicting fixes, and golangci-lint --fix then skips the whole file.
+func isShellSafe(c rune) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+		c == '/' || c == '.' || c == '_' || c == '-'
 }
 
 // modelcarCommand returns the shell command for the modelcar container.

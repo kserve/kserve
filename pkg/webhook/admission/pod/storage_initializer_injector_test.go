@@ -17,6 +17,7 @@ limitations under the License.
 package pod
 
 import (
+	"context"
 	"reflect"
 	"strings"
 	"testing"
@@ -4933,6 +4934,205 @@ func TestStorageInitializerWithUserDefinedHFEnvVars(t *testing.T) {
 	}
 }
 
+// TestPropagateInferenceServiceAuthEnvToStorageInitializer checks that auth env
+// vars set on the InferenceService serving container are copied onto the
+// storage-initializer, including Secret-backed values. See issue #6260.
+func TestPropagateInferenceServiceAuthEnvToStorageInitializer(t *testing.T) {
+	hfTokenFromSecret := corev1.EnvVar{
+		Name: "HF_TOKEN",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{Name: "hf-secret"},
+				Key:                  "HF_TOKEN",
+			},
+		},
+	}
+	legacyHubToken := corev1.EnvVar{
+		Name:  "HUGGING_FACE_HUB_TOKEN",
+		Value: "legacy-token",
+	}
+	clusterToken := corev1.EnvVar{
+		Name:  "HF_TOKEN",
+		Value: "cluster-token",
+	}
+	legacyClusterToken := corev1.EnvVar{
+		Name:  "HUGGING_FACE_HUB_TOKEN",
+		Value: "legacy-cluster-token",
+	}
+
+	predictor := func(env ...corev1.EnvVar) corev1.Container {
+		return corev1.Container{
+			Name: constants.InferenceServiceContainerName,
+			Env:  env,
+		}
+	}
+
+	scenarios := map[string]struct {
+		containers           []corev1.Container
+		storageContainerSpec *v1alpha1.StorageContainerSpec
+		storageURIs          []v1beta1.StorageUri
+		multi                bool
+		wantEnv              []corev1.EnvVar
+		absent               []string
+	}{
+		"CopiesSecretBackedHFTokenFromPredictor": {
+			containers: []corev1.Container{
+				predictor(hfTokenFromSecret, corev1.EnvVar{Name: "MODEL_NAME", Value: "llama"}),
+			},
+			wantEnv: []corev1.EnvVar{hfTokenFromSecret},
+			absent:  []string{"MODEL_NAME"},
+		},
+		"CopiesLegacyHuggingFaceHubToken": {
+			containers: []corev1.Container{predictor(legacyHubToken)},
+			wantEnv:    []corev1.EnvVar{legacyHubToken},
+		},
+		"PrefersHFTokenOverLegacyAliasFromPredictor": {
+			containers: []corev1.Container{predictor(legacyHubToken, hfTokenFromSecret)},
+			wantEnv:    []corev1.EnvVar{hfTokenFromSecret},
+			absent:     []string{"HUGGING_FACE_HUB_TOKEN"},
+		},
+		"DoesNotOverrideClusterStorageContainerToken": {
+			containers: []corev1.Container{predictor(hfTokenFromSecret)},
+			storageContainerSpec: &v1alpha1.StorageContainerSpec{
+				Container: corev1.Container{
+					Env: []corev1.EnvVar{clusterToken},
+				},
+			},
+			wantEnv: []corev1.EnvVar{clusterToken},
+		},
+		"DoesNotOverrideClusterStorageContainerLegacyTokenWithHFToken": {
+			containers: []corev1.Container{predictor(hfTokenFromSecret)},
+			storageContainerSpec: &v1alpha1.StorageContainerSpec{
+				Container: corev1.Container{
+					Env: []corev1.EnvVar{legacyClusterToken},
+				},
+			},
+			wantEnv: []corev1.EnvVar{legacyClusterToken},
+			absent:  []string{"HF_TOKEN"},
+		},
+		"DoesNotOverrideClusterStorageContainerHFTokenWithLegacyToken": {
+			containers: []corev1.Container{predictor(legacyHubToken)},
+			storageContainerSpec: &v1alpha1.StorageContainerSpec{
+				Container: corev1.Container{
+					Env: []corev1.EnvVar{clusterToken},
+				},
+			},
+			wantEnv: []corev1.EnvVar{clusterToken},
+			absent:  []string{"HUGGING_FACE_HUB_TOKEN"},
+		},
+		"DoesNotCopyHFTokenForNonHuggingFaceStorage": {
+			containers:  []corev1.Container{predictor(hfTokenFromSecret)},
+			storageURIs: []v1beta1.StorageUri{{Uri: "s3://bucket/model", MountPath: "/mnt/models"}},
+			absent:      []string{"HF_TOKEN"},
+		},
+		"PredictorTokenWinsOverTransformer": {
+			containers: []corev1.Container{
+				predictor(corev1.EnvVar{Name: "HF_TOKEN", Value: "predictor-token"}),
+				{
+					Name: constants.TransformerContainerName,
+					Env:  []corev1.EnvVar{{Name: "HF_TOKEN", Value: "transformer-token"}},
+				},
+			},
+			wantEnv: []corev1.EnvVar{{Name: "HF_TOKEN", Value: "predictor-token"}},
+		},
+		"CopiesTokenFromTransformerWhenPredictorHasNone": {
+			containers: []corev1.Container{
+				predictor(),
+				{
+					Name: constants.TransformerContainerName,
+					Env:  []corev1.EnvVar{hfTokenFromSecret},
+				},
+			},
+			wantEnv: []corev1.EnvVar{hfTokenFromSecret},
+		},
+		"CopiesTokenFromWorkerContainer": {
+			containers: []corev1.Container{{
+				Name: constants.WorkerContainerName,
+				Env:  []corev1.EnvVar{hfTokenFromSecret},
+			}},
+			wantEnv: []corev1.EnvVar{hfTokenFromSecret},
+		},
+		"CopiesTokenOnMultiStorageURI": {
+			containers: []corev1.Container{predictor(hfTokenFromSecret)},
+			storageURIs: []v1beta1.StorageUri{
+				{Uri: "hf://org/base", MountPath: "/mnt/models"},
+				{Uri: "hf://org/adapter", MountPath: "/mnt/models/adapter"},
+			},
+			multi:   true,
+			wantEnv: []corev1.EnvVar{hfTokenFromSecret},
+		},
+		"CopiesTokenWhenAnyStorageURIIsHuggingFace": {
+			containers: []corev1.Container{predictor(hfTokenFromSecret)},
+			storageURIs: []v1beta1.StorageUri{
+				{Uri: "s3://bucket/base", MountPath: "/mnt/models"},
+				{Uri: "hf://org/adapter", MountPath: "/mnt/models/adapter"},
+			},
+			multi:   true,
+			wantEnv: []corev1.EnvVar{hfTokenFromSecret},
+		},
+	}
+
+	for name, scenario := range scenarios {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			podSpec := &corev1.PodSpec{Containers: scenario.containers}
+			storageURIs := scenario.storageURIs
+			if len(storageURIs) == 0 {
+				storageURIs = []v1beta1.StorageUri{{
+					Uri:       "hf://meta-llama/Llama-2-7b-hf",
+					MountPath: constants.DefaultModelLocalMountPath,
+				}}
+			}
+
+			params := &StorageInitializerParams{
+				Namespace:            "default",
+				StorageURIs:          storageURIs,
+				IsReadOnly:           true,
+				IsLegacyURI:          !scenario.multi,
+				PodSpec:              podSpec,
+				CredentialBuilder:    credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+				Client:               c,
+				Config:               storageInitializerConfig,
+				IsvcAnnotations:      map[string]string{},
+				StorageContainerSpec: scenario.storageContainerSpec,
+			}
+
+			require.NoError(t, CommonStorageInitialization(t.Context(), params))
+
+			initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
+			require.NotNil(t, initContainer, "storage-initializer init container should exist")
+
+			for _, expected := range scenario.wantEnv {
+				actual := findEnv(initContainer.Env, expected.Name)
+				require.NotNil(t, actual, "expected env %s on storage-initializer", expected.Name)
+				g.Expect(actual.Value).To(gomega.Equal(expected.Value))
+				g.Expect(actual.ValueFrom).To(gomega.Equal(expected.ValueFrom))
+			}
+			for _, absent := range scenario.absent {
+				g.Expect(findEnv(initContainer.Env, absent)).To(gomega.BeNil(), "env %s should not be copied", absent)
+			}
+
+			// The serving container keeps its own env; download auth is a copy.
+			if predictorContainer := utils.GetContainerWithName(podSpec, constants.InferenceServiceContainerName); predictorContainer != nil {
+				for _, original := range scenario.containers {
+					if original.Name != constants.InferenceServiceContainerName {
+						continue
+					}
+					for _, envVar := range original.Env {
+						if !hasStorageAuthEnvVar([]corev1.EnvVar{envVar}) {
+							continue
+						}
+						actual := findEnv(predictorContainer.Env, envVar.Name)
+						require.NotNil(t, actual, "predictor should still have %s", envVar.Name)
+						g.Expect(actual.Value).To(gomega.Equal(envVar.Value))
+						g.Expect(actual.ValueFrom).To(gomega.Equal(envVar.ValueFrom))
+					}
+				}
+			}
+		})
+	}
+}
+
 // TestStorageInitializerWithUserDefinedCABundleEnvVars tests that user-defined CA bundle environment variables
 // don't conflict with the default CA bundle env vars. This applies the same defensive pattern as issue #4761.
 func TestStorageInitializerWithUserDefinedCABundleEnvVars(t *testing.T) {
@@ -5821,4 +6021,190 @@ func TestCommonStorageInitializationSkipsOciNativeURI(t *testing.T) {
 		}
 	}
 	require.NotNil(t, imgVol, "oci+native:// must produce an ImageVolume on the pod spec")
+}
+
+func TestModelVolumeSource(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	ctx := context.Background()
+
+	storageClassName := "fast-nvme"
+
+	baseConfig := &kserveTypes.StorageInitializerConfig{
+		CpuRequest:    StorageInitializerDefaultCPURequest,
+		CpuLimit:      StorageInitializerDefaultCPULimit,
+		MemoryRequest: StorageInitializerDefaultMemoryRequest,
+		MemoryLimit:   StorageInitializerDefaultMemoryLimit,
+	}
+
+	makePodSpec := func() *corev1.PodSpec {
+		return &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.InferenceServiceContainerName},
+			},
+		}
+	}
+
+	// Use a PVC URI so credential injection is skipped — we only care about the
+	// VolumeSource selection logic tested here.
+	pvcURI := "pvc://my-pvc/models"
+
+	t.Run("nil ModelVolumeSource uses emptyDir for non-PVC shared volume", func(t *testing.T) {
+		cfg := *baseConfig
+		cfg.ModelVolumeSource = nil
+		podSpec := makePodSpec()
+		err := CommonStorageInitialization(ctx, &StorageInitializerParams{
+			Namespace:         "default",
+			StorageURIs:       []v1beta1.StorageUri{{Uri: pvcURI, MountPath: constants.DefaultModelLocalMountPath}},
+			IsReadOnly:        true,
+			PodSpec:           podSpec,
+			CredentialBuilder: &credentials.CredentialBuilder{},
+			Config:            &cfg,
+			IsvcAnnotations:   map[string]string{},
+			IsLegacyURI:       true,
+		})
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		var modelVol *corev1.Volume
+		for i := range podSpec.Volumes {
+			if podSpec.Volumes[i].Name == constants.PvcSourceMountName {
+				modelVol = &podSpec.Volumes[i]
+				break
+			}
+		}
+		g.Expect(modelVol).ToNot(gomega.BeNil(), "PVC volume must be present")
+		g.Expect(modelVol.PersistentVolumeClaim).ToNot(gomega.BeNil())
+		g.Expect(modelVol.PersistentVolumeClaim.ClaimName).To(gomega.Equal("my-pvc"))
+	})
+
+	t.Run("ephemeral VolumeClaimTemplate from ModelVolumeSource wired through injector", func(t *testing.T) {
+		cfg := *baseConfig
+		cfg.ModelVolumeSource = &corev1.VolumeSource{
+			Ephemeral: &corev1.EphemeralVolumeSource{
+				VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+						StorageClassName: &storageClassName,
+					},
+				},
+			},
+		}
+		podSpec := makePodSpec()
+		s3URI := "s3://my-bucket/model"
+		params := &StorageInitializerParams{
+			Namespace:         "default",
+			StorageURIs:       []v1beta1.StorageUri{{Uri: s3URI, MountPath: constants.DefaultModelLocalMountPath}},
+			IsReadOnly:        true,
+			PodSpec:           podSpec,
+			CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+			Client:            c,
+			Config:            &cfg,
+			IsvcAnnotations:   map[string]string{},
+			IsLegacyURI:       false,
+		}
+		err := CommonStorageInitialization(ctx, params)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		volumeName := utils.GetVolumeNameFromPath(constants.DefaultModelLocalMountPath)
+		var modelVol *corev1.Volume
+		for i := range podSpec.Volumes {
+			if podSpec.Volumes[i].Name == volumeName {
+				modelVol = &podSpec.Volumes[i]
+				break
+			}
+		}
+		g.Expect(modelVol).ToNot(gomega.BeNil(), "model staging volume must exist")
+		g.Expect(modelVol.Ephemeral).ToNot(gomega.BeNil(), "volume must be ephemeral")
+		g.Expect(modelVol.EmptyDir).To(gomega.BeNil())
+		g.Expect(modelVol.Ephemeral.VolumeClaimTemplate.Spec.StorageClassName).To(
+			gomega.HaveValue(gomega.Equal("fast-nvme")),
+		)
+	})
+
+	t.Run("per-service volume named kserve-provision-location is preserved", func(t *testing.T) {
+		cfg := *baseConfig
+		cfg.ModelVolumeSource = &corev1.VolumeSource{
+			Ephemeral: &corev1.EphemeralVolumeSource{
+				VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					},
+				},
+			},
+		}
+		userSC := "user-storage-class"
+		podSpec := makePodSpec()
+		podSpec.Volumes = []corev1.Volume{
+			{
+				Name: constants.StorageInitializerVolumeName,
+				VolumeSource: corev1.VolumeSource{
+					Ephemeral: &corev1.EphemeralVolumeSource{
+						VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+							Spec: corev1.PersistentVolumeClaimSpec{
+								StorageClassName: &userSC,
+							},
+						},
+					},
+				},
+			},
+		}
+		params := &StorageInitializerParams{
+			Namespace:         "default",
+			StorageURIs:       []v1beta1.StorageUri{{Uri: "s3://bucket/model", MountPath: constants.DefaultModelLocalMountPath}},
+			IsReadOnly:        true,
+			PodSpec:           podSpec,
+			CredentialBuilder: credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{Data: map[string]string{}}),
+			Client:            c,
+			Config:            &cfg,
+			IsvcAnnotations:   map[string]string{},
+			IsLegacyURI:       true,
+		}
+		err := CommonStorageInitialization(ctx, params)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		var modelVol *corev1.Volume
+		for i := range podSpec.Volumes {
+			if podSpec.Volumes[i].Name == constants.StorageInitializerVolumeName {
+				modelVol = &podSpec.Volumes[i]
+				break
+			}
+		}
+		g.Expect(modelVol).ToNot(gomega.BeNil())
+		g.Expect(modelVol.Ephemeral.VolumeClaimTemplate.Spec.StorageClassName).To(
+			gomega.HaveValue(gomega.Equal("user-storage-class")),
+			"user-defined per-service volume must not be overwritten by ModelVolumeSource",
+		)
+	})
+
+	t.Run("pvc:// storageUri ignores ModelVolumeSource", func(t *testing.T) {
+		cfg := *baseConfig
+		cfg.ModelVolumeSource = &corev1.VolumeSource{
+			Ephemeral: &corev1.EphemeralVolumeSource{
+				VolumeClaimTemplate: &corev1.PersistentVolumeClaimTemplate{
+					Spec: corev1.PersistentVolumeClaimSpec{
+						AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+					},
+				},
+			},
+		}
+		podSpec := makePodSpec()
+		err := CommonStorageInitialization(ctx, &StorageInitializerParams{
+			Namespace:         "default",
+			StorageURIs:       []v1beta1.StorageUri{{Uri: pvcURI, MountPath: constants.DefaultModelLocalMountPath}},
+			IsReadOnly:        true,
+			PodSpec:           podSpec,
+			CredentialBuilder: &credentials.CredentialBuilder{},
+			Config:            &cfg,
+			IsvcAnnotations:   map[string]string{},
+			IsLegacyURI:       true,
+		})
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		var modelVol *corev1.Volume
+		for i := range podSpec.Volumes {
+			if podSpec.Volumes[i].Name == constants.PvcSourceMountName {
+				modelVol = &podSpec.Volumes[i]
+				break
+			}
+		}
+		g.Expect(modelVol).ToNot(gomega.BeNil(), "PVC volume must be present")
+		g.Expect(modelVol.PersistentVolumeClaim).ToNot(gomega.BeNil(), "must be a PVC volume, not ephemeral")
+		g.Expect(modelVol.PersistentVolumeClaim.ClaimName).To(gomega.Equal("my-pvc"))
+		g.Expect(modelVol.Ephemeral).To(gomega.BeNil(), "ModelVolumeSource must not override pvc:// URI")
+	})
 }

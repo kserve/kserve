@@ -29,6 +29,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1beta1"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
+	kservetls "github.com/kserve/kserve/pkg/tls"
 	"github.com/kserve/kserve/pkg/types"
 )
 
@@ -36,6 +37,11 @@ const (
 	// schedulerConfigMapKey is the key in the inferenceservice-config ConfigMap
 	// that holds scheduler-specific configuration (annotation keys, etc.).
 	schedulerConfigMapKey = "scheduler"
+
+	// llmISVCConfigMapKey is the key in the inferenceservice-config ConfigMap that
+	// holds LLMInferenceService controller settings, currently the feature gates.
+	// The key is optional and absent by default; see LLMISVCConfig.
+	llmISVCConfigMapKey = "llmisvc"
 )
 
 // DefaultExpirationAnnotations is the default list of annotation keys
@@ -85,6 +91,61 @@ func NewSchedulerConfig(isvcConfigMap *corev1.ConfigMap) (*SchedulerConfig, erro
 	return cfg, nil
 }
 
+// FeatureGates holds opt-in switches for LLMInferenceService controller behaviour that
+// is not yet on by default. Every gate is off unless explicitly enabled, so the zero
+// value is the supported production configuration.
+type FeatureGates struct {
+	// DisaggregatedSet enables the DisaggregatedSet workload backend for disaggregated
+	// (prefill/decode) services, which upgrades both roles as one coordinated unit
+	// instead of letting them roll independently.
+	//
+	// The P/D presets set serving.kserve.io/enable-disaggregated-set to "true" in
+	// spec.annotations, so turning the gate on moves every P/D service that does not set
+	// it to "false" onto a DisaggregatedSet, provided the LWS DisaggregatedSet CRD is
+	// installed. A running service that moves is unavailable until its new pods are
+	// ready, and gets a MigratingToDisaggregatedSet warning event. Services pinned to
+	// presets from an earlier release (see LLM_INFERENCE_SERVICE_CONFIG_PREFIX) do not
+	// carry the default and keep their workloads unless they set the annotation.
+	DisaggregatedSet bool `json:"disaggregatedSet,omitempty"`
+}
+
+// LLMISVCConfig holds LLMInferenceService controller settings read from the "llmisvc"
+// key of the inferenceservice-config ConfigMap.
+//
+// The key is optional and is not shipped in the default ConfigMap, matching the other
+// controller-private keys in that ConfigMap ("scheduler"). To enable a gate, add for example:
+//
+//	llmisvc: |-
+//	  {"featureGates": {"disaggregatedSet": true}}
+type LLMISVCConfig struct {
+	FeatureGates FeatureGates `json:"featureGates,omitempty"`
+}
+
+// NewLLMISVCConfig parses the "llmisvc" key from the inferenceservice-config ConfigMap.
+//
+// A missing key yields the zero value, which leaves every feature gate off. Syntactically
+// invalid JSON is an error rather than a silent fallback, so a broken block cannot be
+// mistaken for "gates off".
+//
+// An unrecognised field name is deliberately tolerated and ignored, which means a typo in
+// a gate name reads as that gate being off. Decoding is intentionally not strict: this key
+// lives in a ConfigMap shared by every controller and is re-read on every reconcile, and a
+// parse error here aborts reconciliation for all LLMInferenceServices, not only the ones
+// using the feature. Failing closed on an unknown field would let a typo in an optional
+// key, or a downgrade to a binary that predates a gate, stall the whole controller. The
+// cost of tolerance is a gate that silently stays off, which surfaces as soon as the
+// feature is exercised; the cost of strictness is an outage. See TestNewLLMISVCConfig,
+// which pins this behaviour.
+func NewLLMISVCConfig(isvcConfigMap *corev1.ConfigMap) (*LLMISVCConfig, error) {
+	cfg := &LLMISVCConfig{}
+	if raw, ok := isvcConfigMap.Data[llmISVCConfigMapKey]; ok {
+		if err := json.Unmarshal([]byte(raw), cfg); err != nil {
+			return nil, fmt.Errorf("unable to parse %s config json: %w", llmISVCConfigMapKey, err)
+		}
+	}
+	return cfg, nil
+}
+
 // Config holds configuration needed for LLM inference services.
 // It aggregates ingress, storage, credential, and autoscaling settings from the KServe configmap.
 type Config struct {
@@ -93,6 +154,9 @@ type Config struct {
 	IngressGatewayNamespace string `json:"ingressGatewayNamespace,omitempty"`
 	UrlScheme               string `json:"urlScheme,omitempty"`
 	EnableTLS               bool   `json:"enableTLS,omitempty"`
+	TLSMinVersion           string `json:"tlsMinVersion,omitempty"`
+	TLSCipherSuites         string `json:"tlsCipherSuites,omitempty"`
+	TLSCipherSuitesOpenSSL  string `json:"tlsCipherSuitesOpenSSL,omitempty"`
 
 	// DisableHTTPRouteTimeout omits spec.rules.timeouts from generated HTTPRoutes,
 	// for Gateway implementations (e.g. GKE) that reject the field.
@@ -101,9 +165,18 @@ type Config struct {
 	ModelBasedRoutingHeaderName string                `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       ModelBasedRoutingMode `json:"modelBasedRoutingMode,omitempty"`
 
-	// WVAAutoscalingConfig holds Prometheus and monitoring settings for WVA autoscaling.
-	// nil when the "autoscaling-wva-controller-config" key is not present in inferenceservice-config.
-	WVAAutoscalingConfig *WVAAutoscalingConfig `json:"-"`
+	// LoRAModelRoutingStrategy is the cluster-wide strategy for LoRA adapter
+	// expansion in generated HTTPRoutes. NewIngressConfig defaults and validates
+	// the ConfigMap value, so a loaded Config always carries a supported,
+	// lowercase value; a service overrides it with
+	// AnnotationLoRAModelRoutingStrategy. The zero value behaves as Exact so
+	// directly constructed Configs keep the byte-compatible default.
+	LoRAModelRoutingStrategy LoRAModelRoutingStrategy `json:"loraModelRoutingStrategy,omitempty"`
+
+	// FeatureGates holds the opt-in behaviour switches from the "llmisvc" key of
+	// inferenceservice-config. The zero value leaves every gate off, so a directly
+	// constructed Config behaves as it did before any gate existed.
+	FeatureGates FeatureGates `json:"featureGates,omitempty"`
 
 	// Storage and credential configs are excluded from JSON serialization
 	// as they contain sensitive information
@@ -116,54 +189,19 @@ type Config struct {
 	// so that resolution is tied to the config-merge step and all downstream workload functions
 	// share a single consistent result.
 	ResolvedLoRAAdapters []resolvedLoRAAdapter `json:"-"`
-}
 
-// PrometheusConfig holds Prometheus connection and authentication settings used by KEDA
-// to query the wva_desired_replicas metric.
-type PrometheusConfig struct {
-	// URL is the URL of the Prometheus server (used by KEDA to query wva_desired_replicas).
-	URL string `json:"url"`
-	// TLSInsecureSkipVerify disables TLS certificate verification for the Prometheus connection.
-	TLSInsecureSkipVerify bool `json:"tlsInsecureSkipVerify"`
-	// AuthModes is the KEDA authModes value for the Prometheus trigger
-	// (e.g. "bearer", "basic", "tls"). Empty means no secret-backed authentication.
-	// Requires TriggerAuthName to be set, since the referenced CR supplies the actual
-	// credential values. Must be left empty when TriggerAuthName references a
-	// pod-identity-based CR (e.g. AWS/Azure/GCP managed Prometheus) - KEDA's Prometheus
-	// scaler rejects pod identity combined with any other auth mode.
-	// See: https://keda.sh/docs/latest/scalers/prometheus/#authentication-parameters
-	// +optional
-	AuthModes string `json:"authModes,omitempty"`
-	// TriggerAuthName is the name of a pre-existing TriggerAuthentication or
-	// ClusterTriggerAuthentication CR that KEDA should use when querying Prometheus.
-	// The CR must be created by the cluster admin before enabling KEDA autoscaling.
-	// May be set without AuthModes, e.g. when the CR configures pod-identity-based auth
-	// for a managed Prometheus service instead of secret-backed credentials.
-	// +optional
-	TriggerAuthName string `json:"triggerAuthName,omitempty"`
-	// TriggerAuthKind specifies the kind of the authentication CR referenced by
-	// TriggerAuthName. Accepted values are "TriggerAuthentication" (namespaced)
-	// and "ClusterTriggerAuthentication" (cluster-scoped). Defaults to "TriggerAuthentication"
-	// when empty. ClusterTriggerAuthentication is recommended for multi-namespace deployments.
-	// +optional
-	TriggerAuthKind string `json:"triggerAuthKind,omitempty"`
-}
+	// ModelExpress is the ModelExpress setup resolved for this reconcile, or nil
+	// when the service does not use ModelExpress.
+	ModelExpress *modelExpressConfig `json:"-"`
 
-// WVAAutoscalingConfig holds cluster-wide WVA autoscaling settings loaded from the
-// "autoscaling-wva-controller-config" key in the inferenceservice-config ConfigMap.
-// These are shared across all LLMISVC instances.
-type WVAAutoscalingConfig struct {
-	// Prometheus holds Prometheus connection and authentication settings.
-	Prometheus PrometheusConfig `json:"prometheus"`
+	// WorkloadRevision is the generated compatibility boundary shared by all
+	// prefill and decode Pod templates. It is populated per reconciliation.
+	WorkloadRevision string `json:"-"`
 }
-
-// autoscalingConfigName is the key in the inferenceservice-config ConfigMap
-// that holds WVA-specific autoscaling controller configuration.
-const autoscalingConfigName = "autoscaling-wva-controller-config"
 
 // NewConfig creates an instance of llm-specific config based on predefined values
 // in IngressConfig struct
-func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, schedulerConfig *SchedulerConfig) *Config {
+func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, schedulerConfig *SchedulerConfig) (*Config, error) {
 	igwNs := constants.KServeNamespace
 	igwName := ingressConfig.KserveIngressGateway
 	// Parse gateway name to extract namespace and name components
@@ -174,6 +212,11 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		igwName = igw[1]
 	}
 
+	openSSLCiphers, err := openSSLCipherSuites(ingressConfig.LLMInferenceServiceTLSCipherSuites)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		SystemNamespace:             constants.KServeNamespace,
 		IngressGatewayNamespace:     igwNs,
@@ -181,12 +224,46 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		UrlScheme:                   ingressConfig.UrlScheme,
 		EnableTLS:                   ingressConfig.EnableLLMInferenceServiceTLS,
 		DisableHTTPRouteTimeout:     ingressConfig.DisableHTTPRouteTimeout,
+		TLSMinVersion:               ingressConfig.LLMInferenceServiceTLSMinVersion,
+		TLSCipherSuites:             ingressConfig.LLMInferenceServiceTLSCipherSuites,
+		TLSCipherSuitesOpenSSL:      openSSLCiphers,
 		ModelBasedRoutingHeaderName: ingressConfig.ModelBasedRoutingHeaderName,
 		ModelBasedRoutingMode:       parseModelBasedRoutingMode(ingressConfig.ModelBasedRoutingMode),
+		LoRAModelRoutingStrategy:    LoRAModelRoutingStrategy(ingressConfig.LoRAModelRoutingStrategy),
 		StorageConfig:               storageConfig,
 		CredentialConfig:            credentialConfig,
 		SchedulerConfig:             schedulerConfig,
+	}, nil
+}
+
+var openSSLCipherSuiteNames = map[string]string{
+	"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA":          "ECDHE-ECDSA-AES128-SHA",
+	"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA":          "ECDHE-ECDSA-AES256-SHA",
+	"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA":            "ECDHE-RSA-AES128-SHA",
+	"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA":            "ECDHE-RSA-AES256-SHA",
+	"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256":       "ECDHE-ECDSA-AES128-GCM-SHA256",
+	"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384":       "ECDHE-ECDSA-AES256-GCM-SHA384",
+	"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":         "ECDHE-RSA-AES128-GCM-SHA256",
+	"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384":         "ECDHE-RSA-AES256-GCM-SHA384",
+	"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256":   "ECDHE-RSA-CHACHA20-POLY1305",
+	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256": "ECDHE-ECDSA-CHACHA20-POLY1305",
+}
+
+func openSSLCipherSuites(cipherSuites string) (string, error) {
+	if strings.TrimSpace(cipherSuites) == "" {
+		return "", nil
 	}
+
+	converted := make([]string, 0)
+	for _, cipherSuite := range strings.Split(cipherSuites, ",") {
+		cipherSuite = strings.TrimSpace(cipherSuite)
+		openSSLName, ok := openSSLCipherSuiteNames[cipherSuite]
+		if !ok {
+			return "", fmt.Errorf("no OpenSSL name is defined for TLS cipher suite %q", cipherSuite)
+		}
+		converted = append(converted, openSSLName)
+	}
+	return strings.Join(converted, ":"), nil
 }
 
 // LoadConfig loads configuration from the supplied Kubernetes object reader.
@@ -221,6 +298,11 @@ func toConfig(isvcConfigMap *corev1.ConfigMap) (*Config, error) {
 	if errConvert != nil {
 		return nil, fmt.Errorf("failed to convert InferenceServiceConfigMap to IngressConfig: %w", errConvert)
 	}
+	ingressConfig.LLMInferenceServiceTLSMinVersion = strings.TrimSpace(ingressConfig.LLMInferenceServiceTLSMinVersion)
+	ingressConfig.LLMInferenceServiceTLSCipherSuites = normalizeCipherSuites(ingressConfig.LLMInferenceServiceTLSCipherSuites)
+	if err := kservetls.Validate(ingressConfig.LLMInferenceServiceTLSMinVersion, ingressConfig.LLMInferenceServiceTLSCipherSuites); err != nil {
+		return nil, fmt.Errorf("invalid LLMInferenceService TLS configuration: %w", err)
+	}
 
 	storageInitializerConfig, errConvert := v1beta1.GetStorageInitializerConfigs(isvcConfigMap)
 	if errConvert != nil {
@@ -237,15 +319,28 @@ func toConfig(isvcConfigMap *corev1.ConfigMap) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse scheduler config: %w", errConvert)
 	}
 
-	config := NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig)
-
-	if autoscalingData, ok := isvcConfigMap.Data[autoscalingConfigName]; ok {
-		asCfg := &WVAAutoscalingConfig{}
-		if err := json.Unmarshal([]byte(autoscalingData), asCfg); err != nil {
-			return nil, fmt.Errorf("failed to parse %s config json: %w", autoscalingConfigName, err)
-		}
-		config.WVAAutoscalingConfig = asCfg
+	config, errConvert := NewConfig(ingressConfig, storageInitializerConfig, &credentialConfig, schedulerConfig)
+	if errConvert != nil {
+		return nil, fmt.Errorf("failed to convert TLS cipher suites for OpenSSL: %w", errConvert)
 	}
 
+	llmISVCConfig, errConvert := NewLLMISVCConfig(isvcConfigMap)
+	if errConvert != nil {
+		return nil, fmt.Errorf("failed to parse %s config: %w", llmISVCConfigMapKey, errConvert)
+	}
+	config.FeatureGates = llmISVCConfig.FeatureGates
+
 	return config, nil
+}
+
+func normalizeCipherSuites(cipherSuites string) string {
+	if strings.TrimSpace(cipherSuites) == "" {
+		return ""
+	}
+
+	normalized := make([]string, 0)
+	for _, cipherSuite := range strings.Split(cipherSuites, ",") {
+		normalized = append(normalized, strings.TrimSpace(cipherSuite))
+	}
+	return strings.Join(normalized, ",")
 }

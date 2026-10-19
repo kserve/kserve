@@ -25,7 +25,7 @@ import (
 // Interface provides access to all the informers in this group version.
 type Interface interface {
 	// LLMInferenceServices returns a LLMInferenceServiceInformer.
-	LLMInferenceServices() LLMInferenceServiceInformer
+	LLMInferenceServices() TypedLLMInferenceServiceInformer
 }
 
 type version struct {
@@ -39,7 +39,7 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
 }
 
-// LLMInferenceServices returns a LLMInferenceServiceInformer.
-func (v *version) LLMInferenceServices() LLMInferenceServiceInformer {
+// LLMInferenceServices returns a TypedLLMInferenceServiceInformer.
+func (v *version) LLMInferenceServices() TypedLLMInferenceServiceInformer {
 	return &lLMInferenceServiceInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

@@ -18,6 +18,7 @@ package llmisvc_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -32,7 +33,9 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
+	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
+	"github.com/kserve/kserve/pkg/utils"
 
 	kservetesting "github.com/kserve/kserve/pkg/testing"
 
@@ -101,14 +104,14 @@ func TestPresetFiles(t *testing.T) {
 							InitContainers: []corev1.Container{
 								{
 									Name:  "llm-d-routing-sidecar",
-									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.10.0",
+									Image: "ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0",
 									Command: []string{
 										"/app/pd-sidecar",
 										"--port=8000",
 										"--model-server-port=8001",
 										"--kv-connector=nixlv2",
 										"--enable-ssrf-protection=true",
-										"--pool-group=inference.networking.x-k8s.io",
+										"--pool-group=inference.networking.k8s.io",
 										"--inference-pool=test-llm-preset-test/test-llm-preset-inference-pool",
 										"--secure-proxy=false",
 										"",
@@ -116,6 +119,7 @@ func TestPresetFiles(t *testing.T) {
 										"",
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: "1"},
 										{
 											Name: "INFERENCE_POOL_NAMESPACE",
 											ValueFrom: &corev1.EnvVarSource{
@@ -196,6 +200,8 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_KV_TRANSFER_ARGS"},
+										{Name: "KSERVE_MODEL_ARGS"},
 										{
 											Name:  "HOME",
 											Value: "/home",
@@ -236,7 +242,7 @@ func TestPresetFiles(t *testing.T) {
 										ProbeHandler: corev1.ProbeHandler{
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
-												Port:   intstr.FromInt32(8001),
+												Port:   intstr.FromInt(8001),
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
@@ -249,7 +255,7 @@ func TestPresetFiles(t *testing.T) {
 										ProbeHandler: corev1.ProbeHandler{
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
-												Port:   intstr.FromInt32(8001),
+												Port:   intstr.FromInt(8001),
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
@@ -262,7 +268,7 @@ func TestPresetFiles(t *testing.T) {
 										ProbeHandler: corev1.ProbeHandler{
 											HTTPGet: &corev1.HTTPGetAction{
 												Path:   "/health",
-												Port:   intstr.FromInt32(8001),
+												Port:   intstr.FromInt(8001),
 												Scheme: corev1.URISchemeHTTP,
 											},
 										},
@@ -384,6 +390,8 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_KV_TRANSFER_ARGS"},
+										{Name: "KSERVE_MODEL_ARGS"},
 										{
 											Name:  "HOME",
 											Value: "/home",
@@ -482,6 +490,8 @@ func TestPresetFiles(t *testing.T) {
 										},
 									},
 									Env: []corev1.EnvVar{
+										{Name: "KSERVE_KV_TRANSFER_ARGS"},
+										{Name: "KSERVE_MODEL_ARGS"},
 										{
 											Name:  "HOME",
 											Value: "/home",
@@ -639,7 +649,6 @@ func TestPresetFiles(t *testing.T) {
 											"  --port 8000\n" +
 											"  --host 0.0.0.0\n" +
 											" --tp 1\n" +
-											"\n" +
 											")\n" +
 											"exec \"${args[@]}\" \"$@\"",
 										"--",
@@ -737,7 +746,7 @@ func TestPresetFiles(t *testing.T) {
 		},
 	}
 
-	remaining := llmisvc.WellKnownDefaultConfigs.Clone()
+	remaining := llmisvc.WellKnownDefaultConfigs.Union(llmisvc.WellKnownBaseRefConfigs)
 
 	_ = filepath.Walk(presetsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -761,7 +770,7 @@ func TestPresetFiles(t *testing.T) {
 			config := loadConfig(t, data, filePath)
 
 			name := config.Name
-			if !llmisvc.WellKnownDefaultConfigs.Has(name) {
+			if !llmisvc.WellKnownDefaultConfigs.Has(name) && !llmisvc.WellKnownBaseRefConfigs.Has(name) {
 				t.Fatalf("Expected %s to exist in WellKnownDefaultConfigs %#v", name, llmisvc.WellKnownDefaultConfigs)
 			}
 			// Remove from the tracked set
@@ -1153,6 +1162,13 @@ func TestPresetRenderingInvariants(t *testing.T) {
 			// preset carrying anything else would change --shutdown-timeout for every
 			// service that relies on that fallback.
 			for path, pod := range podSpecs(config) {
+				for _, container := range pod.InitContainers {
+					if container.Name == constants.LLMISVCRoutingSidecarContainerName {
+						if version, _ := utils.GetEnvVarValue(container.Env, "KSERVE_TRACING_CONFIG_VERSION"); version != "1" {
+							t.Errorf("%s routing sidecar must opt in to tracing injection", path)
+						}
+					}
+				}
 				if pod.TerminationGracePeriodSeconds == nil {
 					continue
 				}
@@ -1221,12 +1237,13 @@ func TestSGLangTemplateNilParallelism(t *testing.T) {
 		t.Errorf("Expected no --tp flag when Parallelism.Tensor is unset, got command: %q", cmd)
 	}
 	if strings.Contains(cmd, "--trust-remote-code") {
-		t.Errorf("Expected no --trust-remote-code flag when TrustRemoteCode is false, got command: %q", cmd)
+		t.Errorf("Expected no --trust-remote-code flag by default, got command: %q", cmd)
 	}
 }
 
-// TestSGLangTemplateTrustRemoteCode verifies --trust-remote-code is included when TrustRemoteCode=true.
-func TestSGLangTemplateTrustRemoteCode(t *testing.T) {
+// TestSGLangTemplateForwardsContainerArgs verifies runtime-specific flags can be
+// supplied explicitly without a dedicated LLMInferenceService API field.
+func TestSGLangTemplateForwardsContainerArgs(t *testing.T) {
 	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
 	filePath := filepath.Join(presetsDir, "config-sglang-template.yaml")
 
@@ -1238,7 +1255,20 @@ func TestSGLangTemplateTrustRemoteCode(t *testing.T) {
 	config := loadConfig(t, data, filePath)
 
 	llmSvc := llmisvc.LLMInferenceServiceSample()
-	llmSvc.Spec.TrustRemoteCode = true
+	llmSvc.Spec.Template = &corev1.PodSpec{
+		Containers: []corev1.Container{{
+			Name: "main",
+			Args: []string{"--trust-remote-code"},
+		}},
+	}
+
+	mergedSpec, err := llmisvc.MergeSpecs(t.Context(), config.Spec, llmSvc.Spec)
+	if err != nil {
+		t.Fatalf("MergeSpecs() returned unexpected error: %v", err)
+	}
+	config.Spec = mergedSpec
+	effectiveSvc := llmSvc.DeepCopy()
+	effectiveSvc.Spec = mergedSpec
 
 	kserveSystemConfig := llmisvc.Config{
 		SystemNamespace:         "kserve",
@@ -1246,13 +1276,194 @@ func TestSGLangTemplateTrustRemoteCode(t *testing.T) {
 		IngressGatewayNamespace: "kserve",
 	}
 
-	out, err := llmisvc.ReplaceVariables(llmSvc, config, &kserveSystemConfig)
+	out, err := llmisvc.ReplaceVariables(effectiveSvc, config, &kserveSystemConfig)
 	if err != nil {
 		t.Fatalf("ReplaceVariables() returned unexpected error: %v", err)
 	}
 
-	cmd := out.Spec.Template.Containers[0].Command[2]
-	if !strings.Contains(cmd, "--trust-remote-code") {
-		t.Errorf("Expected --trust-remote-code flag when TrustRemoteCode=true, got command: %q", cmd)
+	container := out.Spec.Template.Containers[0]
+	if strings.Contains(container.Command[2], "--trust-remote-code") {
+		t.Errorf("Expected no automatically injected --trust-remote-code flag, got command: %q", container.Command[2])
+	}
+	if diff := cmp.Diff([]string{"--trust-remote-code"}, container.Args); diff != "" {
+		t.Errorf("Expected explicit container args to be forwarded (-want, +got):\n%s", diff)
+	}
+}
+
+func TestTokenizerPresetForwardsTracingArgs(t *testing.T) {
+	filePath := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig", "config-llm-tokenizer.yaml")
+	data, err := os.ReadFile(filepath.Clean(filePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tls := range []bool{false, true} {
+		t.Run(map[bool]string{false: "HTTP", true: "HTTPS"}[tls], func(t *testing.T) {
+			config := loadConfig(t, data, filePath)
+			out, err := llmisvc.ReplaceVariables(llmisvc.LLMInferenceServiceSample(), config, &llmisvc.Config{EnableTLS: tls})
+			if err != nil {
+				t.Fatal(err)
+			}
+			container := out.Spec.Router.Scheduler.Tokenizer.Template.Containers[0]
+			if version, _ := utils.GetEnvVarValue(container.Env, "KSERVE_TRACING_CONFIG_VERSION"); version != "1" {
+				t.Fatal("tokenizer preset must opt in to tracing injection")
+			}
+			// Capture the actual shell argv without starting a model server.
+			script := strings.Replace(container.Command[2], "exec vllm ", "printf '%s\\n' ", 1)
+			args := append([]string{container.Command[1], script}, container.Command[3:]...)
+			endpoint := "http://collector:4317/?value=$trace_value"
+			args = append(args, "--otlp-traces-endpoint", endpoint)
+			output, err := exec.CommandContext(t.Context(), container.Command[0], args...).CombinedOutput() // #nosec G204 -- repository preset and fixed test input, not user data
+			if err != nil {
+				t.Fatalf("render command failed: %v\n%s", err, output)
+			}
+			if !strings.Contains(string(output), "--otlp-traces-endpoint\n"+endpoint+"\n") {
+				t.Fatalf("tracing args were not forwarded verbatim:\n%s", output)
+			}
+			if strings.Contains(string(output), "--ssl-keyfile\n") != tls {
+				t.Fatalf("TLS flags changed unexpectedly:\n%s", output)
+			}
+		})
+	}
+}
+
+// TestDisaggregatedSetPresetDefault checks that DisaggregatedSet is on by default for
+// disaggregated (prefill/decode) services only: the decode presets, which the
+// controller selects only for P/D services, set the annotation, and no other preset
+// does. A service still opts out by setting "false" in its own spec.annotations.
+func TestDisaggregatedSetPresetDefault(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	turnedOn := map[string]bool{
+		"config-llm-decode-template.yaml":                        true,
+		"config-llm-decode-worker-data-parallel.yaml":            true,
+		"config-llm-decode-worker-data-parallel-multi-port.yaml": true,
+	}
+
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("Failed to read presets directory: %v", err)
+	}
+	presets := map[string]*v1alpha2.LLMInferenceServiceConfig{}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "config-") || filepath.Ext(entry.Name()) != ".yaml" {
+			continue
+		}
+		filePath := filepath.Join(presetsDir, entry.Name())
+		data, err := os.ReadFile(filepath.Clean(filePath))
+		if err != nil {
+			t.Fatalf("Failed to read %s: %v", entry.Name(), err)
+		}
+		presets[entry.Name()] = loadConfig(t, data, filePath)
+	}
+	for name := range turnedOn {
+		if presets[name] == nil {
+			t.Fatalf("Preset %s not found", name)
+		}
+	}
+
+	for name, preset := range presets {
+		t.Run(name, func(t *testing.T) {
+			value, ok := preset.Spec.Annotations[constants.LLMDisaggregatedSetAnnotationKey]
+			if turnedOn[name] {
+				if value != "true" {
+					t.Errorf("Expected %s to set %s to \"true\", got %q", name, constants.LLMDisaggregatedSetAnnotationKey, value)
+				}
+				return
+			}
+			if ok {
+				t.Errorf("Expected %s not to set %s, got %q", name, constants.LLMDisaggregatedSetAnnotationKey, value)
+			}
+			if preset.Spec.Prefill != nil {
+				if _, ok := preset.Spec.Prefill.Annotations[constants.LLMDisaggregatedSetAnnotationKey]; ok {
+					t.Errorf("Expected %s not to set %s on prefill; it is read from the decode workload only", name, constants.LLMDisaggregatedSetAnnotationKey)
+				}
+			}
+		})
+	}
+
+	for name := range turnedOn {
+		preset := presets[name]
+		t.Run(name+" is overridden by the service", func(t *testing.T) {
+			tests := []struct {
+				desc        string
+				annotations map[string]string
+				want        bool
+			}{
+				{desc: "no value of its own keeps the default", annotations: nil, want: true},
+				{desc: "false opts out", annotations: map[string]string{constants.LLMDisaggregatedSetAnnotationKey: "false"}, want: false},
+			}
+			for _, tt := range tests {
+				t.Run(tt.desc, func(t *testing.T) {
+					svc := v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{Annotations: tt.annotations}}
+					merged, err := llmisvc.MergeSpecs(t.Context(), preset.Spec, svc)
+					if err != nil {
+						t.Fatalf("MergeSpecs() returned unexpected error: %v", err)
+					}
+					got := (&v1alpha2.LLMInferenceService{Spec: merged}).DisaggregatedSetRequested()
+					if got != tt.want {
+						t.Errorf("DisaggregatedSetRequested() = %v, want %v", got, tt.want)
+					}
+				})
+			}
+		})
+	}
+}
+
+// TestVLLMPresetsDeclareModelArgsSlot verifies every vLLM engine container in the
+// shipped presets takes its model argument from the KSERVE_MODEL_ARGS slot.
+func TestVLLMPresetsDeclareModelArgsSlot(t *testing.T) {
+	presetsDir := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig")
+	entries, err := os.ReadDir(presetsDir)
+	if err != nil {
+		t.Fatalf("Failed to read %s: %v", presetsDir, err)
+	}
+
+	engines := 0
+	for _, entry := range entries {
+		filename := entry.Name()
+		if !strings.HasPrefix(filename, "config-") || !strings.HasSuffix(filename, ".yaml") {
+			continue
+		}
+		filePath := filepath.Join(presetsDir, filename)
+		data, err := os.ReadFile(filepath.Clean(filePath))
+		if err != nil {
+			t.Fatalf("Failed to read %s: %v", filePath, err)
+		}
+		config := loadConfig(t, data, filePath)
+
+		templates := map[string]*corev1.PodSpec{"template": config.Spec.Template, "worker": config.Spec.Worker}
+		if config.Spec.Prefill != nil {
+			templates["prefill template"] = config.Spec.Prefill.Template
+			templates["prefill worker"] = config.Spec.Prefill.Worker
+		}
+		for role, podSpec := range templates {
+			if podSpec == nil {
+				continue
+			}
+			for _, c := range podSpec.Containers {
+				script := strings.Join(append(append([]string{}, c.Command...), c.Args...), " ")
+				if c.Name != "main" || !strings.Contains(script, "vllm serve") {
+					continue
+				}
+				engines++
+				if !strings.Contains(script, "${KSERVE_MODEL_ARGS:-/mnt/models}") {
+					t.Errorf("%s %s: vllm serve does not expand ${KSERVE_MODEL_ARGS:-/mnt/models}", filename, role)
+				}
+				declared := 0
+				for _, e := range c.Env {
+					if e.Name == "KSERVE_MODEL_ARGS" {
+						declared++
+						if e.Value != "" || e.ValueFrom != nil {
+							t.Errorf("%s %s: KSERVE_MODEL_ARGS must be declared empty, got %+v", filename, role, e)
+						}
+					}
+				}
+				if declared != 1 {
+					t.Errorf("%s %s: KSERVE_MODEL_ARGS declared %d times, want 1", filename, role, declared)
+				}
+			}
+		}
+	}
+	if engines != 13 {
+		t.Errorf("Found %d vLLM engine containers across presets, want 13; update this count when adding a preset", engines)
 	}
 }

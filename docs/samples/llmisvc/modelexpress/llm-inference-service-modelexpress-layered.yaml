@@ -1,0 +1,27 @@
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceService
+metadata:
+  name: qwen2-7b-instruct-mx-layered
+  annotations:
+    serving.kserve.io/exp-modelexpress-mode: layered
+    serving.kserve.io/exp-modelexpress-address: modelexpress.modelexpress.svc:8001
+spec:
+  model:
+    uri: pvc://models/Qwen/Qwen2.5-7B-Instruct
+    name: Qwen/Qwen2.5-7B-Instruct
+  replicas: 2
+  router:
+    scheduler: { }
+    route: { }
+    gateway: { }
+  template:
+    containers:
+      - name: main
+        image: example.com/vllm-modelexpress:latest
+        resources:
+          limits:
+            nvidia.com/gpu: '1'
+          requests:
+            nvidia.com/gpu: '1'
+            cpu: '4'
+            memory: 32Gi

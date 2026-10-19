@@ -1,0 +1,275 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.21.0
+  name: kernelcachecaptures.serving.kserve.io
+spec:
+  group: serving.kserve.io
+  names:
+    kind: KernelCacheCapture
+    listKind: KernelCacheCaptureList
+    plural: kernelcachecaptures
+    shortNames:
+    - kcc
+    singular: kernelcachecapture
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.artifact.imageReference
+      name: Image
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        properties:
+          apiVersion:
+            type: string
+          kind:
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              cachePaths:
+                items:
+                  properties:
+                    containerName:
+                      minLength: 1
+                      type: string
+                    containerPath:
+                      maxLength: 4096
+                      minLength: 2
+                      pattern: ^/[^$\x00]+$
+                      type: string
+                      x-kubernetes-validations:
+                      - message: containerPath must be a canonical non-root absolute
+                          path
+                        rule: self != '/' && self.split('/').all(segment, segment
+                          != '.' && segment != '..')
+                    ociPath:
+                      default: io.vllm.cache
+                      maxLength: 4096
+                      pattern: ^[^/\x00][^\x00]*$
+                      type: string
+                      x-kubernetes-validations:
+                      - message: ociPath must not contain parent-directory segments
+                        rule: self != '.' && self.split('/').all(segment, segment
+                          != '..')
+                  type: object
+                maxItems: 64
+                type: array
+                x-kubernetes-list-type: atomic
+              signing:
+                properties:
+                  profileRef:
+                    properties:
+                      name:
+                        default: ""
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
+                x-kubernetes-validations:
+                - message: profileRef.name must not be empty when profileRef is set
+                  rule: '!has(self.profileRef) || self.profileRef.name.size() > 0'
+              sourceRef:
+                properties:
+                  kind:
+                    enum:
+                    - InferenceService
+                    type: string
+                  name:
+                    minLength: 1
+                    type: string
+                required:
+                - kind
+                - name
+                type: object
+              targetImage:
+                minLength: 1
+                type: string
+            required:
+            - sourceRef
+            type: object
+          status:
+            properties:
+              activeSession:
+                properties:
+                  id:
+                    type: string
+                  nodeName:
+                    type: string
+                  podName:
+                    type: string
+                  requestedNodeGroup:
+                    type: string
+                required:
+                - id
+                - podName
+                type: object
+              artifact:
+                properties:
+                  cachePaths:
+                    items:
+                      properties:
+                        containerName:
+                          minLength: 1
+                          type: string
+                        containerPath:
+                          maxLength: 4096
+                          minLength: 2
+                          pattern: ^/[^$\x00]+$
+                          type: string
+                          x-kubernetes-validations:
+                          - message: containerPath must be a canonical non-root absolute
+                              path
+                            rule: self != '/' && self.split('/').all(segment, segment
+                              != '.' && segment != '..')
+                        ociPath:
+                          default: io.vllm.cache
+                          maxLength: 4096
+                          pattern: ^[^/\x00][^\x00]*$
+                          type: string
+                          x-kubernetes-validations:
+                          - message: ociPath must not contain parent-directory segments
+                            rule: self != '.' && self.split('/').all(segment, segment
+                              != '..')
+                      type: object
+                    maxItems: 64
+                    minItems: 1
+                    type: array
+                    x-kubernetes-list-type: atomic
+                  identity:
+                    properties:
+                      factors:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      footprints:
+                        properties:
+                          compatibilityFootprint:
+                            pattern: ^sha256:[a-f0-9]{64}$
+                            type: string
+                          workloadFootprint:
+                            pattern: ^sha256:[a-f0-9]{64}$
+                            type: string
+                        type: object
+                    required:
+                    - footprints
+                    type: object
+                  imageReference:
+                    pattern: ^.+@sha256:[a-f0-9]{64}$
+                    type: string
+                required:
+                - cachePaths
+                - identity
+                - imageReference
+                type: object
+              capturedAt:
+                format: date-time
+                type: string
+              capturedCacheSizeBytes:
+                format: int64
+                type: integer
+              conditions:
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              kernelCacheRef:
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                type: object
+              phase:
+                enum:
+                - Pending
+                - WaitingForWorkload
+                - Capturing
+                - Pushing
+                - Complete
+                - Unchanged
+                - Failed
+                type: string
+              runtimeResult:
+                additionalProperties:
+                  type: string
+                type: object
+              signing:
+                properties:
+                  message:
+                    type: string
+                  mode:
+                    enum:
+                    - none
+                    - cert
+                    type: string
+                  reason:
+                    type: string
+                  signed:
+                    type: boolean
+                  signedAt:
+                    format: date-time
+                    type: string
+                  state:
+                    enum:
+                    - Pending
+                    - Succeeded
+                    - Failed
+                    - Skipped
+                    type: string
+                required:
+                - mode
+                - signed
+                - state
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

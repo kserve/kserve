@@ -20,6 +20,7 @@ import (
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -103,13 +104,6 @@ type LLMInferenceServiceSpec struct {
 	// +optional
 	Runtime *string `json:"runtime,omitempty"`
 
-	// TrustRemoteCode allows the inference runtime to execute custom model code bundled
-	// with model weights (e.g. HuggingFace models with custom architectures).
-	// Enable only when loading models from trusted sources — this executes arbitrary Python
-	// at model load time.
-	// +optional
-	TrustRemoteCode bool `json:"trustRemoteCode,omitempty"`
-
 	// StorageInitializer configuration for model artifact fetching.
 	// +optional
 	StorageInitializer *StorageInitializerSpec `json:"storageInitializer,omitempty"`
@@ -155,7 +149,7 @@ type WorkloadSpec struct {
 
 	// Scaling configuration for autoscaling this workload.
 	// When specified, the controller creates and manages autoscaling resources
-	// (ServiceMonitor and the selected actuator — HPA or KEDA ScaledObject, annotated for WVA discovery)
+	// (ServiceMonitor and the selected actuator — HPA or KEDA ScaledObject)
 	// targeting this workload.
 	// Mutually exclusive with the static 'replicas' field.
 	// In a disaggregated setup, each workload (decode and prefill) can have its own independent scaling configuration,
@@ -192,10 +186,98 @@ type WorkloadSpec struct {
 	// +optional
 	Worker *corev1.PodSpec `json:"worker,omitempty"`
 
+	// KVCacheOffloading configures multi-tier KV cache CPU offloading for this workload.
+	// The controller translates this into --kv-transfer-config for the vLLM serve command.
+	// +optional
+	KVCacheOffloading *KVCacheOffloadingSpec `json:"kvCacheOffloading,omitempty"`
+
 	// RolloutStrategy configures how rolling updates are performed for this workload.
 	// When omitted, Kubernetes/LWS defaults apply.
 	// +optional
 	RolloutStrategy *RolloutStrategy `json:"rolloutStrategy,omitempty"`
+}
+
+// KVCacheOffloadingSpec configures KV cache offloading via vLLM's OffloadingConnector.
+type KVCacheOffloadingSpec struct {
+	// CPU is the amount of CPU RAM to allocate as the primary KV cache tier
+	// (maps to vLLM kv_connector_extra_config.cpu_bytes_to_use). Accepts standard
+	// Kubernetes quantity notation, e.g. "10Gi".
+	// This sizes one engine's tier. Tensor parallelism divides it across the engine's
+	// ranks, but a pod running parallelism.dataLocal local engines holds one copy each,
+	// so both the shared-memory volume and the container's memory limit have to cover
+	// the product rather than this value alone.
+	CPU resource.Quantity `json:"cpu"`
+
+	// EvictionPolicy for the primary CPU KV cache tier. Defaults to "lru".
+	// +optional
+	// +kubebuilder:validation:Enum=lru;arc
+	// +kubebuilder:default=lru
+	EvictionPolicy string `json:"evictionPolicy,omitempty"`
+
+	// Secondary is an ordered list of secondary KV cache tiers. vLLM cascades
+	// through tiers in the order listed. Currently only fileSystem tiers are
+	// supported; the array shape is designed to accommodate object store tiers
+	// in a future follow-up without an API break.
+	// +optional
+	Secondary []SecondaryTierSpec `json:"secondary,omitempty"`
+}
+
+// SecondaryTierSpec defines one secondary KV cache tier.
+// Exactly one field must be set.
+type SecondaryTierSpec struct {
+	// FileSystem configures a POSIX disk tier backed by a Kubernetes volume.
+	// +optional
+	FileSystem *FileSystemTierSpec `json:"fileSystem,omitempty"`
+}
+
+// FileSystemTierSpec configures a POSIX disk secondary tier.
+// Exactly one of EmptyDir or PVC must be set.
+type FileSystemTierSpec struct {
+	// EmptyDir uses a node-local ephemeral emptyDir volume. No StorageClass required.
+	// Each pod gets its own independent, node-local disk cache. The controller also
+	// adds an ephemeral-storage resource request to the main container equal to the
+	// size so the scheduler accounts for the disk space when placing the pod.
+	// +optional
+	EmptyDir *EmptyDirTierSpec `json:"emptyDir,omitempty"`
+
+	// PVC configures a PVC-backed disk cache tier. Either Spec (for a controller-managed
+	// ephemeral PVC per pod) or Ref (for a pre-existing user-managed PVC) must be set,
+	// but not both.
+	// +optional
+	PVC *PVCTierSpec `json:"pvc,omitempty"`
+}
+
+// EmptyDirTierSpec configures a node-local ephemeral emptyDir volume as a KV cache tier.
+type EmptyDirTierSpec struct {
+	// Size is the maximum storage capacity for this tier (maps to emptyDir.sizeLimit).
+	// The controller also requests this amount as ephemeral-storage on the main container.
+	Size resource.Quantity `json:"size"`
+}
+
+// PVCTierSpec configures a PVC-backed KV cache tier.
+// Exactly one of Spec or Ref must be set.
+type PVCTierSpec struct {
+	// Spec creates one ephemeral PVC per pod automatically. The PVC is owned by the pod
+	// and deleted when the pod is deleted — it does not survive pod restarts.
+	// +optional
+	Spec *corev1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
+
+	// Ref mounts a pre-existing user-managed PVC as the disk cache. The PVC must
+	// already exist. For a cache shared across replicas, provision an RWX PVC;
+	// for per-pod persistent cache, provision a separate PVC per pod and reference
+	// it by name.
+	// +optional
+	Ref *PVCRefTierSpec `json:"ref,omitempty"`
+}
+
+// PVCRefTierSpec mounts a pre-existing user-managed PVC as a KV cache tier.
+type PVCRefTierSpec struct {
+	// Name of the pre-existing PersistentVolumeClaim.
+	Name string `json:"name"`
+
+	// Path is a subdirectory within the PVC used as VolumeMount.subPath.
+	// +optional
+	Path string `json:"path,omitempty"`
 }
 
 // RolloutStrategy configures the rolling update behavior for a workload.
@@ -439,9 +521,8 @@ type InferencePoolSpec struct {
 // ScalingSpec configures autoscaling for the LLM inference deployment.
 // When scaling is configured, the controller creates and manages autoscaling resources
 // (ServiceMonitor and the selected actuator — HPA or KEDA ScaledObject).
-// Use WVA for metric-driven scaling (actuators annotated for WVA discovery), or KEDA for direct
-// scaling with user-defined triggers (no WVA required).
-// +kubebuilder:validation:XValidation:rule="has(self.wva) || has(self.keda)",message="either wva or keda must be specified when scaling is configured"
+// Direct KEDA scaling uses user-defined triggers. The deprecated WVA fields are retained only
+// so existing resources can be decoded during upgrades; new WVA configuration is rejected.
 // +kubebuilder:validation:XValidation:rule="!(has(self.wva) && has(self.keda))",message="wva and keda are mutually exclusive"
 // +kubebuilder:validation:XValidation:rule="!has(self.keda) || size(self.keda.triggers) > 0",message="at least one trigger is required when using direct KEDA scaling"
 // +kubebuilder:validation:XValidation:rule="!has(self.minReplicas) || self.minReplicas <= self.maxReplicas",message="minReplicas cannot exceed maxReplicas"
@@ -463,21 +544,20 @@ type ScalingSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	MaxReplicas int32 `json:"maxReplicas"`
 
-	// WVA configures the Workload Variant Autoscaler (WVA) for scaling.
-	// WVA scales based on a variety of inference metrics (KV cache utilization, queue depth, etc.)
-	// rather than traditional CPU/memory metrics.
+	// WVA is deprecated and retained only for decoding existing resources during upgrades.
+	// Existing WVA configuration is not reconciled and new WVA configuration is rejected.
 	// +optional
 	WVA *WVASpec `json:"wva,omitempty"`
 
 	// KEDA configures direct KEDA scaling without WVA.
 	// Users specify their own triggers (CPU, Prometheus, queue depth, etc.) and the controller
-	// creates a ScaledObject with those triggers. Mutually exclusive with WVA.
+	// creates a ScaledObject with those triggers.
 	// +optional
 	KEDA *DirectKEDAScalingSpec `json:"keda,omitempty"`
 }
 
-// WVASpec configures the Workload Variant Autoscaler.
-// scalingModifiers under wva.keda.advanced are forbidden because WVA owns the metric formula.
+// WVASpec is the deprecated Workload Variant Autoscaler configuration retained for upgrade compatibility.
+// New WVA configuration is rejected and existing WVA configuration is not reconciled.
 // +kubebuilder:validation:XValidation:rule="!has(self.keda) || !has(self.keda.advanced) || (size(self.keda.advanced.scalingModifiers.formula) == 0 && size(self.keda.advanced.scalingModifiers.target) == 0 && size(self.keda.advanced.scalingModifiers.activationTarget) == 0 && size(self.keda.advanced.scalingModifiers.metricType) == 0)",message="scalingModifiers must not be set; WVA controls the scaling metric formula and logic"
 type WVASpec struct {
 	// VariantCost specifies the cost per replica for this variant (used in saturation analysis).
@@ -499,33 +579,22 @@ type WVASpec struct {
 // +kubebuilder:validation:XValidation:rule="has(self.hpa) || has(self.keda)",message="either hpa or keda must be specified as the actuator backend"
 type ActuatorSpec struct {
 	// HPA configures the HorizontalPodAutoscaler as the actuator backend.
-	// When specified, HPA reads the wva_desired_replicas metric via the Kubernetes Metrics API
-	// (requires Prometheus Adapter) and scales the deployment accordingly.
-	// Mutually exclusive with KEDA.
 	// +optional
 	HPA *HPAScalingSpec `json:"hpa,omitempty"`
-
 	// KEDA configures a KEDA ScaledObject as the actuator backend.
-	// When specified, KEDA queries Prometheus directly for the wva_desired_replicas metric
-	// and scales the deployment accordingly. KEDA does not require a Prometheus Adapter.
-	// Mutually exclusive with HPA.
 	// +optional
 	KEDA *KEDAScalingSpec `json:"keda,omitempty"`
 }
 
 // HPAScalingSpec configures the HorizontalPodAutoscaler behavior.
-// The fields are directly from the upstream Kubernetes autoscaling/v2 API.
 type HPAScalingSpec struct {
-	// Behavior configures the scaling behavior of the target in both Up and Down directions
-	// (scaleUp and scaleDown fields respectively).
+	// Behavior configures the scaling behavior of the target in both Up and Down directions.
 	// +optional
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 }
 
 // KEDAScalingSpec configures the KEDA ScaledObject for autoscaling.
 // The fields are directly from the upstream KEDA ScaledObject API.
-// Note: WVA-only restrictions on scalingModifiers live on WVASpec so direct KEDA
-// (DirectKEDAScalingSpec) can use scalingModifiers when users define their own triggers.
 // +kubebuilder:validation:XValidation:rule="!has(self.advanced) || !has(self.advanced.horizontalPodAutoscalerConfig) || size(self.advanced.horizontalPodAutoscalerConfig.name) == 0",message="horizontalPodAutoscalerConfig.name must not be set; the controller manages the HPA name"
 type KEDAScalingSpec struct {
 	// PollingInterval is the interval in seconds to check each trigger on.
@@ -558,7 +627,7 @@ type KEDAScalingSpec struct {
 	IdleReplicaCount *int32 `json:"idleReplicaCount,omitempty"`
 
 	// Fallback defines the replica count to maintain when the scaler is in a fallback state
-	// (e.g., when Prometheus or WVA metrics are unavailable). This allows the deployment to
+	// (e.g., when metrics are unavailable). This allows the deployment to
 	// hold a safe replica count during metric outages rather than scaling to zero.
 	// +optional
 	Fallback *kedav1alpha1.Fallback `json:"fallback,omitempty"`
@@ -569,7 +638,7 @@ type KEDAScalingSpec struct {
 	Advanced *kedav1alpha1.AdvancedConfig `json:"advanced,omitempty"`
 }
 
-// DirectKEDAScalingSpec configures direct KEDA scaling without WVA.
+// DirectKEDAScalingSpec configures direct KEDA scaling.
 // It embeds KEDAScalingSpec for shared ScaledObject settings and adds user-defined triggers.
 type DirectKEDAScalingSpec struct {
 	KEDAScalingSpec `json:",inline"`

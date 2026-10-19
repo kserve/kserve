@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -56,6 +57,8 @@ const (
 	configTemplateNameSuffix = "config-llm-template"
 	// Single node SGLang deployment template
 	configSGLangTemplateNameSuffix = "config-sglang-template"
+	// Single node vLLM-Omni deployment template (TTS/TTI modality endpoints)
+	configOmniTemplateNameSuffix = "config-llm-omni-template"
 	// Disaggregated prefill/decode templates
 	configDecodeTemplateNameSuffix  = "config-llm-decode-template"
 	configPrefillTemplateNameSuffix = "config-llm-prefill-template"
@@ -64,15 +67,17 @@ const (
 	configWorkerPipelineParallelNameSuffix        = "config-llm-worker-pipeline-parallel"
 	configPrefillWorkerPipelineParallelNameSuffix = "config-llm-prefill-worker-pipeline-parallel"
 	// Data parallel worker configurations
-	configWorkerDataParallelNameSuffix        = "config-llm-worker-data-parallel"
-	configDecodeWorkerDataParallelNameSuffix  = "config-llm-decode-worker-data-parallel"
-	configPrefillWorkerDataParallelNameSuffix = "config-llm-prefill-worker-data-parallel"
+	configWorkerDataParallelNameSuffix                 = "config-llm-worker-data-parallel"
+	configDecodeWorkerDataParallelNameSuffix           = "config-llm-decode-worker-data-parallel"
+	configPrefillWorkerDataParallelNameSuffix          = "config-llm-prefill-worker-data-parallel"
+	configDecodeWorkerDataParallelMultiPortNameSuffix  = "config-llm-decode-worker-data-parallel-multi-port"
+	configPrefillWorkerDataParallelMultiPortNameSuffix = "config-llm-prefill-worker-data-parallel-multi-port"
 	// Router and scheduler configurations
 	configRouterSchedulerNameSuffix                   = "config-llm-scheduler"
 	configRouterSchedulerDefaultEPPConfigNameSuffix   = "config-llm-scheduler-eppconfig-default"    // default EPPConfig
 	configRouterSchedulerDefaultPDEPPConfigNameSuffix = "config-llm-scheduler-eppconfig-default-pd" // default EPPConfig for P/D
+	configRouterSchedulerModalityEPPConfigNameSuffix  = "config-llm-scheduler-eppconfig-modality"   // load-only EPPConfig for omni TTS/TTI
 	configRouterRouteNameSuffix                       = "config-llm-router-route"
-	configSchedulerLatencyPredictorNameSuffix         = "config-llm-scheduler-latency-predictor"
 	configTokenizerNameSuffix                         = "config-llm-tokenizer" // #nosec G101
 	// Tracing configurations
 	configTracingNameSuffix = "config-llm-tracing"
@@ -82,6 +87,7 @@ var (
 	configPrefix                                = constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_CONFIG_PREFIX", "kserve-")
 	configTemplateName                          = configPrefix + configTemplateNameSuffix
 	configSGLangTemplateName                    = configPrefix + configSGLangTemplateNameSuffix
+	configOmniTemplateName                      = configPrefix + configOmniTemplateNameSuffix
 	configDecodeTemplateName                    = configPrefix + configDecodeTemplateNameSuffix
 	configDecodeWorkerPipelineParallelName      = configPrefix + configDecodeWorkerPipelineParallelNameSuffix
 	configWorkerPipelineParallelName            = configPrefix + configWorkerPipelineParallelNameSuffix
@@ -93,8 +99,8 @@ var (
 	configRouterSchedulerName                   = configPrefix + configRouterSchedulerNameSuffix
 	configRouterSchedulerDefaultEPPConfigName   = configPrefix + configRouterSchedulerDefaultEPPConfigNameSuffix
 	configRouterSchedulerDefaultPDEPPConfigName = configPrefix + configRouterSchedulerDefaultPDEPPConfigNameSuffix
+	configRouterSchedulerModalityEPPConfigName  = configPrefix + configRouterSchedulerModalityEPPConfigNameSuffix
 	configRouterRouteName                       = configPrefix + configRouterRouteNameSuffix
-	configSchedulerLatencyPredictorName         = configPrefix + configSchedulerLatencyPredictorNameSuffix
 	configTokenizerName                         = configPrefix + configTokenizerNameSuffix
 	configTracingName                           = configPrefix + configTracingNameSuffix
 )
@@ -111,6 +117,7 @@ var _ = sets.New[string](
 var WellKnownDefaultConfigs = sets.New[string](
 	configTemplateName,
 	configSGLangTemplateName,
+	configOmniTemplateName,
 	configDecodeTemplateName,
 	configWorkerDataParallelName,
 	configDecodeWorkerDataParallelName,
@@ -119,10 +126,18 @@ var WellKnownDefaultConfigs = sets.New[string](
 	configRouterSchedulerName,
 	configRouterSchedulerDefaultEPPConfigName,
 	configRouterSchedulerDefaultPDEPPConfigName,
+	configRouterSchedulerModalityEPPConfigName,
 	configRouterRouteName,
-	configSchedulerLatencyPredictorName,
 	configTokenizerName,
 	configTracingName,
+)
+
+// WellKnownBaseRefConfigs are shipped presets selected only through baseRefs.
+// They must not enter WellKnownDefaultConfigs: existing services should neither
+// adopt nor implicitly pin them during a controller upgrade.
+var WellKnownBaseRefConfigs = sets.New[string](
+	configPrefix+configDecodeWorkerDataParallelMultiPortNameSuffix,
+	configPrefix+configPrefillWorkerDataParallelMultiPortNameSuffix,
 )
 
 const (
@@ -147,15 +162,57 @@ var useVersionedConfig, _ = strconv.ParseBool(constants.GetEnvOrDefault("LLM_INF
 // name-based mapping and kserve-config-sglang-template can be removed.
 const SGLangServingRuntimeName = "kserve-llm-sglang"
 
-// selectSingleNodeTemplateName returns the well-known config template name for
-// a single-node Non-P/D deployment based on the requested runtime. When runtime
-// points at the well-known SGLang ServingRuntime, the SGLang-specific
-// infrastructure template is used; otherwise the default vLLM template.
-func selectSingleNodeTemplateName(runtime *string) string {
-	if runtime != nil && *runtime == SGLangServingRuntimeName {
-		return configSGLangTemplateName
+// OmniServingRuntimeName is the well-known ClusterServingRuntime name shipped
+// with KServe that identifies the vLLM-Omni engine. When spec.runtime is set
+// to this name, the controller layers the omni overlay config
+// (kserve-config-llm-omni-template) on top of the base vLLM template, appends
+// --omni to the workload args, and selects the modality EPP preset instead of
+// the text prefix-cache chain, which has no TokenizedRequest for audio/image
+// inputs.
+const OmniServingRuntimeName = "kserve-llm-omni"
+
+// isOmniRuntime reports whether the service targets the vLLM-Omni runtime.
+func isOmniRuntime(runtime *string) bool {
+	return runtime != nil && *runtime == OmniServingRuntimeName
+}
+
+// selectSingleNodeTemplateNames returns the well-known config template names
+// for a single-node Non-P/D deployment based on the requested runtime, in
+// merge order (lowest precedence first). When runtime points at the
+// well-known SGLang ServingRuntime, the SGLang-specific infrastructure
+// template is used; for the omni runtime the omni overlay is layered on top
+// of the base vLLM template so only the omni-specific diff (image, probes,
+// security context) lives in its own config; otherwise the default vLLM
+// template alone.
+func selectSingleNodeTemplateNames(runtime *string) []string {
+	if isOmniRuntime(runtime) {
+		return []string{configTemplateName, configOmniTemplateName}
 	}
-	return configTemplateName
+	if runtime != nil && *runtime == SGLangServingRuntimeName {
+		return []string{configSGLangTemplateName}
+	}
+	return []string{configTemplateName}
+}
+
+// omniRuntimeArg is the vLLM-Omni flag the controller appends to the workload's
+// main container args when spec.runtime selects the omni runtime. The base vLLM
+// template forwards container args to `vllm serve` (the "--" convention), so
+// the flag rides along without the omni overlay forking the template command.
+const omniRuntimeArg = "--omni"
+
+// injectOmniRuntimeArgs prepends the vLLM-Omni flag to the single-node
+// workload's main container args for omni services. It runs after the merge so
+// a user's own container args cannot drop the flag, and it is idempotent so
+// re-renders leave the args untouched.
+func injectOmniRuntimeArgs(cfg *v1alpha2.LLMInferenceServiceConfig, omni bool) {
+	if !omni || cfg.Spec.Template == nil {
+		return
+	}
+	c := utils.GetContainerWithName(cfg.Spec.Template, mainContainerName)
+	if c == nil || slices.Contains(c.Args, omniRuntimeArg) {
+		return
+	}
+	c.Args = append([]string{omniRuntimeArg}, c.Args...)
 }
 
 // CombineOption is a functional option for combineBaseRefsConfig
@@ -164,6 +221,15 @@ type CombineOption func(*combineOptions)
 type combineOptions struct {
 	skipClearSchedulerConfigRef bool
 }
+
+// presetAnnotationPrefix marks annotations a config contributes to the controller
+// rather than to the rendered spec. They are collected while configs are merged
+// and never reach a pod.
+//
+// Only configs KServe ships are read; one on a user's config is logged and
+// ignored, so an internal detail does not become an API that cannot be
+// withdrawn.
+const presetAnnotationPrefix = "internal." + constants.KServeAPIGroupName + "/"
 
 // CombinedConfig holds the output of combineBaseRefsConfig.
 type CombinedConfig struct {
@@ -262,6 +328,34 @@ func injectLoRAAffinityScorer(cfg *v1alpha2.LLMInferenceServiceConfig) error {
 	return nil
 }
 
+// conditionMessage renders err for a status condition, dropping the "terminal
+// error: " that controller-runtime prepends. That prefix describes whether the
+// controller will requeue, which is not something a user can act on.
+func conditionMessage(err error) string {
+	// Defensive: nothing on this path returns a terminal error today, since
+	// reconcileBaseRefs classifies them. Kept so a future one cannot leak the
+	// prefix into a message a user reads.
+	//
+	// The marker can sit at any depth and unwrapping to reach it would discard the
+	// context wrapped around it, so the terminal layer is located and only its own
+	// rendering is swapped for its cause's - replacing the first "terminal error: "
+	// anywhere in the message would also hit one that came from the spec.
+	for e := err; e != nil; e = errors.Unwrap(e) {
+		if !errors.Is(e, reconcile.TerminalError(nil)) {
+			break
+		}
+		inner := errors.Unwrap(e)
+		if inner == nil {
+			break
+		}
+		if errors.Is(inner, reconcile.TerminalError(nil)) {
+			continue
+		}
+		return strings.Replace(err.Error(), e.Error(), inner.Error(), 1)
+	}
+	return err.Error()
+}
+
 // reconcileBaseRefs resolves and merges the referenced configs, then checks the
 // merged spec by dry-running it against the API server.
 //
@@ -302,7 +396,20 @@ func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alp
 			return nil, reconcile.TerminalError(collision)
 		}
 
-		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", "%s", err.Error())
+		var slotConflict *kvTransferSlotError
+		if errors.As(err, &slotConflict) {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "KVTransferSlotConflict", "%s", slotConflict.Error())
+			llmSvc.MarkPresetsCombinedNotReady("KVTransferSlotConflict", "%s", slotConflict.Error())
+			return nil, reconcile.TerminalError(slotConflict)
+		}
+
+		var dpRouting *dataParallelRoutingError
+		if errors.As(err, &dpRouting) {
+			llmSvc.MarkPresetsCombinedNotReady("DataParallelRoutingInvalid", "%s", dpRouting.Error())
+			return nil, reconcile.TerminalError(dpRouting)
+		}
+
+		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", "%s", conditionMessage(err))
 		return nil, fmt.Errorf("failed to combine base-configurations: %w", err)
 	}
 
@@ -312,13 +419,25 @@ func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alp
 	// rules and KServe's validating webhook.
 	validationSpec := *result.Config.Spec.DeepCopy()
 	normalizeRawExtensionsToJSON(&validationSpec)
-	if err = r.Create(ctx, &v1alpha2.LLMInferenceService{
+	validationService := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: kmeta.ChildName(llmSvc.Name, "-validation-"),
 			Namespace:    llmSvc.GetNamespace(),
 		},
 		Spec: validationSpec,
-	}, client.DryRunAll); err != nil {
+	}
+	if (llmSvc.Spec.Scaling != nil && llmSvc.Spec.Scaling.WVA != nil) ||
+		(llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Scaling != nil && llmSvc.Spec.Prefill.Scaling.WVA != nil) {
+		// A synthetic CREATE would reject retained WVA as new adoption and
+		// prevent upgrade cleanup. Dry-run an UPDATE of the existing service
+		// instead: admission still rejects WVA additions or mutations, and
+		// the rendered spec is validated without changing the stored resource.
+		validationService.ObjectMeta = *llmSvc.ObjectMeta.DeepCopy()
+		err = r.Update(ctx, validationService, client.DryRunAll)
+	} else {
+		err = r.Create(ctx, validationService, client.DryRunAll)
+	}
+	if err != nil {
 		if utils.GetForceStopRuntime(llmSvc) {
 			llmSvc.MarkPresetsCombinedNotReady("Stopped", "Service is stopped with warning: %v", err.Error())
 
@@ -405,6 +524,29 @@ func validationDetail(err error) string {
 	return strings.Join(msgs, "; ")
 }
 
+// configRef is one config to merge, carrying who asked for it. Provenance is
+// recorded where the ref is created rather than recovered from its position
+// afterwards: a ref appended on the wrong side of a boundary would silently
+// promote a user's config to a preset, and presets are trusted with reserved
+// annotations and with owning the sizes the controller computes.
+type configRef struct {
+	corev1.LocalObjectReference
+	source v1alpha2.AppliedConfigSource
+}
+
+// presetRef is a config KServe selected for this service.
+func presetRef(name string) configRef {
+	return configRef{
+		LocalObjectReference: corev1.LocalObjectReference{Name: name},
+		source:               v1alpha2.AppliedConfigSourcePreset,
+	}
+}
+
+// userRef is a config the service asked for through spec.baseRefs.
+func userRef(ref corev1.LocalObjectReference) configRef {
+	return configRef{LocalObjectReference: ref, source: v1alpha2.AppliedConfigSourceUserRef}
+}
+
 // combineBaseRefsConfig applies well-known config overlays to inject default values for various components, when some components are
 // enabled. These LLMInferenceServiceConfig resources must exist in either resource namespace (prioritized) or
 // SystemNamespace (e.g. `kserve`).
@@ -415,6 +557,8 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	wr := &WellKnownConfigResolver{}
 	wr.Attach(llmSvc)
 
+	dpConfigs := dataParallelConfigSelection{}
+	baseRefPresets := sets.New[string]()
 	baseRefSpecs := make([]v1alpha2.LLMInferenceServiceSpec, 0, len(llmSvc.Spec.BaseRefs))
 	for _, ref := range llmSvc.Spec.BaseRefs {
 		cfg, err := r.getConfig(ctx, llmSvc, ref.Name)
@@ -422,6 +566,12 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			return nil, err
 		}
 		if cfg != nil {
+			if err := dpConfigs.add(cfg); err != nil {
+				return nil, &dataParallelRoutingError{err}
+			}
+			if cfg.Annotations[configReplacesPresetAnnotation] != "" {
+				baseRefPresets.Insert(ref.Name)
+			}
 			baseRefSpecs = append(baseRefSpecs, cfg.Spec)
 		}
 	}
@@ -443,7 +593,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 
 	logger.V(2).Info("Resolved spec", "spec", resolvedSpec)
 
-	refs := make([]corev1.LocalObjectReference, 0, len(llmSvc.Spec.BaseRefs))
+	refs := make([]configRef, 0, len(llmSvc.Spec.BaseRefs))
 
 	// Check if user provided a customized config in llmisvc then inject EPPConfig accordingly
 	// we only mutate configs we generated.
@@ -454,7 +604,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && !resolvedSpec.Router.Scheduler.Pool.HasRef() {
 		// Set router pod deployment
 		schedulerConfigName := wr.Resolve(llmSvc, configRouterSchedulerName)
-		refs = append(refs, corev1.LocalObjectReference{Name: schedulerConfigName})
+		refs = append(refs, presetRef(schedulerConfigName))
 
 		if injectDefaultSchedulerConfig {
 			schedulerCfg, err := r.getConfig(ctx, llmSvc, schedulerConfigName)
@@ -476,29 +626,31 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			// The presets require llm-d-router image version >= routerPresetMinVersion.
 			// Older images fall back to the hardcoded schedulerConfigText().
 			if injectDefaultSchedulerConfig && routerVersionSupportsPreset(ctx, schedulerCfg) {
-				if resolvedSpec.Prefill != nil { // P/D disagg.
-					refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerDefaultPDEPPConfigName)})
-				} else {
-					refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configRouterSchedulerDefaultEPPConfigName)})
+				switch {
+				case isOmniRuntime(resolvedSpec.Runtime):
+					// Omni TTS/TTI: load-only profile. The text prefix-cache
+					// chain has no TokenizedRequest for audio/image inputs.
+					refs = append(refs, presetRef(wr.Resolve(llmSvc, configRouterSchedulerModalityEPPConfigName)))
+				case resolvedSpec.Prefill != nil: // P/D disagg.
+					refs = append(refs, presetRef(wr.Resolve(llmSvc, configRouterSchedulerDefaultPDEPPConfigName)))
+				default:
+					refs = append(refs, presetRef(wr.Resolve(llmSvc, configRouterSchedulerDefaultEPPConfigName)))
 				}
 			}
 		}
 	}
 
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Scheduler != nil && isTokenizerEnabled(resolvedSpec) {
-		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTokenizerName)})
-	}
-	if hasLatencyProducerInSpec(resolvedSpec) {
-		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configSchedulerLatencyPredictorName)})
+		refs = append(refs, presetRef(wr.Resolve(llmSvc, configTokenizerName)))
 	}
 	if resolvedSpec.Router != nil && resolvedSpec.Router.Route != nil && !resolvedSpec.Router.Route.HTTP.HasRefs() {
 		// For the HTTP route configuration we don't use versioned defaults since this configuration depends on the
 		// GW API provider version.
-		refs = append(refs, corev1.LocalObjectReference{Name: configRouterRouteName})
+		refs = append(refs, presetRef(configRouterRouteName))
 	}
 	// Inject tracing default configs when tracing is enabled (field is non-nil)
 	if resolvedSpec.Tracing != nil {
-		refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configTracingName)})
+		refs = append(refs, presetRef(wr.Resolve(llmSvc, configTracingName)))
 	}
 
 	if resolvedSpec.Prefill != nil { // P/D
@@ -506,43 +658,56 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		switch {
 		case resolvedSpec.Prefill.Worker == nil:
 			// single-node prefill
-			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configPrefillTemplateName)})
+			refs = append(refs, presetRef(wr.Resolve(llmSvc, configPrefillTemplateName)))
 		case resolvedSpec.Prefill.Worker != nil && resolvedSpec.Prefill.Parallelism.IsDataParallel():
 			// multi-node Data Parallel prefill
-			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configPrefillWorkerDataParallelName)})
+			if !dpConfigs.prefill {
+				refs = append(refs, presetRef(wr.Resolve(llmSvc, configPrefillWorkerDataParallelName)))
+			}
 		case resolvedSpec.Prefill.Worker != nil && resolvedSpec.Prefill.Parallelism.IsPipelineParallel():
 			// multi-node Pipeline Parallel prefill
-			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configPrefillWorkerPipelineParallelName)})
+			refs = append(refs, presetRef(wr.Resolve(llmSvc, configPrefillWorkerPipelineParallelName)))
 		}
 		// Decode
 		switch {
 		case resolvedSpec.Worker == nil:
 			// single-node decode
-			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configDecodeTemplateName)})
+			refs = append(refs, presetRef(wr.Resolve(llmSvc, configDecodeTemplateName)))
 		case resolvedSpec.Worker != nil && resolvedSpec.Parallelism.IsDataParallel():
 			// multi-node Data Parallel decode
-			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configDecodeWorkerDataParallelName)})
+			if !dpConfigs.decode {
+				refs = append(refs, presetRef(wr.Resolve(llmSvc, configDecodeWorkerDataParallelName)))
+			}
 		case resolvedSpec.Worker != nil && resolvedSpec.Parallelism.IsPipelineParallel():
 			// multi-node Pipeline Parallel decode
-			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configDecodeWorkerPipelineParallelName)})
+			refs = append(refs, presetRef(wr.Resolve(llmSvc, configDecodeWorkerPipelineParallelName)))
 		}
 	} else { // Non P/D
 		switch {
 		case resolvedSpec.Worker == nil:
-			// single-node -- select template based on runtime
-			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, selectSingleNodeTemplateName(resolvedSpec.Runtime))})
+			// single-node -- select template(s) based on runtime
+			for _, name := range selectSingleNodeTemplateNames(resolvedSpec.Runtime) {
+				refs = append(refs, presetRef(wr.Resolve(llmSvc, name)))
+			}
 		case resolvedSpec.Worker != nil && resolvedSpec.Parallelism.IsDataParallel():
 			// multi-node Data Parallel
-			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configWorkerDataParallelName)})
+			refs = append(refs, presetRef(wr.Resolve(llmSvc, configWorkerDataParallelName)))
 		case resolvedSpec.Worker != nil && resolvedSpec.Parallelism.IsPipelineParallel():
 			// multi-node Pipeline Parallel
-			refs = append(refs, corev1.LocalObjectReference{Name: wr.Resolve(llmSvc, configWorkerPipelineParallelName)})
+			refs = append(refs, presetRef(wr.Resolve(llmSvc, configWorkerPipelineParallelName)))
 		}
 	}
 
 	// Append explicit base refs to override well know configs.
-	wellKnownCount := len(refs)
-	refs = append(refs, llmSvc.Spec.BaseRefs...)
+	for _, ref := range llmSvc.Spec.BaseRefs {
+		// Standalone topology presets keep their sizing policy across renamed
+		// release prefixes. Namespace-local copies remain user-owned below.
+		if baseRefPresets.Has(ref.Name) {
+			refs = append(refs, presetRef(ref.Name))
+		} else {
+			refs = append(refs, userRef(ref))
+		}
+	}
 
 	specs := make([]v1alpha2.LLMInferenceServiceSpec, 0, len(refs)+1)
 	appliedRefs := make([]v1alpha2.AppliedConfigRef, 0, len(refs)+1)
@@ -564,17 +729,39 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		})
 	}
 
-	for i, ref := range refs {
+	shmSizing := kvCacheShmSizing{}
+	for _, ref := range refs {
 		cfg, err := r.getConfig(ctx, llmSvc, ref.Name)
 		if err != nil {
 			return nil, err
 		}
 		if cfg != nil {
 			specs = append(specs, cfg.Spec)
-			source := v1alpha2.AppliedConfigSourcePreset
-			if i >= wellKnownCount {
+			// getConfig prefers the service's namespace, so a copy a user put there
+			// answers to a well-known name. Being asked for by KServe is not enough;
+			// the object must also be one KServe ships.
+			source := ref.source
+			if cfg.Namespace != constants.KServeNamespace {
 				source = v1alpha2.AppliedConfigSourceUserRef
 			}
+			policy := kvCacheShmPolicy{userDeclared: source == v1alpha2.AppliedConfigSourceUserRef, declaredBy: ref.Name}
+			var reserved map[string]string
+			utils.PropagatePrefixedMap(cfg.Annotations, &reserved, presetAnnotationPrefix)
+			switch {
+			case len(reserved) == 0:
+			case source == v1alpha2.AppliedConfigSourceUserRef:
+				logger.Info("Ignoring reserved annotations on a user-supplied config",
+					"config", ref.Name, "annotations", slices.Sorted(maps.Keys(reserved)))
+			default:
+				raw := reserved[shmPercentOfCPUAnnotation]
+				if percent, ok := parseShmPercentOfCPU(raw); ok {
+					policy.percentOfCPU = percent
+				} else if raw != "" {
+					logger.Info("Ignoring unusable KV cache shared-memory headroom percentage; leaving the declared size alone",
+						"config", ref.Name, "annotation", shmPercentOfCPUAnnotation, "value", raw)
+				}
+			}
+			shmSizing.record(cfg, policy)
 			appliedRefs = append(appliedRefs, v1alpha2.AppliedConfigRef{
 				Name:      gwapiv1.ObjectName(ref.Name),
 				Namespace: gwapiv1.Namespace(cfg.Namespace),
@@ -582,6 +769,8 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			})
 		}
 	}
+	shmSizing.record(&v1alpha2.LLMInferenceServiceConfig{Spec: llmSvc.Spec},
+		kvCacheShmPolicy{userDeclared: true, declaredBy: "the service spec"})
 	spec, err := MergeSpecs(ctx, append(specs, llmSvc.Spec)...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge specs: %w", err)
@@ -591,6 +780,11 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		ObjectMeta: *llmSvc.ObjectMeta.DeepCopy(),
 		Spec:       spec,
 	}
+	// Validate selected topology counts before evaluating any rank templates.
+	if err := dpConfigs.configurePool(llmSvcCfg, resolvedSpec); err != nil {
+		return nil, &dataParallelRoutingError{err}
+	}
+	dpConfigs.configureActivePorts(llmSvcCfg)
 	var resolvedSchedulerConfigMap *types.NamespacedName
 
 	if llmSvcCfg.Spec.Router != nil &&
@@ -633,6 +827,17 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 		}
 	}
+
+	if declared := applyKVCacheShmSizing(llmSvcCfg, shmSizing); len(declared) > 0 {
+		logger.Info("Shared-memory size is declared in the spec; leaving it as written and not adding the KV cache tier",
+			"workloads", declared, "mountPath", sharedMemoryMountPath)
+	}
+
+	if err := applyKVCacheCarriers(llmSvcCfg); err != nil {
+		return nil, err
+	}
+
+	injectOmniRuntimeArgs(llmSvcCfg, isOmniRuntime(resolvedSpec.Runtime))
 
 	injectManagedDRAIntoConfig(llmSvc, llmSvcCfg)
 
@@ -716,12 +921,10 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		// mutually exclusive in a valid LLMInferenceService.
 		llmSvcCfg.Spec.Router.Scheduler.Config.Ref = nil
 
-		// Warn if the resolved ConfigMap contains predicted-latency-producer but the
-		// well-known config was not injected (because detection runs before Ref resolution).
-		if hasLatencyProducerInSpec(llmSvcCfg.Spec) {
+		// If predicted-latency-producer plugin is still in use, emit Event on Warning
+		if hasPluginInSpec(llmSvcCfg.Spec, "predicted-latency-producer") {
 			r.Eventf(llmSvc, corev1.EventTypeWarning, "LatencyPredictorConfigRef",
-				"predicted-latency-producer plugin detected in Config.Ref ConfigMap %q; "+
-					"latency predictor sidecar injection requires Config.Inline instead of Config.Ref", cmName)
+				"predicted-latency-producer plugin is deprecated, should be removed to avoid disruptions in the future")
 		}
 	}
 
@@ -736,6 +939,7 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 		llmSvcCfg.Spec.Router.Scheduler != nil &&
 		llmSvcCfg.Spec.Router.Scheduler.Pool != nil &&
 		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec != nil &&
+		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef != nil &&
 		(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port == nil || llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port.Number == 0) &&
 		(llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Kind == "Service" || llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Kind == "") {
 		llmSvcCfg.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef.Port = ptr.To(igwapi.Port{Number: 9002})
@@ -819,6 +1023,57 @@ func stripModelBasedRoutingRules(rules []gwapiv1.HTTPRouteRule, headerName strin
 	return filtered
 }
 
+// modalityEndpointPathPrefixes are the URL path prefixes of the omni TTS/TTI
+// endpoints exposed by the route preset.
+var modalityEndpointPathPrefixes = []string{"/v1/audio", "/v1/images"}
+
+// isModalityEndpointPath reports whether a route match path targets an omni
+// modality endpoint: /v1/audio or /v1/images either as the rewritten tail of a
+// PathPrefix match (e.g. /{namespace}/{name}/v1/audio or the publisher-
+// qualified equivalent) or as the head of an Exact model-routing match
+// (e.g. /v1/audio/speech).
+func isModalityEndpointPath(path string) bool {
+	for _, prefix := range modalityEndpointPathPrefixes {
+		if strings.HasSuffix(path, prefix) || strings.HasPrefix(path, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// stripModalityRouteRules drops the omni TTS/TTI endpoint rules and matches
+// from a rendered route. The route preset ships them so one preset can serve
+// every runtime, but they consume the Gateway API rule and match caps that
+// LoRA adapter expansion also needs: every model-routing match is duplicated
+// once per adapter, so the six modality matches measurably shrink the adapter
+// budget of text services. Services not running the omni runtime can never
+// serve those endpoints, so the rules are dead weight for them. Removing them
+// here restores the pre-omni routing footprint until the route preset is
+// restructured (kserve/kserve#6360).
+func stripModalityRouteRules(rules []gwapiv1.HTTPRouteRule) []gwapiv1.HTTPRouteRule {
+	filtered := make([]gwapiv1.HTTPRouteRule, 0, len(rules))
+	for i := range rules {
+		kept := make([]gwapiv1.HTTPRouteMatch, 0, len(rules[i].Matches))
+		for _, match := range rules[i].Matches {
+			if match.Path == nil || !isModalityEndpointPath(ptr.Deref(match.Path.Value, "")) {
+				kept = append(kept, match)
+			}
+		}
+		switch {
+		case len(kept) == 0:
+			// Every match targeted a modality endpoint (v1-audio-path and
+			// friends): drop the whole rule.
+		case len(kept) < len(rules[i].Matches):
+			// Mixed rule (v1-model-routing): keep the non-modality matches.
+			rules[i].Matches = kept
+			filtered = append(filtered, rules[i])
+		default:
+			filtered = append(filtered, rules[i])
+		}
+	}
+	return filtered
+}
+
 // expandLoRAAdapterMatches duplicates model-routing header matches for each LoRA
 // adapter so that adapter requests are routed through the same backend as the base
 // model. Matches within a Gateway API rule are OR'd, so a rule ends up matching
@@ -892,6 +1147,9 @@ type templateGlobalConfig struct {
 	IngressGatewayName      string
 	IngressGatewayNamespace string
 	EnableTLS               bool
+	TLSMinVersion           string
+	TLSCipherSuites         string
+	TLSCipherSuitesOpenSSL  string
 
 	// ModelBasedRoutingHeaderName is the HTTP header used to select a model in
 	// shared-gateway deployments (e.g. "X-Gateway-Model-Name"). Exposed here so
@@ -901,6 +1159,130 @@ type templateGlobalConfig struct {
 	// InferencePoolNamespacedName represents the inference pool namespaced reference in the format "<namespace>/<name>",
 	// or simply `<name>`.
 	InferencePoolNamespacedName string
+}
+
+// templateFuncs are the functions a LLMInferenceServiceConfig preset may call.
+//
+// Every entry is a public contract: a pinned preset is re-rendered by whatever
+// controller version is installed, so changing a signature or an output here
+// rewrites the pod spec of untouched workloads and restarts them.
+//
+// Retire an entry by moving it to deprecatedTemplateFuncs, not by editing or
+// deleting it in place.
+var templateFuncs = map[string]any{
+	"ChildName": kmeta.ChildName,
+	// Frozen v1 contract for standalone rank configs. Template comparisons need
+	// a numeric value rather than the API's *int32. Missing counts mean one rank.
+	"localDataParallelRanksV1": func(value any) int32 {
+		parallelism, ok := value.(*v1alpha2.ParallelismSpec)
+		if !ok || parallelism == nil || parallelism.DataLocal == nil {
+			return 1
+		}
+		return *parallelism.DataLocal
+	},
+	// Frozen v1 contract for the bundled presets: rank ports are consecutive,
+	// beginning at 8000. Custom traffic ports require an explicit active-ports
+	// annotation and matching InferencePool targetPorts in the service or baseRef.
+	"activeDataParallelPortsV1": func(value any) string {
+		local := int32(1)
+		if parallelism, ok := value.(*v1alpha2.ParallelismSpec); ok && parallelism != nil && parallelism.DataLocal != nil {
+			local = *parallelism.DataLocal
+		}
+		if local < 1 || local > 8 {
+			return ""
+		}
+		ports := make([]string, 0, local)
+		for rank := range local {
+			ports = append(ports, strconv.Itoa(8000+int(rank)))
+		}
+		return strings.Join(ports, ",")
+	},
+	// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
+	// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
+	// The 5-second buffer reserves time for signal propagation and final process cleanup
+	// before Kubernetes sends SIGKILL.
+	"shutdownTimeout": func(spec any, preStop int64) int64 {
+		const defaultTGPS = int64(60)
+		var tgpsVal int64
+		if spec != nil {
+			if ps, ok := spec.(*corev1.PodSpec); ok && ps != nil && ps.TerminationGracePeriodSeconds != nil {
+				tgpsVal = *ps.TerminationGracePeriodSeconds
+			} else {
+				tgpsVal = defaultTGPS
+			}
+		} else {
+			tgpsVal = defaultTGPS
+		}
+		buf := min(int64(5), tgpsVal)
+		result := tgpsVal - preStop - buf
+		if result < 0 {
+			return 0
+		}
+		return result
+	},
+}
+
+// deprecatedTemplateFuncs are frozen. No preset in config/llmisvcconfig calls
+// them any more, but presets pinned by running services still do, and
+// text/template rejects an unknown function at parse time - so removing one does
+// not degrade those services, it breaks them outright.
+//
+// The rules for this map:
+//
+//   - Do not change a signature, an output, or an escaping rule. Whatever an
+//     entry emitted when it was deprecated is the contract now, bugs included.
+//   - Do not delete an entry while any supported release could still have a
+//     preset pinned against it.
+//   - Fix the bug in the replacement, never here.
+//
+// Each entry records what replaced it.
+var deprecatedTemplateFuncs = map[string]any{
+	// kvTransferConfig: replaced by the kvTransferArgsEnvVar slot, which the
+	// controller fills in after rendering. The unconditional TieringOffloadingSpec
+	// below is the bug that slot exists to fix, and it stays - a pinned preset that
+	// rendered it must keep rendering it.
+	//
+	// The body is a copy of what shipped, deliberately not a call into the live
+	// path: sharing a helper with the carrier once let a guard added for the new
+	// path change what this renders.
+	"kvTransferConfig": func(spec any) string {
+		kv, ok := spec.(*v1alpha2.KVCacheOffloadingSpec)
+		if !ok || kv == nil {
+			return ""
+		}
+		extraConfig := map[string]any{
+			"spec_name":        "TieringOffloadingSpec",
+			"cpu_bytes_to_use": kv.CPU.Value(),
+		}
+		if kv.EvictionPolicy != "" {
+			extraConfig["eviction_policy"] = kv.EvictionPolicy
+		}
+		var secondaryTiers []map[string]any
+		for i, s := range kv.Secondary {
+			if s.FileSystem == nil {
+				continue
+			}
+			secondaryTiers = append(secondaryTiers, map[string]any{
+				"type":     "fs",
+				"root_dir": fmt.Sprintf("/mnt/kv-cache-%d", i),
+			})
+		}
+		if len(secondaryTiers) > 0 {
+			extraConfig["secondary_tiers"] = secondaryTiers
+		}
+		b, err := json.Marshal(map[string]any{
+			"kv_connector":              "OffloadingConnector",
+			"kv_role":                   "kv_both",
+			"kv_connector_extra_config": extraConfig,
+		})
+		if err != nil {
+			return ""
+		}
+		// \\\" decodes to \" after ReplaceVariables re-unmarshals this as JSON, and
+		// the \" then survives the KV_TRANSFER_ARGS="..." bash assignment in the
+		// template. Plain " would be eaten by the shell and vLLM would get invalid JSON.
+		return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\\\"`) + "'"
+	},
 }
 
 // ReplaceVariables processes the configuration as a Go template to substitute
@@ -918,6 +1300,9 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 			IngressGatewayName:          reconcilerConfig.IngressGatewayName,
 			IngressGatewayNamespace:     reconcilerConfig.IngressGatewayNamespace,
 			EnableTLS:                   reconcilerConfig.EnableTLS,
+			TLSMinVersion:               reconcilerConfig.TLSMinVersion,
+			TLSCipherSuites:             reconcilerConfig.TLSCipherSuites,
+			TLSCipherSuitesOpenSSL:      reconcilerConfig.TLSCipherSuitesOpenSSL,
 			ModelBasedRoutingHeaderName: reconcilerConfig.ModelBasedRoutingHeaderName,
 		}
 		infPoolNamespacedName := types.NamespacedName{
@@ -937,75 +1322,8 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 		GlobalConfig:        gc,
 	}
 	t, err := template.New("config").
-		Funcs(map[string]any{
-			"ChildName": kmeta.ChildName,
-			"kvTransferConfig": func(spec any) string {
-				if spec == nil {
-					return ""
-				}
-				kv, ok := spec.(*v1alpha2.KVCacheOffloadingSpec)
-				if !ok || kv == nil {
-					return ""
-				}
-				extraConfig := map[string]any{
-					"spec_name":        "TieringOffloadingSpec",
-					"cpu_bytes_to_use": kv.CPU.Value(),
-				}
-				if kv.EvictionPolicy != "" {
-					extraConfig["eviction_policy"] = kv.EvictionPolicy
-				}
-				var secondaryTiers []map[string]any
-				for i, s := range kv.Secondary {
-					if s.FileSystem == nil {
-						continue
-					}
-					entry := map[string]any{
-						"type":     "fs",
-						"root_dir": fmt.Sprintf("/mnt/kv-cache-%d", i),
-					}
-					secondaryTiers = append(secondaryTiers, entry)
-				}
-				if len(secondaryTiers) > 0 {
-					extraConfig["secondary_tiers"] = secondaryTiers
-				}
-				kvConfig := map[string]any{
-					"kv_connector":              "OffloadingConnector",
-					"kv_role":                   "kv_both",
-					"kv_connector_extra_config": extraConfig,
-				}
-				b, err := json.Marshal(kvConfig)
-				if err != nil {
-					return ""
-				}
-				// \\\" decodes to \" after ReplaceVariables re-unmarshals this as JSON, and
-				// the \" then survives the KV_TRANSFER_ARGS="..." bash assignment in the
-				// template. Plain " would be eaten by the shell and vLLM would get invalid JSON.
-				return "--kv-transfer-config '" + strings.ReplaceAll(string(b), `"`, `\\\"`) + "'"
-			},
-			// shutdownTimeout computes the vLLM --shutdown-timeout value from a *corev1.PodSpec
-			// (or nil): max(0, tgps - preStop - min(5, tgps)), defaulting tgps to 60 when unset.
-			// The 5-second buffer reserves time for signal propagation and final process cleanup
-			// before Kubernetes sends SIGKILL.
-			"shutdownTimeout": func(spec any, preStop int64) int64 {
-				const defaultTGPS = int64(60)
-				var tgpsVal int64
-				if spec != nil {
-					if ps, ok := spec.(*corev1.PodSpec); ok && ps != nil && ps.TerminationGracePeriodSeconds != nil {
-						tgpsVal = *ps.TerminationGracePeriodSeconds
-					} else {
-						tgpsVal = defaultTGPS
-					}
-				} else {
-					tgpsVal = defaultTGPS
-				}
-				buf := min(int64(5), tgpsVal)
-				result := tgpsVal - preStop - buf
-				if result < 0 {
-					return 0
-				}
-				return result
-			},
-		}).
+		Funcs(templateFuncs).
+		Funcs(deprecatedTemplateFuncs).
 		Option("missingkey=error").
 		Parse(string(templateBytes))
 	if err != nil {
@@ -1019,7 +1337,48 @@ func ReplaceVariables(llmSvc *v1alpha2.LLMInferenceService, llmSvcCfg *v1alpha2.
 	if err := json.Unmarshal(buf.Bytes(), out); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config from template: %w", err)
 	}
+	dropOmittedArgs(out)
 	return out, nil
+}
+
+// OmittedArgMarker lets a preset drop an argv entry when its value is unset,
+// which a template cannot do alone: rendering runs over the JSON encoding, so an
+// action can blank a list element but not remove it.
+const OmittedArgMarker = "__KSERVE_OMIT_ARG__"
+
+// dropOmittedArgs removes marked entries from the command and args of every
+// container in every pod spec. Only those fields are filtered so a marker in a
+// probe or environment value cannot be silently removed.
+func dropOmittedArgs(cfg *v1alpha2.LLMInferenceServiceConfig) {
+	if cfg == nil {
+		return
+	}
+	podSpecs := []*corev1.PodSpec{cfg.Spec.Template, cfg.Spec.Worker}
+	if cfg.Spec.Prefill != nil {
+		podSpecs = append(podSpecs, cfg.Spec.Prefill.Template, cfg.Spec.Prefill.Worker)
+	}
+	if cfg.Spec.Router != nil && cfg.Spec.Router.Scheduler != nil {
+		podSpecs = append(podSpecs, cfg.Spec.Router.Scheduler.Template)
+		if cfg.Spec.Router.Scheduler.Tokenizer != nil {
+			podSpecs = append(podSpecs, cfg.Spec.Router.Scheduler.Tokenizer.Template)
+		}
+	}
+
+	for _, podSpec := range podSpecs {
+		if podSpec == nil {
+			continue
+		}
+		for _, containers := range [][]corev1.Container{podSpec.InitContainers, podSpec.Containers} {
+			for i := range containers {
+				containers[i].Command = slices.DeleteFunc(containers[i].Command, func(arg string) bool {
+					return arg == OmittedArgMarker
+				})
+				containers[i].Args = slices.DeleteFunc(containers[i].Args, func(arg string) bool {
+					return arg == OmittedArgMarker
+				})
+			}
+		}
+	}
 }
 
 // configNotFoundError is returned by getConfig when an LLMInferenceServiceConfig

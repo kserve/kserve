@@ -122,3 +122,4 @@ install: ## Install mcv binary to $(GOBIN)
 uninstall: ## Uninstall mcv binary from $(GOBIN)
 	@echo "Uninstalling mcv from $(GOBIN)"
 	@rm -f "$(GOBIN)/mcv"
+

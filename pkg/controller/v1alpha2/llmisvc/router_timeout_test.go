@@ -76,7 +76,10 @@ func TestExpectedHTTPRouteDisableTimeout(t *testing.T) {
 			r := &llmisvc.LLMISVCReconciler{}
 			cfg := &llmisvc.Config{DisableHTTPRouteTimeout: tt.disableHTTPRouteTimeout}
 
-			route := r.ExpectedHTTPRouteForTest(t.Context(), llmSvc, cfg)
+			route, err := r.ExpectedHTTPRouteForTest(t.Context(), llmSvc, cfg)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
 			if len(route.Spec.Rules) == 0 {
 				t.Fatalf("expected generated HTTPRoute to have rules, got none")

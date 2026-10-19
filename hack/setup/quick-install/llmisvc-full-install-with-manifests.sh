@@ -642,6 +642,7 @@ POETRY_VERSION=1.8.3
 UV_VERSION=0.7.8
 RUFF_VERSION=0.14.13
 SHELLCHECK_VERSION=v0.11.0
+CODESPELL_VERSION=2.4.3
 PINACT_VERSION=v3.9.0
 KIND_VERSION=v0.30.0
 CERT_MANAGER_VERSION=v1.17.0
@@ -653,15 +654,14 @@ KEDA_OTEL_ADDON_VERSION=v0.0.6
 PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
 JAEGER_VERSION=4.7.0
-KSERVE_VERSION=v0.21.0-rc0
+KSERVE_VERSION=v0.21.0
 ISTIO_VERSION=1.27.1
 KEDA_VERSION=2.20.2
 OPENTELEMETRY_OPERATOR_VERSION=0.114.1
-LWS_VERSION=v0.8.0
+LWS_VERSION=v0.11.0
 GATEWAY_API_VERSION=v1.5.1
-GIE_VERSION=v1.5.0
-LLMD_ROUTER_VERSION=v0.10.0
-WVA_VERSION=v0.9.0
+GIE_VERSION=v1.6.2
+LLMD_ROUTER_VERSION=v0.11.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -673,7 +673,6 @@ KEDA_NAMESPACE="${KEDA_NAMESPACE:-keda}"
 KSERVE_NAMESPACE="${KSERVE_NAMESPACE:-kserve}"
 PROMETHEUS_NAMESPACE="${PROMETHEUS_NAMESPACE:-monitoring}"
 PROMETHEUS_ADAPTER_NAMESPACE="${PROMETHEUS_ADAPTER_NAMESPACE:-monitoring}"
-WVA_NAMESPACE="${WVA_NAMESPACE:-wva-system}"
 OTEL_NAMESPACE="${OTEL_NAMESPACE:-opentelemetry-operator}"
 OPERATOR_NAMESPACE="${OPERATOR_NAMESPACE:-knative-operator}"
 SERVING_NAMESPACE="${SERVING_NAMESPACE:-knative-serving}"
@@ -1449,9 +1448,11 @@ install_kserve_kustomize() {
             config_updates+=("ingress.ingressClassName=${GATEWAY_NETWORK_LAYER}")
         fi
         if is_positive "${ENABLE_LOCALMODEL}"; then
-            log_info "Adding LocalModel updates: enabled=true, defaultJobImage=kserve/storage-initializer:${KSERVE_VERSION}"
+            log_info "Adding LocalModel updates: enabled=true, kernelCache.enabled=true, defaultJobImage=kserve/storage-initializer:${KSERVE_VERSION}"
             config_updates+=("localModel.enabled=true")
+            config_updates+=("kernelCache.enabled=true")
             config_updates+=("localModel.defaultJobImage=kserve/storage-initializer:${KSERVE_VERSION}")
+            config_updates+=("mcvImage=kserve/kserve-mcv:${KSERVE_VERSION}-minimal")
         fi
         # Add custom configurations if provided
         if [ -n "${KSERVE_CUSTOM_ISVC_CONFIGS}" ]; then
@@ -1576,6 +1577,7 @@ main() {
         KSERVE_CRDS="inferenceservices.serving.kserve.io servingruntimes.serving.kserve.io clusterservingruntimes.serving.kserve.io inferencegraphs.serving.kserve.io trainedmodels.serving.kserve.io"
         LLMISVC_CRDS="llminferenceservices.serving.kserve.io llminferenceserviceconfigs.serving.kserve.io"
         LOCALMODEL_CRDS="localmodelcaches.serving.kserve.io localmodelnodegroups.serving.kserve.io localmodelnodes.serving.kserve.io"
+        KERNELCACHE_CRDS="kernelcaches.serving.kserve.io kernelcachecaptures.serving.kserve.io kernelcachenodes.serving.kserve.io kernelcachenodegroups.serving.kserve.io"
         
         # Override KSERVE_VERSION if SET_KSERVE_VERSION is provided
         if [ -n "${SET_KSERVE_VERSION}" ]; then
@@ -1645,8 +1647,10 @@ main() {
         
                 TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full")
                 TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/localmodel")
+                TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/kernelcache")
                 TARGET_CRDS_TO_VERIFY+=("${KSERVE_CRDS}")
                 TARGET_CRDS_TO_VERIFY+=("${LOCALMODEL_CRDS}")
+                TARGET_CRDS_TO_VERIFY+=("${KERNELCACHE_CRDS}")
                 test_overlay_deployments="kserve-controller-manager kserve-localmodel-controller-manager"
                 if is_positive "${ENABLE_LLMISVC}"; then
                     TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/llmisvc")
@@ -1661,9 +1665,11 @@ main() {
         
                 TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full")
                 TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/localmodel")
+                TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/kernelcache")
                 TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/llmisvc")
                 TARGET_CRDS_TO_VERIFY+=("${KSERVE_CRDS}")
                 TARGET_CRDS_TO_VERIFY+=("${LOCALMODEL_CRDS}")
+                TARGET_CRDS_TO_VERIFY+=("${KERNELCACHE_CRDS}")
                 TARGET_CRDS_TO_VERIFY+=("${LLMISVC_CRDS}")
                 TARGET_DEPLOYMENT_NAMES+=("kserve-controller-manager kserve-localmodel-controller-manager llmisvc-controller-manager")
             elif [ "${KSERVE_OVERLAY_DIR}" == "test-llmisvc" ]; then
@@ -1690,7 +1696,9 @@ main() {
                 fi
                 if is_positive "${ENABLE_LOCALMODEL}"; then
                     TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/localmodel")
+                    TARGET_CRD_DIRS+=("${REPO_ROOT}/config/crd/full/kernelcache")
                     TARGET_CRDS_TO_VERIFY+=("${LOCALMODEL_CRDS}")
+                    TARGET_CRDS_TO_VERIFY+=("${KERNELCACHE_CRDS}")
                     TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
                 fi
             fi
@@ -1717,7 +1725,9 @@ main() {
         
             if is_positive "${ENABLE_LOCALMODEL}"; then
                 TARGET_CRD_DIRS+=("${TARGET_CONFIG_ROOT_DIR}/config/crd/full/localmodel")
+                TARGET_CRD_DIRS+=("${TARGET_CONFIG_ROOT_DIR}/config/crd/full/kernelcache")
                 TARGET_CRDS_TO_VERIFY+=("${LOCALMODEL_CRDS}")
+                TARGET_CRDS_TO_VERIFY+=("${KERNELCACHE_CRDS}")
                 TARGET_OVERLAY_DIRS+=("${LOCALMODEL_CONFIG_DIR}")
                 TARGET_DEPLOYMENT_NAMES+=("kserve-localmodel-controller-manager")
             fi
@@ -2075,6 +2085,19 @@ spec:
 apiVersion: serving.kserve.io/v1alpha1
 kind: ClusterServingRuntime
 metadata:
+  name: kserve-llm-omni
+spec:
+  containers:
+  - image: docker.io/vllm/vllm-omni:v0.30.0
+    name: main
+  supportedModelFormats:
+  - autoSelect: false
+    name: vllm-omni
+    version: "1"
+---
+apiVersion: serving.kserve.io/v1alpha1
+kind: ClusterServingRuntime
+metadata:
   name: kserve-llm-sglang
 spec:
   containers:
@@ -2094,7 +2117,7 @@ metadata:
 spec:
   annotations:
     prometheus.kserve.io/path: /metrics
-    prometheus.kserve.io/port: "8080"
+    prometheus.kserve.io/port: "8082"
   containers:
   - env:
     - name: MLSERVER_MODEL_IMPLEMENTATION
@@ -2103,6 +2126,8 @@ spec:
       value: "8080"
     - name: MLSERVER_GRPC_PORT
       value: "9000"
+    - name: MLSERVER_METRICS_PORT
+      value: "8082"
     image: docker.io/seldonio/mlserver:1.7.1
     name: kserve-container
     resources:
@@ -2497,6 +2522,7 @@ spec:
   annotations:
     prometheus.kserve.io/path: /metrics
     prometheus.kserve.io/port: "8080"
+    serving.kserve.io/kernelcache-supported: "true"
   containers:
   - args:
     - --port=8080
@@ -2609,11 +2635,16 @@ get_kserve_llmisvcconfig_manifests() {
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  annotations:
+    internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
   name: kserve-config-llm-decode-template
   namespace: kserve
 spec:
   annotations:
+    serving.kserve.io/enable-disaggregated-set: "true"
     serving.kserve.io/model-based-routing-enabled: "true"
+  labels:
+    serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
     - command:
@@ -2752,6 +2783,20 @@ spec:
         fi
         echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
+        {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}# Probe the flag itself because product images may report a product version.
+        TLS_CIPHER_ARGS=""
+        # --ssl-ciphers was added in vLLM 0.15.0; keep the probe for product builds with differing flags.
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+          TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+          case "${TLS_CIPHER_HELP}" in
+            *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+            *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+          esac
+        else
+          echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+        fi
+        {{ end }}
+
         # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
         SHUTDOWN_TIMEOUT_ARGS=""
         if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
@@ -2761,9 +2806,13 @@ spec:
         # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
         if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+          # it is empty (no-op) when KV cache offloading is not configured.
+          if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+              KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+            fi
           fi
           # This template is only composed for a disaggregated P/D topology (spec.prefill set).
           # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
@@ -2780,7 +2829,7 @@ spec:
           fi
         fi
 
-        eval "exec vllm serve /mnt/models \
+        eval "exec vllm serve ${KSERVE_MODEL_ARGS:-/mnt/models} \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -2791,10 +2840,15 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
       env:
+      - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
+      - name: KSERVE_MODEL_ARGS
+        value: ""
       - name: HOME
         value: /home
       - name: VLLM_LOGGING_LEVEL
@@ -2870,21 +2924,27 @@ spec:
       - --model-server-port=8001
       - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
-      - --pool-group=inference.networking.x-k8s.io
+      - --pool-group=inference.networking.k8s.io
       - --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }}
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
+      - '{{ if .GlobalConfig.TLSMinVersion }}--tls-min-version={{ .GlobalConfig.TLSMinVersion
+        }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
+      - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites
+        }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
       env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.10.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -2942,11 +3002,16 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  annotations:
+    internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
   name: kserve-config-llm-decode-worker-data-parallel
   namespace: kserve
 spec:
   annotations:
+    serving.kserve.io/enable-disaggregated-set: "true"
     serving.kserve.io/model-based-routing-enabled: "true"
+  labels:
+    serving.kserve.io/llmisvc-revision: placeholder
   template:
     containers:
     - command:
@@ -3116,9 +3181,13 @@ spec:
         # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
         if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+          # it is empty (no-op) when KV cache offloading is not configured.
+          if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+              KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+            fi
           fi
           # This template is only composed for a disaggregated P/D topology (spec.prefill set).
           # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
@@ -3135,8 +3204,18 @@ spec:
           fi
         fi
 
-        eval "exec vllm serve \
-          /mnt/models \
+        {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}TLS_CIPHER_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+          TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+          case "${TLS_CIPHER_HELP}" in
+            *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+            *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+          esac
+        else
+          echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+        fi
+        {{ end }}eval "exec vllm serve \
+          ${KSERVE_MODEL_ARGS:-/mnt/models} \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -3154,10 +3233,15 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
       env:
+      - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
+      - name: KSERVE_MODEL_ARGS
+        value: ""
       - name: HOME
         value: /home
       - name: VLLM_LOGGING_LEVEL
@@ -3237,21 +3321,27 @@ spec:
       - --model-server-port=8001
       - --kv-connector=nixlv2
       - --enable-ssrf-protection=true
-      - --pool-group=inference.networking.x-k8s.io
+      - --pool-group=inference.networking.k8s.io
       - --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }}
       - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
         end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
+      - '{{ if .GlobalConfig.TLSMinVersion }}--tls-min-version={{ .GlobalConfig.TLSMinVersion
+        }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
+      - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites
+        }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
       env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.10.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3475,9 +3565,13 @@ spec:
         # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
         if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-          # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
-          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+          # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+          # it is empty (no-op) when KV cache offloading is not configured.
+          if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+              KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+            fi
           fi
           # This template is only composed for a disaggregated P/D topology (spec.prefill set).
           # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
@@ -3494,8 +3588,18 @@ spec:
           fi
         fi
 
-        eval "exec vllm serve \
-          /mnt/models \
+        {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}TLS_CIPHER_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+          TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+          case "${TLS_CIPHER_HELP}" in
+            *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+            *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+          esac
+        else
+          echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+        fi
+        {{ end }}eval "exec vllm serve \
+          ${KSERVE_MODEL_ARGS:-/mnt/models} \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8001 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -3513,10 +3617,15 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
       env:
+      - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
+      - name: KSERVE_MODEL_ARGS
+        value: ""
       - name: HOME
         value: /home
       - name: VLLM_LOGGING_LEVEL
@@ -3587,12 +3696,958 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  annotations:
+    internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
+    serving.kserve.io/replaces-preset: config-llm-decode-worker-data-parallel
+  name: kserve-config-llm-decode-worker-data-parallel-multi-port
+  namespace: kserve
+spec:
+  annotations:
+    llm-d.ai/active-ports: '{{ activeDataParallelPortsV1 .Spec.Parallelism }}'
+    serving.kserve.io/enable-disaggregated-set: "true"
+    serving.kserve.io/model-based-routing-enabled: "true"
+  labels:
+    kserve.io/component: workload
+    serving.kserve.io/llmisvc-revision: placeholder
+  template:
+    containers:
+    - command:
+      - /bin/bash
+      - -c
+      - |-
+        # In some versions, ZMQ bind doesn't resolve the address through DNS
+        # Retry DP_ADDRESS resolution (configurable attempts, default 30)
+        RESOLVE_ATTEMPTS=${DP_ADDRESS_RESOLVE_ATTEMPTS:-30}
+        for ((i=1; i<=RESOLVE_ATTEMPTS; i++)); do
+          DP_ADDRESS=$(getent hosts ${LWS_LEADER_ADDRESS} | cut -d' ' -f1)
+          if [ -n "$DP_ADDRESS" ]; then
+            echo "DP_ADDRESS=${DP_ADDRESS} (resolved on attempt $i)"
+            break
+          else
+            echo "DP_ADDRESS resolution failed on attempt $i, retrying..."
+            sleep 1
+          fi
+        done
+
+        if [ -z "$DP_ADDRESS" ]; then
+          echo "WARNING: Failed to resolve DP_ADDRESS after ${RESOLVE_ATTEMPTS} attempts, falling back to LWS_LEADER_ADDRESS"
+          DP_ADDRESS=${LWS_LEADER_ADDRESS}
+          echo "DP_ADDRESS=${DP_ADDRESS} (fallback)"
+        fi
+
+        if [ "$KSERVE_INFER_ROCE" = "true" ]; then
+          echo "Trying to infer RoCE configs ... "
+          grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
+          grep -H . /sys/class/infiniband/*/ports/*/gid_attrs/types/* 2>/dev/null
+
+          cat /proc/driver/nvidia/params
+
+          KSERVE_INFER_IB_GID_INDEX_GREP=${KSERVE_INFER_IB_GID_INDEX_GREP:-"RoCE v2"}
+
+          echo "[Infer RoCE] Discovering active HCAs ..."
+          active_hcas=()
+          # Loop through all mlx5 devices found in sysfs
+          for hca_dir in /sys/class/infiniband/mlx5_*; do
+              # Ensure it's a directory before proceeding
+              if [ -d "$hca_dir" ]; then
+                  hca_name=$(basename "$hca_dir")
+                  port_state_file="$hca_dir/ports/1/state" # Assume port 1
+                  type_file="$hca_dir/ports/1/gid_attrs/types/*"
+
+                  echo "[Infer RoCE] Check if the port state file ${port_state_file} exists and contains 'ACTIVE'"
+                  if [ -f "$port_state_file" ] && grep -q "ACTIVE" "$port_state_file" && grep -q "${KSERVE_INFER_IB_GID_INDEX_GREP}" ${type_file} 2>/dev/null; then
+                      echo "[Infer RoCE] Found active HCA: $hca_name"
+                      active_hcas+=("$hca_name")
+                  else
+                      echo "[Infer RoCE] Skipping inactive or down HCA: $hca_name"
+                  fi
+              fi
+          done
+
+          # Check if we found any active HCAs
+          if [ ${#active_hcas[@]} -gt 0 ]; then
+              # Join the array elements with a comma
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
+
+              echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
+              echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
+          else
+              echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
+          fi
+
+          if [ ${#active_hcas[@]} -gt 0 ]; then
+              echo "[Infer RoCE] Finding GID_INDEX for each active HCA (SR-IOV compatible)..."
+
+              # For SR-IOV environments, find the most common IPv4 RoCE v2 GID index across all HCAs
+              declare -A gid_index_count
+              declare -A hca_gid_index
+
+              for hca_name in "${active_hcas[@]}"; do
+                  echo "[Infer RoCE] Processing HCA: ${hca_name}"
+
+                  # Find all RoCE v2 IPv4 GIDs for this HCA and count by index
+                  for tpath in /sys/class/infiniband/${hca_name}/ports/1/gid_attrs/types/*; do
+                      if grep -q "${KSERVE_INFER_IB_GID_INDEX_GREP}" "$tpath" 2>/dev/null; then
+                          idx=$(basename "$tpath")
+                          gid_file="/sys/class/infiniband/${hca_name}/ports/1/gids/${idx}"
+                          # Check for IPv4 GID (contains ffff:)
+                          if [ -f "$gid_file" ] && grep -q "ffff:" "$gid_file"; then
+                              gid_value=$(cat "$gid_file" 2>/dev/null || echo "")
+                              echo "[Infer RoCE] Found IPv4 RoCE v2 GID for ${hca_name}: index=${idx}, gid=${gid_value}"
+                              hca_gid_index["${hca_name}"]="${idx}"
+                              gid_index_count["${idx}"]=$((${gid_index_count["${idx}"]} + 1))
+                              break  # Use first found IPv4 GID per HCA
+                          fi
+                      fi
+                  done
+              done
+
+              # Find the most common GID index (most likely to be consistent across nodes)
+              best_gid_index=""
+              max_count=0
+              for idx in "${!gid_index_count[@]}"; do
+                  count=${gid_index_count["${idx}"]}
+                  echo "[Infer RoCE] GID_INDEX ${idx} found on ${count} HCAs"
+                  if [ $count -gt $max_count ]; then
+                      max_count=$count
+                      best_gid_index="$idx"
+                  fi
+              done
+
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
+              if [ ${#gid_index_count[@]} -gt 1 ]; then
+                  echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
+                  # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
+                  if [ -n "${gid_index_count['3']}" ] && [ "${gid_index_count['3']}" -eq "$max_count" ]; then
+                      best_gid_index="3"
+                      echo "[Infer RoCE] Using deterministic fallback: GID_INDEX=3 (SR-IOV standard)"
+                  fi
+              fi
+
+              # Check if GID_INDEX is already set via environment variables
+              if [ -n "${NCCL_IB_GID_INDEX}" ]; then
+                  echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
+                  export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
+                  export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+              elif [ -n "$best_gid_index" ]; then
+                  echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
+
+                  export NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX:-$best_gid_index}
+                  export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$best_gid_index}
+                  export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$best_gid_index}
+
+                  echo "[Infer RoCE] Exported GID_INDEX=${best_gid_index} for NCCL, NVSHMEM, and UCX"
+              else
+                  echo "[Infer RoCE] ERROR: No valid IPv4 ${KSERVE_INFER_IB_GID_INDEX_GREP} GID_INDEX found on any HCA."
+              fi
+          else
+              echo "[Infer RoCE] No active HCAs found, skipping GID_INDEX inference."
+          fi
+        fi
+
+        START_RANK=0
+
+        # --disable-access-log-for-endpoints landed in vLLM 0.16.0 (vllm-project/vllm#30011).
+        # Older versions still need the blanket --disable-uvicorn-access-log.
+        ACCESS_LOG_ARGS="--disable-uvicorn-access-log"
+        VLLM_VERSION=$(vllm --version 2>/dev/null | tail -1 | awk '{print $NF}')
+        echo "[access-log-detect] vllm version='${VLLM_VERSION}'"
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.16.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.16.0" ]; then
+          ACCESS_LOG_ARGS="--disable-access-log-for-endpoints /health,/metrics,/ping"
+        fi
+        echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
+
+        # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+        SHUTDOWN_TIMEOUT_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+          SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
+        fi
+
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
+        KV_TRANSFER_ARGS=""
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+          # it is empty (no-op) when KV cache offloading is not configured.
+          if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+              KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+            fi
+          fi
+          # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+          # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
+          if [ -z "${KV_TRANSFER_ARGS}" ]; then
+            # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+            # raise RuntimeError("NIXL is not available") and never finish starting.
+            NIXL_PY=$(command -v python3 || command -v python || true)
+            if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+              KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
+              echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_consumer)"
+            else
+              echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+            fi
+          fi
+        fi
+
+        eval "exec vllm serve \
+          ${KSERVE_MODEL_ARGS:-/mnt/models} \
+          --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
+          --port 8200 \
+          --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
+          {{- if and .Spec.Parallelism .Spec.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
+          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
+          --data-parallel-size {{ or (and .Spec.Parallelism .Spec.Parallelism.Data) 1 }} \
+          --data-parallel-size-local {{ or (and .Spec.Parallelism .Spec.Parallelism.DataLocal) 1 }} \
+          --data-parallel-address ${DP_ADDRESS} \
+          --data-parallel-rpc-port {{ if and .Spec.Parallelism .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+          {{ if gt (localDataParallelRanksV1 (and .Spec.Parallelism)) 1 }}--data-parallel-multi-port-external-lb --data-parallel-supervisor-port=8208 --data-parallel-start-rank $START_RANK{{ else }}--data-parallel-rank $START_RANK{{ end }} \
+          ${ACCESS_LOG_ARGS} \
+          ${SHUTDOWN_TIMEOUT_ARGS} \
+          ${KV_TRANSFER_ARGS} \
+          {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          ${VLLM_ADDITIONAL_ARGS} \
+          $@"
+      - --
+      env:
+      - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
+      - name: KSERVE_MODEL_ARGS
+        value: ""
+      - name: HOME
+        value: /home
+      - name: VLLM_LOGGING_LEVEL
+        value: INFO
+      - name: HF_HUB_CACHE
+        value: /models
+      - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
+      - name: VLLM_ENGINE_READY_TIMEOUT_S
+        value: "3000"
+      - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
+        value: "1"
+      - name: VLLM_SKIP_P2P_CHECK
+        value: "1"
+      - name: NVIDIA_GDRCOPY
+        value: enabled
+      - name: GLOO_SOCKET_IFNAME
+        value: eth0
+      - name: NCCL_SOCKET_IFNAME
+        value: eth0
+      - name: CUDA_CACHE_PATH
+        value: /var/cache/vllm/cuda
+      - name: CCACHE_DIR
+        value: /var/cache/vllm/ccache
+      - name: VLLM_CACHE_ROOT
+        value: /var/cache/vllm/vllm
+      - name: FLASHINFER_WORKSPACE_BASE
+        value: /var/cache/vllm/flashinfer
+      image: docker.io/vllm/vllm-openai:v0.31.0
+      imagePullPolicy: IfNotPresent
+      lifecycle:
+        preStop:
+          exec:
+            command:
+            - /bin/sleep
+            - "15"
+      livenessProbe:
+        failureThreshold: 10
+        httpGet:
+          path: /health
+          port: '{{ if gt (localDataParallelRanksV1 (and .Spec.Parallelism)) 1 }}dp-supervisor{{
+            else }}dp-rank-0{{ end }}'
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+        periodSeconds: 10
+        timeoutSeconds: 1
+      name: main
+      ports:
+      - containerPort: 8208
+        name: dp-supervisor
+        protocol: TCP
+      - containerPort: 8200
+        name: dp-rank-0
+        protocol: TCP
+      - containerPort: 8201
+        name: dp-rank-1
+        protocol: TCP
+      - containerPort: 8202
+        name: dp-rank-2
+        protocol: TCP
+      - containerPort: 8203
+        name: dp-rank-3
+        protocol: TCP
+      - containerPort: 8204
+        name: dp-rank-4
+        protocol: TCP
+      - containerPort: 8205
+        name: dp-rank-5
+        protocol: TCP
+      - containerPort: 8206
+        name: dp-rank-6
+        protocol: TCP
+      - containerPort: 8207
+        name: dp-rank-7
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 2
+        httpGet:
+          path: '{{ if gt (localDataParallelRanksV1 (and .Spec.Parallelism)) 1 }}/readyz{{
+            else }}/health{{ end }}'
+          port: '{{ if gt (localDataParallelRanksV1 (and .Spec.Parallelism)) 1 }}dp-supervisor{{
+            else }}dp-rank-0{{ end }}'
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+        periodSeconds: 1
+        timeoutSeconds: 1
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          add:
+          - IPC_LOCK
+          - SYS_RAWIO
+          - NET_RAW
+          drop:
+          - ALL
+        readOnlyRootFilesystem: false
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /health
+          port: '{{ if gt (localDataParallelRanksV1 (and .Spec.Parallelism)) 1 }}dp-supervisor{{
+            else }}dp-rank-0{{ end }}'
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+        periodSeconds: 10
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /home
+        name: home
+      - mountPath: /tmp
+        name: tmp-dir
+      - mountPath: /var/cache/vllm
+        name: jit-cache
+      - mountPath: /dev/shm
+        name: dshm
+      - mountPath: /models
+        name: model-cache
+      - mountPath: /var/run/kserve/tls
+        name: tls-certs
+        readOnly: true
+    initContainers:
+    - command:
+      - /app/pd-sidecar
+      - --port=8000
+      - --model-server-port=8200
+      - --data-parallel-size={{ or (and .Spec.Parallelism .Spec.Parallelism.DataLocal)
+        1 }}
+      - --kv-connector=nixlv2
+      - --enable-ssrf-protection=true
+      - --pool-group=inference.networking.k8s.io
+      - --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }}
+      - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
+        end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
+      env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
+      - name: INFERENCE_POOL_NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      - name: POD_IP
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
+      - name: SSL_CERT_DIR
+        value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: routing-sidecar
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 10
+      name: llm-d-routing-sidecar
+      ports:
+      - containerPort: 8000
+        name: routing-sidecar
+        protocol: TCP
+      - containerPort: 8001
+        name: dp-proxy-1
+        protocol: TCP
+      - containerPort: 8002
+        name: dp-proxy-2
+        protocol: TCP
+      - containerPort: 8003
+        name: dp-proxy-3
+        protocol: TCP
+      - containerPort: 8004
+        name: dp-proxy-4
+        protocol: TCP
+      - containerPort: 8005
+        name: dp-proxy-5
+        protocol: TCP
+      - containerPort: 8006
+        name: dp-proxy-6
+        protocol: TCP
+      - containerPort: 8007
+        name: dp-proxy-7
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 10
+        httpGet:
+          path: /health
+          port: routing-sidecar
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 5
+      restartPolicy: Always
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: false
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /var/run/kserve/tls
+        name: tls-certs
+        readOnly: true
+    terminationGracePeriodSeconds: 60
+    volumes:
+    - emptyDir: {}
+      name: home
+    - emptyDir: {}
+      name: tmp-dir
+    - emptyDir: {}
+      name: jit-cache
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 8Gi
+      name: dshm
+    - emptyDir: {}
+      name: model-cache
+    - name: tls-certs
+      secret:
+        secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
+  worker:
+    containers:
+    - command:
+      - /bin/bash
+      - -c
+      - |-
+        # In some versions, ZMQ bind doesn't resolve the address through DNS
+        # Retry DP_ADDRESS resolution (configurable attempts, default 30)
+        RESOLVE_ATTEMPTS=${DP_ADDRESS_RESOLVE_ATTEMPTS:-30}
+        for ((i=1; i<=RESOLVE_ATTEMPTS; i++)); do
+          DP_ADDRESS=$(getent hosts ${LWS_LEADER_ADDRESS} | cut -d' ' -f1)
+          if [ -n "$DP_ADDRESS" ]; then
+            echo "DP_ADDRESS=${DP_ADDRESS} (resolved on attempt $i)"
+            break
+          else
+            echo "DP_ADDRESS resolution failed on attempt $i, retrying..."
+            sleep 1
+          fi
+        done
+
+        if [ -z "$DP_ADDRESS" ]; then
+          echo "WARNING: Failed to resolve DP_ADDRESS after ${RESOLVE_ATTEMPTS} attempts, falling back to LWS_LEADER_ADDRESS"
+          DP_ADDRESS=${LWS_LEADER_ADDRESS}
+          echo "DP_ADDRESS=${DP_ADDRESS} (fallback)"
+        fi
+
+        if [ "$KSERVE_INFER_ROCE" = "true" ]; then
+          echo "Trying to infer RoCE configs ... "
+          grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
+          grep -H . /sys/class/infiniband/*/ports/*/gid_attrs/types/* 2>/dev/null
+
+          cat /proc/driver/nvidia/params
+
+          KSERVE_INFER_IB_GID_INDEX_GREP=${KSERVE_INFER_IB_GID_INDEX_GREP:-"RoCE v2"}
+
+          echo "[Infer RoCE] Discovering active HCAs ..."
+          active_hcas=()
+          # Loop through all mlx5 devices found in sysfs
+          for hca_dir in /sys/class/infiniband/mlx5_*; do
+              # Ensure it's a directory before proceeding
+              if [ -d "$hca_dir" ]; then
+                  hca_name=$(basename "$hca_dir")
+                  port_state_file="$hca_dir/ports/1/state" # Assume port 1
+                  type_file="$hca_dir/ports/1/gid_attrs/types/*"
+
+                  echo "[Infer RoCE] Check if the port state file ${port_state_file} exists and contains 'ACTIVE'"
+                  if [ -f "$port_state_file" ] && grep -q "ACTIVE" "$port_state_file" && grep -q "${KSERVE_INFER_IB_GID_INDEX_GREP}" ${type_file} 2>/dev/null; then
+                      echo "[Infer RoCE] Found active HCA: $hca_name"
+                      active_hcas+=("$hca_name")
+                  else
+                      echo "[Infer RoCE] Skipping inactive or down HCA: $hca_name"
+                  fi
+              fi
+          done
+
+          # Check if we found any active HCAs
+          if [ ${#active_hcas[@]} -gt 0 ]; then
+              # Join the array elements with a comma
+              hca_port_pairs=()
+              for hca in "${active_hcas[@]}"; do
+                hca_port_pairs+=("${hca}:1")
+              done
+
+              active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+              hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+              echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+              export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+              export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+              export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
+
+              echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
+              echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+              echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
+          else
+              echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
+          fi
+
+          if [ ${#active_hcas[@]} -gt 0 ]; then
+              echo "[Infer RoCE] Finding GID_INDEX for each active HCA (SR-IOV compatible)..."
+
+              # For SR-IOV environments, find the most common IPv4 RoCE v2 GID index across all HCAs
+              declare -A gid_index_count
+              declare -A hca_gid_index
+
+              for hca_name in "${active_hcas[@]}"; do
+                  echo "[Infer RoCE] Processing HCA: ${hca_name}"
+
+                  # Find all RoCE v2 IPv4 GIDs for this HCA and count by index
+                  for tpath in /sys/class/infiniband/${hca_name}/ports/1/gid_attrs/types/*; do
+                      if grep -q "${KSERVE_INFER_IB_GID_INDEX_GREP}" "$tpath" 2>/dev/null; then
+                          idx=$(basename "$tpath")
+                          gid_file="/sys/class/infiniband/${hca_name}/ports/1/gids/${idx}"
+                          # Check for IPv4 GID (contains ffff:)
+                          if [ -f "$gid_file" ] && grep -q "ffff:" "$gid_file"; then
+                              gid_value=$(cat "$gid_file" 2>/dev/null || echo "")
+                              echo "[Infer RoCE] Found IPv4 RoCE v2 GID for ${hca_name}: index=${idx}, gid=${gid_value}"
+                              hca_gid_index["${hca_name}"]="${idx}"
+                              gid_index_count["${idx}"]=$((${gid_index_count["${idx}"]} + 1))
+                              break  # Use first found IPv4 GID per HCA
+                          fi
+                      fi
+                  done
+              done
+
+              # Find the most common GID index (most likely to be consistent across nodes)
+              best_gid_index=""
+              max_count=0
+              for idx in "${!gid_index_count[@]}"; do
+                  count=${gid_index_count["${idx}"]}
+                  echo "[Infer RoCE] GID_INDEX ${idx} found on ${count} HCAs"
+                  if [ $count -gt $max_count ]; then
+                      max_count=$count
+                      best_gid_index="$idx"
+                  fi
+              done
+
+              # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
+              if [ ${#gid_index_count[@]} -gt 1 ]; then
+                  echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
+                  # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
+                  if [ -n "${gid_index_count['3']}" ] && [ "${gid_index_count['3']}" -eq "$max_count" ]; then
+                      best_gid_index="3"
+                      echo "[Infer RoCE] Using deterministic fallback: GID_INDEX=3 (SR-IOV standard)"
+                  fi
+              fi
+
+              # Check if GID_INDEX is already set via environment variables
+              if [ -n "${NCCL_IB_GID_INDEX}" ]; then
+                  echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
+                  export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
+                  export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
+                  echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+              elif [ -n "$best_gid_index" ]; then
+                  echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
+
+                  export NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX:-$best_gid_index}
+                  export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$best_gid_index}
+                  export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$best_gid_index}
+
+                  echo "[Infer RoCE] Exported GID_INDEX=${best_gid_index} for NCCL, NVSHMEM, and UCX"
+              else
+                  echo "[Infer RoCE] ERROR: No valid IPv4 ${KSERVE_INFER_IB_GID_INDEX_GREP} GID_INDEX found on any HCA."
+              fi
+          else
+              echo "[Infer RoCE] No active HCAs found, skipping GID_INDEX inference."
+          fi
+        fi
+
+        START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or (and .Spec.Parallelism .Spec.Parallelism.DataLocal) 1 }} ))
+
+        # --disable-access-log-for-endpoints landed in vLLM 0.16.0 (vllm-project/vllm#30011).
+        # Older versions still need the blanket --disable-uvicorn-access-log.
+        ACCESS_LOG_ARGS="--disable-uvicorn-access-log"
+        VLLM_VERSION=$(vllm --version 2>/dev/null | tail -1 | awk '{print $NF}')
+        echo "[access-log-detect] vllm version='${VLLM_VERSION}'"
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.16.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.16.0" ]; then
+          ACCESS_LOG_ARGS="--disable-access-log-for-endpoints /health,/metrics,/ping"
+        fi
+        echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
+
+        # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+        SHUTDOWN_TIMEOUT_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+          SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Worker 15 }}"
+        fi
+
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
+        KV_TRANSFER_ARGS=""
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+          # it is empty (no-op) when KV cache offloading is not configured.
+          if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+              KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+            fi
+          fi
+          # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+          # Decode is the KV consumer; without a connector here it recomputes prefill's KV.
+          if [ -z "${KV_TRANSFER_ARGS}" ]; then
+            # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+            # raise RuntimeError("NIXL is not available") and never finish starting.
+            NIXL_PY=$(command -v python3 || command -v python || true)
+            if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+              KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_consumer\"}'"
+              echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_consumer)"
+            else
+              echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+            fi
+          fi
+        fi
+
+        eval "exec vllm serve \
+          ${KSERVE_MODEL_ARGS:-/mnt/models} \
+          --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
+          --port 8200 \
+          --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
+          {{- if and .Spec.Parallelism .Spec.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
+          {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Parallelism.Tensor }}{{- end }} \
+          --data-parallel-size {{ or (and .Spec.Parallelism .Spec.Parallelism.Data) 1 }} \
+          --data-parallel-size-local {{ or (and .Spec.Parallelism .Spec.Parallelism.DataLocal) 1 }} \
+          --data-parallel-address ${DP_ADDRESS} \
+          --data-parallel-rpc-port {{ if and .Spec.Parallelism .Spec.Parallelism.DataRPCPort }}{{ .Spec.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+          {{ if gt (localDataParallelRanksV1 (and .Spec.Parallelism)) 1 }}--data-parallel-multi-port-external-lb --data-parallel-supervisor-port=8208 --data-parallel-start-rank $START_RANK{{ else }}--data-parallel-rank $START_RANK{{ end }} \
+          ${ACCESS_LOG_ARGS} \
+          ${SHUTDOWN_TIMEOUT_ARGS} \
+          ${KV_TRANSFER_ARGS} \
+          {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
+          {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          ${VLLM_ADDITIONAL_ARGS} \
+          $@"
+      - --
+      env:
+      - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
+      - name: KSERVE_MODEL_ARGS
+        value: ""
+      - name: HOME
+        value: /home
+      - name: VLLM_LOGGING_LEVEL
+        value: INFO
+      - name: HF_HUB_CACHE
+        value: /models
+      - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
+      - name: VLLM_ENGINE_READY_TIMEOUT_S
+        value: "3000"
+      - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
+        value: "1"
+      - name: VLLM_SKIP_P2P_CHECK
+        value: "1"
+      - name: NVIDIA_GDRCOPY
+        value: enabled
+      - name: GLOO_SOCKET_IFNAME
+        value: eth0
+      - name: NCCL_SOCKET_IFNAME
+        value: eth0
+      - name: CUDA_CACHE_PATH
+        value: /var/cache/vllm/cuda
+      - name: CCACHE_DIR
+        value: /var/cache/vllm/ccache
+      - name: VLLM_CACHE_ROOT
+        value: /var/cache/vllm/vllm
+      - name: FLASHINFER_WORKSPACE_BASE
+        value: /var/cache/vllm/flashinfer
+      image: docker.io/vllm/vllm-openai:v0.31.0
+      imagePullPolicy: IfNotPresent
+      lifecycle:
+        preStop:
+          exec:
+            command:
+            - /bin/sleep
+            - "15"
+      livenessProbe:
+        failureThreshold: 10
+        httpGet:
+          path: /health
+          port: '{{ if gt (localDataParallelRanksV1 (and .Spec.Parallelism)) 1 }}dp-supervisor{{
+            else }}dp-rank-0{{ end }}'
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+        periodSeconds: 10
+        timeoutSeconds: 1
+      name: main
+      ports:
+      - containerPort: 8208
+        name: dp-supervisor
+        protocol: TCP
+      - containerPort: 8200
+        name: dp-rank-0
+        protocol: TCP
+      - containerPort: 8201
+        name: dp-rank-1
+        protocol: TCP
+      - containerPort: 8202
+        name: dp-rank-2
+        protocol: TCP
+      - containerPort: 8203
+        name: dp-rank-3
+        protocol: TCP
+      - containerPort: 8204
+        name: dp-rank-4
+        protocol: TCP
+      - containerPort: 8205
+        name: dp-rank-5
+        protocol: TCP
+      - containerPort: 8206
+        name: dp-rank-6
+        protocol: TCP
+      - containerPort: 8207
+        name: dp-rank-7
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 2
+        httpGet:
+          path: '{{ if gt (localDataParallelRanksV1 (and .Spec.Parallelism)) 1 }}/readyz{{
+            else }}/health{{ end }}'
+          port: '{{ if gt (localDataParallelRanksV1 (and .Spec.Parallelism)) 1 }}dp-supervisor{{
+            else }}dp-rank-0{{ end }}'
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+        periodSeconds: 1
+        timeoutSeconds: 1
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          add:
+          - IPC_LOCK
+          - SYS_RAWIO
+          - NET_RAW
+          drop:
+          - ALL
+        readOnlyRootFilesystem: false
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      startupProbe:
+        failureThreshold: 60
+        httpGet:
+          path: /health
+          port: '{{ if gt (localDataParallelRanksV1 (and .Spec.Parallelism)) 1 }}dp-supervisor{{
+            else }}dp-rank-0{{ end }}'
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+        periodSeconds: 10
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /home
+        name: home
+      - mountPath: /tmp
+        name: tmp-dir
+      - mountPath: /var/cache/vllm
+        name: jit-cache
+      - mountPath: /dev/shm
+        name: dshm
+      - mountPath: /models
+        name: model-cache
+      - mountPath: /var/run/kserve/tls
+        name: tls-certs
+        readOnly: true
+    initContainers:
+    - command:
+      - /app/pd-sidecar
+      - --port=8000
+      - --model-server-port=8200
+      - --data-parallel-size={{ or (and .Spec.Parallelism .Spec.Parallelism.DataLocal)
+        1 }}
+      - --kv-connector=nixlv2
+      - --enable-ssrf-protection=true
+      - --pool-group=inference.networking.k8s.io
+      - --inference-pool={{ .GlobalConfig.InferencePoolNamespacedName }}
+      - '{{ if .GlobalConfig.EnableTLS }}--secure-proxy=true{{else}}--secure-proxy=false{{-
+        end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
+      - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
+      env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
+      - name: INFERENCE_POOL_NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      - name: POD_IP
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
+      - name: SSL_CERT_DIR
+        value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /health
+          port: routing-sidecar
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 10
+      name: llm-d-routing-sidecar
+      ports:
+      - containerPort: 8000
+        name: routing-sidecar
+        protocol: TCP
+      - containerPort: 8001
+        name: dp-proxy-1
+        protocol: TCP
+      - containerPort: 8002
+        name: dp-proxy-2
+        protocol: TCP
+      - containerPort: 8003
+        name: dp-proxy-3
+        protocol: TCP
+      - containerPort: 8004
+        name: dp-proxy-4
+        protocol: TCP
+      - containerPort: 8005
+        name: dp-proxy-5
+        protocol: TCP
+      - containerPort: 8006
+        name: dp-proxy-6
+        protocol: TCP
+      - containerPort: 8007
+        name: dp-proxy-7
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 10
+        httpGet:
+          path: /health
+          port: routing-sidecar
+          scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+        initialDelaySeconds: 10
+        periodSeconds: 10
+        timeoutSeconds: 5
+      restartPolicy: Always
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: false
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: FallbackToLogsOnError
+      volumeMounts:
+      - mountPath: /var/run/kserve/tls
+        name: tls-certs
+        readOnly: true
+    terminationGracePeriodSeconds: 60
+    volumes:
+    - emptyDir: {}
+      name: home
+    - emptyDir: {}
+      name: tmp-dir
+    - emptyDir: {}
+      name: jit-cache
+    - emptyDir:
+        medium: Memory
+        sizeLimit: 8Gi
+      name: dshm
+    - emptyDir: {}
+      name: model-cache
+    - name: tls-certs
+      secret:
+        secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  name: kserve-config-llm-omni-template
+  namespace: kserve
+spec:
+  template:
+    containers:
+    - image: docker.io/vllm/vllm-omni:v0.30.0
+      name: main
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        runAsNonRoot: false
+        seccompProfile:
+          type: RuntimeDefault
+      startupProbe:
+        failureThreshold: 120
+        httpGet:
+          path: /health
+          port: 8000
+        periodSeconds: 30
+        timeoutSeconds: 10
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  annotations:
+    internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
   name: kserve-config-llm-prefill-template
   namespace: kserve
 spec:
   prefill:
     annotations:
       serving.kserve.io/model-based-routing-enabled: "true"
+    labels:
+      serving.kserve.io/llmisvc-revision: placeholder
     template:
       containers:
       - command:
@@ -3731,6 +4786,20 @@ spec:
           fi
           echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
+          {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}# Probe the flag itself because product images may report a product version.
+          TLS_CIPHER_ARGS=""
+          # --ssl-ciphers was added in vLLM 0.15.0; keep the probe for product builds with differing flags.
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+            TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+            case "${TLS_CIPHER_HELP}" in
+              *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+              *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+            esac
+          else
+            echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+          fi
+          {{ end }}
+
           # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
           SHUTDOWN_TIMEOUT_ARGS=""
           if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
@@ -3740,9 +4809,13 @@ spec:
           # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
           KV_TRANSFER_ARGS=""
           if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
-            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-              KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+            # it is empty (no-op) when KV cache offloading is not configured.
+            if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+              # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+                KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+              fi
             fi
             # This template is only composed for a disaggregated P/D topology (spec.prefill set).
             # Prefill is the KV producer; without a connector here decode has nothing to fetch.
@@ -3759,7 +4832,7 @@ spec:
             fi
           fi
 
-          eval "exec vllm serve /mnt/models \
+          eval "exec vllm serve ${KSERVE_MODEL_ARGS:-/mnt/models} \
             --served-model-name "{{ .Spec.Model.Name }}" \
             --port 8000 \
             --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -3770,10 +4843,15 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+            {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
             ${VLLM_ADDITIONAL_ARGS} \
             $@"
         - --
         env:
+        - name: KSERVE_KV_TRANSFER_ARGS
+          value: ""
+        - name: KSERVE_MODEL_ARGS
+          value: ""
         - name: HOME
           value: /home
         - name: VLLM_LOGGING_LEVEL
@@ -3861,12 +4939,16 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  annotations:
+    internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
   name: kserve-config-llm-prefill-worker-data-parallel
   namespace: kserve
 spec:
   prefill:
     annotations:
       serving.kserve.io/model-based-routing-enabled: "true"
+    labels:
+      serving.kserve.io/llmisvc-revision: placeholder
     template:
       containers:
       - command:
@@ -4036,9 +5118,13 @@ spec:
           # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
           KV_TRANSFER_ARGS=""
           if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
-            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-              KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+            # it is empty (no-op) when KV cache offloading is not configured.
+            if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+              # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+                KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+              fi
             fi
             # This template is only composed for a disaggregated P/D topology (spec.prefill set).
             # Prefill is the KV producer; without a connector here decode has nothing to fetch.
@@ -4055,8 +5141,18 @@ spec:
             fi
           fi
 
-          eval "exec vllm serve \
-            /mnt/models \
+          {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}TLS_CIPHER_ARGS=""
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+            TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+            case "${TLS_CIPHER_HELP}" in
+              *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+              *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+            esac
+          else
+            echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+          fi
+          {{ end }}eval "exec vllm serve \
+            ${KSERVE_MODEL_ARGS:-/mnt/models} \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
             --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -4074,10 +5170,15 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+            {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
             ${VLLM_ADDITIONAL_ARGS} \
             $@"
         - --
         env:
+        - name: KSERVE_KV_TRANSFER_ARGS
+          value: ""
+        - name: KSERVE_MODEL_ARGS
+          value: ""
         - name: HOME
           value: /home
         - name: VLLM_LOGGING_LEVEL
@@ -4334,9 +5435,13 @@ spec:
           # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
           KV_TRANSFER_ARGS=""
           if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
-            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-              KV_TRANSFER_ARGS="{{ if .Spec.Prefill }}{{ kvTransferConfig .Spec.Prefill.KVCacheOffloading }}{{ end }}"
+            # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+            # it is empty (no-op) when KV cache offloading is not configured.
+            if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+              # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+                KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+              fi
             fi
             # This template is only composed for a disaggregated P/D topology (spec.prefill set).
             # Prefill is the KV producer; without a connector here decode has nothing to fetch.
@@ -4353,8 +5458,18 @@ spec:
             fi
           fi
 
-          eval "exec vllm serve \
-            /mnt/models \
+          {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}TLS_CIPHER_ARGS=""
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+            TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+            case "${TLS_CIPHER_HELP}" in
+              *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+              *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+            esac
+          else
+            echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+          fi
+          {{ end }}eval "exec vllm serve \
+            ${KSERVE_MODEL_ARGS:-/mnt/models} \
             --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
             --port 8000 \
             --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -4372,10 +5487,15 @@ spec:
             {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
             {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+            {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
             ${VLLM_ADDITIONAL_ARGS} \
             $@"
         - --
         env:
+        - name: KSERVE_KV_TRANSFER_ARGS
+          value: ""
+        - name: KSERVE_MODEL_ARGS
+          value: ""
         - name: HOME
           value: /home
         - name: VLLM_LOGGING_LEVEL
@@ -4431,6 +5551,744 @@ spec:
         name: home
       - emptyDir: {}
         name: tmp-dir
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 8Gi
+        name: dshm
+      - emptyDir: {}
+        name: model-cache
+      - name: tls-certs
+        secret:
+          secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
+---
+apiVersion: serving.kserve.io/v1alpha2
+kind: LLMInferenceServiceConfig
+metadata:
+  annotations:
+    internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
+    serving.kserve.io/replaces-preset: config-llm-prefill-worker-data-parallel
+  name: kserve-config-llm-prefill-worker-data-parallel-multi-port
+  namespace: kserve
+spec:
+  prefill:
+    annotations:
+      llm-d.ai/active-ports: '{{ activeDataParallelPortsV1 (and .Spec.Prefill .Spec.Prefill.Parallelism)
+        }}'
+      serving.kserve.io/model-based-routing-enabled: "true"
+    labels:
+      kserve.io/component: workload
+      serving.kserve.io/llmisvc-revision: placeholder
+    template:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - |-
+          # In some versions, ZMQ bind doesn't resolve the address through DNS
+          # Retry DP_ADDRESS resolution (configurable attempts, default 30)
+          RESOLVE_ATTEMPTS=${DP_ADDRESS_RESOLVE_ATTEMPTS:-30}
+          for ((i=1; i<=RESOLVE_ATTEMPTS; i++)); do
+            DP_ADDRESS=$(getent hosts ${LWS_LEADER_ADDRESS} | cut -d' ' -f1)
+            if [ -n "$DP_ADDRESS" ]; then
+              echo "DP_ADDRESS=${DP_ADDRESS} (resolved on attempt $i)"
+              break
+            else
+              echo "DP_ADDRESS resolution failed on attempt $i, retrying..."
+              sleep 1
+            fi
+          done
+
+          if [ -z "$DP_ADDRESS" ]; then
+            echo "WARNING: Failed to resolve DP_ADDRESS after ${RESOLVE_ATTEMPTS} attempts, falling back to LWS_LEADER_ADDRESS"
+            DP_ADDRESS=${LWS_LEADER_ADDRESS}
+            echo "DP_ADDRESS=${DP_ADDRESS} (fallback)"
+          fi
+
+          if [ "$KSERVE_INFER_ROCE" = "true" ]; then
+            echo "Trying to infer RoCE configs ... "
+            grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
+            grep -H . /sys/class/infiniband/*/ports/*/gid_attrs/types/* 2>/dev/null
+
+            cat /proc/driver/nvidia/params
+
+            KSERVE_INFER_IB_GID_INDEX_GREP=${KSERVE_INFER_IB_GID_INDEX_GREP:-"RoCE v2"}
+
+            echo "[Infer RoCE] Discovering active HCAs ..."
+            active_hcas=()
+            # Loop through all mlx5 devices found in sysfs
+            for hca_dir in /sys/class/infiniband/mlx5_*; do
+                # Ensure it's a directory before proceeding
+                if [ -d "$hca_dir" ]; then
+                    hca_name=$(basename "$hca_dir")
+                    port_state_file="$hca_dir/ports/1/state" # Assume port 1
+                    type_file="$hca_dir/ports/1/gid_attrs/types/*"
+
+                    echo "[Infer RoCE] Check if the port state file ${port_state_file} exists and contains 'ACTIVE'"
+                    if [ -f "$port_state_file" ] && grep -q "ACTIVE" "$port_state_file" && grep -q "${KSERVE_INFER_IB_GID_INDEX_GREP}" ${type_file} 2>/dev/null; then
+                        echo "[Infer RoCE] Found active HCA: $hca_name"
+                        active_hcas+=("$hca_name")
+                    else
+                        echo "[Infer RoCE] Skipping inactive or down HCA: $hca_name"
+                    fi
+                fi
+            done
+
+            # Check if we found any active HCAs
+            if [ ${#active_hcas[@]} -gt 0 ]; then
+                # Join the array elements with a comma
+                hca_port_pairs=()
+                for hca in "${active_hcas[@]}"; do
+                  hca_port_pairs+=("${hca}:1")
+                done
+
+                active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+                hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+                echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+                export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
+
+                echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
+                echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+                echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
+            else
+                echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
+            fi
+
+            if [ ${#active_hcas[@]} -gt 0 ]; then
+                echo "[Infer RoCE] Finding GID_INDEX for each active HCA (SR-IOV compatible)..."
+
+                # For SR-IOV environments, find the most common IPv4 RoCE v2 GID index across all HCAs
+                declare -A gid_index_count
+                declare -A hca_gid_index
+
+                for hca_name in "${active_hcas[@]}"; do
+                    echo "[Infer RoCE] Processing HCA: ${hca_name}"
+
+                    # Find all RoCE v2 IPv4 GIDs for this HCA and count by index
+                    for tpath in /sys/class/infiniband/${hca_name}/ports/1/gid_attrs/types/*; do
+                        if grep -q "${KSERVE_INFER_IB_GID_INDEX_GREP}" "$tpath" 2>/dev/null; then
+                            idx=$(basename "$tpath")
+                            gid_file="/sys/class/infiniband/${hca_name}/ports/1/gids/${idx}"
+                            # Check for IPv4 GID (contains ffff:)
+                            if [ -f "$gid_file" ] && grep -q "ffff:" "$gid_file"; then
+                                gid_value=$(cat "$gid_file" 2>/dev/null || echo "")
+                                echo "[Infer RoCE] Found IPv4 RoCE v2 GID for ${hca_name}: index=${idx}, gid=${gid_value}"
+                                hca_gid_index["${hca_name}"]="${idx}"
+                                gid_index_count["${idx}"]=$((${gid_index_count["${idx}"]} + 1))
+                                break  # Use first found IPv4 GID per HCA
+                            fi
+                        fi
+                    done
+                done
+
+                # Find the most common GID index (most likely to be consistent across nodes)
+                best_gid_index=""
+                max_count=0
+                for idx in "${!gid_index_count[@]}"; do
+                    count=${gid_index_count["${idx}"]}
+                    echo "[Infer RoCE] GID_INDEX ${idx} found on ${count} HCAs"
+                    if [ $count -gt $max_count ]; then
+                        max_count=$count
+                        best_gid_index="$idx"
+                    fi
+                done
+
+                # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
+                if [ ${#gid_index_count[@]} -gt 1 ]; then
+                    echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
+                    # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
+                    if [ -n "${gid_index_count['3']}" ] && [ "${gid_index_count['3']}" -eq "$max_count" ]; then
+                        best_gid_index="3"
+                        echo "[Infer RoCE] Using deterministic fallback: GID_INDEX=3 (SR-IOV standard)"
+                    fi
+                fi
+
+                # Check if GID_INDEX is already set via environment variables
+                if [ -n "${NCCL_IB_GID_INDEX}" ]; then
+                    echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
+                    export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
+                    export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
+                    echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                elif [ -n "$best_gid_index" ]; then
+                    echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
+
+                    export NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX:-$best_gid_index}
+                    export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$best_gid_index}
+                    export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$best_gid_index}
+
+                    echo "[Infer RoCE] Exported GID_INDEX=${best_gid_index} for NCCL, NVSHMEM, and UCX"
+                else
+                    echo "[Infer RoCE] ERROR: No valid IPv4 ${KSERVE_INFER_IB_GID_INDEX_GREP} GID_INDEX found on any HCA."
+                fi
+            else
+                echo "[Infer RoCE] No active HCAs found, skipping GID_INDEX inference."
+            fi
+          fi
+
+          START_RANK=0
+
+          # --disable-access-log-for-endpoints landed in vLLM 0.16.0 (vllm-project/vllm#30011).
+          # Older versions still need the blanket --disable-uvicorn-access-log.
+          ACCESS_LOG_ARGS="--disable-uvicorn-access-log"
+          VLLM_VERSION=$(vllm --version 2>/dev/null | tail -1 | awk '{print $NF}')
+          echo "[access-log-detect] vllm version='${VLLM_VERSION}'"
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.16.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.16.0" ]; then
+            ACCESS_LOG_ARGS="--disable-access-log-for-endpoints /health,/metrics,/ping"
+          fi
+          echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
+
+          # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+          SHUTDOWN_TIMEOUT_ARGS=""
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+            SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Template 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
+          fi
+
+          # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
+          KV_TRANSFER_ARGS=""
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+            # it is empty (no-op) when KV cache offloading is not configured.
+            if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+              # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+                KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+              fi
+            fi
+            # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+            # Prefill is the KV producer; without a connector here decode has nothing to fetch.
+            if [ -z "${KV_TRANSFER_ARGS}" ]; then
+              # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+              # raise RuntimeError("NIXL is not available") and never finish starting.
+              NIXL_PY=$(command -v python3 || command -v python || true)
+              if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+                KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+                echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_producer)"
+              else
+                echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+              fi
+            fi
+          fi
+
+          eval "exec vllm serve \
+            ${KSERVE_MODEL_ARGS:-/mnt/models} \
+            --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
+            --port 8000 \
+            --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
+            {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert -}}--enable-expert-parallel{{- end }} \
+            {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor -}}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
+            --data-parallel-size {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Data) 1 }} \
+            --data-parallel-size-local {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.DataLocal) 1 }} \
+            --data-parallel-address ${DP_ADDRESS} \
+            --data-parallel-rpc-port {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+            {{ if gt (localDataParallelRanksV1 (and .Spec.Prefill .Spec.Prefill.Parallelism)) 1 }}--data-parallel-multi-port-external-lb --data-parallel-supervisor-port=8008 --data-parallel-start-rank $START_RANK{{ else }}--data-parallel-rank $START_RANK{{ end }} \
+            ${ACCESS_LOG_ARGS} \
+            ${SHUTDOWN_TIMEOUT_ARGS} \
+            ${KV_TRANSFER_ARGS} \
+            {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
+            {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
+            {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+            ${VLLM_ADDITIONAL_ARGS} \
+            $@"
+        - --
+        env:
+        - name: KSERVE_KV_TRANSFER_ARGS
+          value: ""
+        - name: KSERVE_MODEL_ARGS
+          value: ""
+        - name: HOME
+          value: /home
+        - name: VLLM_LOGGING_LEVEL
+          value: INFO
+        - name: HF_HUB_CACHE
+          value: /models
+        - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: VLLM_ENGINE_READY_TIMEOUT_S
+          value: "3000"
+        - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
+          value: "1"
+        - name: VLLM_SKIP_P2P_CHECK
+          value: "1"
+        - name: NVIDIA_GDRCOPY
+          value: enabled
+        - name: GLOO_SOCKET_IFNAME
+          value: eth0
+        - name: NCCL_SOCKET_IFNAME
+          value: eth0
+        - name: VLLM_HTTP_TIMEOUT_KEEP_ALIVE
+          value: "120"
+        - name: CUDA_CACHE_PATH
+          value: /var/cache/vllm/cuda
+        - name: CCACHE_DIR
+          value: /var/cache/vllm/ccache
+        - name: VLLM_CACHE_ROOT
+          value: /var/cache/vllm/vllm
+        - name: FLASHINFER_WORKSPACE_BASE
+          value: /var/cache/vllm/flashinfer
+        image: docker.io/vllm/vllm-openai:v0.31.0
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sleep
+              - "15"
+        livenessProbe:
+          failureThreshold: 10
+          httpGet:
+            path: /health
+            port: '{{ if gt (localDataParallelRanksV1 (and .Spec.Prefill .Spec.Prefill.Parallelism))
+              1 }}dp-supervisor{{ else }}dp-rank-0{{ end }}'
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+          periodSeconds: 10
+          timeoutSeconds: 1
+        name: main
+        ports:
+        - containerPort: 8008
+          name: dp-supervisor
+          protocol: TCP
+        - containerPort: 8000
+          name: dp-rank-0
+          protocol: TCP
+        - containerPort: 8001
+          name: dp-rank-1
+          protocol: TCP
+        - containerPort: 8002
+          name: dp-rank-2
+          protocol: TCP
+        - containerPort: 8003
+          name: dp-rank-3
+          protocol: TCP
+        - containerPort: 8004
+          name: dp-rank-4
+          protocol: TCP
+        - containerPort: 8005
+          name: dp-rank-5
+          protocol: TCP
+        - containerPort: 8006
+          name: dp-rank-6
+          protocol: TCP
+        - containerPort: 8007
+          name: dp-rank-7
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 2
+          httpGet:
+            path: '{{ if gt (localDataParallelRanksV1 (and .Spec.Prefill .Spec.Prefill.Parallelism))
+              1 }}/readyz{{ else }}/health{{ end }}'
+            port: '{{ if gt (localDataParallelRanksV1 (and .Spec.Prefill .Spec.Prefill.Parallelism))
+              1 }}dp-supervisor{{ else }}dp-rank-0{{ end }}'
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+          periodSeconds: 1
+          timeoutSeconds: 1
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - IPC_LOCK
+            - SYS_RAWIO
+            - NET_RAW
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        startupProbe:
+          failureThreshold: 60
+          httpGet:
+            path: /health
+            port: '{{ if gt (localDataParallelRanksV1 (and .Spec.Prefill .Spec.Prefill.Parallelism))
+              1 }}dp-supervisor{{ else }}dp-rank-0{{ end }}'
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+          periodSeconds: 10
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /home
+          name: home
+        - mountPath: /tmp
+          name: tmp-dir
+        - mountPath: /var/cache/vllm
+          name: jit-cache
+        - mountPath: /dev/shm
+          name: dshm
+        - mountPath: /models
+          name: model-cache
+        - mountPath: /var/run/kserve/tls
+          name: tls-certs
+          readOnly: true
+      terminationGracePeriodSeconds: 60
+      volumes:
+      - emptyDir: {}
+        name: home
+      - emptyDir: {}
+        name: tmp-dir
+      - emptyDir: {}
+        name: jit-cache
+      - emptyDir:
+          medium: Memory
+          sizeLimit: 8Gi
+        name: dshm
+      - emptyDir: {}
+        name: model-cache
+      - name: tls-certs
+        secret:
+          secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
+    worker:
+      containers:
+      - command:
+        - /bin/bash
+        - -c
+        - |-
+          # In some versions, ZMQ bind doesn't resolve the address through DNS
+          # Retry DP_ADDRESS resolution (configurable attempts, default 30)
+          RESOLVE_ATTEMPTS=${DP_ADDRESS_RESOLVE_ATTEMPTS:-30}
+          for ((i=1; i<=RESOLVE_ATTEMPTS; i++)); do
+            DP_ADDRESS=$(getent hosts ${LWS_LEADER_ADDRESS} | cut -d' ' -f1)
+            if [ -n "$DP_ADDRESS" ]; then
+              echo "DP_ADDRESS=${DP_ADDRESS} (resolved on attempt $i)"
+              break
+            else
+              echo "DP_ADDRESS resolution failed on attempt $i, retrying..."
+              sleep 1
+            fi
+          done
+
+          if [ -z "$DP_ADDRESS" ]; then
+            echo "WARNING: Failed to resolve DP_ADDRESS after ${RESOLVE_ATTEMPTS} attempts, falling back to LWS_LEADER_ADDRESS"
+            DP_ADDRESS=${LWS_LEADER_ADDRESS}
+            echo "DP_ADDRESS=${DP_ADDRESS} (fallback)"
+          fi
+
+          if [ "$KSERVE_INFER_ROCE" = "true" ]; then
+            echo "Trying to infer RoCE configs ... "
+            grep -H . /sys/class/infiniband/*/ports/*/gids/* 2>/dev/null
+            grep -H . /sys/class/infiniband/*/ports/*/gid_attrs/types/* 2>/dev/null
+
+            cat /proc/driver/nvidia/params
+
+            KSERVE_INFER_IB_GID_INDEX_GREP=${KSERVE_INFER_IB_GID_INDEX_GREP:-"RoCE v2"}
+
+            echo "[Infer RoCE] Discovering active HCAs ..."
+            active_hcas=()
+            # Loop through all mlx5 devices found in sysfs
+            for hca_dir in /sys/class/infiniband/mlx5_*; do
+                # Ensure it's a directory before proceeding
+                if [ -d "$hca_dir" ]; then
+                    hca_name=$(basename "$hca_dir")
+                    port_state_file="$hca_dir/ports/1/state" # Assume port 1
+                    type_file="$hca_dir/ports/1/gid_attrs/types/*"
+
+                    echo "[Infer RoCE] Check if the port state file ${port_state_file} exists and contains 'ACTIVE'"
+                    if [ -f "$port_state_file" ] && grep -q "ACTIVE" "$port_state_file" && grep -q "${KSERVE_INFER_IB_GID_INDEX_GREP}" ${type_file} 2>/dev/null; then
+                        echo "[Infer RoCE] Found active HCA: $hca_name"
+                        active_hcas+=("$hca_name")
+                    else
+                        echo "[Infer RoCE] Skipping inactive or down HCA: $hca_name"
+                    fi
+                fi
+            done
+
+            # Check if we found any active HCAs
+            if [ ${#active_hcas[@]} -gt 0 ]; then
+                # Join the array elements with a comma
+                hca_port_pairs=()
+                for hca in "${active_hcas[@]}"; do
+                  hca_port_pairs+=("${hca}:1")
+                done
+
+                active_hca_list=$(IFS=,; echo "${active_hcas[*]}")
+                hca_port_pairs_list=$(IFS=,; echo "${hca_port_pairs[*]}")
+                echo "[Infer RoCE] Setting active HCAs: ${active_hca_list}"
+                export NCCL_IB_HCA=${NCCL_IB_HCA:-${active_hca_list}}
+                export NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST:-${hca_port_pairs_list}}
+                export UCX_NET_DEVICES=${UCX_NET_DEVICES:-${hca_port_pairs_list}}
+
+                echo "[Infer RoCE] NCCL_IB_HCA=${NCCL_IB_HCA}"
+                echo "[Infer RoCE] NVSHMEM_HCA_LIST=${NVSHMEM_HCA_LIST}"
+                echo "[Infer RoCE] UCX_NET_DEVICES=${UCX_NET_DEVICES}"
+            else
+                echo "[Infer RoCE] WARNING: No active RoCE HCAs found. NCCL_IB_HCA will not be set."
+            fi
+
+            if [ ${#active_hcas[@]} -gt 0 ]; then
+                echo "[Infer RoCE] Finding GID_INDEX for each active HCA (SR-IOV compatible)..."
+
+                # For SR-IOV environments, find the most common IPv4 RoCE v2 GID index across all HCAs
+                declare -A gid_index_count
+                declare -A hca_gid_index
+
+                for hca_name in "${active_hcas[@]}"; do
+                    echo "[Infer RoCE] Processing HCA: ${hca_name}"
+
+                    # Find all RoCE v2 IPv4 GIDs for this HCA and count by index
+                    for tpath in /sys/class/infiniband/${hca_name}/ports/1/gid_attrs/types/*; do
+                        if grep -q "${KSERVE_INFER_IB_GID_INDEX_GREP}" "$tpath" 2>/dev/null; then
+                            idx=$(basename "$tpath")
+                            gid_file="/sys/class/infiniband/${hca_name}/ports/1/gids/${idx}"
+                            # Check for IPv4 GID (contains ffff:)
+                            if [ -f "$gid_file" ] && grep -q "ffff:" "$gid_file"; then
+                                gid_value=$(cat "$gid_file" 2>/dev/null || echo "")
+                                echo "[Infer RoCE] Found IPv4 RoCE v2 GID for ${hca_name}: index=${idx}, gid=${gid_value}"
+                                hca_gid_index["${hca_name}"]="${idx}"
+                                gid_index_count["${idx}"]=$((${gid_index_count["${idx}"]} + 1))
+                                break  # Use first found IPv4 GID per HCA
+                            fi
+                        fi
+                    done
+                done
+
+                # Find the most common GID index (most likely to be consistent across nodes)
+                best_gid_index=""
+                max_count=0
+                for idx in "${!gid_index_count[@]}"; do
+                    count=${gid_index_count["${idx}"]}
+                    echo "[Infer RoCE] GID_INDEX ${idx} found on ${count} HCAs"
+                    if [ $count -gt $max_count ]; then
+                        max_count=$count
+                        best_gid_index="$idx"
+                    fi
+                done
+
+                # Use deterministic fallback if tied - prefer index 3 (SR-IOV standard)
+                if [ ${#gid_index_count[@]} -gt 1 ]; then
+                    echo "[Infer RoCE] Multiple GID indices found, selecting most common: ${best_gid_index}"
+                    # If there's a tie, prefer index 3 as it's most common in SR-IOV setups
+                    if [ -n "${gid_index_count['3']}" ] && [ "${gid_index_count['3']}" -eq "$max_count" ]; then
+                        best_gid_index="3"
+                        echo "[Infer RoCE] Using deterministic fallback: GID_INDEX=3 (SR-IOV standard)"
+                    fi
+                fi
+
+                # Check if GID_INDEX is already set via environment variables
+                if [ -n "${NCCL_IB_GID_INDEX}" ]; then
+                    echo "[Infer RoCE] Using pre-configured NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX} from environment"
+                    export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
+                    export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$NCCL_IB_GID_INDEX}
+                    echo "[Infer RoCE] Using pre-configured GID_INDEX=${NCCL_IB_GID_INDEX} for NCCL, NVSHMEM, and UCX"
+                elif [ -n "$best_gid_index" ]; then
+                    echo "[Infer RoCE] Selected GID_INDEX: ${best_gid_index} (found on ${max_count} HCAs)"
+
+                    export NCCL_IB_GID_INDEX=${NCCL_IB_GID_INDEX:-$best_gid_index}
+                    export NVSHMEM_IB_GID_INDEX=${NVSHMEM_IB_GID_INDEX:-$best_gid_index}
+                    export UCX_IB_GID_INDEX=${UCX_IB_GID_INDEX:-$best_gid_index}
+
+                    echo "[Infer RoCE] Exported GID_INDEX=${best_gid_index} for NCCL, NVSHMEM, and UCX"
+                else
+                    echo "[Infer RoCE] ERROR: No valid IPv4 ${KSERVE_INFER_IB_GID_INDEX_GREP} GID_INDEX found on any HCA."
+                fi
+            else
+                echo "[Infer RoCE] No active HCAs found, skipping GID_INDEX inference."
+            fi
+          fi
+
+          START_RANK=$(( ${LWS_WORKER_INDEX:-0} * {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.DataLocal) 1 }} ))
+
+          # --disable-access-log-for-endpoints landed in vLLM 0.16.0 (vllm-project/vllm#30011).
+          # Older versions still need the blanket --disable-uvicorn-access-log.
+          ACCESS_LOG_ARGS="--disable-uvicorn-access-log"
+          VLLM_VERSION=$(vllm --version 2>/dev/null | tail -1 | awk '{print $NF}')
+          echo "[access-log-detect] vllm version='${VLLM_VERSION}'"
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.16.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.16.0" ]; then
+            ACCESS_LOG_ARGS="--disable-access-log-for-endpoints /health,/metrics,/ping"
+          fi
+          echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
+
+          # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
+          SHUTDOWN_TIMEOUT_ARGS=""
+          if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
+            SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ if .Spec.Prefill }}{{ shutdownTimeout .Spec.Prefill.Worker 15 }}{{ else }}{{ shutdownTimeout nil 15 }}{{ end }}"
+          fi
+
+          # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
+          KV_TRANSFER_ARGS=""
+          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+            # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+            # it is empty (no-op) when KV cache offloading is not configured.
+            if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+              # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+                KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+              fi
+            fi
+            # This template is only composed for a disaggregated P/D topology (spec.prefill set).
+            # Prefill is the KV producer; without a connector here decode has nothing to fetch.
+            if [ -z "${KV_TRANSFER_ARGS}" ]; then
+              # Only inject when NIXL is importable. CPU and other non-NIXL engine images
+              # raise RuntimeError("NIXL is not available") and never finish starting.
+              NIXL_PY=$(command -v python3 || command -v python || true)
+              if [ -n "${NIXL_PY}" ] && "${NIXL_PY}" -c "import nixl" >/dev/null 2>&1; then
+                KV_TRANSFER_ARGS="--kv-transfer-config '{\"kv_connector\":\"NixlConnector\",\"kv_role\":\"kv_producer\"}'"
+                echo "[kv-transfer] NIXL available, enabling NixlConnector (kv_producer)"
+              else
+                echo "[kv-transfer] NIXL not available, P/D KV transfer stays disabled"
+              fi
+            fi
+          fi
+
+          eval "exec vllm serve \
+            ${KSERVE_MODEL_ARGS:-/mnt/models} \
+            --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
+            --port 8000 \
+            --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
+            {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Expert }}--enable-expert-parallel{{- end }} \
+            {{- if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Tensor }}--tensor-parallel-size {{ .Spec.Prefill.Parallelism.Tensor }}{{- end }} \
+            --data-parallel-size {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.Data) 1 }} \
+            --data-parallel-size-local {{ or (and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.DataLocal) 1 }} \
+            --data-parallel-address ${DP_ADDRESS} \
+            --data-parallel-rpc-port {{ if and .Spec.Prefill .Spec.Prefill.Parallelism .Spec.Prefill.Parallelism.DataRPCPort }}{{ .Spec.Prefill.Parallelism.DataRPCPort }}{{ else }}5555{{- end }} \
+            {{ if gt (localDataParallelRanksV1 (and .Spec.Prefill .Spec.Prefill.Parallelism)) 1 }}--data-parallel-multi-port-external-lb --data-parallel-supervisor-port=8008 --data-parallel-start-rank $START_RANK{{ else }}--data-parallel-rank $START_RANK{{ end }} \
+            ${ACCESS_LOG_ARGS} \
+            ${SHUTDOWN_TIMEOUT_ARGS} \
+            ${KV_TRANSFER_ARGS} \
+            {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
+            {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
+            {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+            ${VLLM_ADDITIONAL_ARGS} \
+            $@"
+        - --
+        env:
+        - name: KSERVE_KV_TRANSFER_ARGS
+          value: ""
+        - name: KSERVE_MODEL_ARGS
+          value: ""
+        - name: HOME
+          value: /home
+        - name: VLLM_LOGGING_LEVEL
+          value: INFO
+        - name: HF_HUB_CACHE
+          value: /models
+        - name: VLLM_NIXL_SIDE_CHANNEL_HOST
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: VLLM_ENGINE_READY_TIMEOUT_S
+          value: "3000"
+        - name: VLLM_RANDOMIZE_DP_DUMMY_INPUTS
+          value: "1"
+        - name: VLLM_SKIP_P2P_CHECK
+          value: "1"
+        - name: NVIDIA_GDRCOPY
+          value: enabled
+        - name: GLOO_SOCKET_IFNAME
+          value: eth0
+        - name: NCCL_SOCKET_IFNAME
+          value: eth0
+        - name: VLLM_HTTP_TIMEOUT_KEEP_ALIVE
+          value: "120"
+        - name: CUDA_CACHE_PATH
+          value: /var/cache/vllm/cuda
+        - name: CCACHE_DIR
+          value: /var/cache/vllm/ccache
+        - name: VLLM_CACHE_ROOT
+          value: /var/cache/vllm/vllm
+        - name: FLASHINFER_WORKSPACE_BASE
+          value: /var/cache/vllm/flashinfer
+        image: docker.io/vllm/vllm-openai:v0.31.0
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sleep
+              - "15"
+        livenessProbe:
+          failureThreshold: 10
+          httpGet:
+            path: /health
+            port: '{{ if gt (localDataParallelRanksV1 (and .Spec.Prefill .Spec.Prefill.Parallelism))
+              1 }}dp-supervisor{{ else }}dp-rank-0{{ end }}'
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+          periodSeconds: 10
+          timeoutSeconds: 1
+        name: main
+        ports:
+        - containerPort: 8008
+          name: dp-supervisor
+          protocol: TCP
+        - containerPort: 8000
+          name: dp-rank-0
+          protocol: TCP
+        - containerPort: 8001
+          name: dp-rank-1
+          protocol: TCP
+        - containerPort: 8002
+          name: dp-rank-2
+          protocol: TCP
+        - containerPort: 8003
+          name: dp-rank-3
+          protocol: TCP
+        - containerPort: 8004
+          name: dp-rank-4
+          protocol: TCP
+        - containerPort: 8005
+          name: dp-rank-5
+          protocol: TCP
+        - containerPort: 8006
+          name: dp-rank-6
+          protocol: TCP
+        - containerPort: 8007
+          name: dp-rank-7
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 2
+          httpGet:
+            path: '{{ if gt (localDataParallelRanksV1 (and .Spec.Prefill .Spec.Prefill.Parallelism))
+              1 }}/readyz{{ else }}/health{{ end }}'
+            port: '{{ if gt (localDataParallelRanksV1 (and .Spec.Prefill .Spec.Prefill.Parallelism))
+              1 }}dp-supervisor{{ else }}dp-rank-0{{ end }}'
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+          periodSeconds: 1
+          timeoutSeconds: 1
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - IPC_LOCK
+            - SYS_RAWIO
+            - NET_RAW
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+        startupProbe:
+          failureThreshold: 60
+          httpGet:
+            path: /health
+            port: '{{ if gt (localDataParallelRanksV1 (and .Spec.Prefill .Spec.Prefill.Parallelism))
+              1 }}dp-supervisor{{ else }}dp-rank-0{{ end }}'
+            scheme: '{{ if .GlobalConfig.EnableTLS }}HTTPS{{else}}HTTP{{- end }}'
+          periodSeconds: 10
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: FallbackToLogsOnError
+        volumeMounts:
+        - mountPath: /home
+          name: home
+        - mountPath: /tmp
+          name: tmp-dir
+        - mountPath: /var/cache/vllm
+          name: jit-cache
+        - mountPath: /dev/shm
+          name: dshm
+        - mountPath: /models
+          name: model-cache
+        - mountPath: /var/run/kserve/tls
+          name: tls-certs
+          readOnly: true
+      terminationGracePeriodSeconds: 60
+      volumes:
+      - emptyDir: {}
+        name: home
+      - emptyDir: {}
+        name: tmp-dir
+      - emptyDir: {}
+        name: jit-cache
       - emptyDir:
           medium: Memory
           sizeLimit: 8Gi
@@ -4543,6 +6401,46 @@ spec:
               name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
               port: 8000
               weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/audio
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/audio
+            name: v1-audio-path
+            timeouts:
+              backendRequest: 0s
+              request: 600s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/images
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }}/v1/images
+            name: v1-images-path
+            timeouts:
+              backendRequest: 0s
+              request: 600s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
             matches:
             - headers:
               - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
@@ -4608,6 +6506,54 @@ spec:
               path:
                 type: Exact
                 value: /v1/messages/
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/audio/speech
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/audio/speech/
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/audio/transcriptions
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/audio/transcriptions/
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/images/generations
+            - headers:
+              - name: '{{ .GlobalConfig.ModelBasedRoutingHeaderName }}'
+                type: Exact
+                value: publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}
+              path:
+                type: Exact
+                value: /v1/images/generations/
             name: v1-model-routing
             timeouts:
               backendRequest: 0s
@@ -4697,6 +6643,48 @@ spec:
               backendRequest: 0s
               request: 0s
           - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/audio
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}/v1/audio
+            name: v1-audio-publisher-path
+            timeouts:
+              backendRequest: 0s
+              request: 600s
+          - backendRefs:
+            - group: inference.networking.k8s.io
+              kind: InferencePool
+              name: '{{ ChildName .ObjectMeta.Name `-inference-pool` }}'
+              port: 8000
+              weight: 1
+            filters:
+            - type: URLRewrite
+              urlRewrite:
+                path:
+                  replacePrefixMatch: /v1/images
+                  type: ReplacePrefixMatch
+            matches:
+            - path:
+                type: PathPrefix
+                value: /publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name
+                  }}/v1/images
+            name: v1-images-publisher-path
+            timeouts:
+              backendRequest: 0s
+              request: 600s
+          - backendRefs:
             - kind: Service
               name: '{{ ChildName .ObjectMeta.Name `-kserve-workload-svc` }}'
               port: 8000
@@ -4760,7 +6748,7 @@ spec:
   router:
     scheduler:
       annotations:
-        app.kubernetes.io/version: 0.10.0
+        app.kubernetes.io/version: 0.11.0
       pool:
         spec:
           endpointPickerRef:
@@ -4796,10 +6784,14 @@ spec:
             end }}'
           - '{{ if .GlobalConfig.EnableTLS }}--cert-path=/var/run/kserve/tls{{- end
             }}'
+          - '{{ if .GlobalConfig.TLSMinVersion }}--tls-min-version={{ .GlobalConfig.TLSMinVersion
+            }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
+          - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites
+            }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.10.0
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -4935,192 +6927,29 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
-  name: kserve-config-llm-scheduler-latency-predictor
+  name: kserve-config-llm-scheduler-eppconfig-modality
   namespace: kserve
 spec:
   router:
     scheduler:
-      template:
-        containers:
-        - env:
-          - name: PREDICTION_SERVER_URL
-            value: http://localhost:8001
-          - name: TRAINING_SERVER_URL
-            value: http://localhost:8000
-          - name: LATENCY_MAX_SAMPLE_SIZE
-            value: "10000"
-          - name: LATENCY_MAX_CONCURRENT_DISPATCHES
-            value: "36"
-          - name: LATENCY_COALESCE_WINDOW_MS
-            value: "1"
-          name: main
-        - env:
-          - name: LATENCY_RETRAINING_INTERVAL_SEC
-            value: "10"
-          - name: LATENCY_MIN_SAMPLES_FOR_RETRAIN
-            value: "100"
-          - name: LATENCY_TTFT_MODEL_PATH
-            value: /models/ttft.joblib
-          - name: LATENCY_TPOT_MODEL_PATH
-            value: /models/tpot.joblib
-          - name: LATENCY_TTFT_SCALER_PATH
-            value: /models/ttft_scaler.joblib
-          - name: LATENCY_TPOT_SCALER_PATH
-            value: /models/tpot_scaler.joblib
-          - name: LATENCY_TTFT_GATED_MODEL_PATH
-            value: /models/ttft_gated.joblib
-          - name: LATENCY_TPOT_GATED_MODEL_PATH
-            value: /models/tpot_gated.joblib
-          - name: LATENCY_MODEL_TYPE
-            value: xgboost
-          - name: LATENCY_MAX_TRAINING_DATA_SIZE_PER_BUCKET
-            value: "500"
-          - name: LATENCY_OBJECTIVE_TYPE
-            value: mean
-          image: ghcr.io/llm-d/llm-d-latency-predictor-training-server:0.9.0
-          imagePullPolicy: IfNotPresent
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: 8000
-            initialDelaySeconds: 30
-            periodSeconds: 20
-          name: training-server
-          ports:
-          - containerPort: 8000
-            name: training-port
-          readinessProbe:
-            httpGet:
-              path: /readyz
-              port: 8000
-            initialDelaySeconds: 45
-            periodSeconds: 10
-          resources:
-            limits:
-              cpu: 4000m
-              memory: 8Gi
-            requests:
-              cpu: 2000m
-              memory: 4Gi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            seccompProfile:
-              type: RuntimeDefault
-          startupProbe:
-            failureThreshold: 30
-            httpGet:
-              path: /healthz
-              port: 8000
-            periodSeconds: 10
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: FallbackToLogsOnError
-          volumeMounts:
-          - mountPath: /models
-            name: training-server-storage
-          - mountPath: /tmp
-            name: training-server-tmp
-        - env:
-          - name: TRAINING_SERVER_URL
-            value: http://localhost:8000
-          - name: LATENCY_MODEL_TYPE
-            value: xgboost
-          - name: PREDICT_HOST
-            value: 0.0.0.0
-          - name: PREDICT_PORT
-            value: "8001"
-          - name: LOCAL_TTFT_MODEL_PATH
-            value: /server_models/ttft.joblib
-          - name: LOCAL_TPOT_MODEL_PATH
-            value: /server_models/tpot.joblib
-          - name: LOCAL_TTFT_SCALER_PATH
-            value: /server_models/ttft_scaler.joblib
-          - name: LOCAL_TPOT_SCALER_PATH
-            value: /server_models/tpot_scaler.joblib
-          - name: LOCAL_TTFT_GATED_MODEL_PATH
-            value: /server_models/ttft_gated.joblib
-          - name: LOCAL_TPOT_GATED_MODEL_PATH
-            value: /server_models/tpot_gated.joblib
-          - name: UVICORN_WORKERS
-            value: "28"
-          - name: OMP_NUM_THREADS
-            value: "1"
-          - name: MODEL_SYNC_INTERVAL_SEC
-            value: "30"
-          - name: LATENCY_OBJECTIVE_TYPE
-            value: mean
-          image: ghcr.io/llm-d/llm-d-latency-predictor-prediction-server:0.9.0
-          imagePullPolicy: IfNotPresent
-          livenessProbe:
-            failureThreshold: 5
-            httpGet:
-              path: /healthz
-              port: 8001
-            initialDelaySeconds: 15
-            periodSeconds: 15
-            timeoutSeconds: 5
-          name: prediction-server
-          ports:
-          - containerPort: 8001
-            name: predict-port
-          readinessProbe:
-            failureThreshold: 3
-            httpGet:
-              path: /readyz
-              port: 8001
-            initialDelaySeconds: 10
-            periodSeconds: 10
-            timeoutSeconds: 5
-          resources:
-            limits:
-              cpu: 28000m
-              memory: 8Gi
-            requests:
-              cpu: 8000m
-              memory: 4Gi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-              - ALL
-            readOnlyRootFilesystem: true
-            runAsNonRoot: true
-            seccompProfile:
-              type: RuntimeDefault
-          startupProbe:
-            failureThreshold: 60
-            httpGet:
-              path: /readyz
-              port: 8001
-            periodSeconds: 10
-          terminationMessagePath: /dev/termination-log
-          terminationMessagePolicy: FallbackToLogsOnError
-          volumeMounts:
-          - mountPath: /server_models
-            name: prediction-server-storage
-          - mountPath: /tmp
-            name: prediction-server-tmp
-        restartPolicy: Always
-        terminationGracePeriodSeconds: 60
-        volumes:
-        - emptyDir:
-            sizeLimit: 20Gi
-          name: training-server-storage
-        - emptyDir:
-            sizeLimit: 10Gi
-          name: prediction-server-storage
-        - emptyDir: {}
-          name: training-server-tmp
-        - emptyDir: {}
-          name: prediction-server-tmp
+      config:
+        inline:
+          apiVersion: llm-d.ai/v1alpha1
+          kind: EndpointPickerConfig
+          plugins:
+          - type: active-request-scorer
+          - type: max-score-picker
+          schedulingProfiles:
+          - name: default
+            plugins:
+            - pluginRef: active-request-scorer
+            - pluginRef: max-score-picker
 ---
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  annotations:
+    internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
   name: kserve-config-llm-template
   namespace: kserve
 spec:
@@ -5264,21 +7093,40 @@ spec:
         fi
         echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
+        {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}# Probe the flag itself because product images may report a product version.
+        TLS_CIPHER_ARGS=""
+        # --ssl-ciphers was added in vLLM 0.15.0; keep the probe for product builds with differing flags.
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+          TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+          case "${TLS_CIPHER_HELP}" in
+            *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+            *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+          esac
+        else
+          echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+        fi
+        {{ end }}
+
         # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
         SHUTDOWN_TIMEOUT_ARGS=""
         if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+          # it is empty (no-op) when KV cache offloading is not configured.
+          if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+              KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+            fi
           fi
         fi
 
-        eval "exec vllm serve /mnt/models \
+        eval "exec vllm serve ${KSERVE_MODEL_ARGS:-/mnt/models} \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -5289,10 +7137,15 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
       env:
+      - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
+      - name: KSERVE_MODEL_ARGS
+        value: ""
       - name: HOME
         value: /home
       - name: VLLM_LOGGING_LEVEL
@@ -5390,12 +7243,31 @@ spec:
             - /bin/bash
             - -c
             - |-
+              VLLM_VERSION=$(vllm --version 2>/dev/null | tail -1 | awk '{print $NF}')
+              {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}TLS_CIPHER_ARGS=""
+              # --ssl-ciphers was added in vLLM 0.15.0; keep the probe for product builds with differing flags.
+              if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+                TLS_CIPHER_HELP="$(vllm launch render --help=all 2>&1 || true)"
+                case "${TLS_CIPHER_HELP}" in
+                  *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+                  *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+                esac
+              else
+                echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+              fi
+              {{ end }}
               exec vllm launch render /mnt/models/base \
+                --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" /mnt/models/base \
                 --port=8000 \
                 {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh \
                 --ssl-certfile /var/run/kserve/tls/tls.crt \
-                --ssl-keyfile /var/run/kserve/tls/tls.key{{ end }}
+                --ssl-keyfile /var/run/kserve/tls/tls.key{{ end }} \
+                {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{ end }} \
+                "$@"
+            - --
             env:
+            - name: KSERVE_TRACING_CONFIG_VERSION
+              value: "1"
             - name: HF_HOME
               value: /tmp/hf
             - name: DO_NOT_TRACK
@@ -5466,6 +7338,8 @@ spec:
 apiVersion: serving.kserve.io/v1alpha2
 kind: LLMInferenceServiceConfig
 metadata:
+  annotations:
+    internal.serving.kserve.io/kv-cache-shm-percent-of-cpu: "120"
   name: kserve-config-llm-worker-data-parallel
   namespace: kserve
 spec:
@@ -5631,22 +7505,51 @@ spec:
         fi
         echo "[access-log-detect] selected ACCESS_LOG_ARGS='${ACCESS_LOG_ARGS}'"
 
+        {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}# Probe the flag itself because product images may report a product version.
+        TLS_CIPHER_ARGS=""
+        # --ssl-ciphers was added in vLLM 0.15.0; keep the probe for product builds with differing flags.
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+          TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+          case "${TLS_CIPHER_HELP}" in
+            *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+            *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+          esac
+        else
+          echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+        fi
+        {{ end }}
+
         # --shutdown-timeout landed in vLLM 0.18.0 (vllm-project/vllm#36666).
         SHUTDOWN_TIMEOUT_ARGS=""
         if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.18.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.18.0" ]; then
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Template 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+          # it is empty (no-op) when KV cache offloading is not configured.
+          if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+              KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+            fi
           fi
         fi
 
-        eval "exec vllm serve \
-          /mnt/models \
+        {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}TLS_CIPHER_ARGS=""
+        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.15.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.15.0" ]; then
+          TLS_CIPHER_HELP="$(vllm serve --help=all 2>&1 || true)"
+          case "${TLS_CIPHER_HELP}" in
+            *--ssl-ciphers*) TLS_CIPHER_ARGS="--ssl-ciphers {{ .GlobalConfig.TLSCipherSuitesOpenSSL }}" ;;
+            *) echo "[tls-profile] warning: this vLLM does not support --ssl-ciphers; continuing without the configured cipher policy" >&2 ;;
+          esac
+        else
+          echo "[tls-profile] warning: vLLM ${VLLM_VERSION} is older than 0.15.0 and does not support --ssl-ciphers; continuing without the configured cipher policy" >&2
+        fi
+        {{ end }}eval "exec vllm serve \
+          ${KSERVE_MODEL_ARGS:-/mnt/models} \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -5664,10 +7567,15 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
       env:
+      - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
+      - name: KSERVE_MODEL_ARGS
+        value: ""
       - name: HOME
         value: /home
       - name: VLLM_LOGGING_LEVEL
@@ -5917,16 +7825,21 @@ spec:
           SHUTDOWN_TIMEOUT_ARGS="--shutdown-timeout {{ shutdownTimeout .Spec.Worker 15 }}"
         fi
 
-        # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+        # A user-supplied --kv-transfer-config always wins; KServe only fills the flag when it is unset.
         KV_TRANSFER_ARGS=""
-        if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
-          if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
-            KV_TRANSFER_ARGS="{{ kvTransferConfig .Spec.KVCacheOffloading }}"
+        if [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv-transfer-config"* ]] && [[ "${VLLM_ADDITIONAL_ARGS:-}" != *"--kv_transfer_config"* ]] && [[ "$*" != *"--kv-transfer-config"* ]] && [[ "$*" != *"--kv_transfer_config"* ]]; then
+          # KSERVE_KV_TRANSFER_ARGS is set as a container env var by the config template;
+          # it is empty (no-op) when KV cache offloading is not configured.
+          if [ -n "${KSERVE_KV_TRANSFER_ARGS:-}" ]; then
+            # --kv-transfer-config with OffloadingConnector requires vLLM 0.22.0+ (vllm-project/vllm#40020).
+            if [[ "$VLLM_VERSION" =~ ^[0-9]+\.[0-9]+ ]] && [ "$(printf '%s\n%s\n' "0.22.0" "${VLLM_VERSION}" | sort -V | head -1)" = "0.22.0" ]; then
+              KV_TRANSFER_ARGS="${KSERVE_KV_TRANSFER_ARGS}"
+            fi
           fi
         fi
 
         eval "exec vllm serve \
-          /mnt/models \
+          ${KSERVE_MODEL_ARGS:-/mnt/models} \
           --served-model-name "{{ .Spec.Model.Name }}" "publishers/{{ .ObjectMeta.Namespace }}/models/{{ .Spec.Model.Name }}" \
           --port 8000 \
           --root-path /{{ .ObjectMeta.Namespace }}/{{ .ObjectMeta.Name }} \
@@ -5944,10 +7857,15 @@ spec:
           {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-certfile /var/run/kserve/tls/tls.crt{{- end }} \
           {{ if .GlobalConfig.EnableTLS }}--ssl-keyfile /var/run/kserve/tls/tls.key{{- end }} \
+          {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{- end }} \
           ${VLLM_ADDITIONAL_ARGS} \
           $@"
       - --
       env:
+      - name: KSERVE_KV_TRANSFER_ARGS
+        value: ""
+      - name: KSERVE_MODEL_ARGS
+        value: ""
       - name: HOME
         value: /home
       - name: VLLM_LOGGING_LEVEL
@@ -6028,7 +7946,6 @@ spec:
           --port 8000
           --host 0.0.0.0
           {{- if and .Spec.Parallelism .Spec.Parallelism.Tensor }} --tp {{ .Spec.Parallelism.Tensor }}{{- end }}
-          {{- if .Spec.TrustRemoteCode }} --trust-remote-code{{- end }}
         )
         exec "${args[@]}" "$@"
       - --
@@ -6303,6 +8220,8 @@ spec:
                                 - type: integer
                                 - type: string
                                 x-kubernetes-int-or-string: true
+                              protocol:
+                                type: string
                               scheme:
                                 type: string
                             required:
@@ -6363,6 +8282,8 @@ spec:
                                 - type: integer
                                 - type: string
                                 x-kubernetes-int-or-string: true
+                              protocol:
+                                type: string
                               scheme:
                                 type: string
                             required:
@@ -6407,6 +8328,8 @@ spec:
                         type: integer
                       grpc:
                         properties:
+                          mode:
+                            type: string
                           port:
                             format: int32
                             type: integer
@@ -6440,6 +8363,8 @@ spec:
                             - type: integer
                             - type: string
                             x-kubernetes-int-or-string: true
+                          protocol:
+                            type: string
                           scheme:
                             type: string
                         required:
@@ -6514,6 +8439,8 @@ spec:
                         type: integer
                       grpc:
                         properties:
+                          mode:
+                            type: string
                           port:
                             format: int32
                             type: integer
@@ -6547,6 +8474,8 @@ spec:
                             - type: integer
                             - type: string
                             x-kubernetes-int-or-string: true
+                          protocol:
+                            type: string
                           scheme:
                             type: string
                         required:
@@ -6738,6 +8667,8 @@ spec:
                         type: integer
                       grpc:
                         properties:
+                          mode:
+                            type: string
                           port:
                             format: int32
                             type: integer
@@ -6771,6 +8702,8 @@ spec:
                             - type: integer
                             - type: string
                             x-kubernetes-int-or-string: true
+                          protocol:
+                            type: string
                           scheme:
                             type: string
                         required:
@@ -6832,6 +8765,11 @@ spec:
                   volumeMounts:
                     items:
                       properties:
+                        bindMountOptions:
+                          items:
+                            type: string
+                          type: array
+                          x-kubernetes-list-type: set
                         mountPath:
                           type: string
                         mountPropagation:
@@ -6945,6 +8883,142 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+              kvCacheOffloading:
+                properties:
+                  cpu:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  evictionPolicy:
+                    default: lru
+                    enum:
+                    - lru
+                    - arc
+                    type: string
+                  secondary:
+                    items:
+                      properties:
+                        fileSystem:
+                          properties:
+                            emptyDir:
+                              properties:
+                                size:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              required:
+                              - size
+                              type: object
+                            pvc:
+                              properties:
+                                ref:
+                                  properties:
+                                    name:
+                                      type: string
+                                    path:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                spec:
+                                  properties:
+                                    accessModes:
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    dataSource:
+                                      properties:
+                                        apiGroup:
+                                          type: string
+                                        kind:
+                                          type: string
+                                        name:
+                                          type: string
+                                      required:
+                                      - kind
+                                      - name
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                    dataSourceRef:
+                                      properties:
+                                        apiGroup:
+                                          type: string
+                                        kind:
+                                          type: string
+                                        name:
+                                          type: string
+                                        namespace:
+                                          type: string
+                                      required:
+                                      - kind
+                                      - name
+                                      type: object
+                                    resources:
+                                      properties:
+                                        limits:
+                                          additionalProperties:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                          type: object
+                                        requests:
+                                          additionalProperties:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                          type: object
+                                      type: object
+                                    selector:
+                                      properties:
+                                        matchExpressions:
+                                          items:
+                                            properties:
+                                              key:
+                                                type: string
+                                              operator:
+                                                type: string
+                                              values:
+                                                items:
+                                                  type: string
+                                                type: array
+                                                x-kubernetes-list-type: atomic
+                                            required:
+                                            - key
+                                            - operator
+                                            type: object
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        matchLabels:
+                                          additionalProperties:
+                                            type: string
+                                          type: object
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                    storageClassName:
+                                      type: string
+                                    volumeAttributesClassName:
+                                      type: string
+                                    volumeMode:
+                                      type: string
+                                    volumeName:
+                                      type: string
+                                  type: object
+                              type: object
+                          type: object
+                      type: object
+                    type: array
+                required:
+                - cpu
+                type: object
               labels:
                 additionalProperties:
                   type: string
@@ -7012,6 +9086,142 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
+                    type: object
+                  kvCacheOffloading:
+                    properties:
+                      cpu:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      evictionPolicy:
+                        default: lru
+                        enum:
+                        - lru
+                        - arc
+                        type: string
+                      secondary:
+                        items:
+                          properties:
+                            fileSystem:
+                              properties:
+                                emptyDir:
+                                  properties:
+                                    size:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  required:
+                                  - size
+                                  type: object
+                                pvc:
+                                  properties:
+                                    ref:
+                                      properties:
+                                        name:
+                                          type: string
+                                        path:
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    spec:
+                                      properties:
+                                        accessModes:
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        dataSource:
+                                          properties:
+                                            apiGroup:
+                                              type: string
+                                            kind:
+                                              type: string
+                                            name:
+                                              type: string
+                                          required:
+                                          - kind
+                                          - name
+                                          type: object
+                                          x-kubernetes-map-type: atomic
+                                        dataSourceRef:
+                                          properties:
+                                            apiGroup:
+                                              type: string
+                                            kind:
+                                              type: string
+                                            name:
+                                              type: string
+                                            namespace:
+                                              type: string
+                                          required:
+                                          - kind
+                                          - name
+                                          type: object
+                                        resources:
+                                          properties:
+                                            limits:
+                                              additionalProperties:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                              type: object
+                                            requests:
+                                              additionalProperties:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                              type: object
+                                          type: object
+                                        selector:
+                                          properties:
+                                            matchExpressions:
+                                              items:
+                                                properties:
+                                                  key:
+                                                    type: string
+                                                  operator:
+                                                    type: string
+                                                  values:
+                                                    items:
+                                                      type: string
+                                                    type: array
+                                                    x-kubernetes-list-type: atomic
+                                                required:
+                                                - key
+                                                - operator
+                                                type: object
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                            matchLabels:
+                                              additionalProperties:
+                                                type: string
+                                              type: object
+                                          type: object
+                                          x-kubernetes-map-type: atomic
+                                        storageClassName:
+                                          type: string
+                                        volumeAttributesClassName:
+                                          type: string
+                                        volumeMode:
+                                          type: string
+                                        volumeName:
+                                          type: string
+                                      type: object
+                                  type: object
+                              type: object
+                          type: object
+                        type: array
+                    required:
+                    - cpu
                     type: object
                   labels:
                     additionalProperties:
@@ -7481,9 +9691,6 @@ spec:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: either wva or keda must be specified when scaling is
-                        configured
-                      rule: has(self.wva) || has(self.keda)
                     - message: wva and keda are mutually exclusive
                       rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct
@@ -8116,6 +10323,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -8176,6 +10385,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -8220,6 +10431,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -8253,6 +10466,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -8327,6 +10542,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -8360,6 +10577,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -8549,6 +10768,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -8582,6 +10803,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -8643,6 +10866,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -8865,6 +11093,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -8925,6 +11155,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -8969,6 +11201,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -9002,6 +11236,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -9076,6 +11312,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -9109,6 +11347,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -9298,6 +11538,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -9331,6 +11573,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -9394,6 +11638,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -9421,6 +11670,23 @@ spec:
                           required:
                           - name
                           type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      evictionResponders:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            priority:
+                              format: int32
+                              type: integer
+                          required:
+                          - name
+                          - priority
+                          type: object
+                          x-kubernetes-map-type: atomic
                         type: array
                         x-kubernetes-list-map-keys:
                         - name
@@ -9630,6 +11896,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -9690,6 +11958,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -9734,6 +12004,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -9767,6 +12039,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -9841,6 +12115,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -9874,6 +12150,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -10063,6 +12341,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -10096,6 +12376,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -10157,6 +12439,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -10560,6 +12847,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -10570,6 +12860,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -10610,6 +12903,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -10643,6 +12939,9 @@ spec:
                                         - resource
                                         type: object
                                         x-kubernetes-map-type: atomic
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -10653,6 +12952,9 @@ spec:
                               properties:
                                 medium:
                                   type: string
+                                mode:
+                                  format: int32
+                                  type: integer
                                 sizeLimit:
                                   anyOf:
                                   - type: integer
@@ -10944,6 +13246,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 sources:
                                   items:
                                     properties:
@@ -10983,6 +13288,9 @@ spec:
                                             type: string
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -10998,6 +13306,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -11046,6 +13357,9 @@ spec:
                                                   - resource
                                                   type: object
                                                   x-kubernetes-map-type: atomic
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - path
                                               type: object
@@ -11067,6 +13381,9 @@ spec:
                                             type: integer
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                           userAnnotations:
                                             additionalProperties:
                                               type: string
@@ -11087,6 +13404,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -11109,6 +13429,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -11206,6 +13529,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -11216,6 +13542,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -11876,6 +14205,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -11936,6 +14267,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -11980,6 +14313,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -12013,6 +14348,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -12087,6 +14424,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -12120,6 +14459,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -12309,6 +14650,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -12342,6 +14685,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -12403,6 +14748,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -12625,6 +14975,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -12685,6 +15037,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -12729,6 +15083,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -12762,6 +15118,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -12836,6 +15194,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -12869,6 +15229,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -13058,6 +15420,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -13091,6 +15455,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -13154,6 +15520,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -13181,6 +15552,23 @@ spec:
                           required:
                           - name
                           type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      evictionResponders:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            priority:
+                              format: int32
+                              type: integer
+                          required:
+                          - name
+                          - priority
+                          type: object
+                          x-kubernetes-map-type: atomic
                         type: array
                         x-kubernetes-list-map-keys:
                         - name
@@ -13390,6 +15778,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -13450,6 +15840,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -13494,6 +15886,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -13527,6 +15921,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -13601,6 +15997,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -13634,6 +16032,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -13823,6 +16223,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -13856,6 +16258,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -13917,6 +16321,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -14320,6 +16729,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -14330,6 +16742,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -14370,6 +16785,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -14403,6 +16821,9 @@ spec:
                                         - resource
                                         type: object
                                         x-kubernetes-map-type: atomic
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -14413,6 +16834,9 @@ spec:
                               properties:
                                 medium:
                                   type: string
+                                mode:
+                                  format: int32
+                                  type: integer
                                 sizeLimit:
                                   anyOf:
                                   - type: integer
@@ -14704,6 +17128,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 sources:
                                   items:
                                     properties:
@@ -14743,6 +17170,9 @@ spec:
                                             type: string
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -14758,6 +17188,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -14806,6 +17239,9 @@ spec:
                                                   - resource
                                                   type: object
                                                   x-kubernetes-map-type: atomic
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - path
                                               type: object
@@ -14827,6 +17263,9 @@ spec:
                                             type: integer
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                           userAnnotations:
                                             additionalProperties:
                                               type: string
@@ -14847,6 +17286,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -14869,6 +17311,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -14966,6 +17411,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -14976,6 +17424,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -16093,7 +18544,6 @@ spec:
                                     - FailClose
                                     type: string
                                   group:
-                                    maxLength: 253
                                     type: string
                                   kind:
                                     maxLength: 63
@@ -16736,6 +19186,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -16796,6 +19248,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -16840,6 +19294,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -16873,6 +19329,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -16947,6 +19405,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -16980,6 +19440,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -17169,6 +19631,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -17202,6 +19666,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -17263,6 +19729,11 @@ spec:
                                 volumeMounts:
                                   items:
                                     properties:
+                                      bindMountOptions:
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: set
                                       mountPath:
                                         type: string
                                       mountPropagation:
@@ -17485,6 +19956,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -17545,6 +20018,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -17589,6 +20064,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -17622,6 +20099,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -17696,6 +20175,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -17729,6 +20210,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -17918,6 +20401,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -17951,6 +20436,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -18014,6 +20501,11 @@ spec:
                                 volumeMounts:
                                   items:
                                     properties:
+                                      bindMountOptions:
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: set
                                       mountPath:
                                         type: string
                                       mountPropagation:
@@ -18041,6 +20533,23 @@ spec:
                               required:
                               - name
                               type: object
+                            type: array
+                            x-kubernetes-list-map-keys:
+                            - name
+                            x-kubernetes-list-type: map
+                          evictionResponders:
+                            items:
+                              properties:
+                                name:
+                                  type: string
+                                priority:
+                                  format: int32
+                                  type: integer
+                              required:
+                              - name
+                              - priority
+                              type: object
+                              x-kubernetes-map-type: atomic
                             type: array
                             x-kubernetes-list-map-keys:
                             - name
@@ -18250,6 +20759,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -18310,6 +20821,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -18354,6 +20867,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -18387,6 +20902,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -18461,6 +20978,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -18494,6 +21013,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -18683,6 +21204,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -18716,6 +21239,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -18777,6 +21302,11 @@ spec:
                                 volumeMounts:
                                   items:
                                     properties:
+                                      bindMountOptions:
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: set
                                       mountPath:
                                         type: string
                                       mountPropagation:
@@ -19180,6 +21710,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     items:
                                       items:
                                         properties:
@@ -19190,6 +21723,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -19230,6 +21766,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     items:
                                       items:
                                         properties:
@@ -19263,6 +21802,9 @@ spec:
                                             - resource
                                             type: object
                                             x-kubernetes-map-type: atomic
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -19273,6 +21815,9 @@ spec:
                                   properties:
                                     medium:
                                       type: string
+                                    mode:
+                                      format: int32
+                                      type: integer
                                     sizeLimit:
                                       anyOf:
                                       - type: integer
@@ -19564,6 +22109,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     sources:
                                       items:
                                         properties:
@@ -19603,6 +22151,9 @@ spec:
                                                 type: string
                                               signerName:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -19618,6 +22169,9 @@ spec:
                                                       type: integer
                                                     path:
                                                       type: string
+                                                    user:
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -19666,6 +22220,9 @@ spec:
                                                       - resource
                                                       type: object
                                                       x-kubernetes-map-type: atomic
+                                                    user:
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - path
                                                   type: object
@@ -19687,6 +22244,9 @@ spec:
                                                 type: integer
                                               signerName:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                               userAnnotations:
                                                 additionalProperties:
                                                   type: string
@@ -19707,6 +22267,9 @@ spec:
                                                       type: integer
                                                     path:
                                                       type: string
+                                                    user:
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -19729,6 +22292,9 @@ spec:
                                                 type: integer
                                               path:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -19826,6 +22392,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     items:
                                       items:
                                         properties:
@@ -19836,6 +22405,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -20498,6 +23070,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -20558,6 +23132,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -20602,6 +23178,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -20635,6 +23213,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -20709,6 +23289,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -20742,6 +23324,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -20931,6 +23515,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -20964,6 +23550,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -21025,6 +23613,11 @@ spec:
                                     volumeMounts:
                                       items:
                                         properties:
+                                          bindMountOptions:
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: set
                                           mountPath:
                                             type: string
                                           mountPropagation:
@@ -21247,6 +23840,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -21307,6 +23902,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -21351,6 +23948,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -21384,6 +23983,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -21458,6 +24059,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -21491,6 +24094,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -21680,6 +24285,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -21713,6 +24320,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -21776,6 +24385,11 @@ spec:
                                     volumeMounts:
                                       items:
                                         properties:
+                                          bindMountOptions:
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: set
                                           mountPath:
                                             type: string
                                           mountPropagation:
@@ -21803,6 +24417,23 @@ spec:
                                   required:
                                   - name
                                   type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              evictionResponders:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                    priority:
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - name
+                                  - priority
+                                  type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                                 x-kubernetes-list-map-keys:
                                 - name
@@ -22012,6 +24643,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -22072,6 +24705,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -22116,6 +24751,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -22149,6 +24786,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -22223,6 +24862,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -22256,6 +24897,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -22445,6 +25088,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -22478,6 +25123,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -22539,6 +25186,11 @@ spec:
                                     volumeMounts:
                                       items:
                                         properties:
+                                          bindMountOptions:
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: set
                                           mountPath:
                                             type: string
                                           mountPropagation:
@@ -22942,6 +25594,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         items:
                                           items:
                                             properties:
@@ -22952,6 +25607,9 @@ spec:
                                                 type: integer
                                               path:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - key
                                             - path
@@ -22992,6 +25650,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         items:
                                           items:
                                             properties:
@@ -23025,6 +25686,9 @@ spec:
                                                 - resource
                                                 type: object
                                                 x-kubernetes-map-type: atomic
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -23035,6 +25699,9 @@ spec:
                                       properties:
                                         medium:
                                           type: string
+                                        mode:
+                                          format: int32
+                                          type: integer
                                         sizeLimit:
                                           anyOf:
                                           - type: integer
@@ -23326,6 +25993,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         sources:
                                           items:
                                             properties:
@@ -23365,6 +26035,9 @@ spec:
                                                     type: string
                                                   signerName:
                                                     type: string
+                                                  user:
+                                                    format: int64
+                                                    type: integer
                                                 required:
                                                 - path
                                                 type: object
@@ -23380,6 +26053,9 @@ spec:
                                                           type: integer
                                                         path:
                                                           type: string
+                                                        user:
+                                                          format: int64
+                                                          type: integer
                                                       required:
                                                       - key
                                                       - path
@@ -23428,6 +26104,9 @@ spec:
                                                           - resource
                                                           type: object
                                                           x-kubernetes-map-type: atomic
+                                                        user:
+                                                          format: int64
+                                                          type: integer
                                                       required:
                                                       - path
                                                       type: object
@@ -23449,6 +26128,9 @@ spec:
                                                     type: integer
                                                   signerName:
                                                     type: string
+                                                  user:
+                                                    format: int64
+                                                    type: integer
                                                   userAnnotations:
                                                     additionalProperties:
                                                       type: string
@@ -23469,6 +26151,9 @@ spec:
                                                           type: integer
                                                         path:
                                                           type: string
+                                                        user:
+                                                          format: int64
+                                                          type: integer
                                                       required:
                                                       - key
                                                       - path
@@ -23491,6 +26176,9 @@ spec:
                                                     type: integer
                                                   path:
                                                     type: string
+                                                  user:
+                                                    format: int64
+                                                    type: integer
                                                 required:
                                                 - path
                                                 type: object
@@ -23588,6 +26276,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         items:
                                           items:
                                             properties:
@@ -23598,6 +26289,9 @@ spec:
                                                 type: integer
                                               path:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - key
                                             - path
@@ -24076,8 +26770,6 @@ spec:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: either wva or keda must be specified when scaling is configured
-                  rule: has(self.wva) || has(self.keda)
                 - message: wva and keda are mutually exclusive
                   rule: '!(has(self.wva) && has(self.keda))'
                 - message: at least one trigger is required when using direct KEDA
@@ -24714,6 +27406,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -24774,6 +27468,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -24818,6 +27514,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -24851,6 +27549,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -24925,6 +27625,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -24958,6 +27660,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -25147,6 +27851,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -25180,6 +27886,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -25241,6 +27949,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -25463,6 +28176,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -25523,6 +28238,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -25567,6 +28284,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -25600,6 +28319,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -25674,6 +28395,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -25707,6 +28430,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -25896,6 +28621,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -25929,6 +28656,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -25992,6 +28721,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -26019,6 +28753,23 @@ spec:
                       required:
                       - name
                       type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  evictionResponders:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        priority:
+                          format: int32
+                          type: integer
+                      required:
+                      - name
+                      - priority
+                      type: object
+                      x-kubernetes-map-type: atomic
                     type: array
                     x-kubernetes-list-map-keys:
                     - name
@@ -26228,6 +28979,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -26288,6 +29041,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -26332,6 +29087,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -26365,6 +29122,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -26439,6 +29198,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -26472,6 +29233,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -26661,6 +29424,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -26694,6 +29459,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -26755,6 +29522,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -27158,6 +29930,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -27168,6 +29943,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -27208,6 +29986,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -27241,6 +30022,9 @@ spec:
                                     - resource
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - path
                                 type: object
@@ -27251,6 +30035,9 @@ spec:
                           properties:
                             medium:
                               type: string
+                            mode:
+                              format: int32
+                              type: integer
                             sizeLimit:
                               anyOf:
                               - type: integer
@@ -27542,6 +30329,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             sources:
                               items:
                                 properties:
@@ -27581,6 +30371,9 @@ spec:
                                         type: string
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -27596,6 +30389,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -27644,6 +30440,9 @@ spec:
                                               - resource
                                               type: object
                                               x-kubernetes-map-type: atomic
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - path
                                           type: object
@@ -27665,6 +30464,9 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                       userAnnotations:
                                         additionalProperties:
                                           type: string
@@ -27685,6 +30487,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -27707,6 +30512,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -27804,6 +30612,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -27814,6 +30625,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -27875,8 +30689,6 @@ spec:
                   samplerArg:
                     type: string
                 type: object
-              trustRemoteCode:
-                type: boolean
               worker:
                 properties:
                   activeDeadlineSeconds:
@@ -28487,6 +31299,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -28547,6 +31361,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -28591,6 +31407,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -28624,6 +31442,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -28698,6 +31518,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -28731,6 +31553,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -28920,6 +31744,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -28953,6 +31779,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -29014,6 +31842,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -29236,6 +32069,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -29296,6 +32131,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -29340,6 +32177,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -29373,6 +32212,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -29447,6 +32288,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -29480,6 +32323,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -29669,6 +32514,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -29702,6 +32549,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -29765,6 +32614,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -29792,6 +32646,23 @@ spec:
                       required:
                       - name
                       type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  evictionResponders:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        priority:
+                          format: int32
+                          type: integer
+                      required:
+                      - name
+                      - priority
+                      type: object
+                      x-kubernetes-map-type: atomic
                     type: array
                     x-kubernetes-list-map-keys:
                     - name
@@ -30001,6 +32872,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -30061,6 +32934,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -30105,6 +32980,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -30138,6 +33015,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -30212,6 +33091,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -30245,6 +33126,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -30434,6 +33317,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -30467,6 +33352,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -30528,6 +33415,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -30931,6 +33823,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -30941,6 +33836,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -30981,6 +33879,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -31014,6 +33915,9 @@ spec:
                                     - resource
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - path
                                 type: object
@@ -31024,6 +33928,9 @@ spec:
                           properties:
                             medium:
                               type: string
+                            mode:
+                              format: int32
+                              type: integer
                             sizeLimit:
                               anyOf:
                               - type: integer
@@ -31315,6 +34222,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             sources:
                               items:
                                 properties:
@@ -31354,6 +34264,9 @@ spec:
                                         type: string
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -31369,6 +34282,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -31417,6 +34333,9 @@ spec:
                                               - resource
                                               type: object
                                               x-kubernetes-map-type: atomic
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - path
                                           type: object
@@ -31438,6 +34357,9 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                       userAnnotations:
                                         additionalProperties:
                                           type: string
@@ -31458,6 +34380,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -31480,6 +34405,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -31577,6 +34505,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -31587,6 +34518,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -32523,9 +35457,6 @@ spec:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: either wva or keda must be specified when scaling is
-                        configured
-                      rule: has(self.wva) || has(self.keda)
                     - message: wva and keda are mutually exclusive
                       rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct
@@ -33158,6 +36089,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -33218,6 +36151,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -33262,6 +36197,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -33295,6 +36232,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -33369,6 +36308,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -33402,6 +36343,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -33591,6 +36534,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -33624,6 +36569,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -33685,6 +36632,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -33907,6 +36859,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -33967,6 +36921,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -34011,6 +36967,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -34044,6 +37002,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -34118,6 +37078,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -34151,6 +37113,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -34340,6 +37304,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -34373,6 +37339,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -34436,6 +37404,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -34463,6 +37436,23 @@ spec:
                           required:
                           - name
                           type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      evictionResponders:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            priority:
+                              format: int32
+                              type: integer
+                          required:
+                          - name
+                          - priority
+                          type: object
+                          x-kubernetes-map-type: atomic
                         type: array
                         x-kubernetes-list-map-keys:
                         - name
@@ -34672,6 +37662,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -34732,6 +37724,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -34776,6 +37770,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -34809,6 +37805,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -34883,6 +37881,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -34916,6 +37916,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -35105,6 +38107,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -35138,6 +38142,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -35199,6 +38205,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -35602,6 +38613,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -35612,6 +38626,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -35652,6 +38669,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -35685,6 +38705,9 @@ spec:
                                         - resource
                                         type: object
                                         x-kubernetes-map-type: atomic
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -35695,6 +38718,9 @@ spec:
                               properties:
                                 medium:
                                   type: string
+                                mode:
+                                  format: int32
+                                  type: integer
                                 sizeLimit:
                                   anyOf:
                                   - type: integer
@@ -35986,6 +39012,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 sources:
                                   items:
                                     properties:
@@ -36025,6 +39054,9 @@ spec:
                                             type: string
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -36040,6 +39072,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -36088,6 +39123,9 @@ spec:
                                                   - resource
                                                   type: object
                                                   x-kubernetes-map-type: atomic
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - path
                                               type: object
@@ -36109,6 +39147,9 @@ spec:
                                             type: integer
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                           userAnnotations:
                                             additionalProperties:
                                               type: string
@@ -36129,6 +39170,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -36151,6 +39195,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -36248,6 +39295,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -36258,6 +39308,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -36918,6 +39971,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -36978,6 +40033,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -37022,6 +40079,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -37055,6 +40114,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -37129,6 +40190,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -37162,6 +40225,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -37351,6 +40416,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -37384,6 +40451,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -37445,6 +40514,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -37667,6 +40741,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -37727,6 +40803,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -37771,6 +40849,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -37804,6 +40884,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -37878,6 +40960,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -37911,6 +40995,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -38100,6 +41186,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -38133,6 +41221,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -38196,6 +41286,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -38223,6 +41318,23 @@ spec:
                           required:
                           - name
                           type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      evictionResponders:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            priority:
+                              format: int32
+                              type: integer
+                          required:
+                          - name
+                          - priority
+                          type: object
+                          x-kubernetes-map-type: atomic
                         type: array
                         x-kubernetes-list-map-keys:
                         - name
@@ -38432,6 +41544,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -38492,6 +41606,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -38536,6 +41652,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -38569,6 +41687,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -38643,6 +41763,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -38676,6 +41798,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -38865,6 +41989,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -38898,6 +42024,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -38959,6 +42087,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -39362,6 +42495,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -39372,6 +42508,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -39412,6 +42551,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -39445,6 +42587,9 @@ spec:
                                         - resource
                                         type: object
                                         x-kubernetes-map-type: atomic
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -39455,6 +42600,9 @@ spec:
                               properties:
                                 medium:
                                   type: string
+                                mode:
+                                  format: int32
+                                  type: integer
                                 sizeLimit:
                                   anyOf:
                                   - type: integer
@@ -39746,6 +42894,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 sources:
                                   items:
                                     properties:
@@ -39785,6 +42936,9 @@ spec:
                                             type: string
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -39800,6 +42954,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -39848,6 +43005,9 @@ spec:
                                                   - resource
                                                   type: object
                                                   x-kubernetes-map-type: atomic
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - path
                                               type: object
@@ -39869,6 +43029,9 @@ spec:
                                             type: integer
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                           userAnnotations:
                                             additionalProperties:
                                               type: string
@@ -39889,6 +43052,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -39911,6 +43077,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -40008,6 +43177,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -40018,6 +43190,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -41191,7 +44366,6 @@ spec:
                                 type: array
                                 x-kubernetes-list-type: atomic
                             required:
-                            - endpointPickerRef
                             - selector
                             - targetPorts
                             type: object
@@ -41809,6 +44983,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -41869,6 +45045,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -41913,6 +45091,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -41946,6 +45126,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -42020,6 +45202,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -42053,6 +45237,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -42242,6 +45428,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -42275,6 +45463,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -42336,6 +45526,11 @@ spec:
                                 volumeMounts:
                                   items:
                                     properties:
+                                      bindMountOptions:
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: set
                                       mountPath:
                                         type: string
                                       mountPropagation:
@@ -42558,6 +45753,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -42618,6 +45815,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -42662,6 +45861,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -42695,6 +45896,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -42769,6 +45972,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -42802,6 +46007,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -42991,6 +46198,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -43024,6 +46233,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -43087,6 +46298,11 @@ spec:
                                 volumeMounts:
                                   items:
                                     properties:
+                                      bindMountOptions:
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: set
                                       mountPath:
                                         type: string
                                       mountPropagation:
@@ -43114,6 +46330,23 @@ spec:
                               required:
                               - name
                               type: object
+                            type: array
+                            x-kubernetes-list-map-keys:
+                            - name
+                            x-kubernetes-list-type: map
+                          evictionResponders:
+                            items:
+                              properties:
+                                name:
+                                  type: string
+                                priority:
+                                  format: int32
+                                  type: integer
+                              required:
+                              - name
+                              - priority
+                              type: object
+                              x-kubernetes-map-type: atomic
                             type: array
                             x-kubernetes-list-map-keys:
                             - name
@@ -43323,6 +46556,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -43383,6 +46618,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -43427,6 +46664,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -43460,6 +46699,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -43534,6 +46775,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -43567,6 +46810,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -43756,6 +47001,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -43789,6 +47036,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -43850,6 +47099,11 @@ spec:
                                 volumeMounts:
                                   items:
                                     properties:
+                                      bindMountOptions:
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: set
                                       mountPath:
                                         type: string
                                       mountPropagation:
@@ -44253,6 +47507,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     items:
                                       items:
                                         properties:
@@ -44263,6 +47520,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -44303,6 +47563,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     items:
                                       items:
                                         properties:
@@ -44336,6 +47599,9 @@ spec:
                                             - resource
                                             type: object
                                             x-kubernetes-map-type: atomic
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -44346,6 +47612,9 @@ spec:
                                   properties:
                                     medium:
                                       type: string
+                                    mode:
+                                      format: int32
+                                      type: integer
                                     sizeLimit:
                                       anyOf:
                                       - type: integer
@@ -44637,6 +47906,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     sources:
                                       items:
                                         properties:
@@ -44676,6 +47948,9 @@ spec:
                                                 type: string
                                               signerName:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -44691,6 +47966,9 @@ spec:
                                                       type: integer
                                                     path:
                                                       type: string
+                                                    user:
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -44739,6 +48017,9 @@ spec:
                                                       - resource
                                                       type: object
                                                       x-kubernetes-map-type: atomic
+                                                    user:
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - path
                                                   type: object
@@ -44760,6 +48041,9 @@ spec:
                                                 type: integer
                                               signerName:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                               userAnnotations:
                                                 additionalProperties:
                                                   type: string
@@ -44780,6 +48064,9 @@ spec:
                                                       type: integer
                                                     path:
                                                       type: string
+                                                    user:
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -44802,6 +48089,9 @@ spec:
                                                 type: integer
                                               path:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -44899,6 +48189,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     items:
                                       items:
                                         properties:
@@ -44909,6 +48202,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -45571,6 +48867,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -45631,6 +48929,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -45675,6 +48975,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -45708,6 +49010,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -45782,6 +49086,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -45815,6 +49121,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -46004,6 +49312,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -46037,6 +49347,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -46098,6 +49410,11 @@ spec:
                                     volumeMounts:
                                       items:
                                         properties:
+                                          bindMountOptions:
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: set
                                           mountPath:
                                             type: string
                                           mountPropagation:
@@ -46320,6 +49637,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -46380,6 +49699,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -46424,6 +49745,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -46457,6 +49780,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -46531,6 +49856,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -46564,6 +49891,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -46753,6 +50082,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -46786,6 +50117,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -46849,6 +50182,11 @@ spec:
                                     volumeMounts:
                                       items:
                                         properties:
+                                          bindMountOptions:
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: set
                                           mountPath:
                                             type: string
                                           mountPropagation:
@@ -46876,6 +50214,23 @@ spec:
                                   required:
                                   - name
                                   type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              evictionResponders:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                    priority:
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - name
+                                  - priority
+                                  type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                                 x-kubernetes-list-map-keys:
                                 - name
@@ -47085,6 +50440,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -47145,6 +50502,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -47189,6 +50548,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -47222,6 +50583,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -47296,6 +50659,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -47329,6 +50694,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -47518,6 +50885,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -47551,6 +50920,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -47612,6 +50983,11 @@ spec:
                                     volumeMounts:
                                       items:
                                         properties:
+                                          bindMountOptions:
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: set
                                           mountPath:
                                             type: string
                                           mountPropagation:
@@ -48015,6 +51391,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         items:
                                           items:
                                             properties:
@@ -48025,6 +51404,9 @@ spec:
                                                 type: integer
                                               path:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - key
                                             - path
@@ -48065,6 +51447,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         items:
                                           items:
                                             properties:
@@ -48098,6 +51483,9 @@ spec:
                                                 - resource
                                                 type: object
                                                 x-kubernetes-map-type: atomic
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -48108,6 +51496,9 @@ spec:
                                       properties:
                                         medium:
                                           type: string
+                                        mode:
+                                          format: int32
+                                          type: integer
                                         sizeLimit:
                                           anyOf:
                                           - type: integer
@@ -48399,6 +51790,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         sources:
                                           items:
                                             properties:
@@ -48438,6 +51832,9 @@ spec:
                                                     type: string
                                                   signerName:
                                                     type: string
+                                                  user:
+                                                    format: int64
+                                                    type: integer
                                                 required:
                                                 - path
                                                 type: object
@@ -48453,6 +51850,9 @@ spec:
                                                           type: integer
                                                         path:
                                                           type: string
+                                                        user:
+                                                          format: int64
+                                                          type: integer
                                                       required:
                                                       - key
                                                       - path
@@ -48501,6 +51901,9 @@ spec:
                                                           - resource
                                                           type: object
                                                           x-kubernetes-map-type: atomic
+                                                        user:
+                                                          format: int64
+                                                          type: integer
                                                       required:
                                                       - path
                                                       type: object
@@ -48522,6 +51925,9 @@ spec:
                                                     type: integer
                                                   signerName:
                                                     type: string
+                                                  user:
+                                                    format: int64
+                                                    type: integer
                                                   userAnnotations:
                                                     additionalProperties:
                                                       type: string
@@ -48542,6 +51948,9 @@ spec:
                                                           type: integer
                                                         path:
                                                           type: string
+                                                        user:
+                                                          format: int64
+                                                          type: integer
                                                       required:
                                                       - key
                                                       - path
@@ -48564,6 +51973,9 @@ spec:
                                                     type: integer
                                                   path:
                                                     type: string
+                                                  user:
+                                                    format: int64
+                                                    type: integer
                                                 required:
                                                 - path
                                                 type: object
@@ -48661,6 +52073,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         items:
                                           items:
                                             properties:
@@ -48671,6 +52086,9 @@ spec:
                                                 type: integer
                                               path:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - key
                                             - path
@@ -49149,8 +52567,6 @@ spec:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: either wva or keda must be specified when scaling is configured
-                  rule: has(self.wva) || has(self.keda)
                 - message: wva and keda are mutually exclusive
                   rule: '!(has(self.wva) && has(self.keda))'
                 - message: at least one trigger is required when using direct KEDA
@@ -49787,6 +53203,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -49847,6 +53265,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -49891,6 +53311,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -49924,6 +53346,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -49998,6 +53422,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -50031,6 +53457,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -50220,6 +53648,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -50253,6 +53683,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -50314,6 +53746,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -50536,6 +53973,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -50596,6 +54035,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -50640,6 +54081,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -50673,6 +54116,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -50747,6 +54192,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -50780,6 +54227,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -50969,6 +54418,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -51002,6 +54453,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -51065,6 +54518,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -51092,6 +54550,23 @@ spec:
                       required:
                       - name
                       type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  evictionResponders:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        priority:
+                          format: int32
+                          type: integer
+                      required:
+                      - name
+                      - priority
+                      type: object
+                      x-kubernetes-map-type: atomic
                     type: array
                     x-kubernetes-list-map-keys:
                     - name
@@ -51301,6 +54776,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -51361,6 +54838,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -51405,6 +54884,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -51438,6 +54919,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -51512,6 +54995,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -51545,6 +55030,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -51734,6 +55221,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -51767,6 +55256,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -51828,6 +55319,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -52231,6 +55727,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -52241,6 +55740,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -52281,6 +55783,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -52314,6 +55819,9 @@ spec:
                                     - resource
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - path
                                 type: object
@@ -52324,6 +55832,9 @@ spec:
                           properties:
                             medium:
                               type: string
+                            mode:
+                              format: int32
+                              type: integer
                             sizeLimit:
                               anyOf:
                               - type: integer
@@ -52615,6 +56126,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             sources:
                               items:
                                 properties:
@@ -52654,6 +56168,9 @@ spec:
                                         type: string
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -52669,6 +56186,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -52717,6 +56237,9 @@ spec:
                                               - resource
                                               type: object
                                               x-kubernetes-map-type: atomic
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - path
                                           type: object
@@ -52738,6 +56261,9 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                       userAnnotations:
                                         additionalProperties:
                                           type: string
@@ -52758,6 +56284,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -52780,6 +56309,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -52877,6 +56409,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -52887,6 +56422,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -52948,8 +56486,6 @@ spec:
                   samplerArg:
                     type: string
                 type: object
-              trustRemoteCode:
-                type: boolean
               worker:
                 properties:
                   activeDeadlineSeconds:
@@ -53560,6 +57096,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -53620,6 +57158,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -53664,6 +57204,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -53697,6 +57239,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -53771,6 +57315,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -53804,6 +57350,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -53993,6 +57541,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -54026,6 +57576,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -54087,6 +57639,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -54309,6 +57866,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -54369,6 +57928,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -54413,6 +57974,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -54446,6 +58009,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -54520,6 +58085,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -54553,6 +58120,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -54742,6 +58311,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -54775,6 +58346,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -54838,6 +58411,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -54865,6 +58443,23 @@ spec:
                       required:
                       - name
                       type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  evictionResponders:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        priority:
+                          format: int32
+                          type: integer
+                      required:
+                      - name
+                      - priority
+                      type: object
+                      x-kubernetes-map-type: atomic
                     type: array
                     x-kubernetes-list-map-keys:
                     - name
@@ -55074,6 +58669,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -55134,6 +58731,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -55178,6 +58777,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -55211,6 +58812,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -55285,6 +58888,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -55318,6 +58923,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -55507,6 +59114,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -55540,6 +59149,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -55601,6 +59212,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -56004,6 +59620,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -56014,6 +59633,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -56054,6 +59676,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -56087,6 +59712,9 @@ spec:
                                     - resource
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - path
                                 type: object
@@ -56097,6 +59725,9 @@ spec:
                           properties:
                             medium:
                               type: string
+                            mode:
+                              format: int32
+                              type: integer
                             sizeLimit:
                               anyOf:
                               - type: integer
@@ -56388,6 +60019,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             sources:
                               items:
                                 properties:
@@ -56427,6 +60061,9 @@ spec:
                                         type: string
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -56442,6 +60079,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -56490,6 +60130,9 @@ spec:
                                               - resource
                                               type: object
                                               x-kubernetes-map-type: atomic
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - path
                                           type: object
@@ -56511,6 +60154,9 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                       userAnnotations:
                                         additionalProperties:
                                           type: string
@@ -56531,6 +60177,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -56553,6 +60202,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -56650,6 +60302,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -56660,6 +60315,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -56838,6 +60496,142 @@ spec:
                   type: object
                   x-kubernetes-map-type: atomic
                 type: array
+              kvCacheOffloading:
+                properties:
+                  cpu:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  evictionPolicy:
+                    default: lru
+                    enum:
+                    - lru
+                    - arc
+                    type: string
+                  secondary:
+                    items:
+                      properties:
+                        fileSystem:
+                          properties:
+                            emptyDir:
+                              properties:
+                                size:
+                                  anyOf:
+                                  - type: integer
+                                  - type: string
+                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                  x-kubernetes-int-or-string: true
+                              required:
+                              - size
+                              type: object
+                            pvc:
+                              properties:
+                                ref:
+                                  properties:
+                                    name:
+                                      type: string
+                                    path:
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                spec:
+                                  properties:
+                                    accessModes:
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                    dataSource:
+                                      properties:
+                                        apiGroup:
+                                          type: string
+                                        kind:
+                                          type: string
+                                        name:
+                                          type: string
+                                      required:
+                                      - kind
+                                      - name
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                    dataSourceRef:
+                                      properties:
+                                        apiGroup:
+                                          type: string
+                                        kind:
+                                          type: string
+                                        name:
+                                          type: string
+                                        namespace:
+                                          type: string
+                                      required:
+                                      - kind
+                                      - name
+                                      type: object
+                                    resources:
+                                      properties:
+                                        limits:
+                                          additionalProperties:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                          type: object
+                                        requests:
+                                          additionalProperties:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                          type: object
+                                      type: object
+                                    selector:
+                                      properties:
+                                        matchExpressions:
+                                          items:
+                                            properties:
+                                              key:
+                                                type: string
+                                              operator:
+                                                type: string
+                                              values:
+                                                items:
+                                                  type: string
+                                                type: array
+                                                x-kubernetes-list-type: atomic
+                                            required:
+                                            - key
+                                            - operator
+                                            type: object
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        matchLabels:
+                                          additionalProperties:
+                                            type: string
+                                          type: object
+                                      type: object
+                                      x-kubernetes-map-type: atomic
+                                    storageClassName:
+                                      type: string
+                                    volumeAttributesClassName:
+                                      type: string
+                                    volumeMode:
+                                      type: string
+                                    volumeName:
+                                      type: string
+                                  type: object
+                              type: object
+                          type: object
+                      type: object
+                    type: array
+                required:
+                - cpu
+                type: object
               labels:
                 additionalProperties:
                   type: string
@@ -56905,6 +60699,142 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
+                    type: object
+                  kvCacheOffloading:
+                    properties:
+                      cpu:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      evictionPolicy:
+                        default: lru
+                        enum:
+                        - lru
+                        - arc
+                        type: string
+                      secondary:
+                        items:
+                          properties:
+                            fileSystem:
+                              properties:
+                                emptyDir:
+                                  properties:
+                                    size:
+                                      anyOf:
+                                      - type: integer
+                                      - type: string
+                                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                      x-kubernetes-int-or-string: true
+                                  required:
+                                  - size
+                                  type: object
+                                pvc:
+                                  properties:
+                                    ref:
+                                      properties:
+                                        name:
+                                          type: string
+                                        path:
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    spec:
+                                      properties:
+                                        accessModes:
+                                          items:
+                                            type: string
+                                          type: array
+                                          x-kubernetes-list-type: atomic
+                                        dataSource:
+                                          properties:
+                                            apiGroup:
+                                              type: string
+                                            kind:
+                                              type: string
+                                            name:
+                                              type: string
+                                          required:
+                                          - kind
+                                          - name
+                                          type: object
+                                          x-kubernetes-map-type: atomic
+                                        dataSourceRef:
+                                          properties:
+                                            apiGroup:
+                                              type: string
+                                            kind:
+                                              type: string
+                                            name:
+                                              type: string
+                                            namespace:
+                                              type: string
+                                          required:
+                                          - kind
+                                          - name
+                                          type: object
+                                        resources:
+                                          properties:
+                                            limits:
+                                              additionalProperties:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                              type: object
+                                            requests:
+                                              additionalProperties:
+                                                anyOf:
+                                                - type: integer
+                                                - type: string
+                                                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                x-kubernetes-int-or-string: true
+                                              type: object
+                                          type: object
+                                        selector:
+                                          properties:
+                                            matchExpressions:
+                                              items:
+                                                properties:
+                                                  key:
+                                                    type: string
+                                                  operator:
+                                                    type: string
+                                                  values:
+                                                    items:
+                                                      type: string
+                                                    type: array
+                                                    x-kubernetes-list-type: atomic
+                                                required:
+                                                - key
+                                                - operator
+                                                type: object
+                                              type: array
+                                              x-kubernetes-list-type: atomic
+                                            matchLabels:
+                                              additionalProperties:
+                                                type: string
+                                              type: object
+                                          type: object
+                                          x-kubernetes-map-type: atomic
+                                        storageClassName:
+                                          type: string
+                                        volumeAttributesClassName:
+                                          type: string
+                                        volumeMode:
+                                          type: string
+                                        volumeName:
+                                          type: string
+                                      type: object
+                                  type: object
+                              type: object
+                          type: object
+                        type: array
+                    required:
+                    - cpu
                     type: object
                   labels:
                     additionalProperties:
@@ -57374,9 +61304,6 @@ spec:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: either wva or keda must be specified when scaling is
-                        configured
-                      rule: has(self.wva) || has(self.keda)
                     - message: wva and keda are mutually exclusive
                       rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct
@@ -58010,6 +61937,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -58070,6 +61999,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -58114,6 +62045,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -58147,6 +62080,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -58221,6 +62156,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -58254,6 +62191,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -58445,6 +62384,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -58478,6 +62419,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -58539,6 +62482,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -58762,6 +62710,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -58822,6 +62772,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -58866,6 +62818,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -58899,6 +62853,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -58973,6 +62929,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -59006,6 +62964,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -59197,6 +63157,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -59230,6 +63192,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -59293,6 +63257,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -59320,6 +63289,23 @@ spec:
                           required:
                           - name
                           type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      evictionResponders:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            priority:
+                              format: int32
+                              type: integer
+                          required:
+                          - name
+                          - priority
+                          type: object
+                          x-kubernetes-map-type: atomic
                         type: array
                         x-kubernetes-list-map-keys:
                         - name
@@ -59530,6 +63516,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -59590,6 +63578,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -59634,6 +63624,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -59667,6 +63659,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -59741,6 +63735,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -59774,6 +63770,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -59965,6 +63963,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -59998,6 +63998,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -60059,6 +64061,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -60465,6 +64472,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -60475,6 +64485,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -60515,6 +64528,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -60549,6 +64565,9 @@ spec:
                                         - resource
                                         type: object
                                         x-kubernetes-map-type: atomic
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -60559,6 +64578,9 @@ spec:
                               properties:
                                 medium:
                                   type: string
+                                mode:
+                                  format: int32
+                                  type: integer
                                 sizeLimit:
                                   anyOf:
                                   - type: integer
@@ -60853,6 +64875,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 sources:
                                   items:
                                     properties:
@@ -60892,6 +64917,9 @@ spec:
                                             type: string
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -60907,6 +64935,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -60956,6 +64987,9 @@ spec:
                                                   - resource
                                                   type: object
                                                   x-kubernetes-map-type: atomic
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - path
                                               type: object
@@ -60977,6 +65011,9 @@ spec:
                                             type: integer
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                           userAnnotations:
                                             additionalProperties:
                                               type: string
@@ -60997,6 +65034,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -61019,6 +65059,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -61116,6 +65159,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -61126,6 +65172,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -61787,6 +65836,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -61847,6 +65898,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -61891,6 +65944,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -61924,6 +65979,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -61998,6 +66055,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -62031,6 +66090,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -62222,6 +66283,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -62255,6 +66318,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -62316,6 +66381,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -62539,6 +66609,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -62599,6 +66671,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -62643,6 +66717,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -62676,6 +66752,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -62750,6 +66828,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -62783,6 +66863,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -62974,6 +67056,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -63007,6 +67091,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -63070,6 +67156,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -63097,6 +67188,23 @@ spec:
                           required:
                           - name
                           type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      evictionResponders:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            priority:
+                              format: int32
+                              type: integer
+                          required:
+                          - name
+                          - priority
+                          type: object
+                          x-kubernetes-map-type: atomic
                         type: array
                         x-kubernetes-list-map-keys:
                         - name
@@ -63307,6 +67415,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -63367,6 +67477,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -63411,6 +67523,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -63444,6 +67558,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -63518,6 +67634,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -63551,6 +67669,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -63742,6 +67862,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -63775,6 +67897,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -63836,6 +67960,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -64242,6 +68371,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -64252,6 +68384,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -64292,6 +68427,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -64326,6 +68464,9 @@ spec:
                                         - resource
                                         type: object
                                         x-kubernetes-map-type: atomic
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -64336,6 +68477,9 @@ spec:
                               properties:
                                 medium:
                                   type: string
+                                mode:
+                                  format: int32
+                                  type: integer
                                 sizeLimit:
                                   anyOf:
                                   - type: integer
@@ -64630,6 +68774,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 sources:
                                   items:
                                     properties:
@@ -64669,6 +68816,9 @@ spec:
                                             type: string
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -64684,6 +68834,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -64733,6 +68886,9 @@ spec:
                                                   - resource
                                                   type: object
                                                   x-kubernetes-map-type: atomic
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - path
                                               type: object
@@ -64754,6 +68910,9 @@ spec:
                                             type: integer
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                           userAnnotations:
                                             additionalProperties:
                                               type: string
@@ -64774,6 +68933,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -64796,6 +68958,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -64893,6 +69058,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -64903,6 +69071,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -66645,8 +70816,6 @@ spec:
                                     - FailClose
                                     type: string
                                   group:
-                                    maxLength: 253
-                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                     type: string
                                   kind:
                                     maxLength: 63
@@ -67294,6 +71463,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -67354,6 +71525,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -67398,6 +71571,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -67431,6 +71606,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -67505,6 +71682,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -67538,6 +71717,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -67729,6 +71910,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -67762,6 +71945,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -67823,6 +72008,11 @@ spec:
                                 volumeMounts:
                                   items:
                                     properties:
+                                      bindMountOptions:
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: set
                                       mountPath:
                                         type: string
                                       mountPropagation:
@@ -68046,6 +72236,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -68106,6 +72298,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -68150,6 +72344,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -68183,6 +72379,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -68257,6 +72455,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -68290,6 +72490,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -68481,6 +72683,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -68514,6 +72718,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -68577,6 +72783,11 @@ spec:
                                 volumeMounts:
                                   items:
                                     properties:
+                                      bindMountOptions:
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: set
                                       mountPath:
                                         type: string
                                       mountPropagation:
@@ -68604,6 +72815,23 @@ spec:
                               required:
                               - name
                               type: object
+                            type: array
+                            x-kubernetes-list-map-keys:
+                            - name
+                            x-kubernetes-list-type: map
+                          evictionResponders:
+                            items:
+                              properties:
+                                name:
+                                  type: string
+                                priority:
+                                  format: int32
+                                  type: integer
+                              required:
+                              - name
+                              - priority
+                              type: object
+                              x-kubernetes-map-type: atomic
                             type: array
                             x-kubernetes-list-map-keys:
                             - name
@@ -68814,6 +73042,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -68874,6 +73104,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -68918,6 +73150,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -68951,6 +73185,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -69025,6 +73261,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -69058,6 +73296,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -69249,6 +73489,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -69282,6 +73524,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -69343,6 +73587,11 @@ spec:
                                 volumeMounts:
                                   items:
                                     properties:
+                                      bindMountOptions:
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: set
                                       mountPath:
                                         type: string
                                       mountPropagation:
@@ -69749,6 +73998,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     items:
                                       items:
                                         properties:
@@ -69759,6 +74011,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -69799,6 +74054,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     items:
                                       items:
                                         properties:
@@ -69833,6 +74091,9 @@ spec:
                                             - resource
                                             type: object
                                             x-kubernetes-map-type: atomic
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -69843,6 +74104,9 @@ spec:
                                   properties:
                                     medium:
                                       type: string
+                                    mode:
+                                      format: int32
+                                      type: integer
                                     sizeLimit:
                                       anyOf:
                                       - type: integer
@@ -70137,6 +74401,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     sources:
                                       items:
                                         properties:
@@ -70176,6 +74443,9 @@ spec:
                                                 type: string
                                               signerName:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -70191,6 +74461,9 @@ spec:
                                                       type: integer
                                                     path:
                                                       type: string
+                                                    user:
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -70240,6 +74513,9 @@ spec:
                                                       - resource
                                                       type: object
                                                       x-kubernetes-map-type: atomic
+                                                    user:
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - path
                                                   type: object
@@ -70261,6 +74537,9 @@ spec:
                                                 type: integer
                                               signerName:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                               userAnnotations:
                                                 additionalProperties:
                                                   type: string
@@ -70281,6 +74560,9 @@ spec:
                                                       type: integer
                                                     path:
                                                       type: string
+                                                    user:
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -70303,6 +74585,9 @@ spec:
                                                 type: integer
                                               path:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -70400,6 +74685,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     items:
                                       items:
                                         properties:
@@ -70410,6 +74698,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -71073,6 +75364,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -71133,6 +75426,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -71177,6 +75472,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -71210,6 +75507,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -71284,6 +75583,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -71317,6 +75618,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -71508,6 +75811,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -71541,6 +75846,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -71602,6 +75909,11 @@ spec:
                                     volumeMounts:
                                       items:
                                         properties:
+                                          bindMountOptions:
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: set
                                           mountPath:
                                             type: string
                                           mountPropagation:
@@ -71825,6 +76137,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -71885,6 +76199,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -71929,6 +76245,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -71962,6 +76280,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -72036,6 +76356,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -72069,6 +76391,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -72260,6 +76584,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -72293,6 +76619,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -72356,6 +76684,11 @@ spec:
                                     volumeMounts:
                                       items:
                                         properties:
+                                          bindMountOptions:
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: set
                                           mountPath:
                                             type: string
                                           mountPropagation:
@@ -72383,6 +76716,23 @@ spec:
                                   required:
                                   - name
                                   type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              evictionResponders:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                    priority:
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - name
+                                  - priority
+                                  type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                                 x-kubernetes-list-map-keys:
                                 - name
@@ -72593,6 +76943,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -72653,6 +77005,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -72697,6 +77051,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -72730,6 +77086,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -72804,6 +77162,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -72837,6 +77197,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -73028,6 +77390,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -73061,6 +77425,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -73122,6 +77488,11 @@ spec:
                                     volumeMounts:
                                       items:
                                         properties:
+                                          bindMountOptions:
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: set
                                           mountPath:
                                             type: string
                                           mountPropagation:
@@ -73528,6 +77899,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         items:
                                           items:
                                             properties:
@@ -73538,6 +77912,9 @@ spec:
                                                 type: integer
                                               path:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - key
                                             - path
@@ -73578,6 +77955,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         items:
                                           items:
                                             properties:
@@ -73612,6 +77992,9 @@ spec:
                                                 - resource
                                                 type: object
                                                 x-kubernetes-map-type: atomic
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -73622,6 +78005,9 @@ spec:
                                       properties:
                                         medium:
                                           type: string
+                                        mode:
+                                          format: int32
+                                          type: integer
                                         sizeLimit:
                                           anyOf:
                                           - type: integer
@@ -73916,6 +78302,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         sources:
                                           items:
                                             properties:
@@ -73955,6 +78344,9 @@ spec:
                                                     type: string
                                                   signerName:
                                                     type: string
+                                                  user:
+                                                    format: int64
+                                                    type: integer
                                                 required:
                                                 - path
                                                 type: object
@@ -73970,6 +78362,9 @@ spec:
                                                           type: integer
                                                         path:
                                                           type: string
+                                                        user:
+                                                          format: int64
+                                                          type: integer
                                                       required:
                                                       - key
                                                       - path
@@ -74019,6 +78414,9 @@ spec:
                                                           - resource
                                                           type: object
                                                           x-kubernetes-map-type: atomic
+                                                        user:
+                                                          format: int64
+                                                          type: integer
                                                       required:
                                                       - path
                                                       type: object
@@ -74040,6 +78438,9 @@ spec:
                                                     type: integer
                                                   signerName:
                                                     type: string
+                                                  user:
+                                                    format: int64
+                                                    type: integer
                                                   userAnnotations:
                                                     additionalProperties:
                                                       type: string
@@ -74060,6 +78461,9 @@ spec:
                                                           type: integer
                                                         path:
                                                           type: string
+                                                        user:
+                                                          format: int64
+                                                          type: integer
                                                       required:
                                                       - key
                                                       - path
@@ -74082,6 +78486,9 @@ spec:
                                                     type: integer
                                                   path:
                                                     type: string
+                                                  user:
+                                                    format: int64
+                                                    type: integer
                                                 required:
                                                 - path
                                                 type: object
@@ -74179,6 +78586,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         items:
                                           items:
                                             properties:
@@ -74189,6 +78599,9 @@ spec:
                                                 type: integer
                                               path:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - key
                                             - path
@@ -74667,8 +79080,6 @@ spec:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: either wva or keda must be specified when scaling is configured
-                  rule: has(self.wva) || has(self.keda)
                 - message: wva and keda are mutually exclusive
                   rule: '!(has(self.wva) && has(self.keda))'
                 - message: at least one trigger is required when using direct KEDA
@@ -75306,6 +79717,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -75366,6 +79779,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -75410,6 +79825,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -75443,6 +79860,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -75517,6 +79936,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -75550,6 +79971,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -75741,6 +80164,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -75774,6 +80199,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -75835,6 +80262,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -76058,6 +80490,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -76118,6 +80552,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -76162,6 +80598,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -76195,6 +80633,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -76269,6 +80709,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -76302,6 +80744,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -76493,6 +80937,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -76526,6 +80972,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -76589,6 +81037,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -76616,6 +81069,23 @@ spec:
                       required:
                       - name
                       type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  evictionResponders:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        priority:
+                          format: int32
+                          type: integer
+                      required:
+                      - name
+                      - priority
+                      type: object
+                      x-kubernetes-map-type: atomic
                     type: array
                     x-kubernetes-list-map-keys:
                     - name
@@ -76826,6 +81296,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -76886,6 +81358,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -76930,6 +81404,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -76963,6 +81439,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -77037,6 +81515,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -77070,6 +81550,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -77261,6 +81743,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -77294,6 +81778,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -77355,6 +81841,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -77761,6 +82252,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -77771,6 +82265,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -77811,6 +82308,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -77845,6 +82345,9 @@ spec:
                                     - resource
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - path
                                 type: object
@@ -77855,6 +82358,9 @@ spec:
                           properties:
                             medium:
                               type: string
+                            mode:
+                              format: int32
+                              type: integer
                             sizeLimit:
                               anyOf:
                               - type: integer
@@ -78149,6 +82655,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             sources:
                               items:
                                 properties:
@@ -78188,6 +82697,9 @@ spec:
                                         type: string
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -78203,6 +82715,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -78252,6 +82767,9 @@ spec:
                                               - resource
                                               type: object
                                               x-kubernetes-map-type: atomic
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - path
                                           type: object
@@ -78273,6 +82791,9 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                       userAnnotations:
                                         additionalProperties:
                                           type: string
@@ -78293,6 +82814,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -78315,6 +82839,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -78412,6 +82939,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -78422,6 +82952,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -78483,8 +83016,6 @@ spec:
                   samplerArg:
                     type: string
                 type: object
-              trustRemoteCode:
-                type: boolean
               worker:
                 properties:
                   activeDeadlineSeconds:
@@ -79096,6 +83627,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -79156,6 +83689,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -79200,6 +83735,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -79233,6 +83770,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -79307,6 +83846,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -79340,6 +83881,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -79531,6 +84074,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -79564,6 +84109,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -79625,6 +84172,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -79848,6 +84400,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -79908,6 +84462,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -79952,6 +84508,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -79985,6 +84543,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -80059,6 +84619,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -80092,6 +84654,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -80283,6 +84847,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -80316,6 +84882,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -80379,6 +84947,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -80406,6 +84979,23 @@ spec:
                       required:
                       - name
                       type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  evictionResponders:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        priority:
+                          format: int32
+                          type: integer
+                      required:
+                      - name
+                      - priority
+                      type: object
+                      x-kubernetes-map-type: atomic
                     type: array
                     x-kubernetes-list-map-keys:
                     - name
@@ -80616,6 +85206,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -80676,6 +85268,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -80720,6 +85314,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -80753,6 +85349,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -80827,6 +85425,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -80860,6 +85460,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -81051,6 +85653,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -81084,6 +85688,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -81145,6 +85751,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -81551,6 +86162,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -81561,6 +86175,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -81601,6 +86218,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -81635,6 +86255,9 @@ spec:
                                     - resource
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - path
                                 type: object
@@ -81645,6 +86268,9 @@ spec:
                           properties:
                             medium:
                               type: string
+                            mode:
+                              format: int32
+                              type: integer
                             sizeLimit:
                               anyOf:
                               - type: integer
@@ -81939,6 +86565,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             sources:
                               items:
                                 properties:
@@ -81978,6 +86607,9 @@ spec:
                                         type: string
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -81993,6 +86625,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -82042,6 +86677,9 @@ spec:
                                               - resource
                                               type: object
                                               x-kubernetes-map-type: atomic
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - path
                                           type: object
@@ -82063,6 +86701,9 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                       userAnnotations:
                                         additionalProperties:
                                           type: string
@@ -82083,6 +86724,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -82105,6 +86749,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -82202,6 +86849,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -82212,6 +86862,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -83301,9 +87954,6 @@ spec:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: either wva or keda must be specified when scaling is
-                        configured
-                      rule: has(self.wva) || has(self.keda)
                     - message: wva and keda are mutually exclusive
                       rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct
@@ -83937,6 +88587,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -83997,6 +88649,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -84041,6 +88695,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -84074,6 +88730,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -84148,6 +88806,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -84181,6 +88841,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -84372,6 +89034,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -84405,6 +89069,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -84466,6 +89132,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -84689,6 +89360,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -84749,6 +89422,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -84793,6 +89468,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -84826,6 +89503,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -84900,6 +89579,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -84933,6 +89614,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -85124,6 +89807,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -85157,6 +89842,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -85220,6 +89907,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -85247,6 +89939,23 @@ spec:
                           required:
                           - name
                           type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      evictionResponders:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            priority:
+                              format: int32
+                              type: integer
+                          required:
+                          - name
+                          - priority
+                          type: object
+                          x-kubernetes-map-type: atomic
                         type: array
                         x-kubernetes-list-map-keys:
                         - name
@@ -85457,6 +90166,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -85517,6 +90228,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -85561,6 +90274,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -85594,6 +90309,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -85668,6 +90385,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -85701,6 +90420,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -85892,6 +90613,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -85925,6 +90648,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -85986,6 +90711,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -86392,6 +91122,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -86402,6 +91135,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -86442,6 +91178,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -86476,6 +91215,9 @@ spec:
                                         - resource
                                         type: object
                                         x-kubernetes-map-type: atomic
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -86486,6 +91228,9 @@ spec:
                               properties:
                                 medium:
                                   type: string
+                                mode:
+                                  format: int32
+                                  type: integer
                                 sizeLimit:
                                   anyOf:
                                   - type: integer
@@ -86780,6 +91525,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 sources:
                                   items:
                                     properties:
@@ -86819,6 +91567,9 @@ spec:
                                             type: string
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -86834,6 +91585,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -86883,6 +91637,9 @@ spec:
                                                   - resource
                                                   type: object
                                                   x-kubernetes-map-type: atomic
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - path
                                               type: object
@@ -86904,6 +91661,9 @@ spec:
                                             type: integer
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                           userAnnotations:
                                             additionalProperties:
                                               type: string
@@ -86924,6 +91684,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -86946,6 +91709,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -87043,6 +91809,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -87053,6 +91822,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -87714,6 +92486,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -87774,6 +92548,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -87818,6 +92594,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -87851,6 +92629,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -87925,6 +92705,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -87958,6 +92740,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -88149,6 +92933,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -88182,6 +92968,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -88243,6 +93031,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -88466,6 +93259,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -88526,6 +93321,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -88570,6 +93367,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -88603,6 +93402,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -88677,6 +93478,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -88710,6 +93513,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -88901,6 +93706,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -88934,6 +93741,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -88997,6 +93806,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -89024,6 +93838,23 @@ spec:
                           required:
                           - name
                           type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      evictionResponders:
+                        items:
+                          properties:
+                            name:
+                              type: string
+                            priority:
+                              format: int32
+                              type: integer
+                          required:
+                          - name
+                          - priority
+                          type: object
+                          x-kubernetes-map-type: atomic
                         type: array
                         x-kubernetes-list-map-keys:
                         - name
@@ -89234,6 +94065,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -89294,6 +94127,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -89338,6 +94173,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -89371,6 +94208,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -89445,6 +94284,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -89478,6 +94319,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -89669,6 +94512,8 @@ spec:
                                   type: integer
                                 grpc:
                                   properties:
+                                    mode:
+                                      type: string
                                     port:
                                       format: int32
                                       type: integer
@@ -89702,6 +94547,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -89763,6 +94610,11 @@ spec:
                             volumeMounts:
                               items:
                                 properties:
+                                  bindMountOptions:
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: set
                                   mountPath:
                                     type: string
                                   mountPropagation:
@@ -90169,6 +95021,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -90179,6 +95034,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -90219,6 +95077,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -90253,6 +95114,9 @@ spec:
                                         - resource
                                         type: object
                                         x-kubernetes-map-type: atomic
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -90263,6 +95127,9 @@ spec:
                               properties:
                                 medium:
                                   type: string
+                                mode:
+                                  format: int32
+                                  type: integer
                                 sizeLimit:
                                   anyOf:
                                   - type: integer
@@ -90557,6 +95424,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 sources:
                                   items:
                                     properties:
@@ -90596,6 +95466,9 @@ spec:
                                             type: string
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -90611,6 +95484,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -90660,6 +95536,9 @@ spec:
                                                   - resource
                                                   type: object
                                                   x-kubernetes-map-type: atomic
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - path
                                               type: object
@@ -90681,6 +95560,9 @@ spec:
                                             type: integer
                                           signerName:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                           userAnnotations:
                                             additionalProperties:
                                               type: string
@@ -90701,6 +95583,9 @@ spec:
                                                   type: integer
                                                 path:
                                                   type: string
+                                                user:
+                                                  format: int64
+                                                  type: integer
                                               required:
                                               - key
                                               - path
@@ -90723,6 +95608,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -90820,6 +95708,9 @@ spec:
                                 defaultMode:
                                   format: int32
                                   type: integer
+                                defaultUser:
+                                  format: int64
+                                  type: integer
                                 items:
                                   items:
                                     properties:
@@ -90830,6 +95721,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - key
                                     - path
@@ -92644,7 +97538,6 @@ spec:
                                 - message: port number must be unique
                                   rule: self.all(p1, self.exists_one(p2, p1.number==p2.number))
                             required:
-                            - endpointPickerRef
                             - selector
                             - targetPorts
                             type: object
@@ -93263,6 +98156,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -93323,6 +98218,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -93367,6 +98264,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -93400,6 +98299,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -93474,6 +98375,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -93507,6 +98410,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -93698,6 +98603,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -93731,6 +98638,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -93792,6 +98701,11 @@ spec:
                                 volumeMounts:
                                   items:
                                     properties:
+                                      bindMountOptions:
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: set
                                       mountPath:
                                         type: string
                                       mountPropagation:
@@ -94015,6 +98929,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -94075,6 +98991,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -94119,6 +99037,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -94152,6 +99072,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -94226,6 +99148,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -94259,6 +99183,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -94450,6 +99376,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -94483,6 +99411,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -94546,6 +99476,11 @@ spec:
                                 volumeMounts:
                                   items:
                                     properties:
+                                      bindMountOptions:
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: set
                                       mountPath:
                                         type: string
                                       mountPropagation:
@@ -94573,6 +99508,23 @@ spec:
                               required:
                               - name
                               type: object
+                            type: array
+                            x-kubernetes-list-map-keys:
+                            - name
+                            x-kubernetes-list-type: map
+                          evictionResponders:
+                            items:
+                              properties:
+                                name:
+                                  type: string
+                                priority:
+                                  format: int32
+                                  type: integer
+                              required:
+                              - name
+                              - priority
+                              type: object
+                              x-kubernetes-map-type: atomic
                             type: array
                             x-kubernetes-list-map-keys:
                             - name
@@ -94783,6 +99735,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -94843,6 +99797,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -94887,6 +99843,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -94920,6 +99878,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -94994,6 +99954,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -95027,6 +99989,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -95218,6 +100182,8 @@ spec:
                                       type: integer
                                     grpc:
                                       properties:
+                                        mode:
+                                          type: string
                                         port:
                                           format: int32
                                           type: integer
@@ -95251,6 +100217,8 @@ spec:
                                           - type: integer
                                           - type: string
                                           x-kubernetes-int-or-string: true
+                                        protocol:
+                                          type: string
                                         scheme:
                                           type: string
                                       required:
@@ -95312,6 +100280,11 @@ spec:
                                 volumeMounts:
                                   items:
                                     properties:
+                                      bindMountOptions:
+                                        items:
+                                          type: string
+                                        type: array
+                                        x-kubernetes-list-type: set
                                       mountPath:
                                         type: string
                                       mountPropagation:
@@ -95718,6 +100691,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     items:
                                       items:
                                         properties:
@@ -95728,6 +100704,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -95768,6 +100747,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     items:
                                       items:
                                         properties:
@@ -95802,6 +100784,9 @@ spec:
                                             - resource
                                             type: object
                                             x-kubernetes-map-type: atomic
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - path
                                         type: object
@@ -95812,6 +100797,9 @@ spec:
                                   properties:
                                     medium:
                                       type: string
+                                    mode:
+                                      format: int32
+                                      type: integer
                                     sizeLimit:
                                       anyOf:
                                       - type: integer
@@ -96106,6 +101094,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     sources:
                                       items:
                                         properties:
@@ -96145,6 +101136,9 @@ spec:
                                                 type: string
                                               signerName:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -96160,6 +101154,9 @@ spec:
                                                       type: integer
                                                     path:
                                                       type: string
+                                                    user:
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -96209,6 +101206,9 @@ spec:
                                                       - resource
                                                       type: object
                                                       x-kubernetes-map-type: atomic
+                                                    user:
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - path
                                                   type: object
@@ -96230,6 +101230,9 @@ spec:
                                                 type: integer
                                               signerName:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                               userAnnotations:
                                                 additionalProperties:
                                                   type: string
@@ -96250,6 +101253,9 @@ spec:
                                                       type: integer
                                                     path:
                                                       type: string
+                                                    user:
+                                                      format: int64
+                                                      type: integer
                                                   required:
                                                   - key
                                                   - path
@@ -96272,6 +101278,9 @@ spec:
                                                 type: integer
                                               path:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -96369,6 +101378,9 @@ spec:
                                     defaultMode:
                                       format: int32
                                       type: integer
+                                    defaultUser:
+                                      format: int64
+                                      type: integer
                                     items:
                                       items:
                                         properties:
@@ -96379,6 +101391,9 @@ spec:
                                             type: integer
                                           path:
                                             type: string
+                                          user:
+                                            format: int64
+                                            type: integer
                                         required:
                                         - key
                                         - path
@@ -97042,6 +102057,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -97102,6 +102119,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -97146,6 +102165,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -97179,6 +102200,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -97253,6 +102276,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -97286,6 +102311,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -97477,6 +102504,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -97510,6 +102539,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -97571,6 +102602,11 @@ spec:
                                     volumeMounts:
                                       items:
                                         properties:
+                                          bindMountOptions:
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: set
                                           mountPath:
                                             type: string
                                           mountPropagation:
@@ -97794,6 +102830,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -97854,6 +102892,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -97898,6 +102938,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -97931,6 +102973,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -98005,6 +103049,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -98038,6 +103084,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -98229,6 +103277,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -98262,6 +103312,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -98325,6 +103377,11 @@ spec:
                                     volumeMounts:
                                       items:
                                         properties:
+                                          bindMountOptions:
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: set
                                           mountPath:
                                             type: string
                                           mountPropagation:
@@ -98352,6 +103409,23 @@ spec:
                                   required:
                                   - name
                                   type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
+                              evictionResponders:
+                                items:
+                                  properties:
+                                    name:
+                                      type: string
+                                    priority:
+                                      format: int32
+                                      type: integer
+                                  required:
+                                  - name
+                                  - priority
+                                  type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                                 x-kubernetes-list-map-keys:
                                 - name
@@ -98562,6 +103636,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -98622,6 +103698,8 @@ spec:
                                                   - type: integer
                                                   - type: string
                                                   x-kubernetes-int-or-string: true
+                                                protocol:
+                                                  type: string
                                                 scheme:
                                                   type: string
                                               required:
@@ -98666,6 +103744,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -98699,6 +103779,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -98773,6 +103855,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -98806,6 +103890,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -98997,6 +104083,8 @@ spec:
                                           type: integer
                                         grpc:
                                           properties:
+                                            mode:
+                                              type: string
                                             port:
                                               format: int32
                                               type: integer
@@ -99030,6 +104118,8 @@ spec:
                                               - type: integer
                                               - type: string
                                               x-kubernetes-int-or-string: true
+                                            protocol:
+                                              type: string
                                             scheme:
                                               type: string
                                           required:
@@ -99091,6 +104181,11 @@ spec:
                                     volumeMounts:
                                       items:
                                         properties:
+                                          bindMountOptions:
+                                            items:
+                                              type: string
+                                            type: array
+                                            x-kubernetes-list-type: set
                                           mountPath:
                                             type: string
                                           mountPropagation:
@@ -99497,6 +104592,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         items:
                                           items:
                                             properties:
@@ -99507,6 +104605,9 @@ spec:
                                                 type: integer
                                               path:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - key
                                             - path
@@ -99547,6 +104648,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         items:
                                           items:
                                             properties:
@@ -99581,6 +104685,9 @@ spec:
                                                 - resource
                                                 type: object
                                                 x-kubernetes-map-type: atomic
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - path
                                             type: object
@@ -99591,6 +104698,9 @@ spec:
                                       properties:
                                         medium:
                                           type: string
+                                        mode:
+                                          format: int32
+                                          type: integer
                                         sizeLimit:
                                           anyOf:
                                           - type: integer
@@ -99885,6 +104995,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         sources:
                                           items:
                                             properties:
@@ -99924,6 +105037,9 @@ spec:
                                                     type: string
                                                   signerName:
                                                     type: string
+                                                  user:
+                                                    format: int64
+                                                    type: integer
                                                 required:
                                                 - path
                                                 type: object
@@ -99939,6 +105055,9 @@ spec:
                                                           type: integer
                                                         path:
                                                           type: string
+                                                        user:
+                                                          format: int64
+                                                          type: integer
                                                       required:
                                                       - key
                                                       - path
@@ -99988,6 +105107,9 @@ spec:
                                                           - resource
                                                           type: object
                                                           x-kubernetes-map-type: atomic
+                                                        user:
+                                                          format: int64
+                                                          type: integer
                                                       required:
                                                       - path
                                                       type: object
@@ -100009,6 +105131,9 @@ spec:
                                                     type: integer
                                                   signerName:
                                                     type: string
+                                                  user:
+                                                    format: int64
+                                                    type: integer
                                                   userAnnotations:
                                                     additionalProperties:
                                                       type: string
@@ -100029,6 +105154,9 @@ spec:
                                                           type: integer
                                                         path:
                                                           type: string
+                                                        user:
+                                                          format: int64
+                                                          type: integer
                                                       required:
                                                       - key
                                                       - path
@@ -100051,6 +105179,9 @@ spec:
                                                     type: integer
                                                   path:
                                                     type: string
+                                                  user:
+                                                    format: int64
+                                                    type: integer
                                                 required:
                                                 - path
                                                 type: object
@@ -100148,6 +105279,9 @@ spec:
                                         defaultMode:
                                           format: int32
                                           type: integer
+                                        defaultUser:
+                                          format: int64
+                                          type: integer
                                         items:
                                           items:
                                             properties:
@@ -100158,6 +105292,9 @@ spec:
                                                 type: integer
                                               path:
                                                 type: string
+                                              user:
+                                                format: int64
+                                                type: integer
                                             required:
                                             - key
                                             - path
@@ -100636,8 +105773,6 @@ spec:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: either wva or keda must be specified when scaling is configured
-                  rule: has(self.wva) || has(self.keda)
                 - message: wva and keda are mutually exclusive
                   rule: '!(has(self.wva) && has(self.keda))'
                 - message: at least one trigger is required when using direct KEDA
@@ -101275,6 +106410,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -101335,6 +106472,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -101379,6 +106518,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -101412,6 +106553,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -101486,6 +106629,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -101519,6 +106664,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -101710,6 +106857,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -101743,6 +106892,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -101804,6 +106955,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -102027,6 +107183,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -102087,6 +107245,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -102131,6 +107291,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -102164,6 +107326,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -102238,6 +107402,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -102271,6 +107437,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -102462,6 +107630,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -102495,6 +107665,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -102558,6 +107730,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -102585,6 +107762,23 @@ spec:
                       required:
                       - name
                       type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  evictionResponders:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        priority:
+                          format: int32
+                          type: integer
+                      required:
+                      - name
+                      - priority
+                      type: object
+                      x-kubernetes-map-type: atomic
                     type: array
                     x-kubernetes-list-map-keys:
                     - name
@@ -102795,6 +107989,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -102855,6 +108051,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -102899,6 +108097,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -102932,6 +108132,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -103006,6 +108208,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -103039,6 +108243,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -103230,6 +108436,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -103263,6 +108471,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -103324,6 +108534,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -103730,6 +108945,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -103740,6 +108958,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -103780,6 +109001,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -103814,6 +109038,9 @@ spec:
                                     - resource
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - path
                                 type: object
@@ -103824,6 +109051,9 @@ spec:
                           properties:
                             medium:
                               type: string
+                            mode:
+                              format: int32
+                              type: integer
                             sizeLimit:
                               anyOf:
                               - type: integer
@@ -104118,6 +109348,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             sources:
                               items:
                                 properties:
@@ -104157,6 +109390,9 @@ spec:
                                         type: string
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -104172,6 +109408,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -104221,6 +109460,9 @@ spec:
                                               - resource
                                               type: object
                                               x-kubernetes-map-type: atomic
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - path
                                           type: object
@@ -104242,6 +109484,9 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                       userAnnotations:
                                         additionalProperties:
                                           type: string
@@ -104262,6 +109507,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -104284,6 +109532,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -104381,6 +109632,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -104391,6 +109645,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -104452,8 +109709,6 @@ spec:
                   samplerArg:
                     type: string
                 type: object
-              trustRemoteCode:
-                type: boolean
               worker:
                 properties:
                   activeDeadlineSeconds:
@@ -105065,6 +110320,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -105125,6 +110382,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -105169,6 +110428,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -105202,6 +110463,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -105276,6 +110539,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -105309,6 +110574,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -105500,6 +110767,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -105533,6 +110802,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -105594,6 +110865,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -105817,6 +111093,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -105877,6 +111155,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -105921,6 +111201,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -105954,6 +111236,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -106028,6 +111312,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -106061,6 +111347,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -106252,6 +111540,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -106285,6 +111575,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -106348,6 +111640,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -106375,6 +111672,23 @@ spec:
                       required:
                       - name
                       type: object
+                    type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
+                  evictionResponders:
+                    items:
+                      properties:
+                        name:
+                          type: string
+                        priority:
+                          format: int32
+                          type: integer
+                      required:
+                      - name
+                      - priority
+                      type: object
+                      x-kubernetes-map-type: atomic
                     type: array
                     x-kubernetes-list-map-keys:
                     - name
@@ -106585,6 +111899,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -106645,6 +111961,8 @@ spec:
                                       - type: integer
                                       - type: string
                                       x-kubernetes-int-or-string: true
+                                    protocol:
+                                      type: string
                                     scheme:
                                       type: string
                                   required:
@@ -106689,6 +112007,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -106722,6 +112042,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -106796,6 +112118,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -106829,6 +112153,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -107020,6 +112346,8 @@ spec:
                               type: integer
                             grpc:
                               properties:
+                                mode:
+                                  type: string
                                 port:
                                   format: int32
                                   type: integer
@@ -107053,6 +112381,8 @@ spec:
                                   - type: integer
                                   - type: string
                                   x-kubernetes-int-or-string: true
+                                protocol:
+                                  type: string
                                 scheme:
                                   type: string
                               required:
@@ -107114,6 +112444,11 @@ spec:
                         volumeMounts:
                           items:
                             properties:
+                              bindMountOptions:
+                                items:
+                                  type: string
+                                type: array
+                                x-kubernetes-list-type: set
                               mountPath:
                                 type: string
                               mountPropagation:
@@ -107520,6 +112855,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -107530,6 +112868,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -107570,6 +112911,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -107604,6 +112948,9 @@ spec:
                                     - resource
                                     type: object
                                     x-kubernetes-map-type: atomic
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - path
                                 type: object
@@ -107614,6 +112961,9 @@ spec:
                           properties:
                             medium:
                               type: string
+                            mode:
+                              format: int32
+                              type: integer
                             sizeLimit:
                               anyOf:
                               - type: integer
@@ -107908,6 +113258,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             sources:
                               items:
                                 properties:
@@ -107947,6 +113300,9 @@ spec:
                                         type: string
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -107962,6 +113318,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -108011,6 +113370,9 @@ spec:
                                               - resource
                                               type: object
                                               x-kubernetes-map-type: atomic
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - path
                                           type: object
@@ -108032,6 +113394,9 @@ spec:
                                         type: integer
                                       signerName:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                       userAnnotations:
                                         additionalProperties:
                                           type: string
@@ -108052,6 +113417,9 @@ spec:
                                               type: integer
                                             path:
                                               type: string
+                                            user:
+                                              format: int64
+                                              type: integer
                                           required:
                                           - key
                                           - path
@@ -108074,6 +113442,9 @@ spec:
                                         type: integer
                                       path:
                                         type: string
+                                      user:
+                                        format: int64
+                                        type: integer
                                     required:
                                     - path
                                     type: object
@@ -108171,6 +113542,9 @@ spec:
                             defaultMode:
                               format: int32
                               type: integer
+                            defaultUser:
+                              format: int64
+                              type: integer
                             items:
                               items:
                                 properties:
@@ -108181,6 +113555,9 @@ spec:
                                     type: integer
                                   path:
                                     type: string
+                                  user:
+                                    format: int64
+                                    type: integer
                                 required:
                                 - key
                                 - path
@@ -108721,7 +114098,6 @@ rules:
 - apiGroups:
   - authentication.k8s.io
   resources:
-  - subjectaccessreviews
   - tokenreviews
   verbs:
   - create
@@ -108747,6 +114123,26 @@ rules:
   - coordination.k8s.io
   resources:
   - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - disaggregatedset.x-k8s.io
+  resources:
+  - disaggregatedsetrolescalers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - disaggregatedset.x-k8s.io
+  resources:
+  - disaggregatedsets
   verbs:
   - create
   - delete
@@ -109347,6 +114743,25 @@ data:
            # Set to true for Gateway controllers (e.g. GKE Gateway) that do not support the optional timeouts field.
            "disableHTTPRouteTimeout": false,
 
+           # loraModelRoutingStrategy selects how LLMInferenceService LoRA adapter expansion represents
+           # model identities in generated HTTPRoutes. It only applies where model-based routing is in
+           # effect, and a change reaches every LoRA service on its next reconcile unless the service pins
+           # its own value with the spec annotation serving.kserve.io/lora-model-routing-strategy,
+           # which a preset may carry. "exact" (the default when omitted) renders one Exact header match
+           # per identity; "regex" collapses the base model and all adapters into a single anchored
+           # RegularExpression match. Any other value fails config loading, like the other ingress keys.
+           # A route the strategy cannot be applied to (a user-supplied model-routing match the regex
+           # transform does not recognize) reports HTTPRoutesReady=False with reason
+           # RoutingPreconditionNotMet while workload and scheduler reconciliation continue; the existing
+           # HTTPRoute keeps serving as-is (deleted group peers are still pruned from it) but is not
+           # recreated if removed. The practical "regex" ceiling depends on the gateway: Envoy Gateway
+           # disables Envoy's RE2 program-size check, so the 4096-character header value limit binds
+           # (Envoy logs a size warning past roughly 70 adapters); Istio allows a program size of 32768;
+           # a provider left at Envoy's default of 100 fits only a couple of adapters. A proxy that
+           # rejects the pattern reports an xDS NACK in the gateway controller's logs, not on the
+           # HTTPRoute.
+           "loraModelRoutingStrategy": "exact",
+
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.
            # Name of the inference service  ( {{ .Name}} )
@@ -109492,7 +114907,7 @@ data:
              "propagate": [
                 "Authorization",
                 "Test-Header-*",
-                "*Trace-Id*"
+                ".*Trace-Id.*"
              ]
            }
 
@@ -109580,8 +114995,14 @@ data:
          "jobNamespace": "kserve-localmodel-jobs",
          # defaultJobImage specifies the default image used for the download job.
          "defaultJobImage" : "kserve/storage-initializer:latest",
-         # Kubernetes modifies the filesystem group ID on the attached volume.
+         # fsGroup is set on per-node download Jobs in jobNamespace. Kubernetes modifies the
+         # filesystem group ID on the attached volume.
          "fsGroup": 1000,
+         # sharedPVCImportFSGroup is set on shared-PVC import Jobs, which run in the cache's own
+         # namespace. It is independent of fsGroup. RWX drivers with fsGroupPolicy File (e.g.
+         # csi-driver-nfs) need it so the UID 1000 import container can write a root-owned volume.
+         # Remove the key to omit fsGroup and let namespace admission (e.g. an OpenShift SCC) assign one.
+         "sharedPVCImportFSGroup": 1000,
          # TTL for the download job after it is finished.
          "jobTTLSecondsAfterFinished": 3600,
          # The frequency at which the local model agent reconciles the local models
@@ -109589,6 +115010,60 @@ data:
          "reconcilationFrequencyInSecs": 60,
          # This is to disable localmodel pv and pvc management for namespaces without isvcs
          "disableVolumeManagement": false
+       }
+
+     # ====================================== KERNELCACHE CONFIGURATION ======================================
+     # Example
+     kernelcache: |-
+       {
+         # enabled controls KernelCache, KernelCacheCapture, and related webhook behavior.
+         "enabled": false,
+         # defaultSidecarInjection controls MCV injection when a workload does not override it.
+         "defaultSidecarInjection": true,
+         # defaultMountType is used when KernelCache does not specify a mount type.(Currently, only OCI is supported)
+         "defaultMountType": "oci",
+         #defaultNodeGroup specifies the NodeGroup to use when no NodeGroup matches the workload.
+         # If empty and no NodeGroup matches, the KernelCache is not created.
+         "defaultNodeGroup": "",
+         # jobNamespace is the pre-created namespace where kernel cache preparation Jobs are created.
+         "jobNamespace": "kserve-kernelcache-jobs",
+         # mcvImage is the MCV container image used by cache capture and preparation flows.
+         "mcvImage": "kserve/kserve-mcv:latest-minimal",
+         # prefetchImage is the lightweight image used by OCI prefetch Jobs.
+         "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+         # registry defines the OCI registry used by capture and prefetch.
+         "registry": {
+           # endpoint is required to identify the registry used by capture and prefetch operations.
+           # insecure defaults to false. Set it to true only for an HTTP registry.
+           # caConfigMapRef optionally references a ConfigMap key containing the registry CA.
+           "auth": {
+             # type is none or serviceAccountToken. The default is none.
+             # none does not provision registry credentials.
+             # serviceAccountToken uses the Kubernetes TokenRequest API for short-lived credentials.
+             "type": "none"
+             # tokenTTLSeconds, pushRoleRef, and pullRoleRef are used with serviceAccountToken.
+           }
+         },
+         # artifactSecurity controls signing after capture and verification before preparation.
+         "artifactSecurity": {
+           "mode": "cert",
+           "failurePolicy": "reject",
+           "cert": {
+             "signingProfileRef": "kernelcache-signer",
+             "trustBundle": "kserve/kernelcache-root-ca",
+             "subjectRegexp": "spiffe://kserve/kernelcache-signer"
+           }
+         },
+         # abandonedCapturePolicy controls generated captures whose producer Pod disappears
+         # before completion. Supported values are retain and delete.
+         "abandonedCapturePolicy": "retain",
+         # jobTTLSecondsAfterFinished controls how long completed preparation Jobs(Downloading OCI image to the node) are retained.
+         "jobTTLSecondsAfterFinished": 600,
+         # mcvCaptureReadinessTimeoutSeconds limits how long MCV waits for runtime readiness before capture. Larger models may require a longer timeout.
+         "mcvCaptureReadinessTimeoutSeconds": 600,
+         # reconcileIntervalSeconds controls KCN status reconciliation.
+         # Periodic Node image validation uses the node agent's internal interval.
+         "reconcileIntervalSeconds": 300
        }
   agent: |-
     {
@@ -109669,12 +115144,41 @@ data:
         "disableIngressCreation": false,
         "disableHTTPRouteTimeout": false
     }
+  kernelcache: |-
+    {
+      "enabled": false,
+      "defaultSidecarInjection": true,
+      "defaultMountType": "oci",
+      "defaultNodeGroup": "",
+      "jobNamespace": "kserve-kernelcache-jobs",
+      "mcvImage": "kserve/kserve-mcv:latest-minimal",
+      "prefetchImage": "registry.access.redhat.com/ubi9/ubi-minimal:latest",
+      "registry": {
+        "auth": {
+          "type": "none"
+        }
+      },
+      "artifactSecurity": {
+        "mode": "cert",
+        "failurePolicy": "reject",
+        "cert": {
+          "signingProfileRef": "kernelcache-signer",
+          "trustBundle": "kserve/kernelcache-root-ca",
+          "subjectRegexp": "spiffe://kserve/kernelcache-signer"
+        }
+      },
+      "abandonedCapturePolicy": "retain",
+      "jobTTLSecondsAfterFinished": 600,
+      "mcvCaptureReadinessTimeoutSeconds": 600,
+      "reconcileIntervalSeconds": 300
+    }
   localModel: |-
     {
       "enabled": false,
       "jobNamespace": "kserve-localmodel-jobs",
       "defaultJobImage" : "kserve/storage-initializer:latest",
       "fsGroup": 1000,
+      "sharedPVCImportFSGroup": 1000,
       "jobTTLSecondsAfterFinished": 3600,
       "reconcilationFrequencyInSecs": 60,
       "disableVolumeManagement": false
@@ -109730,7 +115234,8 @@ data:
         "enableModelcar": true,
         "cpuModelcar": "10m",
         "memoryModelcar": "15Mi",
-        "uidModelcar": 1010
+        "uidModelcar": 1010,
+        "modelVolumeSource": null
     }
 kind: ConfigMap
 metadata:

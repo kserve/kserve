@@ -19,13 +19,13 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Request distribution (QPS per instance). Uses inference_objective_request_total without a label filter so it works when target_model/target_model_name is missing or named differently. If you see no data, check Prometheus for inference_objective_request_total or inference_model_request_total (older deployments).",
+      "description": "Request distribution (QPS per instance). Uses llm_d_epp_request_total without a label filter so it works when target_model/target_model_name is missing or named differently. llm-d-router before v0.11.0 used the legacy inference_objective_request_total metric.",
       "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "reqps" } },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 2 },
       "id": 2,
       "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "sortBy": "Max", "sortDesc": true } },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by(pod) (rate(inference_objective_request_total[5m]))", "legendFormat": "{{pod}}", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by(pod) (rate(llm_d_epp_request_total[5m]))", "legendFormat": "{{pod}}", "refId": "A" }],
       "title": "Request distribution (QPS per instance)",
       "type": "timeseries"
     },
@@ -55,15 +55,14 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "description": "Routing decision latency P99. Tries inference_extension_scheduler_plugin_duration_seconds first; if empty, uses inference_extension_plugin_duration_seconds (some EPP versions expose only the latter).",
+      "description": "Routing decision latency P99. Uses llm_d_epp_plugin_duration_seconds. llm-d-router before v0.11.0 also exposes this as inference_extension_plugin_duration_seconds.",
       "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }, "unit": "s" } },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 10 },
       "id": 5,
       "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "sortBy": "Max", "sortDesc": true } },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.99, sum by(le) (rate(inference_extension_scheduler_plugin_duration_seconds_bucket[5m])))", "legendFormat": "P99 (scheduler plugin)", "refId": "A" },
-        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.99, sum by(le) (rate(inference_extension_plugin_duration_seconds_bucket[5m])))", "legendFormat": "P99 (plugin)", "refId": "B" }
+        { "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.99, sum by(le) (rate(llm_d_epp_plugin_duration_seconds_bucket[5m])))", "legendFormat": "P99 (plugin)", "refId": "A" }
       ],
       "title": "Routing decision latency P99",
       "type": "timeseries"
@@ -133,7 +132,7 @@
       "id": 13,
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "inference_extension_prefix_indexer_size", "legendFormat": "{{pod}}", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "llm_d_epp_prefix_indexer_size", "legendFormat": "{{pod}}", "refId": "A" }],
       "title": "EPP prefix indexer size",
       "type": "timeseries"
     },
@@ -146,8 +145,8 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "expr": "histogram_quantile(0.50, sum by(le) (rate(inference_extension_prefix_indexer_hit_ratio_bucket[5m])))", "legendFormat": "P50", "refId": "A" },
-        { "expr": "histogram_quantile(0.90, sum by(le) (rate(inference_extension_prefix_indexer_hit_ratio_bucket[5m])))", "legendFormat": "P90", "refId": "B" }
+        { "expr": "histogram_quantile(0.50, sum by(le) (rate(llm_d_epp_prefix_indexer_hit_ratio_bucket[5m])))", "legendFormat": "P50", "refId": "A" },
+        { "expr": "histogram_quantile(0.90, sum by(le) (rate(llm_d_epp_prefix_indexer_hit_ratio_bucket[5m])))", "legendFormat": "P90", "refId": "B" }
       ],
       "title": "EPP prefix indexer hit ratio (P50, P90)",
       "type": "timeseries"
@@ -161,8 +160,8 @@
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
       "targets": [
-        { "expr": "histogram_quantile(0.50, sum by(le) (rate(inference_extension_prefix_indexer_hit_bytes_bucket[5m])))", "legendFormat": "P50", "refId": "A" },
-        { "expr": "histogram_quantile(0.90, sum by(le) (rate(inference_extension_prefix_indexer_hit_bytes_bucket[5m])))", "legendFormat": "P90", "refId": "B" }
+        { "expr": "histogram_quantile(0.50, sum by(le) (rate(llm_d_epp_prefix_indexer_hit_bytes_bucket[5m])))", "legendFormat": "P50", "refId": "A" },
+        { "expr": "histogram_quantile(0.90, sum by(le) (rate(llm_d_epp_prefix_indexer_hit_bytes_bucket[5m])))", "legendFormat": "P90", "refId": "B" }
       ],
       "title": "EPP prefix indexer hit bytes (P50, P90)",
       "type": "timeseries"
@@ -218,7 +217,7 @@
       "id": 20,
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by(decision_type) (rate(llm_d_inference_scheduler_pd_decision_total[5m]))", "legendFormat": "{{decision_type}}", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by(decision_type) (rate(llm_d_epp_disagg_decision_total[5m]))", "legendFormat": "{{decision_type}}", "refId": "A" }],
       "title": "P/D decision rate by type",
       "type": "timeseries"
     },
@@ -230,7 +229,7 @@
       "id": 21,
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_inference_scheduler_pd_decision_total{decision_type=\"decode-only\"}[5m]))", "legendFormat": "decode-only", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_epp_disagg_decision_total{decision_type=\"decode-only\"}[5m]))", "legendFormat": "decode-only", "refId": "A" }],
       "title": "Decode-only request rate",
       "type": "timeseries"
     },
@@ -242,7 +241,7 @@
       "id": 22,
       "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true } },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_inference_scheduler_pd_decision_total{decision_type=\"prefill-decode\"}[5m]))", "legendFormat": "prefill-decode", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_epp_disagg_decision_total{decision_type=\"prefill-decode\"}[5m]))", "legendFormat": "prefill-decode", "refId": "A" }],
       "title": "Prefill-decode request rate",
       "type": "timeseries"
     },
@@ -254,7 +253,7 @@
       "id": 23,
       "options": { "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
       "pluginVersion": "10.0.0",
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_inference_scheduler_pd_decision_total{decision_type=\"prefill-decode\"}[5m])) / sum(rate(llm_d_inference_scheduler_pd_decision_total[5m]))", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(rate(llm_d_epp_disagg_decision_total{decision_type=\"prefill-decode\"}[5m])) / sum(rate(llm_d_epp_disagg_decision_total[5m]))", "refId": "A" }],
       "title": "P/D decision ratio (prefill-decode)",
       "type": "gauge"
     }

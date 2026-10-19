@@ -16,3 +16,9 @@ patches:
   patch: |-
     - op: remove
       path: /spec/template/spec/nodeSelector
+- target:
+    kind: DaemonSet
+    name: kserve-kernelcachenode-agent
+  patch: |-
+    - op: remove
+      path: /spec/template/spec/affinity

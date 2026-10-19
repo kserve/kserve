@@ -38,12 +38,12 @@ DEPENDENCIES = {
         "sigs.k8s.io/gateway-api-inference-extension",
         None,
         None,
-        ("kubernetes-sigs/gateway-api-inference-extension", "manifests.yaml"),
+        ("kubernetes-sigs/gateway-api-inference-extension", "v1-manifests.yaml"),
     ),
 }
 
 HELM_REPOS = {
-    "istio": "https://istio-release.storage.googleapis.com/charts",
+    "istio": "https://blob.istio.io/istio-release/charts",
     "kedacore": "https://kedacore.github.io/charts",
     "open-telemetry": "https://open-telemetry.github.io/opentelemetry-helm-charts",
 }
@@ -328,7 +328,6 @@ def main():
         f"GATEWAY_API_VERSION={versions['GATEWAY_API_VERSION']}\n",
         f"GIE_VERSION={versions['GIE_VERSION']}\n",
         f"LLMD_ROUTER_VERSION={llmd_router_version}\n",
-        f"WVA_VERSION={existing_versions.get('WVA_VERSION', 'v0.8.0')}\n",
         "# END\n",
     ]
 

@@ -13,18 +13,20 @@
 # limitations under the License.
 
 import logging
-from socket import socket
+import os
 import sys
+from socket import socket
 from typing import List, Optional
 
 import fastapi
 import uvicorn
 from fastapi import Request, Response
 from fastapi.routing import APIRouter
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from prometheus_client import REGISTRY, exposition
 from timing_asgi import TimingClient, TimingMiddleware
 from timing_asgi.integrations import StarletteScopeToName
-from uvicorn.importer import import_from_string, ImportFromStringError
+from uvicorn.importer import ImportFromStringError, import_from_string
 
 from kserve.errors import (
     InferenceError,
@@ -44,14 +46,21 @@ from kserve.errors import (
     server_not_ready_handler,
     unsupported_protocol_error_handler,
 )
-from kserve.logging import trace_logger, logger
+from kserve.logging import logger, trace_logger
 from kserve.protocol.dataplane import DataPlane
 from kserve.protocol.rest.timeseries.config import maybe_register_time_series_endpoints
+from kserve.protocol.tracing import get_tracer_provider
 
+from ..model_repository_extension import ModelRepositoryExtension
+from .middleware import TraceResponseHeaderMiddleware
+from .ssl_cert_refresher import SSLCertRefresher
 from .v1_endpoints import register_v1_endpoints
 from .v2_endpoints import register_v2_endpoints
-from .ssl_cert_refresher import SSLCertRefresher
-from ..model_repository_extension import ModelRepositoryExtension
+from .tls_profile import (
+    TLS_PROFILE_PROVIDER_ENV,
+    TLSProfileProvider,
+    load_tls_profile_provider,
+)
 
 
 async def metrics_handler(request: Request) -> Response:
@@ -65,6 +74,12 @@ class PrintTimings(TimingClient):
 
 
 VALID_UVICORN_LOOPS = {"auto", "asyncio", "uvloop"}
+REST_TRACE_EXCLUDED_URLS = (
+    r"^/$",
+    r"^/metrics$",
+    r"^/v2/health/live$",
+    r"^/v2/health/ready$",
+)
 
 
 class _RefreshingServer(uvicorn.Server):
@@ -73,28 +88,44 @@ class _RefreshingServer(uvicorn.Server):
     def __init__(self, config: uvicorn.Config):
         super().__init__(config)
         self._ssl_cert_refresher: Optional[SSLCertRefresher] = None
+        self._tls_profile_provider: Optional[TLSProfileProvider] = None
 
     async def serve(self, sockets: Optional[List[socket]] = None) -> None:
         if not self.config.loaded:
             self.config.load()
 
-        if (
-            self.config.ssl is not None
-            and self.config.ssl_keyfile is not None
-            and self.config.ssl_certfile is not None
-        ):
-            self._ssl_cert_refresher = SSLCertRefresher(
-                ssl_context=self.config.ssl,
-                key_path=str(self.config.ssl_keyfile),
-                cert_path=str(self.config.ssl_certfile),
+        provider_name = os.getenv(TLS_PROFILE_PROVIDER_ENV)
+        if provider_name and self.config.ssl is None:
+            raise ValueError(
+                f"{TLS_PROFILE_PROVIDER_ENV} requires TLS to be configured "
+                "with ssl_certfile and ssl_keyfile"
             )
 
         try:
+            if (
+                self.config.ssl is not None
+                and self.config.ssl_keyfile is not None
+                and self.config.ssl_certfile is not None
+            ):
+                self._ssl_cert_refresher = SSLCertRefresher(
+                    ssl_context=self.config.ssl,
+                    key_path=str(self.config.ssl_keyfile),
+                    cert_path=str(self.config.ssl_certfile),
+                )
+                if provider_name:
+                    self._tls_profile_provider = load_tls_profile_provider(
+                        provider_name, self.config.ssl
+                    )
+                    self._tls_profile_provider.start()
+
             await super().serve(sockets=sockets)
         finally:
             if self._ssl_cert_refresher is not None:
                 self._ssl_cert_refresher.stop()
                 self._ssl_cert_refresher = None
+            if self._tls_profile_provider is not None:
+                self._tls_profile_provider.stop()
+                self._tls_profile_provider = None
 
 
 class RESTServer:
@@ -112,6 +143,8 @@ class RESTServer:
         ssl_certfile: Optional[str] = None,
         ssl_keyfile: Optional[str] = None,
     ):
+        if bool(ssl_certfile) != bool(ssl_keyfile):
+            raise ValueError("ssl_certfile and ssl_keyfile must be configured together")
         self.dataplane = data_plane
         self.model_repository_extension = model_repository_extension
         self.access_log_format = access_log_format
@@ -145,6 +178,14 @@ class RESTServer:
         app.include_router(root_router)
         register_v1_endpoints(app, self.dataplane, self.model_repository_extension)
         register_v2_endpoints(app, self.dataplane, self.model_repository_extension)
+
+        if tracer_provider := get_tracer_provider():
+            excluded_urls = ",".join(REST_TRACE_EXCLUDED_URLS)
+            FastAPIInstrumentor.instrument_app(
+                app, tracer_provider=tracer_provider, excluded_urls=excluded_urls
+            )
+            logger.info("OpenTelemetry tracing enabled")
+
         # Register OpenAI endpoints if any of the models in the registry implement the OpenAI interface
         # This adds /openai/v1/completions and /openai/v1/chat/completions routes to the
         # REST server.
@@ -155,6 +196,7 @@ class RESTServer:
 
             maybe_register_openai_endpoints(app, self.dataplane.model_registry)
             logger.info("OpenAI endpoints registered")
+
         except ImportError:
             logger.info("OpenAI endpoints not registered")
 
@@ -185,6 +227,7 @@ class RESTServer:
             client=PrintTimings(),
             metric_namer=StarletteScopeToName(prefix="kserve.io", starlette_app=app),
         )
+        app.add_middleware(TraceResponseHeaderMiddleware)
 
         # More context in https://github.com/encode/uvicorn/pull/947
         # At the time of writing the ASGI specs are not clear when it comes
@@ -192,7 +235,9 @@ class RESTServer:
         # chose to create a custom middleware for this.
         # The allowed log format is specified in https://github.com/Kludex/asgi-logger#usage
         if self.access_log_format:
-            from asgi_logger import AccessLoggerMiddleware
+            from asgi_logger import (
+                AccessLoggerMiddleware,  # type: ignore[import-not-found]
+            )
 
             # As indicated by the asgi-logger docs, we need to clear/unset
             # any setting for uvicorn.access to avoid log duplicates.

@@ -68,6 +68,23 @@ def test_run_kustomize_build_uses_project_bin(monkeypatch):
     )
 
 
+def test_run_kustomize_build_reuses_cached_directory(tmp_path, monkeypatch):
+    """Test that repeated builds of one directory invoke Kustomize once."""
+    from unittest.mock import MagicMock
+
+    kustomize_dir = tmp_path / "config"
+    kustomize_dir.mkdir()
+    mock_run = MagicMock(return_value=MagicMock(stdout="kind: ConfigMap\n"))
+    monkeypatch.setattr(manifest_builder.subprocess, "run", mock_run)
+    manifest_builder.clear_kustomize_build_cache()
+
+    first = manifest_builder.run_kustomize_build(kustomize_dir)
+    second = manifest_builder.run_kustomize_build(kustomize_dir)
+
+    assert first == second == "kind: ConfigMap\n"
+    mock_run.assert_called_once()
+
+
 def test_get_embed_component_values_from_component_env():
     """Test resolving ENABLE_LLMISVC and ENABLE_LOCALMODEL from component env."""
     config = {"global_env": {}}

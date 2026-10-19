@@ -25,16 +25,75 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	pkgtesting "github.com/kserve/kserve/pkg/testing"
 )
+
+func managedPoolService() *v1alpha2.LLMInferenceService {
+	return &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: "test-ns"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Pool: &v1alpha2.InferencePoolSpec{
+						Spec: &igwapi.InferencePoolSpec{},
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestManagedInferencePoolMissingEndpointPickerRef(t *testing.T) {
+	withNilRef := managedPoolService()
+	if !managedInferencePoolMissingEndpointPickerRef(withNilRef) {
+		t.Fatal("expected a managed pool without EndpointPickerRef to be invalid")
+	}
+
+	withRef := withNilRef.DeepCopy()
+	withRef.Spec.Router.Scheduler.Pool.Spec.EndpointPickerRef = &igwapi.EndpointPickerRef{
+		Kind: "Service",
+		Name: "test-epp",
+		Port: &igwapi.Port{Number: 9002},
+	}
+	if managedInferencePoolMissingEndpointPickerRef(withRef) {
+		t.Fatal("expected a managed pool with EndpointPickerRef to be valid")
+	}
+
+	withExternalRef := withNilRef.DeepCopy()
+	withExternalRef.Spec.Router.Scheduler.Pool.Spec = nil
+	withExternalRef.Spec.Router.Scheduler.Pool.Ref = &corev1.LocalObjectReference{Name: "external-pool"}
+	if managedInferencePoolMissingEndpointPickerRef(withExternalRef) {
+		t.Fatal("expected an external InferencePool ref to be allowed")
+	}
+}
+
+func TestReconcileRouter_ManagedPoolWithoutEndpointPickerRefIsTerminal(t *testing.T) {
+	llmSvc := managedPoolService()
+	reconciler := &LLMISVCReconciler{}
+
+	err := reconciler.reconcileRouter(t.Context(), llmSvc, &Config{})
+	require.ErrorIs(t, err, reconcile.TerminalError(nil))
+
+	condition := llmSvc.Status.GetCondition(v1alpha2.InferencePoolReady)
+	require.NotNil(t, condition)
+	assert.True(t, condition.IsFalse())
+	assert.Equal(t, "EndpointPickerRefMissing", condition.Reason)
+	assert.Contains(t, condition.Message,
+		"spec.router.scheduler.pool.spec.endpointPickerRef is required")
+}
 
 // loadSchedulerPresetInline reads a scheduler preset from config/llmisvcconfig and
 // returns its resolved EPPConfig inline as a parsed map.
@@ -374,6 +433,26 @@ func TestSchedulerDefaultPreset(t *testing.T) {
 		{Ref: "prefix-cache-affinity-filter"},
 		{Ref: "token-load-scorer"},
 	}))
+}
+
+// TestSchedulerConfigTextOmni asserts the legacy fallback config (routers too
+// old for presets) is load-only for omni services: the text prefix-cache chain
+// has no TokenizedRequest for audio/image inputs, so prefix-cache-scorer must
+// not appear, while non-omni services keep the default chain.
+func TestSchedulerConfigTextOmni(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	omniSvc := &v1alpha2.LLMInferenceService{}
+	omniSvc.Spec.Runtime = ptr.To(OmniServingRuntimeName)
+	omniText := schedulerConfigText(omniSvc)
+	g.Expect(omniText).To(ContainSubstring("queue-scorer"))
+	g.Expect(omniText).To(ContainSubstring("max-score-picker"))
+	g.Expect(omniText).NotTo(ContainSubstring("prefix-cache-scorer"))
+	g.Expect(omniText).NotTo(ContainSubstring("kv-cache-utilization-scorer"))
+
+	plainSvc := &v1alpha2.LLMInferenceService{}
+	plainText := schedulerConfigText(plainSvc)
+	g.Expect(plainText).To(ContainSubstring("prefix-cache-scorer"))
 }
 
 func TestFilterArgs(t *testing.T) {
@@ -2917,6 +2996,253 @@ func TestMigrateProducerParams(t *testing.T) {
 			g := NewGomegaWithT(t)
 			result := migrateProducerParams(tt.plugin)
 			tt.validate(g, result)
+		})
+	}
+}
+
+func TestWithMigrateRemovedConfigFieldsV011(t *testing.T) {
+	tests := []struct {
+		name       string
+		migrate    func(context.Context, *unstructured.Unstructured) error
+		configYAML string
+		validate   func(g Gomega, obj map[string]interface{})
+	}{
+		{
+			name:    "moves saturationDetector under flowControl",
+			migrate: withMigrateSaturationDetector,
+			configYAML: `
+saturationDetector:
+  pluginRef: max-saturation-detector
+plugins:
+- type: queue-scorer
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				g.Expect(obj).NotTo(HaveKey("saturationDetector"))
+				sd, found, err := unstructured.NestedMap(obj, "flowControl", "saturationDetector")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(found).To(BeTrue())
+				g.Expect(sd).To(HaveKeyWithValue("pluginRef", "max-saturation-detector"))
+			},
+		},
+		{
+			name:    "keeps existing flowControl.saturationDetector and drops the legacy field",
+			migrate: withMigrateSaturationDetector,
+			configYAML: `
+saturationDetector:
+  pluginRef: legacy
+flowControl:
+  saturationDetector:
+    pluginRef: current
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				g.Expect(obj).NotTo(HaveKey("saturationDetector"))
+				sd, _, _ := unstructured.NestedMap(obj, "flowControl", "saturationDetector")
+				g.Expect(sd).To(HaveKeyWithValue("pluginRef", "current"))
+			},
+		},
+		{
+			name:    "preserves sibling flowControl fields",
+			migrate: withMigrateSaturationDetector,
+			configYAML: `
+saturationDetector:
+  pluginRef: max-saturation-detector
+flowControl:
+  defaultRequestTTL: 60s
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				ttl, _, _ := unstructured.NestedString(obj, "flowControl", "defaultRequestTTL")
+				g.Expect(ttl).To(Equal("60s"))
+				sd, _, _ := unstructured.NestedMap(obj, "flowControl", "saturationDetector")
+				g.Expect(sd).To(HaveKeyWithValue("pluginRef", "max-saturation-detector"))
+			},
+		},
+		{
+			name:    "no saturationDetector - no-op",
+			migrate: withMigrateSaturationDetector,
+			configYAML: `
+plugins:
+- type: queue-scorer
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				g.Expect(obj).NotTo(HaveKey("flowControl"))
+			},
+		},
+		{
+			name:    "moves parser into requestHandler.parsers list",
+			migrate: withMigrateParser,
+			configYAML: `
+parser:
+  pluginRef: openai-parser
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				g.Expect(obj).NotTo(HaveKey("parser"))
+				parsers, found, err := unstructured.NestedSlice(obj, "requestHandler", "parsers")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(found).To(BeTrue())
+				g.Expect(parsers).To(HaveLen(1))
+				g.Expect(parsers[0]).To(HaveKeyWithValue("pluginRef", "openai-parser"))
+			},
+		},
+		{
+			name:    "keeps existing requestHandler.parsers and drops the legacy field",
+			migrate: withMigrateParser,
+			configYAML: `
+parser:
+  pluginRef: legacy-parser
+requestHandler:
+  parsers:
+  - pluginRef: vllmhttp-parser
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				g.Expect(obj).NotTo(HaveKey("parser"))
+				parsers, _, _ := unstructured.NestedSlice(obj, "requestHandler", "parsers")
+				g.Expect(parsers).To(HaveLen(1))
+				g.Expect(parsers[0]).To(HaveKeyWithValue("pluginRef", "vllmhttp-parser"))
+			},
+		},
+		{
+			name:    "moves dataLayer.peerDiscovery under dataLayer.discovery.peers",
+			migrate: withMigratePeerDiscovery,
+			configYAML: `
+dataLayer:
+  peerDiscovery:
+    pluginRef: peer-plugin
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				dl, _, _ := unstructured.NestedMap(obj, "dataLayer")
+				g.Expect(dl).NotTo(HaveKey("peerDiscovery"))
+				peers, found, err := unstructured.NestedMap(obj, "dataLayer", "discovery", "peers")
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(found).To(BeTrue())
+				g.Expect(peers).To(HaveKeyWithValue("pluginRef", "peer-plugin"))
+			},
+		},
+		{
+			name:    "preserves dataLayer.discovery.endpoints alongside migrated peers",
+			migrate: withMigratePeerDiscovery,
+			configYAML: `
+dataLayer:
+  peerDiscovery:
+    pluginRef: peer-plugin
+  discovery:
+    endpoints:
+      pluginRef: file-discovery
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				endpoints, _, _ := unstructured.NestedMap(obj, "dataLayer", "discovery", "endpoints")
+				g.Expect(endpoints).To(HaveKeyWithValue("pluginRef", "file-discovery"))
+				peers, _, _ := unstructured.NestedMap(obj, "dataLayer", "discovery", "peers")
+				g.Expect(peers).To(HaveKeyWithValue("pluginRef", "peer-plugin"))
+			},
+		},
+		{
+			name:    "no dataLayer - no-op",
+			migrate: withMigratePeerDiscovery,
+			configYAML: `
+plugins:
+- type: queue-scorer
+`,
+			validate: func(g Gomega, obj map[string]interface{}) {
+				g.Expect(obj).NotTo(HaveKey("dataLayer"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			var obj map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(tt.configYAML), &obj)).To(Succeed())
+			u := unstructured.Unstructured{Object: obj}
+			g.Expect(tt.migrate(context.Background(), &u)).To(Succeed())
+			tt.validate(g, u.Object)
+		})
+	}
+}
+
+func TestSchedulerTransformMigratesRemovedConfigFieldsV011(t *testing.T) {
+	legacyConfig := `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+parser:
+  pluginRef: openai-parser
+saturationDetector:
+  pluginRef: max-saturation-detector
+dataLayer:
+  peerDiscovery:
+    pluginRef: peer-plugin
+plugins:
+- type: single-profile-handler
+`
+
+	tests := []struct {
+		name           string
+		version        string
+		validateConfig func(g Gomega, configText string)
+	}{
+		{
+			name:    "relocates all three fields for v0.11.0",
+			version: "0.11.0",
+			validateConfig: func(g Gomega, configText string) {
+				var cfg map[string]interface{}
+				g.Expect(yaml.Unmarshal([]byte(configText), &cfg)).To(Succeed())
+
+				g.Expect(cfg).NotTo(HaveKey("parser"))
+				g.Expect(cfg).NotTo(HaveKey("saturationDetector"))
+				dl, _, _ := unstructured.NestedMap(cfg, "dataLayer")
+				g.Expect(dl).NotTo(HaveKey("peerDiscovery"))
+
+				parsers, _, _ := unstructured.NestedSlice(cfg, "requestHandler", "parsers")
+				g.Expect(parsers).To(HaveLen(1))
+				g.Expect(parsers[0]).To(HaveKeyWithValue("pluginRef", "openai-parser"))
+
+				sd, _, _ := unstructured.NestedMap(cfg, "flowControl", "saturationDetector")
+				g.Expect(sd).To(HaveKeyWithValue("pluginRef", "max-saturation-detector"))
+
+				peers, _, _ := unstructured.NestedMap(cfg, "dataLayer", "discovery", "peers")
+				g.Expect(peers).To(HaveKeyWithValue("pluginRef", "peer-plugin"))
+			},
+		},
+		{
+			name:    "leaves the fields in place for v0.10.0",
+			version: "0.10.0",
+			validateConfig: func(g Gomega, configText string) {
+				var cfg map[string]interface{}
+				g.Expect(yaml.Unmarshal([]byte(configText), &cfg)).To(Succeed())
+
+				g.Expect(cfg).To(HaveKey("parser"))
+				g.Expect(cfg).To(HaveKey("saturationDetector"))
+				g.Expect(cfg).NotTo(HaveKey("requestHandler"))
+				g.Expect(cfg).NotTo(HaveKey("flowControl"))
+				dl, _, _ := unstructured.NestedMap(cfg, "dataLayer")
+				g.Expect(dl).To(HaveKey("peerDiscovery"))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			d := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"app.kubernetes.io/version": tt.version,
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "main", Args: []string{"--config-text", legacyConfig}},
+							},
+						},
+					},
+				},
+			}
+
+			g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)).To(Succeed())
+
+			tt.validateConfig(g, d.Spec.Template.Spec.Containers[0].Args[1])
 		})
 	}
 }
