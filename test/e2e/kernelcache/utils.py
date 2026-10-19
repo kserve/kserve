@@ -634,17 +634,40 @@ def verify_runtime_image_available_on_node(
 
     def check_probe() -> None:
         current = core.read_namespaced_pod(pod_name, namespace)
-        if current.status.phase == "Failed":
-            raise TerminalFailure(
-                f"Runtime image cache probe {namespace}/{pod_name} failed on {node_name}"
-            )
         for status in current.status.container_statuses or []:
-            waiting = status.state.waiting
+            state = status.state
+            waiting = state.waiting if state else None
             if waiting and waiting.reason in {"ErrImageNeverPull", "ImagePullBackOff"}:
                 raise TerminalFailure(
                     f"Runtime image {runtime_image} is not cached on node {node_name}: "
                     f"{waiting.reason}: {waiting.message or ''}"
                 )
+            if waiting and waiting.reason in {
+                "CreateContainerError",
+                "RunContainerError",
+            }:
+                raise TerminalFailure(
+                    f"Runtime image cache probe {namespace}/{pod_name} could not start on "
+                    f"{node_name}: {waiting.reason}: {waiting.message or ''}"
+                )
+        if current.status.phase == "Failed":
+            terminated = next(
+                (
+                    status.state.terminated
+                    for status in current.status.container_statuses or []
+                    if status.state and status.state.terminated
+                ),
+                None,
+            )
+            if terminated:
+                raise TerminalFailure(
+                    f"Runtime image cache probe {namespace}/{pod_name} command failed on "
+                    f"{node_name}: {terminated.reason or 'unknown'} "
+                    f"(exit code {terminated.exit_code}): {terminated.message or ''}"
+                )
+            raise TerminalFailure(
+                f"Runtime image cache probe {namespace}/{pod_name} failed on {node_name}"
+            )
         assert current.status.phase == "Succeeded", (
             f"Runtime image cache probe {namespace}/{pod_name} phase is "
             f"{current.status.phase or '(empty)'}"

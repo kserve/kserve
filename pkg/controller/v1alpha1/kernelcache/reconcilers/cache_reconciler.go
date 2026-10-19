@@ -46,18 +46,19 @@ type KernelCacheReconciler struct {
 }
 
 const (
-	kernelCacheReadyConditionType = "Ready"
-	reasonNodeGroupNotFound       = "NodeGroupNotFound"
-	reasonNoMatchingNodes         = "NoMatchingNodes"
-	reasonNoReadyNodes            = "NoReadyNodes"
-	reasonConfigError             = "ConfigError"
-	reasonFeatureDisabled         = "FeatureDisabled"
-	reasonVerificationFailed      = "VerificationFailed"
-	reasonStorageError            = "StorageError"
-	reasonWaitingForPreparation   = "WaitingForPreparation"
-	reasonPreparing               = "Preparing"
-	reasonCacheReady              = "CacheReady"
-	reasonPreparationFailed       = "PreparationFailed"
+	kernelCacheReadyConditionType    = "Ready"
+	reasonNodeGroupNotFound          = "NodeGroupNotFound"
+	reasonNoMatchingNodes            = "NoMatchingNodes"
+	reasonNoReadyNodes               = "NoReadyNodes"
+	reasonConfigError                = "ConfigError"
+	reasonFeatureDisabled            = "FeatureDisabled"
+	reasonVerificationFailed         = "VerificationFailed"
+	reasonStorageError               = "StorageError"
+	reasonWaitingForPreparation      = "WaitingForPreparation"
+	reasonPreparing                  = "Preparing"
+	reasonCacheReady                 = "CacheReady"
+	reasonPreparationFailed          = "PreparationFailed"
+	runtimeImagePrefetchRequeueDelay = 3 * time.Second
 )
 
 func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -154,19 +155,28 @@ func (r *KernelCacheReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err := r.ensureKernelCacheArtifactPrefetchJobs(ctx, kernelCache, nodeGroup, readyNodes, config); err != nil {
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, len(readyNodes.Items), reasonStorageError, err.Error(), mountType)
 	}
-	if err := r.ensureRuntimeImagePrefetchJobs(ctx, kernelCache, nodeGroup, readyNodes, config); err != nil {
-		r.Log.Error(err, "Unable to prefetch runtime image", "kernelCache", client.ObjectKeyFromObject(kernelCache))
+	needsRequeue, runtimeErr := r.ensureRuntimeImagePrefetchJobs(ctx, kernelCache, nodeGroup, readyNodes, config)
+	if runtimeErr != nil {
+		r.Log.Error(runtimeErr, "Unable to prefetch runtime image", "kernelCache", client.ObjectKeyFromObject(kernelCache))
 		if r.Recorder != nil {
-			r.Recorder.Eventf(kernelCache, nil, corev1.EventTypeWarning, "RuntimeImagePrefetchFailed", "PrefetchRuntimeImage", "%v", err)
+			r.Recorder.Eventf(kernelCache, nil, corev1.EventTypeWarning, "RuntimeImagePrefetchFailed", "PrefetchRuntimeImage", "%v", runtimeErr)
 		}
-		return ctrl.Result{}, err
 	}
 
 	aggregate, err := r.aggregateKernelCacheStatus(ctx, kernelCache, readyNodes)
 	if err != nil {
 		return ctrl.Result{}, r.updateStatus(ctx, kernelCache, v1alpha1.KernelCacheStateError, len(readyNodes.Items), reasonStorageError, err.Error(), mountType)
 	}
-	return ctrl.Result{}, r.updateStatusWithCounts(ctx, kernelCache, aggregate.State, aggregate.NodeCount, aggregate.NodesReady, aggregate.NodesPreparing, aggregate.NodesError, aggregate.Reason, aggregate.Message, mountType)
+	if err := r.updateStatusWithCounts(ctx, kernelCache, aggregate.State, aggregate.NodeCount, aggregate.NodesReady, aggregate.NodesPreparing, aggregate.NodesError, aggregate.Reason, aggregate.Message, mountType); err != nil {
+		return ctrl.Result{}, err
+	}
+	if runtimeErr != nil {
+		return ctrl.Result{}, runtimeErr
+	}
+	if needsRequeue {
+		return ctrl.Result{RequeueAfter: runtimeImagePrefetchRequeueDelay}, nil
+	}
+	return ctrl.Result{}, nil
 }
 
 func kernelCacheNodeGroupName(kernelCache *v1alpha1.KernelCache, defaultNodeGroup string) string {

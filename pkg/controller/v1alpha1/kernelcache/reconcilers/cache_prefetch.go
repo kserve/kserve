@@ -20,7 +20,10 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/name"
@@ -28,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -46,6 +50,9 @@ const (
 	kernelCachePrefetchMountPath        = "/mnt/kernel-cache"
 	runtimeImagePrefetchVolumeName      = "runtime-image"
 	runtimeImagePrefetchMountPath       = "/mnt/runtime-image"
+	// Runtime image prefetch is best-effort. Bound stuck Jobs so they become terminal.
+	// A later KernelCache reconcile can replace a failed Job.
+	runtimeImagePrefetchActiveDeadlineSeconds int64 = 1800
 )
 
 type imagePrefetchJobOptions struct {
@@ -60,6 +67,7 @@ type imagePrefetchJobOptions struct {
 	tolerations             []corev1.Toleration
 	node                    *corev1.Node
 	ttlSecondsAfterFinished *int32
+	activeDeadlineSeconds   *int64
 }
 
 func (r *KernelCacheReconciler) checkNamespace(ctx context.Context, name string) error {
@@ -175,17 +183,23 @@ func (r *KernelCacheReconciler) ensureRuntimeImagePrefetchJobs(
 	nodeGroup *v1alpha1.KernelCacheNodeGroup,
 	readyNodes *corev1.NodeList,
 	config *v1beta1.KernelCacheConfig,
-) error {
+) (bool, error) {
 	runtimeImage := runtimeImageForKernelCache(kernelCache)
-	if !config.RuntimeImagePrefetch.Enabled || runtimeImage == "" || isLatestImageReference(runtimeImage) {
-		return nil
+	if !config.RuntimeImagePrefetch.Enabled || runtimeImage == "" || isIneligibleRuntimeImageReference(runtimeImage) {
+		return false, nil
 	}
+	needsRequeue := false
+	var result error
 	for i := range readyNodes.Items {
-		if err := r.ensureRuntimeImagePrefetchJob(ctx, runtimeImage, nodeGroup.Spec.Tolerations, &readyNodes.Items[i], config); err != nil {
-			return err
+		needsRequeueForNode, err := r.ensureRuntimeImagePrefetchJob(ctx, runtimeImage, nodeGroup.Spec.Tolerations, &readyNodes.Items[i], config)
+		if needsRequeueForNode {
+			needsRequeue = true
+		}
+		if err != nil {
+			result = errors.Join(result, err)
 		}
 	}
-	return nil
+	return needsRequeue, result
 }
 
 func (r *KernelCacheReconciler) ensureRuntimeImagePrefetchJob(
@@ -194,23 +208,25 @@ func (r *KernelCacheReconciler) ensureRuntimeImagePrefetchJob(
 	tolerations []corev1.Toleration,
 	node *corev1.Node,
 	config *v1beta1.KernelCacheConfig,
-) error {
-	jobName := runtimeImagePrefetchJobName(runtimeImage, node)
+) (bool, error) {
+	jobName := runtimeImagePrefetchJobName(runtimeImage, node, tolerations)
 	job := &batchv1.Job{}
 	if err := r.Get(ctx, client.ObjectKey{Name: jobName, Namespace: config.JobNamespace}, job); err == nil {
+		if !job.DeletionTimestamp.IsZero() {
+			return true, nil
+		}
 		for _, condition := range job.Status.Conditions {
 			if condition.Type == batchv1.JobFailed && condition.Status == corev1.ConditionTrue {
-				if job.DeletionTimestamp.IsZero() {
-					if err := r.Delete(ctx, job); err != nil && !apierrors.IsNotFound(err) {
-						return err
-					}
+				uid := job.UID
+				if err := r.Delete(ctx, job, client.Preconditions{UID: &uid}, client.PropagationPolicy(metav1.DeletePropagationBackground)); err != nil && !apierrors.IsNotFound(err) {
+					return false, err
 				}
-				return fmt.Errorf("runtime image prefetch Job %s/%s is being deleted after failure", job.Namespace, job.Name)
+				return true, nil
 			}
 		}
-		return nil
+		return false, nil
 	} else if !apierrors.IsNotFound(err) {
-		return err
+		return false, err
 	}
 
 	metadata := metav1.ObjectMeta{
@@ -234,11 +250,15 @@ func (r *KernelCacheReconciler) ensureRuntimeImagePrefetchJob(
 		tolerations:             tolerations,
 		node:                    node,
 		ttlSecondsAfterFinished: runtimeImagePrefetchJobTTL(config),
+		activeDeadlineSeconds:   ptr.To(runtimeImagePrefetchActiveDeadlineSeconds),
 	})
-	if err := r.Create(ctx, job); err != nil && !apierrors.IsAlreadyExists(err) {
-		return err
+	if err := r.Create(ctx, job); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return true, nil
+		}
+		return false, err
 	}
-	return nil
+	return false, nil
 }
 
 func buildImagePrefetchJob(options imagePrefetchJobOptions) *batchv1.Job {
@@ -250,6 +270,7 @@ func buildImagePrefetchJob(options imagePrefetchJobOptions) *batchv1.Job {
 		},
 		Spec: batchv1.JobSpec{
 			TTLSecondsAfterFinished: options.ttlSecondsAfterFinished,
+			ActiveDeadlineSeconds:   options.activeDeadlineSeconds,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: options.metadata.Labels, Annotations: options.metadata.Annotations},
 				Spec: corev1.PodSpec{
@@ -280,19 +301,39 @@ func kernelCachePrefetchJobName(kernelCache *v1alpha1.KernelCache, node *corev1.
 	return fmt.Sprintf("kc-%s-%s-%s", readableJobNamePart(kernelCache.Name, 24), readableJobNamePart(node.Name, 18), hex.EncodeToString(hash[:])[:16])
 }
 
-func runtimeImagePrefetchJobName(runtimeImage string, node *corev1.Node) string {
-	key := string(node.UID) + "/" + runtimeImage
+func runtimeImagePrefetchJobName(runtimeImage string, node *corev1.Node, tolerations []corev1.Toleration) string {
+	key := string(node.UID) + "/" + runtimeImage + "/" + runtimeImagePrefetchTolerationKey(tolerations)
 	hash := sha256.Sum256([]byte(key))
 	return fmt.Sprintf("kc-runtime-%s-%s", readableJobNamePart(node.Name, 34), hex.EncodeToString(hash[:])[:16])
+}
+
+func runtimeImagePrefetchTolerationKey(tolerations []corev1.Toleration) string {
+	canonical := append([]corev1.Toleration(nil), tolerations...)
+	sort.Slice(canonical, func(i, j int) bool {
+		return tolerationKey(canonical[i]) < tolerationKey(canonical[j])
+	})
+	keys := make([]string, len(canonical))
+	for i := range canonical {
+		keys[i] = tolerationKey(canonical[i])
+	}
+	return strings.Join(keys, "\x01")
+}
+
+func tolerationKey(toleration corev1.Toleration) string {
+	tolerationSeconds := ""
+	if toleration.TolerationSeconds != nil {
+		tolerationSeconds = strconv.FormatInt(*toleration.TolerationSeconds, 10)
+	}
+	return strings.Join([]string{toleration.Key, string(toleration.Operator), toleration.Value, string(toleration.Effect), tolerationSeconds}, "\x00")
 }
 
 func runtimeImageForKernelCache(kernelCache *v1alpha1.KernelCache) string {
 	return strings.TrimSpace(kernelCache.Spec.Artifact.Identity.Factors[cacheidentity.RuntimeImageFactor])
 }
 
-func isLatestImageReference(image string) bool {
+func isIneligibleRuntimeImageReference(image string) bool {
 	ref, err := name.ParseReference(image)
-	return err == nil && ref.Identifier() == "latest"
+	return err != nil || ref.Identifier() == "latest"
 }
 
 func readableJobNamePart(value string, maxLength int) string {
