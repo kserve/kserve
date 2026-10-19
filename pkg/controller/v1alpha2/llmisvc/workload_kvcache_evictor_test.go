@@ -19,6 +19,7 @@ package llmisvc
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -47,7 +48,8 @@ func TestAttachPVCEvictor(t *testing.T) {
 		},
 	}}}
 
-	attachKVCacheSecondaryTiers(podSpec, secondary, mainContainerName)
+	evictorTemplate := takePVCEvictorContainerTemplate(podSpec)
+	attachKVCacheSecondaryTiers(podSpec, secondary, mainContainerName, evictorTemplate)
 
 	if got, want := len(podSpec.Containers), 2; got != want {
 		t.Fatalf("container count = %d, want %d", got, want)
@@ -82,6 +84,116 @@ func TestAttachPVCEvictor(t *testing.T) {
 	wantMount := corev1.VolumeMount{Name: "kv-cache-secondary-0", MountPath: "/mnt/kv-cache-0"}
 	if diff := cmp.Diff(wantMount, evictor.VolumeMounts[0]); diff != "" {
 		t.Errorf("evictor volume mount diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestAttachPVCEvictorUsesContainerTemplate(t *testing.T) {
+	customResources := corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("123m")},
+	}
+	customSecurityContext := &corev1.SecurityContext{
+		RunAsNonRoot: ptr.To(true),
+		Capabilities: &corev1.Capabilities{
+			Add: []corev1.Capability{corev1.Capability("NET_BIND_SERVICE")},
+		},
+	}
+	wantSecurityContext := &corev1.SecurityContext{
+		AllowPrivilegeEscalation: ptr.To(false),
+		Capabilities: &corev1.Capabilities{
+			Add:  []corev1.Capability{corev1.Capability("NET_BIND_SERVICE")},
+			Drop: []corev1.Capability{corev1.Capability("ALL")},
+		},
+		RunAsNonRoot: ptr.To(true),
+	}
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: mainContainerName},
+			{
+				Name:            pvcEvictorTemplateName,
+				Image:           "example.com/evictor:v1.2.3",
+				ImagePullPolicy: corev1.PullIfNotPresent,
+				Command:         []string{"/custom-evictor"},
+				Resources:       customResources,
+				SecurityContext: customSecurityContext,
+				Env: []corev1.EnvVar{
+					{Name: "EXTRA", Value: "kept"},
+					{Name: "PVC_MOUNT_PATH", Value: "wrong"},
+				},
+				VolumeMounts: []corev1.VolumeMount{
+					{Name: "other", MountPath: "/other"},
+					{Name: "kv-cache-secondary-0", MountPath: "/wrong"},
+				},
+			},
+		},
+	}
+	secondary := []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+		PVC: &v1alpha2.PVCTierSpec{Spec: &corev1.PersistentVolumeClaimSpec{}},
+	}}}
+
+	evictorTemplate := takePVCEvictorContainerTemplate(podSpec)
+	attachKVCacheSecondaryTiers(podSpec, secondary, mainContainerName, evictorTemplate)
+
+	if got, want := len(podSpec.Containers), 2; got != want {
+		t.Fatalf("container count = %d, want %d", got, want)
+	}
+	evictor := podSpec.Containers[1]
+	if got, want := evictor.Name, "pvc-evictor-kv-cache-secondary-0"; got != want {
+		t.Errorf("evictor name = %q, want %q", got, want)
+	}
+	if got, want := evictor.Image, "example.com/evictor:v1.2.3"; got != want {
+		t.Errorf("evictor image = %q, want %q", got, want)
+	}
+	if got, want := evictor.ImagePullPolicy, corev1.PullIfNotPresent; got != want {
+		t.Errorf("evictor pull policy = %q, want %q", got, want)
+	}
+	if diff := cmp.Diff(customResources, evictor.Resources); diff != "" {
+		t.Errorf("evictor resources diff (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(wantSecurityContext, evictor.SecurityContext); diff != "" {
+		t.Errorf("evictor security context diff (-want +got):\n%s", diff)
+	}
+	if len(evictor.Command) != 1 || evictor.Command[0] != "/custom-evictor" {
+		t.Errorf("evictor command = %v, want [/custom-evictor]", evictor.Command)
+	}
+	env := map[string]string{}
+	for _, variable := range evictor.Env {
+		env[variable.Name] = variable.Value
+	}
+	if env["EXTRA"] != "kept" || env["PVC_MOUNT_PATH"] != "/mnt/kv-cache-0" || env["CACHE_DIRECTORY"] != pvcEvictorCacheDirectory {
+		t.Errorf("evictor env = %v", evictor.Env)
+	}
+	mounts := map[string]corev1.VolumeMount{}
+	for _, mount := range evictor.VolumeMounts {
+		mounts[mount.Name] = mount
+	}
+	if mounts["other"].MountPath != "/other" {
+		t.Errorf("custom evictor mount was not preserved: %v", evictor.VolumeMounts)
+	}
+	if mounts["kv-cache-secondary-0"].MountPath != "/mnt/kv-cache-0" {
+		t.Errorf("dynamic evictor mount was not set: %v", evictor.VolumeMounts)
+	}
+}
+
+func TestAttachPVCEvictorImageOnlyTemplateKeepsDefaults(t *testing.T) {
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: mainContainerName},
+			{Name: pvcEvictorTemplateName, Image: "example.com/evictor:v1.2.3"},
+		},
+	}
+	secondary := []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+		PVC: &v1alpha2.PVCTierSpec{Spec: &corev1.PersistentVolumeClaimSpec{}},
+	}}}
+
+	evictorTemplate := takePVCEvictorContainerTemplate(podSpec)
+	attachKVCacheSecondaryTiers(podSpec, secondary, mainContainerName, evictorTemplate)
+
+	evictor := podSpec.Containers[1]
+	if diff := cmp.Diff(pvcEvictorResources(), evictor.Resources); diff != "" {
+		t.Errorf("evictor resources diff (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff(pvcEvictorContainerSecurityContext(), evictor.SecurityContext); diff != "" {
+		t.Errorf("evictor security context diff (-want +got):\n%s", diff)
 	}
 }
 
@@ -187,6 +299,60 @@ func TestExpectedPVCEvictorDeploymentForPVCRef(t *testing.T) {
 	noAffinity := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{claimName: "shared-pvc", subPath: "kv-cache"})
 	if noAffinity.Spec.Template.Spec.Affinity != nil {
 		t.Fatalf("RWX evictor Deployment must not set node affinity")
+	}
+}
+
+func TestExpectedPVCEvictorDeploymentUsesContainerTemplate(t *testing.T) {
+	customResources := corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("321m")},
+	}
+	svc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "main"},
+						{
+							Name:            pvcEvictorTemplateName,
+							Image:           "example.com/evictor:v1.2.3",
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Resources:       customResources,
+							VolumeMounts: []corev1.VolumeMount{
+								{Name: "other", MountPath: "/other"},
+							},
+						},
+					},
+				},
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc"}},
+					}}},
+				},
+			},
+		},
+	}
+
+	targets := collectPVCEvictorTargets(svc)
+	if len(targets) != 1 {
+		t.Fatalf("PVC evictor target count = %d, want 1", len(targets))
+	}
+	deployment := expectedPVCEvictorDeployment(svc, targets[0])
+	container := deployment.Spec.Template.Spec.Containers[0]
+	if got, want := container.Image, "example.com/evictor:v1.2.3"; got != want {
+		t.Errorf("evictor image = %q, want %q", got, want)
+	}
+	if got, want := container.ImagePullPolicy, corev1.PullIfNotPresent; got != want {
+		t.Errorf("evictor pull policy = %q, want %q", got, want)
+	}
+	if diff := cmp.Diff(customResources, container.Resources); diff != "" {
+		t.Errorf("evictor resources diff (-want +got):\n%s", diff)
+	}
+	if container.Name != "pvc-evictor" {
+		t.Errorf("evictor name = %q, want pvc-evictor", container.Name)
+	}
+	if len(container.VolumeMounts) != 1 || container.VolumeMounts[0].Name != "kv-cache-storage" {
+		t.Errorf("standalone evictor volume mounts = %v, want only kv-cache-storage", container.VolumeMounts)
 	}
 }
 
@@ -301,6 +467,7 @@ func TestReconcileExistingPVCEvictorDeploymentRepairsDrift(t *testing.T) {
 	current := expected.DeepCopy()
 	current.Spec.Template.Spec.Containers[0].Image = "quay.io/example/old-evictor:old"
 	current.Labels[pvcEvictorKeyLabel] = "changed"
+	current.Annotations[pvcEvictorSecurityHash] = "stale"
 	current.Labels["example.com/keep"] = "label"
 	current.Annotations["example.com/keep"] = "annotation"
 	current.OwnerReferences = []metav1.OwnerReference{{
@@ -315,7 +482,10 @@ func TestReconcileExistingPVCEvictorDeploymentRepairsDrift(t *testing.T) {
 	}
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(current).Build()
 	reconciler := &LLMISVCReconciler{Client: fakeClient}
-	if err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), current, expected); err != nil {
+	agreements := map[string]pvcEvictorTemplateAgreement{
+		pvcEvictorIdentity("shared-pvc", "kv-cache"): {agreed: true},
+	}
+	if err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), agreements, current, expected); err != nil {
 		t.Fatalf("reconcileExistingPVCEvictorDeployment() error = %v", err)
 	}
 
@@ -334,6 +504,9 @@ func TestReconcileExistingPVCEvictorDeploymentRepairsDrift(t *testing.T) {
 	}
 	if got.Labels["example.com/keep"] != "label" || got.Annotations["example.com/keep"] != "annotation" {
 		t.Fatalf("unmanaged metadata was not preserved: labels=%v annotations=%v", got.Labels, got.Annotations)
+	}
+	if _, exists := got.Annotations[pvcEvictorSecurityHash]; exists {
+		t.Fatal("stale security hash annotation was not removed")
 	}
 }
 
@@ -365,7 +538,7 @@ func TestReconcileExistingPVCEvictorDeploymentSkipsNoOpUpdate(t *testing.T) {
 		Build()
 	reconciler := &LLMISVCReconciler{Client: fakeClient}
 
-	if err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), current, expected); err != nil {
+	if err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), nil, current, expected); err != nil {
 		t.Fatalf("reconcileExistingPVCEvictorDeployment() error = %v", err)
 	}
 	if nonDryRunUpdates != 0 {
@@ -374,7 +547,26 @@ func TestReconcileExistingPVCEvictorDeploymentSkipsNoOpUpdate(t *testing.T) {
 }
 
 func TestReconcileExistingPVCEvictorDeploymentRejectsSecurityDrift(t *testing.T) {
-	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
+	newService := func(name string, fsGroup int64) *v1alpha2.LLMInferenceService {
+		return &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test"},
+			Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{
+					SecurityContext: &corev1.PodSecurityContext{FSGroup: ptr.To(fsGroup)},
+					Containers:      []corev1.Container{{Name: "main"}},
+				},
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{
+							Name: "shared-pvc", Path: "kv-cache",
+						}},
+					}}},
+				},
+			}},
+		}
+	}
+	svc := newService("llm", 1000)
+	other := newService("other", 2000)
 	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{
 		claimName:       "shared-pvc",
 		subPath:         "kv-cache",
@@ -383,16 +575,402 @@ func TestReconcileExistingPVCEvictorDeploymentRejectsSecurityDrift(t *testing.T)
 	current := expected.DeepCopy()
 	current.Spec.Template.Spec.SecurityContext.FSGroup = ptr.To(int64(2000))
 	current.Annotations[pvcEvictorSecurityHash] = pvcEvictorSecurityContextHash(current.Spec.Template.Spec.SecurityContext)
+	preset := loadPresetConfig(t, "config-llm-template.yaml")
+	preset.Namespace = "kserve"
 
 	scheme := runtime.NewScheme()
-	if err := appsv1.AddToScheme(scheme); err != nil {
-		t.Fatal(err)
+	for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, v1alpha2.AddToScheme} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(current).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(svc, other, preset, current).Build()
 	reconciler := &LLMISVCReconciler{Client: fakeClient}
-	if err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), current, expected); err == nil {
+	agreements := map[string]pvcEvictorTemplateAgreement{
+		pvcEvictorIdentity("shared-pvc", "kv-cache"): {agreed: false},
+	}
+	if err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), agreements, current, expected); err == nil {
 		t.Fatal("security drift was silently overwritten")
 	}
+}
+
+func TestReconcileExistingPVCEvictorDeploymentUpdatesAgreedSecurityContext(t *testing.T) {
+	newService := func(name string) *v1alpha2.LLMInferenceService {
+		return &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test"},
+			Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{
+					SecurityContext: &corev1.PodSecurityContext{FSGroup: ptr.To(int64(1000))},
+					Containers:      []corev1.Container{{Name: "main"}},
+				},
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{
+							Name: "shared-pvc", Path: "kv-cache",
+						}},
+					}}},
+				},
+			}},
+		}
+	}
+	svc := newService("llm")
+	other := newService("other")
+	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{
+		claimName:       "shared-pvc",
+		subPath:         "kv-cache",
+		securityContext: &corev1.PodSecurityContext{FSGroup: ptr.To(int64(1000))},
+	})
+	current := expected.DeepCopy()
+	current.Spec.Template.Spec.SecurityContext.FSGroup = ptr.To(int64(2000))
+	current.Annotations[pvcEvictorSecurityHash] = pvcEvictorSecurityContextHash(current.Spec.Template.Spec.SecurityContext)
+	preset := loadPresetConfig(t, "config-llm-template.yaml")
+	preset.Namespace = "kserve"
+
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, v1alpha2.AddToScheme} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(svc, other, preset, current).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+	agreements := map[string]pvcEvictorTemplateAgreement{
+		pvcEvictorIdentity("shared-pvc", "kv-cache"): {agreed: true},
+	}
+	if err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), agreements, current, expected); err != nil {
+		t.Fatalf("reconcileExistingPVCEvictorDeployment() error = %v", err)
+	}
+
+	got := &appsv1.Deployment{}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(expected), got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Spec.Template.Spec.SecurityContext.FSGroup == nil || *got.Spec.Template.Spec.SecurityContext.FSGroup != 1000 {
+		t.Fatalf("fsGroup = %v, want 1000", got.Spec.Template.Spec.SecurityContext.FSGroup)
+	}
+	if got.Annotations[pvcEvictorSecurityHash] != expected.Annotations[pvcEvictorSecurityHash] {
+		t.Fatalf("security hash = %q, want %q", got.Annotations[pvcEvictorSecurityHash], expected.Annotations[pvcEvictorSecurityHash])
+	}
+}
+
+func TestReconcileExistingPVCEvictorDeploymentChecksConflictsBeforeUnresolvedPause(t *testing.T) {
+	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
+	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{
+		claimName: "shared-pvc",
+		subPath:   "kv-cache",
+	})
+	current := expected.DeepCopy()
+	current.Spec.Template.Spec.SecurityContext.FSGroup = ptr.To(int64(2000))
+	current.Annotations[pvcEvictorSecurityHash] = pvcEvictorSecurityContextHash(current.Spec.Template.Spec.SecurityContext)
+
+	tests := []struct {
+		name      string
+		agreement pvcEvictorTemplateAgreement
+		wantErr   bool
+	}{
+		{
+			name:      "resolved conflict is reported even when another service is unresolved",
+			agreement: pvcEvictorTemplateAgreement{agreed: false, unresolved: true},
+			wantErr:   true,
+		},
+		{
+			name:      "agreed deployment is preserved while another service is unresolved",
+			agreement: pvcEvictorTemplateAgreement{agreed: true, unresolved: true},
+			wantErr:   false,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			if err := appsv1.AddToScheme(scheme); err != nil {
+				t.Fatal(err)
+			}
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(current.DeepCopy()).Build()
+			reconciler := &LLMISVCReconciler{Client: fakeClient}
+			agreements := map[string]pvcEvictorTemplateAgreement{
+				pvcEvictorIdentity("shared-pvc", "kv-cache"): test.agreement,
+			}
+
+			err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), agreements, current.DeepCopy(), expected)
+			if gotErr := err != nil; gotErr != test.wantErr {
+				t.Fatalf("reconcileExistingPVCEvictorDeployment() error = %v, want error = %v", err, test.wantErr)
+			}
+
+			got := &appsv1.Deployment{}
+			if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(expected), got); err != nil {
+				t.Fatal(err)
+			}
+			if got.Spec.Template.Spec.SecurityContext.FSGroup == nil || *got.Spec.Template.Spec.SecurityContext.FSGroup != 2000 {
+				t.Fatalf("fsGroup = %v, want the existing Deployment to be preserved", got.Spec.Template.Spec.SecurityContext.FSGroup)
+			}
+		})
+	}
+}
+
+func TestDesiredPVCEvictorTemplateAgreementsMarksUnresolved(t *testing.T) {
+	current := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+					PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{
+						Name: "shared-pvc", Path: "kv-cache",
+					}},
+				}}},
+			},
+		}},
+	}
+	unresolved := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "unresolved", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			BaseRefs: []corev1.LocalObjectReference{{Name: "missing-config"}},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	if err := v1alpha2.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(current, unresolved).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+
+	agreements, err := reconciler.desiredPVCEvictorTemplateAgreements(t.Context(), current, &Config{})
+	if err != nil {
+		t.Fatalf("desiredPVCEvictorTemplateAgreements() error = %v", err)
+	}
+	agreement, exists := agreements[pvcEvictorIdentity("shared-pvc", "kv-cache")]
+	if !exists {
+		t.Fatalf("agreements = %#v, want an entry for shared-pvc/kv-cache", agreements)
+	}
+	if !agreement.agreed || !agreement.unresolved {
+		t.Fatalf("agreement = %#v, want agreed and unresolved to be true", agreement)
+	}
+}
+
+func TestReconcileExistingPVCEvictorDeploymentRejectsContainerTemplateDrift(t *testing.T) {
+	newService := func(name, image string) *v1alpha2.LLMInferenceService {
+		return &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test"},
+			Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "main"},
+						{Name: pvcEvictorTemplateName, Image: image},
+					},
+				},
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{
+							Name: "shared-pvc", Path: "kv-cache",
+						}},
+					}}},
+				},
+			}},
+		}
+	}
+	svc := newService("llm", "example.com/evictor:a")
+	other := newService("other", "example.com/evictor:b")
+	targets := collectPVCEvictorTargets(svc)
+	if len(targets) != 1 {
+		t.Fatalf("PVC evictor target count = %d, want 1", len(targets))
+	}
+	expected := expectedPVCEvictorDeployment(svc, targets[0])
+	current := expected.DeepCopy()
+	current.Spec.Template.Spec.Containers[0].Image = "example.com/evictor:b"
+	current.Annotations[pvcEvictorContainerHash] = pvcEvictorContainerTemplateHash(
+		&corev1.Container{Name: pvcEvictorTemplateName, Image: "example.com/evictor:b"},
+	)
+	preset := loadPresetConfig(t, "config-llm-template.yaml")
+	preset.Namespace = "kserve"
+
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, v1alpha2.AddToScheme} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(svc, other, preset, current).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+	agreements := map[string]pvcEvictorTemplateAgreement{
+		pvcEvictorIdentity("shared-pvc", "kv-cache"): {agreed: false},
+	}
+	err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), agreements, current, expected)
+	if err == nil {
+		t.Fatal("container template drift was silently overwritten")
+	}
+	if !strings.Contains(err.Error(), "pvc-evictor container template") {
+		t.Fatalf("error = %v, want container template conflict", err)
+	}
+}
+
+func TestValidatePVCEvictorContainerTemplates(t *testing.T) {
+	newWorkload := func(image string, resources corev1.ResourceRequirements, pvcRef bool) *v1alpha2.WorkloadSpec {
+		tier := v1alpha2.SecondaryTierSpec{FileSystem: &v1alpha2.FileSystemTierSpec{
+			PVC: &v1alpha2.PVCTierSpec{Spec: &corev1.PersistentVolumeClaimSpec{}},
+		}}
+		if pvcRef {
+			tier.FileSystem.PVC = &v1alpha2.PVCTierSpec{
+				Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"},
+			}
+		}
+		return &v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "main"},
+					{Name: pvcEvictorTemplateName, Image: image, Resources: resources},
+				},
+			},
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+				Secondary: []v1alpha2.SecondaryTierSpec{tier},
+			},
+		}
+	}
+	newRefWorkload := func(image string, resources corev1.ResourceRequirements, name, path string) *v1alpha2.WorkloadSpec {
+		return &v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "main"},
+					{Name: pvcEvictorTemplateName, Image: image, Resources: resources},
+				},
+			},
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+				Secondary: []v1alpha2.SecondaryTierSpec{{
+					FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{
+							Ref: &v1alpha2.PVCRefTierSpec{Name: name, Path: path},
+						},
+					},
+				}},
+			},
+		}
+	}
+
+	t.Run("same image with different resources is allowed for pvc.spec", func(t *testing.T) {
+		svc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: *newWorkload("example.com/evictor:v1", corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m")},
+				}, false),
+				Prefill: newWorkload("example.com/evictor:v1", corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("200m")},
+				}, false),
+			},
+		}
+		if err := validatePVCEvictorContainerTemplates(svc); err != nil {
+			t.Fatalf("validatePVCEvictorContainerTemplates() error = %v", err)
+		}
+	})
+
+	t.Run("different images on separate pvc.spec workloads are allowed", func(t *testing.T) {
+		svc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: *newWorkload("example.com/evictor:v1", corev1.ResourceRequirements{}, false),
+				Prefill:      newWorkload("example.com/evictor:v2", corev1.ResourceRequirements{}, false),
+			},
+		}
+		if err := validatePVCEvictorContainerTemplates(svc); err != nil {
+			t.Fatalf("validatePVCEvictorContainerTemplates() error = %v", err)
+		}
+	})
+
+	t.Run("different images on separate pvc.ref PVCs are allowed", func(t *testing.T) {
+		svc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: *newRefWorkload("example.com/evictor:v1", corev1.ResourceRequirements{}, "pvc-a", "kv"),
+				Prefill:      newRefWorkload("example.com/evictor:v2", corev1.ResourceRequirements{}, "pvc-b", "kv"),
+			},
+		}
+		if err := validatePVCEvictorContainerTemplates(svc); err != nil {
+			t.Fatalf("validatePVCEvictorContainerTemplates() error = %v", err)
+		}
+	})
+
+	t.Run("different images on separate pvc.ref paths are allowed", func(t *testing.T) {
+		svc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: *newRefWorkload("example.com/evictor:v1", corev1.ResourceRequirements{}, "shared-pvc", "path-a"),
+				Prefill:      newRefWorkload("example.com/evictor:v2", corev1.ResourceRequirements{}, "shared-pvc", "path-b"),
+			},
+		}
+		if err := validatePVCEvictorContainerTemplates(svc); err != nil {
+			t.Fatalf("validatePVCEvictorContainerTemplates() error = %v", err)
+		}
+	})
+
+	t.Run("different images on the same pvc.ref path are rejected", func(t *testing.T) {
+		svc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: *newRefWorkload("example.com/evictor:v1", corev1.ResourceRequirements{}, "shared-pvc", "kv"),
+				Prefill:      newRefWorkload("example.com/evictor:v2", corev1.ResourceRequirements{}, "shared-pvc", "kv"),
+			},
+		}
+		err := validatePVCEvictorContainerTemplates(svc)
+		if err == nil {
+			t.Fatal("different evictor images on the same pvc.ref path were accepted")
+		}
+		if !strings.Contains(err.Error(), "same pvc-evictor container template") {
+			t.Fatalf("error = %v, want pvc.ref template conflict", err)
+		}
+	})
+
+	t.Run("a missing template conflicts with a custom template on the same pvc.ref path", func(t *testing.T) {
+		main := newRefWorkload("", corev1.ResourceRequirements{}, "shared-pvc", "kv")
+		main.Template.Containers = []corev1.Container{{Name: "main"}}
+		svc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: *main,
+				Prefill:      newRefWorkload("example.com/evictor:v2", corev1.ResourceRequirements{}, "shared-pvc", "kv"),
+			},
+		}
+		err := validatePVCEvictorContainerTemplates(svc)
+		if err == nil {
+			t.Fatal("a custom prefill template with a default main template was accepted")
+		}
+		if !strings.Contains(err.Error(), "same pvc-evictor container template") {
+			t.Fatalf("error = %v, want pvc.ref template conflict", err)
+		}
+	})
+
+	t.Run("prefill inherits the main template on the same pvc.ref path", func(t *testing.T) {
+		prefill := newRefWorkload("", corev1.ResourceRequirements{}, "shared-pvc", "kv")
+		prefill.Template.Containers = []corev1.Container{{Name: "main"}}
+		svc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: *newRefWorkload("example.com/evictor:v1", corev1.ResourceRequirements{}, "shared-pvc", "kv"),
+				Prefill:      prefill,
+			},
+		}
+		if err := validatePVCEvictorContainerTemplates(svc); err != nil {
+			t.Fatalf("validatePVCEvictorContainerTemplates() error = %v", err)
+		}
+		targets := collectPVCEvictorTargets(svc)
+		if len(targets) != 1 {
+			t.Fatalf("PVC evictor target count = %d, want 1", len(targets))
+		}
+		if targets[0].containerTemplate == nil || targets[0].containerTemplate.Image != "example.com/evictor:v1" {
+			t.Fatalf("prefill did not inherit main template: %#v", targets[0].containerTemplate)
+		}
+	})
+
+	t.Run("different pvc.ref templates are rejected", func(t *testing.T) {
+		svc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: *newWorkload("example.com/evictor:v1", corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m")},
+				}, true),
+				Prefill: newWorkload("example.com/evictor:v1", corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("200m")},
+				}, true),
+			},
+		}
+		err := validatePVCEvictorContainerTemplates(svc)
+		if err == nil {
+			t.Fatal("different pvc.ref evictor templates were accepted")
+		}
+		if !strings.Contains(err.Error(), "same pvc-evictor container template") {
+			t.Fatalf("error = %v, want pvc.ref template conflict", err)
+		}
+	})
 }
 
 func TestReconcilePVCEvictorsDeletesDuplicateDeployments(t *testing.T) {

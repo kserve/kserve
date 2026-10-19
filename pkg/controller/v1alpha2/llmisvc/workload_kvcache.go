@@ -355,20 +355,21 @@ func scaleQuantity(q resource.Quantity, percent int64) resource.Quantity {
 // attachKVCacheSecondaryTiers injects a volume and container mount for each
 // secondary KV cache tier defined in the spec. It mirrors attachModelArtifacts
 // in that it operates on all pods (leader and workers) in both single-node and
-// multi-node deployments.
-func attachKVCacheSecondaryTiers(podSpec *corev1.PodSpec, secondary []v1alpha2.SecondaryTierSpec, containerName string) {
+// multi-node deployments. evictorTemplate must already have been extracted from
+// podSpec so the reserved container is removed even when no PVC tier is present.
+func attachKVCacheSecondaryTiers(podSpec *corev1.PodSpec, secondary []v1alpha2.SecondaryTierSpec, containerName string, evictorTemplate *corev1.Container) {
 	for i, s := range secondary {
 		if s.FileSystem == nil {
 			continue
 		}
 		volumeName := fmt.Sprintf("kv-cache-secondary-%d", i)
 		mountPath := fmt.Sprintf("/mnt/kv-cache-%d", i)
-		attachFileSystemKVCacheTier(podSpec, s.FileSystem, volumeName, mountPath, containerName)
+		attachFileSystemKVCacheTier(podSpec, s.FileSystem, volumeName, mountPath, containerName, evictorTemplate)
 	}
 }
 
 // attachFileSystemKVCacheTier adds a single filesystem-backed KV cache volume to podSpec.
-func attachFileSystemKVCacheTier(podSpec *corev1.PodSpec, fs *v1alpha2.FileSystemTierSpec, volumeName, mountPath, containerName string) {
+func attachFileSystemKVCacheTier(podSpec *corev1.PodSpec, fs *v1alpha2.FileSystemTierSpec, volumeName, mountPath, containerName string, evictorTemplate *corev1.Container) {
 	var volumeSource corev1.VolumeSource
 	var subPath string
 
@@ -421,6 +422,6 @@ func attachFileSystemKVCacheTier(podSpec *corev1.PodSpec, fs *v1alpha2.FileSyste
 	}
 
 	if fs.PVC != nil && fs.PVC.Spec != nil {
-		attachPVCEvictor(podSpec, volumeName, mountPath, subPath)
+		attachPVCEvictor(podSpec, volumeName, mountPath, subPath, evictorTemplate)
 	}
 }

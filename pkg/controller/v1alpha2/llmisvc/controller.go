@@ -316,6 +316,14 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	// We are only writing to status, so we can safely use the original object.
 	llmSvc.Spec = baseCfg.Spec
 
+	if !utils.GetForceStopRuntime(llmSvc) {
+		if err := validatePVCEvictorContainerTemplates(llmSvc); err != nil {
+			llmSvc.MarkPVCEvictorNotReady("InvalidPVCEvictorConfiguration", "%s", err.Error())
+			llmSvc.DetermineWorkloadReadiness()
+			return reconcile.TerminalError(fmt.Errorf("invalid PVC evictor configuration: %w", err))
+		}
+	}
+
 	RecordAcceleratorAnnotation(llmSvc)
 
 	if err := r.reconcileWorkload(ctx, llmSvc, config); err != nil {

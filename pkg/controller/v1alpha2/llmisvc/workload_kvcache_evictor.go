@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"maps"
 	"path"
+	"slices"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -52,6 +53,7 @@ const (
 	pvcEvictorImage          = "quay.io/opendatahub/odh-llm-d-kv-pvc-evictor:odh-stable"
 	pvcEvictorCacheDirectory = "kv/model-cache/models"
 	pvcEvictorMountPath      = "/mnt/kv-cache-evictor"
+	pvcEvictorTemplateName   = "pvc-evictor"
 	pvcEvictorNamePrefix     = "kserve-llm-isvc-kv-pvc-evictor"
 	pvcEvictorServiceAccount = pvcEvictorNamePrefix
 	pvcEvictorLabel          = "serving.kserve.io/pvc-evictor"
@@ -60,6 +62,7 @@ const (
 	pvcEvictorPVCName        = "serving.kserve.io/pvc-name"
 	pvcEvictorPVCPath        = "serving.kserve.io/pvc-path"
 	pvcEvictorSecurityHash   = "serving.kserve.io/pvc-security-context-hash"
+	pvcEvictorContainerHash  = "serving.kserve.io/pvc-evictor-container-hash"
 )
 
 func pvcEvictorContainerSecurityContext() *corev1.SecurityContext {
@@ -83,6 +86,241 @@ func pvcEvictorResources() corev1.ResourceRequirements {
 			corev1.ResourceMemory: resource.MustParse("2Gi"),
 		},
 	}
+}
+
+func findPVCEvictorContainerTemplate(podSpec *corev1.PodSpec) *corev1.Container {
+	index := findPVCEvictorContainerTemplateIndex(podSpec)
+	if index < 0 {
+		return nil
+	}
+	return podSpec.Containers[index].DeepCopy()
+}
+
+func findPVCEvictorContainerTemplateIndex(podSpec *corev1.PodSpec) int {
+	if podSpec == nil {
+		return -1
+	}
+	for i := range podSpec.Containers {
+		if podSpec.Containers[i].Name == pvcEvictorTemplateName {
+			return i
+		}
+	}
+	return -1
+}
+
+func takePVCEvictorContainerTemplate(podSpec *corev1.PodSpec) *corev1.Container {
+	index := findPVCEvictorContainerTemplateIndex(podSpec)
+	if index < 0 {
+		return nil
+	}
+	template := podSpec.Containers[index].DeepCopy()
+	podSpec.Containers = append(podSpec.Containers[:index], podSpec.Containers[index+1:]...)
+	return template
+}
+
+func workloadPVCEvictorContainerTemplate(workload *v1alpha2.WorkloadSpec) *corev1.Container {
+	if workload == nil {
+		return nil
+	}
+	if template := findPVCEvictorContainerTemplate(workload.Template); template != nil {
+		return template
+	}
+	return findPVCEvictorContainerTemplate(workload.Worker)
+}
+
+func inheritedPVCEvictorContainerTemplate(workload *v1alpha2.WorkloadSpec, fallback *corev1.Container) *corev1.Container {
+	if template := workloadPVCEvictorContainerTemplate(workload); template != nil {
+		return template
+	}
+	if fallback == nil {
+		return nil
+	}
+	return fallback.DeepCopy()
+}
+
+func validatePVCEvictorContainerTemplates(llmSvc *v1alpha2.LLMInferenceService) error {
+	type pvcEvictorReference struct {
+		name string
+		path string
+	}
+	type workloadTemplates struct {
+		template   *corev1.Container
+		identities map[string]pvcEvictorReference
+	}
+
+	workloads := make([]workloadTemplates, 0, 2)
+	mainTemplate := workloadPVCEvictorContainerTemplate(&llmSvc.Spec.WorkloadSpec)
+	addWorkload := func(workload *v1alpha2.WorkloadSpec, template *corev1.Container) {
+		if workload == nil || workload.KVCacheOffloading == nil || !workloadHasPVCTier(workload) {
+			return
+		}
+		identities := make(map[string]pvcEvictorReference)
+		for _, tier := range workload.KVCacheOffloading.Secondary {
+			if tier.FileSystem == nil || tier.FileSystem.PVC == nil || tier.FileSystem.PVC.Ref == nil {
+				continue
+			}
+			ref := tier.FileSystem.PVC.Ref
+			path := normalizePVCEvictorPath(ref.Path)
+			identities[pvcEvictorIdentity(ref.Name, path)] = pvcEvictorReference{name: ref.Name, path: path}
+		}
+		workloads = append(workloads, workloadTemplates{template: template, identities: identities})
+	}
+	addWorkload(&llmSvc.Spec.WorkloadSpec, mainTemplate)
+	addWorkload(llmSvc.Spec.Prefill, inheritedPVCEvictorContainerTemplate(llmSvc.Spec.Prefill, mainTemplate))
+	if len(workloads) == 0 {
+		return nil
+	}
+
+	templatesByIdentity := make(map[string][]*corev1.Container)
+	referencesByIdentity := make(map[string]pvcEvictorReference)
+	for _, workload := range workloads {
+		for identity, reference := range workload.identities {
+			templatesByIdentity[identity] = append(templatesByIdentity[identity], workload.template)
+			referencesByIdentity[identity] = reference
+		}
+	}
+	for identity, templates := range templatesByIdentity {
+		if len(templates) < 2 {
+			continue
+		}
+		expectedHash := pvcEvictorContainerTemplateHash(templates[0])
+		for _, template := range templates[1:] {
+			if pvcEvictorContainerTemplateHash(template) != expectedHash {
+				reference := referencesByIdentity[identity]
+				return fmt.Errorf("all workloads using PVC %q and path %q must use the same pvc-evictor container template", reference.name, reference.path)
+			}
+		}
+	}
+	return nil
+}
+
+func workloadHasPVCTier(workload *v1alpha2.WorkloadSpec) bool {
+	if workload == nil || workload.KVCacheOffloading == nil {
+		return false
+	}
+	for _, tier := range workload.KVCacheOffloading.Secondary {
+		if tier.FileSystem != nil && tier.FileSystem.PVC != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func newPVCEvictorContainer(template *corev1.Container, name, volumeName, mountPath, subPath string, preserveTemplateMounts bool) corev1.Container {
+	evictor := normalizedPVCEvictorContainer(template)
+	evictor.Name = name
+	evictor.Env = upsertPVCEvictorEnv(evictor.Env, mountPath)
+	cacheMount := corev1.VolumeMount{Name: volumeName, MountPath: mountPath, SubPath: subPath}
+	if preserveTemplateMounts {
+		evictor.VolumeMounts = upsertPVCEvictorVolumeMount(evictor.VolumeMounts, cacheMount)
+	} else {
+		evictor.VolumeMounts = []corev1.VolumeMount{cacheMount}
+	}
+	return evictor
+}
+
+func normalizedPVCEvictorContainer(template *corev1.Container) corev1.Container {
+	if template == nil {
+		return corev1.Container{
+			Image:           pvcEvictorImage,
+			ImagePullPolicy: corev1.PullAlways,
+			SecurityContext: pvcEvictorContainerSecurityContext(),
+			Resources:       pvcEvictorResources(),
+		}
+	}
+
+	evictor := *template.DeepCopy()
+	if evictor.Image == "" {
+		evictor.Image = pvcEvictorImage
+	}
+	if evictor.ImagePullPolicy == "" {
+		evictor.ImagePullPolicy = corev1.PullAlways
+	}
+	if evictor.SecurityContext == nil {
+		evictor.SecurityContext = pvcEvictorContainerSecurityContext()
+	} else {
+		evictor.SecurityContext = defaultPVCEvictorSecurityContext(evictor.SecurityContext)
+	}
+	evictor.Resources = defaultPVCEvictorResources(evictor.Resources)
+	return evictor
+}
+
+func defaultPVCEvictorResources(resources corev1.ResourceRequirements) corev1.ResourceRequirements {
+	if len(resources.Requests) == 0 && len(resources.Limits) == 0 && len(resources.Claims) == 0 {
+		return pvcEvictorResources()
+	}
+	return resources
+}
+
+func defaultPVCEvictorSecurityContext(securityContext *corev1.SecurityContext) *corev1.SecurityContext {
+	result := securityContext.DeepCopy()
+	defaults := pvcEvictorContainerSecurityContext()
+	if result.AllowPrivilegeEscalation == nil {
+		result.AllowPrivilegeEscalation = defaults.AllowPrivilegeEscalation
+	}
+	if result.Capabilities == nil {
+		result.Capabilities = defaults.Capabilities
+	} else if result.Capabilities.Drop == nil {
+		result.Capabilities = result.Capabilities.DeepCopy()
+		result.Capabilities.Drop = defaults.Capabilities.Drop
+	}
+	if result.RunAsNonRoot == nil {
+		result.RunAsNonRoot = defaults.RunAsNonRoot
+	}
+	return result
+}
+
+func upsertPVCEvictorEnv(env []corev1.EnvVar, mountPath string) []corev1.EnvVar {
+	values := []struct {
+		name  string
+		value string
+	}{
+		{name: "PVC_MOUNT_PATH", value: mountPath},
+		{name: "CACHE_DIRECTORY", value: pvcEvictorCacheDirectory},
+	}
+	for _, value := range values {
+		found := false
+		for i := range env {
+			if env[i].Name == value.name {
+				env[i].Value = value.value
+				env[i].ValueFrom = nil
+				found = true
+				break
+			}
+		}
+		if !found {
+			env = append(env, corev1.EnvVar{Name: value.name, Value: value.value})
+		}
+	}
+	return env
+}
+
+func upsertPVCEvictorVolumeMount(mounts []corev1.VolumeMount, mount corev1.VolumeMount) []corev1.VolumeMount {
+	for i := range mounts {
+		if mounts[i].Name == mount.Name {
+			mounts[i] = mount
+			return mounts
+		}
+	}
+	return append(mounts, mount)
+}
+
+func pvcEvictorContainerTemplateHash(template *corev1.Container) string {
+	canonical := normalizedPVCEvictorContainer(template)
+	canonical.Name = ""
+	canonical.Env = slices.DeleteFunc(canonical.Env, func(variable corev1.EnvVar) bool {
+		return variable.Name == "PVC_MOUNT_PATH" || variable.Name == "CACHE_DIRECTORY"
+	})
+	canonical.VolumeMounts = slices.DeleteFunc(canonical.VolumeMounts, func(mount corev1.VolumeMount) bool {
+		return mount.Name == "kv-cache-storage"
+	})
+
+	data, err := json.Marshal(canonical)
+	if err != nil {
+		return ""
+	}
+	hash := sha256.Sum256(data)
+	return hex.EncodeToString(hash[:])
 }
 
 func pvcEvictorDeploymentPredicate() predicate.Predicate {
@@ -149,7 +387,13 @@ type pvcEvictorTarget struct {
 	claimName            string
 	subPath              string
 	securityContext      *corev1.PodSecurityContext
+	containerTemplate    *corev1.Container
 	requiresNodeAffinity bool
+}
+
+type pvcEvictorTemplateAgreement struct {
+	agreed     bool
+	unresolved bool
 }
 
 func (r *LLMISVCReconciler) finalizePVCEvictors(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
@@ -178,13 +422,20 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 	); err != nil {
 		return fmt.Errorf("failed to list PVC evictor deployments: %w", err)
 	}
+	var agreements map[string]pvcEvictorTemplateAgreement
+	if len(expected) > 0 {
+		agreements, err = r.desiredPVCEvictorTemplateAgreements(ctx, llmSvc, config)
+		if err != nil {
+			return err
+		}
+	}
 
 	logger := log.FromContext(ctx)
 	for _, deployment := range expected {
 		matches := findPVCEvictorDeployments(current.Items, deployment.Name, deployment.Annotations[pvcEvictorPVCName], deployment.Annotations[pvcEvictorPVCPath])
 		if len(matches) > 0 {
 			existing := matches[0]
-			if err := r.reconcileExistingPVCEvictorDeployment(ctx, existing, deployment); err != nil {
+			if err := r.reconcileExistingPVCEvictorDeployment(ctx, agreements, existing, deployment); err != nil {
 				return err
 			}
 			for _, duplicate := range matches[1:] {
@@ -210,7 +461,7 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 			if !samePVCEvictorIdentity(existing, deployment) {
 				return fmt.Errorf("Deployment %s/%s already exists but does not identify the expected PVC evictor", deployment.Namespace, deployment.Name)
 			}
-			if err := r.reconcileExistingPVCEvictorDeployment(ctx, existing, deployment); err != nil {
+			if err := r.reconcileExistingPVCEvictorDeployment(ctx, agreements, existing, deployment); err != nil {
 				return err
 			}
 			logger.Info("Shared PVC evictor Deployment was created concurrently; reusing it", "deployment", deployment.Name)
@@ -330,13 +581,28 @@ func samePVCEvictorIdentity(current, expected *appsv1.Deployment) bool {
 	return samePVCEvictorAnnotations(current, expected.Annotations[pvcEvictorPVCName], expected.Annotations[pvcEvictorPVCPath])
 }
 
-func (r *LLMISVCReconciler) reconcileExistingPVCEvictorDeployment(ctx context.Context, current, expected *appsv1.Deployment) error {
+func (r *LLMISVCReconciler) reconcileExistingPVCEvictorDeployment(ctx context.Context, agreements map[string]pvcEvictorTemplateAgreement, current, expected *appsv1.Deployment) error {
 	if !current.DeletionTimestamp.IsZero() {
 		return nil
 	}
-	if current.Annotations[pvcEvictorSecurityHash] != expected.Annotations[pvcEvictorSecurityHash] &&
-		(current.Annotations[pvcEvictorSecurityHash] != "" || expected.Annotations[pvcEvictorSecurityHash] != "") {
-		return fmt.Errorf("shared PVC evictor Deployment %s/%s has different security settings; all LLMInferenceServices using PVC %q and path %q must resolve the same vLLM PodSecurityContext", current.Namespace, current.Name, expected.Annotations[pvcEvictorPVCName], expected.Annotations[pvcEvictorPVCPath])
+	if (current.Annotations[pvcEvictorSecurityHash] != expected.Annotations[pvcEvictorSecurityHash] &&
+		(current.Annotations[pvcEvictorSecurityHash] != "" || expected.Annotations[pvcEvictorSecurityHash] != "")) ||
+		(current.Annotations[pvcEvictorContainerHash] != expected.Annotations[pvcEvictorContainerHash] &&
+			(current.Annotations[pvcEvictorContainerHash] != "" || expected.Annotations[pvcEvictorContainerHash] != "")) {
+		identity := pvcEvictorIdentity(expected.Annotations[pvcEvictorPVCName], expected.Annotations[pvcEvictorPVCPath])
+		agreement := agreements[identity]
+		if !agreement.agreed {
+			return fmt.Errorf("shared PVC evictor Deployment %s/%s has different security or container settings; all LLMInferenceServices using PVC %q and path %q must resolve the same vLLM PodSecurityContext and pvc-evictor container template", current.Namespace, current.Name, expected.Annotations[pvcEvictorPVCName], expected.Annotations[pvcEvictorPVCPath])
+		}
+		if agreement.unresolved {
+			log.FromContext(ctx).Info(
+				"Preserving shared PVC evictor Deployment because another LLMInferenceService's desired template could not be resolved",
+				"deployment", client.ObjectKeyFromObject(current),
+				"pvcName", expected.Annotations[pvcEvictorPVCName],
+				"pvcPath", expected.Annotations[pvcEvictorPVCPath],
+			)
+			return nil
+		}
 	}
 	if !equality.Semantic.DeepEqual(current.Spec.Selector, expected.Spec.Selector) {
 		if err := r.Delete(ctx, current); err != nil && !apierrors.IsNotFound(err) {
@@ -352,7 +618,7 @@ func (r *LLMISVCReconciler) reconcileExistingPVCEvictorDeployment(ctx context.Co
 	expectedOwnerReferences := retainExternalOwnerReferences(current.OwnerReferences)
 	if equality.Semantic.DeepEqual(current.Spec, normalizedExpected.Spec) &&
 		managedPVCEvictorMetadataEqual(current.Labels, expected.Labels) &&
-		managedPVCEvictorMetadataEqual(current.Annotations, expected.Annotations) &&
+		managedPVCEvictorAnnotationsEqual(current.Annotations, expected.Annotations) &&
 		ownerReferencesEqual(current.OwnerReferences, expectedOwnerReferences) {
 		return nil
 	}
@@ -361,13 +627,62 @@ func (r *LLMISVCReconciler) reconcileExistingPVCEvictorDeployment(ctx context.Co
 	updated.Spec = *normalizedExpected.Spec.DeepCopy()
 	updated.Labels = maps.Clone(current.Labels)
 	maps.Copy(updated.Labels, expected.Labels)
-	updated.Annotations = maps.Clone(current.Annotations)
-	maps.Copy(updated.Annotations, expected.Annotations)
+	updated.Annotations = syncedPVCEvictorAnnotations(current.Annotations, expected.Annotations)
 	updated.OwnerReferences = expectedOwnerReferences
 	if err := r.Update(ctx, updated); err != nil {
 		return fmt.Errorf("failed to update shared PVC evictor Deployment %s/%s: %w", current.Namespace, current.Name, err)
 	}
 	return nil
+}
+
+func (r *LLMISVCReconciler) desiredPVCEvictorTemplateAgreements(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (map[string]pvcEvictorTemplateAgreement, error) {
+	services := &v1alpha2.LLMInferenceServiceList{}
+	if err := r.List(ctx, services, client.InNamespace(llmSvc.Namespace)); err != nil {
+		return nil, fmt.Errorf("failed to list LLMInferenceServices for PVC evictor security settings: %w", err)
+	}
+
+	type templateHashes struct {
+		securityHash  string
+		containerHash string
+	}
+	hashesByIdentity := make(map[string]map[templateHashes]struct{})
+	logger := log.FromContext(ctx)
+	unresolved := false
+	for i := range services.Items {
+		service := services.Items[i].DeepCopy()
+		if !service.DeletionTimestamp.IsZero() || utils.GetForceStopRuntime(service) {
+			continue
+		}
+		if service.Name == llmSvc.Name {
+			service = llmSvc.DeepCopy()
+		} else {
+			combined, err := r.combineBaseRefsConfig(ctx, service, config)
+			if err != nil {
+				logger.Error(err, "Could not resolve PVC evictor templates; preserving existing shared evictors", "llmSvc", client.ObjectKeyFromObject(service))
+				unresolved = true
+				continue
+			}
+			service.Spec = combined.Config.Spec
+		}
+		for _, target := range collectPVCEvictorTargets(service) {
+			identity := pvcEvictorIdentity(target.claimName, target.subPath)
+			if hashesByIdentity[identity] == nil {
+				hashesByIdentity[identity] = make(map[templateHashes]struct{})
+			}
+			hashesByIdentity[identity][templateHashes{
+				securityHash:  pvcEvictorSecurityContextHash(target.securityContext),
+				containerHash: pvcEvictorContainerTemplateHash(target.containerTemplate),
+			}] = struct{}{}
+		}
+	}
+	agreements := make(map[string]pvcEvictorTemplateAgreement, len(hashesByIdentity))
+	for identity, hashes := range hashesByIdentity {
+		agreements[identity] = pvcEvictorTemplateAgreement{
+			agreed:     len(hashes) == 1,
+			unresolved: unresolved,
+		}
+	}
+	return agreements, nil
 }
 
 func ownerReferencesEqual(current, expected []metav1.OwnerReference) bool {
@@ -384,6 +699,44 @@ func managedPVCEvictorMetadataEqual(current, expected map[string]string) bool {
 		}
 	}
 	return true
+}
+
+func managedPVCEvictorAnnotationsEqual(current, expected map[string]string) bool {
+	if !managedPVCEvictorMetadataEqual(current, expected) {
+		return false
+	}
+	for key := range current {
+		if !isManagedPVCEvictorAnnotation(key) {
+			continue
+		}
+		if _, exists := expected[key]; !exists {
+			return false
+		}
+	}
+	return true
+}
+
+func syncedPVCEvictorAnnotations(current, expected map[string]string) map[string]string {
+	result := maps.Clone(current)
+	if result == nil {
+		result = make(map[string]string)
+	}
+	for key := range result {
+		if isManagedPVCEvictorAnnotation(key) {
+			if _, exists := expected[key]; !exists {
+				delete(result, key)
+			}
+		}
+	}
+	maps.Copy(result, expected)
+	return result
+}
+
+func isManagedPVCEvictorAnnotation(key string) bool {
+	return key == pvcEvictorPVCName ||
+		key == pvcEvictorPVCPath ||
+		key == pvcEvictorSecurityHash ||
+		key == pvcEvictorContainerHash
 }
 
 func retainExternalOwnerReferences(ownerReferences []metav1.OwnerReference) []metav1.OwnerReference {
@@ -546,7 +899,7 @@ func (r *LLMISVCReconciler) referencedPVCEvictorIdentities(ctx context.Context, 
 	logger := log.FromContext(ctx)
 	for i := range services.Items {
 		service := services.Items[i].DeepCopy()
-		if service.Name == excludedService || utils.GetForceStopRuntime(service) {
+		if !service.DeletionTimestamp.IsZero() || service.Name == excludedService || utils.GetForceStopRuntime(service) {
 			continue
 		}
 		if currentService != nil && service.Name == currentService.Name {
@@ -573,7 +926,8 @@ func (r *LLMISVCReconciler) referencedPVCEvictorIdentities(ctx context.Context, 
 func collectPVCEvictorTargets(llmSvc *v1alpha2.LLMInferenceService) []pvcEvictorTarget {
 	targets := make([]pvcEvictorTarget, 0)
 	seen := make(map[string]struct{})
-	add := func(workload *v1alpha2.WorkloadSpec) {
+	mainTemplate := workloadPVCEvictorContainerTemplate(&llmSvc.Spec.WorkloadSpec)
+	add := func(workload *v1alpha2.WorkloadSpec, template *corev1.Container) {
 		if workload == nil || workload.KVCacheOffloading == nil {
 			return
 		}
@@ -589,15 +943,16 @@ func collectPVCEvictorTargets(llmSvc *v1alpha2.LLMInferenceService) []pvcEvictor
 			}
 			seen[key] = struct{}{}
 			targets = append(targets, pvcEvictorTarget{
-				claimName:       ref.Name,
-				subPath:         subPath,
-				securityContext: workloadPVCEvictorSecurityContext(workload),
+				claimName:         ref.Name,
+				subPath:           subPath,
+				securityContext:   workloadPVCEvictorSecurityContext(workload),
+				containerTemplate: template,
 			})
 		}
 	}
 
-	add(&llmSvc.Spec.WorkloadSpec)
-	add(llmSvc.Spec.Prefill)
+	add(&llmSvc.Spec.WorkloadSpec, mainTemplate)
+	add(llmSvc.Spec.Prefill, inheritedPVCEvictorContainerTemplate(llmSvc.Spec.Prefill, mainTemplate))
 	return targets
 }
 
@@ -675,22 +1030,9 @@ func expectedPVCEvictorDeployment(llmSvc *v1alpha2.LLMInferenceService, target p
 		ServiceAccountName:           pvcEvictorServiceAccount,
 		AutomountServiceAccountToken: ptr.To(false),
 		SecurityContext:              podSecurityContext,
-		Containers: []corev1.Container{{
-			Name:            "pvc-evictor",
-			Image:           pvcEvictorImage,
-			ImagePullPolicy: corev1.PullAlways,
-			SecurityContext: pvcEvictorContainerSecurityContext(),
-			Env: []corev1.EnvVar{
-				{Name: "PVC_MOUNT_PATH", Value: pvcEvictorMountPath},
-				{Name: "CACHE_DIRECTORY", Value: pvcEvictorCacheDirectory},
-			},
-			VolumeMounts: []corev1.VolumeMount{{
-				Name:      "kv-cache-storage",
-				MountPath: pvcEvictorMountPath,
-				SubPath:   target.subPath,
-			}},
-			Resources: pvcEvictorResources(),
-		}},
+		Containers: []corev1.Container{
+			newPVCEvictorContainer(target.containerTemplate, "pvc-evictor", "kv-cache-storage", pvcEvictorMountPath, target.subPath, false),
+		},
 		RestartPolicy: corev1.RestartPolicyAlways,
 		Volumes: []corev1.Volume{{
 			Name: "kv-cache-storage",
@@ -717,6 +1059,9 @@ func expectedPVCEvictorDeployment(llmSvc *v1alpha2.LLMInferenceService, target p
 	if securityHash := pvcEvictorSecurityContextHash(target.securityContext); securityHash != "" {
 		annotations[pvcEvictorSecurityHash] = securityHash
 	}
+	if containerHash := pvcEvictorContainerTemplateHash(target.containerTemplate); containerHash != "" {
+		annotations[pvcEvictorContainerHash] = containerHash
+	}
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -739,24 +1084,9 @@ func expectedPVCEvictorDeployment(llmSvc *v1alpha2.LLMInferenceService, target p
 
 // attachPVCEvictor adds a sidecar that shares the PVC and subPath with the vLLM
 // container. As a sidecar, it always runs on the same node as that vLLM pod.
-func attachPVCEvictor(podSpec *corev1.PodSpec, volumeName, mountPath, subPath string) {
+func attachPVCEvictor(podSpec *corev1.PodSpec, volumeName, mountPath, subPath string, template *corev1.Container) {
 	name := "pvc-evictor-" + volumeName
-	evictor := corev1.Container{
-		Name:            name,
-		Image:           pvcEvictorImage,
-		ImagePullPolicy: corev1.PullAlways,
-		SecurityContext: pvcEvictorContainerSecurityContext(),
-		Resources:       pvcEvictorResources(),
-		Env: []corev1.EnvVar{
-			{Name: "PVC_MOUNT_PATH", Value: mountPath},
-			{Name: "CACHE_DIRECTORY", Value: pvcEvictorCacheDirectory},
-		},
-		VolumeMounts: []corev1.VolumeMount{{
-			Name:      volumeName,
-			MountPath: mountPath,
-			SubPath:   subPath,
-		}},
-	}
+	evictor := newPVCEvictorContainer(template, name, volumeName, mountPath, subPath, true)
 
 	for i := range podSpec.Containers {
 		if podSpec.Containers[i].Name == name {

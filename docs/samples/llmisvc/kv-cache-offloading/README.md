@@ -177,7 +177,24 @@ that user or its group to read and delete files. The standalone evictor copies
 the effective vLLM PodSecurityContext from `spec.template.securityContext`.
 On OpenShift, leave UID/GID values unset unless they are allowed by the cluster
 security policy. Every service sharing the same PVC and path must resolve
-matching PodSecurityContext values.
+matching PodSecurityContext values and `pvc-evictor` container templates.
+
+Both evictor forms use a reserved container template named `pvc-evictor`.
+Define that container in `spec.template.containers` to pin its image, image pull
+policy, resources, security context, command, or extra environment variables.
+Prefill workloads and multi-node workers inherit a template from
+`spec.template.containers` unless their own template or worker PodSpec defines
+a `pvc-evictor` container. Omitted image, pull policy, and security context use the KServe
+defaults. If no resources are set, KServe also uses its default requests and
+limits; any resources you set are used as written.
+Omitted fields inside a custom container securityContext are filled with the
+same hardened defaults.
+KServe still owns the final container name, `PVC_MOUNT_PATH`,
+`CACHE_DIRECTORY`, and the cache volume mount. The template is removed from
+the vLLM pod and used only for generated evictor containers.
+Standalone `pvc.ref` evictors use only that generated cache volume mount.
+Workloads sharing the same `pvc.ref` PVC and path must use the same full
+`pvc-evictor` container template. Separate PVC identities are independent.
 
 `pvc.spec` may use `ReadWriteOncePod` because its evictor is a sidecar in the
 same vLLM pod. Do not use `pvc.ref` with a
