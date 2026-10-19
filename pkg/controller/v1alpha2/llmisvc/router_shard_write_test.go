@@ -164,3 +164,53 @@ func TestReconcileRouter_ShardDryRunRejectionWritesNothing(t *testing.T) {
 	assert.Contains(t, condition.Message, shard1)
 	assert.Contains(t, condition.Message, "no HTTPRoute was written")
 }
+
+// TestManagedHTTPRoutesUsesNameAndOwnership checks that only routes at the
+// expected shard names that the service controls are treated as its shards:
+// an HTTPRoute that copies the labels, or sits at a shard name without being
+// controlled by the service, must neither block finalization nor be deleted.
+func TestManagedHTTPRoutesUsesNameAndOwnership(t *testing.T) {
+	llmSvc := invalidRouteService()
+	llmSvc.UID = "svc-uid"
+	owned := func(name string) *gwapiv1.HTTPRoute {
+		r := managedRoute(llmSvc)
+		r.Name = name
+		return r
+	}
+	base := owned(managedHTTPRouteName(llmSvc.Name, 0))
+	shard2 := owned(managedHTTPRouteName(llmSvc.Name, 2))
+	foreignLabels := &gwapiv1.HTTPRoute{ObjectMeta: metav1.ObjectMeta{
+		Name: "someone-else", Namespace: llmSvc.Namespace,
+		Labels: map[string]string{constants.KubernetesAppNameLabelKey: llmSvc.Name, constants.LLMHTTPRouteShardLabelKey: "1"},
+	}}
+	foreignAtShardName := &gwapiv1.HTTPRoute{ObjectMeta: metav1.ObjectMeta{
+		Name: managedHTTPRouteName(llmSvc.Name, 1), Namespace: llmSvc.Namespace,
+	}}
+
+	restMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{httpRouteGV})
+	restMapper.Add(httpRouteGV.WithKind("HTTPRoute"), meta.RESTScopeNamespace)
+	c := fake.NewClientBuilder().
+		WithScheme(invalidRouteScheme(t)).
+		WithRESTMapper(restMapper).
+		WithObjects(llmSvc, base, shard2, foreignLabels, foreignAtShardName).
+		Build()
+
+	routes, err := managedHTTPRoutes(t.Context(), c, llmSvc)
+	require.NoError(t, err)
+	var names []string
+	for _, r := range routes {
+		names = append(names, r.Name)
+	}
+	assert.Equal(t, []string{base.Name, shard2.Name}, names)
+
+	reconciler := &LLMISVCReconciler{Client: c, EventRecorder: record.NewFakeRecorder(10)}
+	require.NoError(t, reconciler.deleteStaleHTTPRouteShards(t.Context(), llmSvc, 1))
+	left := &gwapiv1.HTTPRouteList{}
+	require.NoError(t, c.List(t.Context(), left))
+	var remaining []string
+	for _, r := range left.Items {
+		remaining = append(remaining, r.Name)
+	}
+	assert.ElementsMatch(t, []string{base.Name, foreignLabels.Name, foreignAtShardName.Name}, remaining,
+		"only the owned stale shard is deleted")
+}

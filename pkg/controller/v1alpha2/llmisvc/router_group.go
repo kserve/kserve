@@ -269,7 +269,7 @@ func (r *LLMISVCReconciler) finalizeGroupMembership(ctx context.Context, llmSvc 
 		}
 		// A member's logical route may be split over several HTTPRoutes; any
 		// of them can still carry this service's backend.
-		routes, err := managedHTTPRoutes(ctx, r, members[i].GetNamespace(), members[i].GetName())
+		routes, err := managedHTTPRoutes(ctx, r, &members[i])
 		if err != nil {
 			return false, fmt.Errorf("checking member %s routes for stale backendRefs: %w", members[i].Name, err)
 		}

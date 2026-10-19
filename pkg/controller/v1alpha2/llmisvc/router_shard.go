@@ -18,8 +18,6 @@ package llmisvc
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -66,66 +64,31 @@ func ruleMatchCount(rule *gwapiv1.HTTPRouteRule) int {
 	return max(1, len(rule.Matches))
 }
 
-// httpRouteRuleNameMaxLength is the Gateway API SectionName length limit.
-const httpRouteRuleNameMaxLength = 253
-
 // splitOversizedRules splits every rule with more matches than a single rule
-// may hold into consecutive rules with the same filters, backends and
-// timeouts. Chunks after the first get a derived name on a named rule so rule
-// names stay unique within a route; see chunkRuleName.
-func splitOversizedRules(rules []gwapiv1.HTTPRouteRule) []gwapiv1.HTTPRouteRule {
-	used := make(map[gwapiv1.SectionName]struct{}, len(rules))
-	for i := range rules {
-		if rules[i].Name != nil {
-			used[*rules[i].Name] = struct{}{}
-		}
-	}
-	out := make([]gwapiv1.HTTPRouteRule, 0, len(rules))
+// may hold into consecutive rules with the same name, filters, backends and
+// timeouts. origins[i] is the index of the input rule that out[i] came from.
+// Chunks keep the rule name, so shardHTTPRouteRules never puts two chunks of
+// a named rule in one HTTPRoute, where rule names must be unique; a
+// sectionName policy on the rule then applies in every shard.
+func splitOversizedRules(rules []gwapiv1.HTTPRouteRule) (out []gwapiv1.HTTPRouteRule, origins []int) {
+	out = make([]gwapiv1.HTTPRouteRule, 0, len(rules))
+	origins = make([]int, 0, len(rules))
 	for i := range rules {
 		rule := rules[i]
 		if len(rule.Matches) <= httpRouteMaxRuleMatches {
 			out = append(out, rule)
+			origins = append(origins, i)
 			continue
 		}
-		for chunk, start := 0, 0; start < len(rule.Matches); chunk, start = chunk+1, start+httpRouteMaxRuleMatches {
+		for start := 0; start < len(rule.Matches); start += httpRouteMaxRuleMatches {
 			end := min(start+httpRouteMaxRuleMatches, len(rule.Matches))
 			part := *rule.DeepCopy()
 			part.Matches = part.Matches[start:end]
-			if chunk > 0 && part.Name != nil {
-				name := chunkRuleName(*part.Name, chunk, used)
-				used[name] = struct{}{}
-				part.Name = ptr.To(name)
-			}
 			out = append(out, part)
+			origins = append(origins, i)
 		}
 	}
-	return out
-}
-
-// chunkRuleName returns the name of the chunk-th extra rule split from a rule
-// named base. The plain form is "<base>-<chunk>". When that is longer than a
-// SectionName may be, or already names another rule, base is cut and a short
-// hash of the base, chunk and attempt is appended, so the result is valid,
-// deterministic and unique among used.
-func chunkRuleName(base gwapiv1.SectionName, chunk int, used map[gwapiv1.SectionName]struct{}) gwapiv1.SectionName {
-	plain := gwapiv1.SectionName(fmt.Sprintf("%s-%d", base, chunk))
-	if _, taken := used[plain]; !taken && len(plain) <= httpRouteRuleNameMaxLength {
-		return plain
-	}
-	for attempt := 0; ; attempt++ {
-		sum := sha256.Sum256([]byte(fmt.Sprintf("%s/%d/%d", base, chunk, attempt)))
-		suffix := fmt.Sprintf("-%d-%s", chunk, hex.EncodeToString(sum[:])[:8])
-		prefix := string(base)
-		if len(prefix)+len(suffix) > httpRouteRuleNameMaxLength {
-			prefix = prefix[:httpRouteRuleNameMaxLength-len(suffix)]
-		}
-		// A SectionName label must start and end with an alphanumeric character.
-		prefix = strings.TrimRight(prefix, "-.")
-		name := gwapiv1.SectionName(prefix + suffix)
-		if _, taken := used[name]; !taken {
-			return name
-		}
-	}
+	return out, origins
 }
 
 // shardHTTPRouteRules packs rules into groups that each respect the Gateway
@@ -141,11 +104,25 @@ func chunkRuleName(base gwapiv1.SectionName, chunk int, used map[gwapiv1.Section
 // one HTTPRoute is rejected rather than split. Rules with the same action
 // never need to stay together, so LoRA model-routing chunks split freely.
 func shardHTTPRouteRules(rules []gwapiv1.HTTPRouteRule) ([][]gwapiv1.HTTPRouteRule, error) {
-	rules = splitOversizedRules(rules)
+	rules, origins := splitOversizedRules(rules)
 	groups := orderDependentRuleGroups(rules)
+	// namedOrigins returns the named source rules a set of rules came from,
+	// and whether a source shows up twice.
+	namedOrigins := func(indexes []int, into map[int]struct{}) bool {
+		for _, i := range indexes {
+			if rules[i].Name == nil {
+				continue
+			}
+			if _, dup := into[origins[i]]; dup {
+				return true
+			}
+			into[origins[i]] = struct{}{}
+		}
+		return false
+	}
 
 	var shards [][]int
-	current, matches := []int(nil), 0
+	current, matches, currentOrigins := []int(nil), 0, map[int]struct{}{}
 	for _, group := range groups {
 		count := 0
 		for _, i := range group {
@@ -156,12 +133,20 @@ func shardHTTPRouteRules(rules []gwapiv1.HTTPRouteRule) ([][]gwapiv1.HTTPRouteRu
 				"so they must stay in one HTTPRoute, but together they have %d rules and %d matches (limits %d and %d)",
 				ErrPreconditionNotMet, ruleIndexList(group), len(group), count, httpRouteMaxRules, httpRouteMaxTotalMatches)
 		}
-		if len(current) > 0 && (len(current)+len(group) > httpRouteMaxRules || matches+count > httpRouteMaxTotalMatches) {
+		if namedOrigins(group, map[int]struct{}{}) {
+			return nil, fmt.Errorf("%w: rules %s must stay in one HTTPRoute but include two parts of one named rule split "+
+				"for the %d matches per rule limit; give the rule fewer matches or no name",
+				ErrPreconditionNotMet, ruleIndexList(group), httpRouteMaxRuleMatches)
+		}
+		probe := maps.Clone(currentOrigins)
+		sharesRule := namedOrigins(group, probe)
+		if len(current) > 0 && (sharesRule || len(current)+len(group) > httpRouteMaxRules || matches+count > httpRouteMaxTotalMatches) {
 			shards = append(shards, current)
-			current, matches = nil, 0
+			current, matches, currentOrigins = nil, 0, map[int]struct{}{}
 		}
 		current = append(current, group...)
 		matches += count
+		namedOrigins(group, currentOrigins)
 	}
 	shards = append(shards, current)
 
@@ -366,74 +351,65 @@ func shardHTTPRoute(llmSvc *v1alpha2.LLMInferenceService, route *gwapiv1.HTTPRou
 	return routes, nil
 }
 
-// listHTTPRouteShards returns the additional (index >= 1) managed HTTPRoutes
-// of the named service, sorted by shard index.
-func listHTTPRouteShards(ctx context.Context, c client.Reader, namespace, llmSvcName string) ([]*gwapiv1.HTTPRoute, error) {
-	list := &gwapiv1.HTTPRouteList{}
-	if err := c.List(ctx, list, client.InNamespace(namespace),
-		client.MatchingLabels{constants.KubernetesAppNameLabelKey: llmSvcName},
-		client.HasLabels{constants.LLMHTTPRouteShardLabelKey}); err != nil {
-		if meta.IsNoMatchError(err) {
+// managedHTTPRoutes returns the stored HTTPRoutes that hold the inline route
+// of owner, in shard order: the routes at the names the controller gives its
+// shards (see managedHTTPRouteName) that owner controls. Routes are found by
+// name and controller ownership, never by labels, so an unrelated HTTPRoute
+// carrying the same labels is ignored. Consumers should use
+// status.router.gateways[].httpRoutes rather than names or labels.
+func managedHTTPRoutes(ctx context.Context, c client.Reader, owner metav1.Object) ([]*gwapiv1.HTTPRoute, error) {
+	var routes []*gwapiv1.HTTPRoute
+	for i := range constants.MaxHTTPRouteMaxShards {
+		route := &gwapiv1.HTTPRoute{}
+		key := client.ObjectKey{Namespace: owner.GetNamespace(), Name: managedHTTPRouteName(owner.GetName(), i)}
+		switch err := c.Get(ctx, key, route); {
+		case err == nil:
+			if metav1.IsControlledBy(route, owner) {
+				routes = append(routes, route)
+			}
+		case meta.IsNoMatchError(err):
+			// Gateway API is not installed, so there are no routes at all.
 			return nil, nil
+		case !apierrors.IsNotFound(err):
+			return nil, fmt.Errorf("failed to get HTTPRoute %s: %w", key, err)
 		}
-		return nil, fmt.Errorf("failed to list HTTPRoute shards of %s/%s: %w", namespace, llmSvcName, err)
 	}
-	routes := make([]*gwapiv1.HTTPRoute, 0, len(list.Items))
-	for i := range list.Items {
-		if _, err := strconv.Atoi(list.Items[i].Labels[constants.LLMHTTPRouteShardLabelKey]); err != nil {
-			continue
-		}
-		routes = append(routes, &list.Items[i])
-	}
-	slices.SortFunc(routes, func(a, b *gwapiv1.HTTPRoute) int {
-		ai, _ := strconv.Atoi(a.Labels[constants.LLMHTTPRouteShardLabelKey])
-		bi, _ := strconv.Atoi(b.Labels[constants.LLMHTTPRouteShardLabelKey])
-		return ai - bi
-	})
 	return routes, nil
 }
 
-// managedHTTPRoutes returns every stored managed HTTPRoute of the named
-// service: the base route, when present, followed by its additional shards.
-func managedHTTPRoutes(ctx context.Context, c client.Reader, namespace, llmSvcName string) ([]*gwapiv1.HTTPRoute, error) {
-	var routes []*gwapiv1.HTTPRoute
-	base := &gwapiv1.HTTPRoute{}
-	key := client.ObjectKey{Namespace: namespace, Name: managedHTTPRouteName(llmSvcName, 0)}
-	switch err := c.Get(ctx, key, base); {
-	case err == nil:
-		routes = append(routes, base)
-	case meta.IsNoMatchError(err):
-		// Gateway API is not installed, so there are no routes at all.
-		return nil, nil
-	case !apierrors.IsNotFound(err):
-		return nil, fmt.Errorf("failed to get HTTPRoute %s: %w", key, err)
-	}
-	shards, err := listHTTPRouteShards(ctx, c, namespace, llmSvcName)
-	if err != nil {
-		return nil, err
-	}
-	return append(routes, shards...), nil
-}
-
-// deleteStaleHTTPRouteShards deletes additional shards controlled by the
+// deleteStaleHTTPRouteShards deletes the additional shards controlled by the
 // service whose index is not below keep. keep is the number of shards the
 // current spec produces; pass 0 to delete every additional shard. The base
 // route is handled by the caller.
 func (r *LLMISVCReconciler) deleteStaleHTTPRouteShards(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, keep int) error {
-	shards, err := listHTTPRouteShards(ctx, r, llmSvc.GetNamespace(), llmSvc.GetName())
+	routes, err := managedHTTPRoutes(ctx, r, llmSvc)
 	if err != nil {
 		return err
 	}
-	for _, shard := range shards {
-		index, _ := strconv.Atoi(shard.Labels[constants.LLMHTTPRouteShardLabelKey])
-		if index < keep || !metav1.IsControlledBy(shard, llmSvc) {
+	for _, route := range routes {
+		if route.GetName() == managedHTTPRouteName(llmSvc.GetName(), 0) {
 			continue
 		}
-		if err := Delete(ctx, r, llmSvc, shard); err != nil {
+		index := managedHTTPRouteIndex(llmSvc.GetName(), route.GetName())
+		if index < max(keep, 1) {
+			continue
+		}
+		if err := Delete(ctx, r, llmSvc, route); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// managedHTTPRouteIndex returns the shard index of a managed route name, or
+// -1 when name is not one.
+func managedHTTPRouteIndex(llmSvcName, name string) int {
+	for i := range constants.MaxHTTPRouteMaxShards {
+		if managedHTTPRouteName(llmSvcName, i) == name {
+			return i
+		}
+	}
+	return -1
 }
 
 // httpRouteMaxShardsFor returns how many managed HTTPRoutes the service's

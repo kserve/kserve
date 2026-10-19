@@ -208,8 +208,11 @@ func TestGroupBackendCleanupSkipsUnownedAndAbsentRoutes(t *testing.T) {
 		route.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(other, v1alpha2.LLMInferenceServiceGVK)}
 		c := fake.NewClientBuilder().WithScheme(cleanupScheme(t)).WithObjects(route).Build()
 
-		err := (&LLMISVCReconciler{Client: c}).reconcileTerminatingGroupBackends(t.Context(), owner)
-		require.ErrorContains(t, err, "not controlled by this service")
+		require.NoError(t, (&LLMISVCReconciler{Client: c}).reconcileTerminatingGroupBackends(t.Context(), owner))
+
+		current := &gwapiv1.HTTPRoute{}
+		require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(route), current))
+		require.Equal(t, route.Spec.Rules, current.Spec.Rules, "a route this service does not control is left alone")
 	})
 
 	t.Run("list failure is retryable", func(t *testing.T) {

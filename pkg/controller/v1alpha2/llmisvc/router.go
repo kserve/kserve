@@ -306,7 +306,7 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 		if err := r.dryRunHTTPRouteShards(ctx, llmSvc, shards); err != nil {
 			return nil, err
 		}
-		stored, err := managedHTTPRoutes(ctx, r, llmSvc.GetNamespace(), llmSvc.GetName())
+		stored, err := managedHTTPRoutes(ctx, r, llmSvc)
 		if err != nil {
 			return nil, err
 		}

@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -96,7 +95,8 @@ func TestShardHTTPRouteRules(t *testing.T) {
 		{name: "rule cap splits", rules: repeatRules(17, 1), wantShards: 2, wantRules: []int{16, 1}},
 		{name: "rule cap splits many", rules: repeatRules(64, 0), wantShards: 4, wantRules: []int{16, 16, 16, 16}},
 		{name: "total match cap splits", rules: repeatRules(3, 60), wantShards: 2, wantRules: []int{2, 1}},
-		{name: "oversized rule is split into chunks", rules: []gwapiv1.HTTPRouteRule{pathRule("lora", 150)}, wantShards: 2, wantRules: []int{2, 1}},
+		{name: "chunks of a named rule go to separate shards", rules: []gwapiv1.HTTPRouteRule{pathRule("lora", 150)}, wantShards: 3, wantRules: []int{1, 1, 1}},
+		{name: "chunks of an unnamed rule share a shard", rules: []gwapiv1.HTTPRouteRule{pathRule("", 150)}, wantShards: 2, wantRules: []int{2, 1}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -128,12 +128,15 @@ func repeatRules(n, matches int) []gwapiv1.HTTPRouteRule {
 func TestSplitOversizedRulesKeepsMatchesAndOrder(t *testing.T) {
 	rule := pathRule("lora", 130)
 	rule.Filters = []gwapiv1.HTTPRouteFilter{{Type: gwapiv1.HTTPRouteFilterURLRewrite}}
-	out := splitOversizedRules([]gwapiv1.HTTPRouteRule{pathRule("first", 1), rule, pathRule("last", 1)})
+	out, origins := splitOversizedRules([]gwapiv1.HTTPRouteRule{pathRule("first", 1), rule, pathRule("last", 1)})
+	if !slices.Equal(origins, []int{0, 1, 1, 1, 2}) {
+		t.Fatalf("origins %v", origins)
+	}
 
 	if len(out) != 5 {
 		t.Fatalf("got %d rules, want 5", len(out))
 	}
-	wantNames := []string{"first", "lora", "lora-1", "lora-2", "last"}
+	wantNames := []string{"first", "lora", "lora", "lora", "last"}
 	wantMatches := []int{1, 64, 64, 2, 1}
 	next := 0
 	for i := range out {
@@ -235,51 +238,6 @@ func TestManagedHTTPRouteNameStaysWithinDNSLimit(t *testing.T) {
 	}
 	if managedHTTPRouteName(long, 1) == managedHTTPRouteName(long, 2) {
 		t.Errorf("shard names collide")
-	}
-}
-
-var sectionNamePattern = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
-
-func TestSplitOversizedRulesNamesAreValidAndUnique(t *testing.T) {
-	long := strings.Repeat("a", 252) + "b"
-	dotted := strings.Repeat("x", 247) + ".y-z"
-	cases := map[string][]gwapiv1.HTTPRouteRule{
-		"plain":                     {pathRule("lora", 130)},
-		"collides with user rule":   {pathRule("lora", 130), pathRule("lora-1", 1), pathRule("lora-2", 1)},
-		"user rule declared before": {pathRule("lora-1", 1), pathRule("lora", 70)},
-		"max length name":           {pathRule(long, 200)},
-		"cut lands on separator":    {pathRule(dotted, 70)},
-	}
-	for name, rules := range cases {
-		t.Run(name, func(t *testing.T) {
-			out := splitOversizedRules(rules)
-			seen := map[gwapiv1.SectionName]bool{}
-			for _, rule := range out {
-				if rule.Name == nil {
-					continue
-				}
-				n := *rule.Name
-				if len(n) > 253 || !sectionNamePattern.MatchString(string(n)) {
-					t.Fatalf("invalid rule name %q (len %d)", n, len(n))
-				}
-				if seen[n] {
-					t.Fatalf("duplicate rule name %q", n)
-				}
-				seen[n] = true
-			}
-			again := splitOversizedRules(rules)
-			for i := range out {
-				if ptr.Deref(out[i].Name, "") != ptr.Deref(again[i].Name, "") {
-					t.Fatalf("rule %d name is not stable: %q vs %q", i, ptr.Deref(out[i].Name, ""), ptr.Deref(again[i].Name, ""))
-				}
-			}
-		})
-	}
-}
-
-func TestChunkRuleNameKeepsPlainFormWhenPossible(t *testing.T) {
-	if got := chunkRuleName("lora", 1, map[gwapiv1.SectionName]struct{}{"lora": {}}); got != "lora-1" {
-		t.Fatalf("got %q, want lora-1", got)
 	}
 }
 
@@ -424,8 +382,13 @@ func TestShardHTTPRouteRulesPrecedenceGroups(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(shards) != 3 {
-			t.Fatalf("got %d shards, want 3", len(shards))
+		if len(shards) != 5 {
+			t.Fatalf("got %d shards, want 5", len(shards))
+		}
+		for i, s := range shards {
+			if len(s) != 1 || ptr.Deref(s[0].Name, "") != "lora" {
+				t.Fatalf("shard %d should hold one chunk that keeps the rule name", i)
+			}
 		}
 	})
 

@@ -23,7 +23,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -42,7 +41,7 @@ func (r *LLMISVCReconciler) reconcileTerminatingGroupBackends(ctx context.Contex
 	}
 
 	// The logical route may be split over several HTTPRoutes; prune each one.
-	routes, err := managedHTTPRoutes(ctx, r, llmSvc.Namespace, llmSvc.Name)
+	routes, err := managedHTTPRoutes(ctx, r, llmSvc)
 	if err != nil {
 		return err
 	}
@@ -52,9 +51,6 @@ func (r *LLMISVCReconciler) reconcileTerminatingGroupBackends(ctx context.Contex
 		group := route.Labels[constants.LLMRoutingGroupLabelKey]
 		if group == "" {
 			continue
-		}
-		if !metav1.IsControlledBy(route, llmSvc) {
-			return fmt.Errorf("cannot prune group HTTPRoute %s/%s: not controlled by this service", route.Namespace, route.Name)
 		}
 
 		if members == nil {
