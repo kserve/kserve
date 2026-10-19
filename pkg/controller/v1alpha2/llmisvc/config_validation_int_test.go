@@ -104,7 +104,7 @@ var _ = Describe("Validating config configs", func() {
 					config.Spec.Router = &v1alpha2.RouterSpec{
 						Route: &v1alpha2.GatewayRoutesSpec{
 							HTTP: &v1alpha2.HTTPRouteSpec{
-								Spec: &v1alpha2.LogicalHTTPRouteSpec{
+								Spec: &gwapiv1.HTTPRouteSpec{
 									Rules: []gwapiv1.HTTPRouteRule{{
 										Matches: []gwapiv1.HTTPRouteMatch{
 											fixture.HeaderOnlyMatch("{{ .ObjectMeta.Name }} invalid", "test-model"),

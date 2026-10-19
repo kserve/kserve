@@ -54,6 +54,7 @@ class V1beta1IngressConfig(object):
         'domain_template': 'str',
         'enable_gateway_api': 'bool',
         'enable_llm_inference_service_tls': 'bool',
+        'http_route_max_shards': 'int',
         'ingress_class_name': 'str',
         'ingress_domain': 'str',
         'ingress_gateway': 'str',
@@ -78,6 +79,7 @@ class V1beta1IngressConfig(object):
         'domain_template': 'domainTemplate',
         'enable_gateway_api': 'enableGatewayApi',
         'enable_llm_inference_service_tls': 'enableLLMInferenceServiceTLS',
+        'http_route_max_shards': 'httpRouteMaxShards',
         'ingress_class_name': 'ingressClassName',
         'ingress_domain': 'ingressDomain',
         'ingress_gateway': 'ingressGateway',
@@ -94,7 +96,7 @@ class V1beta1IngressConfig(object):
         'url_scheme': 'urlScheme'
     }
 
-    def __init__(self, additional_ingress_domains=None, disable_http_route_timeout=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, enable_llm_inference_service_tls=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, local_gateway=None, local_gateway_service=None, lora_model_routing_strategy=None, model_based_routing_header_name=None, model_based_routing_mode=None, path_template=None, url_scheme=None, local_vars_configuration=None, *, llm_inference_service_tls_cipher_suites=None, llm_inference_service_tls_min_version=None):  # noqa: E501
+    def __init__(self, additional_ingress_domains=None, disable_http_route_timeout=None, disable_ingress_creation=None, disable_istio_virtual_host=None, domain_template=None, enable_gateway_api=None, enable_llm_inference_service_tls=None, ingress_class_name=None, ingress_domain=None, ingress_gateway=None, knative_local_gateway_service=None, kserve_ingress_gateway=None, local_gateway=None, local_gateway_service=None, lora_model_routing_strategy=None, model_based_routing_header_name=None, model_based_routing_mode=None, path_template=None, url_scheme=None, local_vars_configuration=None, *, http_route_max_shards=None, llm_inference_service_tls_cipher_suites=None, llm_inference_service_tls_min_version=None):  # noqa: E501
         """V1beta1IngressConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -107,6 +109,7 @@ class V1beta1IngressConfig(object):
         self._domain_template = None
         self._enable_gateway_api = None
         self._enable_llm_inference_service_tls = None
+        self._http_route_max_shards = None
         self._ingress_class_name = None
         self._ingress_domain = None
         self._ingress_gateway = None
@@ -137,6 +140,8 @@ class V1beta1IngressConfig(object):
             self.enable_gateway_api = enable_gateway_api
         if enable_llm_inference_service_tls is not None:
             self.enable_llm_inference_service_tls = enable_llm_inference_service_tls
+        if http_route_max_shards is not None:
+            self.http_route_max_shards = http_route_max_shards
         if ingress_class_name is not None:
             self.ingress_class_name = ingress_class_name
         if ingress_domain is not None:
@@ -312,6 +317,29 @@ class V1beta1IngressConfig(object):
         """
 
         self._enable_llm_inference_service_tls = enable_llm_inference_service_tls
+
+    @property
+    def http_route_max_shards(self):
+        """Gets the http_route_max_shards of this V1beta1IngressConfig.  # noqa: E501
+
+        HTTPRouteMaxShards caps how many managed HTTPRoutes an LLMInferenceService inline route may be sharded into. Defaults to 1, so sharding is opt-in; a service overrides it with serving.kserve.io/httproute-max-shards.  # noqa: E501
+
+        :return: The http_route_max_shards of this V1beta1IngressConfig.  # noqa: E501
+        :rtype: int
+        """
+        return self._http_route_max_shards
+
+    @http_route_max_shards.setter
+    def http_route_max_shards(self, http_route_max_shards):
+        """Sets the http_route_max_shards of this V1beta1IngressConfig.
+
+        HTTPRouteMaxShards caps how many managed HTTPRoutes an LLMInferenceService inline route may be sharded into. Defaults to 1, so sharding is opt-in; a service overrides it with serving.kserve.io/httproute-max-shards.  # noqa: E501
+
+        :param http_route_max_shards: The http_route_max_shards of this V1beta1IngressConfig.  # noqa: E501
+        :type: int
+        """
+
+        self._http_route_max_shards = http_route_max_shards
 
     @property
     def ingress_class_name(self):

@@ -169,6 +169,11 @@ type Config struct {
 	// directly constructed Configs keep the byte-compatible default.
 	LoRAModelRoutingStrategy LoRAModelRoutingStrategy `json:"loraModelRoutingStrategy,omitempty"`
 
+	// HTTPRouteMaxShards is the cluster-wide cap on managed HTTPRoutes per
+	// service; a service overrides it with AnnotationHTTPRouteMaxShards. The
+	// zero value behaves as constants.DefaultHTTPRouteMaxShards.
+	HTTPRouteMaxShards int `json:"httpRouteMaxShards,omitempty"`
+
 	// FeatureGates holds the opt-in behaviour switches from the "llmisvc" key of
 	// inferenceservice-config. The zero value leaves every gate off, so a directly
 	// constructed Config behaves as it did before any gate existed.
@@ -225,6 +230,7 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		ModelBasedRoutingHeaderName: ingressConfig.ModelBasedRoutingHeaderName,
 		ModelBasedRoutingMode:       parseModelBasedRoutingMode(ingressConfig.ModelBasedRoutingMode),
 		LoRAModelRoutingStrategy:    LoRAModelRoutingStrategy(ingressConfig.LoRAModelRoutingStrategy),
+		HTTPRouteMaxShards:          ingressConfig.HTTPRouteMaxShards,
 		StorageConfig:               storageConfig,
 		CredentialConfig:            credentialConfig,
 		SchedulerConfig:             schedulerConfig,

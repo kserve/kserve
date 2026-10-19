@@ -121,7 +121,7 @@ func WithHTTPRouteSpec(spec *gwapiv1.HTTPRouteSpec) LLMInferenceServiceOption {
 		if llmSvc.Spec.Router.Route.HTTP == nil {
 			llmSvc.Spec.Router.Route.HTTP = &v1alpha2.HTTPRouteSpec{}
 		}
-		llmSvc.Spec.Router.Route.HTTP.Spec = v1alpha2.LogicalHTTPRouteSpecFrom(spec)
+		llmSvc.Spec.Router.Route.HTTP.Spec = spec
 	}
 }
 

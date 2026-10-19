@@ -10,6 +10,7 @@ Name | Type | Description | Notes
 **domain_template** | **str** |  | [optional] 
 **enable_gateway_api** | **bool** |  | [optional] 
 **enable_llm_inference_service_tls** | **bool** |  | [optional] 
+**http_route_max_shards** | **int** | HTTPRouteMaxShards caps how many managed HTTPRoutes an LLMInferenceService inline route may be sharded into. Defaults to 1, so sharding is opt-in; a service overrides it with serving.kserve.io/httproute-max-shards. | [optional] 
 **ingress_class_name** | **str** |  | [optional] 
 **ingress_domain** | **str** |  | [optional] 
 **ingress_gateway** | **str** |  | [optional] 

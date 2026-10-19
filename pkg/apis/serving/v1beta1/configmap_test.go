@@ -1235,3 +1235,37 @@ func TestNewIngressConfigLoRAModelRoutingStrategy(t *testing.T) {
 		})
 	}
 }
+
+func TestNewIngressConfigHTTPRouteMaxShards(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		value   string // omitted from the ingress JSON when empty
+		want    int
+		wantErr string
+	}{
+		{name: "defaults to one when omitted", want: constants.DefaultHTTPRouteMaxShards},
+		{name: "accepts a value in range", value: "4", want: 4},
+		{name: "accepts the upper bound", value: "16", want: 16},
+		{name: "rejects negative values", value: "-1", wantErr: "httpRouteMaxShards must be between 1 and 16, got -1"},
+		{name: "rejects values above the bound", value: "17", wantErr: "httpRouteMaxShards must be between 1 and 16, got 17"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			ingress := `{"ingressGateway": "knative-serving/knative-ingress-gateway"`
+			if tt.value != "" {
+				ingress += `, "httpRouteMaxShards": ` + tt.value
+			}
+			ingress += `}`
+
+			cfg, err := NewIngressConfig(&corev1.ConfigMap{Data: map[string]string{IngressConfigKeyName: ingress}})
+
+			if tt.wantErr != "" {
+				g.Expect(err).To(gomega.MatchError(gomega.ContainSubstring(tt.wantErr)))
+				g.Expect(cfg).To(gomega.BeNil())
+				return
+			}
+			g.Expect(err).ToNot(gomega.HaveOccurred())
+			g.Expect(cfg.HTTPRouteMaxShards).To(gomega.Equal(tt.want))
+		})
+	}
+}

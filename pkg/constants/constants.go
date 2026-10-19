@@ -1061,6 +1061,18 @@ func KernelCacheTargetImage(registry, namespace, inferenceServiceName, captureID
 // Set on spec.annotations, so a preset can carry it.
 const LoRAModelRoutingStrategyAnnotationKey = KServeAPIGroupName + "/lora-model-routing-strategy"
 
+// HTTPRouteMaxShardsAnnotationKey sets, for one LLMInferenceService, how many
+// managed HTTPRoutes its inline route may be sharded into, overriding the
+// cluster-wide httpRouteMaxShards ingress key. Read from spec.annotations.
+const HTTPRouteMaxShardsAnnotationKey = KServeAPIGroupName + "/httproute-max-shards"
+
+// Bounds of the httpRouteMaxShards ingress key and HTTPRouteMaxShardsAnnotationKey.
+// The default of 1 keeps sharding opt-in.
+const (
+	DefaultHTTPRouteMaxShards = 1
+	MaxHTTPRouteMaxShards     = 16
+)
+
 // Values accepted by the loraModelRoutingStrategy ConfigMap key and the
 // LoRAModelRoutingStrategyAnnotationKey annotation; compared case-insensitively.
 const (

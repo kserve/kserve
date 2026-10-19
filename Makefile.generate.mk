@@ -95,10 +95,17 @@ manifests: controller-gen kustomize yq
 			done; \
 		done; \
 	done
-	# The v1alpha2 inline route accepts more rules than one HTTPRoute (see LogicalHTTPRouteSpec), which multiplies the
-	# estimated cost of the per-match path character regex past the CEL budget. Drop only that rule from the logical
-	# route; every HTTPRoute the controller emits is still validated against it by the Gateway API CRD.
-	@$(YQ) '(.spec.versions[] | select(.name == "v1alpha2") | .schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec.properties.rules.items.properties.matches.items.properties.path."x-kubernetes-validations") |= map(select(.message | test("must only contain valid characters") | not))' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	# The inline route may hold more rules than one HTTPRoute; the controller shards it into HTTPRoutes that each fit the
+	# Gateway API limits, and every emitted HTTPRoute is dry-run against the Gateway API CRD before it is written. Drop the
+	# rule count limit and the nested route validations (including the total matches rule) on both versions of both APIs,
+	# so v1alpha1 and v1alpha2 accept the same routes and conversion stays an identity.
+	@for crd in llminferenceservices llminferenceserviceconfigs; do \
+		for ver in 0 1; do \
+			path=".spec.versions[$$ver].schema.openAPIV3Schema.properties.spec.properties.router.properties.route.properties.http.properties.spec"; \
+			$(YQ) "del($$path.properties.rules.maxItems)" -i config/crd/full/llmisvc/serving.kserve.io_$$crd.yaml; \
+			$(YQ) "($$path | .. | select(has(\"x-kubernetes-validations\"))) |= del(.\"x-kubernetes-validations\")" -i config/crd/full/llmisvc/serving.kserve.io_$$crd.yaml; \
+		done; \
+	done
 	# Remove validation for the LLMInferenceServiceConfig API so that we can override only specific values (both versions).
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
 	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml

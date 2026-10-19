@@ -88,7 +88,8 @@ data:
         "disableIstioVirtualHost": {{ .Values.kserve.controller.gateway.disableIstioVirtualHost }},
         "disableIngressCreation": {{ .Values.kserve.controller.gateway.disableIngressCreation }},
         "disableHTTPRouteTimeout": {{ .Values.kserve.controller.gateway.disableHTTPRouteTimeout }},
-        "loraModelRoutingStrategy": "{{ .Values.kserve.controller.gateway.loraModelRoutingStrategy }}"
+        "loraModelRoutingStrategy": "{{ .Values.kserve.controller.gateway.loraModelRoutingStrategy }}",
+        "httpRouteMaxShards": {{ .Values.kserve.controller.gateway.httpRouteMaxShards }}
     }
   logger: |-
     {

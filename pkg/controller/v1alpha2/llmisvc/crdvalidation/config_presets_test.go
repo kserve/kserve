@@ -69,7 +69,7 @@ var _ = Describe("LLMInferenceServiceConfig CRD", func() {
 				Router: &v1alpha2.RouterSpec{
 					Route: &v1alpha2.GatewayRoutesSpec{
 						HTTP: &v1alpha2.HTTPRouteSpec{
-							Spec: &v1alpha2.LogicalHTTPRouteSpec{
+							Spec: &gwapiv1.HTTPRouteSpec{
 								Rules: []gwapiv1.HTTPRouteRule{{
 									Matches: []gwapiv1.HTTPRouteMatch{{
 										Path: &gwapiv1.HTTPPathMatch{

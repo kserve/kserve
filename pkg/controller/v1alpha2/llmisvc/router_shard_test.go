@@ -227,26 +227,6 @@ func TestManagedHTTPRouteNameStaysWithinDNSLimit(t *testing.T) {
 	}
 }
 
-func TestLogicalHTTPRouteSpecRoundTrip(t *testing.T) {
-	in := &gwapiv1.HTTPRouteSpec{
-		CommonRouteSpec: gwapiv1.CommonRouteSpec{ParentRefs: []gwapiv1.ParentReference{{Name: "gw"}}},
-		Hostnames:       []gwapiv1.Hostname{"example.com"},
-		Rules:           repeatRules(2, 1),
-	}
-	logical := v1alpha2.LogicalHTTPRouteSpecFrom(in)
-	out := logical.ToHTTPRouteSpec()
-	if len(out.ParentRefs) != 1 || len(out.Hostnames) != 1 || len(out.Rules) != 2 {
-		t.Fatalf("round trip lost fields: %+v", out)
-	}
-	out.Rules[0].Name = ptr.To(gwapiv1.SectionName("changed"))
-	if *logical.Rules[0].Name == "changed" {
-		t.Errorf("ToHTTPRouteSpec must return a deep copy")
-	}
-	if v1alpha2.LogicalHTTPRouteSpecFrom(nil) != nil {
-		t.Errorf("nil must convert to nil")
-	}
-}
-
 var sectionNamePattern = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`)
 
 func TestSplitOversizedRulesNamesAreValidAndUnique(t *testing.T) {
@@ -289,5 +269,33 @@ func TestSplitOversizedRulesNamesAreValidAndUnique(t *testing.T) {
 func TestChunkRuleNameKeepsPlainFormWhenPossible(t *testing.T) {
 	if got := chunkRuleName("lora", 1, map[gwapiv1.SectionName]struct{}{"lora": {}}); got != "lora-1" {
 		t.Fatalf("got %q, want lora-1", got)
+	}
+}
+
+func TestHTTPRouteMaxShardsFor(t *testing.T) {
+	svc := func(ann map[string]string) *v1alpha2.LLMInferenceService {
+		s := &v1alpha2.LLMInferenceService{}
+		s.Spec.Annotations = ann
+		return s
+	}
+	for _, tt := range []struct {
+		name string
+		svc  *v1alpha2.LLMInferenceService
+		cfg  *Config
+		want int
+		src  string
+	}{
+		{name: "default when unset", svc: svc(nil), cfg: &Config{}, want: 1, src: "ConfigMap"},
+		{name: "nil config", svc: svc(nil), cfg: nil, want: 1, src: "ConfigMap"},
+		{name: "config value", svc: svc(nil), cfg: &Config{HTTPRouteMaxShards: 4}, want: 4, src: "ConfigMap"},
+		{name: "annotation wins", svc: svc(map[string]string{constants.HTTPRouteMaxShardsAnnotationKey: " 3 "}), cfg: &Config{HTTPRouteMaxShards: 4}, want: 3, src: "annotation"},
+		{name: "bad annotation falls back", svc: svc(map[string]string{constants.HTTPRouteMaxShardsAnnotationKey: "x"}), cfg: &Config{HTTPRouteMaxShards: 2}, want: 2, src: "ConfigMap"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, src := httpRouteMaxShardsFor(tt.svc, tt.cfg)
+			if got != tt.want || !strings.Contains(src, tt.src) {
+				t.Fatalf("got %d from %q, want %d from %q", got, src, tt.want, tt.src)
+			}
+		})
 	}
 }

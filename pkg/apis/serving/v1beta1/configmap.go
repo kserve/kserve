@@ -147,6 +147,11 @@ type IngressConfig struct {
 	// (the default) or "regex", compared case-insensitively. Any other value
 	// fails config loading like the other ingress keys.
 	LoRAModelRoutingStrategy string `json:"loraModelRoutingStrategy,omitempty"`
+
+	// HTTPRouteMaxShards caps how many managed HTTPRoutes an LLMInferenceService
+	// inline route may be sharded into. Defaults to 1, so sharding is opt-in;
+	// a service overrides it with serving.kserve.io/httproute-max-shards.
+	HTTPRouteMaxShards int `json:"httpRouteMaxShards,omitempty"`
 }
 
 // +kubebuilder:object:generate=false
@@ -594,6 +599,14 @@ func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 	default:
 		return nil, fmt.Errorf("invalid ingress config - loraModelRoutingStrategy must be %q or %q, got %q",
 			constants.LoRAModelRoutingStrategyExact, constants.LoRAModelRoutingStrategyRegex, ingressConfig.LoRAModelRoutingStrategy)
+	}
+
+	switch {
+	case ingressConfig.HTTPRouteMaxShards == 0:
+		ingressConfig.HTTPRouteMaxShards = constants.DefaultHTTPRouteMaxShards
+	case ingressConfig.HTTPRouteMaxShards < 1 || ingressConfig.HTTPRouteMaxShards > constants.MaxHTTPRouteMaxShards:
+		return nil, fmt.Errorf("invalid ingress config - httpRouteMaxShards must be between 1 and %d, got %d",
+			constants.MaxHTTPRouteMaxShards, ingressConfig.HTTPRouteMaxShards)
 	}
 
 	return ingressConfig, nil

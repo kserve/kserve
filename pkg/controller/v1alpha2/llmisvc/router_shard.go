@@ -243,3 +243,20 @@ func (r *LLMISVCReconciler) deleteStaleHTTPRouteShards(ctx context.Context, llmS
 	}
 	return nil
 }
+
+// httpRouteMaxShardsFor returns how many managed HTTPRoutes the service's
+// inline route may use, and where that value came from for status messages.
+// The spec annotation wins over the ingress config; anything unusable falls
+// back to the config, as the webhook already rejects bad annotation values.
+func httpRouteMaxShardsFor(llmSvc *v1alpha2.LLMInferenceService, cfg *Config) (int, string) {
+	if raw, ok := llmSvc.Spec.Annotations[AnnotationHTTPRouteMaxShards]; ok {
+		if n, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil && n >= 1 {
+			return n, "annotation " + AnnotationHTTPRouteMaxShards
+		}
+	}
+	limit := constants.DefaultHTTPRouteMaxShards
+	if cfg != nil && cfg.HTTPRouteMaxShards > 0 {
+		limit = cfg.HTTPRouteMaxShards
+	}
+	return limit, "httpRouteMaxShards in the " + constants.InferenceServiceConfigMapName + " ConfigMap"
+}

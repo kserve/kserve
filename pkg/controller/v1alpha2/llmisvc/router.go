@@ -88,6 +88,11 @@ const AnnotationModelBasedRoutingOnly = "serving.kserve.io/model-based-routing-o
 // carry it; absent or empty means the ConfigMap value applies.
 const AnnotationLoRAModelRoutingStrategy = constants.LoRAModelRoutingStrategyAnnotationKey
 
+// AnnotationHTTPRouteMaxShards caps, for one service, how many managed
+// HTTPRoutes the inline route may be sharded into, overriding the cluster-wide
+// httpRouteMaxShards. Read from spec.annotations so a preset can carry it.
+const AnnotationHTTPRouteMaxShards = constants.HTTPRouteMaxShardsAnnotationKey
+
 // ErrPreconditionNotMet indicates a non-transient routing precondition failure
 // (e.g. a required CRD is missing or the routing strategy cannot be applied).
 // The caller should mark status and then return either nil or a
@@ -286,6 +291,10 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 		// The logical route may hold more rules and matches than one HTTPRoute
 		// allows, so it is written as one or more resources that each fit.
 		shards := shardHTTPRoute(llmSvc, expectedHTTPRoute)
+		if limit, source := httpRouteMaxShardsFor(llmSvc, cfg); len(shards) > limit {
+			return nil, fmt.Errorf("%w: the route needs %d HTTPRoutes but %s allows %d; raise it or reduce the rules and LoRA adapters",
+				ErrPreconditionNotMet, len(shards), source, limit)
+		}
 		for _, shard := range shards {
 			if err := Reconcile(ctx, r, llmSvc, &gwapiv1.HTTPRoute{}, shard, semanticHTTPRouteIsEqual); err != nil {
 				var invalid *apierrors.StatusError
@@ -370,7 +379,7 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 	}
 
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Route != nil && llmSvc.Spec.Router.Route.HTTP.HasSpec() {
-		httpRoute.Spec = llmSvc.Spec.Router.Route.HTTP.Spec.ToHTTPRouteSpec()
+		httpRoute.Spec = *llmSvc.Spec.Router.Route.HTTP.Spec.DeepCopy()
 
 		// The route preset ships modality rules for the omni runtime. Strip
 		// them for every other runtime so they do not consume the Gateway API

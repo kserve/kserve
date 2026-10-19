@@ -18468,7 +18468,6 @@ spec:
                                           type: string
                                       type: object
                                   type: object
-                                maxItems: 16
                                 type: array
                                 x-kubernetes-list-type: atomic
                               useDefaultGateways:
@@ -44234,7 +44233,6 @@ spec:
                                           type: string
                                       type: object
                                   type: object
-                                maxItems: 64
                                 type: array
                                 x-kubernetes-list-type: atomic
                               useDefaultGateways:
@@ -69270,12 +69268,6 @@ spec:
                                                       maxItems: 64
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowHeaders cannot
-                                                          contain '*' alongside other
-                                                          methods
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     allowMethods:
                                                       items:
                                                         enum:
@@ -69293,12 +69285,6 @@ spec:
                                                       maxItems: 9
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowMethods cannot
-                                                          contain '*' alongside other
-                                                          methods
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     allowOrigins:
                                                       items:
                                                         maxLength: 253
@@ -69308,12 +69294,6 @@ spec:
                                                       maxItems: 64
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowOrigins cannot
-                                                          contain '*' alongside other
-                                                          origins
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     exposeHeaders:
                                                       items:
                                                         maxLength: 256
@@ -69381,12 +69361,6 @@ spec:
                                                       required:
                                                       - name
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: Must have port for
-                                                          Service reference
-                                                        rule: '(size(self.group) ==
-                                                          0 && self.kind == ''Service'')
-                                                          ? has(self.port) : true'
                                                     forwardBody:
                                                       properties:
                                                         maxSize:
@@ -69429,23 +69403,6 @@ spec:
                                                   - backendRef
                                                   - protocol
                                                   type: object
-                                                  x-kubernetes-validations:
-                                                  - message: grpc must be specified
-                                                      when protocol is set to 'GRPC'
-                                                    rule: 'self.protocol == ''GRPC''
-                                                      ? has(self.grpc) : true'
-                                                  - message: protocol must be 'GRPC'
-                                                      when grpc is set
-                                                    rule: 'has(self.grpc) ? self.protocol
-                                                      == ''GRPC'' : true'
-                                                  - message: http must be specified
-                                                      when protocol is set to 'HTTP'
-                                                    rule: 'self.protocol == ''HTTP''
-                                                      ? has(self.http) : true'
-                                                  - message: protocol must be 'HTTP'
-                                                      when http is set
-                                                    rule: 'has(self.http) ? self.protocol
-                                                      == ''HTTP'' : true'
                                                 requestHeaderModifier:
                                                   properties:
                                                     add:
@@ -69529,12 +69486,6 @@ spec:
                                                       required:
                                                       - name
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: Must have port for
-                                                          Service reference
-                                                        rule: '(size(self.group) ==
-                                                          0 && self.kind == ''Service'')
-                                                          ? has(self.port) : true'
                                                     fraction:
                                                       properties:
                                                         denominator:
@@ -69549,10 +69500,6 @@ spec:
                                                       required:
                                                       - numerator
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: numerator must be
-                                                          less than or equal to denominator
-                                                        rule: self.numerator <= self.denominator
                                                     percent:
                                                       format: int32
                                                       maximum: 100
@@ -69561,12 +69508,6 @@ spec:
                                                   required:
                                                   - backendRef
                                                   type: object
-                                                  x-kubernetes-validations:
-                                                  - message: Only one of percent or
-                                                      fraction may be specified in
-                                                      HTTPRequestMirrorFilter
-                                                    rule: '!(has(self.percent) &&
-                                                      has(self.fraction))'
                                                 requestRedirect:
                                                   properties:
                                                     hostname:
@@ -69590,31 +69531,6 @@ spec:
                                                       required:
                                                       - type
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: replaceFullPath must
-                                                          be specified when type is
-                                                          set to 'ReplaceFullPath'
-                                                        rule: 'self.type == ''ReplaceFullPath''
-                                                          ? has(self.replaceFullPath)
-                                                          : true'
-                                                      - message: type must be 'ReplaceFullPath'
-                                                          when replaceFullPath is
-                                                          set
-                                                        rule: 'has(self.replaceFullPath)
-                                                          ? self.type == ''ReplaceFullPath''
-                                                          : true'
-                                                      - message: replacePrefixMatch
-                                                          must be specified when type
-                                                          is set to 'ReplacePrefixMatch'
-                                                        rule: 'self.type == ''ReplacePrefixMatch''
-                                                          ? has(self.replacePrefixMatch)
-                                                          : true'
-                                                      - message: type must be 'ReplacePrefixMatch'
-                                                          when replacePrefixMatch
-                                                          is set
-                                                        rule: 'has(self.replacePrefixMatch)
-                                                          ? self.type == ''ReplacePrefixMatch''
-                                                          : true'
                                                     port:
                                                       format: int32
                                                       maximum: 65535
@@ -69719,128 +69635,13 @@ spec:
                                                       required:
                                                       - type
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: replaceFullPath must
-                                                          be specified when type is
-                                                          set to 'ReplaceFullPath'
-                                                        rule: 'self.type == ''ReplaceFullPath''
-                                                          ? has(self.replaceFullPath)
-                                                          : true'
-                                                      - message: type must be 'ReplaceFullPath'
-                                                          when replaceFullPath is
-                                                          set
-                                                        rule: 'has(self.replaceFullPath)
-                                                          ? self.type == ''ReplaceFullPath''
-                                                          : true'
-                                                      - message: replacePrefixMatch
-                                                          must be specified when type
-                                                          is set to 'ReplacePrefixMatch'
-                                                        rule: 'self.type == ''ReplacePrefixMatch''
-                                                          ? has(self.replacePrefixMatch)
-                                                          : true'
-                                                      - message: type must be 'ReplacePrefixMatch'
-                                                          when replacePrefixMatch
-                                                          is set
-                                                        rule: 'has(self.replacePrefixMatch)
-                                                          ? self.type == ''ReplacePrefixMatch''
-                                                          : true'
                                                   type: object
                                               required:
                                               - type
                                               type: object
-                                              x-kubernetes-validations:
-                                              - message: filter.cors must be nil if
-                                                  the filter.type is not CORS
-                                                rule: '!(has(self.cors) && self.type
-                                                  != ''CORS'')'
-                                              - message: filter.cors must be specified
-                                                  for CORS filter.type
-                                                rule: '!(!has(self.cors) && self.type
-                                                  == ''CORS'')'
-                                              - message: filter.requestHeaderModifier
-                                                  must be nil if the filter.type is
-                                                  not RequestHeaderModifier
-                                                rule: '!(has(self.requestHeaderModifier)
-                                                  && self.type != ''RequestHeaderModifier'')'
-                                              - message: filter.requestHeaderModifier
-                                                  must be specified for RequestHeaderModifier
-                                                  filter.type
-                                                rule: '!(!has(self.requestHeaderModifier)
-                                                  && self.type == ''RequestHeaderModifier'')'
-                                              - message: filter.responseHeaderModifier
-                                                  must be nil if the filter.type is
-                                                  not ResponseHeaderModifier
-                                                rule: '!(has(self.responseHeaderModifier)
-                                                  && self.type != ''ResponseHeaderModifier'')'
-                                              - message: filter.responseHeaderModifier
-                                                  must be specified for ResponseHeaderModifier
-                                                  filter.type
-                                                rule: '!(!has(self.responseHeaderModifier)
-                                                  && self.type == ''ResponseHeaderModifier'')'
-                                              - message: filter.requestMirror must
-                                                  be nil if the filter.type is not
-                                                  RequestMirror
-                                                rule: '!(has(self.requestMirror) &&
-                                                  self.type != ''RequestMirror'')'
-                                              - message: filter.requestMirror must
-                                                  be specified for RequestMirror filter.type
-                                                rule: '!(!has(self.requestMirror)
-                                                  && self.type == ''RequestMirror'')'
-                                              - message: filter.requestRedirect must
-                                                  be nil if the filter.type is not
-                                                  RequestRedirect
-                                                rule: '!(has(self.requestRedirect)
-                                                  && self.type != ''RequestRedirect'')'
-                                              - message: filter.requestRedirect must
-                                                  be specified for RequestRedirect
-                                                  filter.type
-                                                rule: '!(!has(self.requestRedirect)
-                                                  && self.type == ''RequestRedirect'')'
-                                              - message: filter.urlRewrite must be
-                                                  nil if the filter.type is not URLRewrite
-                                                rule: '!(has(self.urlRewrite) && self.type
-                                                  != ''URLRewrite'')'
-                                              - message: filter.urlRewrite must be
-                                                  specified for URLRewrite filter.type
-                                                rule: '!(!has(self.urlRewrite) &&
-                                                  self.type == ''URLRewrite'')'
-                                              - message: filter.extensionRef must
-                                                  be nil if the filter.type is not
-                                                  ExtensionRef
-                                                rule: '!(has(self.extensionRef) &&
-                                                  self.type != ''ExtensionRef'')'
-                                              - message: filter.extensionRef must
-                                                  be specified for ExtensionRef filter.type
-                                                rule: '!(!has(self.extensionRef) &&
-                                                  self.type == ''ExtensionRef'')'
                                             maxItems: 16
                                             type: array
                                             x-kubernetes-list-type: atomic
-                                            x-kubernetes-validations:
-                                            - message: May specify either httpRouteFilterRequestRedirect
-                                                or httpRouteFilterRequestRewrite,
-                                                but not both
-                                              rule: '!(self.exists(f, f.type == ''RequestRedirect'')
-                                                && self.exists(f, f.type == ''URLRewrite''))'
-                                            - message: CORS filter cannot be repeated
-                                              rule: self.filter(f, f.type == 'CORS').size()
-                                                <= 1
-                                            - message: RequestHeaderModifier filter
-                                                cannot be repeated
-                                              rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
-                                                <= 1
-                                            - message: ResponseHeaderModifier filter
-                                                cannot be repeated
-                                              rule: self.filter(f, f.type == 'ResponseHeaderModifier').size()
-                                                <= 1
-                                            - message: RequestRedirect filter cannot
-                                                be repeated
-                                              rule: self.filter(f, f.type == 'RequestRedirect').size()
-                                                <= 1
-                                            - message: URLRewrite filter cannot be
-                                                repeated
-                                              rule: self.filter(f, f.type == 'URLRewrite').size()
-                                                <= 1
                                           group:
                                             default: ""
                                             maxLength: 253
@@ -69875,10 +69676,6 @@ spec:
                                         required:
                                         - name
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: Must have port for Service reference
-                                          rule: '(size(self.group) == 0 && self.kind
-                                            == ''Service'') ? has(self.port) : true'
                                       maxItems: 16
                                       type: array
                                       x-kubernetes-list-type: atomic
@@ -69898,11 +69695,6 @@ spec:
                                                 maxItems: 64
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowHeaders cannot contain
-                                                    '*' alongside other methods
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               allowMethods:
                                                 items:
                                                   enum:
@@ -69920,11 +69712,6 @@ spec:
                                                 maxItems: 9
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowMethods cannot contain
-                                                    '*' alongside other methods
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               allowOrigins:
                                                 items:
                                                   maxLength: 253
@@ -69934,11 +69721,6 @@ spec:
                                                 maxItems: 64
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowOrigins cannot contain
-                                                    '*' alongside other origins
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               exposeHeaders:
                                                 items:
                                                   maxLength: 256
@@ -70006,12 +69788,6 @@ spec:
                                                 required:
                                                 - name
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: Must have port for Service
-                                                    reference
-                                                  rule: '(size(self.group) == 0 &&
-                                                    self.kind == ''Service'') ? has(self.port)
-                                                    : true'
                                               forwardBody:
                                                 properties:
                                                   maxSize:
@@ -70054,23 +69830,6 @@ spec:
                                             - backendRef
                                             - protocol
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: grpc must be specified when
-                                                protocol is set to 'GRPC'
-                                              rule: 'self.protocol == ''GRPC'' ? has(self.grpc)
-                                                : true'
-                                            - message: protocol must be 'GRPC' when
-                                                grpc is set
-                                              rule: 'has(self.grpc) ? self.protocol
-                                                == ''GRPC'' : true'
-                                            - message: http must be specified when
-                                                protocol is set to 'HTTP'
-                                              rule: 'self.protocol == ''HTTP'' ? has(self.http)
-                                                : true'
-                                            - message: protocol must be 'HTTP' when
-                                                http is set
-                                              rule: 'has(self.http) ? self.protocol
-                                                == ''HTTP'' : true'
                                           requestHeaderModifier:
                                             properties:
                                               add:
@@ -70154,12 +69913,6 @@ spec:
                                                 required:
                                                 - name
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: Must have port for Service
-                                                    reference
-                                                  rule: '(size(self.group) == 0 &&
-                                                    self.kind == ''Service'') ? has(self.port)
-                                                    : true'
                                               fraction:
                                                 properties:
                                                   denominator:
@@ -70174,10 +69927,6 @@ spec:
                                                 required:
                                                 - numerator
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: numerator must be less
-                                                    than or equal to denominator
-                                                  rule: self.numerator <= self.denominator
                                               percent:
                                                 format: int32
                                                 maximum: 100
@@ -70186,10 +69935,6 @@ spec:
                                             required:
                                             - backendRef
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: Only one of percent or fraction
-                                                may be specified in HTTPRequestMirrorFilter
-                                              rule: '!(has(self.percent) && has(self.fraction))'
                                           requestRedirect:
                                             properties:
                                               hostname:
@@ -70213,29 +69958,6 @@ spec:
                                                 required:
                                                 - type
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: replaceFullPath must be
-                                                    specified when type is set to
-                                                    'ReplaceFullPath'
-                                                  rule: 'self.type == ''ReplaceFullPath''
-                                                    ? has(self.replaceFullPath) :
-                                                    true'
-                                                - message: type must be 'ReplaceFullPath'
-                                                    when replaceFullPath is set
-                                                  rule: 'has(self.replaceFullPath)
-                                                    ? self.type == ''ReplaceFullPath''
-                                                    : true'
-                                                - message: replacePrefixMatch must
-                                                    be specified when type is set
-                                                    to 'ReplacePrefixMatch'
-                                                  rule: 'self.type == ''ReplacePrefixMatch''
-                                                    ? has(self.replacePrefixMatch)
-                                                    : true'
-                                                - message: type must be 'ReplacePrefixMatch'
-                                                    when replacePrefixMatch is set
-                                                  rule: 'has(self.replacePrefixMatch)
-                                                    ? self.type == ''ReplacePrefixMatch''
-                                                    : true'
                                               port:
                                                 format: int32
                                                 maximum: 65535
@@ -70340,119 +70062,13 @@ spec:
                                                 required:
                                                 - type
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: replaceFullPath must be
-                                                    specified when type is set to
-                                                    'ReplaceFullPath'
-                                                  rule: 'self.type == ''ReplaceFullPath''
-                                                    ? has(self.replaceFullPath) :
-                                                    true'
-                                                - message: type must be 'ReplaceFullPath'
-                                                    when replaceFullPath is set
-                                                  rule: 'has(self.replaceFullPath)
-                                                    ? self.type == ''ReplaceFullPath''
-                                                    : true'
-                                                - message: replacePrefixMatch must
-                                                    be specified when type is set
-                                                    to 'ReplacePrefixMatch'
-                                                  rule: 'self.type == ''ReplacePrefixMatch''
-                                                    ? has(self.replacePrefixMatch)
-                                                    : true'
-                                                - message: type must be 'ReplacePrefixMatch'
-                                                    when replacePrefixMatch is set
-                                                  rule: 'has(self.replacePrefixMatch)
-                                                    ? self.type == ''ReplacePrefixMatch''
-                                                    : true'
                                             type: object
                                         required:
                                         - type
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: filter.cors must be nil if the
-                                            filter.type is not CORS
-                                          rule: '!(has(self.cors) && self.type !=
-                                            ''CORS'')'
-                                        - message: filter.cors must be specified for
-                                            CORS filter.type
-                                          rule: '!(!has(self.cors) && self.type ==
-                                            ''CORS'')'
-                                        - message: filter.requestHeaderModifier must
-                                            be nil if the filter.type is not RequestHeaderModifier
-                                          rule: '!(has(self.requestHeaderModifier)
-                                            && self.type != ''RequestHeaderModifier'')'
-                                        - message: filter.requestHeaderModifier must
-                                            be specified for RequestHeaderModifier
-                                            filter.type
-                                          rule: '!(!has(self.requestHeaderModifier)
-                                            && self.type == ''RequestHeaderModifier'')'
-                                        - message: filter.responseHeaderModifier must
-                                            be nil if the filter.type is not ResponseHeaderModifier
-                                          rule: '!(has(self.responseHeaderModifier)
-                                            && self.type != ''ResponseHeaderModifier'')'
-                                        - message: filter.responseHeaderModifier must
-                                            be specified for ResponseHeaderModifier
-                                            filter.type
-                                          rule: '!(!has(self.responseHeaderModifier)
-                                            && self.type == ''ResponseHeaderModifier'')'
-                                        - message: filter.requestMirror must be nil
-                                            if the filter.type is not RequestMirror
-                                          rule: '!(has(self.requestMirror) && self.type
-                                            != ''RequestMirror'')'
-                                        - message: filter.requestMirror must be specified
-                                            for RequestMirror filter.type
-                                          rule: '!(!has(self.requestMirror) && self.type
-                                            == ''RequestMirror'')'
-                                        - message: filter.requestRedirect must be
-                                            nil if the filter.type is not RequestRedirect
-                                          rule: '!(has(self.requestRedirect) && self.type
-                                            != ''RequestRedirect'')'
-                                        - message: filter.requestRedirect must be
-                                            specified for RequestRedirect filter.type
-                                          rule: '!(!has(self.requestRedirect) && self.type
-                                            == ''RequestRedirect'')'
-                                        - message: filter.urlRewrite must be nil if
-                                            the filter.type is not URLRewrite
-                                          rule: '!(has(self.urlRewrite) && self.type
-                                            != ''URLRewrite'')'
-                                        - message: filter.urlRewrite must be specified
-                                            for URLRewrite filter.type
-                                          rule: '!(!has(self.urlRewrite) && self.type
-                                            == ''URLRewrite'')'
-                                        - message: filter.extensionRef must be nil
-                                            if the filter.type is not ExtensionRef
-                                          rule: '!(has(self.extensionRef) && self.type
-                                            != ''ExtensionRef'')'
-                                        - message: filter.extensionRef must be specified
-                                            for ExtensionRef filter.type
-                                          rule: '!(!has(self.extensionRef) && self.type
-                                            == ''ExtensionRef'')'
                                       maxItems: 16
                                       type: array
                                       x-kubernetes-list-type: atomic
-                                      x-kubernetes-validations:
-                                      - message: May specify either httpRouteFilterRequestRedirect
-                                          or httpRouteFilterRequestRewrite, but not
-                                          both
-                                        rule: '!(self.exists(f, f.type == ''RequestRedirect'')
-                                          && self.exists(f, f.type == ''URLRewrite''))'
-                                      - message: CORS filter cannot be repeated
-                                        rule: self.filter(f, f.type == 'CORS').size()
-                                          <= 1
-                                      - message: RequestHeaderModifier filter cannot
-                                          be repeated
-                                        rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
-                                          <= 1
-                                      - message: ResponseHeaderModifier filter cannot
-                                          be repeated
-                                        rule: self.filter(f, f.type == 'ResponseHeaderModifier').size()
-                                          <= 1
-                                      - message: RequestRedirect filter cannot be
-                                          repeated
-                                        rule: self.filter(f, f.type == 'RequestRedirect').size()
-                                          <= 1
-                                      - message: URLRewrite filter cannot be repeated
-                                        rule: self.filter(f, f.type == 'URLRewrite').size()
-                                          <= 1
                                     matches:
                                       default:
                                       - path:
@@ -70516,59 +70132,6 @@ spec:
                                                 maxLength: 1024
                                                 type: string
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: value must be an absolute path
-                                                and start with '/' when type one of
-                                                ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? self.value.startsWith(''/'') : true'
-                                            - message: must not contain '//' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''//'') : true'
-                                            - message: must not contain '/./' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''/./'') :
-                                                true'
-                                            - message: must not contain '/../' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''/../'') :
-                                                true'
-                                            - message: must not contain '%2f' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''%2f'') :
-                                                true'
-                                            - message: must not contain '%2F' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''%2F'') :
-                                                true'
-                                            - message: must not contain '#' when type
-                                                one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''#'') : true'
-                                            - message: must not end with '/..' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.endsWith(''/..'') :
-                                                true'
-                                            - message: must not end with '/.' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.endsWith(''/.'') : true'
-                                            - message: type must be one of ['Exact',
-                                                'PathPrefix', 'RegularExpression']
-                                              rule: self.type in ['Exact','PathPrefix']
-                                                || self.type == 'RegularExpression'
-                                            - message: must only contain valid characters
-                                                (matching ^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$)
-                                                for types ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? self.value.matches(r"""^(?:[-A-Za-z0-9/._~!$&''()*+,;=:@]|[%][0-9a-fA-F]{2})+$""")
-                                                : true'
                                           queryParams:
                                             items:
                                               properties:
@@ -70647,16 +70210,6 @@ spec:
                                           - Header
                                           type: string
                                       type: object
-                                      x-kubernetes-validations:
-                                      - message: AbsoluteTimeout must be specified
-                                          when cookie lifetimeType is Permanent
-                                        rule: '!has(self.cookieConfig) || !has(self.cookieConfig.lifetimeType)
-                                          || self.cookieConfig.lifetimeType != ''Permanent''
-                                          || has(self.absoluteTimeout)'
-                                      - message: cookieConfig can only be set with
-                                          type Cookie
-                                        rule: '!has(self.cookieConfig) || self.type
-                                          == ''Cookie'''
                                     timeouts:
                                       properties:
                                         backendRequest:
@@ -70666,83 +70219,10 @@ spec:
                                           pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                       type: object
-                                      x-kubernetes-validations:
-                                      - message: backendRequest timeout cannot be
-                                          longer than request timeout
-                                        rule: '!(has(self.request) && has(self.backendRequest)
-                                          && duration(self.request) != duration(''0s'')
-                                          && duration(self.backendRequest) > duration(self.request))'
                                   type: object
-                                  x-kubernetes-validations:
-                                  - message: RequestRedirect filter must not be used
-                                      together with backendRefs
-                                    rule: '(has(self.backendRefs) && size(self.backendRefs)
-                                      > 0) ? (!has(self.filters) || self.filters.all(f,
-                                      !has(f.requestRedirect))): true'
-                                  - message: When using RequestRedirect filter with
-                                      path.replacePrefixMatch, exactly one PathPrefix
-                                      match must be specified
-                                    rule: '(has(self.filters) && self.filters.exists_one(f,
-                                      has(f.requestRedirect) && has(f.requestRedirect.path)
-                                      && f.requestRedirect.path.type == ''ReplacePrefixMatch''
-                                      && has(f.requestRedirect.path.replacePrefixMatch)))
-                                      ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: When using URLRewrite filter with path.replacePrefixMatch,
-                                      exactly one PathPrefix match must be specified
-                                    rule: '(has(self.filters) && self.filters.exists_one(f,
-                                      has(f.urlRewrite) && has(f.urlRewrite.path)
-                                      && f.urlRewrite.path.type == ''ReplacePrefixMatch''
-                                      && has(f.urlRewrite.path.replacePrefixMatch)))
-                                      ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: Within backendRefs, when using RequestRedirect
-                                      filter with path.replacePrefixMatch, exactly
-                                      one PathPrefix match must be specified
-                                    rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b,
-                                      (has(b.filters) && b.filters.exists_one(f, has(f.requestRedirect)
-                                      && has(f.requestRedirect.path) && f.requestRedirect.path.type
-                                      == ''ReplacePrefixMatch'' && has(f.requestRedirect.path.replacePrefixMatch)))
-                                      )) ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: Within backendRefs, When using URLRewrite
-                                      filter with path.replacePrefixMatch, exactly
-                                      one PathPrefix match must be specified
-                                    rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b,
-                                      (has(b.filters) && b.filters.exists_one(f, has(f.urlRewrite)
-                                      && has(f.urlRewrite.path) && f.urlRewrite.path.type
-                                      == ''ReplacePrefixMatch'' && has(f.urlRewrite.path.replacePrefixMatch)))
-                                      )) ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                maxItems: 16
                                 minItems: 1
                                 type: array
                                 x-kubernetes-list-type: atomic
-                                x-kubernetes-validations:
-                                - message: While 16 rules and 64 matches per rule
-                                    are allowed, the total number of matches across
-                                    all rules in a route must be less than 128
-                                  rule: '(self.size() > 0 ? self[0].matches.size()
-                                    : 0) + (self.size() > 1 ? self[1].matches.size()
-                                    : 0) + (self.size() > 2 ? self[2].matches.size()
-                                    : 0) + (self.size() > 3 ? self[3].matches.size()
-                                    : 0) + (self.size() > 4 ? self[4].matches.size()
-                                    : 0) + (self.size() > 5 ? self[5].matches.size()
-                                    : 0) + (self.size() > 6 ? self[6].matches.size()
-                                    : 0) + (self.size() > 7 ? self[7].matches.size()
-                                    : 0) + (self.size() > 8 ? self[8].matches.size()
-                                    : 0) + (self.size() > 9 ? self[9].matches.size()
-                                    : 0) + (self.size() > 10 ? self[10].matches.size()
-                                    : 0) + (self.size() > 11 ? self[11].matches.size()
-                                    : 0) + (self.size() > 12 ? self[12].matches.size()
-                                    : 0) + (self.size() > 13 ? self[13].matches.size()
-                                    : 0) + (self.size() > 14 ? self[14].matches.size()
-                                    : 0) + (self.size() > 15 ? self[15].matches.size()
-                                    : 0) <= 128'
                               useDefaultGateways:
                                 enum:
                                 - All
@@ -95920,12 +95400,6 @@ spec:
                                                       maxItems: 64
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowHeaders cannot
-                                                          contain '*' alongside other
-                                                          methods
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     allowMethods:
                                                       items:
                                                         enum:
@@ -95943,12 +95417,6 @@ spec:
                                                       maxItems: 9
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowMethods cannot
-                                                          contain '*' alongside other
-                                                          methods
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     allowOrigins:
                                                       items:
                                                         maxLength: 253
@@ -95958,12 +95426,6 @@ spec:
                                                       maxItems: 64
                                                       type: array
                                                       x-kubernetes-list-type: set
-                                                      x-kubernetes-validations:
-                                                      - message: AllowOrigins cannot
-                                                          contain '*' alongside other
-                                                          origins
-                                                        rule: '!(''*'' in self &&
-                                                          self.size() > 1)'
                                                     exposeHeaders:
                                                       items:
                                                         maxLength: 256
@@ -96031,12 +95493,6 @@ spec:
                                                       required:
                                                       - name
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: Must have port for
-                                                          Service reference
-                                                        rule: '(size(self.group) ==
-                                                          0 && self.kind == ''Service'')
-                                                          ? has(self.port) : true'
                                                     forwardBody:
                                                       properties:
                                                         maxSize:
@@ -96079,23 +95535,6 @@ spec:
                                                   - backendRef
                                                   - protocol
                                                   type: object
-                                                  x-kubernetes-validations:
-                                                  - message: grpc must be specified
-                                                      when protocol is set to 'GRPC'
-                                                    rule: 'self.protocol == ''GRPC''
-                                                      ? has(self.grpc) : true'
-                                                  - message: protocol must be 'GRPC'
-                                                      when grpc is set
-                                                    rule: 'has(self.grpc) ? self.protocol
-                                                      == ''GRPC'' : true'
-                                                  - message: http must be specified
-                                                      when protocol is set to 'HTTP'
-                                                    rule: 'self.protocol == ''HTTP''
-                                                      ? has(self.http) : true'
-                                                  - message: protocol must be 'HTTP'
-                                                      when http is set
-                                                    rule: 'has(self.http) ? self.protocol
-                                                      == ''HTTP'' : true'
                                                 requestHeaderModifier:
                                                   properties:
                                                     add:
@@ -96179,12 +95618,6 @@ spec:
                                                       required:
                                                       - name
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: Must have port for
-                                                          Service reference
-                                                        rule: '(size(self.group) ==
-                                                          0 && self.kind == ''Service'')
-                                                          ? has(self.port) : true'
                                                     fraction:
                                                       properties:
                                                         denominator:
@@ -96199,10 +95632,6 @@ spec:
                                                       required:
                                                       - numerator
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: numerator must be
-                                                          less than or equal to denominator
-                                                        rule: self.numerator <= self.denominator
                                                     percent:
                                                       format: int32
                                                       maximum: 100
@@ -96211,12 +95640,6 @@ spec:
                                                   required:
                                                   - backendRef
                                                   type: object
-                                                  x-kubernetes-validations:
-                                                  - message: Only one of percent or
-                                                      fraction may be specified in
-                                                      HTTPRequestMirrorFilter
-                                                    rule: '!(has(self.percent) &&
-                                                      has(self.fraction))'
                                                 requestRedirect:
                                                   properties:
                                                     hostname:
@@ -96240,31 +95663,6 @@ spec:
                                                       required:
                                                       - type
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: replaceFullPath must
-                                                          be specified when type is
-                                                          set to 'ReplaceFullPath'
-                                                        rule: 'self.type == ''ReplaceFullPath''
-                                                          ? has(self.replaceFullPath)
-                                                          : true'
-                                                      - message: type must be 'ReplaceFullPath'
-                                                          when replaceFullPath is
-                                                          set
-                                                        rule: 'has(self.replaceFullPath)
-                                                          ? self.type == ''ReplaceFullPath''
-                                                          : true'
-                                                      - message: replacePrefixMatch
-                                                          must be specified when type
-                                                          is set to 'ReplacePrefixMatch'
-                                                        rule: 'self.type == ''ReplacePrefixMatch''
-                                                          ? has(self.replacePrefixMatch)
-                                                          : true'
-                                                      - message: type must be 'ReplacePrefixMatch'
-                                                          when replacePrefixMatch
-                                                          is set
-                                                        rule: 'has(self.replacePrefixMatch)
-                                                          ? self.type == ''ReplacePrefixMatch''
-                                                          : true'
                                                     port:
                                                       format: int32
                                                       maximum: 65535
@@ -96369,128 +95767,13 @@ spec:
                                                       required:
                                                       - type
                                                       type: object
-                                                      x-kubernetes-validations:
-                                                      - message: replaceFullPath must
-                                                          be specified when type is
-                                                          set to 'ReplaceFullPath'
-                                                        rule: 'self.type == ''ReplaceFullPath''
-                                                          ? has(self.replaceFullPath)
-                                                          : true'
-                                                      - message: type must be 'ReplaceFullPath'
-                                                          when replaceFullPath is
-                                                          set
-                                                        rule: 'has(self.replaceFullPath)
-                                                          ? self.type == ''ReplaceFullPath''
-                                                          : true'
-                                                      - message: replacePrefixMatch
-                                                          must be specified when type
-                                                          is set to 'ReplacePrefixMatch'
-                                                        rule: 'self.type == ''ReplacePrefixMatch''
-                                                          ? has(self.replacePrefixMatch)
-                                                          : true'
-                                                      - message: type must be 'ReplacePrefixMatch'
-                                                          when replacePrefixMatch
-                                                          is set
-                                                        rule: 'has(self.replacePrefixMatch)
-                                                          ? self.type == ''ReplacePrefixMatch''
-                                                          : true'
                                                   type: object
                                               required:
                                               - type
                                               type: object
-                                              x-kubernetes-validations:
-                                              - message: filter.cors must be nil if
-                                                  the filter.type is not CORS
-                                                rule: '!(has(self.cors) && self.type
-                                                  != ''CORS'')'
-                                              - message: filter.cors must be specified
-                                                  for CORS filter.type
-                                                rule: '!(!has(self.cors) && self.type
-                                                  == ''CORS'')'
-                                              - message: filter.requestHeaderModifier
-                                                  must be nil if the filter.type is
-                                                  not RequestHeaderModifier
-                                                rule: '!(has(self.requestHeaderModifier)
-                                                  && self.type != ''RequestHeaderModifier'')'
-                                              - message: filter.requestHeaderModifier
-                                                  must be specified for RequestHeaderModifier
-                                                  filter.type
-                                                rule: '!(!has(self.requestHeaderModifier)
-                                                  && self.type == ''RequestHeaderModifier'')'
-                                              - message: filter.responseHeaderModifier
-                                                  must be nil if the filter.type is
-                                                  not ResponseHeaderModifier
-                                                rule: '!(has(self.responseHeaderModifier)
-                                                  && self.type != ''ResponseHeaderModifier'')'
-                                              - message: filter.responseHeaderModifier
-                                                  must be specified for ResponseHeaderModifier
-                                                  filter.type
-                                                rule: '!(!has(self.responseHeaderModifier)
-                                                  && self.type == ''ResponseHeaderModifier'')'
-                                              - message: filter.requestMirror must
-                                                  be nil if the filter.type is not
-                                                  RequestMirror
-                                                rule: '!(has(self.requestMirror) &&
-                                                  self.type != ''RequestMirror'')'
-                                              - message: filter.requestMirror must
-                                                  be specified for RequestMirror filter.type
-                                                rule: '!(!has(self.requestMirror)
-                                                  && self.type == ''RequestMirror'')'
-                                              - message: filter.requestRedirect must
-                                                  be nil if the filter.type is not
-                                                  RequestRedirect
-                                                rule: '!(has(self.requestRedirect)
-                                                  && self.type != ''RequestRedirect'')'
-                                              - message: filter.requestRedirect must
-                                                  be specified for RequestRedirect
-                                                  filter.type
-                                                rule: '!(!has(self.requestRedirect)
-                                                  && self.type == ''RequestRedirect'')'
-                                              - message: filter.urlRewrite must be
-                                                  nil if the filter.type is not URLRewrite
-                                                rule: '!(has(self.urlRewrite) && self.type
-                                                  != ''URLRewrite'')'
-                                              - message: filter.urlRewrite must be
-                                                  specified for URLRewrite filter.type
-                                                rule: '!(!has(self.urlRewrite) &&
-                                                  self.type == ''URLRewrite'')'
-                                              - message: filter.extensionRef must
-                                                  be nil if the filter.type is not
-                                                  ExtensionRef
-                                                rule: '!(has(self.extensionRef) &&
-                                                  self.type != ''ExtensionRef'')'
-                                              - message: filter.extensionRef must
-                                                  be specified for ExtensionRef filter.type
-                                                rule: '!(!has(self.extensionRef) &&
-                                                  self.type == ''ExtensionRef'')'
                                             maxItems: 16
                                             type: array
                                             x-kubernetes-list-type: atomic
-                                            x-kubernetes-validations:
-                                            - message: May specify either httpRouteFilterRequestRedirect
-                                                or httpRouteFilterRequestRewrite,
-                                                but not both
-                                              rule: '!(self.exists(f, f.type == ''RequestRedirect'')
-                                                && self.exists(f, f.type == ''URLRewrite''))'
-                                            - message: CORS filter cannot be repeated
-                                              rule: self.filter(f, f.type == 'CORS').size()
-                                                <= 1
-                                            - message: RequestHeaderModifier filter
-                                                cannot be repeated
-                                              rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
-                                                <= 1
-                                            - message: ResponseHeaderModifier filter
-                                                cannot be repeated
-                                              rule: self.filter(f, f.type == 'ResponseHeaderModifier').size()
-                                                <= 1
-                                            - message: RequestRedirect filter cannot
-                                                be repeated
-                                              rule: self.filter(f, f.type == 'RequestRedirect').size()
-                                                <= 1
-                                            - message: URLRewrite filter cannot be
-                                                repeated
-                                              rule: self.filter(f, f.type == 'URLRewrite').size()
-                                                <= 1
                                           group:
                                             default: ""
                                             maxLength: 253
@@ -96525,10 +95808,6 @@ spec:
                                         required:
                                         - name
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: Must have port for Service reference
-                                          rule: '(size(self.group) == 0 && self.kind
-                                            == ''Service'') ? has(self.port) : true'
                                       maxItems: 16
                                       type: array
                                       x-kubernetes-list-type: atomic
@@ -96548,11 +95827,6 @@ spec:
                                                 maxItems: 64
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowHeaders cannot contain
-                                                    '*' alongside other methods
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               allowMethods:
                                                 items:
                                                   enum:
@@ -96570,11 +95844,6 @@ spec:
                                                 maxItems: 9
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowMethods cannot contain
-                                                    '*' alongside other methods
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               allowOrigins:
                                                 items:
                                                   maxLength: 253
@@ -96584,11 +95853,6 @@ spec:
                                                 maxItems: 64
                                                 type: array
                                                 x-kubernetes-list-type: set
-                                                x-kubernetes-validations:
-                                                - message: AllowOrigins cannot contain
-                                                    '*' alongside other origins
-                                                  rule: '!(''*'' in self && self.size()
-                                                    > 1)'
                                               exposeHeaders:
                                                 items:
                                                   maxLength: 256
@@ -96656,12 +95920,6 @@ spec:
                                                 required:
                                                 - name
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: Must have port for Service
-                                                    reference
-                                                  rule: '(size(self.group) == 0 &&
-                                                    self.kind == ''Service'') ? has(self.port)
-                                                    : true'
                                               forwardBody:
                                                 properties:
                                                   maxSize:
@@ -96704,23 +95962,6 @@ spec:
                                             - backendRef
                                             - protocol
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: grpc must be specified when
-                                                protocol is set to 'GRPC'
-                                              rule: 'self.protocol == ''GRPC'' ? has(self.grpc)
-                                                : true'
-                                            - message: protocol must be 'GRPC' when
-                                                grpc is set
-                                              rule: 'has(self.grpc) ? self.protocol
-                                                == ''GRPC'' : true'
-                                            - message: http must be specified when
-                                                protocol is set to 'HTTP'
-                                              rule: 'self.protocol == ''HTTP'' ? has(self.http)
-                                                : true'
-                                            - message: protocol must be 'HTTP' when
-                                                http is set
-                                              rule: 'has(self.http) ? self.protocol
-                                                == ''HTTP'' : true'
                                           requestHeaderModifier:
                                             properties:
                                               add:
@@ -96804,12 +96045,6 @@ spec:
                                                 required:
                                                 - name
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: Must have port for Service
-                                                    reference
-                                                  rule: '(size(self.group) == 0 &&
-                                                    self.kind == ''Service'') ? has(self.port)
-                                                    : true'
                                               fraction:
                                                 properties:
                                                   denominator:
@@ -96824,10 +96059,6 @@ spec:
                                                 required:
                                                 - numerator
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: numerator must be less
-                                                    than or equal to denominator
-                                                  rule: self.numerator <= self.denominator
                                               percent:
                                                 format: int32
                                                 maximum: 100
@@ -96836,10 +96067,6 @@ spec:
                                             required:
                                             - backendRef
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: Only one of percent or fraction
-                                                may be specified in HTTPRequestMirrorFilter
-                                              rule: '!(has(self.percent) && has(self.fraction))'
                                           requestRedirect:
                                             properties:
                                               hostname:
@@ -96863,29 +96090,6 @@ spec:
                                                 required:
                                                 - type
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: replaceFullPath must be
-                                                    specified when type is set to
-                                                    'ReplaceFullPath'
-                                                  rule: 'self.type == ''ReplaceFullPath''
-                                                    ? has(self.replaceFullPath) :
-                                                    true'
-                                                - message: type must be 'ReplaceFullPath'
-                                                    when replaceFullPath is set
-                                                  rule: 'has(self.replaceFullPath)
-                                                    ? self.type == ''ReplaceFullPath''
-                                                    : true'
-                                                - message: replacePrefixMatch must
-                                                    be specified when type is set
-                                                    to 'ReplacePrefixMatch'
-                                                  rule: 'self.type == ''ReplacePrefixMatch''
-                                                    ? has(self.replacePrefixMatch)
-                                                    : true'
-                                                - message: type must be 'ReplacePrefixMatch'
-                                                    when replacePrefixMatch is set
-                                                  rule: 'has(self.replacePrefixMatch)
-                                                    ? self.type == ''ReplacePrefixMatch''
-                                                    : true'
                                               port:
                                                 format: int32
                                                 maximum: 65535
@@ -96990,119 +96194,13 @@ spec:
                                                 required:
                                                 - type
                                                 type: object
-                                                x-kubernetes-validations:
-                                                - message: replaceFullPath must be
-                                                    specified when type is set to
-                                                    'ReplaceFullPath'
-                                                  rule: 'self.type == ''ReplaceFullPath''
-                                                    ? has(self.replaceFullPath) :
-                                                    true'
-                                                - message: type must be 'ReplaceFullPath'
-                                                    when replaceFullPath is set
-                                                  rule: 'has(self.replaceFullPath)
-                                                    ? self.type == ''ReplaceFullPath''
-                                                    : true'
-                                                - message: replacePrefixMatch must
-                                                    be specified when type is set
-                                                    to 'ReplacePrefixMatch'
-                                                  rule: 'self.type == ''ReplacePrefixMatch''
-                                                    ? has(self.replacePrefixMatch)
-                                                    : true'
-                                                - message: type must be 'ReplacePrefixMatch'
-                                                    when replacePrefixMatch is set
-                                                  rule: 'has(self.replacePrefixMatch)
-                                                    ? self.type == ''ReplacePrefixMatch''
-                                                    : true'
                                             type: object
                                         required:
                                         - type
                                         type: object
-                                        x-kubernetes-validations:
-                                        - message: filter.cors must be nil if the
-                                            filter.type is not CORS
-                                          rule: '!(has(self.cors) && self.type !=
-                                            ''CORS'')'
-                                        - message: filter.cors must be specified for
-                                            CORS filter.type
-                                          rule: '!(!has(self.cors) && self.type ==
-                                            ''CORS'')'
-                                        - message: filter.requestHeaderModifier must
-                                            be nil if the filter.type is not RequestHeaderModifier
-                                          rule: '!(has(self.requestHeaderModifier)
-                                            && self.type != ''RequestHeaderModifier'')'
-                                        - message: filter.requestHeaderModifier must
-                                            be specified for RequestHeaderModifier
-                                            filter.type
-                                          rule: '!(!has(self.requestHeaderModifier)
-                                            && self.type == ''RequestHeaderModifier'')'
-                                        - message: filter.responseHeaderModifier must
-                                            be nil if the filter.type is not ResponseHeaderModifier
-                                          rule: '!(has(self.responseHeaderModifier)
-                                            && self.type != ''ResponseHeaderModifier'')'
-                                        - message: filter.responseHeaderModifier must
-                                            be specified for ResponseHeaderModifier
-                                            filter.type
-                                          rule: '!(!has(self.responseHeaderModifier)
-                                            && self.type == ''ResponseHeaderModifier'')'
-                                        - message: filter.requestMirror must be nil
-                                            if the filter.type is not RequestMirror
-                                          rule: '!(has(self.requestMirror) && self.type
-                                            != ''RequestMirror'')'
-                                        - message: filter.requestMirror must be specified
-                                            for RequestMirror filter.type
-                                          rule: '!(!has(self.requestMirror) && self.type
-                                            == ''RequestMirror'')'
-                                        - message: filter.requestRedirect must be
-                                            nil if the filter.type is not RequestRedirect
-                                          rule: '!(has(self.requestRedirect) && self.type
-                                            != ''RequestRedirect'')'
-                                        - message: filter.requestRedirect must be
-                                            specified for RequestRedirect filter.type
-                                          rule: '!(!has(self.requestRedirect) && self.type
-                                            == ''RequestRedirect'')'
-                                        - message: filter.urlRewrite must be nil if
-                                            the filter.type is not URLRewrite
-                                          rule: '!(has(self.urlRewrite) && self.type
-                                            != ''URLRewrite'')'
-                                        - message: filter.urlRewrite must be specified
-                                            for URLRewrite filter.type
-                                          rule: '!(!has(self.urlRewrite) && self.type
-                                            == ''URLRewrite'')'
-                                        - message: filter.extensionRef must be nil
-                                            if the filter.type is not ExtensionRef
-                                          rule: '!(has(self.extensionRef) && self.type
-                                            != ''ExtensionRef'')'
-                                        - message: filter.extensionRef must be specified
-                                            for ExtensionRef filter.type
-                                          rule: '!(!has(self.extensionRef) && self.type
-                                            == ''ExtensionRef'')'
                                       maxItems: 16
                                       type: array
                                       x-kubernetes-list-type: atomic
-                                      x-kubernetes-validations:
-                                      - message: May specify either httpRouteFilterRequestRedirect
-                                          or httpRouteFilterRequestRewrite, but not
-                                          both
-                                        rule: '!(self.exists(f, f.type == ''RequestRedirect'')
-                                          && self.exists(f, f.type == ''URLRewrite''))'
-                                      - message: CORS filter cannot be repeated
-                                        rule: self.filter(f, f.type == 'CORS').size()
-                                          <= 1
-                                      - message: RequestHeaderModifier filter cannot
-                                          be repeated
-                                        rule: self.filter(f, f.type == 'RequestHeaderModifier').size()
-                                          <= 1
-                                      - message: ResponseHeaderModifier filter cannot
-                                          be repeated
-                                        rule: self.filter(f, f.type == 'ResponseHeaderModifier').size()
-                                          <= 1
-                                      - message: RequestRedirect filter cannot be
-                                          repeated
-                                        rule: self.filter(f, f.type == 'RequestRedirect').size()
-                                          <= 1
-                                      - message: URLRewrite filter cannot be repeated
-                                        rule: self.filter(f, f.type == 'URLRewrite').size()
-                                          <= 1
                                     matches:
                                       default:
                                       - path:
@@ -97166,53 +96264,6 @@ spec:
                                                 maxLength: 1024
                                                 type: string
                                             type: object
-                                            x-kubernetes-validations:
-                                            - message: value must be an absolute path
-                                                and start with '/' when type one of
-                                                ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? self.value.startsWith(''/'') : true'
-                                            - message: must not contain '//' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''//'') : true'
-                                            - message: must not contain '/./' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''/./'') :
-                                                true'
-                                            - message: must not contain '/../' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''/../'') :
-                                                true'
-                                            - message: must not contain '%2f' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''%2f'') :
-                                                true'
-                                            - message: must not contain '%2F' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''%2F'') :
-                                                true'
-                                            - message: must not contain '#' when type
-                                                one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.contains(''#'') : true'
-                                            - message: must not end with '/..' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.endsWith(''/..'') :
-                                                true'
-                                            - message: must not end with '/.' when
-                                                type one of ['Exact', 'PathPrefix']
-                                              rule: '(self.type in [''Exact'',''PathPrefix''])
-                                                ? !self.value.endsWith(''/.'') : true'
-                                            - message: type must be one of ['Exact',
-                                                'PathPrefix', 'RegularExpression']
-                                              rule: self.type in ['Exact','PathPrefix']
-                                                || self.type == 'RegularExpression'
                                           queryParams:
                                             items:
                                               properties:
@@ -97291,16 +96342,6 @@ spec:
                                           - Header
                                           type: string
                                       type: object
-                                      x-kubernetes-validations:
-                                      - message: AbsoluteTimeout must be specified
-                                          when cookie lifetimeType is Permanent
-                                        rule: '!has(self.cookieConfig) || !has(self.cookieConfig.lifetimeType)
-                                          || self.cookieConfig.lifetimeType != ''Permanent''
-                                          || has(self.absoluteTimeout)'
-                                      - message: cookieConfig can only be set with
-                                          type Cookie
-                                        rule: '!has(self.cookieConfig) || self.type
-                                          == ''Cookie'''
                                     timeouts:
                                       properties:
                                         backendRequest:
@@ -97310,59 +96351,7 @@ spec:
                                           pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
                                           type: string
                                       type: object
-                                      x-kubernetes-validations:
-                                      - message: backendRequest timeout cannot be
-                                          longer than request timeout
-                                        rule: '!(has(self.request) && has(self.backendRequest)
-                                          && duration(self.request) != duration(''0s'')
-                                          && duration(self.backendRequest) > duration(self.request))'
                                   type: object
-                                  x-kubernetes-validations:
-                                  - message: RequestRedirect filter must not be used
-                                      together with backendRefs
-                                    rule: '(has(self.backendRefs) && size(self.backendRefs)
-                                      > 0) ? (!has(self.filters) || self.filters.all(f,
-                                      !has(f.requestRedirect))): true'
-                                  - message: When using RequestRedirect filter with
-                                      path.replacePrefixMatch, exactly one PathPrefix
-                                      match must be specified
-                                    rule: '(has(self.filters) && self.filters.exists_one(f,
-                                      has(f.requestRedirect) && has(f.requestRedirect.path)
-                                      && f.requestRedirect.path.type == ''ReplacePrefixMatch''
-                                      && has(f.requestRedirect.path.replacePrefixMatch)))
-                                      ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: When using URLRewrite filter with path.replacePrefixMatch,
-                                      exactly one PathPrefix match must be specified
-                                    rule: '(has(self.filters) && self.filters.exists_one(f,
-                                      has(f.urlRewrite) && has(f.urlRewrite.path)
-                                      && f.urlRewrite.path.type == ''ReplacePrefixMatch''
-                                      && has(f.urlRewrite.path.replacePrefixMatch)))
-                                      ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: Within backendRefs, when using RequestRedirect
-                                      filter with path.replacePrefixMatch, exactly
-                                      one PathPrefix match must be specified
-                                    rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b,
-                                      (has(b.filters) && b.filters.exists_one(f, has(f.requestRedirect)
-                                      && has(f.requestRedirect.path) && f.requestRedirect.path.type
-                                      == ''ReplacePrefixMatch'' && has(f.requestRedirect.path.replacePrefixMatch)))
-                                      )) ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                  - message: Within backendRefs, When using URLRewrite
-                                      filter with path.replacePrefixMatch, exactly
-                                      one PathPrefix match must be specified
-                                    rule: '(has(self.backendRefs) && self.backendRefs.exists_one(b,
-                                      (has(b.filters) && b.filters.exists_one(f, has(f.urlRewrite)
-                                      && has(f.urlRewrite.path) && f.urlRewrite.path.type
-                                      == ''ReplacePrefixMatch'' && has(f.urlRewrite.path.replacePrefixMatch)))
-                                      )) ? ((size(self.matches) != 1 || !has(self.matches[0].path)
-                                      || self.matches[0].path.type != ''PathPrefix'')
-                                      ? false : true) : true'
-                                maxItems: 64
                                 minItems: 1
                                 type: array
                                 x-kubernetes-list-type: atomic
@@ -114722,6 +113711,15 @@ data:
            # rejects the pattern reports an xDS NACK in the gateway controller's logs, not on the
            # HTTPRoute.
            "loraModelRoutingStrategy": "exact",
+
+           # httpRouteMaxShards caps how many managed HTTPRoutes an LLMInferenceService inline route
+           # (including generated LoRA adapter matches) may be sharded into, between 1 and 16. Each
+           # emitted HTTPRoute stays within the Gateway API per-route limits. The default of 1 keeps
+           # sharding off; a route that needs more reports HTTPRoutesReady=False with reason
+           # RoutingPreconditionNotMet and the existing HTTPRoutes keep serving. A service overrides
+           # it with the spec annotation serving.kserve.io/httproute-max-shards. Consumers should
+           # find the emitted routes through status.router.gateways[].httpRoutes.
+           "httpRouteMaxShards": 1,
 
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.

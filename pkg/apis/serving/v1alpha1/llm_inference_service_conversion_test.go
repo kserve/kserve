@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"strconv"
 	"testing"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
@@ -1349,61 +1348,4 @@ func TestLLMInferenceServiceConversion_EmptyRuntimeRoundTrips(t *testing.T) {
 	restored := &LLMInferenceService{}
 	require.NoError(t, restored.ConvertFrom(dst))
 	assert.Nil(t, restored.Spec.Runtime)
-}
-
-func hubWithInlineRouteRules(n int) *v1alpha2.LLMInferenceService {
-	rules := make([]gwapiv1.HTTPRouteRule, n)
-	for i := range rules {
-		rules[i] = gwapiv1.HTTPRouteRule{
-			Name: ptr.To(gwapiv1.SectionName("rule-" + strconv.Itoa(i))),
-			Matches: []gwapiv1.HTTPRouteMatch{{
-				Path: &gwapiv1.HTTPPathMatch{Type: ptr.To(gwapiv1.PathMatchPathPrefix), Value: ptr.To("/r" + strconv.Itoa(i))},
-			}},
-		}
-	}
-	return &v1alpha2.LLMInferenceService{
-		ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns", Annotations: map[string]string{"keep": "me"}},
-		Spec: v1alpha2.LLMInferenceServiceSpec{
-			Router: &v1alpha2.RouterSpec{Route: &v1alpha2.GatewayRoutesSpec{HTTP: &v1alpha2.HTTPRouteSpec{
-				Spec: &v1alpha2.LogicalHTTPRouteSpec{Rules: rules},
-			}}},
-		},
-	}
-}
-
-func TestLLMInferenceServiceConversion_InlineRouteRuleLimit(t *testing.T) {
-	for _, n := range []int{1, 16, 17, 64} {
-		t.Run(strconv.Itoa(n), func(t *testing.T) {
-			hub := hubWithInlineRouteRules(n)
-			original := hub.DeepCopy()
-
-			down := &LLMInferenceService{}
-			require.NoError(t, down.ConvertFrom(hub))
-			assert.Equal(t, original, hub, "down conversion must not mutate the hub object")
-
-			assert.Len(t, down.Spec.Router.Route.HTTP.Spec.Rules, min(n, 16))
-			_, saved := down.Annotations[OverflowRouteRulesAnnotationKey]
-			assert.Equal(t, n > 16, saved)
-			assert.Equal(t, "me", down.Annotations["keep"])
-
-			up := &v1alpha2.LLMInferenceService{}
-			require.NoError(t, down.ConvertTo(up))
-			assert.Equal(t, original.Spec.Router.Route.HTTP.Spec.Rules, up.Spec.Router.Route.HTTP.Spec.Rules)
-			assert.Equal(t, original.Annotations, up.Annotations)
-		})
-	}
-}
-
-func TestLLMInferenceServiceConfigConversion_InlineRouteRuleLimit(t *testing.T) {
-	svc := hubWithInlineRouteRules(40)
-	hub := &v1alpha2.LLMInferenceServiceConfig{ObjectMeta: svc.ObjectMeta, Spec: svc.Spec}
-
-	down := &LLMInferenceServiceConfig{}
-	require.NoError(t, down.ConvertFrom(hub))
-	assert.Len(t, down.Spec.Router.Route.HTTP.Spec.Rules, 16)
-
-	up := &v1alpha2.LLMInferenceServiceConfig{}
-	require.NoError(t, down.ConvertTo(up))
-	assert.Equal(t, svc.Spec.Router.Route.HTTP.Spec.Rules, up.Spec.Router.Route.HTTP.Spec.Rules)
-	assert.NotContains(t, up.Annotations, OverflowRouteRulesAnnotationKey)
 }

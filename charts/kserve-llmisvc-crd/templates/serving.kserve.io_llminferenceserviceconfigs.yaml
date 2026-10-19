@@ -9636,7 +9636,6 @@ spec:
                                             type: string
                                         type: object
                                     type: object
-                                  maxItems: 16
                                   type: array
                                   x-kubernetes-list-type: atomic
                                 useDefaultGateways:
@@ -35359,7 +35358,6 @@ spec:
                                             type: string
                                         type: object
                                     type: object
-                                  maxItems: 64
                                   type: array
                                   x-kubernetes-list-type: atomic
                                 useDefaultGateways:

@@ -96,6 +96,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateManagedDRAAnnotations(llmSvc)...)
 	allErrs = append(allErrs, l.validateModelExpress(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAModelRoutingStrategyAnnotation(llmSvc)...)
+	allErrs = append(allErrs, ValidateHTTPRouteMaxShardsAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
 	allErrs = append(allErrs, l.validateDisaggregatedSetAnnotation(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
@@ -986,5 +987,23 @@ func ValidateLoRAModelRoutingStrategyAnnotation(annotations map[string]string, p
 		path.Key(constants.LoRAModelRoutingStrategyAnnotationKey),
 		raw,
 		[]string{constants.LoRAModelRoutingStrategyExact, constants.LoRAModelRoutingStrategyRegex},
+	)}
+}
+
+// ValidateHTTPRouteMaxShardsAnnotation rejects a serving.kserve.io/httproute-max-shards
+// value that is not an integer between 1 and constants.MaxHTTPRouteMaxShards. Shared
+// with the v1alpha1 validator so both API versions reject the same values.
+func ValidateHTTPRouteMaxShardsAnnotation(annotations map[string]string, path *field.Path) field.ErrorList {
+	raw, ok := annotations[constants.HTTPRouteMaxShardsAnnotationKey]
+	if !ok {
+		return nil
+	}
+	if n, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil && n >= 1 && n <= constants.MaxHTTPRouteMaxShards {
+		return nil
+	}
+	return field.ErrorList{field.Invalid(
+		path.Key(constants.HTTPRouteMaxShardsAnnotationKey),
+		raw,
+		fmt.Sprintf("must be an integer between 1 and %d", constants.MaxHTTPRouteMaxShards),
 	)}
 }

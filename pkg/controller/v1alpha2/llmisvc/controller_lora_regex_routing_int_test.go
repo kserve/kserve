@@ -68,7 +68,7 @@ func eventuallyManagedRoute(ctx context.Context, llmSvc *v1alpha2.LLMInferenceSe
 // match is not the generated base-model identity, so the regex strategy cannot
 // rewrite it: the route-shape precondition failure a live cluster can reach.
 func unrecognizedModelMatchRoute(namespace string) *v1alpha2.HTTPRouteSpec {
-	return &v1alpha2.HTTPRouteSpec{Spec: &v1alpha2.LogicalHTTPRouteSpec{
+	return &v1alpha2.HTTPRouteSpec{Spec: &gwapiv1.HTTPRouteSpec{
 		Rules: []gwapiv1.HTTPRouteRule{{Matches: []gwapiv1.HTTPRouteMatch{{
 			Path:    &gwapiv1.HTTPPathMatch{Type: ptr.To(gwapiv1.PathMatchExact), Value: ptr.To("/v1/completions")},
 			Headers: []gwapiv1.HTTPHeaderMatch{{Name: "X-Gateway-Model-Name", Value: publisherModel(namespace, "other")}},

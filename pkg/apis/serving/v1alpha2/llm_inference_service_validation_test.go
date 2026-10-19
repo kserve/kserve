@@ -1300,3 +1300,26 @@ func TestValidateModelExpress(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateHTTPRouteMaxShardsAnnotation(t *testing.T) {
+	path := field.NewPath("spec", "annotations")
+	for _, tt := range []struct {
+		name    string
+		ann     map[string]string
+		wantErr bool
+	}{
+		{name: "absent", ann: nil},
+		{name: "one", ann: map[string]string{constants.HTTPRouteMaxShardsAnnotationKey: "1"}},
+		{name: "trimmed upper bound", ann: map[string]string{constants.HTTPRouteMaxShardsAnnotationKey: " 16 "}},
+		{name: "zero", ann: map[string]string{constants.HTTPRouteMaxShardsAnnotationKey: "0"}, wantErr: true},
+		{name: "above bound", ann: map[string]string{constants.HTTPRouteMaxShardsAnnotationKey: "17"}, wantErr: true},
+		{name: "not a number", ann: map[string]string{constants.HTTPRouteMaxShardsAnnotationKey: "many"}, wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := ValidateHTTPRouteMaxShardsAnnotation(tt.ann, path)
+			if (len(errs) > 0) != tt.wantErr {
+				t.Fatalf("got %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}

@@ -79,6 +79,7 @@ var _ = Describe("LLMInferenceService HTTPRoute sharding", func() {
 			WithModelURI("hf://facebook/opt-125m"),
 			WithManagedGateway(),
 			WithHTTPRouteSpec(spec),
+			WithSpecAnnotations(map[string]string{constants.HTTPRouteMaxShardsAnnotationKey: "3"}),
 		)
 
 		// when
@@ -156,18 +157,37 @@ var _ = Describe("LLMInferenceService HTTPRoute sharding", func() {
 		}).WithContext(ctx).Should(Succeed())
 	})
 
-	It("should reject more rules than the logical route bound at admission", func(ctx SpecContext) {
+	It("should admit a large inline route but not shard it past the configured cap", func(ctx SpecContext) {
+		// given the default cap of one HTTPRoute
 		testNs := NewTestNamespace(ctx, envTest)
+		spec := customRouteSpec(ctx, envTest.Client, testNs.Name, "cap-gateway", "cap-backend")
+		spec.Rules = pathRules(20, "cap-backend")
 
-		llmSvc := LLMInferenceService("too-many-rules",
+		llmSvc := LLMInferenceService("over-shard-cap",
 			InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
 			WithModelURI("hf://facebook/opt-125m"),
 			WithManagedGateway(),
-			WithHTTPRouteSpec(&gwapiv1.HTTPRouteSpec{Rules: pathRules(v1alpha2.MaxLogicalHTTPRouteRules+1, "backend")}),
+			WithHTTPRouteSpec(spec),
 		)
 
-		err := envTest.Create(ctx, llmSvc)
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("must have at most 64 items"))
+		// when: more than 16 rules pass admission now that the inline schema has no rule limit
+		Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+		defer func() {
+			testNs.DeleteAndWait(ctx, llmSvc)
+		}()
+
+		// then nothing is written and the condition names the cap
+		Eventually(func(g Gomega, ctx context.Context) {
+			current := &v1alpha2.LLMInferenceService{}
+			g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+			cond := current.Status.GetCondition(v1alpha2.HTTPRoutesReady)
+			g.Expect(cond).NotTo(BeNil())
+			g.Expect(cond.IsFalse()).To(BeTrue())
+			g.Expect(cond.Reason).To(Equal("RoutingPreconditionNotMet"))
+			g.Expect(cond.Message).To(ContainSubstring("needs 2 HTTPRoutes"))
+		}).WithContext(ctx).Should(Succeed())
+		routes, err := sortedManagedRoutes(ctx, llmSvc)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(routes).To(BeEmpty())
 	})
 })
