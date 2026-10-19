@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -651,6 +652,70 @@ plugins:
 				g.Expect(configText).To(ContainSubstring("http://custom-url:9999"))
 				g.Expect(configText).NotTo(ContainSubstring(tt.tokenizerURL))
 			}
+		})
+	}
+}
+
+func TestExpectedTokenizerDeploymentTracing(t *testing.T) {
+	tracingSpec := &v1alpha2.TracingSpec{
+		ExporterEndpoint: ptr.To("http://collector:4317"), Sampler: ptr.To("always_on"),
+	}
+	for _, tt := range []struct {
+		name    string
+		spec    *v1alpha2.TracingSpec
+		version string
+		command []string
+		args    []string
+		want    []string
+	}{
+		{name: "disabled", version: "1"},
+		{name: "no endpoint", spec: &v1alpha2.TracingSpec{}, version: "1"},
+		{name: "legacy preset", spec: tracingSpec},
+		{name: "unknown version", spec: tracingSpec, version: "2"},
+		{name: "enabled", spec: tracingSpec, version: "1", want: []string{"--otlp-traces-endpoint", "http://collector:4317"}},
+		{name: "override", spec: tracingSpec, version: "1", args: []string{"--otlp-traces-endpoint=http://custom:4317"}, want: []string{"--otlp-traces-endpoint=http://custom:4317"}},
+		{name: "command override", spec: tracingSpec, version: "1", command: []string{"vllm", "launch", "render", "--otlp-traces-endpoint=http://custom:4317"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			r := disaggTestReconciler(t)
+			g.Expect(r.Create(t.Context(), roleTestInferenceServiceConfigMap())).To(Succeed())
+			svc := disaggTestService(t)
+			sampler := corev1.EnvVar{Name: "OTEL_TRACES_SAMPLER", ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "tracing"}, Key: "sampler"},
+			}}
+			template := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main", Command: tt.command, Args: tt.args, Env: []corev1.EnvVar{sampler}}}}
+			if tt.version != "" {
+				template.Containers[0].Env = append(template.Containers[0].Env,
+					corev1.EnvVar{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: tt.version})
+			}
+			svc.Spec.Router = &v1alpha2.RouterSpec{Scheduler: &v1alpha2.SchedulerSpec{
+				Tokenizer: &v1alpha2.TokenizerSpec{Template: template},
+			}}
+			svc.Spec.Tracing = tt.spec
+			before := template.DeepCopy()
+			d, err := r.expectedTokenizerDeployment(t.Context(), svc)
+			g.Expect(err).NotTo(HaveOccurred())
+			container := d.Spec.Template.Spec.Containers[0]
+			g.Expect(container.Args).To(Equal(tt.want))
+			g.Expect(container.Command).To(Equal(tt.command))
+			g.Expect(container.Args).NotTo(ContainElement("--collect-detailed-traces"))
+			g.Expect(container.Env).To(ContainElement(sampler))
+			if tt.spec == tracingSpec && tt.version == "1" {
+				g.Expect(envToMap(container.Env)).To(HaveKeyWithValue("OTEL_SERVICE_NAME", "tokenizer"))
+				g.Expect(envToMap(container.Env)).To(HaveKeyWithValue("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4317"))
+			} else {
+				g.Expect(envToMap(container.Env)).NotTo(HaveKey("OTEL_SERVICE_NAME"))
+				withoutTracing := svc.DeepCopy()
+				withoutTracing.Spec.Tracing = nil
+				baseline, err := r.expectedTokenizerDeployment(t.Context(), withoutTracing)
+				g.Expect(err).NotTo(HaveOccurred())
+				g.Expect(d.Spec.Template).To(Equal(baseline.Spec.Template), "old presets must not roll out on controller upgrade")
+			}
+			g.Expect(template).To(Equal(before))
+			again, err := r.expectedTokenizerDeployment(t.Context(), svc)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(again.Spec.Template).To(Equal(d.Spec.Template))
 		})
 	}
 }

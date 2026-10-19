@@ -35,13 +35,17 @@ spec:
                     {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh \
                     --ssl-certfile /var/run/kserve/tls/tls.crt \
                     --ssl-keyfile /var/run/kserve/tls/tls.key{{ end }} \
-                    {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{ end }}
+                    {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{ end }} \
+                    "$@"
+                - "--"
               args: []
               ports:
                 - name: render-http
                   containerPort: 8000
                   protocol: TCP
               env:
+                - name: KSERVE_TRACING_CONFIG_VERSION
+                  value: "1"
                 - name: HF_HOME
                   value: /tmp/hf
                 - name: DO_NOT_TRACK

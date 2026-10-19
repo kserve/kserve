@@ -2544,6 +2544,8 @@ spec:
       - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites
         }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
       env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:
@@ -2939,6 +2941,8 @@ spec:
       - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites
         }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
       env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:
@@ -3671,6 +3675,8 @@ spec:
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
       env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:
@@ -4118,6 +4124,8 @@ spec:
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
       env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:
@@ -6862,8 +6870,12 @@ spec:
                 {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh \
                 --ssl-certfile /var/run/kserve/tls/tls.crt \
                 --ssl-keyfile /var/run/kserve/tls/tls.key{{ end }} \
-                {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{ end }}
+                {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{ end }} \
+                "$@"
+            - --
             env:
+            - name: KSERVE_TRACING_CONFIG_VERSION
+              value: "1"
             - name: HF_HOME
               value: /tmp/hf
             - name: DO_NOT_TRACK
