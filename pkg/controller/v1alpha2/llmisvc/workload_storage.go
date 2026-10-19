@@ -27,8 +27,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/credentials"
@@ -44,6 +46,54 @@ const CaBundleVolumeName = "cabundle-cert"
 type storageDownloadPair struct {
 	uri  string
 	path string
+}
+
+// errLocalModelCacheNotReady marks reconciliation as waiting for a shared-PVC
+// local model cache import to complete (fail closed).
+var errLocalModelCacheNotReady = errors.New("local model cache not ready")
+
+// resolveBaseModelCachePVC resolves the LLMInferenceService's local model cache
+// binding to the cache's source URI and serving PVC name. The referenced cache is
+// read directly so the decision reflects its current state. While a shared-PVC
+// cache is not Ready it fails closed: the returned error wraps
+// errLocalModelCacheNotReady and the workload waits for the import to complete
+// instead of serving the model from its original source URI.
+func resolveBaseModelCachePVC(ctx context.Context, c client.Client, llmSvc *v1alpha2.LLMInferenceService) (sourceURI, pvcName string, err error) {
+	cacheName := llmSvc.Labels[constants.LocalModelLabel]
+	cacheNamespace := llmSvc.Labels[constants.LocalModelNamespaceLabel]
+	nodeGroup, nodeGroupExists := llmSvc.Annotations[constants.NodeGroupAnnotationKey]
+
+	if cacheNamespace != "" {
+		nsCache := &v1alpha1.LocalModelNamespaceCache{}
+		if err := c.Get(ctx, types.NamespacedName{Name: cacheName, Namespace: cacheNamespace}, nsCache); err != nil {
+			return "", "", fmt.Errorf("get LocalModelNamespaceCache %s/%s: %w", cacheNamespace, cacheName, err)
+		}
+		// Shared-PVC mode: the serving PVC is the referenced claim, gated on Ready=True.
+		if nsCache.Spec.SharedPVCMode() {
+			if !nsCache.IsReady() {
+				return "", "", fmt.Errorf("%w: LocalModelNamespaceCache %s/%s (%s); waiting for the cache instead of serving the model from %s",
+					errLocalModelCacheNotReady, cacheNamespace, cacheName, nsCache.NotReadySummary(), llmSvc.Spec.Model.URI.String())
+			}
+			return nsCache.Spec.SourceModelUri, *nsCache.Spec.PVCRef, nil
+		}
+		pvc, ok := localmodelcache.PVCNameForNodeGroup(nsCache.Spec.NodeGroups, nodeGroup, nodeGroupExists, nsCache.Name)
+		if !ok {
+			return "", "", fmt.Errorf("LocalModelNamespaceCache %s/%s has no matching node group for annotation %q=%q",
+				cacheNamespace, cacheName, constants.NodeGroupAnnotationKey, nodeGroup)
+		}
+		return nsCache.Spec.SourceModelUri, pvc, nil
+	}
+
+	cache := &v1alpha1.LocalModelCache{}
+	if err := c.Get(ctx, types.NamespacedName{Name: cacheName}, cache); err != nil {
+		return "", "", fmt.Errorf("get LocalModelCache %s: %w", cacheName, err)
+	}
+	pvc, ok := localmodelcache.PVCNameForNodeGroup(cache.Spec.NodeGroups, nodeGroup, nodeGroupExists, cache.Name)
+	if !ok {
+		return "", "", fmt.Errorf("LocalModelCache %s has no matching node group for annotation %q=%q",
+			cacheName, constants.NodeGroupAnnotationKey, nodeGroup)
+	}
+	return cache.Spec.SourceModelUri, pvc, nil
 }
 
 var tokenizerOnlyDownload = corev1.EnvVar{
@@ -105,15 +155,18 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 
 	nativeModelExpress := containerName == mainContainerName && config.ModelExpress.native()
 
-	// Rewrite model URI to use cached PVC when local model cache is active
+	// Rewrite model URI to use cached PVC when local model cache is active. The
+	// binding is resolved from the referenced cache (not just the annotations) so
+	// the decision reflects the cache's current state: while a shared-PVC cache is
+	// not Ready, reconciliation fails closed and the workload waits for the import
+	// to complete instead of serving the model from its original source URI.
 	if _, ok := llmSvc.Labels[constants.LocalModelLabel]; ok && !nativeModelExpress {
-		sourceUri, ok := llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey]
-		if !ok {
-			return fmt.Errorf("LLMInferenceService %s/%s: annotation %s not found", llmSvc.Namespace, llmSvc.Name, constants.LocalModelSourceUriAnnotationKey)
-		}
-		pvcName, ok := llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey]
-		if !ok {
-			return fmt.Errorf("LLMInferenceService %s/%s: annotation %s not found", llmSvc.Namespace, llmSvc.Name, constants.LocalModelPVCNameAnnotationKey)
+		sourceUri, pvcName, err := resolveBaseModelCachePVC(ctx, r.Client, llmSvc)
+		if err != nil {
+			if errors.Is(err, errLocalModelCacheNotReady) {
+				r.Eventf(llmSvc, corev1.EventTypeWarning, "LocalModelCacheNotReady", "%s", err)
+			}
+			return err
 		}
 		modelUri = localmodelcache.BuildCachedPVCURI(sourceUri, pvcName, modelUri)
 		schema = "pvc"

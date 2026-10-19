@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -177,6 +178,118 @@ func TestSetLocalModelLabel_DisableAnnotation(t *testing.T) {
 	assert.NotContains(t, llmSvc.Labels, constants.LocalModelLabel)
 	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelSourceUriAnnotationKey)
 	assert.NotContains(t, llmSvc.Annotations, constants.LocalModelPVCNameAnnotationKey)
+}
+
+func llmSharedNSCache(name, pvcRef string, created metav1.Time, ready bool) v1alpha1.LocalModelNamespaceCache {
+	ref := pvcRef
+	c := v1alpha1.LocalModelNamespaceCache{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              name,
+			Namespace:         "default",
+			CreationTimestamp: created,
+			Generation:        1,
+		},
+		Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+			SourceModelUri: "s3://mybucket/mymodel",
+			ModelSize:      resource.MustParse("10Gi"),
+			PVCRef:         &ref,
+		},
+	}
+	if ready {
+		c.Status.MarkReady(1)
+	} else {
+		c.Status.MarkNotReady(v1alpha1.ReasonImportRunning, "Import Job is running", 1)
+	}
+	return c
+}
+
+// A not-ready shared-PVC cache is still selected for an unbound workload: the
+// binding records the intent to serve from that cache, and reconciliation fails
+// closed (waits for Ready) instead of downloading from the original source URI.
+func TestSetLocalModelLabel_SharedPVCNotReadySelected(t *testing.T) {
+	llmSvc := newLLMSvc("s3://mybucket/mymodel")
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{llmSharedNSCache("ns-cache", "shared-pvc", metav1.Now(), false)},
+	}
+
+	SetLocalModelLabel(llmSvc, nil, nsModels)
+
+	assert.Equal(t, "ns-cache", llmSvc.Labels[constants.LocalModelLabel])
+	assert.Equal(t, "default", llmSvc.Labels[constants.LocalModelNamespaceLabel])
+	assert.Equal(t, "s3://mybucket/mymodel", llmSvc.Annotations[constants.LocalModelSourceUriAnnotationKey])
+	assert.Equal(t, "shared-pvc", llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey])
+}
+
+// A workload already bound to a cache stays bound while the cache is transiently
+// not Ready and a newer ready cache for the same source exists, instead of being
+// reverted to its original source URI.
+func TestSetLocalModelLabel_SharedPVCStaysBoundWhenNotReady(t *testing.T) {
+	llmSvc := newLLMSvc("s3://mybucket/mymodel")
+	llmSvc.Labels = map[string]string{
+		constants.LocalModelLabel:          "bound-cache",
+		constants.LocalModelNamespaceLabel: "default",
+	}
+	llmSvc.Annotations = map[string]string{
+		constants.LocalModelSourceUriAnnotationKey: "s3://mybucket/mymodel",
+		constants.LocalModelPVCNameAnnotationKey:   "bound-pvc",
+	}
+	created := metav1.NewTime(metav1.Now().Add(-time.Hour))
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{
+			llmSharedNSCache("bound-cache", "bound-pvc", created, false),
+			llmSharedNSCache("ready-cache", "ready-pvc", created, true),
+		},
+	}
+
+	SetLocalModelLabel(llmSvc, nil, nsModels)
+
+	assert.Equal(t, "bound-cache", llmSvc.Labels[constants.LocalModelLabel])
+	assert.Equal(t, "bound-pvc", llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey])
+}
+
+// Two ready shared-PVC caches for the same source on different PVCs: defaulting
+// selects the same (oldest) cache regardless of list order.
+func TestSetLocalModelLabel_SharedPVCDeterministicAcrossListOrder(t *testing.T) {
+	older := llmSharedNSCache("older-cache", "older-pvc", metav1.NewTime(metav1.Now().Add(-2*time.Hour)), true)
+	newer := llmSharedNSCache("newer-cache", "newer-pvc", metav1.NewTime(metav1.Now().Add(-time.Hour)), true)
+
+	for _, items := range [][]v1alpha1.LocalModelNamespaceCache{{older, newer}, {newer, older}} {
+		llmSvc := newLLMSvc("s3://mybucket/mymodel")
+		SetLocalModelLabel(llmSvc, nil, &v1alpha1.LocalModelNamespaceCacheList{Items: items})
+
+		assert.Equal(t, "older-cache", llmSvc.Labels[constants.LocalModelLabel])
+		assert.Equal(t, "older-pvc", llmSvc.Annotations[constants.LocalModelPVCNameAnnotationKey])
+	}
+}
+
+// A LoRA adapter stays bound to its cache while the cache is transiently not
+// Ready, instead of dropping the cached adapter binding.
+func TestSetLocalModelLabel_LoRAAdapter_StaysBoundWhenNotReady(t *testing.T) {
+	llmSvc := newLLMSvcWithLoRA("s3://mybucket/mymodel", newLoRAAdapter("s3://mybucket/adapter"))
+	raw, err := localmodelcache.MarshalLoRACacheAnnotation(map[string]localmodelcache.CacheEntry{
+		testLoRAAdapterName: {Cache: "adapter-cache", Namespace: "default"},
+	})
+	require.NoError(t, err)
+	llmSvc.Annotations = map[string]string{constants.LocalModelLoRAAnnotationKey: raw}
+	adapterURI := "s3://mybucket/adapter"
+	ref := "adapter-pvc"
+	nsModels := &v1alpha1.LocalModelNamespaceCacheList{
+		Items: []v1alpha1.LocalModelNamespaceCache{{
+			ObjectMeta: metav1.ObjectMeta{Name: "adapter-cache", Namespace: "default", Generation: 1},
+			Spec: v1alpha1.LocalModelNamespaceCacheSpec{
+				SourceModelUri: adapterURI,
+				ModelSize:      resource.MustParse("1Gi"),
+				PVCRef:         &ref,
+			},
+		}},
+	}
+
+	SetLocalModelLabel(llmSvc, nil, nsModels)
+
+	entries := parseLoRAAnnotation(t, llmSvc)
+	assert.Contains(t, entries, testLoRAAdapterName)
+	assert.Equal(t, "adapter-cache", entries[testLoRAAdapterName].Cache)
+	assert.Equal(t, "default", entries[testLoRAAdapterName].Namespace)
 }
 
 func TestDeleteLocalModelMetadata(t *testing.T) {
