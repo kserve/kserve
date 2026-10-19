@@ -457,6 +457,11 @@ type HTTPRouteSpec struct {
 
 	// Spec allows for providing a custom specification for an HTTPRoute.
 	// If provided, the controller will create and manage one or more HTTPRoutes with this specification.
+	// When the rules do not fit in one HTTPRoute and the httpRouteMaxShards ingress key or the
+	// serving.kserve.io/httproute-max-shards annotation allows it, they are split over several
+	// HTTPRoutes. Consumers should read status.router.gateways[].httpRoutes to find them rather
+	// than relying on route names or labels. A policy that targets a rule by sectionName applies
+	// in every HTTPRoute that holds part of that rule.
 	// +optional
 	Spec *gwapiv1.HTTPRouteSpec `json:"spec,omitempty"`
 }

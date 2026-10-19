@@ -484,7 +484,9 @@ const (
 
 	// LLMHTTPRouteShardLabelKey marks an additional controller-managed HTTPRoute that carries part of an
 	// LLMInferenceService's logical route. The value is the shard index; the first shard keeps the
-	// original route name and carries no shard label.
+	// original route name and carries no shard label. The label is a hint for humans only: the
+	// controller finds its shards by name and ownership, and consumers should read
+	// status.router.gateways[].httpRoutes.
 	LLMHTTPRouteShardLabelKey = "serving.kserve.io/httproute-shard"
 
 	// LLMServedByAnnotationKey enables the x-served-by response header middleware.
@@ -1064,6 +1066,9 @@ const LoRAModelRoutingStrategyAnnotationKey = KServeAPIGroupName + "/lora-model-
 // HTTPRouteMaxShardsAnnotationKey sets, for one LLMInferenceService, how many
 // managed HTTPRoutes its inline route may be sharded into, overriding the
 // cluster-wide httpRouteMaxShards ingress key. Read from spec.annotations.
+// Consumers should find the resulting routes through
+// status.router.gateways[].httpRoutes, not by name or label. A sectionName
+// policy on a rule applies in every shard that holds part of that rule.
 const HTTPRouteMaxShardsAnnotationKey = KServeAPIGroupName + "/httproute-max-shards"
 
 // Bounds of the httpRouteMaxShards ingress key and HTTPRouteMaxShardsAnnotationKey.
