@@ -226,7 +226,9 @@ def test_custom_retry_count_from_env(mock_sleep, mock_snapshot_download):
 def test_no_retry_on_repository_not_found(mock_snapshot_download):
     from huggingface_hub.utils import RepositoryNotFoundError
 
-    mock_snapshot_download.side_effect = RepositoryNotFoundError("not found")
+    mock_snapshot_download.side_effect = RepositoryNotFoundError(
+        "not found", response=mock.Mock()
+    )
     uri = "hf://example.com/model"
 
     with pytest.raises(Exception):
