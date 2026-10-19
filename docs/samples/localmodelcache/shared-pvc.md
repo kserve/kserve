@@ -113,6 +113,22 @@ kubectl apply -f shared-pvc.yaml
   apply a changed setting, delete a pending or failed import Job. A wrong `fsGroup` can
   leave the Job pending (admission rejects its Pod) or failed (the import cannot write
   the volume). A completed Job is kept, since its data is already on the claim.
+- A **successful** import is recorded in `status.sharedPVCImport` (PVC UID and
+  completion time). If the completed Job is later deleted while InferenceServices or
+  LLMInferenceServices still reference the cache, no replacement Job is created: the
+  Job writes straight into the destination those workloads read. The cache reports
+  `ReimportBlocked` and stays that way until the consumers are removed; then exactly
+  one replacement Job is created. Consumer removal is normally observed through the
+  InferenceService and LLMInferenceService watches; the blocked cache also re-checks
+  its consumers once a minute, which covers `disableVolumeManagement`, where those
+  watches are not registered. A recreated PVC (new UID) is imported again regardless
+  of consumers, since it holds no data.
+- Once the last consumer object is gone, the replacement Job is still held back while
+  any Pod in the namespace mounts the claim (terminating Pods of a deleted consumer, or
+  a Pod that mounts the claim outside any InferenceService). The rule is the one
+  `pvc-protection` uses: a Pod referencing the claim that has not reached `Succeeded`
+  or `Failed` is still reading it. The cache keeps reporting `ReimportBlocked` with the
+  Pod count and re-checks once a minute, since no watch fires when a Pod exits.
 - A Job with the deterministic name that is not owned by the cache is never adopted
   or deleted; the cache reports `ImportJobConflict` until the collision is removed.
 
@@ -124,7 +140,8 @@ The cache reports a single positive-polarity `Ready` condition (with
 
 | `Ready` status | Reason | Meaning |
 |----------------|--------|---------|
-| `False` | `PVCNotFound` | The referenced PVC does not exist in the namespace yet. |
+| `False` | `PVCNotFound` | The referenced PVC does not exist in the namespace. If it was deleted after an import, the import record is cleared and bound workloads are released on their next update. |
+| `False` | `PVCTerminating` | The referenced PVC is being deleted and is held only while Pods still mount it. No new workload is bound and no import Job is created; the import record is kept for the workloads draining from it. |
 | `False` | `UnsupportedVolumeMode` | The PVC uses `Block` volume mode. |
 | `False` | `UnsupportedAccessMode` | The PVC does not include `ReadWriteMany`. |
 | `False` | `InsufficientCapacity` | The PVC requested/bound storage is smaller than `modelSize`. |
@@ -134,6 +151,7 @@ The cache reports a single positive-polarity `Ready` condition (with
 | `False` | `ImportFailed` | The import Job failed; delete the Job to retry. |
 | `False` | `ImportCredentialError` | The `serviceAccountName`/`storage` credentials could not be resolved; no Job is created and the import is retried with backoff once they exist. |
 | `False` | `ImportJobConflict` | The deterministic import Job name is occupied by a Job the cache does not own. |
+| `False` | `ReimportBlocked` | The completed import Job is gone but consumers still reference the cache, or Pods still mount the claim; once both are gone one replacement import is created. |
 | `True`  | `ImportSucceeded` | The model is imported and available for serving. |
 
 `lastTransitionTime` changes only when the `Ready` status (True/False/Unknown)
@@ -151,6 +169,18 @@ model onto the **same** PVC conflict (`DestinationConflict`); two caches importi
 An InferenceService, LLMInferenceService base model, or LoRA adapter is routed to the
 shared copy **only after** the cache reaches `Ready: True`. Until then the workload
 falls back to its original `storageUri` as if the cache were absent.
+
+A workload that is already bound to the cache stays bound if the cache later reports
+`Ready: False` (for example `ReimportBlocked`, `PVCTerminating`, or a spec-generation
+bump) while `status.sharedPVCImport` still records the import: the data is still on the
+claim, so an unrelated update to the InferenceService or LLMInferenceService does not
+strip the binding or roll its pods back to downloading from source. The record is
+cleared when the referenced claim is gone (`PVCNotFound`) and when a fresh import starts
+onto a recreated claim; in both cases the claim holds no data the workload can use. By
+default a bound workload updated then falls back to its original `storageUri` (the
+storage initializer, or a modelcar for `oci://`) and binds again on a later update once
+the cache is `Ready: True`. The binding is also released when the workload no longer
+matches the cache's `sourceModelUri`.
 
 Once ready, the served model resolves to:
 
