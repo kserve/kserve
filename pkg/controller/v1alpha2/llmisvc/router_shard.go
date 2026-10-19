@@ -517,7 +517,11 @@ func writeOrderKeepsMatches(stored map[string][]gwapiv1.HTTPRouteRule, desired [
 }
 
 func flattenRules(routes []*gwapiv1.HTTPRoute) []gwapiv1.HTTPRouteRule {
-	var rules []gwapiv1.HTTPRouteRule
+	n := 0
+	for _, route := range routes {
+		n += len(route.Spec.Rules)
+	}
+	rules := make([]gwapiv1.HTTPRouteRule, 0, n)
 	for _, route := range routes {
 		rules = append(rules, route.Spec.Rules...)
 	}

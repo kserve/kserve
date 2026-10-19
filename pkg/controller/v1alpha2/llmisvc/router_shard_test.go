@@ -294,7 +294,7 @@ func shardOf(t *testing.T, shards [][]gwapiv1.HTTPRouteRule, path string, backen
 
 func TestShardHTTPRouteRulesPrecedenceGroups(t *testing.T) {
 	filler := func(n int) []gwapiv1.HTTPRouteRule {
-		var rules []gwapiv1.HTTPRouteRule
+		rules := make([]gwapiv1.HTTPRouteRule, 0, n)
 		for i := range n {
 			rules = append(rules, backendRule(fmt.Sprintf("/fill-%02d", i), gwapiv1.PathMatchPathPrefix, "fill"))
 		}
@@ -313,7 +313,7 @@ func TestShardHTTPRouteRulesPrecedenceGroups(t *testing.T) {
 		if a != b {
 			t.Fatalf("order-dependent rules split over shards %d and %d", a, b)
 		}
-		var order []string
+		order := make([]string, 0, len(shards[a]))
 		for _, r := range shards[a] {
 			order = append(order, string(r.BackendRefs[0].Name))
 		}
@@ -393,7 +393,7 @@ func TestShardHTTPRouteRulesPrecedenceGroups(t *testing.T) {
 	})
 
 	t.Run("an order-dependent group larger than one route is rejected", func(t *testing.T) {
-		var rules []gwapiv1.HTTPRouteRule
+		rules := make([]gwapiv1.HTTPRouteRule, 0, 17)
 		for i := range 17 {
 			rules = append(rules, backendRule("/v1/chat", gwapiv1.PathMatchPathPrefix, fmt.Sprintf("b%d", i)))
 		}

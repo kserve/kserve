@@ -197,7 +197,7 @@ func TestManagedHTTPRoutesUsesNameAndOwnership(t *testing.T) {
 
 	routes, err := managedHTTPRoutes(t.Context(), c, llmSvc)
 	require.NoError(t, err)
-	var names []string
+	names := make([]string, 0, len(routes))
 	for _, r := range routes {
 		names = append(names, r.Name)
 	}
@@ -207,7 +207,7 @@ func TestManagedHTTPRoutesUsesNameAndOwnership(t *testing.T) {
 	require.NoError(t, reconciler.deleteStaleHTTPRouteShards(t.Context(), llmSvc, 1))
 	left := &gwapiv1.HTTPRouteList{}
 	require.NoError(t, c.List(t.Context(), left))
-	var remaining []string
+	remaining := make([]string, 0, len(left.Items))
 	for _, r := range left.Items {
 		remaining = append(remaining, r.Name)
 	}
