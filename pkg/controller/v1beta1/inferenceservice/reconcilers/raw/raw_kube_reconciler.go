@@ -71,6 +71,7 @@ func NewRawKubeReconciler(ctx context.Context,
 	storageSpec *v1beta1.StorageSpec,
 	credentialBuilder *credentials.CredentialBuilder,
 	storageContainerSpec *v1alpha1.StorageContainerSpec,
+	verification *v1beta1.VerificationSpec,
 ) (*RawKubeReconciler, error) {
 	var otelCollector *otel.OtelReconciler
 	isvcConfigMap, err := v1beta1.GetInferenceServiceConfigMap(ctx, clientset)
@@ -148,6 +149,7 @@ func NewRawKubeReconciler(ctx context.Context,
 			StorageSpec:          storageSpec,
 			StorageContainerSpec: storageContainerSpec,
 			IsLegacyURI:          false,
+			Verification:         verification,
 		}
 
 		err := pod.CommonStorageInitialization(ctx, storageInitializerParams)
@@ -168,6 +170,7 @@ func NewRawKubeReconciler(ctx context.Context,
 				StorageSpec:          storageSpec,
 				StorageContainerSpec: storageContainerSpec,
 				IsLegacyURI:          false,
+				Verification:         verification,
 			}
 			err := pod.CommonStorageInitialization(ctx, workerStorageInitializerParams)
 			if err != nil {

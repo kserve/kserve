@@ -75,11 +75,12 @@ func NewKsvcReconciler(
 	storageSpec *v1beta1.StorageSpec,
 	credentialBuilder *credentials.CredentialBuilder,
 	storageContainerSpec *v1alpha1.StorageContainerSpec,
+	verification *v1beta1.VerificationSpec,
 ) *KsvcReconciler {
 	return &KsvcReconciler{
 		client:          client,
 		scheme:          scheme,
-		Service:         createKnativeService(ctx, client, componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList, storageUrisSpec, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec),
+		Service:         createKnativeService(ctx, client, componentMeta, componentExt, podSpec, componentStatus, disallowedLabelList, storageUrisSpec, storageInitializerConfig, storageSpec, credentialBuilder, storageContainerSpec, verification),
 		componentExt:    componentExt,
 		componentStatus: componentStatus,
 	}
@@ -98,6 +99,7 @@ func createKnativeService(
 	storageSpec *v1beta1.StorageSpec,
 	credentialBuilder *credentials.CredentialBuilder,
 	storageContainerSpec *v1alpha1.StorageContainerSpec,
+	verification *v1beta1.VerificationSpec,
 ) *knservingv1.Service {
 	annotations := componentMeta.GetAnnotations()
 
@@ -181,6 +183,7 @@ func createKnativeService(
 			IsvcAnnotations:      annotations,
 			StorageSpec:          storageSpec,
 			StorageContainerSpec: storageContainerSpec,
+			Verification:         verification,
 		}
 
 		err := pod.CommonStorageInitialization(ctx, storageInitializerParams)

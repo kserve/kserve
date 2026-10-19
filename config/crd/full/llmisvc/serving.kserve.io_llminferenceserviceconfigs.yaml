@@ -25941,6 +25941,14 @@ spec:
                       type: string
                     uri:
                       type: string
+                    verification:
+                      properties:
+                        digest:
+                          pattern: ^(sha256:)?[a-fA-F0-9]{64}$
+                          type: string
+                      required:
+                        - digest
+                      type: object
                   required:
                     - uri
                   type: object
