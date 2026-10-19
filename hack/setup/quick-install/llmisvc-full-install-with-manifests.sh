@@ -114134,14 +114134,6 @@ rules:
 - apiGroups:
   - disaggregatedset.x-k8s.io
   resources:
-  - disaggregatedsetrolescalers
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - disaggregatedset.x-k8s.io
-  resources:
   - disaggregatedsets
   verbs:
   - create

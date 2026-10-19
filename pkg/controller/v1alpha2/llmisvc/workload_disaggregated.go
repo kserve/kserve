@@ -105,7 +105,7 @@ func (r *LLMISVCReconciler) decideDisaggregatedSet(llmSvc *v1alpha2.LLMInference
 	case llmSvc.Spec.Prefill == nil:
 		return notUsed(reasonNoPrefillWorkload, "the service has no prefill workload")
 	case (disaggregatedRoleAutoscaled(&llmSvc.Spec.WorkloadSpec) || disaggregatedRoleAutoscaled(llmSvc.Spec.Prefill)) && !r.DisaggregatedSetRoleScalerAvailable:
-		return notUsed(reasonRoleScalerNotInstalled, "autoscaling on a DisaggregatedSet requires the DisaggregatedSetRoleScaler CRD from LWS v0.10.0 or later")
+		return notUsed(reasonRoleScalerNotInstalled, "autoscaling on a DisaggregatedSet requires the DisaggregatedSetRoleScaler CRD from LWS v1.0.0 or later")
 	// A DisaggregatedSet checks this only across roles with static replicas, so it
 	// applies only when neither role is autoscaled.
 	case !disaggregatedRoleAutoscaled(&llmSvc.Spec.WorkloadSpec) && !disaggregatedRoleAutoscaled(llmSvc.Spec.Prefill) &&
@@ -526,46 +526,12 @@ func podSpecsEqual(expected, curr *lwsapi.LeaderWorkerTemplate) bool {
 	return equality.Semantic.DeepEqual(expected.WorkerTemplate.Spec, curr.WorkerTemplate.Spec)
 }
 
-// disaggregatedRoleTargets returns the replicas each role of a DisaggregatedSet should
-// run: the role's own replicas, or for a role an autoscaler scales, the replicas its
-// DisaggregatedSetRoleScaler asks for. A role whose scaler the DisaggregatedSet has not
-// created yet, or does not control, has no entry.
-func (r *LLMISVCReconciler) disaggregatedRoleTargets(ctx context.Context, ds *disaggregatedsetv1.DisaggregatedSet) (map[string]int32, error) {
-	if ds == nil {
-		return nil, nil
-	}
-	targets := make(map[string]int32, len(ds.Spec.Roles))
-	for _, role := range ds.Spec.Roles {
-		if role.Scaling == nil || role.Scaling.Mode != disaggregatedsetv1.RoleScalingExternal {
-			targets[role.Name] = ptr.Deref(role.Spec.Replicas, 1)
-			continue
-		}
-		scaler := &disaggregatedsetv1.DisaggregatedSetRoleScaler{}
-		key := types.NamespacedName{Name: dsctrl.ScalerName(ds.Name, role.Name), Namespace: ds.Namespace}
-		if err := r.Get(ctx, key, scaler); err != nil {
-			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
-				continue
-			}
-			return nil, fmt.Errorf("failed to get DisaggregatedSetRoleScaler %s: %w", key, err)
-		}
-		if metav1.IsControlledBy(scaler, ds) {
-			targets[role.Name] = scaler.Spec.Replicas
-		}
-	}
-	return targets, nil
-}
-
 // propagateDisaggregatedSetStatus maps the readiness of each role onto the workload
-// condition the role would have without a DisaggregatedSet. targets holds the replicas
-// each role should run, from disaggregatedRoleTargets.
-func propagateDisaggregatedSetStatus(llmSvc *v1alpha2.LLMInferenceService, ds *disaggregatedsetv1.DisaggregatedSet, targets map[string]int32) {
+// condition the role would have without a DisaggregatedSet.
+func propagateDisaggregatedSetStatus(llmSvc *v1alpha2.LLMInferenceService, ds *disaggregatedsetv1.DisaggregatedSet) {
 	for _, role := range disaggregatedSetRoles {
 		ready, notReady := disaggregatedRoleConditionMarkers(llmSvc, role)
-		var desired *int32
-		if target, ok := targets[role]; ok {
-			desired = &target
-		}
-		reason, message, isReady := disaggregatedRoleReadiness(ds, role, disaggregatedRoleIsMultiNode(llmSvc, role), desired)
+		reason, message, isReady := disaggregatedRoleReadiness(ds, role, disaggregatedRoleIsMultiNode(llmSvc, role))
 		if isReady {
 			ready()
 		} else {
@@ -610,10 +576,10 @@ func disaggregatedRoleIsMultiNode(llmSvc *v1alpha2.LLMInferenceService, role str
 // controller uses for its own status; ReadyReplicas alone would let ready old replicas
 // stand in for unready new ones.
 //
-// desiredReplicas is the replicas the role should run, which for an autoscaled role is
-// what its DisaggregatedSetRoleScaler asks for rather than the role's own replicas. A nil
-// value means that scaler does not exist yet, so the role has no target to be ready against.
-func disaggregatedRoleReadiness(ds *disaggregatedsetv1.DisaggregatedSet, role string, multiNode bool, desiredReplicas *int32) (reason, message string, ready bool) {
+// The desired replicas are those the DisaggregatedSet reports for the role, which for an
+// autoscaled role are what its DisaggregatedSetRoleScaler asks for. A role the
+// DisaggregatedSet reports none for is not ready.
+func disaggregatedRoleReadiness(ds *disaggregatedsetv1.DisaggregatedSet, role string, multiNode bool) (reason, message string, ready bool) {
 	if ds == nil || ds.Status.ObservedGeneration < ds.Generation {
 		return "Progressing", "DisaggregatedSet is progressing", false
 	}
@@ -621,18 +587,23 @@ func disaggregatedRoleReadiness(ds *disaggregatedsetv1.DisaggregatedSet, role st
 	if spec == nil {
 		return "Progressing", fmt.Sprintf("DisaggregatedSet has no %s role yet", role), false
 	}
-	if desiredReplicas == nil {
-		return "Progressing", fmt.Sprintf("%s role is waiting for DisaggregatedSetRoleScaler %s", role, dsctrl.ScalerName(ds.Name, role)), false
-	}
-	desired := *desiredReplicas
 	status := disaggregatedRoleStatus(ds, role)
 
-	if multiNode {
+	switch {
+	case status.DesiredReplicas == nil:
+		if spec.Scaling != nil && spec.Scaling.Mode == disaggregatedsetv1.RoleScalingExternal {
+			message = fmt.Sprintf("%s role is waiting for DisaggregatedSetRoleScaler %s", role, dsctrl.ScalerName(ds.Name, role))
+		} else {
+			message = fmt.Sprintf("DisaggregatedSet has not reported the desired replicas of the %s role", role)
+		}
+	case multiNode:
+		desired := *status.DesiredReplicas
 		if status.Replicas == desired && status.ReadyReplicas == desired && status.UpdatedReplicas == desired {
 			return "", "", true
 		}
 		message = fmt.Sprintf("%s role has %d/%d replicas ready, %d updated and %d in total", role, status.ReadyReplicas, desired, status.UpdatedReplicas, status.Replicas)
-	} else {
+	default:
+		desired := *status.DesiredReplicas
 		minReady := int(desired) - disaggregatedRoleMaxUnavailable(spec, desired)
 		if int(status.ReadyReplicas) >= minReady {
 			return "", "", true

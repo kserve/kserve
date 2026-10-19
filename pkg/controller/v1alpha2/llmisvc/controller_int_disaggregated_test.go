@@ -117,7 +117,7 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			getDisaggregatedSet(ctx, llmSvc)
 
 			// when
-			setDisaggregatedSetStatus(ctx, llmSvc, 1, 1)
+			setDisaggregatedSetStatus(ctx, llmSvc, nil, 1, 1)
 
 			// then
 			Eventually(func(g Gomega, ctx context.Context) {
@@ -129,7 +129,7 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			}).WithContext(ctx).Should(Succeed())
 
 			// when
-			setDisaggregatedSetStatus(ctx, llmSvc, 1, 0, metav1.Condition{
+			setDisaggregatedSetStatus(ctx, llmSvc, nil, 1, 0, metav1.Condition{
 				Type:    string(disaggregatedsetv1.DisaggregatedSetAvailable),
 				Status:  metav1.ConditionFalse,
 				Reason:  "RolloutInProgress",
@@ -169,7 +169,7 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 				}
 				return envTest.Update(ctx, ds)
 			})).To(Succeed())
-			setDisaggregatedSetStatus(ctx, llmSvc, 1, 1)
+			setDisaggregatedSetStatus(ctx, llmSvc, nil, 1, 1)
 
 			// then
 			Eventually(func(g Gomega, ctx context.Context) {
@@ -288,8 +288,8 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			}))
 			expectNotFound(ctx, &kedav1alpha1.ScaledObject{}, llmSvc.Name+"-kserve-prefill-keda", llmSvc.Namespace)
 
-			// when the roles are ready before the DisaggregatedSet creates the scaler
-			setDisaggregatedSetStatus(ctx, llmSvc, 1, 1)
+			// when the roles are ready before the DisaggregatedSet reports a decode target
+			setDisaggregatedSetStatus(ctx, llmSvc, nil, 1, 1)
 
 			// then decode has no target to be ready against
 			Eventually(func(g Gomega, ctx context.Context) {
@@ -302,11 +302,11 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PrefillWorkloadReady), "True"))
 			}).WithContext(ctx).Should(Succeed())
 
-			// when the DisaggregatedSet creates the scaler, asking for two decode replicas
+			// when the DisaggregatedSet reports the two decode replicas the scaler asks for
 			// while one is ready
-			createRoleScaler(ctx, ds, constants.LLMDRoleDecode, 2)
+			setDisaggregatedSetStatus(ctx, llmSvc, ptr.To[int32](2), 1, 1)
 
-			// then decode is ready only against the scaler's replicas
+			// then decode is ready only against the reported replicas
 			Eventually(func(g Gomega, ctx context.Context) {
 				current := &v1alpha2.LLMInferenceService{}
 				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
@@ -317,7 +317,7 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			}).WithContext(ctx).Should(Succeed())
 
 			// when both are ready
-			setDisaggregatedSetStatus(ctx, llmSvc, 2, 1)
+			setDisaggregatedSetStatus(ctx, llmSvc, ptr.To[int32](2), 2, 1)
 
 			// then
 			Eventually(func(g Gomega, ctx context.Context) {
@@ -327,7 +327,7 @@ var _ = Describe("LLMInferenceService DisaggregatedSet", func() {
 			}).WithContext(ctx).Should(Succeed())
 
 			// when the autoscaler asks for four decode replicas
-			scaleRoleScaler(ctx, ds, constants.LLMDRoleDecode, 4)
+			setDisaggregatedSetStatus(ctx, llmSvc, ptr.To[int32](4), 2, 1)
 
 			// then decode is no longer ready
 			Eventually(func(g Gomega, ctx context.Context) {
@@ -480,15 +480,34 @@ func getDisaggregatedSet(ctx context.Context, llmSvc *v1alpha2.LLMInferenceServi
 
 // setDisaggregatedSetStatus simulates the DisaggregatedSet controller, which envtest
 // does not run: the decode role has decodeReady of its replicas ready and updated, the
-// prefill role prefillReady.
-func setDisaggregatedSetStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, decodeReady, prefillReady int32, conditions ...metav1.Condition) {
+// prefill role prefillReady. Each role reports its own replicas as its desired replicas,
+// except an autoscaled role, which reports none. A non-nil decodeDesired is reported as
+// the desired replicas of the decode role instead, as the DisaggregatedSet controller
+// does for an autoscaled role from its DisaggregatedSetRoleScaler.
+func setDisaggregatedSetStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, decodeDesired *int32, decodeReady, prefillReady int32, conditions ...metav1.Condition) {
 	GinkgoHelper()
 	Eventually(func(g Gomega, ctx context.Context) {
 		ds := getDisaggregatedSet(ctx, llmSvc)
+		desired := func(role string) *int32 {
+			for _, spec := range ds.Spec.Roles {
+				if spec.Name != role {
+					continue
+				}
+				if spec.Scaling != nil && spec.Scaling.Mode == disaggregatedsetv1.RoleScalingExternal {
+					return nil
+				}
+				return ptr.To(ptr.Deref(spec.Spec.Replicas, 1))
+			}
+			return nil
+		}
+		decode := desired(constants.LLMDRoleDecode)
+		if decodeDesired != nil {
+			decode = decodeDesired
+		}
 		ds.Status.ObservedGeneration = ds.Generation
 		ds.Status.RoleStatuses = []disaggregatedsetv1.RoleStatus{
-			{Name: constants.LLMDRoleDecode, Replicas: 1, ReadyReplicas: decodeReady, UpdatedReplicas: decodeReady},
-			{Name: constants.LLMDRolePrefill, Replicas: 1, ReadyReplicas: prefillReady, UpdatedReplicas: prefillReady},
+			{Name: constants.LLMDRoleDecode, DesiredReplicas: decode, Replicas: 1, ReadyReplicas: decodeReady, UpdatedReplicas: decodeReady},
+			{Name: constants.LLMDRolePrefill, DesiredReplicas: desired(constants.LLMDRolePrefill), Replicas: 1, ReadyReplicas: prefillReady, UpdatedReplicas: prefillReady},
 		}
 		for i := range conditions {
 			conditions[i].LastTransitionTime = metav1.Now()
@@ -496,39 +515,6 @@ func setDisaggregatedSetStatus(ctx context.Context, llmSvc *v1alpha2.LLMInferenc
 		ds.Status.Conditions = conditions
 		g.Expect(envTest.Status().Update(ctx, ds)).To(Succeed())
 	}).WithContext(ctx).Should(Succeed())
-}
-
-// createRoleScaler simulates the DisaggregatedSet controller, which envtest does not
-// run, creating the DisaggregatedSetRoleScaler of an autoscaled role with the replicas
-// an autoscaler asks for.
-func createRoleScaler(ctx context.Context, ds *disaggregatedsetv1.DisaggregatedSet, role string, replicas int32) {
-	GinkgoHelper()
-	scaler := &disaggregatedsetv1.DisaggregatedSetRoleScaler{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ds.Name + "-" + role,
-			Namespace: ds.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(ds, disaggregatedsetv1.GroupVersion.WithKind("DisaggregatedSet")),
-			},
-		},
-		Spec: disaggregatedsetv1.DisaggregatedSetRoleScalerSpec{Replicas: replicas},
-	}
-	Expect(envTest.Create(ctx, scaler)).To(Succeed())
-}
-
-// scaleRoleScaler simulates an autoscaler setting the replicas of a role through its
-// DisaggregatedSetRoleScaler.
-func scaleRoleScaler(ctx context.Context, ds *disaggregatedsetv1.DisaggregatedSet, role string, replicas int32) {
-	GinkgoHelper()
-	scaler := &disaggregatedsetv1.DisaggregatedSetRoleScaler{}
-	key := client.ObjectKey{Name: ds.Name + "-" + role, Namespace: ds.Namespace}
-	Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := envTest.Get(ctx, key, scaler); err != nil {
-			return err
-		}
-		scaler.Spec.Replicas = replicas
-		return envTest.Update(ctx, scaler)
-	})).To(Succeed())
 }
 
 func setDisaggregatedSetAnnotation(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, value string) {
