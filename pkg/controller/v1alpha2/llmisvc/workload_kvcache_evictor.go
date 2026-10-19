@@ -336,7 +336,7 @@ func (r *LLMISVCReconciler) reconcileExistingPVCEvictorDeployment(ctx context.Co
 	}
 	if current.Annotations[pvcEvictorSecurityHash] != expected.Annotations[pvcEvictorSecurityHash] &&
 		(current.Annotations[pvcEvictorSecurityHash] != "" || expected.Annotations[pvcEvictorSecurityHash] != "") {
-		return fmt.Errorf("shared PVC evictor Deployment %s/%s has different security settings; all LLMInferenceServices using PVC %q and path %q must use the same evictorSecurityContext", current.Namespace, current.Name, expected.Annotations[pvcEvictorPVCName], expected.Annotations[pvcEvictorPVCPath])
+		return fmt.Errorf("shared PVC evictor Deployment %s/%s has different security settings; all LLMInferenceServices using PVC %q and path %q must resolve the same vLLM PodSecurityContext", current.Namespace, current.Name, expected.Annotations[pvcEvictorPVCName], expected.Annotations[pvcEvictorPVCPath])
 	}
 	if !equality.Semantic.DeepEqual(current.Spec.Selector, expected.Spec.Selector) {
 		if err := r.Delete(ctx, current); err != nil && !apierrors.IsNotFound(err) {
@@ -591,7 +591,7 @@ func collectPVCEvictorTargets(llmSvc *v1alpha2.LLMInferenceService) []pvcEvictor
 			targets = append(targets, pvcEvictorTarget{
 				claimName:       ref.Name,
 				subPath:         subPath,
-				securityContext: ref.EvictorSecurityContext.DeepCopy(),
+				securityContext: workloadPVCEvictorSecurityContext(workload),
 			})
 		}
 	}
@@ -599,6 +599,19 @@ func collectPVCEvictorTargets(llmSvc *v1alpha2.LLMInferenceService) []pvcEvictor
 	add(&llmSvc.Spec.WorkloadSpec)
 	add(llmSvc.Spec.Prefill)
 	return targets
+}
+
+func workloadPVCEvictorSecurityContext(workload *v1alpha2.WorkloadSpec) *corev1.PodSecurityContext {
+	if workload == nil {
+		return nil
+	}
+	if workload.Template != nil && workload.Template.SecurityContext != nil {
+		return workload.Template.SecurityContext.DeepCopy()
+	}
+	if workload.Worker != nil && workload.Worker.SecurityContext != nil {
+		return workload.Worker.SecurityContext.DeepCopy()
+	}
+	return nil
 }
 
 func normalizePVCEvictorPath(value string) string {

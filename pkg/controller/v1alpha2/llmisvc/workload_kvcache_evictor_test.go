@@ -93,8 +93,12 @@ func TestExpectedPVCEvictorDeploymentForPVCRef(t *testing.T) {
 				Template: &corev1.PodSpec{
 					ServiceAccountName: "vllm-service-account",
 					NodeSelector:       map[string]string{"accelerator": "gpu"},
-					SecurityContext:    &corev1.PodSecurityContext{FSGroup: ptr.To(int64(1000))},
-					Containers:         []corev1.Container{{Name: "main"}},
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser:  ptr.To(int64(1000)),
+						RunAsGroup: ptr.To(int64(1000)),
+						FSGroup:    ptr.To(int64(1000)),
+					},
+					Containers: []corev1.Container{{Name: "main"}},
 				},
 				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
@@ -107,12 +111,12 @@ func TestExpectedPVCEvictorDeploymentForPVCRef(t *testing.T) {
 		},
 	}
 
-	target := pvcEvictorTarget{claimName: "shared-pvc", subPath: "kv-cache", requiresNodeAffinity: true}
-	target.securityContext = &corev1.PodSecurityContext{
-		RunAsUser:  ptr.To(int64(1000)),
-		RunAsGroup: ptr.To(int64(1000)),
-		FSGroup:    ptr.To(int64(1000)),
+	targets := collectPVCEvictorTargets(svc)
+	if len(targets) != 1 {
+		t.Fatalf("PVC evictor target count = %d, want 1", len(targets))
 	}
+	target := targets[0]
+	target.requiresNodeAffinity = true
 	deployment := expectedPVCEvictorDeployment(svc, target)
 	{
 		if got, want := deployment.Name[:len(pvcEvictorNamePrefix)], pvcEvictorNamePrefix; got != want {

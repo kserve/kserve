@@ -280,12 +280,6 @@ type PVCRefTierSpec struct {
 	// Path is a subdirectory within the PVC used as VolumeMount.subPath.
 	// +optional
 	Path string `json:"path,omitempty"`
-
-	// EvictorSecurityContext sets the PodSecurityContext for the dedicated
-	// evictor Deployment created for this PVC ref. Set the UID, GID, and fsGroup
-	// required by the PVC's storage permissions.
-	// +optional
-	EvictorSecurityContext *corev1.PodSecurityContext `json:"evictorSecurityContext,omitempty"`
 }
 
 // RolloutStrategy configures the rolling update behavior for a workload.

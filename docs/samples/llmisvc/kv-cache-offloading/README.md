@@ -173,14 +173,14 @@ multiple evictors deleting the same files. For an RWO PVC, the Deployment uses
 pod affinity to match a vLLM pod using the same PVC and path.
 
 The evictor runs as a non-root user. The referenced cache directory must allow
-that user or its group to read and delete files. On OpenShift, configure the
-evictor and vLLM workload to use compatible `runAsUser`, `runAsGroup`, and
-`fsGroup` values through `evictorSecurityContext` and the cluster security
-policy. `evictorSecurityContext` is used only with `pvc.ref`; every service
-sharing the same PVC and path must use matching values.
+that user or its group to read and delete files. The standalone evictor copies
+the effective vLLM PodSecurityContext from `spec.template.securityContext`.
+On OpenShift, leave UID/GID values unset unless they are allowed by the cluster
+security policy. Every service sharing the same PVC and path must resolve
+matching PodSecurityContext values.
 
 `pvc.spec` may use `ReadWriteOncePod` because its evictor is a sidecar in the
-same vLLM pod. Do not enable the evictor for a `pvc.ref` backed by a
+same vLLM pod. Do not use `pvc.ref` with a
 `ReadWriteOncePod` PVC. Its evictor uses a separate Deployment, while
 `ReadWriteOncePod` permits only one pod to mount the claim. Use `ReadWriteOnce`
 or `ReadWriteMany` instead.
