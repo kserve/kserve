@@ -197,35 +197,67 @@ func TestDownloadModel_TransferError(t *testing.T) {
 }
 
 func TestDownloadModel_OverwritesExistingFile(t *testing.T) {
-	syscall.Umask(0)
-	modelDir := t.TempDir()
+	previousUmask := syscall.Umask(0)
+	t.Cleanup(func() { syscall.Umask(previousUmask) })
 
-	// Pre-create the file to simulate a corrupted/partial download
-	dir := filepath.Join(modelDir, "model1")
-	if err := os.MkdirAll(dir, 0o750); err != nil {
-		t.Fatal(err)
-	}
-	existing := filepath.Join(dir, "model.pt")
-	if err := os.WriteFile(existing, []byte("corrupted"), 0o640); err != nil {
-		t.Fatal(err)
-	}
+	for _, tc := range []struct {
+		name string
+		mode os.FileMode
+	}{
+		{name: "restrictive permissions", mode: 0o640},
+		{name: "read-only file", mode: 0o444},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			modelDir := t.TempDir()
 
-	provider := &S3Provider{
-		Client: &mocks.MockS3PaginatedClient{
-			Pages: [][]string{
-				{"prefix/model.pt"},
-			},
-		},
-		TransferClient: &mocks.MockS3TransferClient{},
-	}
+			// Pre-create the file to simulate a corrupted/partial download.
+			dir := filepath.Join(modelDir, "model1")
+			if err := os.MkdirAll(dir, 0o750); err != nil {
+				t.Fatal(err)
+			}
+			existing := filepath.Join(dir, "model.pt")
+			if err := os.WriteFile(existing, []byte("corrupted"), tc.mode); err != nil {
+				t.Fatal(err)
+			}
+			// Keep the old file open so its inode cannot be reused after removal.
+			oldFile, err := os.Open(existing) //nolint:gosec // G304: test path is rooted in t.TempDir
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = oldFile.Close() }()
+			oldInfo, err := oldFile.Stat()
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	err := provider.DownloadModel(modelDir, "model1", "s3://bucket/prefix/")
-	if err != nil {
-		t.Fatalf("DownloadModel failed: %v", err)
-	}
+			provider := &S3Provider{
+				Client: &mocks.MockS3PaginatedClient{
+					Pages: [][]string{
+						{"prefix/model.pt"},
+					},
+				},
+				TransferClient: &mocks.MockS3TransferClient{},
+			}
 
-	if !FileExists(existing) {
-		t.Error("expected file to exist after re-download")
+			if err := provider.DownloadModel(modelDir, "model1", "s3://bucket/prefix/"); err != nil {
+				t.Fatalf("DownloadModel failed: %v", err)
+			}
+
+			info, err := os.Stat(existing)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if os.SameFile(oldInfo, info) {
+				t.Error("expected re-download to replace the existing file")
+			}
+			if got := info.Mode().Perm(); got != 0o666 {
+				t.Errorf("file permissions = %04o, want 0666", got)
+			}
+			// The mock transfer writes no data, so no old contents should remain.
+			if got := info.Size(); got != 0 {
+				t.Errorf("file size = %d, want 0 after re-download", got)
+			}
+		})
 	}
 }
 
@@ -250,5 +282,32 @@ func TestDownloadModel_NoPrefixInURI(t *testing.T) {
 	path := filepath.Join(modelDir, "model1", "model.pt")
 	if !FileExists(path) {
 		t.Error("expected model.pt to exist")
+	}
+}
+
+func TestDownloadModel_RejectsPathTraversal(t *testing.T) {
+	tmpDir := t.TempDir()
+	outsidePath := filepath.Join(tmpDir, "outside.txt")
+	if err := os.WriteFile(outsidePath, []byte("do not overwrite"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	provider := &S3Provider{
+		Client: &mocks.MockS3PaginatedClient{
+			Pages: [][]string{{"prefix/../../outside.txt"}},
+		},
+		TransferClient: &mocks.MockS3TransferClient{},
+	}
+
+	err := provider.DownloadModel(filepath.Join(tmpDir, "models"), "model1", "s3://bucket/prefix/")
+	if err == nil {
+		t.Fatal("expected path traversal object to be rejected")
+	}
+	got, readErr := os.ReadFile(outsidePath) //nolint:gosec // G304: test path is rooted in t.TempDir
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(got) != "do not overwrite" {
+		t.Fatalf("outside file contents = %q, want %q", string(got), "do not overwrite")
 	}
 }

@@ -20,9 +20,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -45,6 +48,55 @@ import (
 	gcscredential "github.com/kserve/kserve/pkg/credentials/gcs"
 	s3credential "github.com/kserve/kserve/pkg/credentials/s3"
 )
+
+func createLocalModelFile(modelDir string, modelName string, objectPath string) (*os.File, string, error) {
+	trimmedObjectPath := strings.TrimLeft(objectPath, "/")
+	if modelName != "" && !fs.ValidPath(modelName) {
+		return nil, "", fmt.Errorf("invalid model name: %s", modelName)
+	}
+	if !fs.ValidPath(trimmedObjectPath) {
+		return nil, "", fmt.Errorf("invalid object path: %s", objectPath)
+	}
+
+	relativePath := trimmedObjectPath
+	if modelName != "" {
+		relativePath = path.Join(modelName, trimmedObjectPath)
+	}
+	if err := os.MkdirAll(modelDir, os.ModePerm); err != nil { //nolint:gosec // G301: agent and model server run as different UIDs sharing an emptyDir volume
+		return nil, "", err
+	}
+	root, err := os.OpenRoot(modelDir)
+	if err != nil {
+		return nil, "", err
+	}
+	defer root.Close()
+
+	parentDir := path.Dir(relativePath)
+	if parentDir != "." {
+		// The shared model volume must be traversable by the model server.
+		if err := root.MkdirAll(filepath.FromSlash(parentDir), os.ModePerm); err != nil {
+			return nil, "", fmt.Errorf("unable to create parent directory for object %s: %w", objectPath, err)
+		}
+	}
+	localPath := filepath.FromSlash(relativePath)
+	info, err := root.Lstat(localPath)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil, "", fmt.Errorf("unable to inspect file for object %s: %w", objectPath, err)
+	}
+	// Replace existing files so retries restore permissions for the model server,
+	// even when the previous file is read-only. Leave directories untouched.
+	if err == nil && !info.IsDir() {
+		if err := root.Remove(localPath); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return nil, "", fmt.Errorf("unable to replace file for object %s: %w", objectPath, err)
+		}
+	}
+	// Fail if another writer creates the destination before we do.
+	file, err := root.OpenFile(localPath, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
+	if err != nil {
+		return nil, "", fmt.Errorf("unable to create file for object %s: %w", objectPath, err)
+	}
+	return file, filepath.Join(modelDir, filepath.FromSlash(relativePath)), nil
+}
 
 func FileExists(filename string) bool {
 	info, err := os.Stat(filename)
