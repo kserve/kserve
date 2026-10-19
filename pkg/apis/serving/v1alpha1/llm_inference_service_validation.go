@@ -87,6 +87,9 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateModelExpress(llmSvc)...)
 	allErrs = append(allErrs, v1alpha2.ValidateLoRAModelRoutingStrategyAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
 	allErrs = append(allErrs, v1alpha2.ValidateHTTPRouteMaxShardsAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
+	if r := llmSvc.Spec.Router; r != nil && r.Route != nil && r.Route.HTTP != nil && r.Route.HTTP.Spec != nil {
+		allErrs = append(allErrs, v1alpha2.ValidateHTTPRoutePaths(r.Route.HTTP.Spec, field.NewPath("spec", "router", "route", "http", "spec"))...)
+	}
 	allErrs = append(allErrs, kservevalidation.ValidateDisaggregatedSetAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 

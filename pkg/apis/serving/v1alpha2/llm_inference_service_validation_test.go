@@ -1323,3 +1323,36 @@ func TestValidateHTTPRouteMaxShardsAnnotation(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateHTTPRoutePaths(t *testing.T) {
+	path := field.NewPath("spec")
+	match := func(t gwapiv1.PathMatchType, v string) gwapiv1.HTTPRouteMatch {
+		return gwapiv1.HTTPRouteMatch{Path: &gwapiv1.HTTPPathMatch{Type: ptr.To(t), Value: ptr.To(v)}}
+	}
+	for _, tt := range []struct {
+		name    string
+		m       gwapiv1.HTTPRouteMatch
+		wantErr string
+	}{
+		{name: "valid prefix", m: match(gwapiv1.PathMatchPathPrefix, "/v1/completions")},
+		{name: "valid percent encoding", m: match(gwapiv1.PathMatchExact, "/a%20b")},
+		{name: "regex is not checked", m: match(gwapiv1.PathMatchRegularExpression, "/a b.*")},
+		{name: "space", m: match(gwapiv1.PathMatchPathPrefix, "/a b"), wantErr: "valid characters"},
+		{name: "relative", m: match(gwapiv1.PathMatchExact, "a"), wantErr: "start with '/'"},
+		{name: "double slash", m: match(gwapiv1.PathMatchPathPrefix, "/a//b"), wantErr: "'//'"},
+		{name: "encoded slash", m: match(gwapiv1.PathMatchPathPrefix, "/a%2Fb"), wantErr: "encoded"},
+		{name: "dot segment", m: match(gwapiv1.PathMatchPathPrefix, "/a/.."), wantErr: "must not end"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := &gwapiv1.HTTPRouteSpec{Rules: []gwapiv1.HTTPRouteRule{{Matches: []gwapiv1.HTTPRouteMatch{tt.m}}}}
+			errs := ValidateHTTPRoutePaths(spec, path)
+			if tt.wantErr == "" {
+				require.Empty(t, errs)
+				return
+			}
+			require.Len(t, errs, 1)
+			assert.Contains(t, errs[0].Error(), tt.wantErr)
+			assert.Contains(t, errs[0].Field, "spec.rules[0].matches[0].path.value")
+		})
+	}
+}

@@ -20,6 +20,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -97,6 +98,7 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateModelExpress(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAModelRoutingStrategyAnnotation(llmSvc)...)
 	allErrs = append(allErrs, ValidateHTTPRouteMaxShardsAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
+	allErrs = append(allErrs, ValidateInlineRoutePaths(llmSvc.Spec.Router, field.NewPath("spec", "router", "route", "http", "spec"))...)
 	allErrs = append(allErrs, l.validateDisaggregatedSetAnnotation(llmSvc)...)
 
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
@@ -1006,4 +1008,63 @@ func ValidateHTTPRouteMaxShardsAnnotation(annotations map[string]string, path *f
 		raw,
 		fmt.Sprintf("must be an integer between 1 and %d", constants.MaxHTTPRouteMaxShards),
 	)}
+}
+
+// inlineRoutePathCharacters is the Gateway API HTTPPathMatch character rule for Exact and PathPrefix values.
+var inlineRoutePathCharacters = regexp.MustCompile(`^(?:[-A-Za-z0-9/._~!$&'()*+,;=:@]|[%][0-9a-fA-F]{2})+$`)
+
+// ValidateInlineRoutePaths checks the Exact and PathPrefix path matches of an inline route against the
+// Gateway API HTTPPathMatch rules. The inline schema drops the nested Gateway API CEL rules so a route
+// larger than one HTTPRoute fits the CEL budget; checking paths here keeps an invalid path failing the
+// apply instead of only the HTTPRoute write. Every other rule is still enforced by the Gateway API CRD
+// through the controller's dry-run. Shared with the v1alpha1 validator.
+func ValidateInlineRoutePaths(router *RouterSpec, path *field.Path) field.ErrorList {
+	if router == nil || router.Route == nil || router.Route.HTTP == nil || router.Route.HTTP.Spec == nil {
+		return nil
+	}
+	return ValidateHTTPRoutePaths(router.Route.HTTP.Spec, path)
+}
+
+// ValidateHTTPRoutePaths checks the Exact and PathPrefix path matches of spec; see ValidateInlineRoutePaths.
+func ValidateHTTPRoutePaths(spec *gwapiv1.HTTPRouteSpec, path *field.Path) field.ErrorList {
+	var allErrs field.ErrorList
+	for i := range spec.Rules {
+		for j := range spec.Rules[i].Matches {
+			m := spec.Rules[i].Matches[j].Path
+			if m == nil || m.Value == nil {
+				continue
+			}
+			t := ptr.Deref(m.Type, gwapiv1.PathMatchPathPrefix)
+			if t != gwapiv1.PathMatchExact && t != gwapiv1.PathMatchPathPrefix {
+				continue
+			}
+			if msg := invalidPathValue(*m.Value); msg != "" {
+				allErrs = append(allErrs, field.Invalid(
+					path.Child("rules").Index(i).Child("matches").Index(j).Child("path", "value"), *m.Value, msg))
+			}
+		}
+	}
+	return allErrs
+}
+
+func invalidPathValue(v string) string {
+	switch {
+	case !strings.HasPrefix(v, "/"):
+		return "must be an absolute path and start with '/'"
+	case strings.Contains(v, "//"):
+		return "must not contain '//'"
+	case strings.Contains(v, "/./"):
+		return "must not contain '/./'"
+	case strings.Contains(v, "/../"):
+		return "must not contain '/../'"
+	case strings.Contains(v, "%2f"), strings.Contains(v, "%2F"):
+		return "must not contain an encoded '/'"
+	case strings.Contains(v, "#"):
+		return "must not contain '#'"
+	case strings.HasSuffix(v, "/.."), strings.HasSuffix(v, "/."):
+		return "must not end with '/..' or '/.'"
+	case !inlineRoutePathCharacters.MatchString(v):
+		return "must only contain valid characters (matching " + inlineRoutePathCharacters.String() + ")"
+	}
+	return ""
 }

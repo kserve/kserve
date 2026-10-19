@@ -295,15 +295,22 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 			return nil, fmt.Errorf("%w: the route needs %d HTTPRoutes but %s allows %d; raise it or reduce the rules and LoRA adapters",
 				ErrPreconditionNotMet, len(shards), source, limit)
 		}
-		for _, shard := range shards {
+		// Kubernetes has no atomic write across several HTTPRoutes, so the whole
+		// set is validated first: a shard the API server would reject fails the
+		// reconcile before any shard is written, and the stored routes keep
+		// serving. This cannot stop a transient mix of old and new shards while
+		// the writes below run.
+		if err := r.dryRunHTTPRouteShards(ctx, llmSvc, shards); err != nil {
+			return nil, err
+		}
+		stored, err := managedHTTPRoutes(ctx, r, llmSvc.GetNamespace(), llmSvc.GetName())
+		if err != nil {
+			return nil, err
+		}
+		for _, i := range httpRouteShardWriteOrder(stored, shards) {
+			shard := shards[i]
 			if err := Reconcile(ctx, r, llmSvc, &gwapiv1.HTTPRoute{}, shard, semanticHTTPRouteIsEqual); err != nil {
-				var invalid *apierrors.StatusError
-				if apierrors.IsInvalid(err) && errors.As(err, &invalid) {
-					// Report the API server's own field errors rather than Update's
-					// "failed to get defaults for" wrapper.
-					err = invalid
-				}
-				return nil, fmt.Errorf("failed to reconcile HTTPRoute %s/%s: %w", shard.GetNamespace(), shard.GetName(), err)
+				return nil, fmt.Errorf("failed to reconcile HTTPRoute %s/%s: %w", shard.GetNamespace(), shard.GetName(), apiServerVerdict(err))
 			}
 		}
 		// Only after every current shard is written, so traffic covered by a

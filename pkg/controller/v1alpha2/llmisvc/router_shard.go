@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -259,4 +260,139 @@ func httpRouteMaxShardsFor(llmSvc *v1alpha2.LLMInferenceService, cfg *Config) (i
 		limit = cfg.HTTPRouteMaxShards
 	}
 	return limit, "httpRouteMaxShards in the " + constants.InferenceServiceConfigMapName + " ConfigMap"
+}
+
+// apiServerVerdict returns the API server's own field errors when err carries
+// an Invalid status, rather than a wrapper such as Update's "failed to get
+// defaults for", so the condition message shows what to fix.
+func apiServerVerdict(err error) error {
+	var invalid *apierrors.StatusError
+	if apierrors.IsInvalid(err) && errors.As(err, &invalid) {
+		return invalid
+	}
+	return err
+}
+
+// dryRunHTTPRouteShards sends every desired shard to the API server as a
+// dry-run create or update, so the Gateway API CRD validates the whole set
+// before the first real write.
+func (r *LLMISVCReconciler) dryRunHTTPRouteShards(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shards []*gwapiv1.HTTPRoute) error {
+	for _, shard := range shards {
+		probe := shard.DeepCopy()
+		curr := &gwapiv1.HTTPRoute{}
+		err := r.Get(ctx, client.ObjectKeyFromObject(probe), curr)
+		switch {
+		case apierrors.IsNotFound(err):
+			err = r.Create(ctx, probe, client.DryRunAll)
+		case err != nil:
+			return fmt.Errorf("failed to get HTTPRoute %s/%s: %w", probe.GetNamespace(), probe.GetName(), err)
+		case !metav1.IsControlledBy(curr, llmSvc):
+			return fmt.Errorf("failed to reconcile HTTPRoute %s/%s: it is not controlled by %s/%s",
+				probe.GetNamespace(), probe.GetName(), llmSvc.GetNamespace(), llmSvc.GetName())
+		default:
+			probe.SetResourceVersion(curr.GetResourceVersion())
+			err = r.Update(ctx, probe, client.DryRunAll)
+		}
+		if err != nil {
+			return fmt.Errorf("failed to reconcile HTTPRoute %s/%s: rejected on dry-run, no HTTPRoute was written: %w",
+				probe.GetNamespace(), probe.GetName(), apiServerVerdict(err))
+		}
+	}
+	return nil
+}
+
+// httpRouteShardWriteOrder returns the indexes of desired in the order they
+// should be written. When rules move between shards, writing the shard that
+// gains them before the one that loses them keeps every match that is served
+// before and after the update in at least one stored route the whole time.
+// Higher shards first covers rules moving forward (a rule added early in the
+// list pushes later rules up); lower shards first covers rules moving back.
+// When neither order is gap free, higher shards first is used.
+func httpRouteShardWriteOrder(stored, desired []*gwapiv1.HTTPRoute) []int {
+	descending := make([]int, len(desired))
+	ascending := make([]int, len(desired))
+	for i := range desired {
+		descending[i] = len(desired) - 1 - i
+		ascending[i] = i
+	}
+	state := make(map[string][]gwapiv1.HTTPRouteRule, len(stored))
+	for _, route := range stored {
+		state[route.GetName()] = route.Spec.Rules
+	}
+	before := routeMatchKeys(state)
+	after := routeMatchKeys(map[string][]gwapiv1.HTTPRouteRule{"": flattenRules(desired)})
+	kept := map[string]struct{}{}
+	for k := range before {
+		if _, ok := after[k]; ok {
+			kept[k] = struct{}{}
+		}
+	}
+	for _, order := range [][]int{descending, ascending} {
+		if writeOrderKeepsMatches(state, desired, order, kept) {
+			return order
+		}
+	}
+	return descending
+}
+
+func writeOrderKeepsMatches(stored map[string][]gwapiv1.HTTPRouteRule, desired []*gwapiv1.HTTPRoute, order []int, kept map[string]struct{}) bool {
+	state := maps.Clone(stored)
+	for _, i := range order {
+		state[desired[i].GetName()] = desired[i].Spec.Rules
+		served := routeMatchKeys(state)
+		for k := range kept {
+			if _, ok := served[k]; !ok {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func flattenRules(routes []*gwapiv1.HTTPRoute) []gwapiv1.HTTPRouteRule {
+	var rules []gwapiv1.HTTPRouteRule
+	for _, route := range routes {
+		rules = append(rules, route.Spec.Rules...)
+	}
+	return rules
+}
+
+// routeMatchKeys returns a key for every match the routes serve. Matches are
+// normalized with the Gateway API defaults so a stored, defaulted route and a
+// freshly rendered one compare equal.
+func routeMatchKeys(routes map[string][]gwapiv1.HTTPRouteRule) map[string]struct{} {
+	keys := map[string]struct{}{}
+	for _, rules := range routes {
+		for i := range rules {
+			if len(rules[i].Matches) == 0 {
+				keys[matchKey(gwapiv1.HTTPRouteMatch{})] = struct{}{}
+			}
+			for _, m := range rules[i].Matches {
+				keys[matchKey(m)] = struct{}{}
+			}
+		}
+	}
+	return keys
+}
+
+func matchKey(m gwapiv1.HTTPRouteMatch) string {
+	pathType, pathValue := gwapiv1.PathMatchPathPrefix, "/"
+	if m.Path != nil {
+		pathType = ptr.Deref(m.Path.Type, gwapiv1.PathMatchPathPrefix)
+		pathValue = ptr.Deref(m.Path.Value, "/")
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s %s %s", pathType, pathValue, ptr.Deref(m.Method, ""))
+	headers := make([]string, 0, len(m.Headers))
+	for _, h := range m.Headers {
+		headers = append(headers, fmt.Sprintf("%s=%s:%s", ptr.Deref(h.Type, gwapiv1.HeaderMatchExact), strings.ToLower(string(h.Name)), h.Value))
+	}
+	slices.Sort(headers)
+	query := make([]string, 0, len(m.QueryParams))
+	for _, q := range m.QueryParams {
+		query = append(query, fmt.Sprintf("%s=%s:%s", ptr.Deref(q.Type, gwapiv1.QueryParamMatchExact), q.Name, q.Value))
+	}
+	slices.Sort(query)
+	fmt.Fprintf(&b, " h[%s] q[%s]", strings.Join(headers, ","), strings.Join(query, ","))
+	return b.String()
 }
