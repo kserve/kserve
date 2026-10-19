@@ -29,9 +29,11 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
@@ -515,6 +517,106 @@ func TestReconcileDisaggregatedSetDeletesWhenNotUsed(t *testing.T) {
 	ds, err = r.reconcileDisaggregatedSet(ctx, svc, disaggTestConfig(), false)
 	require.NoError(t, err, "nothing to delete is not an error")
 	assert.Nil(t, ds)
+}
+
+// TestReconcileDisaggregatedSetKeepsControllerAnnotations checks that updating the
+// DisaggregatedSet keeps the annotations its controller sets on it.
+func TestReconcileDisaggregatedSetKeepsControllerAnnotations(t *testing.T) {
+	ctx := context.Background()
+	svc := disaggTestService(t)
+	r := disaggTestReconciler(t)
+	r.EventRecorder = record.NewFakeRecorder(10)
+	// Update resolves the object's scope through the RESTMapper, which by default does
+	// not know the DisaggregatedSet kind.
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{disaggregatedsetv1.GroupVersion})
+	mapper.Add(disaggregatedsetv1.GroupVersion.WithKind("DisaggregatedSet"), meta.RESTScopeNamespace)
+	r.Client = fake.NewClientBuilder().WithScheme(r.Scheme()).WithRESTMapper(mapper).Build()
+
+	_, err := r.reconcileDisaggregatedSet(ctx, svc, disaggTestConfig(), true)
+	require.NoError(t, err)
+
+	key := client.ObjectKey{Name: disaggregatedSetName(svc), Namespace: svc.Namespace}
+	stored := &disaggregatedsetv1.DisaggregatedSet{}
+	require.NoError(t, r.Get(ctx, key, stored))
+	stored.Annotations = map[string]string{
+		disaggregatedsetv1.RevisionHashVersionAnnotationKey: disaggregatedsetv1.RevisionHashVersion,
+		disaggregatedsetv1.MaxUnavailableAnnotationKey:      `{"decode":1,"prefill":1}`,
+	}
+	require.NoError(t, r.Update(ctx, stored))
+
+	svc.Spec.Replicas = ptr.To[int32](3)
+	svc.Spec.Prefill.Replicas = ptr.To[int32](3)
+	ds, err := r.reconcileDisaggregatedSet(ctx, svc, disaggTestConfig(), true)
+	require.NoError(t, err)
+
+	assert.Equal(t, ptr.To[int32](3), findDisaggregatedRole(ds, constants.LLMDRoleDecode).Spec.Replicas, "the update is applied")
+	assert.Equal(t, disaggregatedsetv1.RevisionHashVersion, ds.Annotations[disaggregatedsetv1.RevisionHashVersionAnnotationKey])
+	assert.JSONEq(t, `{"decode":1,"prefill":1}`, ds.Annotations[disaggregatedsetv1.MaxUnavailableAnnotationKey])
+}
+
+func TestPreserveDisaggregatedSetControllerAnnotations(t *testing.T) {
+	opts := &updateOptions[*disaggregatedsetv1.DisaggregatedSet]{}
+	PreserveDisaggregatedSetControllerAnnotations()(opts)
+	require.Len(t, opts.afterDryRunFns, 1)
+	fn := opts.afterDryRunFns[0]
+
+	withAnnotations := func(annotations map[string]string) *disaggregatedsetv1.DisaggregatedSet {
+		return &disaggregatedsetv1.DisaggregatedSet{ObjectMeta: metav1.ObjectMeta{Annotations: annotations}}
+	}
+
+	tests := []struct {
+		name     string
+		expected map[string]string
+		curr     map[string]string
+		want     map[string]string
+	}{
+		{
+			name: "copies the controller annotations from curr",
+			curr: map[string]string{
+				disaggregatedsetv1.RevisionHashVersionAnnotationKey: disaggregatedsetv1.RevisionHashVersion,
+				disaggregatedsetv1.MaxUnavailableAnnotationKey:      `{"decode":1}`,
+			},
+			want: map[string]string{
+				disaggregatedsetv1.RevisionHashVersionAnnotationKey: disaggregatedsetv1.RevisionHashVersion,
+				disaggregatedsetv1.MaxUnavailableAnnotationKey:      `{"decode":1}`,
+			},
+		},
+		{
+			name:     "keeps the annotations expected sets",
+			expected: map[string]string{"kserve": "value"},
+			curr:     map[string]string{disaggregatedsetv1.RevisionHashVersionAnnotationKey: disaggregatedsetv1.RevisionHashVersion},
+			want: map[string]string{
+				"kserve": "value",
+				disaggregatedsetv1.RevisionHashVersionAnnotationKey: disaggregatedsetv1.RevisionHashVersion,
+			},
+		},
+		{
+			name: "adds no controller annotation that curr does not have",
+			curr: map[string]string{"other": "value"},
+			want: nil,
+		},
+		{
+			name: "copies only annotations in the DisaggregatedSet API group",
+			curr: map[string]string{
+				"example.com/other": "value",
+				"leaderworkerset.sigs.k8s.io/exclusive-topology": "rack",
+			},
+			want: nil,
+		},
+		{
+			name:     "a value expected sets wins over curr",
+			expected: map[string]string{disaggregatedsetv1.RevisionHashVersionAnnotationKey: "v3"},
+			curr:     map[string]string{disaggregatedsetv1.RevisionHashVersionAnnotationKey: disaggregatedsetv1.RevisionHashVersion},
+			want:     map[string]string{disaggregatedsetv1.RevisionHashVersionAnnotationKey: "v3"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expected := withAnnotations(tt.expected)
+			fn(expected, expected.DeepCopy(), withAnnotations(tt.curr))
+			assert.Equal(t, tt.want, expected.Annotations)
+		})
+	}
 }
 
 // TestDisaggregatedSetAnnotationStaysOffPodTemplates checks that the annotation that
