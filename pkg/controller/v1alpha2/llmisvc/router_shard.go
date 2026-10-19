@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -127,37 +128,227 @@ func chunkRuleName(base gwapiv1.SectionName, chunk int, used map[gwapiv1.Section
 	}
 }
 
-// shardHTTPRouteRules packs rules, in order, into groups that each respect the
-// Gateway API rule and match limits. It always returns at least one group so
-// a route without rules still produces one resource.
-func shardHTTPRouteRules(rules []gwapiv1.HTTPRouteRule) [][]gwapiv1.HTTPRouteRule {
+// shardHTTPRouteRules packs rules into groups that each respect the Gateway
+// API rule and match limits. It always returns at least one group so a route
+// without rules still produces one resource.
+//
+// Rules in different HTTPRoutes are ordered by Gateway API match precedence
+// and, on equal precedence, by route age and name, which implementations
+// break differently (Istio compares its own generated names). So rules whose
+// matches have the same precedence key, could match the same request and do
+// different things are kept together in one shard, where list order still
+// decides; see orderDependentRuleGroups. Such a group that does not fit in
+// one HTTPRoute is rejected rather than split. Rules with the same action
+// never need to stay together, so LoRA model-routing chunks split freely.
+func shardHTTPRouteRules(rules []gwapiv1.HTTPRouteRule) ([][]gwapiv1.HTTPRouteRule, error) {
 	rules = splitOversizedRules(rules)
-	shards := [][]gwapiv1.HTTPRouteRule{nil}
-	matches := 0
-	for i := range rules {
-		count := ruleMatchCount(&rules[i])
-		last := len(shards) - 1
-		if len(shards[last]) > 0 && (len(shards[last]) >= httpRouteMaxRules || matches+count > httpRouteMaxTotalMatches) {
-			shards = append(shards, nil)
-			last++
-			matches = 0
+	groups := orderDependentRuleGroups(rules)
+
+	var shards [][]int
+	current, matches := []int(nil), 0
+	for _, group := range groups {
+		count := 0
+		for _, i := range group {
+			count += ruleMatchCount(&rules[i])
 		}
-		shards[last] = append(shards[last], rules[i])
+		if len(group) > httpRouteMaxRules || count > httpRouteMaxTotalMatches {
+			return nil, fmt.Errorf("%w: rules %s match the same requests with equal precedence and different actions, "+
+				"so they must stay in one HTTPRoute, but together they have %d rules and %d matches (limits %d and %d)",
+				ErrPreconditionNotMet, ruleIndexList(group), len(group), count, httpRouteMaxRules, httpRouteMaxTotalMatches)
+		}
+		if len(current) > 0 && (len(current)+len(group) > httpRouteMaxRules || matches+count > httpRouteMaxTotalMatches) {
+			shards = append(shards, current)
+			current, matches = nil, 0
+		}
+		current = append(current, group...)
 		matches += count
 	}
-	return shards
+	shards = append(shards, current)
+
+	out := make([][]gwapiv1.HTTPRouteRule, len(shards))
+	for s, indexes := range shards {
+		// Keep the logical list order within a shard, where it breaks ties.
+		slices.Sort(indexes)
+		for _, i := range indexes {
+			out[s] = append(out[s], rules[i])
+		}
+	}
+	return out, nil
+}
+
+func ruleIndexList(group []int) string {
+	parts := make([]string, len(group))
+	for i, idx := range group {
+		parts[i] = strconv.Itoa(idx)
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
+}
+
+// orderDependentRuleGroups partitions rule indexes into groups that must share
+// an HTTPRoute, ordered by their first rule. Two rules are joined when they
+// have different actions and a pair of their matches has the same precedence
+// key and may overlap; joins are transitive.
+func orderDependentRuleGroups(rules []gwapiv1.HTTPRouteRule) [][]int {
+	parent := make([]int, len(rules))
+	for i := range parent {
+		parent[i] = i
+	}
+	var find func(int) int
+	find = func(i int) int {
+		for parent[i] != i {
+			parent[i] = parent[parent[i]]
+			i = parent[i]
+		}
+		return i
+	}
+
+	actions := make([]string, len(rules))
+	type entry struct {
+		rule  int
+		match gwapiv1.HTTPRouteMatch
+	}
+	buckets := map[string][]entry{}
+	var keys []string
+	for i := range rules {
+		actions[i] = ruleActionKey(&rules[i])
+		ms := rules[i].Matches
+		if len(ms) == 0 {
+			ms = []gwapiv1.HTTPRouteMatch{{}}
+		}
+		for _, m := range ms {
+			k := precedenceKey(m)
+			if _, ok := buckets[k]; !ok {
+				keys = append(keys, k)
+			}
+			buckets[k] = append(buckets[k], entry{rule: i, match: m})
+		}
+	}
+	for _, k := range keys {
+		bucket := buckets[k]
+		for x := range bucket {
+			for y := x + 1; y < len(bucket); y++ {
+				a, b := bucket[x], bucket[y]
+				if a.rule == b.rule || actions[a.rule] == actions[b.rule] || find(a.rule) == find(b.rule) {
+					continue
+				}
+				if matchesMayOverlap(a.match, b.match) {
+					parent[find(b.rule)] = find(a.rule)
+				}
+			}
+		}
+	}
+
+	byRoot := map[int][]int{}
+	var roots []int
+	for i := range rules {
+		r := find(i)
+		if _, ok := byRoot[r]; !ok {
+			roots = append(roots, r)
+		}
+		byRoot[r] = append(byRoot[r], i)
+	}
+	groups := make([][]int, 0, len(roots))
+	for _, r := range roots {
+		groups = append(groups, byRoot[r])
+	}
+	slices.SortFunc(groups, func(a, b []int) int { return a[0] - b[0] })
+	return groups
+}
+
+// ruleActionKey identifies what a rule does with a request it matches:
+// everything but its name and matches.
+func ruleActionKey(rule *gwapiv1.HTTPRouteRule) string {
+	action := rule.DeepCopy()
+	action.Name = nil
+	action.Matches = nil
+	data, err := json.Marshal(action)
+	if err != nil {
+		// Unreachable for API types; treat the rule as unique.
+		return fmt.Sprintf("%p", rule)
+	}
+	return string(data)
+}
+
+// precedenceKey is the part of a match that Gateway API compares to decide
+// precedence across routes: path type and length, method, and the number of
+// header and query param matches.
+func precedenceKey(m gwapiv1.HTTPRouteMatch) string {
+	pathType, pathValue := gwapiv1.PathMatchPathPrefix, "/"
+	if m.Path != nil {
+		pathType = ptr.Deref(m.Path.Type, gwapiv1.PathMatchPathPrefix)
+		pathValue = ptr.Deref(m.Path.Value, "/")
+	}
+	return fmt.Sprintf("%s/%d/%s/%d/%d", pathType, len(pathValue), ptr.Deref(m.Method, ""), len(m.Headers), len(m.QueryParams))
+}
+
+// matchesMayOverlap reports whether two matches with the same precedence key
+// could match one request. It is conservative: only exact or prefix paths
+// with different values, or an Exact header or query param with the same name
+// and a different value, count as disjoint. Regular expressions are assumed
+// to overlap anything.
+func matchesMayOverlap(a, b gwapiv1.HTTPRouteMatch) bool {
+	pathType, pathA, pathB := gwapiv1.PathMatchPathPrefix, "/", "/"
+	if a.Path != nil {
+		pathType = ptr.Deref(a.Path.Type, gwapiv1.PathMatchPathPrefix)
+		pathA = ptr.Deref(a.Path.Value, "/")
+	}
+	if b.Path != nil {
+		pathB = ptr.Deref(b.Path.Value, "/")
+	}
+	// Same key, so same type and length: two exact or prefix values of equal
+	// length only overlap when they are equal.
+	if pathType != gwapiv1.PathMatchRegularExpression && pathA != pathB {
+		return false
+	}
+	if exactValuesDiffer(headerExactValues(a.Headers), headerExactValues(b.Headers)) {
+		return false
+	}
+	if exactValuesDiffer(queryExactValues(a.QueryParams), queryExactValues(b.QueryParams)) {
+		return false
+	}
+	return true
+}
+
+func headerExactValues(hs []gwapiv1.HTTPHeaderMatch) map[string]string {
+	out := map[string]string{}
+	for _, h := range hs {
+		if ptr.Deref(h.Type, gwapiv1.HeaderMatchExact) == gwapiv1.HeaderMatchExact {
+			out[strings.ToLower(string(h.Name))] = h.Value
+		}
+	}
+	return out
+}
+
+func queryExactValues(qs []gwapiv1.HTTPQueryParamMatch) map[string]string {
+	out := map[string]string{}
+	for _, q := range qs {
+		if ptr.Deref(q.Type, gwapiv1.QueryParamMatchExact) == gwapiv1.QueryParamMatchExact {
+			out[string(q.Name)] = q.Value
+		}
+	}
+	return out
+}
+
+func exactValuesDiffer(a, b map[string]string) bool {
+	for name, va := range a {
+		if vb, ok := b[name]; ok && va != vb {
+			return true
+		}
+	}
+	return false
 }
 
 // shardHTTPRoute splits a fully rendered route into the HTTPRoute resources
 // that are written to the cluster. The first resource keeps the name, labels
 // and annotations of the input. Later resources get stable suffixed names and
 // a shard label. Route level fields (parentRefs, hostnames) are copied to all.
-//
-// Gateway API precedence between matches of equal specificity falls back to
-// the oldest route, then to the route name; the first shard is created first
-// and sorts first by name, so rule order is preserved on such ties.
-func shardHTTPRoute(llmSvc *v1alpha2.LLMInferenceService, route *gwapiv1.HTTPRoute) []*gwapiv1.HTTPRoute {
-	groups := shardHTTPRouteRules(route.Spec.Rules)
+// Precedence across the resources is preserved by shardHTTPRouteRules keeping
+// order-dependent rules together, not by resource names or creation order.
+func shardHTTPRoute(llmSvc *v1alpha2.LLMInferenceService, route *gwapiv1.HTTPRoute) ([]*gwapiv1.HTTPRoute, error) {
+	groups, err := shardHTTPRouteRules(route.Spec.Rules)
+	if err != nil {
+		return nil, err
+	}
 	routes := make([]*gwapiv1.HTTPRoute, 0, len(groups))
 	for i, rules := range groups {
 		shard := route.DeepCopy()
@@ -172,7 +363,7 @@ func shardHTTPRoute(llmSvc *v1alpha2.LLMInferenceService, route *gwapiv1.HTTPRou
 		}
 		routes = append(routes, shard)
 	}
-	return routes
+	return routes, nil
 }
 
 // listHTTPRouteShards returns the additional (index >= 1) managed HTTPRoutes

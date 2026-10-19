@@ -17,7 +17,9 @@ limitations under the License.
 package llmisvc
 
 import (
+	"errors"
 	"fmt"
+	"slices"
 	"regexp"
 	"strconv"
 	"strings"
@@ -98,7 +100,10 @@ func TestShardHTTPRouteRules(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			shards := shardHTTPRouteRules(tt.rules)
+			shards, err := shardHTTPRouteRules(tt.rules)
+			if err != nil {
+				t.Fatal(err)
+			}
 			if len(shards) != tt.wantShards {
 				t.Fatalf("got %d shards, want %d", len(shards), tt.wantShards)
 			}
@@ -172,7 +177,10 @@ func TestShardHTTPRoute(t *testing.T) {
 		},
 	}
 
-	shards := shardHTTPRoute(llmSvc, route)
+	shards, err := shardHTTPRoute(llmSvc, route)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(shards) != 3 {
 		t.Fatalf("got %d shards, want 3", len(shards))
 	}
@@ -207,7 +215,10 @@ func TestShardHTTPRoute(t *testing.T) {
 	}
 
 	// Sharding is deterministic.
-	again := shardHTTPRoute(llmSvc, route)
+	again, err := shardHTTPRoute(llmSvc, route)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for i := range shards {
 		if again[i].Name != shards[i].Name || len(again[i].Spec.Rules) != len(shards[i].Spec.Rules) {
 			t.Fatalf("sharding is not deterministic at shard %d", i)
@@ -298,4 +309,137 @@ func TestHTTPRouteMaxShardsFor(t *testing.T) {
 			}
 		})
 	}
+}
+
+func backendRule(path string, pathType gwapiv1.PathMatchType, backend string) gwapiv1.HTTPRouteRule {
+	return gwapiv1.HTTPRouteRule{
+		Matches: []gwapiv1.HTTPRouteMatch{{Path: &gwapiv1.HTTPPathMatch{Type: ptr.To(pathType), Value: ptr.To(path)}}},
+		BackendRefs: []gwapiv1.HTTPBackendRef{{BackendRef: gwapiv1.BackendRef{
+			BackendObjectReference: gwapiv1.BackendObjectReference{Name: gwapiv1.ObjectName(backend)},
+		}}},
+	}
+}
+
+// shardOf returns the index of the shard holding the rule whose first match has path.
+func shardOf(t *testing.T, shards [][]gwapiv1.HTTPRouteRule, path string, backend string) int {
+	t.Helper()
+	for s := range shards {
+		for _, r := range shards[s] {
+			if *r.Matches[0].Path.Value == path && string(r.BackendRefs[0].Name) == backend {
+				return s
+			}
+		}
+	}
+	t.Fatalf("rule %s -> %s not found", path, backend)
+	return -1
+}
+
+func TestShardHTTPRouteRulesPrecedenceGroups(t *testing.T) {
+	filler := func(n int) []gwapiv1.HTTPRouteRule {
+		var rules []gwapiv1.HTTPRouteRule
+		for i := range n {
+			rules = append(rules, backendRule(fmt.Sprintf("/fill-%02d", i), gwapiv1.PathMatchPathPrefix, "fill"))
+		}
+		return rules
+	}
+
+	t.Run("overlapping equal precedence rules with different actions stay together in order", func(t *testing.T) {
+		rules := append(filler(15),
+			backendRule("/v1/chat", gwapiv1.PathMatchPathPrefix, "first"),
+			backendRule("/v1/chat", gwapiv1.PathMatchPathPrefix, "second"))
+		shards, err := shardHTTPRouteRules(rules)
+		if err != nil {
+			t.Fatal(err)
+		}
+		a, b := shardOf(t, shards, "/v1/chat", "first"), shardOf(t, shards, "/v1/chat", "second")
+		if a != b {
+			t.Fatalf("order-dependent rules split over shards %d and %d", a, b)
+		}
+		var order []string
+		for _, r := range shards[a] {
+			order = append(order, string(r.BackendRefs[0].Name))
+		}
+		if !slices.Equal(order[len(order)-2:], []string{"first", "second"}) {
+			t.Fatalf("list order not kept within the shard: %v", order)
+		}
+	})
+
+	t.Run("disjoint paths of equal length split freely", func(t *testing.T) {
+		rules := append(filler(15),
+			backendRule("/v1/aaaa", gwapiv1.PathMatchPathPrefix, "a"),
+			backendRule("/v1/bbbb", gwapiv1.PathMatchPathPrefix, "b"))
+		shards, err := shardHTTPRouteRules(rules)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(shards) != 2 || shardOf(t, shards, "/v1/bbbb", "b") != 1 {
+			t.Fatalf("expected plain packing, got %d shards", len(shards))
+		}
+	})
+
+	t.Run("different precedence keys are ordered by specificity and split freely", func(t *testing.T) {
+		rules := append(filler(15),
+			backendRule("/v1", gwapiv1.PathMatchPathPrefix, "short"),
+			backendRule("/v1/completions", gwapiv1.PathMatchPathPrefix, "long"))
+		shards, err := shardHTTPRouteRules(rules)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if shardOf(t, shards, "/v1", "short") == shardOf(t, shards, "/v1/completions", "long") {
+			t.Fatalf("rules with different precedence keys should pack in order, not group")
+		}
+	})
+
+	t.Run("regular expressions are treated as overlapping", func(t *testing.T) {
+		rules := append(filler(15),
+			backendRule("/v1/a.*", gwapiv1.PathMatchRegularExpression, "x"),
+			backendRule("/v1/b.*", gwapiv1.PathMatchRegularExpression, "y"))
+		shards, err := shardHTTPRouteRules(rules)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if shardOf(t, shards, "/v1/a.*", "x") != shardOf(t, shards, "/v1/b.*", "y") {
+			t.Fatalf("regex rules of the same key must stay together")
+		}
+	})
+
+	t.Run("exact headers with different values are disjoint", func(t *testing.T) {
+		withHeader := func(backend, model string) gwapiv1.HTTPRouteRule {
+			r := backendRule("/v1/chat", gwapiv1.PathMatchPathPrefix, backend)
+			r.Matches[0].Headers = []gwapiv1.HTTPHeaderMatch{{Name: "X-Gateway-Model-Name", Value: model}}
+			return r
+		}
+		rules := append(filler(15), withHeader("m1", "model-1"), withHeader("m2", "model-2"))
+		shards, err := shardHTTPRouteRules(rules)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(shards) != 2 {
+			t.Fatalf("got %d shards, want 2", len(shards))
+		}
+	})
+
+	t.Run("same action rules never group, so lora chunks split", func(t *testing.T) {
+		shards, err := shardHTTPRouteRules([]gwapiv1.HTTPRouteRule{pathRule("lora", 300)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(shards) != 3 {
+			t.Fatalf("got %d shards, want 3", len(shards))
+		}
+	})
+
+	t.Run("an order-dependent group larger than one route is rejected", func(t *testing.T) {
+		var rules []gwapiv1.HTTPRouteRule
+		for i := range 17 {
+			rules = append(rules, backendRule("/v1/chat", gwapiv1.PathMatchPathPrefix, fmt.Sprintf("b%d", i)))
+		}
+		_, err := shardHTTPRouteRules(rules)
+		if !errors.Is(err, ErrPreconditionNotMet) {
+			t.Fatalf("want ErrPreconditionNotMet, got %v", err)
+		}
+		if !strings.Contains(err.Error(), "17 rules") {
+			t.Fatalf("message should give the group size: %v", err)
+		}
+	})
 }

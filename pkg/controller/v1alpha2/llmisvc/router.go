@@ -290,7 +290,10 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 
 		// The logical route may hold more rules and matches than one HTTPRoute
 		// allows, so it is written as one or more resources that each fit.
-		shards := shardHTTPRoute(llmSvc, expectedHTTPRoute)
+		shards, err := shardHTTPRoute(llmSvc, expectedHTTPRoute)
+		if err != nil {
+			return nil, err
+		}
 		if limit, source := httpRouteMaxShardsFor(llmSvc, cfg); len(shards) > limit {
 			return nil, fmt.Errorf("%w: the route needs %d HTTPRoutes but %s allows %d; raise it or reduce the rules and LoRA adapters",
 				ErrPreconditionNotMet, len(shards), source, limit)
