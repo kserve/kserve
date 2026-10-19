@@ -132,12 +132,7 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 
 	if useDisaggregatedSet {
 		// After the other workloads, which clear the conditions of the workloads they delete.
-		targets, err := r.disaggregatedRoleTargets(ctx, disaggregatedSet)
-		if err != nil {
-			llmSvc.MarkMainWorkloadNotReady("ReconcileDisaggregatedSetError", err.Error())
-			return fmt.Errorf("failed to get disaggregated set replica targets: %w", err)
-		}
-		propagateDisaggregatedSetStatus(llmSvc, disaggregatedSet, targets)
+		propagateDisaggregatedSetStatus(llmSvc, disaggregatedSet)
 	}
 
 	// Create Service to expose workload pods
