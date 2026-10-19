@@ -354,6 +354,44 @@ schedulingProfiles:
 				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.TokenizerReady), "True"))
 			})).WithContext(ctx).Should(Succeed())
 		})
+
+		It("should inherit image pull secrets from the main workload template", func(ctx SpecContext) {
+			svcName := "test-llm-tok-pull-secrets"
+			testNs := NewTestNamespace(ctx, envTest)
+			pullSecrets := []corev1.LocalObjectReference{{Name: "registry-pull"}}
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithTemplate(&corev1.PodSpec{ImagePullSecrets: pullSecrets}),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithManagedTokenizer(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				dep := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{
+					Name:      kmeta.ChildName(svcName, "-tokenizer"),
+					Namespace: testNs.Name,
+				}, dep)).To(Succeed())
+
+				g.Expect(dep.Spec.Template.Spec.ImagePullSecrets).To(Equal(pullSecrets))
+				g.Expect(dep.Spec.Template.Spec.ServiceAccountName).To(BeEmpty())
+			}).WithContext(ctx).Should(Succeed())
+
+			current := &v1alpha2.LLMInferenceService{}
+			Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+			if tokenizerTemplate := current.Spec.Router.Scheduler.Tokenizer.Template; tokenizerTemplate != nil {
+				Expect(tokenizerTemplate.ImagePullSecrets).To(BeEmpty())
+			}
+		})
 	})
 
 	Context("When tokenizer is not configured", func() {

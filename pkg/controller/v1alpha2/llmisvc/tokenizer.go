@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"maps"
 	"path"
+	"slices"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -304,6 +305,14 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 		}
 	}
 
+	if len(d.Spec.Template.Spec.ImagePullSecrets) == 0 {
+		imagePullSecrets, err := r.inheritedTokenizerImagePullSecrets(ctx, llmSvc, existingServiceAccount)
+		if err != nil {
+			return d, err
+		}
+		d.Spec.Template.Spec.ImagePullSecrets = imagePullSecrets
+	}
+
 	config, err := r.loadConfig(ctx)
 	if err != nil {
 		return d, fmt.Errorf("failed to load config for tokenizer deployment: %w", err)
@@ -316,6 +325,39 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 
 	log.FromContext(ctx).V(2).Info("Expected tokenizer deployment", "deployment", d)
 	return d, nil
+}
+
+// inheritedTokenizerImagePullSecrets returns the first non-empty image pull secret list
+// from, in order: the scheduler template, the main workload template, the scheduler
+// ServiceAccount and the main workload ServiceAccount. Only the list is copied; the
+// tokenizer keeps its own ServiceAccount. It returns nil when no list is found, leaving
+// the namespace's default ServiceAccount to supply image pull secrets.
+func (r *LLMISVCReconciler) inheritedTokenizerImagePullSecrets(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, schedulerServiceAccount *corev1.ServiceAccount) ([]corev1.LocalObjectReference, error) {
+	if schedulerTemplate := llmSvc.Spec.Router.Scheduler.Template; schedulerTemplate != nil && len(schedulerTemplate.ImagePullSecrets) > 0 {
+		return slices.Clone(schedulerTemplate.ImagePullSecrets), nil
+	}
+	if llmSvc.Spec.Template != nil && len(llmSvc.Spec.Template.ImagePullSecrets) > 0 {
+		return slices.Clone(llmSvc.Spec.Template.ImagePullSecrets), nil
+	}
+	if schedulerServiceAccount != nil && len(schedulerServiceAccount.ImagePullSecrets) > 0 {
+		return slices.Clone(schedulerServiceAccount.ImagePullSecrets), nil
+	}
+	if llmSvc.Spec.Template == nil || llmSvc.Spec.Template.ServiceAccountName == "" {
+		return nil, nil
+	}
+
+	mainServiceAccount := &corev1.ServiceAccount{}
+	if err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, mainServiceAccount); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to fetch main workload service account %s/%s: %w",
+			llmSvc.Namespace, llmSvc.Spec.Template.ServiceAccountName, err)
+	}
+	if len(mainServiceAccount.ImagePullSecrets) > 0 {
+		return slices.Clone(mainServiceAccount.ImagePullSecrets), nil
+	}
+	return nil, nil
 }
 
 func (r *LLMISVCReconciler) expectedTokenizerService(llmSvc *v1alpha2.LLMInferenceService) *corev1.Service {

@@ -720,6 +720,122 @@ func TestExpectedTokenizerDeploymentTracing(t *testing.T) {
 	}
 }
 
+func TestExpectedTokenizerDeploymentImagePullSecrets(t *testing.T) {
+	pullSecrets := func(names ...string) []corev1.LocalObjectReference {
+		refs := make([]corev1.LocalObjectReference, 0, len(names))
+		for _, name := range names {
+			refs = append(refs, corev1.LocalObjectReference{Name: name})
+		}
+		return refs
+	}
+	serviceAccount := func(name string, secrets ...string) *corev1.ServiceAccount {
+		return &corev1.ServiceAccount{
+			ObjectMeta:       metav1.ObjectMeta{Name: name, Namespace: disaggTestNamespace},
+			ImagePullSecrets: pullSecrets(secrets...),
+		}
+	}
+
+	for _, tt := range []struct {
+		name            string
+		tokenizer       []corev1.LocalObjectReference
+		scheduler       []corev1.LocalObjectReference
+		main            []corev1.LocalObjectReference
+		schedulerSAName string
+		mainSAName      string
+		serviceAccounts []*corev1.ServiceAccount
+		want            []corev1.LocalObjectReference
+	}{
+		{
+			name:            "tokenizer list is kept as is",
+			tokenizer:       pullSecrets("tokenizer-pull"),
+			scheduler:       pullSecrets("scheduler-pull"),
+			main:            pullSecrets("main-pull"),
+			schedulerSAName: "scheduler-sa",
+			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("scheduler-sa", "scheduler-sa-pull")},
+			want:            pullSecrets("tokenizer-pull"),
+		},
+		{
+			name:      "scheduler template list is preferred over main template list",
+			scheduler: pullSecrets("scheduler-pull", "scheduler-pull-2"),
+			main:      pullSecrets("main-pull"),
+			want:      pullSecrets("scheduler-pull", "scheduler-pull-2"),
+		},
+		{
+			name: "main template list is used when scheduler template has none",
+			main: pullSecrets("main-pull"),
+			want: pullSecrets("main-pull"),
+		},
+		{
+			name:            "template lists are preferred over service account lists",
+			main:            pullSecrets("main-pull"),
+			schedulerSAName: "scheduler-sa",
+			mainSAName:      "main-sa",
+			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("scheduler-sa", "scheduler-sa-pull"), serviceAccount("main-sa", "main-sa-pull")},
+			want:            pullSecrets("main-pull"),
+		},
+		{
+			name:            "scheduler service account list is used when templates have none",
+			schedulerSAName: "scheduler-sa",
+			mainSAName:      "main-sa",
+			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("scheduler-sa", "scheduler-sa-pull"), serviceAccount("main-sa", "main-sa-pull")},
+			want:            pullSecrets("scheduler-sa-pull"),
+		},
+		{
+			name:            "main service account list is used when scheduler service account has none",
+			schedulerSAName: "scheduler-sa",
+			mainSAName:      "main-sa",
+			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("scheduler-sa"), serviceAccount("main-sa", "main-sa-pull")},
+			want:            pullSecrets("main-sa-pull"),
+		},
+		{
+			name:            "missing service accounts are skipped",
+			schedulerSAName: "missing-scheduler-sa",
+			mainSAName:      "missing-main-sa",
+		},
+		{
+			name: "no list anywhere leaves the tokenizer list empty",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			r := disaggTestReconciler(t)
+			g.Expect(r.Create(t.Context(), roleTestInferenceServiceConfigMap())).To(Succeed())
+			for _, sa := range tt.serviceAccounts {
+				g.Expect(r.Create(t.Context(), sa)).To(Succeed())
+			}
+
+			svc := disaggTestService(t)
+			svc.Spec.Template.ImagePullSecrets = tt.main
+			svc.Spec.Template.ServiceAccountName = tt.mainSAName
+			svc.Spec.Router = &v1alpha2.RouterSpec{Scheduler: &v1alpha2.SchedulerSpec{
+				Template: &corev1.PodSpec{
+					ServiceAccountName: tt.schedulerSAName,
+					ImagePullSecrets:   tt.scheduler,
+				},
+				Tokenizer: &v1alpha2.TokenizerSpec{Template: &corev1.PodSpec{
+					Containers:       []corev1.Container{{Name: "main"}},
+					ImagePullSecrets: tt.tokenizer,
+				}},
+			}}
+			before := svc.DeepCopy()
+
+			d, err := r.expectedTokenizerDeployment(t.Context(), svc)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(d.Spec.Template.Spec.ServiceAccountName).To(BeEmpty())
+			if tt.want == nil {
+				g.Expect(d.Spec.Template.Spec.ImagePullSecrets).To(BeEmpty())
+			} else {
+				g.Expect(d.Spec.Template.Spec.ImagePullSecrets).To(Equal(tt.want))
+			}
+			g.Expect(svc.Spec).To(Equal(before.Spec))
+
+			again, err := r.expectedTokenizerDeployment(t.Context(), svc)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(again.Spec.Template).To(Equal(d.Spec.Template))
+		})
+	}
+}
+
 func TestShouldDeleteTokenizer(t *testing.T) {
 	tests := []struct {
 		name   string
