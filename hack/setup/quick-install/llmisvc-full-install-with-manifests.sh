@@ -8915,8 +8915,6 @@ spec:
                               type: object
                             pvc:
                               properties:
-                                evictorEnabled:
-                                  type: boolean
                                 ref:
                                   properties:
                                     evictorSecurityContext:
@@ -9097,8 +9095,7 @@ spec:
                               x-kubernetes-validations:
                               - message: evictor requires a writable PVC; ReadOnlyMany
                                   cannot delete cache files
-                                rule: '!(has(self.evictorEnabled) && self.evictorEnabled
-                                  && has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
+                                rule: '!(has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
                     maxItems: 8
@@ -9206,8 +9203,6 @@ spec:
                                   type: object
                                 pvc:
                                   properties:
-                                    evictorEnabled:
-                                      type: boolean
                                     ref:
                                       properties:
                                         evictorSecurityContext:
@@ -9388,8 +9383,8 @@ spec:
                                   x-kubernetes-validations:
                                   - message: evictor requires a writable PVC; ReadOnlyMany
                                       cannot delete cache files
-                                    rule: '!(has(self.evictorEnabled) && self.evictorEnabled
-                                      && has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
+                                    rule: '!(has(self.spec) && ''ReadOnlyMany'' in
+                                      self.spec.accessModes)'
                               type: object
                           type: object
                         maxItems: 8
@@ -34852,8 +34847,6 @@ spec:
                               type: object
                             pvc:
                               properties:
-                                evictorEnabled:
-                                  type: boolean
                                 ref:
                                   properties:
                                     evictorSecurityContext:
@@ -35034,8 +35027,7 @@ spec:
                               x-kubernetes-validations:
                               - message: evictor requires a writable PVC; ReadOnlyMany
                                   cannot delete cache files
-                                rule: '!(has(self.evictorEnabled) && self.evictorEnabled
-                                  && has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
+                                rule: '!(has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
                     maxItems: 8
@@ -35146,8 +35138,6 @@ spec:
                                   type: object
                                 pvc:
                                   properties:
-                                    evictorEnabled:
-                                      type: boolean
                                     ref:
                                       properties:
                                         evictorSecurityContext:
@@ -35328,8 +35318,8 @@ spec:
                                   x-kubernetes-validations:
                                   - message: evictor requires a writable PVC; ReadOnlyMany
                                       cannot delete cache files
-                                    rule: '!(has(self.evictorEnabled) && self.evictorEnabled
-                                      && has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
+                                    rule: '!(has(self.spec) && ''ReadOnlyMany'' in
+                                      self.spec.accessModes)'
                               type: object
                           type: object
                         maxItems: 8
@@ -60876,8 +60866,6 @@ spec:
                               type: object
                             pvc:
                               properties:
-                                evictorEnabled:
-                                  type: boolean
                                 ref:
                                   properties:
                                     evictorSecurityContext:
@@ -61058,8 +61046,7 @@ spec:
                               x-kubernetes-validations:
                               - message: evictor requires a writable PVC; ReadOnlyMany
                                   cannot delete cache files
-                                rule: '!(has(self.evictorEnabled) && self.evictorEnabled
-                                  && has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
+                                rule: '!(has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
                     maxItems: 8
@@ -61167,8 +61154,6 @@ spec:
                                   type: object
                                 pvc:
                                   properties:
-                                    evictorEnabled:
-                                      type: boolean
                                     ref:
                                       properties:
                                         evictorSecurityContext:
@@ -61349,8 +61334,8 @@ spec:
                                   x-kubernetes-validations:
                                   - message: evictor requires a writable PVC; ReadOnlyMany
                                       cannot delete cache files
-                                    rule: '!(has(self.evictorEnabled) && self.evictorEnabled
-                                      && has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
+                                    rule: '!(has(self.spec) && ''ReadOnlyMany'' in
+                                      self.spec.accessModes)'
                               type: object
                           type: object
                         maxItems: 8
@@ -87697,8 +87682,6 @@ spec:
                               type: object
                             pvc:
                               properties:
-                                evictorEnabled:
-                                  type: boolean
                                 ref:
                                   properties:
                                     evictorSecurityContext:
@@ -87879,8 +87862,7 @@ spec:
                               x-kubernetes-validations:
                               - message: evictor requires a writable PVC; ReadOnlyMany
                                   cannot delete cache files
-                                rule: '!(has(self.evictorEnabled) && self.evictorEnabled
-                                  && has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
+                                rule: '!(has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
                     maxItems: 8
@@ -87991,8 +87973,6 @@ spec:
                                   type: object
                                 pvc:
                                   properties:
-                                    evictorEnabled:
-                                      type: boolean
                                     ref:
                                       properties:
                                         evictorSecurityContext:
@@ -88173,8 +88153,8 @@ spec:
                                   x-kubernetes-validations:
                                   - message: evictor requires a writable PVC; ReadOnlyMany
                                       cannot delete cache files
-                                    rule: '!(has(self.evictorEnabled) && self.evictorEnabled
-                                      && has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
+                                    rule: '!(has(self.spec) && ''ReadOnlyMany'' in
+                                      self.spec.accessModes)'
                               type: object
                           type: object
                         maxItems: 8

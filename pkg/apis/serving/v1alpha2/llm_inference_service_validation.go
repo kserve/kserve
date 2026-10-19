@@ -783,7 +783,7 @@ func ValidateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Pat
 					if fs.PVC.Ref != nil && fs.PVC.Ref.Name == "" {
 						allErrs = append(allErrs, field.Required(pvcp.Child("ref").Child("name"), "name is required"))
 					}
-					if fs.PVC.EvictorEnabled != nil && *fs.PVC.EvictorEnabled && fs.PVC.Spec != nil {
+					if fs.PVC.Spec != nil {
 						for _, accessMode := range fs.PVC.Spec.AccessModes {
 							if accessMode == corev1.ReadOnlyMany {
 								allErrs = append(allErrs, field.Invalid(pvcp.Child("spec").Child("accessModes"), fs.PVC.Spec.AccessModes,
@@ -791,11 +791,6 @@ func ValidateKVCacheOffloadingSpec(kv *KVCacheOffloadingSpec, fldPath *field.Pat
 								break
 							}
 						}
-					}
-					if fs.PVC.Ref != nil && fs.PVC.Ref.EvictorSecurityContext != nil &&
-						(fs.PVC.EvictorEnabled == nil || !*fs.PVC.EvictorEnabled) {
-						allErrs = append(allErrs, field.Invalid(pvcp.Child("ref").Child("evictorSecurityContext"), fs.PVC.Ref.EvictorSecurityContext,
-							"evictorSecurityContext requires evictorEnabled=true"))
 					}
 				default:
 					allErrs = append(allErrs, field.Invalid(pvcp, fs.PVC,

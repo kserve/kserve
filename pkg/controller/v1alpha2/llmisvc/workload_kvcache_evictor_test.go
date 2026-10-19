@@ -43,8 +43,7 @@ func TestAttachPVCEvictor(t *testing.T) {
 	}
 	secondary := []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 		PVC: &v1alpha2.PVCTierSpec{
-			EvictorEnabled: ptr.To(true),
-			Spec:           &corev1.PersistentVolumeClaimSpec{},
+			Spec: &corev1.PersistentVolumeClaimSpec{},
 		},
 	}}}
 
@@ -100,8 +99,7 @@ func TestExpectedPVCEvictorDeploymentForPVCRef(t *testing.T) {
 				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 						PVC: &v1alpha2.PVCTierSpec{
-							EvictorEnabled: ptr.To(true),
-							Ref:            &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache/"},
+							Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache/"},
 						},
 					}}},
 				},
@@ -400,8 +398,7 @@ func TestReconcilePVCEvictorsDeletesDuplicateDeployments(t *testing.T) {
 			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 					PVC: &v1alpha2.PVCTierSpec{
-						EvictorEnabled: ptr.To(true),
-						Ref:            &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"},
+						Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"},
 					},
 				}}},
 			},
@@ -450,8 +447,7 @@ func TestReconcilePVCEvictorsSharedPVCAndFinalCleanup(t *testing.T) {
 				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 						PVC: &v1alpha2.PVCTierSpec{
-							EvictorEnabled: ptr.To(true),
-							Ref:            &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"},
+							Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"},
 						},
 					}}},
 				},
@@ -560,8 +556,7 @@ func TestPVCEvictorRejectsReadOnlyMany(t *testing.T) {
 func TestAddPVCEvictorConsumerLabels(t *testing.T) {
 	labels := addPVCEvictorConsumerLabels(nil, []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 		PVC: &v1alpha2.PVCTierSpec{
-			EvictorEnabled: ptr.To(true),
-			Ref:            &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache/"},
+			Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache/"},
 		},
 	}}})
 
@@ -575,8 +570,7 @@ func TestKVCacheSecondaryRootDirForPVCEvictor(t *testing.T) {
 		CPU: resource.MustParse("10Gi"),
 		Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 			PVC: &v1alpha2.PVCTierSpec{
-				EvictorEnabled: ptr.To(true),
-				Ref:            &v1alpha2.PVCRefTierSpec{Name: "shared-pvc"},
+				Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc"},
 			},
 		}}},
 	}

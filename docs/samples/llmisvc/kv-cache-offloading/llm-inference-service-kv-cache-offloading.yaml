@@ -59,10 +59,9 @@ spec:
       # Do not use the evictor with a pvc.ref claim using ReadWriteOncePod;
       # use ReadWriteOnce or ReadWriteMany instead.
       # Set evictorSecurityContext when the PVC requires explicit UID/GID values.
-      # Services sharing this PVC and path must use matching values.
+      # Services sharing this PVC and path must use matching evictor settings.
       # - fileSystem:
       #     pvc:
-      #       evictorEnabled: true
       #       ref:
       #         name: my-shared-kv-cache-pvc
       #         path: kv-cache/   # optional subdirectory within the PVC
