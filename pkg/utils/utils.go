@@ -151,8 +151,9 @@ func MergeEnvs(baseEnvs []corev1.EnvVar, overrideEnvs []corev1.EnvVar) []corev1.
 				// other half of the base entry behind: a ValueFrom override would be
 				// dropped, and a Value override would sit next to the base's
 				// ValueFrom, which the API server rejects with "valueFrom: may not
-				// be specified when `value` is not empty".
-				baseEnvs[i] = override
+				// be specified when `value` is not empty". ValueFrom is a pointer,
+				// so deep copy the override to keep the result independent of it.
+				baseEnvs[i] = *override.DeepCopy()
 				break
 			}
 		}
