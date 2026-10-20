@@ -606,6 +606,9 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 			if err := validateKEDAConfig(compExtSpec.AutoScaling.KEDA, compExtSpec.MinReplicas); err != nil {
 				return err
 			}
+			if err := validateKEDAFallbackMetrics(compExtSpec.AutoScaling.KEDA, compExtSpec.AutoScaling.Metrics); err != nil {
+				return err
+			}
 		}
 
 		// Validate trigger names are unique
@@ -623,6 +626,11 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 			case ResourceMetricSourceType:
 				if metric.Resource == nil {
 					return errors.New("metricSpec.Resource is not set for resource metric source type")
+				}
+				// KEDA's ValidateTriggers rejects useCachedMetrics on cpu, memory and cron
+				// scalers, so reject it here rather than letting ScaledObject creation fail.
+				if metric.UseCachedMetrics {
+					return fmt.Errorf("useCachedMetrics is not supported for the %s scaler", metric.Resource.Name)
 				}
 				switch metric.Resource.Name {
 				case ResourceMetricCPU:
@@ -678,6 +686,32 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 		}
 	}
 	return nil
+}
+
+// validateKEDAFallbackMetrics mirrors KEDA's CheckFallbackValid: a fallback is only
+// honoured when at least one trigger is neither cpu nor memory, because those scalers
+// cannot report the averaged metric the fallback relies on. Scaling modifiers compose
+// their own metric, so KEDA exempts them from the rule. Without this check the
+// InferenceService is admitted and KEDA then rejects the ScaledObject at reconcile.
+func validateKEDAFallbackMetrics(keda *KEDAScalingConfig, metrics []MetricsSpec) error {
+	if keda == nil || keda.Fallback == nil {
+		return nil
+	}
+
+	if keda.Advanced != nil {
+		sm := keda.Advanced.ScalingModifiers
+		if sm.Formula != "" || sm.Target != "" || sm.ActivationTarget != "" || sm.MetricType != "" {
+			return nil
+		}
+	}
+
+	for _, metric := range metrics {
+		if metric.Type != ResourceMetricSourceType {
+			return nil
+		}
+	}
+
+	return errors.New("fallback requires at least one metric that is not a cpu or memory resource metric")
 }
 
 // validateKEDAConfig validates KEDA-specific configuration

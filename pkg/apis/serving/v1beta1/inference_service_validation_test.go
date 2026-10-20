@@ -3316,6 +3316,138 @@ func TestValidateScalingKedaCompExtension_WithKEDAConfig(t *testing.T) {
 			},
 			errMatcher: gomega.BeNil(),
 		},
+		"UseCachedMetrics on a cpu resource metric - should error": {
+			compExtSpec: &ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type:             ResourceMetricSourceType,
+							UseCachedMetrics: true,
+							Resource: &ResourceMetricSource{
+								Name: ResourceMetricCPU,
+								Target: MetricTarget{
+									Type:               UtilizationMetricType,
+									AverageUtilization: ptr.To(int32(80)),
+								},
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("useCachedMetrics is not supported for the cpu scaler")),
+		},
+		"UseCachedMetrics on an external metric - should pass": {
+			compExtSpec: &ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type:             ExternalMetricSourceType,
+							UseCachedMetrics: true,
+							External: &ExternalMetricSource{
+								Metric: ExternalMetrics{
+									Backend: PrometheusBackend,
+									Query:   "avg(vllm_requests_running)",
+								},
+								Target: MetricTarget{
+									Type:  ValueMetricType,
+									Value: NewMetricQuantity("10"),
+								},
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"Fallback with only cpu metrics - should error": {
+			compExtSpec: &ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type: ResourceMetricSourceType,
+							Resource: &ResourceMetricSource{
+								Name: ResourceMetricCPU,
+								Target: MetricTarget{
+									Type:               UtilizationMetricType,
+									AverageUtilization: ptr.To(int32(80)),
+								},
+							},
+						},
+					},
+					KEDA: &KEDAScalingConfig{
+						Fallback: &kedav1alpha1.Fallback{
+							FailureThreshold: 3,
+							Replicas:         2,
+						},
+					},
+				},
+			},
+			errMatcher: gomega.MatchError(gomega.ContainSubstring("fallback requires at least one metric that is not a cpu or memory resource metric")),
+		},
+		"Fallback with an external metric - should pass": {
+			compExtSpec: &ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type: ExternalMetricSourceType,
+							External: &ExternalMetricSource{
+								Metric: ExternalMetrics{
+									Backend: PrometheusBackend,
+									Query:   "avg(vllm_requests_running)",
+								},
+								Target: MetricTarget{
+									Type:  ValueMetricType,
+									Value: NewMetricQuantity("10"),
+								},
+							},
+						},
+					},
+					KEDA: &KEDAScalingConfig{
+						Fallback: &kedav1alpha1.Fallback{
+							FailureThreshold: 3,
+							Replicas:         2,
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
+		"Fallback with only cpu metrics but scaling modifiers set - should pass": {
+			compExtSpec: &ComponentExtensionSpec{
+				MinReplicas: ptr.To(int32(1)),
+				AutoScaling: &AutoScalingSpec{
+					Metrics: []MetricsSpec{
+						{
+							Type: ResourceMetricSourceType,
+							Resource: &ResourceMetricSource{
+								Name: ResourceMetricCPU,
+								Target: MetricTarget{
+									Type:               UtilizationMetricType,
+									AverageUtilization: ptr.To(int32(80)),
+								},
+							},
+						},
+					},
+					KEDA: &KEDAScalingConfig{
+						Fallback: &kedav1alpha1.Fallback{
+							FailureThreshold: 3,
+							Replicas:         2,
+						},
+						Advanced: &kedav1alpha1.AdvancedConfig{
+							ScalingModifiers: kedav1alpha1.ScalingModifiers{
+								Formula: "cpu_metric",
+								Target:  "50",
+							},
+						},
+					},
+				},
+			},
+			errMatcher: gomega.BeNil(),
+		},
 		"Duplicate trigger names - should error": {
 			compExtSpec: &ComponentExtensionSpec{
 				MinReplicas: ptr.To(int32(1)),
