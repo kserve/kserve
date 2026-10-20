@@ -62,6 +62,8 @@ kserve:
     tolerations: []
     topologySpreadConstraints: []
     affinity: {}
+    # -- Name of an existing PriorityClass for kserve-controller-manager pods. Empty omits priorityClassName. This chart does not create the PriorityClass.
+    priorityClassName: ''
     image: kserve/kserve-controller
     tag: ''
     imagePullPolicy: Always

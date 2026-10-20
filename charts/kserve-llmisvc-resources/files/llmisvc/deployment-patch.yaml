@@ -57,6 +57,9 @@ spec:
     spec:
       serviceAccountName: {{ include "llm-isvc-resources.serviceAccountName" . }}
       {{- include "llm-isvc-resources.imagePullSecrets" . | nindent 6 }}
+      {{- with .Values.kserve.llmisvc.controller.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
       {{- with .Values.kserve.llmisvc.controller.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

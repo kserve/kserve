@@ -93,6 +93,10 @@
                                 "topologySpreadConstraints": {
                                     "type": "array",
                                     "description": "Topology spread constraints for pod assignment"
+                                },
+                                "priorityClassName": {
+                                    "type": "string",
+                                    "description": "Name of an existing PriorityClass for llmisvc-controller-manager pods. Empty omits priorityClassName. This chart does not create the PriorityClass."
                                 }
                             }
                         }

@@ -184,6 +184,8 @@ kserve:
       tolerations: []
       topologySpreadConstraints: []
       affinity: {}
+      # -- Name of an existing PriorityClass for llmisvc-controller-manager pods. Empty omits priorityClassName. This chart does not create the PriorityClass.
+      priorityClassName: ''
       resources:
         limits:
           cpu: 100m
