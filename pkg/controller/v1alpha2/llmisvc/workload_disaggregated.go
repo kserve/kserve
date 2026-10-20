@@ -257,7 +257,7 @@ func (r *LLMISVCReconciler) reconcileDisaggregatedSet(ctx context.Context, llmSv
 	if current == nil {
 		err = Create(ctx, r, llmSvc, expected)
 	} else {
-		err = Update(ctx, r, llmSvc, current, expected, semanticDisaggregatedSetIsEqual)
+		err = Update(ctx, r, llmSvc, current, expected, semanticDisaggregatedSetIsEqual, PreserveDisaggregatedSetControllerAnnotations())
 	}
 	if err != nil {
 		return nil, err
@@ -267,6 +267,27 @@ func (r *LLMISVCReconciler) reconcileDisaggregatedSet(ctx context.Context, llmSv
 	// dry-run response, whose generation is ahead of the stored one if the stored object
 	// has a field the controller does not set, so readiness would never catch up.
 	return r.currentDisaggregatedSet(ctx, llmSvc)
+}
+
+// PreserveDisaggregatedSetControllerAnnotations returns an UpdateOption that copies the
+// annotations in the DisaggregatedSet API group from the stored DisaggregatedSet to the
+// one being written, unless the latter sets them. Those annotations are set by the
+// DisaggregatedSet controller.
+func PreserveDisaggregatedSetControllerAnnotations() UpdateOption[*disaggregatedsetv1.DisaggregatedSet] {
+	return AfterDryRun(func(expected, expectedGiven, curr *disaggregatedsetv1.DisaggregatedSet) {
+		for k, v := range curr.Annotations {
+			if !strings.HasPrefix(k, apiGroupDisaggregatedSet+"/") {
+				continue
+			}
+			if _, set := expectedGiven.Annotations[k]; set {
+				continue
+			}
+			if expected.Annotations == nil {
+				expected.Annotations = map[string]string{}
+			}
+			expected.Annotations[k] = v
+		}
+	})
 }
 
 // deleteDisaggregatedSet removes the DisaggregatedSet of a service that does not run on
