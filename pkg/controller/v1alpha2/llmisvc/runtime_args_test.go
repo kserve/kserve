@@ -42,7 +42,7 @@ func TestMapperForRuntime(t *testing.T) {
 		{name: "nil defaults to vllm", runtime: nil, wantVLLM: true},
 		{name: "empty string defaults to vllm", runtime: ptr.To(""), wantVLLM: true},
 		{name: "sglang runtime", runtime: ptr.To(v1alpha2.SGLangRuntimeName), wantSGLang: true},
-		{name: "unknown runtime defaults to vllm", runtime: ptr.To("unknown-runtime"), wantVLLM: true},
+		{name: "custom runtime uses the warned vllm-compatible mapping", runtime: ptr.To("team-vllm-runtime"), wantVLLM: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

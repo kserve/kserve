@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -31,6 +32,7 @@ import (
 	"knative.dev/pkg/apis"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -92,6 +94,44 @@ func newBaseLLMInferenceService() *LLMInferenceService {
 			},
 		},
 	}
+}
+
+func TestValidateCreateWarnsForCustomRuntimeWithoutRejectingIt(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	svc := newBaseLLMInferenceService()
+	svc.Spec.Runtime = ptr.To("team-vllm-runtime")
+
+	warnings, err := validator.ValidateCreate(t.Context(), svc)
+
+	require.NoError(t, err)
+	require.Len(t, warnings, 1)
+	assert.Contains(t, warnings[0], `runtime "team-vllm-runtime" is not a well-known runtime`)
+	assert.Contains(t, warnings[0], "vLLM-compatible arguments")
+}
+
+func TestValidateCreateRejectsSGLangWhenClusterTLSIsEnabled(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{
+		TLSConfigEnabledFunc: func(context.Context) (bool, error) { return true, nil },
+	}
+	svc := newBaseLLMInferenceService()
+	svc.Spec.Runtime = ptr.To(v1alpha2.SGLangRuntimeName)
+
+	warnings, err := validator.ValidateCreate(t.Context(), svc)
+
+	assert.Empty(t, warnings)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `runtime "kserve-llm-sglang" does not support TLS`)
+}
+
+func TestValidateCreateRejectsUnsupportedSGLangFeature(t *testing.T) {
+	svc := newBaseLLMInferenceService()
+	svc.Spec.Runtime = ptr.To(v1alpha2.SGLangRuntimeName)
+	svc.Spec.KVCacheOffloading = &KVCacheOffloadingSpec{}
+
+	warnings, err := (&LLMInferenceServiceValidator{}).ValidateCreate(t.Context(), svc)
+
+	assert.Empty(t, warnings)
+	require.ErrorContains(t, err, `runtime "kserve-llm-sglang" does not support KV cache offloading`)
 }
 
 func TestValidateUpdate_DeletionBypass(t *testing.T) {

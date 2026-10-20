@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"testing"
@@ -218,6 +219,95 @@ func newBaseLLMInferenceServiceV1Alpha2() *LLMInferenceService {
 			},
 		},
 	}
+}
+
+func TestValidateCreateWarnsForCustomRuntimeWithoutRejectingIt(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	svc := newBaseLLMInferenceServiceV1Alpha2()
+	svc.Spec.Runtime = ptr.To("team-vllm-runtime")
+
+	warnings, err := validator.ValidateCreate(t.Context(), svc)
+
+	require.NoError(t, err)
+	require.Len(t, warnings, 1)
+	assert.Contains(t, warnings[0], `runtime "team-vllm-runtime" is not a well-known runtime`)
+	assert.Contains(t, warnings[0], "vLLM-compatible arguments")
+}
+
+func TestValidateCreateRejectsSGLangWhenClusterTLSIsEnabled(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{
+		TLSConfigEnabledFunc: func(context.Context) (bool, error) { return true, nil },
+	}
+	svc := newBaseLLMInferenceServiceV1Alpha2()
+	svc.Spec.Runtime = ptr.To(SGLangRuntimeName)
+
+	warnings, err := validator.ValidateCreate(t.Context(), svc)
+
+	assert.Empty(t, warnings)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), `runtime "kserve-llm-sglang" does not support TLS`)
+}
+
+func TestValidateCreateRejectsUnsupportedSGLangFeatures(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(*LLMInferenceService)
+		wantErr string
+	}{
+		{
+			name: "KV cache offloading",
+			mutate: func(svc *LLMInferenceService) {
+				svc.Spec.KVCacheOffloading = &KVCacheOffloadingSpec{}
+			},
+			wantErr: `runtime "kserve-llm-sglang" does not support KV cache offloading`,
+		},
+		{
+			name: "multi-node deployment",
+			mutate: func(svc *LLMInferenceService) {
+				svc.Spec.Worker = &corev1.PodSpec{}
+			},
+			wantErr: `runtime "kserve-llm-sglang" does not support multi-node deployments`,
+		},
+		{
+			name: "prefill/decode deployment",
+			mutate: func(svc *LLMInferenceService) {
+				svc.Spec.Prefill = &WorkloadSpec{}
+			},
+			wantErr: `runtime "kserve-llm-sglang" does not support prefill/decode disaggregated serving`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceServiceV1Alpha2()
+			svc.Spec.Runtime = ptr.To(SGLangRuntimeName)
+			tt.mutate(svc)
+
+			warnings, err := (&LLMInferenceServiceValidator{}).ValidateCreate(t.Context(), svc)
+
+			assert.Empty(t, warnings)
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestValidateCreateAcceptsSupportedSGLangLoRAAndTracing(t *testing.T) {
+	svc := newBaseLLMInferenceServiceV1Alpha2()
+	svc.Spec.Runtime = ptr.To(SGLangRuntimeName)
+	svc.Spec.Model.LoRA = &LoRASpec{
+		Adapters: []LLMModelSpec{{
+			Name: ptr.To("chat-adapter"),
+			URI:  apis.URL{Scheme: "hf", Host: "org/chat-adapter"},
+		}},
+	}
+	svc.Spec.Tracing = &TracingSpec{
+		ExporterEndpoint: ptr.To("http://otel-collector:4317"),
+	}
+
+	warnings, err := (&LLMInferenceServiceValidator{}).ValidateCreate(t.Context(), svc)
+
+	assert.Empty(t, warnings)
+	require.NoError(t, err)
 }
 
 func TestValidateUpdate_DeletionBypass(t *testing.T) {

@@ -45,7 +45,12 @@ import (
 // LLMInferenceServiceValidator is responsible for validating the LLMInferenceService resource
 // when it is created, updated, or deleted.
 // +kubebuilder:object:generate=false
-type LLMInferenceServiceValidator struct{}
+type LLMInferenceServiceValidator struct {
+	// TLSConfigEnabledFunc reports whether cluster-wide LLMI TLS is enabled.
+	// It is injected by the controller binary because the API package does not
+	// own the cluster ConfigMap loading logic.
+	TLSConfigEnabledFunc func(context.Context) (bool, error)
+}
 
 var _ admission.Validator[*LLMInferenceService] = &LLMInferenceServiceValidator{}
 
@@ -89,8 +94,12 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
 	allErrs = append(allErrs, l.validateWVAConfig(prev, llmSvc)...)
 
-	allErrs = append(allErrs, l.validateRuntime(llmSvc)...)
-	allErrs = append(allErrs, l.validateRuntimeFeatures(llmSvc)...)
+	warnings = append(warnings, RuntimeWarnings(llmSvc.Spec.Runtime)...)
+	tlsEnabled, err := l.runtimeTLSEnabled(ctx, llmSvc.Spec.Runtime)
+	if err != nil {
+		return warnings, fmt.Errorf("failed to determine whether LLMI TLS is enabled: %w", err)
+	}
+	allErrs = append(allErrs, l.validateRuntimeFeatures(llmSvc, tlsEnabled)...)
 
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateLoRAAdapters(llmSvc)...)
@@ -160,29 +169,18 @@ func workloadSpec(spec *LLMInferenceServiceSpec) *WorkloadSpec {
 	return &spec.WorkloadSpec
 }
 
-// validateRuntime rejects unknown runtime names on both create and update.
-func (l *LLMInferenceServiceValidator) validateRuntime(llmSvc *LLMInferenceService) field.ErrorList {
-	return ValidateRuntime(llmSvc.Spec.Runtime, field.NewPath("spec", "runtime"))
-}
-
-// ValidateRuntime rejects unknown runtime names. Exported so v1alpha1 can delegate.
-func ValidateRuntime(runtime *string, fldPath *field.Path) field.ErrorList {
-	if runtime == nil || *runtime == "" {
-		return nil
+// runtimeTLSEnabled reads cluster TLS configuration only for SGLang, the one
+// well-known runtime whose TLS capability differs from the default.
+func (l *LLMInferenceServiceValidator) runtimeTLSEnabled(ctx context.Context, runtime *string) (bool, error) {
+	if runtime == nil || *runtime != SGLangRuntimeName || l.TLSConfigEnabledFunc == nil {
+		return false, nil
 	}
-	if !IsKnownRuntime(runtime) {
-		return field.ErrorList{field.NotSupported(
-			fldPath,
-			*runtime,
-			KnownRuntimeNames(),
-		)}
-	}
-	return nil
+	return l.TLSConfigEnabledFunc(ctx)
 }
 
 // validateRuntimeFeatures rejects unsupported runtime + feature combinations,
-// but only when the feature is actually present in the spec.
-func (l *LLMInferenceServiceValidator) validateRuntimeFeatures(llmSvc *LLMInferenceService) field.ErrorList {
+// but only when the feature is actually present in the spec or cluster config.
+func (l *LLMInferenceServiceValidator) validateRuntimeFeatures(llmSvc *LLMInferenceService, tlsEnabled bool) field.ErrorList {
 	return ValidateRuntimeFeatures(
 		llmSvc.Spec.Runtime,
 		llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0,
@@ -190,6 +188,7 @@ func (l *LLMInferenceServiceValidator) validateRuntimeFeatures(llmSvc *LLMInfere
 		llmSvc.Spec.KVCacheOffloading != nil,
 		llmSvc.Spec.Worker != nil,
 		llmSvc.Spec.Prefill != nil,
+		tlsEnabled,
 	)
 }
 
@@ -203,12 +202,14 @@ func ValidateRuntimeFeatures(
 	hasKVCacheOffloading bool,
 	hasWorker bool,
 	hasPrefill bool,
+	hasTLS bool,
 ) field.ErrorList {
 	// Default runtime (nil/empty) is vLLM, which supports everything.
 	if runtime == nil || *runtime == "" {
 		return nil
 	}
-	// Unknown runtimes are caught by ValidateRuntime; skip feature checks.
+	// Custom runtime resource names retain the vLLM-compatible behavior and
+	// receive an admission warning, so only well-known mappings are gated here.
 	if !IsKnownRuntime(runtime) {
 		return nil
 	}
@@ -239,6 +240,11 @@ func ValidateRuntimeFeatures(
 	if hasPrefill && !RuntimeSupportsFeature(runtime, FeatureNamePrefillDecode) {
 		allErrs = append(allErrs, field.Invalid(runtimePath, *runtime,
 			fmt.Sprintf("runtime %q does not support prefill/decode disaggregated serving", *runtime)))
+	}
+
+	if hasTLS && !RuntimeSupportsFeature(runtime, FeatureNameTLS) {
+		allErrs = append(allErrs, field.Invalid(runtimePath, *runtime,
+			fmt.Sprintf("runtime %q does not support TLS", *runtime)))
 	}
 
 	return allErrs

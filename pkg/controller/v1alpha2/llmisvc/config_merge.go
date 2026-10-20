@@ -183,7 +183,8 @@ func isOmniRuntime(runtime *string) bool {
 // template is used; for the omni runtime the omni overlay is layered on top
 // of the base vLLM template so only the omni-specific diff (image, probes,
 // security context) lives in its own config; otherwise the default vLLM
-// template alone.
+// template alone. Custom runtime names retain the vLLM-compatible mapping,
+// with an admission warning.
 func selectSingleNodeTemplateNames(runtime *string) []string {
 	if isOmniRuntime(runtime) {
 		return []string{configTemplateName, configOmniTemplateName}

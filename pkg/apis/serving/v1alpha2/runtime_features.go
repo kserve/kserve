@@ -16,10 +16,16 @@ limitations under the License.
 
 package v1alpha2
 
-import "sort"
+import (
+	"fmt"
+	"sort"
 
-// Well-known runtime names that the system recognizes. An empty/nil runtime is
-// treated as the default (vLLM).
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+)
+
+// Well-known runtime names with engine-specific argument mappings. An empty/nil
+// runtime is treated as the default (vLLM); custom runtime resource names remain
+// valid and use the vLLM-compatible mapping with an admission warning.
 const (
 	// SGLangRuntimeName is the well-known ClusterServingRuntime name shipped
 	// with KServe for the SGLang engine.
@@ -57,8 +63,8 @@ var runtimeFeatureMatrix = map[string]map[string]bool{
 	},
 }
 
-// IsKnownRuntime reports whether the given runtime name (from spec.runtime)
-// is recognized. nil and "" are treated as the vLLM default.
+// IsKnownRuntime reports whether the given runtime name has a well-known
+// argument mapping. nil and "" are treated as the vLLM default.
 func IsKnownRuntime(runtime *string) bool {
 	if runtime == nil || *runtime == "" {
 		return true
@@ -78,6 +84,21 @@ func KnownRuntimeNames() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// RuntimeWarnings reports non-fatal runtime selection ambiguity. Runtime is a
+// ServingRuntime/ClusterServingRuntime resource name, so custom names remain
+// valid for backward compatibility. Only well-known names select non-vLLM
+// argument mappings; callers must be told when the vLLM-compatible mapping is
+// being used rather than silently falling back.
+func RuntimeWarnings(runtime *string) admission.Warnings {
+	if runtime == nil || *runtime == "" || IsKnownRuntime(runtime) {
+		return nil
+	}
+	return admission.Warnings{fmt.Sprintf(
+		"runtime %q is not a well-known runtime; KServe will resolve the referenced ServingRuntime or ClusterServingRuntime but use vLLM-compatible arguments",
+		*runtime,
+	)}
 }
 
 // RuntimeSupportsFeature reports whether the named runtime supports the given

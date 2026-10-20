@@ -859,6 +859,53 @@ func TestAttachLoRAAdaptersNoDuplicateMountPath(t *testing.T) {
 	}
 }
 
+func TestAttachLoRAAdaptersSGLangCapacityIncludesGeneratedAliases(t *testing.T) {
+	t.Parallel()
+
+	spec := loRASpec(t, "billing", "hf://org/billing")
+	spec.Runtime = ptr.To(v1alpha2.SGLangRuntimeName)
+	spec.Model.LoRA.MaxAdapters = ptr.To(int32(1))
+	spec.Model.LoRA.MaxCpuAdapters = ptr.To(int32(1))
+	adapters, err := enumerateLoRAAdapters(spec)
+	require.NoError(t, err)
+
+	podSpec := mainPodSpec()
+	r := &LLMISVCReconciler{}
+	require.NoError(t, r.attachLoRAAdapters(t.Context(), &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns"},
+		Spec:       spec,
+	}, podSpec, adapters))
+
+	assert.Equal(t, []string{
+		"--enable-lora",
+		"--max-loras-per-batch=2",
+		"--max-loaded-loras=2",
+		"--lora-paths",
+		"billing=/mnt/lora/billing",
+		"publishers/ns/models/billing=/mnt/lora/billing",
+	}, podSpec.Containers[0].Args)
+}
+
+func TestAttachLoRAAdaptersVLLMCapacityRemainsLogicalAdapterCount(t *testing.T) {
+	t.Parallel()
+
+	spec := loRASpec(t, "billing", "hf://org/billing")
+	spec.Model.LoRA.MaxAdapters = ptr.To(int32(1))
+	spec.Model.LoRA.MaxCpuAdapters = ptr.To(int32(1))
+	adapters, err := enumerateLoRAAdapters(spec)
+	require.NoError(t, err)
+
+	podSpec := mainPodSpec()
+	r := &LLMISVCReconciler{}
+	require.NoError(t, r.attachLoRAAdapters(t.Context(), &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns"},
+		Spec:       spec,
+	}, podSpec, adapters))
+
+	assert.Contains(t, podSpec.Containers[0].Args, "--max-loras=1")
+	assert.Contains(t, podSpec.Containers[0].Args, "--max-cpu-loras=1")
+}
+
 // Both members of a colliding pair are suffixed, so the outcome does not depend
 // on which one the sort happens to put first.
 func TestEnumerateLoRAAdaptersCollisionSuffix(t *testing.T) {

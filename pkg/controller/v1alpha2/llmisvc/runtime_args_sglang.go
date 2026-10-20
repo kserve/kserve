@@ -49,11 +49,14 @@ func (s *sglangArgMapper) AddLoRAArgs(main *corev1.Container, adapters []loraAda
 	if maxRank != nil {
 		argv = append(argv, fmt.Sprintf("--max-lora-rank=%d", *maxRank))
 	}
+	// SGLang counts every --lora-paths entry against these limits. KServe
+	// emits a short and a publisher-qualified alias for each logical adapter,
+	// so an explicitly configured logical limit must cover both entries.
 	if maxAdapters != nil {
-		argv = append(argv, fmt.Sprintf("--max-loras-per-batch=%d", *maxAdapters))
+		argv = append(argv, fmt.Sprintf("--max-loras-per-batch=%d", max(int(*maxAdapters), len(adapters))))
 	}
 	if maxCpuAdapters != nil {
-		argv = append(argv, fmt.Sprintf("--max-loaded-loras=%d", *maxCpuAdapters))
+		argv = append(argv, fmt.Sprintf("--max-loaded-loras=%d", max(int(*maxCpuAdapters), len(adapters))))
 	}
 	argv = append(argv, "--lora-paths")
 	for _, a := range adapters {
