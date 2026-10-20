@@ -139,7 +139,8 @@ type AutoScalingSpec struct {
 	// +optional
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty"`
 	// KEDA contains KEDA-specific autoscaling configuration.
-	// When specified, KEDA ScaledObject will be used for autoscaling.
+	// It is applied only when the serving.kserve.io/autoscalerClass annotation is set
+	// to "keda"; under any other autoscaler class the field is ignored.
 	// +optional
 	KEDA *KEDAScalingConfig `json:"keda,omitempty"`
 }
@@ -393,29 +394,11 @@ const (
 )
 
 // Default the ComponentExtensionSpec
-func (s *ComponentExtensionSpec) Default(config *InferenceServicesConfig) {
-	// Apply defaults for KEDA configuration
-	if s.AutoScaling != nil && s.AutoScaling.KEDA != nil {
-		keda := s.AutoScaling.KEDA
-
-		// Set default polling interval to 30 seconds if not specified
-		if keda.PollingInterval == nil {
-			defaultPollingInterval := int32(30)
-			keda.PollingInterval = &defaultPollingInterval
-		}
-
-		// Set default cooldown period to 300 seconds (5 minutes) if not specified
-		if keda.CooldownPeriod == nil {
-			defaultCooldownPeriod := int32(300)
-			keda.CooldownPeriod = &defaultCooldownPeriod
-		}
-
-		// Set default fallback behavior to "static" if fallback is specified but behavior is not
-		if keda.Fallback != nil && keda.Fallback.Behavior == "" {
-			keda.Fallback.Behavior = "static"
-		}
-	}
-}
+// KEDA fields are deliberately left unset here. KEDA applies its own defaults when the
+// ScaledObject omits them, and fallback.behavior is defaulted by the CRD schema, so
+// materialising values into the stored spec would only pin them against future upstream
+// changes and make KEDA warn that pollingInterval is irrelevant for minReplicas > 0.
+func (s *ComponentExtensionSpec) Default(config *InferenceServicesConfig) {}
 
 // Validate the ComponentExtensionSpec
 func (s *ComponentExtensionSpec) Validate() error {

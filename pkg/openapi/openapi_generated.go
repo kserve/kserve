@@ -4496,7 +4496,7 @@ func schema_pkg_apis_serving_v1beta1_AutoScalingSpec(ref common.ReferenceCallbac
 					},
 					"keda": {
 						SchemaProps: spec.SchemaProps{
-							Description: "KEDA contains KEDA-specific autoscaling configuration. When specified, KEDA ScaledObject will be used for autoscaling.",
+							Description: "KEDA contains KEDA-specific autoscaling configuration. It is applied only when the serving.kserve.io/autoscalerClass annotation is set to \"keda\"; under any other autoscaler class the field is ignored.",
 							Ref:         ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.KEDAScalingConfig"),
 						},
 					},
