@@ -388,9 +388,58 @@ schedulingProfiles:
 
 			current := &v1alpha2.LLMInferenceService{}
 			Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
-			if tokenizerTemplate := current.Spec.Router.Scheduler.Tokenizer.Template; tokenizerTemplate != nil {
-				Expect(tokenizerTemplate.ImagePullSecrets).To(BeEmpty())
+			Expect(current.Spec.Router.Scheduler.Tokenizer.Template).To(BeNil())
+		})
+
+		It("should keep the tokenizer Deployment unchanged when no template sets image pull secrets", func(ctx SpecContext) {
+			svcName := "test-llm-tok-no-pull-secrets"
+			testNs := NewTestNamespace(ctx, envTest,
+				WithDefaultServiceAccountImagePullSecrets(corev1.LocalObjectReference{Name: "default-pull"}),
+			)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithManagedTokenizer(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			tokenizerKey := types.NamespacedName{
+				Name:      kmeta.ChildName(svcName, "-tokenizer"),
+				Namespace: testNs.Name,
 			}
+			dep := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, tokenizerKey, dep)).To(Succeed())
+				g.Expect(dep.Spec.Template.Spec.ImagePullSecrets).To(BeEmpty())
+			}).WithContext(ctx).Should(Succeed())
+			generation := dep.Generation
+
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current); err != nil {
+					return err
+				}
+				if current.Annotations == nil {
+					current.Annotations = map[string]string{}
+				}
+				current.Annotations["test.kserve.io/reconcile"] = "1"
+				return envTest.Update(ctx, current)
+			})).To(Succeed())
+
+			Consistently(func(g Gomega, ctx context.Context) {
+				current := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, tokenizerKey, current)).To(Succeed())
+				g.Expect(current.Generation).To(Equal(generation))
+				g.Expect(current.Spec.Template.Spec.ImagePullSecrets).To(BeEmpty())
+			}).WithContext(ctx).Should(Succeed())
 		})
 	})
 

@@ -306,7 +306,7 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 	}
 
 	if len(d.Spec.Template.Spec.ImagePullSecrets) == 0 {
-		imagePullSecrets, err := r.inheritedTokenizerImagePullSecrets(ctx, llmSvc, existingServiceAccount)
+		imagePullSecrets, err := r.inheritedTokenizerImagePullSecrets(ctx, llmSvc, &d.Spec.Template.Spec)
 		if err != nil {
 			return d, err
 		}
@@ -327,37 +327,39 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 	return d, nil
 }
 
-// inheritedTokenizerImagePullSecrets returns the first non-empty image pull secret list
-// from, in order: the scheduler template, the main workload template, the scheduler
-// ServiceAccount and the main workload ServiceAccount. Only the list is copied; the
-// tokenizer keeps its own ServiceAccount. It returns nil when no list is found, leaving
-// the namespace's default ServiceAccount to supply image pull secrets.
-func (r *LLMISVCReconciler) inheritedTokenizerImagePullSecrets(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, schedulerServiceAccount *corev1.ServiceAccount) ([]corev1.LocalObjectReference, error) {
+// inheritedTokenizerImagePullSecrets returns the image pull secret list of the scheduler
+// template, or of the main workload template when the scheduler template has none,
+// followed by the image pull secrets of the ServiceAccount the tokenizer Pod runs as
+// (its template ServiceAccount, or the namespace's default one) that are not already
+// listed. It returns nil when neither template has a list.
+func (r *LLMISVCReconciler) inheritedTokenizerImagePullSecrets(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, tokenizerPodSpec *corev1.PodSpec) ([]corev1.LocalObjectReference, error) {
+	var inherited []corev1.LocalObjectReference
 	if schedulerTemplate := llmSvc.Spec.Router.Scheduler.Template; schedulerTemplate != nil && len(schedulerTemplate.ImagePullSecrets) > 0 {
-		return slices.Clone(schedulerTemplate.ImagePullSecrets), nil
-	}
-	if llmSvc.Spec.Template != nil && len(llmSvc.Spec.Template.ImagePullSecrets) > 0 {
-		return slices.Clone(llmSvc.Spec.Template.ImagePullSecrets), nil
-	}
-	if schedulerServiceAccount != nil && len(schedulerServiceAccount.ImagePullSecrets) > 0 {
-		return slices.Clone(schedulerServiceAccount.ImagePullSecrets), nil
-	}
-	if llmSvc.Spec.Template == nil || llmSvc.Spec.Template.ServiceAccountName == "" {
+		inherited = slices.Clone(schedulerTemplate.ImagePullSecrets)
+	} else if llmSvc.Spec.Template != nil && len(llmSvc.Spec.Template.ImagePullSecrets) > 0 {
+		inherited = slices.Clone(llmSvc.Spec.Template.ImagePullSecrets)
+	} else {
 		return nil, nil
 	}
 
-	mainServiceAccount := &corev1.ServiceAccount{}
-	if err := r.Get(ctx, types.NamespacedName{Name: llmSvc.Spec.Template.ServiceAccountName, Namespace: llmSvc.Namespace}, mainServiceAccount); err != nil {
+	serviceAccountName := tokenizerPodSpec.ServiceAccountName
+	if serviceAccountName == "" {
+		serviceAccountName = constants.LLMISVCDefaultServiceAccountName
+	}
+	serviceAccount := &corev1.ServiceAccount{}
+	if err := r.Get(ctx, types.NamespacedName{Name: serviceAccountName, Namespace: llmSvc.Namespace}, serviceAccount); err != nil {
 		if apierrors.IsNotFound(err) {
-			return nil, nil
+			return inherited, nil
 		}
-		return nil, fmt.Errorf("failed to fetch main workload service account %s/%s: %w",
-			llmSvc.Namespace, llmSvc.Spec.Template.ServiceAccountName, err)
+		return nil, fmt.Errorf("failed to fetch tokenizer service account %s/%s: %w",
+			llmSvc.Namespace, serviceAccountName, err)
 	}
-	if len(mainServiceAccount.ImagePullSecrets) > 0 {
-		return slices.Clone(mainServiceAccount.ImagePullSecrets), nil
+	for _, secret := range serviceAccount.ImagePullSecrets {
+		if !slices.ContainsFunc(inherited, func(s corev1.LocalObjectReference) bool { return s.Name == secret.Name }) {
+			inherited = append(inherited, secret)
+		}
 	}
-	return nil, nil
+	return inherited, nil
 }
 
 func (r *LLMISVCReconciler) expectedTokenizerService(llmSvc *v1alpha2.LLMInferenceService) *corev1.Service {

@@ -738,6 +738,7 @@ func TestExpectedTokenizerDeploymentImagePullSecrets(t *testing.T) {
 	for _, tt := range []struct {
 		name            string
 		tokenizer       []corev1.LocalObjectReference
+		tokenizerSAName string
 		scheduler       []corev1.LocalObjectReference
 		main            []corev1.LocalObjectReference
 		schedulerSAName string
@@ -750,8 +751,7 @@ func TestExpectedTokenizerDeploymentImagePullSecrets(t *testing.T) {
 			tokenizer:       pullSecrets("tokenizer-pull"),
 			scheduler:       pullSecrets("scheduler-pull"),
 			main:            pullSecrets("main-pull"),
-			schedulerSAName: "scheduler-sa",
-			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("scheduler-sa", "scheduler-sa-pull")},
+			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("default", "default-pull")},
 			want:            pullSecrets("tokenizer-pull"),
 		},
 		{
@@ -766,31 +766,33 @@ func TestExpectedTokenizerDeploymentImagePullSecrets(t *testing.T) {
 			want: pullSecrets("main-pull"),
 		},
 		{
-			name:            "template lists are preferred over service account lists",
+			name:            "default service account list is appended without duplicates",
+			main:            pullSecrets("main-pull", "shared-pull"),
+			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("default", "shared-pull", "default-pull")},
+			want:            pullSecrets("main-pull", "shared-pull", "default-pull"),
+		},
+		{
+			name:            "tokenizer template service account list is appended instead of the default one",
 			main:            pullSecrets("main-pull"),
-			schedulerSAName: "scheduler-sa",
-			mainSAName:      "main-sa",
-			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("scheduler-sa", "scheduler-sa-pull"), serviceAccount("main-sa", "main-sa-pull")},
+			tokenizerSAName: "tokenizer-sa",
+			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("default", "default-pull"), serviceAccount("tokenizer-sa", "tokenizer-sa-pull")},
+			want:            pullSecrets("main-pull", "tokenizer-sa-pull"),
+		},
+		{
+			name:            "missing tokenizer service account leaves the inherited list",
+			main:            pullSecrets("main-pull"),
+			tokenizerSAName: "missing-sa",
 			want:            pullSecrets("main-pull"),
 		},
 		{
-			name:            "scheduler service account list is used when templates have none",
+			name:            "service account lists alone are not inherited",
 			schedulerSAName: "scheduler-sa",
 			mainSAName:      "main-sa",
-			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("scheduler-sa", "scheduler-sa-pull"), serviceAccount("main-sa", "main-sa-pull")},
-			want:            pullSecrets("scheduler-sa-pull"),
-		},
-		{
-			name:            "main service account list is used when scheduler service account has none",
-			schedulerSAName: "scheduler-sa",
-			mainSAName:      "main-sa",
-			serviceAccounts: []*corev1.ServiceAccount{serviceAccount("scheduler-sa"), serviceAccount("main-sa", "main-sa-pull")},
-			want:            pullSecrets("main-sa-pull"),
-		},
-		{
-			name:            "missing service accounts are skipped",
-			schedulerSAName: "missing-scheduler-sa",
-			mainSAName:      "missing-main-sa",
+			serviceAccounts: []*corev1.ServiceAccount{
+				serviceAccount("default", "default-pull"),
+				serviceAccount("scheduler-sa", "scheduler-sa-pull"),
+				serviceAccount("main-sa", "main-sa-pull"),
+			},
 		},
 		{
 			name: "no list anywhere leaves the tokenizer list empty",
@@ -813,15 +815,16 @@ func TestExpectedTokenizerDeploymentImagePullSecrets(t *testing.T) {
 					ImagePullSecrets:   tt.scheduler,
 				},
 				Tokenizer: &v1alpha2.TokenizerSpec{Template: &corev1.PodSpec{
-					Containers:       []corev1.Container{{Name: "main"}},
-					ImagePullSecrets: tt.tokenizer,
+					ServiceAccountName: tt.tokenizerSAName,
+					Containers:         []corev1.Container{{Name: "main"}},
+					ImagePullSecrets:   tt.tokenizer,
 				}},
 			}}
 			before := svc.DeepCopy()
 
 			d, err := r.expectedTokenizerDeployment(t.Context(), svc)
 			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(d.Spec.Template.Spec.ServiceAccountName).To(BeEmpty())
+			g.Expect(d.Spec.Template.Spec.ServiceAccountName).To(Equal(tt.tokenizerSAName))
 			if tt.want == nil {
 				g.Expect(d.Spec.Template.Spec.ImagePullSecrets).To(BeEmpty())
 			} else {
@@ -832,6 +835,11 @@ func TestExpectedTokenizerDeploymentImagePullSecrets(t *testing.T) {
 			again, err := r.expectedTokenizerDeployment(t.Context(), svc)
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(again.Spec.Template).To(Equal(d.Spec.Template))
+
+			for i := range d.Spec.Template.Spec.ImagePullSecrets {
+				d.Spec.Template.Spec.ImagePullSecrets[i].Name = "mutated"
+			}
+			g.Expect(svc.Spec).To(Equal(before.Spec))
 		})
 	}
 }
