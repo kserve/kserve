@@ -505,7 +505,9 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 
 	var discovered []DiscoveredURL
 	var allResolved []ResolvedGateway
-	for _, route := range routes {
+	// The shards of the inline route are read as the one route they came
+	// from, so the paths are picked across all of them together.
+	for _, route := range mergeManagedHTTPRouteShards(llmSvc, routes) {
 		resolvedGWs, err := DiscoverGateways(ctx, r.Client, route)
 		if err != nil {
 			return nil, fmt.Errorf("failed to discover gateways for route %s/%s: %w", route.GetNamespace(), route.GetName(), err)
@@ -517,6 +519,7 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 		}
 		discovered = append(discovered, urls...)
 	}
+	discovered = dedupeDiscoveredURLs(discovered)
 
 	if len(routes) > 0 {
 		if llmSvc.Status.Router == nil {

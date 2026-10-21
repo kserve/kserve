@@ -856,3 +856,54 @@ func matchKey(m gwapiv1.HTTPRouteMatch) string {
 	fmt.Fprintf(&b, " h[%s] q[%s]", strings.Join(headers, ","), strings.Join(query, ","))
 	return b.String()
 }
+
+// mergeManagedHTTPRouteShards returns routes with the managed shards of
+// llmSvc's inline route replaced by one route holding all their rules, in
+// shard order, at the position of the first shard. The shards share
+// metadata, parentRefs and hostnames, so the merged route reads the same as
+// the logical route would. Other routes are returned unchanged.
+func mergeManagedHTTPRouteShards(llmSvc *v1alpha2.LLMInferenceService, routes []*gwapiv1.HTTPRoute) []*gwapiv1.HTTPRoute {
+	out := make([]*gwapiv1.HTTPRoute, 0, len(routes))
+	var shards []*gwapiv1.HTTPRoute
+	first := -1
+	for _, route := range routes {
+		if metav1.IsControlledBy(route, llmSvc) && managedHTTPRouteIndex(llmSvc.GetName(), route.GetName()) >= 0 {
+			if first < 0 {
+				first = len(out)
+				out = append(out, nil)
+			}
+			shards = append(shards, route)
+			continue
+		}
+		out = append(out, route)
+	}
+	if first < 0 {
+		return out
+	}
+	slices.SortStableFunc(shards, func(a, b *gwapiv1.HTTPRoute) int {
+		return managedHTTPRouteIndex(llmSvc.GetName(), a.GetName()) - managedHTTPRouteIndex(llmSvc.GetName(), b.GetName())
+	})
+	if len(shards) == 1 {
+		out[first] = shards[0]
+		return out
+	}
+	merged := shards[0].DeepCopy()
+	merged.Spec.Rules = flattenRules(shards)
+	out[first] = merged
+	return out
+}
+
+// dedupeDiscoveredURLs drops repeated URLs, keeping the first of each.
+func dedupeDiscoveredURLs(urls []DiscoveredURL) []DiscoveredURL {
+	seen := make(map[string]struct{}, len(urls))
+	out := urls[:0]
+	for _, u := range urls {
+		key := u.URL.String()
+		if _, dup := seen[key]; dup {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, u)
+	}
+	return out
+}

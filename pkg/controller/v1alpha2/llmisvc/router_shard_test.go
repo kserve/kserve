@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -582,4 +583,39 @@ func TestInferencePoolMigrationStateFoldsShards(t *testing.T) {
 	require.Equal(t, tr, foldConditionStatus([]metav1.ConditionStatus{u, tr}, f))
 	require.Equal(t, tr, foldConditionStatus([]metav1.ConditionStatus{f, tr, u}, tr), "any shard accepting v1 decides")
 	require.Equal(t, u, foldConditionStatus([]metav1.ConditionStatus{u, u}, tr))
+}
+
+func TestMergeManagedHTTPRouteShards(t *testing.T) {
+	llmSvc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns", UID: "uid"}}
+	owned := func(index int, paths ...string) *gwapiv1.HTTPRoute {
+		r := routeWithRules(managedHTTPRouteName(llmSvc.Name, index), paths...)
+		r.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(llmSvc, v1alpha2.LLMInferenceServiceGVK)}
+		return r
+	}
+	external := routeWithRules("external", "/x")
+
+	merged := mergeManagedHTTPRouteShards(llmSvc, []*gwapiv1.HTTPRoute{external, owned(1, "/c"), owned(0, "/a", "/b")})
+	require.Len(t, merged, 2)
+	require.Same(t, external, merged[0])
+	require.Equal(t, managedHTTPRouteName(llmSvc.Name, 0), merged[1].Name)
+	paths := make([]string, 0, len(merged[1].Spec.Rules))
+	for _, r := range merged[1].Spec.Rules {
+		paths = append(paths, *r.Matches[0].Path.Value)
+	}
+	require.Equal(t, []string{"/a", "/b", "/c"}, paths, "rules are read in shard order")
+
+	single := owned(0, "/a")
+	require.Equal(t, []*gwapiv1.HTTPRoute{single}, mergeManagedHTTPRouteShards(llmSvc, []*gwapiv1.HTTPRoute{single}))
+}
+
+func TestDedupeDiscoveredURLs(t *testing.T) {
+	u := func(s string) DiscoveredURL {
+		parsed, err := apis.ParseURL(s)
+		require.NoError(t, err)
+		return DiscoveredURL{URL: parsed}
+	}
+	got := dedupeDiscoveredURLs([]DiscoveredURL{u("http://a/x"), u("http://b/x"), u("http://a/x")})
+	require.Len(t, got, 2)
+	require.Equal(t, "http://a/x", got[0].URL.String())
+	require.Equal(t, "http://b/x", got[1].URL.String())
 }
