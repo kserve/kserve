@@ -563,3 +563,23 @@ func TestShardHTTPRouteWithSources(t *testing.T) {
 	require.Equal(t, "inline route rules 16-17", describeSourceRange(sources[1]))
 	require.Equal(t, "inline route rule 17", describeSourceRange(sources[2]))
 }
+
+func TestInferencePoolMigrationStateFoldsShards(t *testing.T) {
+	plain := &gwapiv1.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Name: "r"}}
+	migrated := &gwapiv1.HTTPRoute{ObjectMeta: metav1.ObjectMeta{
+		Name: "r-1", Annotations: map[string]string{AnnotationInferencePoolMigrated: "v1"},
+	}}
+	isMigrated, v1Alpha2, v1 := inferencePoolMigrationState([]*gwapiv1.HTTPRoute{plain, migrated}, "v1")
+	require.True(t, isMigrated, "a migrated later shard keeps the whole route migrated")
+	require.Equal(t, metav1.ConditionUnknown, v1Alpha2)
+	require.Equal(t, metav1.ConditionUnknown, v1)
+
+	isMigrated, _, _ = inferencePoolMigrationState(nil, "v1")
+	require.False(t, isMigrated)
+
+	u, tr, f := metav1.ConditionUnknown, metav1.ConditionTrue, metav1.ConditionFalse
+	require.Equal(t, f, foldConditionStatus([]metav1.ConditionStatus{tr, u, f}, f), "any shard rejecting v1alpha2 decides")
+	require.Equal(t, tr, foldConditionStatus([]metav1.ConditionStatus{u, tr}, f))
+	require.Equal(t, tr, foldConditionStatus([]metav1.ConditionStatus{f, tr, u}, tr), "any shard accepting v1 decides")
+	require.Equal(t, u, foldConditionStatus([]metav1.ConditionStatus{u, u}, tr))
+}

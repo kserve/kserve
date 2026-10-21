@@ -405,19 +405,16 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 
 	logger := log.FromContext(ctx).WithValues("migration", "InferencePool")
 
-	curr := &gwapiv1.HTTPRoute{}
-	routeExists := r.Get(ctx, client.ObjectKeyFromObject(httpRoute), curr) == nil
+	// Every stored shard counts: the gateway may report v1 support or a
+	// v1alpha2 rejection on any of them, and a migrated shard keeps the
+	// whole route migrated.
+	stored, err := managedHTTPRoutes(ctx, r, llmSvc)
+	if err != nil {
+		logger.Error(err, "failed to list stored HTTPRoute shards for the InferencePool migration check")
+	}
 
 	const v1MigrationValue = "v1"
-	var isMigrated bool
-	var infPoolV1Alpha2Support, infPoolV1Support metav1.ConditionStatus
-
-	if routeExists {
-		migrationValue, hasMigrationAnnotation := curr.Annotations[AnnotationInferencePoolMigrated]
-		isMigrated = hasMigrationAnnotation && migrationValue == v1MigrationValue
-		infPoolV1Alpha2Support = IsInferencePoolV1Alpha2Supported(curr)
-		infPoolV1Support = IsInferencePoolV1Supported(curr)
-	}
+	isMigrated, infPoolV1Alpha2Support, infPoolV1Support := inferencePoolMigrationState(stored, v1MigrationValue)
 
 	// Multiple target ports require v1 even before the gateway reports support.
 	// Single-port pools retain the migration path for older gateway controllers.
@@ -444,8 +441,7 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 			"isMigrated", isMigrated,
 			"infPoolV1Support", infPoolV1Support,
 			"infPoolV1Alpha2Support", infPoolV1Alpha2Support,
-			"httproute.curr.spec", curr.Spec,
-			"httproute.curr.status", curr.Status,
+			"httproute.stored.shards", len(stored),
 			"httproute.expected.spec", httpRoute.Spec,
 		)
 	} else {
@@ -462,8 +458,7 @@ func (r *LLMISVCReconciler) expectedHTTPRoute(ctx context.Context, llmSvc *v1alp
 			"isMigrated", isMigrated,
 			"infPoolV1Support", infPoolV1Support,
 			"infPoolV1Alpha2Support", infPoolV1Alpha2Support,
-			"httproute.curr.spec", curr.Spec,
-			"httproute.curr.status", curr.Status,
+			"httproute.stored.shards", len(stored),
 			"httproute.expected.spec", httpRoute.Spec,
 		)
 	}
@@ -1104,4 +1099,36 @@ func BuildObservedGateways(routes []*gwapiv1.HTTPRoute) []v1alpha2.ObservedGatew
 	}
 
 	return result
+}
+
+// inferencePoolMigrationState folds the InferencePool migration signals of
+// every stored shard of a route: migrated when any shard carries the
+// migration annotation, v1 supported when any shard reports it, and
+// v1alpha2 unsupported when any shard reports that.
+func inferencePoolMigrationState(stored []*gwapiv1.HTTPRoute, v1MigrationValue string) (bool, metav1.ConditionStatus, metav1.ConditionStatus) {
+	isMigrated := false
+	var v1Alpha2, v1 []metav1.ConditionStatus
+	for _, route := range stored {
+		if route.Annotations[AnnotationInferencePoolMigrated] == v1MigrationValue {
+			isMigrated = true
+		}
+		v1Alpha2 = append(v1Alpha2, IsInferencePoolV1Alpha2Supported(route))
+		v1 = append(v1, IsInferencePoolV1Supported(route))
+	}
+	return isMigrated, foldConditionStatus(v1Alpha2, metav1.ConditionFalse), foldConditionStatus(v1, metav1.ConditionTrue)
+}
+
+// foldConditionStatus returns decisive when any status is decisive, else
+// the other definite status when any shard reports one, else Unknown.
+func foldConditionStatus(statuses []metav1.ConditionStatus, decisive metav1.ConditionStatus) metav1.ConditionStatus {
+	out := metav1.ConditionUnknown
+	for _, s := range statuses {
+		switch {
+		case s == decisive:
+			return decisive
+		case s == metav1.ConditionTrue || s == metav1.ConditionFalse:
+			out = s
+		}
+	}
+	return out
 }
