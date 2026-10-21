@@ -525,3 +525,41 @@ func TestCheckHTTPRouteShardCapacity(t *testing.T) {
 		})
 	}
 }
+
+func TestDescribeSourceRules(t *testing.T) {
+	rules := make([]gwapiv1.HTTPRouteRule, 0, 12)
+	for i := range 12 {
+		rules = append(rules, backendRule(fmt.Sprintf("/r%d", i), gwapiv1.PathMatchPathPrefix, "b"))
+	}
+	rules[2].Name = ptr.To(gwapiv1.SectionName("chat"))
+	require.Equal(t, "rule 2 (chat)", describeSourceRules(rules, []int{2}))
+	require.Equal(t, "rules 0, 2 (chat), 5", describeSourceRules(rules, []int{0, 2, 5}))
+	require.Equal(t, "rules 0, 1, 2 (chat), 3, 4, and 7 more", describeSourceRules(rules, []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}))
+
+	require.Equal(t, "inline route rules 0-15", describeSourceRange([]int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}))
+	require.Equal(t, "inline route rules 3, 5-6, 9", describeSourceRange([]int{3, 5, 6, 9}))
+}
+
+func TestShardHTTPRouteRulesGroupErrorNamesSourceRules(t *testing.T) {
+	// One named rule split into two chunks that overlap a rule with another
+	// action, so the group holds both chunks and is rejected.
+	big := pathRule("big", 70)
+	other := backendRule("/big/0", gwapiv1.PathMatchPathPrefix, "other")
+	other.Matches = append(other.Matches, gwapiv1.HTTPRouteMatch{Path: &gwapiv1.HTTPPathMatch{Value: ptr.To("/big/69")}})
+	_, err := shardHTTPRouteRules([]gwapiv1.HTTPRouteRule{big, other})
+	require.ErrorIs(t, err, ErrPreconditionNotMet)
+	require.ErrorContains(t, err, "rules 0 (big), 1 must stay in one HTTPRoute")
+	require.ErrorContains(t, err, "the stored routes keep serving")
+}
+
+func TestShardHTTPRouteWithSources(t *testing.T) {
+	llmSvc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "ns"}}
+	route := &gwapiv1.HTTPRoute{Spec: gwapiv1.HTTPRouteSpec{Rules: append(repeatRules(17, 1), pathRule("lora", 70))}}
+	shards, sources, err := shardHTTPRouteWithSources(llmSvc, route)
+	require.NoError(t, err)
+	// The two chunks of the named lora rule go to different shards.
+	require.Len(t, shards, 3)
+	require.Equal(t, "inline route rules 0-15", describeSourceRange(sources[0]))
+	require.Equal(t, "inline route rules 16-17", describeSourceRange(sources[1]))
+	require.Equal(t, "inline route rule 17", describeSourceRange(sources[2]))
+}

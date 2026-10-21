@@ -134,7 +134,14 @@ func httpRouteShardCapError(need string, limit int, source string) error {
 // one HTTPRoute is rejected rather than split. Rules with the same action
 // never need to stay together, so LoRA model-routing chunks split freely.
 func shardHTTPRouteRules(rules []gwapiv1.HTTPRouteRule) ([][]gwapiv1.HTTPRouteRule, error) {
-	rules, origins := splitOversizedRules(rules)
+	shards, _, err := packHTTPRouteRules(rules)
+	return shards, err
+}
+
+// packHTTPRouteRules is shardHTTPRouteRules that also returns, for every
+// shard, the sorted indexes of the input rules its rules came from.
+func packHTTPRouteRules(input []gwapiv1.HTTPRouteRule) ([][]gwapiv1.HTTPRouteRule, [][]int, error) {
+	rules, origins := splitOversizedRules(input)
 	groups := orderDependentRuleGroups(rules)
 	// namedOrigins returns the named source rules a set of rules came from,
 	// and whether a source shows up twice.
@@ -159,14 +166,16 @@ func shardHTTPRouteRules(rules []gwapiv1.HTTPRouteRule) ([][]gwapiv1.HTTPRouteRu
 			count += ruleMatchCount(&rules[i])
 		}
 		if len(group) > httpRouteMaxRules || count > httpRouteMaxTotalMatches {
-			return nil, fmt.Errorf("%w: rules %s match the same requests with equal precedence and different actions, "+
-				"so they must stay in one HTTPRoute, but together they have %d rules and %d matches (limits %d and %d)",
-				ErrPreconditionNotMet, ruleIndexList(group), len(group), count, httpRouteMaxRules, httpRouteMaxTotalMatches)
+			return nil, nil, fmt.Errorf("%w: %s match the same requests with equal precedence and different actions, "+
+				"so they must stay in one HTTPRoute, but together they have %d rules and %d matches (limits %d and %d); "+
+				"the stored routes keep serving",
+				ErrPreconditionNotMet, describeSourceRules(input, sourceIndexes(group, origins)), len(group), count,
+				httpRouteMaxRules, httpRouteMaxTotalMatches)
 		}
 		if namedOrigins(group, map[int]struct{}{}) {
-			return nil, fmt.Errorf("%w: rules %s must stay in one HTTPRoute but include two parts of one named rule split "+
-				"for the %d matches per rule limit; give the rule fewer matches or no name",
-				ErrPreconditionNotMet, ruleIndexList(group), httpRouteMaxRuleMatches)
+			return nil, nil, fmt.Errorf("%w: %s must stay in one HTTPRoute but include two parts of one named rule split "+
+				"for the %d matches per rule limit; give the rule fewer matches or no name; the stored routes keep serving",
+				ErrPreconditionNotMet, describeSourceRules(input, sourceIndexes(group, origins)), httpRouteMaxRuleMatches)
 		}
 		probe := maps.Clone(currentOrigins)
 		sharesRule := namedOrigins(group, probe)
@@ -181,22 +190,74 @@ func shardHTTPRouteRules(rules []gwapiv1.HTTPRouteRule) ([][]gwapiv1.HTTPRouteRu
 	shards = append(shards, current)
 
 	out := make([][]gwapiv1.HTTPRouteRule, len(shards))
+	sources := make([][]int, len(shards))
 	for s, indexes := range shards {
 		// Keep the logical list order within a shard, where it breaks ties.
 		slices.Sort(indexes)
 		for _, i := range indexes {
 			out[s] = append(out[s], rules[i])
 		}
+		sources[s] = sourceIndexes(indexes, origins)
 	}
-	return out, nil
+	return out, sources, nil
 }
 
-func ruleIndexList(group []int) string {
-	parts := make([]string, len(group))
-	for i, idx := range group {
-		parts[i] = strconv.Itoa(idx)
+// sourceIndexes maps indexes of split rules back to the sorted, deduplicated
+// indexes of the input rules they came from.
+func sourceIndexes(indexes, origins []int) []int {
+	out := make([]int, 0, len(indexes))
+	for _, i := range indexes {
+		out = append(out, origins[i])
 	}
-	return "[" + strings.Join(parts, ", ") + "]"
+	slices.Sort(out)
+	return slices.Compact(out)
+}
+
+// maxDescribedRules caps how many rules a condition message lists.
+const maxDescribedRules = 5
+
+// describeSourceRules names input rules for a condition message, with the
+// rule name when there is one, listing at most maxDescribedRules so a big
+// group does not put hundreds of indexes into a condition.
+func describeSourceRules(rules []gwapiv1.HTTPRouteRule, indexes []int) string {
+	parts := make([]string, 0, min(len(indexes), maxDescribedRules)+1)
+	for _, i := range indexes[:min(len(indexes), maxDescribedRules)] {
+		if name := ptr.Deref(rules[i].Name, ""); name != "" {
+			parts = append(parts, fmt.Sprintf("%d (%s)", i, name))
+		} else {
+			parts = append(parts, strconv.Itoa(i))
+		}
+	}
+	if extra := len(indexes) - maxDescribedRules; extra > 0 {
+		parts = append(parts, fmt.Sprintf("and %d more", extra))
+	}
+	noun := "rules "
+	if len(indexes) == 1 {
+		noun = "rule "
+	}
+	return noun + strings.Join(parts, ", ")
+}
+
+// describeSourceRange names the input rules a shard holds as index ranges,
+// such as "inline route rules 0-15, 18".
+func describeSourceRange(indexes []int) string {
+	var parts []string
+	for start := 0; start < len(indexes); {
+		end := start
+		for end+1 < len(indexes) && indexes[end+1] == indexes[end]+1 {
+			end++
+		}
+		if end == start {
+			parts = append(parts, strconv.Itoa(indexes[start]))
+		} else {
+			parts = append(parts, fmt.Sprintf("%d-%d", indexes[start], indexes[end]))
+		}
+		start = end + 1
+	}
+	if len(indexes) == 1 {
+		return "inline route rule " + parts[0]
+	}
+	return "inline route rules " + strings.Join(parts, ", ")
 }
 
 // orderDependentRuleGroups partitions rule indexes into groups that must share
@@ -404,9 +465,16 @@ func exactValuesDiffer(a, b map[string]string) bool {
 // Precedence across the resources is preserved by shardHTTPRouteRules keeping
 // order-dependent rules together, not by resource names or creation order.
 func shardHTTPRoute(llmSvc *v1alpha2.LLMInferenceService, route *gwapiv1.HTTPRoute) ([]*gwapiv1.HTTPRoute, error) {
-	groups, err := shardHTTPRouteRules(route.Spec.Rules)
+	routes, _, err := shardHTTPRouteWithSources(llmSvc, route)
+	return routes, err
+}
+
+// shardHTTPRouteWithSources is shardHTTPRoute that also returns, for every
+// shard, the indexes of the input route rules it holds.
+func shardHTTPRouteWithSources(llmSvc *v1alpha2.LLMInferenceService, route *gwapiv1.HTTPRoute) ([]*gwapiv1.HTTPRoute, [][]int, error) {
+	groups, sources, err := packHTTPRouteRules(route.Spec.Rules)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	routes := make([]*gwapiv1.HTTPRoute, 0, len(groups))
 	for i, rules := range groups {
@@ -422,7 +490,7 @@ func shardHTTPRoute(llmSvc *v1alpha2.LLMInferenceService, route *gwapiv1.HTTPRou
 		}
 		routes = append(routes, shard)
 	}
-	return routes, nil
+	return routes, sources, nil
 }
 
 // managedHTTPRoutes returns the stored HTTPRoutes that hold the inline route
@@ -520,8 +588,8 @@ func apiServerVerdict(err error) error {
 // dryRunHTTPRouteShards sends every desired shard to the API server as a
 // dry-run create or update, so the Gateway API CRD validates the whole set
 // before the first real write.
-func (r *LLMISVCReconciler) dryRunHTTPRouteShards(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shards []*gwapiv1.HTTPRoute) error {
-	for _, shard := range shards {
+func (r *LLMISVCReconciler) dryRunHTTPRouteShards(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shards []*gwapiv1.HTTPRoute, sources [][]int) error {
+	for s, shard := range shards {
 		probe := shard.DeepCopy()
 		curr := &gwapiv1.HTTPRoute{}
 		err := r.Get(ctx, client.ObjectKeyFromObject(probe), curr)
@@ -538,8 +606,9 @@ func (r *LLMISVCReconciler) dryRunHTTPRouteShards(ctx context.Context, llmSvc *v
 			err = r.Update(ctx, probe, client.DryRunAll)
 		}
 		if err != nil {
-			return fmt.Errorf("failed to reconcile HTTPRoute %s/%s: rejected on dry-run, no HTTPRoute was written: %w",
-				probe.GetNamespace(), probe.GetName(), apiServerVerdict(err))
+			return fmt.Errorf("failed to reconcile HTTPRoute %s/%s (%s): rejected on dry-run, "+
+				"no HTTPRoute was written and the stored routes keep serving: %w",
+				probe.GetNamespace(), probe.GetName(), describeSourceRange(sources[s]), apiServerVerdict(err))
 		}
 	}
 	return nil

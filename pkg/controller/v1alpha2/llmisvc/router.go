@@ -296,7 +296,7 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 		if err := checkHTTPRouteShardCapacity(expectedHTTPRoute.Spec.Rules, limit, source); err != nil {
 			return nil, err
 		}
-		shards, err := shardHTTPRoute(llmSvc, expectedHTTPRoute)
+		shards, sources, err := shardHTTPRouteWithSources(llmSvc, expectedHTTPRoute)
 		if err != nil {
 			return nil, err
 		}
@@ -308,7 +308,7 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 		// reconcile before any shard is written, and the stored routes keep
 		// serving. This cannot stop a transient mix of old and new shards while
 		// the writes below run.
-		if err := r.dryRunHTTPRouteShards(ctx, llmSvc, shards); err != nil {
+		if err := r.dryRunHTTPRouteShards(ctx, llmSvc, shards, sources); err != nil {
 			return nil, err
 		}
 		stored, err := managedHTTPRoutes(ctx, r, llmSvc)
