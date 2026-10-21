@@ -72,6 +72,28 @@ func TestHTTPRouteShardWriteOrder(t *testing.T) {
 			want:    []int{0, 1},
 		},
 		{
+			name: "rules moving back and forward in one edit write each gainer before its loser",
+			stored: []*gwapiv1.HTTPRoute{
+				routeWithRules("r", "/a", "/b"), routeWithRules("r-1", "/c"), routeWithRules("r-2", "/d", "/e"),
+			},
+			desired: []*gwapiv1.HTTPRoute{
+				routeWithRules("r", "/a", "/d"), routeWithRules("r-1", "/c", "/b"), routeWithRules("r-2", "/e"),
+			},
+			want: []int{1, 0, 2},
+		},
+		{
+			name:    "two shards swapping rules fall back to higher shards first",
+			stored:  []*gwapiv1.HTTPRoute{routeWithRules("r", "/a", "/b"), routeWithRules("r-1", "/c", "/d")},
+			desired: []*gwapiv1.HTTPRoute{routeWithRules("r", "/a", "/c"), routeWithRules("r-1", "/b", "/d")},
+			want:    []int{1, 0},
+		},
+		{
+			name:    "a match a stale shard still holds needs no ordering",
+			stored:  []*gwapiv1.HTTPRoute{routeWithRules("r", "/a"), routeWithRules("r-1", "/b"), routeWithRules("r-2", "/b")},
+			desired: []*gwapiv1.HTTPRoute{routeWithRules("r", "/a", "/b"), routeWithRules("r-1", "/c")},
+			want:    []int{1, 0},
+		},
+		{
 			name:    "a fresh route uses the default order",
 			desired: []*gwapiv1.HTTPRoute{routeWithRules("r", "/a"), routeWithRules("r-1", "/b")},
 			want:    []int{1, 0},

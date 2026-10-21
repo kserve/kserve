@@ -615,37 +615,113 @@ func (r *LLMISVCReconciler) dryRunHTTPRouteShards(ctx context.Context, llmSvc *v
 }
 
 // httpRouteShardWriteOrder returns the indexes of desired in the order they
-// should be written. When rules move between shards, writing the shard that
-// gains them before the one that loses them keeps every match that is served
-// before and after the update in at least one stored route the whole time.
-// Higher shards first covers rules moving forward (a rule added early in the
-// list pushes later rules up); lower shards first covers rules moving back.
-// When neither order is gap free, higher shards first is used.
+// should be written, so every match that is served before and after the
+// update stays in at least one stored route the whole time.
+//
+// A match needs ordering only when no route holds it throughout: no stored
+// route that the update leaves alone (a stale shard is deleted only after
+// every write) and no shard that has it both before and after. For such a
+// match, a shard that gains it is written before every shard that loses it.
+// The writes are then sorted topologically, preferring higher shards first,
+// which also is the order when nothing moves. Only when the constraints form
+// a cycle, as when two shards swap rules, is higher shards first used as a
+// fallback, which may briefly drop the rules that move back.
 func httpRouteShardWriteOrder(stored, desired []*gwapiv1.HTTPRoute) []int {
-	descending := make([]int, len(desired))
-	ascending := make([]int, len(desired))
+	n := len(desired)
+	descending := make([]int, n)
 	for i := range desired {
-		descending[i] = len(desired) - 1 - i
-		ascending[i] = i
+		descending[i] = n - 1 - i
 	}
+
+	storedByName := make(map[string]map[string]struct{}, len(stored))
+	for _, route := range stored {
+		storedByName[route.GetName()] = routeMatchKeys(map[string][]gwapiv1.HTTPRouteRule{"": route.Spec.Rules})
+	}
+	desiredNames := make(map[string]struct{}, n)
+	before := make([]map[string]struct{}, n)
+	after := make([]map[string]struct{}, n)
+	for i, route := range desired {
+		desiredNames[route.GetName()] = struct{}{}
+		before[i] = storedByName[route.GetName()]
+		after[i] = routeMatchKeys(map[string][]gwapiv1.HTTPRouteRule{"": route.Spec.Rules})
+	}
+
+	stable := map[string]struct{}{}
+	for name, keys := range storedByName {
+		if _, ok := desiredNames[name]; !ok {
+			maps.Copy(stable, keys)
+		}
+	}
+	for i := range desired {
+		for k := range before[i] {
+			if _, ok := after[i][k]; ok {
+				stable[k] = struct{}{}
+			}
+		}
+	}
+
+	// edges[j][i] means shard j is written before shard i.
+	edges := make([]map[int]struct{}, n)
+	indegree := make([]int, n)
+	for i := range n {
+		edges[i] = map[int]struct{}{}
+	}
+	for loser := range desired {
+		for k := range before[loser] {
+			if _, ok := after[loser][k]; ok {
+				continue
+			}
+			if _, ok := stable[k]; ok {
+				continue
+			}
+			for gainer := range desired {
+				if _, gains := after[gainer][k]; !gains || gainer == loser {
+					continue
+				}
+				if _, dup := edges[gainer][loser]; !dup {
+					edges[gainer][loser] = struct{}{}
+					indegree[loser]++
+				}
+				break
+			}
+		}
+	}
+
+	order := make([]int, 0, n)
+	done := make([]bool, n)
+	for len(order) < n {
+		next := -1
+		for i := n - 1; i >= 0; i-- {
+			if !done[i] && indegree[i] == 0 {
+				next = i
+				break
+			}
+		}
+		if next < 0 {
+			return descending // a cycle: shards swap rules
+		}
+		done[next] = true
+		order = append(order, next)
+		for i := range edges[next] {
+			indegree[i]--
+		}
+	}
+
 	state := make(map[string][]gwapiv1.HTTPRouteRule, len(stored))
 	for _, route := range stored {
 		state[route.GetName()] = route.Spec.Rules
 	}
-	before := routeMatchKeys(state)
-	after := routeMatchKeys(map[string][]gwapiv1.HTTPRouteRule{"": flattenRules(desired)})
 	kept := map[string]struct{}{}
-	for k := range before {
-		if _, ok := after[k]; ok {
+	all := routeMatchKeys(map[string][]gwapiv1.HTTPRouteRule{"": flattenRules(desired)})
+	for k := range routeMatchKeys(state) {
+		if _, ok := all[k]; ok {
 			kept[k] = struct{}{}
 		}
 	}
-	for _, order := range [][]int{descending, ascending} {
-		if writeOrderKeepsMatches(state, desired, order, kept) {
-			return order
-		}
+	if !writeOrderKeepsMatches(state, desired, order, kept) {
+		return descending
 	}
-	return descending
+	return order
 }
 
 func writeOrderKeepsMatches(stored map[string][]gwapiv1.HTTPRouteRule, desired []*gwapiv1.HTTPRoute, order []int, kept map[string]struct{}) bool {
