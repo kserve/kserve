@@ -18,6 +18,7 @@ package llmisvc_test
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -439,7 +440,7 @@ schedulingProfiles:
 				g.Expect(envTest.Get(ctx, tokenizerKey, current)).To(Succeed())
 				g.Expect(current.Generation).To(Equal(generation))
 				g.Expect(current.Spec.Template.Spec.ImagePullSecrets).To(BeEmpty())
-			}).WithContext(ctx).Should(Succeed())
+			}).WithContext(ctx).WithTimeout(3 * time.Second).Should(Succeed())
 		})
 	})
 

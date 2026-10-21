@@ -45,7 +45,15 @@ const (
 	tokenizerDeploymentContainerName = "main"
 	tokenizerServicePort             = 8000
 	tokenizerPortName                = "render-http"
+	imagePullConfigVersionEnvVar     = "KSERVE_PULL_SECRETS_CONFIG_VERSION"
 )
+
+// supportsImagePullSecretInheritance reports whether the tokenizer container opts in to
+// inheriting image pull secrets by setting KSERVE_PULL_SECRETS_CONFIG_VERSION to "1".
+func supportsImagePullSecretInheritance(container *corev1.Container) bool {
+	version, _ := utils.GetEnvVarValue(container.Env, imagePullConfigVersionEnvVar)
+	return version == "1"
+}
 
 func tokenizerDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return kmeta.ChildName(llmSvc.GetName(), "-tokenizer")
@@ -305,7 +313,8 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 		}
 	}
 
-	if len(d.Spec.Template.Spec.ImagePullSecrets) == 0 {
+	if container := utils.GetContainerWithName(&d.Spec.Template.Spec, tokenizerDeploymentContainerName); container != nil &&
+		supportsImagePullSecretInheritance(container) && len(d.Spec.Template.Spec.ImagePullSecrets) == 0 {
 		imagePullSecrets, err := r.inheritedTokenizerImagePullSecrets(ctx, llmSvc, &d.Spec.Template.Spec)
 		if err != nil {
 			return d, err
@@ -327,18 +336,26 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 	return d, nil
 }
 
-// inheritedTokenizerImagePullSecrets returns the image pull secret list of the scheduler
-// template, or of the main workload template when the scheduler template has none,
-// followed by the image pull secrets of the ServiceAccount the tokenizer Pod runs as
-// (its template ServiceAccount, or the namespace's default one) that are not already
-// listed. It returns nil when neither template has a list.
+// inheritedTokenizerImagePullSecrets returns the image pull secrets of the scheduler
+// template, then those of the main workload template, then those of the ServiceAccount
+// the tokenizer Pod runs as (its template ServiceAccount, or the namespace's default one),
+// each secret listed once. It returns nil when neither template has a list.
 func (r *LLMISVCReconciler) inheritedTokenizerImagePullSecrets(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, tokenizerPodSpec *corev1.PodSpec) ([]corev1.LocalObjectReference, error) {
 	var inherited []corev1.LocalObjectReference
-	if schedulerTemplate := llmSvc.Spec.Router.Scheduler.Template; schedulerTemplate != nil && len(schedulerTemplate.ImagePullSecrets) > 0 {
-		inherited = slices.Clone(schedulerTemplate.ImagePullSecrets)
-	} else if llmSvc.Spec.Template != nil && len(llmSvc.Spec.Template.ImagePullSecrets) > 0 {
-		inherited = slices.Clone(llmSvc.Spec.Template.ImagePullSecrets)
-	} else {
+	appendMissing := func(secrets []corev1.LocalObjectReference) {
+		for _, secret := range secrets {
+			if !slices.ContainsFunc(inherited, func(s corev1.LocalObjectReference) bool { return s.Name == secret.Name }) {
+				inherited = append(inherited, secret)
+			}
+		}
+	}
+	if schedulerTemplate := llmSvc.Spec.Router.Scheduler.Template; schedulerTemplate != nil {
+		appendMissing(schedulerTemplate.ImagePullSecrets)
+	}
+	if llmSvc.Spec.Template != nil {
+		appendMissing(llmSvc.Spec.Template.ImagePullSecrets)
+	}
+	if len(inherited) == 0 {
 		return nil, nil
 	}
 
@@ -354,11 +371,9 @@ func (r *LLMISVCReconciler) inheritedTokenizerImagePullSecrets(ctx context.Conte
 		return nil, fmt.Errorf("failed to fetch tokenizer service account %s/%s: %w",
 			llmSvc.Namespace, serviceAccountName, err)
 	}
-	for _, secret := range serviceAccount.ImagePullSecrets {
-		if !slices.ContainsFunc(inherited, func(s corev1.LocalObjectReference) bool { return s.Name == secret.Name }) {
-			inherited = append(inherited, secret)
-		}
-	}
+	// ServiceAccount admission adds the ServiceAccount's image pull secrets only to Pods
+	// without a list, so they are carried into the inherited list here.
+	appendMissing(serviceAccount.ImagePullSecrets)
 	return inherited, nil
 }
 
