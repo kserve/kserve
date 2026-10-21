@@ -61,6 +61,7 @@ const (
 	pvcEvictorConsumerPrefix = "serving.kserve.io/pvc-evictor-consumer-"
 	pvcEvictorPVCName        = "serving.kserve.io/pvc-name"
 	pvcEvictorPVCPath        = "serving.kserve.io/pvc-path"
+	pvcEvictorNodeAffinity   = "serving.kserve.io/pvc-node-affinity"
 	pvcEvictorSecurityHash   = "serving.kserve.io/pvc-security-context-hash"
 	pvcEvictorContainerHash  = "serving.kserve.io/pvc-evictor-container-hash"
 )
@@ -138,6 +139,25 @@ func inheritedPVCEvictorContainerTemplate(workload *v1alpha2.WorkloadSpec, fallb
 	return fallback.DeepCopy()
 }
 
+func validatePVCEvictorCachePath(workloadName string, workload *v1alpha2.WorkloadSpec) error {
+	if workload == nil || !workloadHasPVCTier(workload) {
+		return nil
+	}
+	for _, podSpec := range []*corev1.PodSpec{workload.Template, workload.Worker} {
+		if podSpec == nil {
+			continue
+		}
+		main := utils.GetContainerWithName(podSpec, mainContainerName)
+		if main == nil {
+			continue
+		}
+		if !slices.ContainsFunc(main.Env, func(env corev1.EnvVar) bool { return env.Name == kvTransferArgsEnvVar }) {
+			return fmt.Errorf("%s uses a legacy KV-cache preset for a PVC tier; update its LLMInferenceServiceConfig to declare %s so the vLLM cache root matches the PVC evictor", workloadName, kvTransferArgsEnvVar)
+		}
+	}
+	return nil
+}
+
 func validatePVCEvictorContainerTemplates(llmSvc *v1alpha2.LLMInferenceService) error {
 	type pvcEvictorReference struct {
 		name string
@@ -146,6 +166,13 @@ func validatePVCEvictorContainerTemplates(llmSvc *v1alpha2.LLMInferenceService) 
 	type workloadTemplates struct {
 		template   *corev1.Container
 		identities map[string]pvcEvictorReference
+	}
+
+	if err := validatePVCEvictorCachePath("main workload", &llmSvc.Spec.WorkloadSpec); err != nil {
+		return err
+	}
+	if err := validatePVCEvictorCachePath("prefill workload", llmSvc.Spec.Prefill); err != nil {
+		return err
 	}
 
 	workloads := make([]workloadTemplates, 0, 2)
@@ -369,6 +396,50 @@ func pvcEvictorServiceAccountPredicate() predicate.Predicate {
 	}
 }
 
+func pvcEvictorConsumerPodPredicate() predicate.Predicate {
+	isConsumerPod := func(object client.Object) bool {
+		for key := range object.GetLabels() {
+			if strings.HasPrefix(key, pvcEvictorConsumerPrefix) {
+				return true
+			}
+		}
+		return false
+	}
+	return predicate.Funcs{
+		CreateFunc:  func(e event.CreateEvent) bool { return isConsumerPod(e.Object) },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return isConsumerPod(e.Object) },
+		GenericFunc: func(e event.GenericEvent) bool { return isConsumerPod(e.Object) },
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if !isConsumerPod(e.ObjectOld) && !isConsumerPod(e.ObjectNew) {
+				return false
+			}
+			oldPod, oldOK := e.ObjectOld.(*corev1.Pod)
+			newPod, newOK := e.ObjectNew.(*corev1.Pod)
+			if !oldOK || !newOK {
+				return true
+			}
+			return !equality.Semantic.DeepEqual(oldPod.Spec.Tolerations, newPod.Spec.Tolerations)
+		},
+	}
+}
+
+func pvcEvictorServiceChangePredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc:  func(event.CreateEvent) bool { return true },
+		DeleteFunc:  func(event.DeleteEvent) bool { return true },
+		GenericFunc: func(event.GenericEvent) bool { return false },
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldService, oldOK := e.ObjectOld.(*v1alpha2.LLMInferenceService)
+			newService, newOK := e.ObjectNew.(*v1alpha2.LLMInferenceService)
+			if !oldOK || !newOK {
+				return true
+			}
+			return oldService.Generation != newService.Generation ||
+				utils.GetForceStopRuntime(oldService) != utils.GetForceStopRuntime(newService)
+		},
+	}
+}
+
 func (r *LLMISVCReconciler) enqueueOnPVCEvictorResourceChange() handler.EventHandler {
 	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 		services := &v1alpha2.LLMInferenceServiceList{}
@@ -388,12 +459,14 @@ type pvcEvictorTarget struct {
 	subPath              string
 	securityContext      *corev1.PodSecurityContext
 	containerTemplate    *corev1.Container
+	tolerations          []corev1.Toleration
 	requiresNodeAffinity bool
 }
 
 type pvcEvictorTemplateAgreement struct {
-	agreed     bool
-	unresolved bool
+	agreed      bool
+	unresolved  bool
+	tolerations []corev1.Toleration
 }
 
 func (r *LLMISVCReconciler) finalizePVCEvictors(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
@@ -427,6 +500,18 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 		agreements, err = r.desiredPVCEvictorTemplateAgreements(ctx, llmSvc, config)
 		if err != nil {
 			return err
+		}
+		for _, deployment := range expected {
+			if !pvcEvictorRequiresNodeAffinity(deployment) {
+				continue
+			}
+			identity := pvcEvictorIdentity(
+				deployment.Annotations[pvcEvictorPVCName],
+				deployment.Annotations[pvcEvictorPVCPath],
+			)
+			if agreement, ok := agreements[identity]; ok && !agreement.unresolved {
+				deployment.Spec.Template.Spec.Tolerations = slices.Clone(agreement.tolerations)
+			}
 		}
 	}
 
@@ -585,11 +670,17 @@ func (r *LLMISVCReconciler) reconcileExistingPVCEvictorDeployment(ctx context.Co
 	if !current.DeletionTimestamp.IsZero() {
 		return nil
 	}
+	identity := pvcEvictorIdentity(expected.Annotations[pvcEvictorPVCName], expected.Annotations[pvcEvictorPVCPath])
+	if agreement := agreements[identity]; agreement.unresolved && pvcEvictorRequiresNodeAffinity(expected) {
+		expected = expected.DeepCopy()
+		expected.Spec.Template.Spec.Tolerations = mergePVCEvictorTolerations(
+			slices.Clone(current.Spec.Template.Spec.Tolerations), agreement.tolerations...,
+		)
+	}
 	if (current.Annotations[pvcEvictorSecurityHash] != expected.Annotations[pvcEvictorSecurityHash] &&
 		(current.Annotations[pvcEvictorSecurityHash] != "" || expected.Annotations[pvcEvictorSecurityHash] != "")) ||
 		(current.Annotations[pvcEvictorContainerHash] != expected.Annotations[pvcEvictorContainerHash] &&
 			(current.Annotations[pvcEvictorContainerHash] != "" || expected.Annotations[pvcEvictorContainerHash] != "")) {
-		identity := pvcEvictorIdentity(expected.Annotations[pvcEvictorPVCName], expected.Annotations[pvcEvictorPVCPath])
 		agreement := agreements[identity]
 		if !agreement.agreed {
 			return fmt.Errorf("shared PVC evictor Deployment %s/%s has different security or container settings; all LLMInferenceServices using PVC %q and path %q must resolve the same vLLM PodSecurityContext and pvc-evictor container template", current.Namespace, current.Name, expected.Annotations[pvcEvictorPVCName], expected.Annotations[pvcEvictorPVCPath])
@@ -646,6 +737,11 @@ func (r *LLMISVCReconciler) desiredPVCEvictorTemplateAgreements(ctx context.Cont
 		containerHash string
 	}
 	hashesByIdentity := make(map[string]map[templateHashes]struct{})
+	tolerationsByIdentity := make(map[string][]corev1.Toleration)
+	referencesByIdentity := make(map[string]struct {
+		claimName string
+		subPath   string
+	})
 	logger := log.FromContext(ctx)
 	unresolved := false
 	for i := range services.Items {
@@ -673,13 +769,36 @@ func (r *LLMISVCReconciler) desiredPVCEvictorTemplateAgreements(ctx context.Cont
 				securityHash:  pvcEvictorSecurityContextHash(target.securityContext),
 				containerHash: pvcEvictorContainerTemplateHash(target.containerTemplate),
 			}] = struct{}{}
+			tolerationsByIdentity[identity] = mergePVCEvictorTolerations(tolerationsByIdentity[identity], target.tolerations...)
+			referencesByIdentity[identity] = struct {
+				claimName string
+				subPath   string
+			}{claimName: target.claimName, subPath: target.subPath}
+		}
+	}
+	for identity, reference := range referencesByIdentity {
+		pods := &corev1.PodList{}
+		if err := r.List(ctx, pods,
+			client.InNamespace(llmSvc.Namespace),
+			client.MatchingLabels{pvcEvictorConsumerLabelKey(reference.claimName, reference.subPath): "true"},
+		); err != nil {
+			return nil, fmt.Errorf("failed to list PVC evictor consumer Pods for PVC %q and path %q: %w", reference.claimName, reference.subPath, err)
+		}
+		for i := range pods.Items {
+			if !pods.Items[i].DeletionTimestamp.IsZero() {
+				continue
+			}
+			tolerationsByIdentity[identity] = mergePVCEvictorTolerations(
+				tolerationsByIdentity[identity], pods.Items[i].Spec.Tolerations...,
+			)
 		}
 	}
 	agreements := make(map[string]pvcEvictorTemplateAgreement, len(hashesByIdentity))
 	for identity, hashes := range hashesByIdentity {
 		agreements[identity] = pvcEvictorTemplateAgreement{
-			agreed:     len(hashes) == 1,
-			unresolved: unresolved,
+			agreed:      len(hashes) == 1,
+			unresolved:  unresolved,
+			tolerations: slices.Clone(tolerationsByIdentity[identity]),
 		}
 	}
 	return agreements, nil
@@ -735,8 +854,13 @@ func syncedPVCEvictorAnnotations(current, expected map[string]string) map[string
 func isManagedPVCEvictorAnnotation(key string) bool {
 	return key == pvcEvictorPVCName ||
 		key == pvcEvictorPVCPath ||
+		key == pvcEvictorNodeAffinity ||
 		key == pvcEvictorSecurityHash ||
 		key == pvcEvictorContainerHash
+}
+
+func pvcEvictorRequiresNodeAffinity(deployment *appsv1.Deployment) bool {
+	return deployment.Annotations[pvcEvictorNodeAffinity] == "true"
 }
 
 func retainExternalOwnerReferences(ownerReferences []metav1.OwnerReference) []metav1.OwnerReference {
@@ -916,18 +1040,16 @@ func (r *LLMISVCReconciler) referencedPVCEvictorIdentities(ctx context.Context, 
 		if utils.GetForceStopRuntime(service) {
 			continue
 		}
-		for _, target := range collectPVCEvictorTargets(service) {
-			referenced[pvcEvictorIdentity(target.claimName, target.subPath)] = struct{}{}
+		for identity := range collectPVCEvictorIdentities(service) {
+			referenced[identity] = struct{}{}
 		}
 	}
 	return referenced, cleanupSafe, nil
 }
 
-func collectPVCEvictorTargets(llmSvc *v1alpha2.LLMInferenceService) []pvcEvictorTarget {
-	targets := make([]pvcEvictorTarget, 0)
-	seen := make(map[string]struct{})
-	mainTemplate := workloadPVCEvictorContainerTemplate(&llmSvc.Spec.WorkloadSpec)
-	add := func(workload *v1alpha2.WorkloadSpec, template *corev1.Container) {
+func collectPVCEvictorIdentities(llmSvc *v1alpha2.LLMInferenceService) map[string]struct{} {
+	identities := make(map[string]struct{})
+	add := func(workload *v1alpha2.WorkloadSpec) {
 		if workload == nil || workload.KVCacheOffloading == nil {
 			return
 		}
@@ -936,17 +1058,41 @@ func collectPVCEvictorTargets(llmSvc *v1alpha2.LLMInferenceService) []pvcEvictor
 				continue
 			}
 			ref := tier.FileSystem.PVC.Ref
-			subPath := normalizePVCEvictorPath(ref.Path)
-			key := pvcEvictorIdentity(ref.Name, subPath)
-			if _, ok := seen[key]; ok {
+			identities[pvcEvictorIdentity(ref.Name, normalizePVCEvictorPath(ref.Path))] = struct{}{}
+		}
+	}
+	add(&llmSvc.Spec.WorkloadSpec)
+	add(llmSvc.Spec.Prefill)
+	return identities
+}
+
+func collectPVCEvictorTargets(llmSvc *v1alpha2.LLMInferenceService) []pvcEvictorTarget {
+	targets := make([]pvcEvictorTarget, 0)
+	targetIndexes := make(map[string]int)
+	mainTemplate := workloadPVCEvictorContainerTemplate(&llmSvc.Spec.WorkloadSpec)
+	add := func(workload *v1alpha2.WorkloadSpec, template *corev1.Container) {
+		if workload == nil || workload.KVCacheOffloading == nil {
+			return
+		}
+		tolerations := workloadPVCEvictorTolerations(workload)
+		for _, tier := range workload.KVCacheOffloading.Secondary {
+			if tier.FileSystem == nil || tier.FileSystem.PVC == nil || tier.FileSystem.PVC.Ref == nil {
 				continue
 			}
-			seen[key] = struct{}{}
+			ref := tier.FileSystem.PVC.Ref
+			subPath := normalizePVCEvictorPath(ref.Path)
+			key := pvcEvictorIdentity(ref.Name, subPath)
+			if index, ok := targetIndexes[key]; ok {
+				targets[index].tolerations = mergePVCEvictorTolerations(targets[index].tolerations, tolerations...)
+				continue
+			}
+			targetIndexes[key] = len(targets)
 			targets = append(targets, pvcEvictorTarget{
 				claimName:         ref.Name,
 				subPath:           subPath,
 				securityContext:   workloadPVCEvictorSecurityContext(workload),
 				containerTemplate: template,
+				tolerations:       tolerations,
 			})
 		}
 	}
@@ -954,6 +1100,40 @@ func collectPVCEvictorTargets(llmSvc *v1alpha2.LLMInferenceService) []pvcEvictor
 	add(&llmSvc.Spec.WorkloadSpec, mainTemplate)
 	add(llmSvc.Spec.Prefill, inheritedPVCEvictorContainerTemplate(llmSvc.Spec.Prefill, mainTemplate))
 	return targets
+}
+
+func workloadPVCEvictorTolerations(workload *v1alpha2.WorkloadSpec) []corev1.Toleration {
+	if workload == nil {
+		return nil
+	}
+	var tolerations []corev1.Toleration
+	if workload.Template != nil {
+		tolerations = mergePVCEvictorTolerations(tolerations, workload.Template.Tolerations...)
+	}
+	if workload.Worker != nil {
+		tolerations = mergePVCEvictorTolerations(tolerations, workload.Worker.Tolerations...)
+	}
+	return tolerations
+}
+
+func mergePVCEvictorTolerations(existing []corev1.Toleration, additions ...corev1.Toleration) []corev1.Toleration {
+	for _, addition := range additions {
+		if slices.ContainsFunc(existing, func(current corev1.Toleration) bool {
+			return equality.Semantic.DeepEqual(current, addition)
+		}) {
+			continue
+		}
+		existing = append(existing, *addition.DeepCopy())
+	}
+	slices.SortFunc(existing, func(left, right corev1.Toleration) int {
+		return strings.Compare(pvcEvictorTolerationSortKey(left), pvcEvictorTolerationSortKey(right))
+	})
+	return existing
+}
+
+func pvcEvictorTolerationSortKey(toleration corev1.Toleration) string {
+	data, _ := json.Marshal(toleration)
+	return string(data)
 }
 
 func workloadPVCEvictorSecurityContext(workload *v1alpha2.WorkloadSpec) *corev1.PodSecurityContext {
@@ -1042,6 +1222,7 @@ func expectedPVCEvictorDeployment(llmSvc *v1alpha2.LLMInferenceService, target p
 		}},
 	}
 	if target.requiresNodeAffinity {
+		podSpec.Tolerations = slices.Clone(target.tolerations)
 		podSpec.Affinity = &corev1.Affinity{PodAffinity: &corev1.PodAffinity{
 			RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
 				LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
@@ -1055,6 +1236,9 @@ func expectedPVCEvictorDeployment(llmSvc *v1alpha2.LLMInferenceService, target p
 	annotations := map[string]string{
 		pvcEvictorPVCName: target.claimName,
 		pvcEvictorPVCPath: target.subPath,
+	}
+	if target.requiresNodeAffinity {
+		annotations[pvcEvictorNodeAffinity] = "true"
 	}
 	if securityHash := pvcEvictorSecurityContextHash(target.securityContext); securityHash != "" {
 		annotations[pvcEvictorSecurityHash] = securityHash

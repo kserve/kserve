@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestAttachPVCEvictor(t *testing.T) {
@@ -197,7 +198,44 @@ func TestAttachPVCEvictorImageOnlyTemplateKeepsDefaults(t *testing.T) {
 	}
 }
 
+func TestValidatePVCEvictorCachePath(t *testing.T) {
+	newService := func(env []corev1.EnvVar) *v1alpha2.LLMInferenceService {
+		return &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: v1alpha2.WorkloadSpec{
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{{Name: mainContainerName, Env: env}},
+					},
+					KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+						Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+							PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc"}},
+						}}},
+					},
+				},
+			},
+		}
+	}
+
+	if err := validatePVCEvictorContainerTemplates(newService(nil)); err == nil || !strings.Contains(err.Error(), kvTransferArgsEnvVar) {
+		t.Fatalf("legacy preset validation error = %v, want a %s migration error", err, kvTransferArgsEnvVar)
+	}
+	if err := validatePVCEvictorContainerTemplates(newService([]corev1.EnvVar{{Name: kvTransferArgsEnvVar}})); err != nil {
+		t.Fatalf("modern preset validation error = %v", err)
+	}
+}
+
 func TestExpectedPVCEvictorDeploymentForPVCRef(t *testing.T) {
+	gpuToleration := corev1.Toleration{
+		Key:      "dedicated",
+		Operator: corev1.TolerationOpEqual,
+		Value:    "gpu",
+		Effect:   corev1.TaintEffectNoSchedule,
+	}
+	workerToleration := corev1.Toleration{
+		Key:      "accelerator",
+		Operator: corev1.TolerationOpExists,
+		Effect:   corev1.TaintEffectNoSchedule,
+	}
 	svc := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
 		Spec: v1alpha2.LLMInferenceServiceSpec{
@@ -205,6 +243,7 @@ func TestExpectedPVCEvictorDeploymentForPVCRef(t *testing.T) {
 				Template: &corev1.PodSpec{
 					ServiceAccountName: "vllm-service-account",
 					NodeSelector:       map[string]string{"accelerator": "gpu"},
+					Tolerations:        []corev1.Toleration{gpuToleration},
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:  ptr.To(int64(1000)),
 						RunAsGroup: ptr.To(int64(1000)),
@@ -212,6 +251,7 @@ func TestExpectedPVCEvictorDeploymentForPVCRef(t *testing.T) {
 					},
 					Containers: []corev1.Container{{Name: "main"}},
 				},
+				Worker: &corev1.PodSpec{Tolerations: []corev1.Toleration{workerToleration}},
 				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 						PVC: &v1alpha2.PVCTierSpec{
@@ -289,6 +329,9 @@ func TestExpectedPVCEvictorDeploymentForPVCRef(t *testing.T) {
 		if got, want := deployment.Spec.Template.Spec.Containers[0].VolumeMounts[0].SubPath, "kv-cache"; got != want {
 			t.Errorf("subPath = %q, want %q", got, want)
 		}
+		if diff := cmp.Diff([]corev1.Toleration{workerToleration, gpuToleration}, deployment.Spec.Template.Spec.Tolerations); diff != "" {
+			t.Errorf("evictor tolerations diff (-want +got):\n%s", diff)
+		}
 		if got := deployment.Spec.Template.Spec.Affinity.PodAffinity.RequiredDuringSchedulingIgnoredDuringExecution; len(got) != 1 {
 			t.Fatalf("required pod affinity count = %d, want 1", len(got))
 		} else if got, want := got[0].LabelSelector.MatchLabels[pvcEvictorConsumerLabelKey("shared-pvc", "kv-cache")], "true"; got != want {
@@ -296,9 +339,16 @@ func TestExpectedPVCEvictorDeploymentForPVCRef(t *testing.T) {
 		}
 	}
 
-	noAffinity := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{claimName: "shared-pvc", subPath: "kv-cache"})
+	noAffinity := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{
+		claimName:   "shared-pvc",
+		subPath:     "kv-cache",
+		tolerations: []corev1.Toleration{gpuToleration},
+	})
 	if noAffinity.Spec.Template.Spec.Affinity != nil {
 		t.Fatalf("RWX evictor Deployment must not set node affinity")
+	}
+	if len(noAffinity.Spec.Template.Spec.Tolerations) != 0 {
+		t.Fatalf("RWX evictor Deployment must not copy consumer tolerations")
 	}
 }
 
@@ -708,6 +758,7 @@ func TestReconcileExistingPVCEvictorDeploymentChecksConflictsBeforeUnresolvedPau
 }
 
 func TestDesiredPVCEvictorTemplateAgreementsMarksUnresolved(t *testing.T) {
+	admittedToleration := corev1.Toleration{Key: "admission", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
 	current := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
 		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
@@ -731,7 +782,26 @@ func TestDesiredPVCEvictorTemplateAgreementsMarksUnresolved(t *testing.T) {
 	if err := v1alpha2.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
 	}
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(current, unresolved).Build()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	consumerPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "consumer",
+			Namespace: "test",
+			Labels: map[string]string{
+				pvcEvictorConsumerLabelKey("shared-pvc", "kv-cache"): "true",
+			},
+		},
+		Spec: corev1.PodSpec{Tolerations: []corev1.Toleration{admittedToleration}},
+	}
+	terminatingPod := consumerPod.DeepCopy()
+	terminatingPod.Name = "terminating-consumer"
+	terminatingPod.Finalizers = []string{"test.finalizer"}
+	deletionTime := metav1.Now()
+	terminatingPod.DeletionTimestamp = &deletionTime
+	terminatingPod.Spec.Tolerations = []corev1.Toleration{{Key: "stale", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(current, unresolved, consumerPod, terminatingPod).Build()
 	reconciler := &LLMISVCReconciler{Client: fakeClient}
 
 	agreements, err := reconciler.desiredPVCEvictorTemplateAgreements(t.Context(), current, &Config{})
@@ -744,6 +814,126 @@ func TestDesiredPVCEvictorTemplateAgreementsMarksUnresolved(t *testing.T) {
 	}
 	if !agreement.agreed || !agreement.unresolved {
 		t.Fatalf("agreement = %#v, want agreed and unresolved to be true", agreement)
+	}
+	if diff := cmp.Diff([]corev1.Toleration{admittedToleration}, agreement.tolerations); diff != "" {
+		t.Errorf("admitted tolerations diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestReconcileExistingPVCEvictorDeploymentPreservesAndAddsTolerationsWhenUnresolved(t *testing.T) {
+	currentToleration := corev1.Toleration{Key: "current", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
+	desiredToleration := corev1.Toleration{Key: "desired", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
+	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
+	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{
+		claimName:            "shared-pvc",
+		subPath:              "kv-cache",
+		requiresNodeAffinity: true,
+		tolerations:          []corev1.Toleration{desiredToleration},
+	})
+	current := expected.DeepCopy()
+	current.Spec.Template.Spec.Tolerations = []corev1.Toleration{currentToleration}
+
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(current).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+	agreements := map[string]pvcEvictorTemplateAgreement{
+		pvcEvictorIdentity("shared-pvc", "kv-cache"): {
+			agreed:      true,
+			unresolved:  true,
+			tolerations: []corev1.Toleration{desiredToleration},
+		},
+	}
+
+	if err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), agreements, current, expected); err != nil {
+		t.Fatalf("reconcileExistingPVCEvictorDeployment() error = %v", err)
+	}
+	got := &appsv1.Deployment{}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(expected), got); err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff([]corev1.Toleration{currentToleration, desiredToleration}, got.Spec.Template.Spec.Tolerations); diff != "" {
+		t.Errorf("tolerations diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestMergePVCEvictorTolerationsIsStable(t *testing.T) {
+	first := corev1.Toleration{Key: "first", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
+	second := corev1.Toleration{Key: "second", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
+
+	fromFirstOrder := mergePVCEvictorTolerations(nil, first, second, first)
+	fromSecondOrder := mergePVCEvictorTolerations(nil, second, first, second)
+	if diff := cmp.Diff(fromFirstOrder, fromSecondOrder); diff != "" {
+		t.Fatalf("merge order is not stable (-first order +second order):\n%s", diff)
+	}
+	if got, want := len(fromFirstOrder), 2; got != want {
+		t.Fatalf("merged toleration count = %d, want %d", got, want)
+	}
+}
+
+func TestCollectPVCEvictorTargetsMergesDuplicateIdentityTolerations(t *testing.T) {
+	first := corev1.Toleration{Key: "first", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
+	second := corev1.Toleration{Key: "second", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
+	svc := &v1alpha2.LLMInferenceService{Spec: v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Tolerations: []corev1.Toleration{first},
+				Containers:  []corev1.Container{{Name: mainContainerName}},
+			},
+			Worker: &corev1.PodSpec{Tolerations: []corev1.Toleration{second}},
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{
+				FileSystem: &v1alpha2.FileSystemTierSpec{PVC: &v1alpha2.PVCTierSpec{
+					Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "cache"},
+				}},
+			}}},
+		},
+	}}
+
+	targets := collectPVCEvictorTargets(svc)
+	if len(targets) != 1 {
+		t.Fatalf("target count = %d, want 1", len(targets))
+	}
+	if diff := cmp.Diff(mergePVCEvictorTolerations(nil, first, second), targets[0].tolerations); diff != "" {
+		t.Errorf("duplicate identity tolerations diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestPVCEvictorConsumerPodPredicate(t *testing.T) {
+	predicate := pvcEvictorConsumerPodPredicate()
+	consumer := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
+		pvcEvictorConsumerLabelKey("shared-pvc", "cache"): "true",
+	}}}
+	nonConsumer := &corev1.Pod{}
+	if !predicate.Create(event.CreateEvent{Object: consumer}) {
+		t.Fatal("consumer Pod create was not accepted")
+	}
+	if predicate.Create(event.CreateEvent{Object: nonConsumer}) {
+		t.Fatal("non-consumer Pod create was accepted")
+	}
+	updated := consumer.DeepCopy()
+	updated.Spec.Tolerations = []corev1.Toleration{{Key: "admission", Operator: corev1.TolerationOpExists}}
+	if !predicate.Update(event.UpdateEvent{ObjectOld: consumer, ObjectNew: updated}) {
+		t.Fatal("consumer Pod toleration update was not accepted")
+	}
+}
+
+func TestPVCEvictorServiceChangePredicate(t *testing.T) {
+	predicate := pvcEvictorServiceChangePredicate()
+	oldService := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Generation: 1}}
+	newService := oldService.DeepCopy()
+	if predicate.Update(event.UpdateEvent{ObjectOld: oldService, ObjectNew: newService}) {
+		t.Fatal("unchanged service was accepted")
+	}
+	newService.Generation = 2
+	if !predicate.Update(event.UpdateEvent{ObjectOld: oldService, ObjectNew: newService}) {
+		t.Fatal("generation change was not accepted")
+	}
+	newService = oldService.DeepCopy()
+	newService.Annotations = map[string]string{constants.StopAnnotationKey: "true"}
+	if !predicate.Update(event.UpdateEvent{ObjectOld: oldService, ObjectNew: newService}) {
+		t.Fatal("force-stop change was not accepted")
 	}
 }
 
@@ -816,7 +1006,7 @@ func TestValidatePVCEvictorContainerTemplates(t *testing.T) {
 		return &v1alpha2.WorkloadSpec{
 			Template: &corev1.PodSpec{
 				Containers: []corev1.Container{
-					{Name: "main"},
+					{Name: "main", Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
 					{Name: pvcEvictorTemplateName, Image: image, Resources: resources},
 				},
 			},
@@ -829,7 +1019,7 @@ func TestValidatePVCEvictorContainerTemplates(t *testing.T) {
 		return &v1alpha2.WorkloadSpec{
 			Template: &corev1.PodSpec{
 				Containers: []corev1.Container{
-					{Name: "main"},
+					{Name: "main", Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
 					{Name: pvcEvictorTemplateName, Image: image, Resources: resources},
 				},
 			},
@@ -915,7 +1105,7 @@ func TestValidatePVCEvictorContainerTemplates(t *testing.T) {
 
 	t.Run("a missing template conflicts with a custom template on the same pvc.ref path", func(t *testing.T) {
 		main := newRefWorkload("", corev1.ResourceRequirements{}, "shared-pvc", "kv")
-		main.Template.Containers = []corev1.Container{{Name: "main"}}
+		main.Template.Containers = []corev1.Container{{Name: "main", Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}}
 		svc := &v1alpha2.LLMInferenceService{
 			Spec: v1alpha2.LLMInferenceServiceSpec{
 				WorkloadSpec: *main,
@@ -933,7 +1123,7 @@ func TestValidatePVCEvictorContainerTemplates(t *testing.T) {
 
 	t.Run("prefill inherits the main template on the same pvc.ref path", func(t *testing.T) {
 		prefill := newRefWorkload("", corev1.ResourceRequirements{}, "shared-pvc", "kv")
-		prefill.Template.Containers = []corev1.Container{{Name: "main"}}
+		prefill.Template.Containers = []corev1.Container{{Name: "main", Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}}
 		svc := &v1alpha2.LLMInferenceService{
 			Spec: v1alpha2.LLMInferenceServiceSpec{
 				WorkloadSpec: *newRefWorkload("example.com/evictor:v1", corev1.ResourceRequirements{}, "shared-pvc", "kv"),
