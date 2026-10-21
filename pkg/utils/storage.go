@@ -342,26 +342,22 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 		storageInitializerImage = storageConfig.Image
 	}
 
+	// The restricted Pod Security Standard context is the default so the fallback
+	// init container injected without a ClusterStorageContainer is admitted in a
+	// restricted namespace. Operators whose storageInitializer.image runs as root
+	// set storageInitializer.securityContext in the inferenceservice-config
+	// ConfigMap, which takes precedence in full.
+	securityContext := RestrictedStorageInitializerSecurityContext()
+	if storageConfig.SecurityContext != nil {
+		securityContext = storageConfig.SecurityContext.DeepCopy()
+	}
+
 	return &corev1.Container{
 		Name:                     constants.StorageInitializerContainerName,
 		Image:                    storageInitializerImage,
 		Args:                     containerArgs,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-		// Mirror config/storagecontainers/default.yaml so the fallback init container
-		// injected without a ClusterStorageContainer also passes the restricted Pod
-		// Security Standard. The image declares OCI user 1000, so runAsNonRoot is
-		// verifiable without a fixed runAsUser.
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: ptr.To(false),
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-			Privileged:   ptr.To(false),
-			RunAsNonRoot: ptr.To(true),
-			SeccompProfile: &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			},
-		},
+		SecurityContext:          securityContext,
 		Resources: corev1.ResourceRequirements{
 			Limits: map[corev1.ResourceName]resource.Quantity{
 				corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
