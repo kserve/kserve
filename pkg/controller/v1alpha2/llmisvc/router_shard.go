@@ -356,6 +356,14 @@ func ruleActionKey(rule *gwapiv1.HTTPRouteRule) string {
 //     into a header match, so /tie + GET ties /tie + one header.
 //
 // A coarser key only groups more rules together, which is always safe.
+//
+// For RegularExpression paths the spec leaves precedence to the
+// implementation. The key counts the pattern length, so two overlapping
+// regexes of different lengths may land in different HTTPRoutes. That keeps
+// the winner only because the gateway ranks a longer regex first, as Istio
+// (rank, then length) and Envoy Gateway (type, then length) do. Neither
+// ordering is a promise of the spec, so a gateway that ranks regexes another
+// way can change the winner once such rules are sharded.
 func precedenceKey(m gwapiv1.HTTPRouteMatch) string {
 	pathType, pathValue := matchPath(m)
 	headers := len(m.Headers)

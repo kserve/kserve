@@ -363,6 +363,23 @@ func TestShardHTTPRouteRulesPrecedenceGroups(t *testing.T) {
 		}
 	})
 
+	t.Run("overlapping regexes of different lengths are ordered by length, not grouped", func(t *testing.T) {
+		// Relies on the gateway ranking the longer regex first; see precedenceKey.
+		rules := append(filler(15),
+			backendRule("/v1/.*", gwapiv1.PathMatchRegularExpression, "short"),
+			backendRule("/v1/chat/.*", gwapiv1.PathMatchRegularExpression, "long"))
+		shards, err := shardHTTPRouteRules(rules)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if shardOf(t, shards, "/v1/.*", "short") == shardOf(t, shards, "/v1/chat/.*", "long") {
+			t.Fatalf("regexes of different lengths have a strict order on Istio and Envoy Gateway and may split")
+		}
+		if precedenceKey(rules[15].Matches[0]) == precedenceKey(rules[16].Matches[0]) {
+			t.Fatalf("pattern length must be part of the key")
+		}
+	})
+
 	t.Run("exact headers with different values are disjoint", func(t *testing.T) {
 		withHeader := func(backend, model string) gwapiv1.HTTPRouteRule {
 			r := backendRule("/v1/chat", gwapiv1.PathMatchPathPrefix, backend)
