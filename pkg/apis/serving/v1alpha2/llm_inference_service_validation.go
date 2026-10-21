@@ -56,6 +56,7 @@ type LLMInferenceServiceValidator struct {
 // InlineRouteDryRunFunc dry-runs the rules of an inline route as one or more
 // HTTPRoutes in namespace, named after name, and returns the API server's
 // verdict. It returns nil when the Gateway API is not installed.
+// +kubebuilder:object:generate=false
 type InlineRouteDryRunFunc func(ctx context.Context, namespace, name string, spec *gwapiv1.HTTPRouteSpec) error
 
 var _ admission.Validator[*LLMInferenceService] = &LLMInferenceServiceValidator{}
