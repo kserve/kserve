@@ -19,6 +19,7 @@ package llmisvc
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -33,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
@@ -742,8 +744,12 @@ func TestReconcileExistingPVCEvictorDeploymentRejectsSecurityDrift(t *testing.T)
 	agreements := map[string]pvcEvictorTemplateAgreement{
 		pvcEvictorIdentity("shared-pvc", "kv-cache"): {agreed: false},
 	}
-	if err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), agreements, current, expected); err == nil {
+	err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), agreements, current, expected)
+	if err == nil {
 		t.Fatal("security drift was silently overwritten")
+	}
+	if !errors.Is(err, reconcile.TerminalError(nil)) {
+		t.Fatalf("security drift error = %v, want terminal error", err)
 	}
 }
 

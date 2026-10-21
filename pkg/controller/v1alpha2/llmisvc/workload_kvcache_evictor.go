@@ -704,7 +704,7 @@ func (r *LLMISVCReconciler) reconcileExistingPVCEvictorDeployment(ctx context.Co
 			(current.Annotations[pvcEvictorContainerHash] != "" || expected.Annotations[pvcEvictorContainerHash] != "")) {
 		agreement := agreements[identity]
 		if !agreement.agreed {
-			return fmt.Errorf("shared PVC evictor Deployment %s/%s has different security or container settings; all LLMInferenceServices using PVC %q and path %q must resolve the same vLLM PodSecurityContext and pvc-evictor container template", current.Namespace, current.Name, expected.Annotations[pvcEvictorPVCName], expected.Annotations[pvcEvictorPVCPath])
+			return reconcile.TerminalError(fmt.Errorf("shared PVC evictor Deployment %s/%s has different security or container settings; all LLMInferenceServices using PVC %q and path %q must resolve the same vLLM PodSecurityContext and pvc-evictor container template", current.Namespace, current.Name, expected.Annotations[pvcEvictorPVCName], expected.Annotations[pvcEvictorPVCPath]))
 		}
 		if agreement.unresolved {
 			log.FromContext(ctx).Info(

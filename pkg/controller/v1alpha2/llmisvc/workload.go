@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -131,7 +132,11 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	}
 
 	if err := r.reconcilePVCEvictors(ctx, llmSvc, config); err != nil {
-		llmSvc.MarkPVCEvictorNotReady("ReconcilePVCEvictorError", "%s", err.Error())
+		reason := "ReconcilePVCEvictorError"
+		if errors.Is(err, reconcile.TerminalError(nil)) {
+			reason = "InvalidPVCEvictorConfiguration"
+		}
+		llmSvc.MarkPVCEvictorNotReady(reason, "%s", err.Error())
 		return fmt.Errorf("failed to reconcile PVC evictors: %w", err)
 	}
 
