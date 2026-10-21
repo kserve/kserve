@@ -1,42 +1,108 @@
 name: "Precommit Check"
 
 on:
+  # Master runs keep the Go cache below warm for PR runs. The schedule covers
+  # merges by github-actions[bot], which start no push runs.
+  push:
+    branches: [master]
+  schedule:
+    - cron: "17 */6 * * *"
   pull_request:
   merge_group:
     types: [ checks_requested ]
 
+# make check runs third-party tooling (pip, uv, go install, apt), so it gets no
+# write access to the repository.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # A cancelled master run saves nothing, so only PR and merge queue runs are cancelled.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
 
 jobs:
   precommit-check:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # A master run that misses the cache builds from scratch and then saves ~2GB.
+    timeout-minutes: 30
+    env:
+      WARM_CACHE: ${{ github.event_name == 'push' || github.event_name == 'schedule' }}
     steps:
       - name: Checkout source code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Merge target branch
         if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           git fetch --unshallow origin
-          git fetch origin ${{ github.event.pull_request.base.ref }}
+          git fetch origin "$BASE_REF"
           git config user.email "ci@kserve.io"
           git config user.name "CI Bot"
-          git merge --no-edit origin/${{ github.event.pull_request.base.ref }}
+          git merge --no-edit "origin/$BASE_REF"
 
       - name: Setup Go
+        id: setup-go
         uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
-      
+          # setup-go keys its cache on OS, Go version and go.sum only, so every
+          # workflow using it shares one key and the first job to finish wins
+          # it - usually go-license-check, which compiles next to nothing.
+          cache: false
+
+      # Module, build and golangci-lint caches for `make check`, under a key
+      # no other workflow uses. The key moves only with go.sum or the Go
+      # version, so one entry serves a dependency set and kserve's own
+      # packages recompile on top of it.
+      #
+      # Only master runs (push and schedule) save it. PR and merge queue runs
+      # restore the master entry and never save: their entries are visible to
+      # that one ref and would only push the master entry out of the 10GB quota.
+      #
+      # It also means the entry PR runs restore was built from merged code.
+      # GitHub scopes a PR run's saves to its merge ref, and gives
+      # pull_request_target, issue_comment and workflow_run jobs a read-only
+      # cache. Keep it that way:
+      # - never save this cache from pull_request or merge_group runs
+      # - never set cache-mode: write, and never run code that is not on master
+      #   from a trigger that writes master's cache
+      # - never restore this key in workflows that build or publish releases
+      #
+      # Go trusts both caches without re-checking them, and entries are
+      # immutable, so a bad entry stays until go.sum or the Go version changes.
+      # To drop one: gh cache list -R kserve/kserve --key precommit-go-, then
+      # gh cache delete -R kserve/kserve <key>; the next master run rebuilds it.
+      - name: Restore Go cache
+        id: go-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key: precommit-go-${{ runner.os }}-${{ steps.setup-go.outputs.go-version }}-${{ hashFiles('go.sum', 'qpext/go.sum', 'kernelcache/mcv/go.sum') }}
+          # PR runs fall back to the newest master entry when go.sum differs.
+          # Master builds each entry from scratch, so modules dropped from
+          # go.sum don't pile up in it.
+          restore-keys: ${{ env.WARM_CACHE != 'true' && format('precommit-go-{0}-{1}-', runner.os, steps.setup-go.outputs.go-version) || '' }}
+          # A master run only needs to know whether the entry exists: on an
+          # exact hit there is nothing to save, and the merged code was already
+          # checked in its PR, so the steps below are skipped.
+          lookup-only: ${{ env.WARM_CACHE == 'true' }}
+
       - name: Setup Python
+        if: env.WARM_CACHE != 'true' || steps.go-cache.outputs.cache-hit != 'true'
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
             python-version: "3.12"
 
       - name: Install build dependencies
+        if: env.WARM_CACHE != 'true' || steps.go-cache.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -48,18 +114,34 @@ jobs:
             libgpg-error-dev
 
       - name: Install dependencies
+        if: env.WARM_CACHE != 'true' || steps.go-cache.outputs.cache-hit != 'true'
         run: |
           go mod download
           (cd qpext && go mod download)
           (cd kernelcache/mcv && go mod download)
 
       - name: Cache openapi-generator JAR
+        if: env.WARM_CACHE != 'true' || steps.go-cache.outputs.cache-hit != 'true'
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: hack/python-sdk/openapi-generator-cli-*.jar
           key: openapi-generator-${{ hashFiles('hack/python-sdk/client-gen.sh') }}
 
       - name: Check
+        if: env.WARM_CACHE != 'true' || steps.go-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           make check
+
+      # Entries are immutable, so an exact hit means there is nothing to save.
+      # A failed check saves nothing either, so a half-built cache never takes
+      # the key.
+      - name: Save Go cache
+        if: env.WARM_CACHE == 'true' && steps.go-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+            ~/.cache/golangci-lint
+          key: ${{ steps.go-cache.outputs.cache-primary-key }}
