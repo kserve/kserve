@@ -219,7 +219,7 @@ func orderDependentRuleGroups(rules []gwapiv1.HTTPRouteRule) [][]int {
 	actions := make([]string, len(rules))
 	type entry struct {
 		rule  int
-		match gwapiv1.HTTPRouteMatch
+		match matchFacts
 	}
 	buckets := map[string][]entry{}
 	var keys []string
@@ -234,7 +234,7 @@ func orderDependentRuleGroups(rules []gwapiv1.HTTPRouteRule) [][]int {
 			if _, ok := buckets[k]; !ok {
 				keys = append(keys, k)
 			}
-			buckets[k] = append(buckets[k], entry{rule: i, match: m})
+			buckets[k] = append(buckets[k], entry{rule: i, match: newMatchFacts(m)})
 		}
 	}
 	for _, k := range keys {
@@ -245,7 +245,7 @@ func orderDependentRuleGroups(rules []gwapiv1.HTTPRouteRule) [][]int {
 				if a.rule == b.rule || actions[a.rule] == actions[b.rule] || find(a.rule) == find(b.rule) {
 					continue
 				}
-				if matchesMayOverlap(a.match, b.match) {
+				if a.match.mayOverlap(&b.match) {
 					parent[find(b.rule)] = find(a.rule)
 				}
 			}
@@ -295,29 +295,47 @@ func precedenceKey(m gwapiv1.HTTPRouteMatch) string {
 	return fmt.Sprintf("%s/%d/%s/%d/%d", pathType, len(pathValue), ptr.Deref(m.Method, ""), len(m.Headers), len(m.QueryParams))
 }
 
+// matchFacts holds the parts of a match that matchesMayOverlap compares,
+// built once per match so the pairwise comparison does not rebuild the
+// header and query maps for every pair.
+type matchFacts struct {
+	pathType gwapiv1.PathMatchType
+	path     string
+	headers  map[string]string
+	query    map[string]string
+}
+
+func newMatchFacts(m gwapiv1.HTTPRouteMatch) matchFacts {
+	f := matchFacts{pathType: gwapiv1.PathMatchPathPrefix, path: "/"}
+	if m.Path != nil {
+		f.pathType = ptr.Deref(m.Path.Type, gwapiv1.PathMatchPathPrefix)
+		f.path = ptr.Deref(m.Path.Value, "/")
+	}
+	f.headers = headerExactValues(m.Headers)
+	f.query = queryExactValues(m.QueryParams)
+	return f
+}
+
 // matchesMayOverlap reports whether two matches with the same precedence key
 // could match one request. It is conservative: only exact or prefix paths
 // with different values, or an Exact header or query param with the same name
 // and a different value, count as disjoint. Regular expressions are assumed
 // to overlap anything.
 func matchesMayOverlap(a, b gwapiv1.HTTPRouteMatch) bool {
-	pathType, pathA, pathB := gwapiv1.PathMatchPathPrefix, "/", "/"
-	if a.Path != nil {
-		pathType = ptr.Deref(a.Path.Type, gwapiv1.PathMatchPathPrefix)
-		pathA = ptr.Deref(a.Path.Value, "/")
-	}
-	if b.Path != nil {
-		pathB = ptr.Deref(b.Path.Value, "/")
-	}
+	fa, fb := newMatchFacts(a), newMatchFacts(b)
+	return fa.mayOverlap(&fb)
+}
+
+func (a *matchFacts) mayOverlap(b *matchFacts) bool {
 	// Same key, so same type and length: two exact or prefix values of equal
 	// length only overlap when they are equal.
-	if pathType != gwapiv1.PathMatchRegularExpression && pathA != pathB {
+	if a.pathType != gwapiv1.PathMatchRegularExpression && a.path != b.path {
 		return false
 	}
-	if exactValuesDiffer(headerExactValues(a.Headers), headerExactValues(b.Headers)) {
+	if exactValuesDiffer(a.headers, b.headers) {
 		return false
 	}
-	if exactValuesDiffer(queryExactValues(a.QueryParams), queryExactValues(b.QueryParams)) {
+	if exactValuesDiffer(a.query, b.query) {
 		return false
 	}
 	return true
