@@ -601,14 +601,6 @@ func NewIngressConfig(isvcConfigMap *corev1.ConfigMap) (*IngressConfig, error) {
 			constants.LoRAModelRoutingStrategyExact, constants.LoRAModelRoutingStrategyRegex, ingressConfig.LoRAModelRoutingStrategy)
 	}
 
-	switch {
-	case ingressConfig.HTTPRouteMaxShards == 0:
-		ingressConfig.HTTPRouteMaxShards = constants.DefaultHTTPRouteMaxShards
-	case ingressConfig.HTTPRouteMaxShards < 1 || ingressConfig.HTTPRouteMaxShards > constants.MaxHTTPRouteMaxShards:
-		return nil, fmt.Errorf("invalid ingress config - httpRouteMaxShards must be between 1 and %d, got %d",
-			constants.MaxHTTPRouteMaxShards, ingressConfig.HTTPRouteMaxShards)
-	}
-
 	return ingressConfig, nil
 }
 

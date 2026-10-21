@@ -418,12 +418,15 @@ func managedHTTPRouteIndex(llmSvcName, name string) int {
 func httpRouteMaxShardsFor(llmSvc *v1alpha2.LLMInferenceService, cfg *Config) (int, string) {
 	if raw, ok := llmSvc.Spec.Annotations[AnnotationHTTPRouteMaxShards]; ok {
 		if n, err := strconv.Atoi(strings.TrimSpace(raw)); err == nil && n >= 1 {
-			return n, "annotation " + AnnotationHTTPRouteMaxShards
+			// Clamped as managedHTTPRoutes only looks at shards below the
+			// bound, so a value past the webhook could leave shards nothing
+			// cleans up.
+			return min(n, constants.MaxHTTPRouteMaxShards), "annotation " + AnnotationHTTPRouteMaxShards
 		}
 	}
 	limit := constants.DefaultHTTPRouteMaxShards
 	if cfg != nil && cfg.HTTPRouteMaxShards > 0 {
-		limit = cfg.HTTPRouteMaxShards
+		limit = min(cfg.HTTPRouteMaxShards, constants.MaxHTTPRouteMaxShards)
 	}
 	return limit, "httpRouteMaxShards in the " + constants.InferenceServiceConfigMapName + " ConfigMap"
 }
