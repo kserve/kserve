@@ -19,6 +19,9 @@ env:
   TAG: ${{ github.sha }}
   DOCKER_IMAGES_PATH: "/mnt/docker-images"
   KO_DOCKER_REPO: "kserve"
+  # Images published from master under the same content key are pulled, not
+  # rebuilt. See test/scripts/gh-actions/image-cache.sh.
+  E2E_IMAGE_CACHE: ghcr.io/${{ github.repository_owner }}/kserve-e2e-images
   # artifact prefixes for bulk download
   PREDICTOR_ARTIFACT_PREFIX: "pred"
   EXPLAINER_ARTIFACT_PREFIX: "exp"

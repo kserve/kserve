@@ -1,0 +1,114 @@
+name: E2E Image Cache
+
+# Publishes the e2e images to GHCR under their content key, so that e2e runs
+# whose image inputs match master pull them instead of rebuilding them. The key
+# covers everything a build can read; see test/scripts/gh-actions/image-cache.sh.
+#
+# Why packages: write is safe here: only the publish job holds it, and it runs
+# only for master (push, the daily refresh, or a dispatch on master). e2e runs,
+# including forks and same-repo PR branches, read the cache anonymously and
+# never write to it. Since the tag is the key of the inputs, a PR can only
+# receive an image master built from the same inputs; anything else misses and
+# builds as before. RUN steps that fetch from the network (apt, pip indexes)
+# are not part of the key, the same trade-off as any layer cache.
+
+on:
+  push:
+    branches: [master]
+  schedule:
+    # Base image tags move without a commit, which changes the keys.
+    - cron: "30 4 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/e2e-image-cache.yml"
+      - "test/scripts/gh-actions/image-cache.sh"
+
+permissions:
+  contents: read
+
+env:
+  E2E_IMAGE_CACHE: ghcr.io/${{ github.repository_owner }}/kserve-e2e-images
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      images: ${{ steps.plan.outputs.images }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+
+      # Pull requests plan anonymously, the same way e2e runs read the cache.
+      - name: Login to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Find images missing from the cache
+        id: plan
+        run: |
+          images="$(./test/scripts/gh-actions/image-cache.sh plan)"
+          echo "Missing: ${images}"
+          echo "images=${images}" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: plan
+    if: >-
+      github.event_name != 'pull_request' &&
+      github.ref == 'refs/heads/master' &&
+      needs.plan.outputs.images != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJSON(needs.plan.outputs.images) }}
+    # Queue instead of cancelling: with frequent merges, cancelling would starve
+    # the slow images (huggingfaceserver takes ~30 min). A queued job finds its
+    # image already published and exits.
+    concurrency:
+      group: e2e-image-cache-${{ matrix.image }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+
+      - name: Login to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.image }}
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: ./test/scripts/gh-actions/image-cache.sh publish "${IMAGE}"

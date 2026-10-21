@@ -22,6 +22,9 @@ env:
   TAG: ${{ github.sha }}
   DOCKER_IMAGES_PATH: "/mnt/docker-images"
   KO_DOCKER_REPO: "kserve"
+  # Images published from master under the same content key are pulled, not
+  # rebuilt. See test/scripts/gh-actions/image-cache.sh.
+  E2E_IMAGE_CACHE: ghcr.io/${{ github.repository_owner }}/kserve-e2e-images
   BASE_ARTIFACT_PREFIX: "base"
   # In-cluster registry endpoint for KernelCache OCI artifacts
   KERNELCACHE_REGISTRY_ENDPOINT: "registry.kube-system.svc.cluster.local:80"
