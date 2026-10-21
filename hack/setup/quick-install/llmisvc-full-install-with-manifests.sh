@@ -9013,13 +9013,8 @@ spec:
                                       type: string
                                   type: object
                               type: object
-                              x-kubernetes-validations:
-                              - message: evictor requires a writable PVC; ReadOnlyMany
-                                  cannot delete cache files
-                                rule: '!(has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
-                    maxItems: 8
                     type: array
                 required:
                 - cpu
@@ -9222,14 +9217,8 @@ spec:
                                           type: string
                                       type: object
                                   type: object
-                                  x-kubernetes-validations:
-                                  - message: evictor requires a writable PVC; ReadOnlyMany
-                                      cannot delete cache files
-                                    rule: '!(has(self.spec) && ''ReadOnlyMany'' in
-                                      self.spec.accessModes)'
                               type: object
                           type: object
-                        maxItems: 8
                         type: array
                     required:
                     - cpu
@@ -34787,13 +34776,8 @@ spec:
                                       type: string
                                   type: object
                               type: object
-                              x-kubernetes-validations:
-                              - message: evictor requires a writable PVC; ReadOnlyMany
-                                  cannot delete cache files
-                                rule: '!(has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
-                    maxItems: 8
                     type: array
                 required:
                 - cpu
@@ -34999,14 +34983,8 @@ spec:
                                           type: string
                                       type: object
                                   type: object
-                                  x-kubernetes-validations:
-                                  - message: evictor requires a writable PVC; ReadOnlyMany
-                                      cannot delete cache files
-                                    rule: '!(has(self.spec) && ''ReadOnlyMany'' in
-                                      self.spec.accessModes)'
                               type: object
                           type: object
-                        maxItems: 8
                         type: array
                     required:
                     - cpu
@@ -60648,13 +60626,8 @@ spec:
                                       type: string
                                   type: object
                               type: object
-                              x-kubernetes-validations:
-                              - message: evictor requires a writable PVC; ReadOnlyMany
-                                  cannot delete cache files
-                                rule: '!(has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
-                    maxItems: 8
                     type: array
                 required:
                 - cpu
@@ -60857,14 +60830,8 @@ spec:
                                           type: string
                                       type: object
                                   type: object
-                                  x-kubernetes-validations:
-                                  - message: evictor requires a writable PVC; ReadOnlyMany
-                                      cannot delete cache files
-                                    rule: '!(has(self.spec) && ''ReadOnlyMany'' in
-                                      self.spec.accessModes)'
                               type: object
                           type: object
-                        maxItems: 8
                         type: array
                     required:
                     - cpu
@@ -87306,13 +87273,8 @@ spec:
                                       type: string
                                   type: object
                               type: object
-                              x-kubernetes-validations:
-                              - message: evictor requires a writable PVC; ReadOnlyMany
-                                  cannot delete cache files
-                                rule: '!(has(self.spec) && ''ReadOnlyMany'' in self.spec.accessModes)'
                           type: object
                       type: object
-                    maxItems: 8
                     type: array
                 required:
                 - cpu
@@ -87518,14 +87480,8 @@ spec:
                                           type: string
                                       type: object
                                   type: object
-                                  x-kubernetes-validations:
-                                  - message: evictor requires a writable PVC; ReadOnlyMany
-                                      cannot delete cache files
-                                    rule: '!(has(self.spec) && ''ReadOnlyMany'' in
-                                      self.spec.accessModes)'
                               type: object
                           type: object
-                        maxItems: 8
                         type: array
                     required:
                     - cpu

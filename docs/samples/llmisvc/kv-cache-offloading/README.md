@@ -175,7 +175,9 @@ tolerations from all vLLM Pods using that PVC and path, so the evictor can follo
 them onto tainted nodes. For an RWX PVC, the evictor has no same-node affinity
 and receives no workload tolerations; it may run on a CPU node.
 
-The evictor runs as a non-root user. The referenced cache directory must allow
+PVC-backed tiers must use a writable PVC access mode. Read-only PVCs are not
+supported because the evictor deletes cache files. The evictor runs as a non-root user.
+The referenced cache directory must allow
 that user or its group to read and delete files. The standalone evictor copies
 the effective vLLM PodSecurityContext from `spec.template.securityContext`.
 On OpenShift, leave UID/GID values unset unless they are allowed by the cluster
