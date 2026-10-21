@@ -580,8 +580,8 @@ func TestReconcileExistingPVCEvictorDeploymentRepairsDrift(t *testing.T) {
 	if got.Labels["example.com/keep"] != "label" || got.Annotations["example.com/keep"] != "annotation" {
 		t.Fatalf("unmanaged metadata was not preserved: labels=%v annotations=%v", got.Labels, got.Annotations)
 	}
-	if _, exists := got.Annotations[pvcEvictorSecurityHash]; exists {
-		t.Fatal("stale security hash annotation was not removed")
+	if got.Annotations[pvcEvictorSecurityHash] != expected.Annotations[pvcEvictorSecurityHash] {
+		t.Fatalf("security hash = %q, want effective default hash %q", got.Annotations[pvcEvictorSecurityHash], expected.Annotations[pvcEvictorSecurityHash])
 	}
 }
 
@@ -610,6 +610,56 @@ func TestReconcileExistingPVCEvictorDeploymentInitializesLabels(t *testing.T) {
 	}
 	if got.Labels[pvcEvictorLabel] != "true" || got.Labels[pvcEvictorKeyLabel] == "" {
 		t.Fatalf("labels = %#v, want managed PVC evictor labels", got.Labels)
+	}
+}
+
+func TestPVCEvictorSecurityContextHashUsesEffectiveDefaults(t *testing.T) {
+	if got, want := pvcEvictorSecurityContextHash(nil), pvcEvictorSecurityContextHash(&corev1.PodSecurityContext{}); got != want {
+		t.Fatalf("default security context hashes differ: nil=%q explicit=%q", got, want)
+	}
+	if got, want := pvcEvictorSecurityContextHash(nil), pvcEvictorSecurityContextHash(&corev1.PodSecurityContext{
+		RunAsNonRoot: ptr.To(false),
+	}); got != want {
+		t.Fatalf("defaulted security context hashes differ: nil=%q explicit=%q", got, want)
+	}
+}
+
+func TestReconcileExistingPVCEvictorDeploymentAppliesTolerationsDuringSecurityHashMigration(t *testing.T) {
+	toleration := corev1.Toleration{Key: "admission", Operator: corev1.TolerationOpExists, Effect: corev1.TaintEffectNoSchedule}
+	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
+	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{
+		claimName:            "shared-pvc",
+		subPath:              "kv-cache",
+		requiresNodeAffinity: true,
+		tolerations:          []corev1.Toleration{toleration},
+	})
+	current := expected.DeepCopy()
+	delete(current.Annotations, pvcEvictorSecurityHash)
+	current.Spec.Template.Spec.Tolerations = nil
+
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(current).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+	agreements := map[string]pvcEvictorTemplateAgreement{
+		pvcEvictorIdentity("shared-pvc", "kv-cache"): {
+			agreed:      true,
+			unresolved:  true,
+			tolerations: []corev1.Toleration{toleration},
+		},
+	}
+
+	if err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), agreements, current, expected); err != nil {
+		t.Fatalf("reconcileExistingPVCEvictorDeployment() error = %v", err)
+	}
+	got := &appsv1.Deployment{}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(expected), got); err != nil {
+		t.Fatal(err)
+	}
+	if diff := cmp.Diff([]corev1.Toleration{toleration}, got.Spec.Template.Spec.Tolerations); diff != "" {
+		t.Errorf("tolerations diff (-want +got):\n%s", diff)
 	}
 }
 

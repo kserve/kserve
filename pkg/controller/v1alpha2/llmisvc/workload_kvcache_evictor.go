@@ -705,6 +705,14 @@ func (r *LLMISVCReconciler) reconcileExistingPVCEvictorDeployment(ctx context.Co
 				"pvcName", expected.Annotations[pvcEvictorPVCName],
 				"pvcPath", expected.Annotations[pvcEvictorPVCPath],
 			)
+			if pvcEvictorRequiresNodeAffinity(expected) &&
+				!equality.Semantic.DeepEqual(current.Spec.Template.Spec.Tolerations, expected.Spec.Template.Spec.Tolerations) {
+				updated := current.DeepCopy()
+				updated.Spec.Template.Spec.Tolerations = slices.Clone(expected.Spec.Template.Spec.Tolerations)
+				if err := r.Update(ctx, updated); err != nil {
+					return fmt.Errorf("failed to update tolerations on shared PVC evictor Deployment %s/%s: %w", current.Namespace, current.Name, err)
+				}
+			}
 			return nil
 		}
 	}
@@ -1186,15 +1194,31 @@ func pvcEvictorKey(claimName, subPath string) string {
 }
 
 func pvcEvictorSecurityContextHash(securityContext *corev1.PodSecurityContext) string {
-	if securityContext == nil {
-		return ""
-	}
-	data, err := json.Marshal(securityContext)
+	data, err := json.Marshal(effectivePVCEvictorSecurityContext(securityContext))
 	if err != nil {
 		return ""
 	}
 	hash := sha256.Sum256(data)
 	return hex.EncodeToString(hash[:])
+}
+
+func effectivePVCEvictorSecurityContext(securityContext *corev1.PodSecurityContext) *corev1.PodSecurityContext {
+	effective := &corev1.PodSecurityContext{
+		RunAsNonRoot: ptr.To(true),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
+	if securityContext != nil {
+		effective = securityContext.DeepCopy()
+		effective.RunAsNonRoot = ptr.To(true)
+		if effective.SeccompProfile == nil {
+			effective.SeccompProfile = &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			}
+		}
+	}
+	return effective
 }
 
 func expectedPVCEvictorDeployment(llmSvc *v1alpha2.LLMInferenceService, target pvcEvictorTarget) *appsv1.Deployment {
@@ -1206,21 +1230,7 @@ func expectedPVCEvictorDeployment(llmSvc *v1alpha2.LLMInferenceService, target p
 		constants.KubernetesPartOfLabelKey: constants.LLMInferenceServicePartOfValue,
 	}
 
-	podSecurityContext := &corev1.PodSecurityContext{
-		RunAsNonRoot: ptr.To(true),
-		SeccompProfile: &corev1.SeccompProfile{
-			Type: corev1.SeccompProfileTypeRuntimeDefault,
-		},
-	}
-	if target.securityContext != nil {
-		podSecurityContext = target.securityContext.DeepCopy()
-		podSecurityContext.RunAsNonRoot = ptr.To(true)
-		if podSecurityContext.SeccompProfile == nil {
-			podSecurityContext.SeccompProfile = &corev1.SeccompProfile{
-				Type: corev1.SeccompProfileTypeRuntimeDefault,
-			}
-		}
-	}
+	podSecurityContext := effectivePVCEvictorSecurityContext(target.securityContext)
 
 	podSpec := corev1.PodSpec{
 		ServiceAccountName:           pvcEvictorServiceAccount,
