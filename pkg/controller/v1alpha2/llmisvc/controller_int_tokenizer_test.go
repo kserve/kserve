@@ -392,6 +392,66 @@ schedulingProfiles:
 			Expect(current.Spec.Router.Scheduler.Tokenizer.Template).To(BeNil())
 		})
 
+		It("should update the tokenizer Deployment when its ServiceAccount image pull secrets change", func(ctx SpecContext) {
+			svcName := "test-llm-tok-sa-pull-secrets"
+			testNs := NewTestNamespace(ctx, envTest,
+				WithDefaultServiceAccountImagePullSecrets(corev1.LocalObjectReference{Name: "default-pull"}),
+			)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithTemplate(&corev1.PodSpec{ImagePullSecrets: []corev1.LocalObjectReference{{Name: "registry-pull"}}}),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithManagedTokenizer(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			tokenizerKey := types.NamespacedName{
+				Name:      kmeta.ChildName(svcName, "-tokenizer"),
+				Namespace: testNs.Name,
+			}
+			dep := &appsv1.Deployment{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Get(ctx, tokenizerKey, dep)).To(Succeed())
+				g.Expect(dep.Spec.Template.Spec.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{
+					{Name: "registry-pull"}, {Name: "default-pull"},
+				}))
+			}).WithContext(ctx).Should(Succeed())
+
+			// Waits for the Deployment to stop changing so the ServiceAccount update is the only reconcile trigger.
+			Eventually(func(g Gomega, ctx context.Context) {
+				resourceVersion := dep.ResourceVersion
+				g.Consistently(func(g Gomega, ctx context.Context) {
+					g.Expect(envTest.Get(ctx, tokenizerKey, dep)).To(Succeed())
+					g.Expect(dep.ResourceVersion).To(Equal(resourceVersion))
+				}).WithContext(ctx).WithTimeout(5 * time.Second).Should(Succeed())
+			}).WithContext(ctx).WithTimeout(time.Minute).Should(Succeed())
+
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				sa := &corev1.ServiceAccount{}
+				if err := envTest.Get(ctx, types.NamespacedName{Name: "default", Namespace: testNs.Name}, sa); err != nil {
+					return err
+				}
+				sa.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "rotated-pull"}}
+				return envTest.Update(ctx, sa)
+			})).To(Succeed())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				dep := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, tokenizerKey, dep)).To(Succeed())
+				g.Expect(dep.Spec.Template.Spec.ImagePullSecrets).To(Equal([]corev1.LocalObjectReference{
+					{Name: "registry-pull"}, {Name: "rotated-pull"},
+				}))
+			}).WithContext(ctx).Should(Succeed())
+		})
+
 		It("should keep the tokenizer Deployment unchanged when no template sets image pull secrets", func(ctx SpecContext) {
 			svcName := "test-llm-tok-no-pull-secrets"
 			testNs := NewTestNamespace(ctx, envTest,
