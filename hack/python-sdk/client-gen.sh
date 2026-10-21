@@ -23,6 +23,7 @@ SWAGGER_CODEGEN_JAR="hack/python-sdk/openapi-generator-cli-${OPENAPI_GENERATOR_V
 SWAGGER_CODEGEN_CONF="hack/python-sdk/swagger_config.json"
 SWAGGER_CODEGEN_FILE="pkg/openapi/swagger.json"
 SDK_OUTPUT_PATH="python/kserve"
+SDK_TEMPLATE_PATH="hack/python-sdk/templates"
 
 echo "Downloading the swagger-codegen JAR package ..."
 if [ ! -f ${SWAGGER_CODEGEN_JAR} ]
@@ -31,7 +32,7 @@ then
 fi
 
 echo "Generating Python SDK for KServe ..."
-java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -g python -o ${SDK_OUTPUT_PATH} -c ${SWAGGER_CODEGEN_CONF}
+java -jar ${SWAGGER_CODEGEN_JAR} generate -i ${SWAGGER_CODEGEN_FILE} -g python -o ${SDK_OUTPUT_PATH} -c ${SWAGGER_CODEGEN_CONF} -t ${SDK_TEMPLATE_PATH}
 
 # Preserve the positional constructor contract that predates the LLM TLS fields.
 # New fields are keyword-only so generated clients cannot silently rebind existing
