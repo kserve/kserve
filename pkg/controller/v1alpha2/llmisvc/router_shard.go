@@ -285,14 +285,36 @@ func ruleActionKey(rule *gwapiv1.HTTPRouteRule) string {
 
 // precedenceKey is the part of a match that Gateway API compares to decide
 // precedence across routes: path type and length, method, and the number of
-// header and query param matches.
+// header and query param matches. It is coarser than the spec in two places
+// where implementations tie matches the spec orders:
+//   - a PathPrefix value is compared without its trailing "/", which the spec
+//     ignores for prefix matching and Istio trims, so /tie and /tie/ tie;
+//   - a method counts as one more header, as Envoy Gateway turns the method
+//     into a header match, so /tie + GET ties /tie + one header.
+//
+// A coarser key only groups more rules together, which is always safe.
 func precedenceKey(m gwapiv1.HTTPRouteMatch) string {
+	pathType, pathValue := matchPath(m)
+	headers := len(m.Headers)
+	if m.Method != nil {
+		headers++
+	}
+	return fmt.Sprintf("%s/%d/%d/%d", pathType, len(pathValue), headers, len(m.QueryParams))
+}
+
+// matchPath returns the defaulted path type and value of a match, with the
+// trailing "/" of a PathPrefix value other than "/" trimmed; see
+// precedenceKey.
+func matchPath(m gwapiv1.HTTPRouteMatch) (gwapiv1.PathMatchType, string) {
 	pathType, pathValue := gwapiv1.PathMatchPathPrefix, "/"
 	if m.Path != nil {
 		pathType = ptr.Deref(m.Path.Type, gwapiv1.PathMatchPathPrefix)
 		pathValue = ptr.Deref(m.Path.Value, "/")
 	}
-	return fmt.Sprintf("%s/%d/%s/%d/%d", pathType, len(pathValue), ptr.Deref(m.Method, ""), len(m.Headers), len(m.QueryParams))
+	if pathType == gwapiv1.PathMatchPathPrefix && len(pathValue) > 1 {
+		pathValue = strings.TrimSuffix(pathValue, "/")
+	}
+	return pathType, pathValue
 }
 
 // matchFacts holds the parts of a match that matchesMayOverlap compares,
@@ -301,16 +323,14 @@ func precedenceKey(m gwapiv1.HTTPRouteMatch) string {
 type matchFacts struct {
 	pathType gwapiv1.PathMatchType
 	path     string
+	method   string
 	headers  map[string]string
 	query    map[string]string
 }
 
 func newMatchFacts(m gwapiv1.HTTPRouteMatch) matchFacts {
-	f := matchFacts{pathType: gwapiv1.PathMatchPathPrefix, path: "/"}
-	if m.Path != nil {
-		f.pathType = ptr.Deref(m.Path.Type, gwapiv1.PathMatchPathPrefix)
-		f.path = ptr.Deref(m.Path.Value, "/")
-	}
+	f := matchFacts{method: string(ptr.Deref(m.Method, ""))}
+	f.pathType, f.path = matchPath(m)
 	f.headers = headerExactValues(m.Headers)
 	f.query = queryExactValues(m.QueryParams)
 	return f
@@ -318,8 +338,10 @@ func newMatchFacts(m gwapiv1.HTTPRouteMatch) matchFacts {
 
 // matchesMayOverlap reports whether two matches with the same precedence key
 // could match one request. It is conservative: only exact or prefix paths
-// with different values, or an Exact header or query param with the same name
-// and a different value, count as disjoint. Regular expressions are assumed
+// with different values (after the trailing "/" trim of precedenceKey), two
+// different methods, or an Exact header or query param with the same name
+// and a different value, count as disjoint. A method against a header match
+// is assumed to overlap. Regular expressions are assumed
 // to overlap anything.
 func matchesMayOverlap(a, b gwapiv1.HTTPRouteMatch) bool {
 	fa, fb := newMatchFacts(a), newMatchFacts(b)
@@ -330,6 +352,9 @@ func (a *matchFacts) mayOverlap(b *matchFacts) bool {
 	// Same key, so same type and length: two exact or prefix values of equal
 	// length only overlap when they are equal.
 	if a.pathType != gwapiv1.PathMatchRegularExpression && a.path != b.path {
+		return false
+	}
+	if a.method != "" && b.method != "" && a.method != b.method {
 		return false
 	}
 	if exactValuesDiffer(a.headers, b.headers) {

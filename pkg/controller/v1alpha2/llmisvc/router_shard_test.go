@@ -393,6 +393,60 @@ func TestShardHTTPRouteRulesPrecedenceGroups(t *testing.T) {
 		}
 	})
 
+	t.Run("a prefix with and without the trailing slash ties", func(t *testing.T) {
+		rules := append(filler(15),
+			backendRule("/tie", gwapiv1.PathMatchPathPrefix, "bare"),
+			backendRule("/tie/", gwapiv1.PathMatchPathPrefix, "slash"))
+		shards, err := shardHTTPRouteRules(rules)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if shardOf(t, shards, "/tie", "bare") != shardOf(t, shards, "/tie/", "slash") {
+			t.Fatalf("/tie and /tie/ must stay together")
+		}
+	})
+
+	t.Run("an exact path keeps its trailing slash", func(t *testing.T) {
+		rules := append(filler(15),
+			backendRule("/tie", gwapiv1.PathMatchExact, "bare"),
+			backendRule("/tie/", gwapiv1.PathMatchExact, "slash"))
+		shards, err := shardHTTPRouteRules(rules)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if shardOf(t, shards, "/tie", "bare") == shardOf(t, shards, "/tie/", "slash") {
+			t.Fatalf("exact /tie and /tie/ are different keys and split freely")
+		}
+	})
+
+	t.Run("a method ties one header", func(t *testing.T) {
+		withMethod := backendRule("/tie", gwapiv1.PathMatchPathPrefix, "method")
+		withMethod.Matches[0].Method = ptr.To(gwapiv1.HTTPMethodGet)
+		withHeader := backendRule("/tie", gwapiv1.PathMatchPathPrefix, "header")
+		withHeader.Matches[0].Headers = []gwapiv1.HTTPHeaderMatch{{Name: "X-A", Value: "a"}}
+		shards, err := shardHTTPRouteRules(append(filler(15), withMethod, withHeader))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if shardOf(t, shards, "/tie", "method") != shardOf(t, shards, "/tie", "header") {
+			t.Fatalf("a method and one header tie on Envoy Gateway and must stay together")
+		}
+	})
+
+	t.Run("different methods are disjoint", func(t *testing.T) {
+		get := backendRule("/tie", gwapiv1.PathMatchPathPrefix, "get")
+		get.Matches[0].Method = ptr.To(gwapiv1.HTTPMethodGet)
+		post := backendRule("/tie", gwapiv1.PathMatchPathPrefix, "post")
+		post.Matches[0].Method = ptr.To(gwapiv1.HTTPMethodPost)
+		shards, err := shardHTTPRouteRules(append(filler(15), get, post))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(shards) != 2 {
+			t.Fatalf("got %d shards, want 2", len(shards))
+		}
+	})
+
 	t.Run("an order-dependent group larger than one route is rejected", func(t *testing.T) {
 		rules := make([]gwapiv1.HTTPRouteRule, 0, 17)
 		for i := range 17 {
