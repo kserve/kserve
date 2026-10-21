@@ -1238,6 +1238,46 @@ func TestValidatePVCEvictorContainerTemplates(t *testing.T) {
 		}
 	})
 
+	t.Run("different security contexts on the same pvc.ref path are rejected", func(t *testing.T) {
+		main := newRefWorkload("example.com/evictor:v1", corev1.ResourceRequirements{}, "shared-pvc", "kv")
+		prefill := newRefWorkload("example.com/evictor:v1", corev1.ResourceRequirements{}, "shared-pvc", "kv")
+		main.Template.SecurityContext = &corev1.PodSecurityContext{FSGroup: ptr.To(int64(1000))}
+		prefill.Template.SecurityContext = &corev1.PodSecurityContext{FSGroup: ptr.To(int64(2000))}
+		svc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: *main,
+				Prefill:      prefill,
+			},
+		}
+		err := validatePVCEvictorContainerTemplates(svc)
+		if err == nil {
+			t.Fatal("different PodSecurityContexts on the same pvc.ref path were accepted")
+		}
+		if !strings.Contains(err.Error(), "same vLLM PodSecurityContext") {
+			t.Fatalf("error = %v, want PodSecurityContext conflict", err)
+		}
+	})
+
+	t.Run("different template and worker security contexts on the same pvc.ref path are rejected", func(t *testing.T) {
+		workload := newRefWorkload("example.com/evictor:v1", corev1.ResourceRequirements{}, "shared-pvc", "kv")
+		workload.Template.SecurityContext = &corev1.PodSecurityContext{FSGroup: ptr.To(int64(1000))}
+		workload.Worker = &corev1.PodSpec{
+			SecurityContext: &corev1.PodSecurityContext{FSGroup: ptr.To(int64(2000))},
+			Containers: []corev1.Container{{
+				Name: mainContainerName,
+				Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
+			}},
+		}
+		svc := &v1alpha2.LLMInferenceService{Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: *workload}}
+		err := validatePVCEvictorContainerTemplates(svc)
+		if err == nil {
+			t.Fatal("different template and worker PodSecurityContexts were accepted")
+		}
+		if !strings.Contains(err.Error(), "same vLLM PodSecurityContext") {
+			t.Fatalf("error = %v, want PodSecurityContext conflict", err)
+		}
+	})
+
 	t.Run("different images on separate pvc.spec workloads are allowed", func(t *testing.T) {
 		svc := &v1alpha2.LLMInferenceService{
 			Spec: v1alpha2.LLMInferenceServiceSpec{

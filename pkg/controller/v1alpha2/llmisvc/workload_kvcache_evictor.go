@@ -166,8 +166,9 @@ func validatePVCEvictorContainerTemplates(llmSvc *v1alpha2.LLMInferenceService) 
 		path string
 	}
 	type workloadTemplates struct {
-		template   *corev1.Container
-		identities map[string]pvcEvictorReference
+		template         *corev1.Container
+		securityContexts []*corev1.PodSecurityContext
+		identities       map[string]pvcEvictorReference
 	}
 
 	if err := validatePVCEvictorCachePath("main workload", &llmSvc.Spec.WorkloadSpec); err != nil {
@@ -192,7 +193,11 @@ func validatePVCEvictorContainerTemplates(llmSvc *v1alpha2.LLMInferenceService) 
 			path := normalizePVCEvictorPath(ref.Path)
 			identities[pvcEvictorIdentity(ref.Name, path)] = pvcEvictorReference{name: ref.Name, path: path}
 		}
-		workloads = append(workloads, workloadTemplates{template: template, identities: identities})
+		workloads = append(workloads, workloadTemplates{
+			template:         template,
+			securityContexts: workloadPVCEvictorSecurityContexts(workload),
+			identities:       identities,
+		})
 	}
 	addWorkload(&llmSvc.Spec.WorkloadSpec, mainTemplate)
 	addWorkload(llmSvc.Spec.Prefill, inheritedPVCEvictorContainerTemplate(llmSvc.Spec.Prefill, mainTemplate))
@@ -201,10 +206,17 @@ func validatePVCEvictorContainerTemplates(llmSvc *v1alpha2.LLMInferenceService) 
 	}
 
 	templatesByIdentity := make(map[string][]*corev1.Container)
+	securityHashesByIdentity := make(map[string]map[string]struct{})
 	referencesByIdentity := make(map[string]pvcEvictorReference)
 	for _, workload := range workloads {
 		for identity, reference := range workload.identities {
 			templatesByIdentity[identity] = append(templatesByIdentity[identity], workload.template)
+			if securityHashesByIdentity[identity] == nil {
+				securityHashesByIdentity[identity] = make(map[string]struct{})
+			}
+			for _, securityContext := range workload.securityContexts {
+				securityHashesByIdentity[identity][pvcEvictorSecurityContextHash(securityContext)] = struct{}{}
+			}
 			referencesByIdentity[identity] = reference
 		}
 	}
@@ -218,6 +230,12 @@ func validatePVCEvictorContainerTemplates(llmSvc *v1alpha2.LLMInferenceService) 
 				reference := referencesByIdentity[identity]
 				return fmt.Errorf("all workloads using PVC %q and path %q must use the same pvc-evictor container template", reference.name, reference.path)
 			}
+		}
+	}
+	for identity, hashes := range securityHashesByIdentity {
+		if len(hashes) > 1 {
+			reference := referencesByIdentity[identity]
+			return fmt.Errorf("all workloads using PVC %q and path %q must use the same vLLM PodSecurityContext", reference.name, reference.path)
 		}
 	}
 	return nil
@@ -1372,6 +1390,23 @@ func workloadPVCEvictorSecurityContext(workload *v1alpha2.WorkloadSpec) *corev1.
 		return workload.Worker.SecurityContext.DeepCopy()
 	}
 	return nil
+}
+
+func workloadPVCEvictorSecurityContexts(workload *v1alpha2.WorkloadSpec) []*corev1.PodSecurityContext {
+	if workload == nil {
+		return nil
+	}
+	securityContexts := make([]*corev1.PodSecurityContext, 0, 2)
+	if workload.Template != nil {
+		securityContexts = append(securityContexts, workload.Template.SecurityContext)
+	}
+	if workload.Worker != nil {
+		securityContexts = append(securityContexts, workload.Worker.SecurityContext)
+	}
+	if len(securityContexts) == 0 {
+		securityContexts = append(securityContexts, nil)
+	}
+	return securityContexts
 }
 
 func normalizePVCEvictorPath(value string) string {
