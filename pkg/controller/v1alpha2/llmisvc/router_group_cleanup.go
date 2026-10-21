@@ -46,23 +46,32 @@ func (r *LLMISVCReconciler) reconcileTerminatingGroupBackends(ctx context.Contex
 		return err
 	}
 
-	var members *v1alpha2.LLMInferenceServiceList
+	// A partial write after a group change can leave shards labelled with
+	// different groups, so members are listed per group, not once.
+	membersByGroup := map[string][]v1alpha2.LLMInferenceService{}
+	firstGroup := ""
 	for _, route := range routes {
 		group := route.Labels[constants.LLMRoutingGroupLabelKey]
 		if group == "" {
 			continue
 		}
 
-		if members == nil {
-			members = &v1alpha2.LLMInferenceServiceList{}
-			if err := r.List(ctx, members, client.InNamespace(route.Namespace),
+		members, listed := membersByGroup[group]
+		if !listed {
+			list := &v1alpha2.LLMInferenceServiceList{}
+			if err := r.List(ctx, list, client.InNamespace(route.Namespace),
 				client.MatchingFields{groupFieldIndex: route.Namespace + "/" + group}); err != nil {
 				return fmt.Errorf("failed to list routing group %q: %w", group, err)
+			}
+			members = list.Items
+			membersByGroup[group] = members
+			if firstGroup == "" {
+				firstGroup = group
 			}
 		}
 
 		stored := route.DeepCopy()
-		if removed := removeTerminatingGroupBackends(route, members.Items); len(removed) > 0 {
+		if removed := removeTerminatingGroupBackends(route, members); len(removed) > 0 {
 			if err := r.Patch(ctx, route, client.MergeFromWithOptions(stored, client.MergeFromWithOptimisticLock{})); err != nil {
 				if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 					continue
@@ -72,19 +81,25 @@ func (r *LLMISVCReconciler) reconcileTerminatingGroupBackends(ctx context.Contex
 			}
 		}
 	}
-	if members == nil {
+	if firstGroup == "" {
 		return nil
 	}
 
 	// Recompute membership even when nothing was pruned here: an earlier reconcile
 	// may have patched the route successfully and then failed to persist status.
 	// Membership comes from the member list rather than the route, so a route this
-	// service was unable to write cannot erase a live peer from status.
+	// service was unable to write cannot erase a live peer from status. The
+	// status names its group; without a listed match, the first shard's group
+	// is used as before.
 	if llmSvc.Status.Router != nil && llmSvc.Status.Router.Group != nil {
-		live := make(map[string]bool, len(members.Items))
-		for i := range members.Items {
-			if members.Items[i].DeletionTimestamp.IsZero() {
-				live[members.Items[i].Name] = true
+		members, ok := membersByGroup[llmSvc.Status.Router.Group.Name]
+		if !ok {
+			members = membersByGroup[firstGroup]
+		}
+		live := make(map[string]bool, len(members))
+		for i := range members {
+			if members[i].DeletionTimestamp.IsZero() {
+				live[members[i].Name] = true
 			}
 		}
 		llmSvc.Status.Router.Group.Members = slices.DeleteFunc(llmSvc.Status.Router.Group.Members,

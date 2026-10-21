@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -291,6 +292,48 @@ func TestGroupBackendCleanupConvergesAfterConflict(t *testing.T) {
 	require.NoError(t, r.reconcileTerminatingGroupBackends(ctx, owner))
 	assert.Empty(t, owner.Status.Router.Group.Members)
 	assert.Equal(t, 2, patches, "a route with nothing left to prune must not be patched again")
+}
+
+func TestGroupBackendCleanupListsEachShardGroup(t *testing.T) {
+	inGroup := func(name, group string, terminating bool) *v1alpha2.LLMInferenceService {
+		svc := &v1alpha2.LLMInferenceService{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns", UID: types.UID(name + "-uid")},
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				Router: &v1alpha2.RouterSpec{Route: &v1alpha2.GatewayRoutesSpec{Group: ptr.To(group)}},
+			},
+		}
+		if terminating {
+			svc.DeletionTimestamp = ptr.To(metav1.Now())
+			svc.Finalizers = []string{"test-finalizer"}
+		}
+		return svc
+	}
+	// The owner moved from "old" to "new"; the base route was rewritten, the
+	// shard was not, so the shards disagree on the group.
+	owner := inGroup("owner", "new", false)
+	oldPeer := inGroup("old-peer", "old", true)
+	newPeer := inGroup("new-peer", "new", true)
+	ref := func(svc string) gwapiv1.HTTPBackendRef {
+		return gwapiv1.HTTPBackendRef{BackendRef: gwapiv1.BackendRef{
+			BackendObjectReference: gwapiv1.BackendObjectReference{Name: gwapiv1.ObjectName(svc + "-kserve-workload-svc")},
+		}}
+	}
+	base := groupRoute(owner, ref("old-peer"), ref("owner"))
+	base.Labels[constants.LLMRoutingGroupLabelKey] = "old"
+	shard := groupRoute(owner, ref("new-peer"), ref("owner"))
+	shard.Name = managedHTTPRouteName(owner.Name, 1)
+	shard.Labels[constants.LLMRoutingGroupLabelKey] = "new"
+
+	c := fake.NewClientBuilder().WithScheme(cleanupScheme(t)).WithObjects(owner, oldPeer, newPeer, base, shard).
+		WithIndex(&v1alpha2.LLMInferenceService{}, groupFieldIndex, groupIndexValue).Build()
+	require.NoError(t, (&LLMISVCReconciler{Client: c}).reconcileTerminatingGroupBackends(t.Context(), owner))
+
+	for _, route := range []*gwapiv1.HTTPRoute{base, shard} {
+		current := &gwapiv1.HTTPRoute{}
+		require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(route), current))
+		require.Len(t, current.Spec.Rules[0].BackendRefs, 1, "%s must drop its group's terminating member", route.Name)
+		require.Equal(t, gwapiv1.ObjectName("owner-kserve-workload-svc"), current.Spec.Rules[0].BackendRefs[0].Name)
+	}
 }
 
 func cleanupScheme(t *testing.T) *runtime.Scheme {
