@@ -91,6 +91,36 @@ func splitOversizedRules(rules []gwapiv1.HTTPRouteRule) (out []gwapiv1.HTTPRoute
 	return out, origins
 }
 
+// checkHTTPRouteShardCapacity rejects rules that cannot fit in limit
+// HTTPRoutes however they are packed: more rules, after oversized rules are
+// split, than limit*16, or more matches than limit*128. It is cheap, so it
+// runs before the pairwise grouping of shardHTTPRouteRules.
+func checkHTTPRouteShardCapacity(rules []gwapiv1.HTTPRouteRule, limit int, source string) error {
+	split, matches := 0, 0
+	for i := range rules {
+		n := ruleMatchCount(&rules[i])
+		matches += n
+		split += (n + httpRouteMaxRuleMatches - 1) / httpRouteMaxRuleMatches
+	}
+	if split > limit*httpRouteMaxRules {
+		return httpRouteShardCapError(fmt.Sprintf("%d rules (at most %d per HTTPRoute)", split, httpRouteMaxRules), limit, source)
+	}
+	if matches > limit*httpRouteMaxTotalMatches {
+		return httpRouteShardCapError(fmt.Sprintf("%d matches (at most %d per HTTPRoute)", matches, httpRouteMaxTotalMatches), limit, source)
+	}
+	return nil
+}
+
+// httpRouteShardCapError reports that the route needs more than limit
+// HTTPRoutes, naming both places the cap can be raised.
+func httpRouteShardCapError(need string, limit int, source string) error {
+	return fmt.Errorf("%w: the route needs %s but %s allows %d HTTPRoutes; "+
+		"set the %s annotation on this service (up to %d), ask an admin to raise httpRouteMaxShards in the %s ConfigMap, "+
+		"or reduce the rules and LoRA adapters; the stored routes keep serving",
+		ErrPreconditionNotMet, need, source, limit,
+		AnnotationHTTPRouteMaxShards, constants.MaxHTTPRouteMaxShards, constants.InferenceServiceConfigMapName)
+}
+
 // shardHTTPRouteRules packs rules into groups that each respect the Gateway
 // API rule and match limits. It always returns at least one group so a route
 // without rules still produces one resource.

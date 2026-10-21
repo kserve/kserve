@@ -24,6 +24,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -405,4 +406,45 @@ func TestShardHTTPRouteRulesPrecedenceGroups(t *testing.T) {
 			t.Fatalf("message should give the group size: %v", err)
 		}
 	})
+}
+
+func TestCheckHTTPRouteShardCapacity(t *testing.T) {
+	matches := func(n int) []gwapiv1.HTTPRouteMatch {
+		out := make([]gwapiv1.HTTPRouteMatch, n)
+		for i := range out {
+			out[i] = gwapiv1.HTTPRouteMatch{Path: &gwapiv1.HTTPPathMatch{Value: ptr.To(fmt.Sprintf("/m%d", i))}}
+		}
+		return out
+	}
+	rules := func(n, each int) []gwapiv1.HTTPRouteRule {
+		out := make([]gwapiv1.HTTPRouteRule, n)
+		for i := range out {
+			out[i] = gwapiv1.HTTPRouteRule{Matches: matches(each)}
+		}
+		return out
+	}
+	for _, tt := range []struct {
+		name    string
+		rules   []gwapiv1.HTTPRouteRule
+		limit   int
+		wantErr string
+	}{
+		{name: "fits one route", rules: rules(16, 8), limit: 1},
+		{name: "too many rules for the cap", rules: rules(17, 1), limit: 1, wantErr: "17 rules"},
+		{name: "an oversized rule that splits within the cap fits", rules: rules(1, 65), limit: 1},
+		{name: "oversized rule splits into more rules than allowed", rules: rules(9, 65), limit: 1, wantErr: "18 rules"},
+		{name: "too many matches for the cap", rules: rules(3, 50), limit: 1, wantErr: "150 matches"},
+		{name: "a higher cap fits", rules: rules(3, 50), limit: 2},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkHTTPRouteShardCapacity(tt.rules, tt.limit, "test")
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, ErrPreconditionNotMet)
+			require.ErrorContains(t, err, tt.wantErr)
+			require.ErrorContains(t, err, AnnotationHTTPRouteMaxShards)
+		})
+	}
 }

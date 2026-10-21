@@ -290,16 +290,18 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 
 		// The logical route may hold more rules and matches than one HTTPRoute
 		// allows, so it is written as one or more resources that each fit.
+		// A route that cannot fit the cap however it is packed is rejected
+		// before the pairwise grouping in shardHTTPRoute runs.
+		limit, source := httpRouteMaxShardsFor(llmSvc, cfg)
+		if err := checkHTTPRouteShardCapacity(expectedHTTPRoute.Spec.Rules, limit, source); err != nil {
+			return nil, err
+		}
 		shards, err := shardHTTPRoute(llmSvc, expectedHTTPRoute)
 		if err != nil {
 			return nil, err
 		}
-		if limit, source := httpRouteMaxShardsFor(llmSvc, cfg); len(shards) > limit {
-			return nil, fmt.Errorf("%w: the route needs %d HTTPRoutes but %s allows %d; "+
-				"set the %s annotation on this service (up to %d), ask an admin to raise httpRouteMaxShards in the %s ConfigMap, "+
-				"or reduce the rules and LoRA adapters; the stored routes keep serving",
-				ErrPreconditionNotMet, len(shards), source, limit,
-				AnnotationHTTPRouteMaxShards, constants.MaxHTTPRouteMaxShards, constants.InferenceServiceConfigMapName)
+		if len(shards) > limit {
+			return nil, httpRouteShardCapError(fmt.Sprintf("%d HTTPRoutes", len(shards)), limit, source)
 		}
 		// Kubernetes has no atomic write across several HTTPRoutes, so the whole
 		// set is validated first: a shard the API server would reject fails the
