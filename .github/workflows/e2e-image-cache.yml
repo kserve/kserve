@@ -26,6 +26,8 @@ on:
     paths:
       - ".github/workflows/e2e-image-cache.yml"
       - "test/scripts/gh-actions/image-cache.sh"
+      - "test/scripts/gh-actions/image-cache-test.sh"
+      - "**/.dockerignore"
 
 permissions:
   contents: read
@@ -34,6 +36,24 @@ env:
   E2E_IMAGE_CACHE: ghcr.io/${{ github.repository_owner }}/kserve-e2e-images
 
 jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+
+      - name: Check which edits change which keys
+        run: ./test/scripts/gh-actions/image-cache-test.sh
+
   plan:
     runs-on: ubuntu-latest
     timeout-minutes: 15
