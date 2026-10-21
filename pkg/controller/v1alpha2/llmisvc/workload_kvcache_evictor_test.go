@@ -585,6 +585,34 @@ func TestReconcileExistingPVCEvictorDeploymentRepairsDrift(t *testing.T) {
 	}
 }
 
+func TestReconcileExistingPVCEvictorDeploymentInitializesLabels(t *testing.T) {
+	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
+	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{claimName: "shared-pvc", subPath: "kv-cache"})
+	current := expected.DeepCopy()
+	current.Labels = nil
+
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(current).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+	agreements := map[string]pvcEvictorTemplateAgreement{
+		pvcEvictorIdentity("shared-pvc", "kv-cache"): {agreed: true},
+	}
+
+	if err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), agreements, current, expected); err != nil {
+		t.Fatalf("reconcileExistingPVCEvictorDeployment() error = %v", err)
+	}
+	got := &appsv1.Deployment{}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(expected), got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Labels[pvcEvictorLabel] != "true" || got.Labels[pvcEvictorKeyLabel] == "" {
+		t.Fatalf("labels = %#v, want managed PVC evictor labels", got.Labels)
+	}
+}
+
 func TestReconcileExistingPVCEvictorDeploymentSkipsNoOpUpdate(t *testing.T) {
 	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
 	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{claimName: "shared-pvc", subPath: "kv-cache"})

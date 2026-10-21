@@ -730,6 +730,9 @@ func (r *LLMISVCReconciler) reconcileExistingPVCEvictorDeployment(ctx context.Co
 	updated := current.DeepCopy()
 	updated.Spec = *normalizedExpected.Spec.DeepCopy()
 	updated.Labels = maps.Clone(current.Labels)
+	if updated.Labels == nil {
+		updated.Labels = make(map[string]string)
+	}
 	maps.Copy(updated.Labels, expected.Labels)
 	updated.Annotations = syncedPVCEvictorAnnotations(current.Annotations, expected.Annotations)
 	updated.OwnerReferences = expectedOwnerReferences
