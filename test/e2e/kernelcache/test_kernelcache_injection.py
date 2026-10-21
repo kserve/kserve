@@ -25,7 +25,7 @@ from .utils import (
     pod_has_mcv_sidecar,
     verify_cache_files_accessible,
     wait_for_cache_injected,
-    wait_for_isvc_pod_running,
+    wait_for_isvc_pod_ready,
     wait_for_kernelcachenode_cache_ready,
 )
 
@@ -124,35 +124,29 @@ def test_kernelcache_injection(kc_session):
         "expected cache injection instead of capture"
     )
 
-    # Verify the cache actually mounts and the pod reaches Running.
-    wait_for_isvc_pod_running(namespace, consumer_name, timeout=300)
+    # Wait for pod to be Ready (readiness probe passed).
+    # This ensures torch.compile has completed and the HTTP server started,
+    # so logs will contain compilation activity when we read them.
+    wait_for_isvc_pod_ready(namespace, consumer_name, timeout=300)
 
     # ── Phase 4: verify cache is accessible and used ──────────────────────────
     # The kernel-cache-linker init container symlinks the OCI image contents.
-    # With XDG_CACHE_HOME=/root/.cache/vllm, torch writes FX graph cache to:
-    # /root/.cache/vllm/torch/inductor-cache/
+    # PyTorch writes cache to TORCHINDUCTOR_CACHE_DIR:
+    # /root/.cache/vllm/torch_compile_cache/inductor_cache
     # Verify these files are present and readable in the consumer pod.
     verify_cache_files_accessible(namespace, consumer_name, timeout=60)
 
     # Check pod logs for cache hit indicators. The consumer pod runs the same
     # torch.compile operation as the producer, but with cache files already
-    # mounted. If the cache is working, logs should show "FX graph cache hit"
-    # messages instead of compilation activity.
+    # mounted. Logs should show "FX graph cache hit" messages proving cache reuse.
     log_check = check_pod_logs_for_cache_usage(
         namespace, consumer_name, since_seconds=300
     )
-    if log_check["logs_checked"]:
-        if log_check["cache_hit_found"]:
-            # Cache hit found - ideal case, strong evidence of cache reuse
-            pass  # Test continues successfully
-        elif log_check["cache_miss_found"]:
-            # Cache miss found - this is unexpected and indicates the cache
-            # may not be working correctly, but not a hard failure since
-            # torch.compile's cache key calculation is opaque
-            import logging
-
-            logging.getLogger(__name__).warning(
-                "Found cache miss indicators in consumer pod logs. "
-                "This may indicate torch.compile regenerated kernels instead of reusing the cache."
-            )
-        # If neither found, torch may not have logged cache activity at this log level
+    assert log_check["logs_checked"], (
+        f"Could not retrieve logs from consumer pod {namespace}/{consumer_name}"
+    )
+    assert log_check["cache_hit_found"], (
+        f"No cache hit found in consumer pod {namespace}/{consumer_name} logs. "
+        f"Cache was injected (symlinks verified) but torch.compile did not reuse it. "
+        f"cache_miss_found={log_check['cache_miss_found']}"
+    )

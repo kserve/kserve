@@ -15,6 +15,7 @@
 import json
 import logging
 import os
+import time
 
 import pytest
 from kubernetes import client
@@ -329,6 +330,7 @@ def kc_test_runtime(kc_config):
                     "command": ["/bin/bash", "-c"],
                     "args": [
                         # Ordering matters for MCV capture:
+                        # 0. Exit on any error so compilation failures prevent readiness.
                         # 1. Sleep so MCV starts and takes an empty baseline snapshot
                         #    before kernel compilation. 30s is a conservative buffer.
                         # 2. Trigger torch.compile to generate FX graph cache files.
@@ -338,6 +340,8 @@ def kc_test_runtime(kc_config):
                         #    are written where MCV can detect them.
                         # 3. Sync filesystem and sleep to ensure cache files are flushed.
                         # 4. Start HTTP server for readiness probe (required by MCV webhook).
+                        #    Readiness only passes if compilation succeeded (set -e above).
+                        "set -e\n"
                         "sleep 30\n"
                         "python3 -c 'import torch; "
                         "torch._inductor.config.fx_graph_cache = True; "
@@ -407,14 +411,21 @@ def kc_test_runtime(kc_config):
 
 @pytest.fixture(scope="session")
 def kc_session_namespace(kc_node_group, kc_test_runtime):
-    """Create a fixed namespace for the shared session KC; torn down at session end.
+    """Create a unique namespace for the shared session KC; torn down at session end.
+
+    Uses a timestamp suffix to ensure uniqueness across test runs. This prevents
+    conflicts when tests are interrupted or SKIP_RESOURCE_DELETION is enabled,
+    allowing developers to re-run tests without manual cleanup.
 
     Depends on kc_node_group and kc_test_runtime so the KCNG and
     ClusterServingRuntime are ready before any session-level capture begins.
     """
     _load_k8s_config()
     core = client.CoreV1Api()
-    ns_name = "kc-e2e-session"
+    # Use timestamp to make namespace unique per test session.
+    # This avoids conflicts from interrupted runs or SKIP_RESOURCE_DELETION.
+    timestamp = int(time.time())
+    ns_name = f"kc-e2e-{timestamp}"
 
     # create_namespace copies Istio-injection and pod-security labels from the
     # seed namespace — without them the Istio proxy is not injected and MCV
