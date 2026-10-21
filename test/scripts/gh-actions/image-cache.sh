@@ -77,21 +77,31 @@ image_spec() {
     echo "image-cache: unknown image $1" >&2
     return 1
   fi
-  IMAGE_TARGET=""
   read -r IMAGE_DOCKERFILE IMAGE_CONTEXT IMAGE_TARGET <<<"${spec}"
 }
 
+# Prints the image names in a stable order.
+_image_names() {
+  printf '%s\n' "${!IMAGE_SPECS[@]}" | sort
+}
+
 # Runs docker buildx build for the current image spec, passing extra arguments.
-# Each base in IMAGE_BASES is pinned to the digest its key recorded, so a tag
-# that moves after keying cannot be built into an image under the old key.
+# Each base and frontend in IMAGE_BASES is pinned to the digest its key
+# recorded, so a tag that moves after keying cannot be built into an image
+# under the old key.
 _build_spec() {
+  local IFS=$' \t\n'
   local -a build_args=()
-  local _ ref digest
+  local kind ref digest
   if [[ -n "${IMAGE_TARGET}" ]]; then
     build_args+=(--target "${IMAGE_TARGET}")
   fi
-  while read -r _ ref digest; do
-    if [[ -n "${ref}" && "${ref}" != *@* ]]; then
+  while read -r kind ref digest; do
+    if [[ -z "${ref}" || "${ref}" == *@* ]]; then
+      continue
+    elif [[ "${kind}" == syntax ]]; then
+      build_args+=(--build-arg "BUILDKIT_SYNTAX=${ref}@${digest}")
+    else
       build_args+=(--build-context "${ref}=docker-image://${ref}@${digest}")
     fi
   done <<<"${IMAGE_BASES:-}"
@@ -103,21 +113,16 @@ _build_spec() {
 # build copies the whole context through .dockerignore, so the hash covers a
 # superset of what any Dockerfile using that context can COPY.
 _context_hash() {
-  local context=$1
+  local context=$1 out hash=""
   if [[ -z "${_IMAGE_CACHE_CONTEXTS[${context}]:-}" ]]; then
-    local out hash
     out="$(mktemp -d)" || return 1
-    if ! printf 'FROM scratch\nCOPY . /\n' |
+    if printf 'FROM scratch\nCOPY . /\n' |
       docker buildx build --quiet -f - -o "type=local,dest=${out}" "${_IMAGE_CACHE_ROOT}/${context}" >/dev/null; then
-      rm -rf "${out}"
-      return 1
-    fi
-    if ! hash="$(tar -C "${out}" --sort=name --format=gnu --mtime=@0 --owner=0 --group=0 --numeric-owner -cf - . |
-      sha256sum)"; then
-      rm -rf "${out}"
-      return 1
+      hash="$(tar -C "${out}" --sort=name --format=gnu --mtime=@0 --owner=0 --group=0 --numeric-owner -cf - . |
+        sha256sum; exit "${PIPESTATUS[0]}")" || hash=""
     fi
     rm -rf "${out}"
+    [[ -n "${hash}" ]] || return 1
     _IMAGE_CACHE_CONTEXTS[${context}]="${hash%% *}"
   fi
   REPLY="${_IMAGE_CACHE_CONTEXTS[${context}]}"
@@ -134,46 +139,88 @@ _base_digest() {
   fi
   if [[ -z "${_IMAGE_CACHE_DIGESTS[${ref}]:-}" ]]; then
     # Shared runner IPs hit registry rate limits; back off rather than miss.
+    # A failure is remembered too, so images sharing the base don't retry.
+    _IMAGE_CACHE_DIGESTS[${ref}]=-
     for attempt in 1 2 3 4; do
-      if digest="$(docker buildx imagetools inspect --raw "${ref}" | sha256sum; exit "${PIPESTATUS[0]}")"; then
+      if digest="$(timeout 60 docker buildx imagetools inspect --raw "${ref}" | sha256sum; exit "${PIPESTATUS[0]}")"; then
         _IMAGE_CACHE_DIGESTS[${ref}]="sha256:${digest%% *}"
         break
       fi
-      [[ "${attempt}" == 4 ]] && return 1
-      sleep $((attempt * attempt * 3))
+      ((attempt == 4)) || sleep $((attempt * attempt * 3))
     done
   fi
+  [[ "${_IMAGE_CACHE_DIGESTS[${ref}]}" != - ]] || return 1
   REPLY="${_IMAGE_CACHE_DIGESTS[${ref}]}"
 }
 
 # Sets REPLY to one "base <ref> <digest>" line per external image the target
-# stage (the last one without a target) needs: through FROM, COPY --from or
-# RUN --mount from=, with global ARG defaults expanded. Stages the target does
-# not reach are skipped, as BuildKit skips them. Anything that cannot be
-# expanded is an error, not a guess.
+# stage (the last one without a target) needs - through FROM, COPY --from or
+# RUN --mount from=, with global ARG defaults expanded - plus a "syntax <ref>
+# <digest>" line for a # syntax= frontend. Stages the target does not reach
+# are skipped, as BuildKit skips them. Anything it cannot read the way
+# BuildKit does (other parser directives, heredocs, unresolved ARGs, a base
+# named like a stage) is an error, not a guess.
 _base_digests() {
   local IFS=$' \t\n'
-  local dockerfile=$1 target=${2:-} line="" word="" name="" value="" image="" stage="" dep="" out="" ref=""
-  local i=0 n=-1 seen_from=false
+  local dockerfile=$1 target=${2:-} line="" logical="" instr="" word="" name="" value="" image="" stage=""
+  local dep="" out="" ref="" syntax="" heredoc='<<-?["'\'']?[A-Za-z_]'
+  local i=0 n=-1 seen_from=false header=true first=true
   local -A args=() index=() visited=()
   local -a deps=() words=() from=() todo=() refs=()
   while IFS= read -r line || [[ -n "${line}" ]]; do
     line="${line%$'\r'}"
+    if [[ "${first}" == true ]]; then
+      first=false
+      # BuildKit drops a byte order mark and a shebang line before directives.
+      line="${line#$'\xef\xbb\xbf'}"
+      [[ "${line}" != '#!'* ]] || continue
+    fi
+    # Parser directives are comments before anything else.
+    if [[ "${header}" == true && "${line}" =~ ^#[[:space:]]*([A-Za-z]+)[[:space:]]*=[[:space:]]*([^[:space:]]*) ]]; then
+      case "${BASH_REMATCH[1],,}" in
+        syntax) syntax="${BASH_REMATCH[2]}" ;;
+        check) ;;
+        *)
+          echo "image-cache: unsupported parser directive '${line}' in ${dockerfile}" >&2
+          return 1
+          ;;
+      esac
+      continue
+    fi
+    header=false
+    # Comments and blank lines, also inside a continuation.
+    [[ ! "${line}" =~ ^[[:space:]]*(#|$) ]] || continue
+    # A line continues when it ends in an escape that is not itself escaped,
+    # trailing blanks allowed; the next line is appended as is, like BuildKit.
+    logical+="${line}"
+    if [[ "${logical}" =~ ^(.*[^\\])\\[[:blank:]]*$ ]]; then
+      logical="${BASH_REMATCH[1]}"
+      continue
+    fi
+    line="${logical}"
+    logical=""
+    if [[ "${line}" =~ ${heredoc} ]]; then
+      echo "image-cache: heredocs are not supported in ${dockerfile}" >&2
+      return 1
+    fi
     read -r -a words <<<"${line}"
+    instr="${words[0]^^}"
     from=()
-    if [[ "${seen_from}" == false && "${line}" =~ ^ARG[[:space:]] ]]; then
+    if [[ "${seen_from}" == false && "${instr}" == ARG ]]; then
       for word in "${words[@]:1}"; do
         [[ "${word}" == *=* ]] || continue
         value="${word#*=}"
         value="${value#\"}"
         value="${value%\"}"
         for name in "${!args[@]}"; do
-          value="${value//\$\{${name}\}/${args[${name}]}}"
+          value="${value//\$\{${name}\}/"${args[${name}]}"}"
         done
+        # A reference to a later or unknown ARG: BuildKit reads it as empty.
+        [[ "${value}" != *\$* ]] || value="\${unresolved}"
         args[${word%%=*}]="${value}"
       done
       continue
-    elif [[ "${line}" =~ ^FROM[[:space:]] ]]; then
+    elif [[ "${instr}" == FROM ]]; then
       seen_from=true
       n=$((n + 1))
       deps[n]=""
@@ -204,7 +251,7 @@ _base_digests() {
 
     for image in "${from[@]}"; do
       for name in "${!args[@]}"; do
-        image="${image//\$\{${name}\}/${args[${name}]}}"
+        image="${image//\$\{${name}\}/"${args[${name}]}"}"
       done
       if [[ -z "${image}" || "${image}" == *\$* ]]; then
         echo "image-cache: cannot resolve '${line}' in ${dockerfile}" >&2
@@ -223,6 +270,15 @@ _base_digests() {
       stage=""
     fi
   done <"${_IMAGE_CACHE_ROOT}/${dockerfile}"
+  # BuildKit runs an instruction left open at the end of the file.
+  if [[ -n "${logical}" ]]; then
+    echo "image-cache: ${dockerfile} ends in a line continuation" >&2
+    return 1
+  fi
+  if ((n < 0)); then
+    echo "image-cache: no FROM in ${dockerfile}" >&2
+    return 1
+  fi
 
   todo=("${n}")
   if [[ -n "${target}" ]]; then
@@ -248,20 +304,34 @@ _base_digests() {
 
   while IFS= read -r ref; do
     [[ -n "${ref}" ]] || continue
+    # A pin is a named build context, which would also replace a stage of
+    # that name.
+    if [[ -n "${index[${ref,,}]:-}" ]]; then
+      echo "image-cache: base ${ref} has the name of a stage in ${dockerfile}" >&2
+      return 1
+    fi
     if ! _base_digest "${ref}"; then
       echo "image-cache: cannot resolve base image ${ref}" >&2
       return 1
     fi
     out+="base ${ref} ${REPLY}"$'\n'
   done < <(printf '%s\n' "${refs[@]}" | sort -u)
+  if [[ -n "${syntax}" ]]; then
+    if ! _base_digest "${syntax}"; then
+      echo "image-cache: cannot resolve frontend ${syntax}" >&2
+      return 1
+    fi
+    out+="syntax ${syntax} ${REPLY}"$'\n'
+  fi
   REPLY="${out}"
 }
 
-# Sets IMAGE_KEY and IMAGE_BASES (the "base <ref> <digest>" lines it covers)
-# for an image and logs the inputs, so a surprising miss can be diffed against
-# the publisher's log.
+# Sets IMAGE_KEY and IMAGE_BASES (the base and syntax lines it covers) for an
+# image and logs the inputs, so a surprising miss can be diffed against the
+# publisher's log. Both are empty when the image cannot be keyed.
 image_key() {
   local name=$1 platform hash context_hash dockerfile_hash script_hash bases manifest
+  IMAGE_KEY=""
   IMAGE_BASES=""
   image_spec "${name}" || return 1
   if [[ -e "${_IMAGE_CACHE_ROOT}/${IMAGE_DOCKERFILE}.dockerignore" ]]; then
@@ -287,12 +357,14 @@ context ${IMAGE_CONTEXT} ${context_hash}
 ${bases}"
   hash="$(sha256sum <<<"${manifest}")"
   IMAGE_KEY="${hash%% *}"
+  [[ "${IMAGE_KEY}" =~ ^[0-9a-f]{64}$ ]] || { IMAGE_KEY=""; return 1; }
   IMAGE_BASES="${bases}"
   printf 'image-cache: %s key %s\n%s' "${name}" "${IMAGE_KEY}" "${manifest}" | sed '2,$s/^/  /' >&2
 }
 
+# A stalled registry must not hang a build; a timeout reads as not published.
 _image_published() {
-  docker buildx imagetools inspect --raw "$1" >/dev/null 2>&1
+  timeout 60 docker buildx imagetools inspect --raw "$1" >/dev/null 2>&1
 }
 
 # Writes image <ref> as a docker archive to <dest>. Pulls it from
@@ -303,7 +375,7 @@ build_image() {
   IMAGE_BASES=""
   if [[ -n "${E2E_IMAGE_CACHE:-}" ]] && image_key "${name}"; then
     key="${IMAGE_KEY}"
-    cached="${E2E_IMAGE_CACHE}:${name}-${key}"
+    cached="${E2E_IMAGE_CACHE,,}:${name}-${key}"
     if _image_published "${cached}"; then
       if echo "FROM ${cached}" |
         docker buildx build -t "${ref}" -o "type=docker,dest=${dest},compression-level=0" -; then
@@ -331,13 +403,13 @@ build_image() {
 }
 
 # Succeeds when a reference is readable without credentials, the way e2e runs
-# read the cache. BUILDX_BUILDER names a builder kept in the real DOCKER_CONFIG,
-# so the check uses the default one.
+# read the cache; errors go to $2 (default: discarded). BUILDX_BUILDER names a
+# builder kept in the real DOCKER_CONFIG, so the check uses the default one.
 _image_public() {
   local config rc=0
   config="$(mktemp -d)" || return 1
   env -u BUILDX_BUILDER DOCKER_CONFIG="${config}" \
-    docker buildx imagetools inspect --raw "$1" >/dev/null 2>&1 || rc=$?
+    timeout 60 docker buildx imagetools inspect --raw "$1" >/dev/null 2>"${2:-/dev/null}" || rc=$?
   rm -rf "${config}"
   return "${rc}"
 }
@@ -366,7 +438,7 @@ image_cache_plan() {
       group="$(_image_group "${name}")" || return 1
       lines+="${group} ${name}"$'\n'
     fi
-  done < <(printf '%s\n' "${!IMAGE_SPECS[@]}" | sort)
+  done < <(_image_names)
   jq -cRn '[inputs | select(length > 0) | split(" ")]
     | group_by(.[0]) | map({group: .[0][0], images: (map(.[1]) | join(" "))})' <<<"${lines}"
 }
@@ -382,64 +454,72 @@ _publish_one() {
   else
     _build_spec -t "${cached}" --provenance=false --push || return 1
   fi
-  if ! _image_public "${cached}"; then
-    echo "::error::image-cache: ${cached} is not readable without credentials, so every e2e lookup misses. Make the package public."
+  if ! _image_public "${cached}" /dev/stderr; then
+    echo "image-cache: ${cached} is not readable without credentials, so every e2e lookup misses. Make the package public."
     return 1
   fi
 }
 
 # Builds and pushes the given images that are not published yet, up to
 # IMAGE_CACHE_JOBS (default 4) at a time in one builder, then checks each is
-# readable without credentials. Logs are printed per image once all finish.
+# readable without credentials. Output streams live, prefixed per image.
 image_cache_publish() {
-  local name failed=0 logs
-  local -A keys=() key_bases=() pids=()
-  # Keys first, in this shell: they memoize, the builds run in subshells.
+  local name failed=0 status
+  local -a keyed=()
+  local -A keys=() key_bases=()
+  # Keys first, in this shell: they memoize, the builds run in subshells. An
+  # image that cannot be keyed fails the job without holding up the others.
   for name in "$@"; do
-    image_key "${name}" || return 1
+    if ! image_key "${name}"; then
+      echo "::error::image-cache: ${name} cannot be keyed, not publishing it"
+      failed=1
+      continue
+    fi
+    keyed+=("${name}")
     keys[${name}]="${IMAGE_KEY}"
     key_bases[${name}]="${IMAGE_BASES}"
   done
-  logs="$(mktemp -d)" || return 1
-  for name in "$@"; do
+  status="$(mktemp -d)" || return 1
+  for name in "${keyed[@]}"; do
     while (($(jobs -rp | wc -l) >= ${IMAGE_CACHE_JOBS:-4})); do
       sleep 2
     done
-    echo "image-cache: publishing ${name}"
-    _publish_one "${name}" "${E2E_IMAGE_CACHE}:${name}-${keys[${name}]}" "${key_bases[${name}]}" \
-      >"${logs}/${name}" 2>&1 &
-    pids[${name}]=$!
+    {
+      rc=0
+      _publish_one "${name}" "${E2E_IMAGE_CACHE}:${name}-${keys[${name}]}" "${key_bases[${name}]}" 2>&1 || rc=$?
+      echo "${rc}" >"${status}/${name}"
+    } | sed -u "s/^/[${name}] /" &
   done
-  for name in "$@"; do
-    if wait "${pids[${name}]}"; then
-      echo "::group::${name}"
-    else
-      echo "::group::${name} (failed)"
+  wait
+  for name in "${keyed[@]}"; do
+    if [[ "$(cat "${status}/${name}" 2>/dev/null)" != 0 ]]; then
+      echo "::error::image-cache: publishing ${name} failed, see the [${name}] lines above"
       failed=1
     fi
-    cat "${logs}/${name}"
-    echo "::endgroup::"
   done
-  rm -rf "${logs}"
+  rm -rf "${status}"
   return "${failed}"
 }
 
-# Deletes cache versions that no current key uses and that are older than
-# <days>. PR runs merge the latest master, so only current keys can hit; the
-# grace period covers runs that merged a slightly older master. Deletes nothing
-# unless every image could be keyed, since a missing key would look stale.
+# Deletes cache versions that no current key uses, unless they were created in
+# the last <days>. PR runs merge the latest master, so only current keys can
+# hit; the recent ones stay for runs that merged a slightly older master.
+# Deletes nothing unless every image could be keyed, since a missing key would
+# make its live version look stale.
 image_cache_prune() {
   local days=${1:-7} name owner package scope live=() stale="" id tags deleted=0 failed=0
-  owner="${E2E_IMAGE_CACHE#*/}"
+  owner="${E2E_IMAGE_CACHE}"
+  owner="${owner#*/}"
   package="${owner#*/}"
   owner="${owner%%/*}"
-  while IFS= read -r name; do
+  # A plain loop, not a process substitution, so no failure goes unseen here.
+  for name in "${!IMAGE_SPECS[@]}"; do
     if ! image_key "${name}"; then
       echo "image-cache: ${name} has no key, not pruning" >&2
       return 1
     fi
     live+=("${name}-${IMAGE_KEY}")
-  done < <(printf '%s\n' "${!IMAGE_SPECS[@]}" | sort)
+  done
 
   scope="users/${owner}"
   if [[ "$(gh api "users/${owner}" --jq .type)" == Organization ]]; then
@@ -476,13 +556,15 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   set -o nounset
   set -o pipefail
   : "${E2E_IMAGE_CACHE:?E2E_IMAGE_CACHE must name the cache repository}"
+  # Image references are lowercase; repository owners need not be.
+  E2E_IMAGE_CACHE="${E2E_IMAGE_CACHE,,}"
   case "${1:-}" in
     plan) image_cache_plan ;;
     publish)
       shift
       image_cache_publish "${@:?usage: $0 publish <image>...}"
       ;;
-    prune) image_cache_prune "${2:-7}" ;;
+    prune) image_cache_prune "${@:2}" ;;
     *)
       echo "usage: $0 plan | publish <image>... | prune [days]" >&2
       exit 2

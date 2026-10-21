@@ -28,6 +28,9 @@ on:
       - "test/scripts/gh-actions/image-cache.sh"
       - "test/scripts/gh-actions/image-cache-test.sh"
       - "**/.dockerignore"
+      # A Dockerfile edit the key cannot read would otherwise just turn the
+      # cache off for that image.
+      - "**/*Dockerfile*"
 
 permissions:
   contents: read
@@ -72,6 +75,7 @@ jobs:
 
       # Plans without credentials, the way e2e runs read the cache: a private
       # package shows up as missing and its publish job fails on the check.
+      # On pull requests nothing publishes; it runs to show every image keys.
       - name: Find images e2e runs cannot read yet
         id: plan
         run: |
@@ -95,8 +99,8 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.plan.outputs.groups) }}
     # Queue instead of cancelling: with frequent merges, cancelling would starve
-    # the slow builds (huggingfaceserver takes ~35 min). A queued job finds its
-    # images already published and only checks them.
+    # the slow builds (huggingfaceserver takes ~35 min). GitHub keeps only the
+    # newest queued job per group; it skips images already published.
     concurrency:
       group: e2e-image-cache-${{ matrix.group }}
       cancel-in-progress: false

@@ -32,6 +32,9 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 LIB=test/scripts/gh-actions/image-cache.sh
 WORK="$(mktemp -d)"
 trap 'rm -rf "${WORK}"' EXIT
+# Temp dirs of child shells (context probes) go away with WORK, also when a
+# run is interrupted.
+export TMPDIR="${WORK}"
 
 # Two copies of the committed tree at different paths, with the working copy
 # of the cache script. install/ and docs/ are large and outside every context.
@@ -43,12 +46,13 @@ copy() {
 copy "${WORK}/baseline"
 copy "${WORK}/tree"
 git -C "${WORK}/tree" init -q
-git -C "${WORK}/tree" add -A
+git -C "${WORK}/tree" add -A --force
 git -C "${WORK}/tree" -c user.name=test -c user.email=test@example.com commit -q -m baseline
 
-# Prints "<image> <key>" for every image of a tree. MOVED names a base image
-# whose stubbed digest differs from the baseline; PLATFORM overrides the
-# daemon platform.
+# Prints "<image> <key>" for every image of a tree, "<image> FAIL" when it
+# cannot be keyed; the reasons go to ${WORK}/keys.err. MOVED names a base image
+# whose stubbed digest differs from the baseline; PLATFORM overrides the daemon
+# platform.
 keys() {
   MOVED="${MOVED:-}" PLATFORM="${PLATFORM:-}" bash -c '
     set -o errexit -o nounset -o pipefail
@@ -57,21 +61,22 @@ keys() {
     if [[ -n "${PLATFORM}" ]]; then
       docker() { if [[ "$1" == version ]]; then echo "${PLATFORM}"; else command docker "$@"; fi; }
     fi
-    for name in $(printf "%s\n" "${!IMAGE_SPECS[@]}" | sort); do
-      if image_key "${name}" 2>/dev/null; then echo "${name} ${IMAGE_KEY}"; else echo "${name} FAIL"; fi
-    done
-  ' _ "$1"
+    while IFS= read -r name; do
+      if image_key "${name}" 2>>"$2"; then echo "${name} ${IMAGE_KEY}"; else echo "${name} FAIL"; fi
+    done < <(_image_names)
+  ' _ "$1" "${WORK}/keys.err"
 }
 
-# Prints "<image> <base ref>" for every base image of every image.
+# Prints "<image> <ref> <base|syntax>" for every keyed base image and frontend.
 bases() {
   bash -c '
     source "$1/'"${LIB}"'"
     _base_digest() { REPLY="sha256:stub"; }
     for name in "${!IMAGE_SPECS[@]}"; do
-      image_key "${name}" 2>&1 >/dev/null | sed -n "s/^  base \([^ ]*\) .*/${name} \1/p"
+      image_key "${name}" 2>"$2" >/dev/null
+      sed -n "s/^  \(base\|syntax\) \([^ ]*\) .*/${name} \2 \1/p" "$2"
     done
-  ' _ "$1"
+  ' _ "$1" "${WORK}/bases.err"
 }
 
 # Prints the images whose build context is $1.
@@ -89,39 +94,81 @@ BASELINE="$(keys "${WORK}/baseline")"
 if grep -q FAIL <<<"${BASELINE}"; then
   echo "baseline keys failed:" >&2
   grep FAIL <<<"${BASELINE}" >&2
+  cat "${WORK}/keys.err" >&2
   exit 1
 fi
 GO="$(group .)"
 PYTHON="$(group python)"
 
 failures=0
+pass() {
+  echo "ok   $1"
+}
+fail() {
+  echo "FAIL $1"
+  failures=$((failures + 1))
+}
+
 # check <name> <expected images> <keys> [reference keys, default BASELINE]
+# An image that cannot be keyed on either side never counts as expected: the
+# cache would be off for it.
 check() {
-  local name=$1 expected got reference="${4:-${BASELINE}}"
+  local name=$1 expected got unkeyed reference="${4:-${BASELINE}}"
   expected="$(xargs -n1 <<<"$2" | sort | xargs)"
   got="$(join <(echo "${reference}") <(echo "$3") | awk '$2 != $3 {print $1}' | sort | xargs)"
+  unkeyed="$(printf '%s\n%s\n' "${reference}" "$3" | awk '$2 == "FAIL" {print $1}' | sort -u | xargs)"
+  if [[ -n "${unkeyed}" ]]; then
+    got="(unkeyed: ${unkeyed}) ${got}"
+  fi
   if [[ "$(wc -l <<<"$3")" != "$(wc -l <<<"${reference}")" ]]; then
     got="(incomplete) ${got}"
   fi
   if [[ "${got}" == "${expected}" ]]; then
-    echo "ok   ${name}"
+    pass "${name}"
   else
-    echo "FAIL ${name}: expected [${expected}] got [${got}]"
-    failures=$((failures + 1))
+    fail "${name}: expected [${expected}] got [${got}]"
   fi
 }
 
-# Runs a shell snippet in the tree, checks the keys, then restores the tree.
+restore() {
+  git -C "${WORK}/tree" reset -q --hard
+  git -C "${WORK}/tree" clean -q -f -d -x
+}
+
+# edit <name> <expected images> <snippet>: runs the snippet in the tree and
+# checks which keys moved against the baseline.
 edit() {
   (cd "${WORK}/tree" && eval "$3")
   check "$1" "$2" "$(keys "${WORK}/tree")"
-  git -C "${WORK}/tree" reset -q --hard
-  git -C "${WORK}/tree" clean -q -f -d -x
+  restore
+}
+
+# moved <name> <expected images> <ref> <snippet>: after the snippet, moving
+# <ref> rekeys exactly the expected images.
+moved() {
+  (cd "${WORK}/tree" && eval "$4")
+  check "$1" "$2" "$(MOVED="$3" keys "${WORK}/tree")" "$(keys "${WORK}/tree")"
+  restore
+}
+
+# fails <name> <image> <snippet>: after the snippet, the image has no key, so
+# it builds as if there were no cache.
+fails() {
+  local got
+  (cd "${WORK}/tree" && eval "$3")
+  # A key function that crashes instead of failing is a failure of this case.
+  got="$(keys "${WORK}/tree" | awk -v image="$2" '$1 == image {print $2}')" || got="(crashed)"
+  if [[ "${got}" == FAIL ]]; then pass "$1"; else fail "$1: $2 not reported unkeyable, got [${got}]"; fi
+  restore
 }
 
 first() {
   find "$1" -name "$2" -type f | sort | head -1
 }
+
+# Adds a stage in front of router.Dockerfile and reads from it in the final
+# stage: $1 is the stage line.
+with_stage='{ echo "$1"; cat router.Dockerfile; echo "COPY --from=extra /etc/hostname /extra"; } >r.new && mv r.new router.Dockerfile'
 
 check "same tree at another path" "" "$(keys "${WORK}/tree")"
 
@@ -140,47 +187,30 @@ edit "outside every context" "" \
   'for d in test/e2e charts config hack docs install; do mkdir -p "${d}"; echo x >"${d}/new-file.txt"; done'
 edit "dockerignored python tests" "" 'echo x >python/kserve/test/new_test.py'
 
-# A moved base digest rekeys exactly the images built on it.
+# A moved base digest or frontend rekeys exactly the images built on it.
 BASES="$(bases "${WORK}/baseline")"
 while read -r ref; do
   expected="$(awk -v ref="${ref}" '$2 == ref {print $1}' <<<"${BASES}" | sort -u | xargs)"
   check "base ${ref} moved" "${expected}" "$(MOVED="${ref}" keys "${WORK}/baseline")"
 done < <(awk '{print $2}' <<<"${BASES}" | sort -u)
 
-check "other daemon platform" "${GO} ${PYTHON}" "$(PLATFORM=linux/arm64 keys "${WORK}/baseline")"
-
-# Publishing pins every base a key covers to the keyed digest, so a tag moving
-# between keying and building cannot put another base under that key. Runs the
-# real publish path with docker stubbed for the push builds only.
-pins="$(bash -c '
-  set -o errexit -o nounset -o pipefail
+# A # syntax= frontend is read by the build, so it is keyed; expected from the
+# Dockerfiles, not from the key's own manifest.
+expected="$(bash -c '
   source "$1/'"${LIB}"'"
-  _base_digest() { REPLY="sha256:stub-$1"; }
-  _image_published() { return 1; }
-  _image_public() { return 0; }
-  docker() {
-    if [[ " $* " != *" --push "* ]]; then command docker "$@"; return; fi
-    printf "%s\n" "$@" | awk '"'"'p {print "pin " $0} {p = ($0 == "--build-context")}'"'"'
-  }
-  E2E_IMAGE_CACHE=example.invalid/cache image_cache_publish $(printf "%s\n" "${!IMAGE_SPECS[@]}" | sort) 2>/dev/null
-' _ "${WORK}/baseline" | awk '
-  /^::group::/ {name = substr($0, 10)}
-  /^pin / {split($2, kv, "="); print name, kv[1], kv[2]}')"
-expected="$(awk '{print $1, $2, "docker-image://" $2 "@sha256:stub-" $2}' <<<"${BASES}" | sort -u)"
-if [[ "$(sort -u <<<"${pins}")" == "${expected}" ]]; then
-  echo "ok   publish pins every keyed base"
+  for name in "${!IMAGE_SPECS[@]}"; do
+    read -r dockerfile _ <<<"${IMAGE_SPECS[${name}]}"
+    if head -1 "$1/${dockerfile}" | grep -qiE "^#[[:space:]]*syntax[[:space:]]*="; then echo "${name}"; fi
+  done
+' _ "${WORK}/baseline" | sort | xargs)"
+got="$(awk '$3 == "syntax" {print $1}' <<<"${BASES}" | sort | xargs)"
+if [[ -n "${expected}" && "${got}" == "${expected}" ]]; then
+  pass "frontend keyed"
 else
-  echo "FAIL publish pins every keyed base:"
-  diff <(echo "${expected}") <(sort -u <<<"${pins}") || true
-  failures=$((failures + 1))
+  fail "frontend keyed: expected [${expected}] got [${got}]"
 fi
 
-# No Dockerfile reads an external image through COPY --from today; one that
-# starts to must still rekey when that image moves.
-(cd "${WORK}/tree" && echo "COPY --from=busybox:1.36 /bin/true /true" >>router.Dockerfile)
-check "base reached only by COPY --from moved" "router" \
-  "$(MOVED=busybox:1.36 keys "${WORK}/tree")" "$(keys "${WORK}/tree")"
-git -C "${WORK}/tree" reset -q --hard
+check "other daemon platform" "${GO} ${PYTHON}" "$(PLATFORM=linux/arm64 keys "${WORK}/baseline")"
 
 # The Go images reach their golang base only through COPY --from a builder
 # stage; expected from the Dockerfiles, not from the key's own manifest.
@@ -194,12 +224,111 @@ expected="$(bash -c '
 ' _ "${WORK}/baseline" "${ref}")"
 check "base reached through a COPY --from stage moved" "${expected}" "$(MOVED="${ref}" keys "${WORK}/baseline")"
 
+# Instructions are read the way BuildKit reads them.
+moved "base reached only by COPY --from" "router" busybox:1.36 \
+  'echo "COPY --from=busybox:1.36 /bin/true /true" >>router.Dockerfile'
+moved "lowercase from" "router" alpine:3.20 "set -- 'from alpine:3.20 as extra'; ${with_stage}"
+moved "indented FROM" "router" alpine:3.20 "set -- '  FROM alpine:3.20 AS extra'; ${with_stage}"
+moved "continuation line starting with from" "" helper \
+  'printf "RUN echo \\\\\n  from helper import x\n" >>router.Dockerfile'
+moved "blanks after a continuation" "" helper \
+  'printf "RUN echo \\\\   \n  from helper import x\n" >>router.Dockerfile'
+# An escaped escape does not continue the line, so the FROM after it counts.
+moved "line ending in an escaped backslash" "router" alpine:3.21 \
+  '{ echo "FROM busybox:1.36 AS pre"; echo "RUN echo one \\\\"; echo "FROM alpine:3.21 AS extra"; cat router.Dockerfile
+     echo "COPY --from=extra /etc/hostname /extra"; } >r.new && mv r.new router.Dockerfile'
+# BuildKit appends the next line as is: an option split over two lines is one.
+moved "mount option continued on the next line" "router" busybox:1.36 \
+  'printf "RUN --mount=type=bind,\\\\\nfrom=busybox:1.36,target=/m true\n" >>router.Dockerfile'
 # A stage the target does not reach is not built, so its base is no input.
-(cd "${WORK}/tree" && { echo "FROM busybox:1.36 AS unused"; cat router.Dockerfile; } >router.Dockerfile.new &&
-  mv router.Dockerfile.new router.Dockerfile)
-check "unreachable stage base moved" "" \
-  "$(MOVED=busybox:1.36 keys "${WORK}/tree")" "$(keys "${WORK}/tree")"
-git -C "${WORK}/tree" reset -q --hard
+moved "unreachable stage base" "" busybox:1.36 \
+  '{ echo "FROM busybox:1.36 AS unused"; cat router.Dockerfile; } >r.new && mv r.new router.Dockerfile'
+
+# Anything the key cannot read the way BuildKit does leaves the image unkeyed.
+fails "heredoc" router 'printf "RUN <<EOF\necho x\nEOF\n" >>router.Dockerfile'
+fails "ARG forward reference" router \
+  "{ echo 'ARG B=golang\${A}'; echo 'ARG A=:1.26.8'; } >a.new && cat router.Dockerfile >>a.new && mv a.new router.Dockerfile &&
+   set -- 'FROM \${B} AS extra'; ${with_stage}"
+fails "base named like a stage" router "set -- 'FROM alpine AS alpine'; ${with_stage/--from=extra/--from=alpine}"
+fails "unsupported parser directive" router \
+  '{ echo "# escape=\`"; cat router.Dockerfile; } >r.new && mv r.new router.Dockerfile'
+fails "open continuation at the end" router 'printf "COPY --from=busybox:1.36 /bin/true /true \\\\\n" >>router.Dockerfile'
+fails "no FROM" router 'grep -viE "^[[:space:]]*FROM[[:space:]]" router.Dockerfile >r.new; mv r.new router.Dockerfile'
+
+# BuildKit drops a byte order mark and a shebang line before reading the file.
+moved "FROM after a byte order mark" "router" alpine:3.20 \
+  "set -- \$'\\xef\\xbb\\xbfFROM alpine:3.20 AS extra'; ${with_stage}"
+moved "syntax directive after a shebang" "router" docker/dockerfile:1.7 \
+  '{ echo "#!/usr/bin/env -S docker build . --file"; echo "# syntax=docker/dockerfile:1.7"; cat router.Dockerfile; } >r.new &&
+   mv r.new router.Dockerfile'
+
+# Builds pin every base and frontend a key covers to the keyed digest, so a tag
+# moving between keying and building cannot put another base under that key.
+# Prints "<image> <ref|BUILDKIT_SYNTAX> <pin>" from the build arguments.
+pin_args='
+  printf "%s\n" "$@" | awk '"'"'(prev == "--build-context") || (prev == "--build-arg" && /^BUILDKIT_SYNTAX=/) {print "pin " $0} {prev = $0}'"'"''
+expected="$(awk '$3 == "base" {print $1, $2, "docker-image://" $2 "@sha256:stub-" $2}
+  $3 == "syntax" {print $1, "BUILDKIT_SYNTAX", $2 "@sha256:stub-" $2}' <<<"${BASES}" | sort -u)"
+pins_check() {
+  local got
+  got="$(awk '
+    match($0, /^\[[^]]*\] pin /) {
+      name = substr($0, 2, index($0, "]") - 2)
+      pin = substr($0, RLENGTH + 1)
+      eq = index(pin, "=")
+      print name, substr(pin, 1, eq - 1), substr(pin, eq + 1)
+    }' <<<"$2" | sort -u)"
+  if [[ "${got}" == "${expected}" ]]; then
+    pass "$1"
+  else
+    fail "$1:"
+    diff <(echo "${expected}") <(echo "${got}") || true
+  fi
+}
+# The real publish path, docker stubbed for the push builds only.
+pins_check "publish pins every keyed base" "$(bash -c '
+  set -o errexit -o nounset -o pipefail
+  source "$1/'"${LIB}"'"
+  _base_digest() { REPLY="sha256:stub-$1"; }
+  _image_published() { return 1; }
+  _image_public() { return 0; }
+  docker() {
+    local IFS=" "
+    if [[ " $* " != *" --push "* ]]; then command docker "$@"; return; fi
+    '"${pin_args}"'
+  }
+  mapfile -t names < <(_image_names)
+  E2E_IMAGE_CACHE=example.invalid/cache image_cache_publish "${names[@]}" 2>/dev/null
+' _ "${WORK}/baseline")"
+# The PR-side build path, under the IFS=, that build-server-runtimes.sh sets.
+pins_check "PR builds pin every keyed base under IFS=," "$(bash -c '
+  set -o errexit -o nounset -o pipefail
+  source "$1/'"${LIB}"'"
+  _base_digest() { REPLY="sha256:stub-$1"; }
+  _image_published() { return 1; }
+  # build_image keeps the image in its local "name".
+  docker() {
+    local IFS=" "
+    if [[ " $* " != *" type=docker,dest="* ]]; then command docker "$@"; return; fi
+    '"${pin_args}"' | sed "s/^/[${name}] /"
+  }
+  mapfile -t names < <(_image_names)
+  IFS=,
+  for name in "${names[@]}"; do
+    E2E_IMAGE_CACHE=example.invalid/cache build_image "${name}" "test/${name}:t" /dev/null 2>/dev/null
+  done
+' _ "${WORK}/baseline")"
+
+# The specs and the build scripts agree: every image built has a spec, every
+# spec is built, and nothing bypasses build_image (it would never be cached).
+scripts=("${PROJECT_ROOT}/test/scripts/gh-actions/build-images.sh" "${PROJECT_ROOT}/test/scripts/gh-actions/build-server-runtimes.sh")
+built="$(grep -ohE '^[[:space:]]*build_image [a-z0-9-]+' "${scripts[@]}" | awk '{print $2}' | sort -u | xargs)"
+specs="$(bash -c 'source "$1/'"${LIB}"'"; _image_names' _ "${WORK}/baseline" | xargs)"
+if [[ "${built}" == "${specs}" ]] && ! grep -q 'docker buildx build' "${scripts[@]}"; then
+  pass "build scripts and specs agree"
+else
+  fail "build scripts and specs disagree: built [${built}] specs [${specs}], raw builds: $(grep -c 'docker buildx build' "${scripts[@]}" | xargs)"
+fi
 
 echo "${failures} failed"
 ((failures == 0))
