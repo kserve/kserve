@@ -893,12 +893,17 @@ func mergeManagedHTTPRouteShards(llmSvc *v1alpha2.LLMInferenceService, routes []
 	return out
 }
 
-// dedupeDiscoveredURLs drops repeated URLs, keeping the first of each.
+// dedupeDiscoveredURLs drops repeated addresses, keeping the first of each.
+// Two gateways that expose the same URL are different addresses, so the
+// key includes the origin gateway.
 func dedupeDiscoveredURLs(urls []DiscoveredURL) []DiscoveredURL {
 	seen := make(map[string]struct{}, len(urls))
 	out := urls[:0]
 	for _, u := range urls {
 		key := u.URL.String()
+		if o := u.Origin; o != nil {
+			key += "\x00" + string(o.Group) + "/" + string(o.Kind) + "/" + string(ptr.Deref(o.Namespace, "")) + "/" + string(o.Name)
+		}
 		if _, dup := seen[key]; dup {
 			continue
 		}

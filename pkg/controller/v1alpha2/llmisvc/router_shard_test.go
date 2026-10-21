@@ -618,4 +618,14 @@ func TestDedupeDiscoveredURLs(t *testing.T) {
 	require.Len(t, got, 2)
 	require.Equal(t, "http://a/x", got[0].URL.String())
 	require.Equal(t, "http://b/x", got[1].URL.String())
+
+	from := func(s, gateway string) DiscoveredURL {
+		d := u(s)
+		d.Origin = &gwapiv1.ObjectReference{Group: gwapiv1.GroupName, Kind: "Gateway", Namespace: ptr.To(gwapiv1.Namespace("gw")), Name: gwapiv1.ObjectName(gateway)}
+		return d
+	}
+	got = dedupeDiscoveredURLs([]DiscoveredURL{from("http://a/x", "one"), from("http://a/x", "two"), from("http://a/x", "one")})
+	require.Len(t, got, 2, "the same URL from two gateways keeps both sources")
+	require.Equal(t, "one", string(got[0].Origin.Name))
+	require.Equal(t, "two", string(got[1].Origin.Name))
 }
