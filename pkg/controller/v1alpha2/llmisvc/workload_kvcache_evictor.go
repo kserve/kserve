@@ -470,6 +470,19 @@ type pvcEvictorTemplateAgreement struct {
 }
 
 func (r *LLMISVCReconciler) finalizePVCEvictors(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
+	current := &appsv1.DeploymentList{}
+	if err := r.List(ctx, current,
+		client.InNamespace(llmSvc.Namespace),
+		client.MatchingLabels{pvcEvictorLabel: "true"},
+	); err != nil {
+		return fmt.Errorf("failed to list PVC evictor Deployments for finalization: %w", err)
+	}
+	if len(current.Items) == 0 {
+		// A stale dedicated ServiceAccount can be removed without resolving any
+		// LLMInferenceService configuration. This lets services that never used
+		// PVC evictors finish deletion even when the global ConfigMap is absent.
+		return r.cleanupPVCEvictorServiceAccount(ctx, llmSvc.Namespace, map[string]struct{}{}, map[string]struct{}{})
+	}
 	config, err := r.loadConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration for PVC evictor cleanup: %w", err)

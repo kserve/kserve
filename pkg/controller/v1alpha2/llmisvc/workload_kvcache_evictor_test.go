@@ -88,6 +88,31 @@ func TestAttachPVCEvictor(t *testing.T) {
 	}
 }
 
+func TestFinalizePVCEvictorsSkipsConfigWithoutDeployments(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	serviceAccount := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
+		Name:      pvcEvictorServiceAccount,
+		Namespace: "test",
+		Labels:    map[string]string{pvcEvictorLabel: "true"},
+	}}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(serviceAccount).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+	llmSvc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Namespace: "test"}}
+
+	if err := reconciler.finalizePVCEvictors(t.Context(), llmSvc); err != nil {
+		t.Fatalf("finalizePVCEvictors() error = %v", err)
+	}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(serviceAccount), &corev1.ServiceAccount{}); err == nil {
+		t.Fatal("PVC evictor ServiceAccount remains after finalization")
+	}
+}
+
 func TestAttachPVCEvictorUsesContainerTemplate(t *testing.T) {
 	customResources := corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("123m")},
