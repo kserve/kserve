@@ -23,10 +23,13 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -744,7 +747,10 @@ func TestExpectedTokenizerDeploymentImagePullSecrets(t *testing.T) {
 		schedulerSAName string
 		mainSAName      string
 		serviceAccounts []*corev1.ServiceAccount
-		want            []corev1.LocalObjectReference
+		// failServiceAccountGet makes the Get of this ServiceAccount fail with a non-NotFound error.
+		failServiceAccountGet string
+		want                  []corev1.LocalObjectReference
+		wantErr               string
 	}{
 		{
 			name:            "tokenizer list is kept as is",
@@ -785,6 +791,20 @@ func TestExpectedTokenizerDeploymentImagePullSecrets(t *testing.T) {
 			want:            pullSecrets("main-pull"),
 		},
 		{
+			name:                  "tokenizer service account Get error is returned",
+			main:                  pullSecrets("main-pull"),
+			tokenizerSAName:       "tokenizer-sa",
+			serviceAccounts:       []*corev1.ServiceAccount{serviceAccount("tokenizer-sa", "tokenizer-sa-pull")},
+			failServiceAccountGet: "tokenizer-sa",
+			wantErr:               "failed to fetch tokenizer service account",
+		},
+		{
+			name:                  "tokenizer service account is not read without a template list",
+			tokenizerSAName:       "tokenizer-sa",
+			serviceAccounts:       []*corev1.ServiceAccount{serviceAccount("tokenizer-sa", "tokenizer-sa-pull")},
+			failServiceAccountGet: "tokenizer-sa",
+		},
+		{
 			name:            "service account lists alone are not inherited",
 			schedulerSAName: "scheduler-sa",
 			mainSAName:      "main-sa",
@@ -805,6 +825,16 @@ func TestExpectedTokenizerDeploymentImagePullSecrets(t *testing.T) {
 			for _, sa := range tt.serviceAccounts {
 				g.Expect(r.Create(t.Context(), sa)).To(Succeed())
 			}
+			if tt.failServiceAccountGet != "" {
+				r.Client = interceptor.NewClient(r.Client.(client.WithWatch), interceptor.Funcs{
+					Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+						if _, ok := obj.(*corev1.ServiceAccount); ok && key.Name == tt.failServiceAccountGet {
+							return apierrors.NewServiceUnavailable("api server unavailable")
+						}
+						return c.Get(ctx, key, obj, opts...)
+					},
+				})
+			}
 
 			svc := disaggTestService(t)
 			svc.Spec.Template.ImagePullSecrets = tt.main
@@ -823,6 +853,10 @@ func TestExpectedTokenizerDeploymentImagePullSecrets(t *testing.T) {
 			before := svc.DeepCopy()
 
 			d, err := r.expectedTokenizerDeployment(t.Context(), svc)
+			if tt.wantErr != "" {
+				g.Expect(err).To(MatchError(ContainSubstring(tt.wantErr)))
+				return
+			}
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(d.Spec.Template.Spec.ServiceAccountName).To(Equal(tt.tokenizerSAName))
 			if tt.want == nil {
