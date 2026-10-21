@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"context"
+	"errors"
 	"strconv"
 	"strings"
 	"testing"
@@ -1354,5 +1356,64 @@ func TestValidateHTTPRoutePaths(t *testing.T) {
 			assert.Contains(t, errs[0].Error(), tt.wantErr)
 			assert.Contains(t, errs[0].Field, "spec.rules[0].matches[0].path.value")
 		})
+	}
+}
+
+func TestValidateHTTPRouteSize(t *testing.T) {
+	path := field.NewPath("spec")
+	rules := func(n, matches int) []gwapiv1.HTTPRouteRule {
+		out := make([]gwapiv1.HTTPRouteRule, n)
+		for i := range out {
+			out[i].Matches = make([]gwapiv1.HTTPRouteMatch, matches)
+		}
+		return out
+	}
+	for _, tt := range []struct {
+		name    string
+		rules   []gwapiv1.HTTPRouteRule
+		wantErr string
+	}{
+		{name: "256 rules of 8 matches fit", rules: rules(256, 8)},
+		{name: "a rule without matches counts as one", rules: rules(256, 0)},
+		{name: "rules split for the per rule match limit count", rules: rules(129, 65), wantErr: "Too many: 258"},
+		{name: "too many matches", rules: rules(32, 65), wantErr: "2080 matches"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := ValidateHTTPRouteSize(&gwapiv1.HTTPRouteSpec{Rules: tt.rules}, path)
+			if tt.wantErr == "" {
+				if len(errs) != 0 {
+					t.Fatalf("unexpected errors: %v", errs)
+				}
+				return
+			}
+			if !strings.Contains(errs.ToAggregate().Error(), tt.wantErr) {
+				t.Fatalf("want %q in %v", tt.wantErr, errs)
+			}
+		})
+	}
+}
+
+func TestDryRunInlineRoute(t *testing.T) {
+	path := field.NewPath("spec")
+	router := &RouterSpec{Route: &GatewayRoutesSpec{HTTP: &HTTPRouteSpec{Spec: &gwapiv1.HTTPRouteSpec{
+		Rules: []gwapiv1.HTTPRouteRule{{}},
+	}}}}
+	calls := 0
+	accept := func(context.Context, string, string, *gwapiv1.HTTPRouteSpec) error { calls++; return nil }
+	reject := func(context.Context, string, string, *gwapiv1.HTTPRouteSpec) error { return errors.New("bad header") }
+
+	if errs := DryRunInlineRoute(context.Background(), nil, "ns", "svc", router, path); len(errs) != 0 {
+		t.Fatalf("no dry-run func means no check: %v", errs)
+	}
+	if errs := DryRunInlineRoute(context.Background(), accept, "ns", "svc", router, path); len(errs) != 0 || calls != 1 {
+		t.Fatalf("accepted route: errs=%v calls=%d", errs, calls)
+	}
+	empty := &RouterSpec{Route: &GatewayRoutesSpec{HTTP: &HTTPRouteSpec{Spec: &gwapiv1.HTTPRouteSpec{}}}}
+	if DryRunInlineRoute(context.Background(), accept, "ns", "svc", empty, path); calls != 1 {
+		t.Fatalf("a route without rules is not sent")
+	}
+	errs := DryRunInlineRoute(context.Background(), reject, "ns", "svc", router, path)
+	if len(errs) != 1 || !strings.Contains(errs[0].Error(), "bad header") {
+		t.Fatalf("rejection must surface as a field error: %v", errs)
 	}
 }

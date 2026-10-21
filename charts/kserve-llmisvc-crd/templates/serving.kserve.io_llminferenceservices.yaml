@@ -9786,6 +9786,7 @@ spec:
                                             type: string
                                         type: object
                                     type: object
+                                  maxItems: 256
                                   minItems: 1
                                   type: array
                                   x-kubernetes-list-type: atomic
@@ -35875,6 +35876,7 @@ spec:
                                             type: string
                                         type: object
                                     type: object
+                                  maxItems: 256
                                   minItems: 1
                                   type: array
                                   x-kubernetes-list-type: atomic
