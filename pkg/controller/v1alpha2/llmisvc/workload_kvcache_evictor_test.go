@@ -1046,6 +1046,84 @@ func TestPVCEvictorServiceChangePredicate(t *testing.T) {
 	}
 }
 
+func TestPVCEvictorPVCPredicate(t *testing.T) {
+	predicate := pvcEvictorPVCPredicate()
+	oldPVC := &corev1.PersistentVolumeClaim{}
+	if predicate.Update(event.UpdateEvent{ObjectOld: oldPVC, ObjectNew: oldPVC.DeepCopy()}) {
+		t.Fatal("unchanged PVC was accepted")
+	}
+	updatedPVC := oldPVC.DeepCopy()
+	updatedPVC.Status.Phase = corev1.ClaimBound
+	if !predicate.Update(event.UpdateEvent{ObjectOld: oldPVC, ObjectNew: updatedPVC}) {
+		t.Fatal("PVC status change was not accepted")
+	}
+}
+
+func TestEnqueueOnPVCEvictorPVCChangeTargetsDirectAndBaseRefServices(t *testing.T) {
+	pvcRefWorkload := func() v1alpha2.WorkloadSpec {
+		return v1alpha2.WorkloadSpec{KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+			Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+				PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "cache"}},
+			}}},
+		}}
+	}
+	direct := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "direct", Namespace: "test"},
+		Spec:       v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: pvcRefWorkload()},
+	}
+	baseConfig := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: "base-cache", Namespace: "test"},
+		Spec:       v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: pvcRefWorkload()},
+	}
+	implicitConfig := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: "implicit-cache", Namespace: constants.KServeNamespace},
+		Spec:       v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: pvcRefWorkload()},
+		Status: v1alpha2.LLMInferenceServiceConfigStatus{ReferencedBy: []v1alpha2.UntypedObjectReference{{
+			Name: "implicit", Namespace: "test",
+		}}},
+	}
+	baseRef := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "base-ref", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			BaseRefs: []corev1.LocalObjectReference{{Name: baseConfig.Name}},
+		},
+	}
+	unrelated := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "unrelated", Namespace: "test"},
+	}
+	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: "shared-pvc", Namespace: "test"}}
+
+	scheme := newControllerHandlersScheme(t)
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
+		testInferenceServiceConfigMap(), direct, baseConfig, implicitConfig, baseRef, unrelated,
+	).
+		WithIndex(&v1alpha2.LLMInferenceService{}, pvcEvictorPVCIndex, func(object client.Object) []string {
+			return collectPVCEvictorPVCNames(object.(*v1alpha2.LLMInferenceService))
+		}).
+		WithIndex(&v1alpha2.LLMInferenceService{}, pvcEvictorBaseRefsIndex, func(object client.Object) []string {
+			if len(object.(*v1alpha2.LLMInferenceService).Spec.BaseRefs) == 0 {
+				return nil
+			}
+			return []string{"true"}
+		}).
+		Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+
+	requests := enqueueRequestsForObject(reconciler.enqueueOnPVCEvictorPVCChange(), pvc)
+	got := make(map[string]struct{}, len(requests))
+	for _, request := range requests {
+		got[request.NamespacedName.Namespace+"/"+request.NamespacedName.Name] = struct{}{}
+	}
+	for _, name := range []string{"direct", "base-ref", "implicit"} {
+		if _, ok := got["test/"+name]; !ok {
+			t.Fatalf("PVC event did not enqueue test/%s; requests = %v", name, requests)
+		}
+	}
+	if _, ok := got["test/unrelated"]; ok {
+		t.Fatalf("PVC event enqueued unrelated service: %v", requests)
+	}
+}
+
 func TestReconcileExistingPVCEvictorDeploymentRejectsContainerTemplateDrift(t *testing.T) {
 	newService := func(name, image string) *v1alpha2.LLMInferenceService {
 		return &v1alpha2.LLMInferenceService{

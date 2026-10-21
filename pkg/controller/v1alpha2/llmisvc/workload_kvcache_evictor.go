@@ -64,6 +64,8 @@ const (
 	pvcEvictorNodeAffinity   = "serving.kserve.io/pvc-node-affinity"
 	pvcEvictorSecurityHash   = "serving.kserve.io/pvc-security-context-hash"
 	pvcEvictorContainerHash  = "serving.kserve.io/pvc-evictor-container-hash"
+	pvcEvictorPVCIndex       = "serving.kserve.io/pvc-evictor-pvc"
+	pvcEvictorBaseRefsIndex  = "serving.kserve.io/pvc-evictor-base-ref"
 )
 
 func pvcEvictorContainerSecurityContext() *corev1.SecurityContext {
@@ -396,6 +398,23 @@ func pvcEvictorServiceAccountPredicate() predicate.Predicate {
 	}
 }
 
+func pvcEvictorPVCPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc:  func(event.CreateEvent) bool { return true },
+		DeleteFunc:  func(event.DeleteEvent) bool { return true },
+		GenericFunc: func(event.GenericEvent) bool { return false },
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			oldPVC, oldOK := e.ObjectOld.(*corev1.PersistentVolumeClaim)
+			newPVC, newOK := e.ObjectNew.(*corev1.PersistentVolumeClaim)
+			if !oldOK || !newOK {
+				return true
+			}
+			return !equality.Semantic.DeepEqual(oldPVC.Spec, newPVC.Spec) ||
+				!equality.Semantic.DeepEqual(oldPVC.Status, newPVC.Status)
+		},
+	}
+}
+
 func pvcEvictorConsumerPodPredicate() predicate.Predicate {
 	isConsumerPod := func(object client.Object) bool {
 		for key := range object.GetLabels() {
@@ -452,6 +471,159 @@ func (r *LLMISVCReconciler) enqueueOnPVCEvictorResourceChange() handler.EventHan
 		}
 		return requests
 	})
+}
+
+func (r *LLMISVCReconciler) enqueueOnPVCEvictorPVCChange() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
+		pvc, ok := object.(*corev1.PersistentVolumeClaim)
+		if !ok {
+			return nil
+		}
+
+		directServices := &v1alpha2.LLMInferenceServiceList{}
+		if err := r.List(ctx, directServices,
+			client.InNamespace(pvc.Namespace),
+			client.MatchingFields{pvcEvictorPVCIndex: pvc.Name},
+		); err != nil {
+			return nil
+		}
+		baseRefServices := &v1alpha2.LLMInferenceServiceList{}
+		if err := r.List(ctx, baseRefServices,
+			client.InNamespace(pvc.Namespace),
+			client.MatchingFields{pvcEvictorBaseRefsIndex: "true"},
+		); err != nil {
+			return nil
+		}
+
+		servicesByKey := make(map[types.NamespacedName]*v1alpha2.LLMInferenceService, len(directServices.Items)+len(baseRefServices.Items))
+		for i := range directServices.Items {
+			service := directServices.Items[i].DeepCopy()
+			servicesByKey[client.ObjectKeyFromObject(service)] = service
+		}
+		for i := range baseRefServices.Items {
+			service := baseRefServices.Items[i].DeepCopy()
+			servicesByKey[client.ObjectKeyFromObject(service)] = service
+		}
+
+		config, configErr := r.loadConfig(ctx)
+		requestsByKey := make(map[types.NamespacedName]struct{})
+		addRequest := func(key types.NamespacedName) {
+			requestsByKey[key] = struct{}{}
+		}
+		for _, service := range servicesByKey {
+			if serviceReferencesPVCEvictorPVC(service, pvc.Name) {
+				addRequest(client.ObjectKeyFromObject(service))
+				continue
+			}
+			if len(service.Spec.BaseRefs) == 0 {
+				continue
+			}
+			if configErr != nil {
+				addRequest(client.ObjectKeyFromObject(service))
+				continue
+			}
+
+			combined, err := r.combineBaseRefsConfig(ctx, service, config)
+			if err != nil {
+				// Enqueue unresolved services conservatively: a baseRef may be the
+				// source of the PVC reference that this event needs to refresh.
+				addRequest(client.ObjectKeyFromObject(service))
+				continue
+			}
+			service.Spec = combined.Config.Spec
+			if serviceReferencesPVCEvictorPVC(service, pvc.Name) {
+				addRequest(client.ObjectKeyFromObject(service))
+			}
+		}
+
+		configNamespaces := []string{pvc.Namespace}
+		if pvc.Namespace != constants.KServeNamespace {
+			configNamespaces = append(configNamespaces, constants.KServeNamespace)
+		}
+		for _, namespace := range configNamespaces {
+			configs := &v1alpha2.LLMInferenceServiceConfigList{}
+			if err := r.List(ctx, configs, client.InNamespace(namespace)); err != nil {
+				continue
+			}
+			for i := range configs.Items {
+				config := &configs.Items[i]
+				if !specReferencesPVCEvictorPVC(&config.Spec, pvc.Name) {
+					continue
+				}
+				for _, reference := range config.Status.ReferencedBy {
+					if reference.Name == "" || reference.Namespace == "" {
+						continue
+					}
+					addRequest(types.NamespacedName{
+						Name:      string(reference.Name),
+						Namespace: string(reference.Namespace),
+					})
+				}
+			}
+		}
+
+		requests := make([]reconcile.Request, 0, len(requestsByKey))
+		for key := range requestsByKey {
+			requests = append(requests, reconcile.Request{NamespacedName: key})
+		}
+		return requests
+	})
+}
+
+func setupPVCEvictorIndexes(ctx context.Context, indexer client.FieldIndexer) error {
+	if err := indexer.IndexField(ctx, &v1alpha2.LLMInferenceService{}, pvcEvictorPVCIndex, func(object client.Object) []string {
+		service, ok := object.(*v1alpha2.LLMInferenceService)
+		if !ok {
+			return nil
+		}
+		return collectPVCEvictorPVCNames(service)
+	}); err != nil {
+		return err
+	}
+	return indexer.IndexField(ctx, &v1alpha2.LLMInferenceService{}, pvcEvictorBaseRefsIndex, func(object client.Object) []string {
+		service, ok := object.(*v1alpha2.LLMInferenceService)
+		if !ok || len(service.Spec.BaseRefs) == 0 {
+			return nil
+		}
+		return []string{"true"}
+	})
+}
+
+func collectPVCEvictorPVCNames(llmSvc *v1alpha2.LLMInferenceService) []string {
+	names := make(map[string]struct{})
+	add := func(workload *v1alpha2.WorkloadSpec) {
+		if workload == nil || workload.KVCacheOffloading == nil {
+			return
+		}
+		for _, tier := range workload.KVCacheOffloading.Secondary {
+			if tier.FileSystem == nil || tier.FileSystem.PVC == nil || tier.FileSystem.PVC.Ref == nil {
+				continue
+			}
+			names[tier.FileSystem.PVC.Ref.Name] = struct{}{}
+		}
+	}
+	add(&llmSvc.Spec.WorkloadSpec)
+	add(llmSvc.Spec.Prefill)
+	result := make([]string, 0, len(names))
+	for name := range names {
+		result = append(result, name)
+	}
+	return result
+}
+
+func serviceReferencesPVCEvictorPVC(llmSvc *v1alpha2.LLMInferenceService, pvcName string) bool {
+	return specReferencesPVCEvictorPVC(&llmSvc.Spec, pvcName)
+}
+
+func specReferencesPVCEvictorPVC(spec *v1alpha2.LLMInferenceServiceSpec, pvcName string) bool {
+	llmSvc := &v1alpha2.LLMInferenceService{Spec: *spec}
+	prefix := pvcName + "\x00"
+	for identity := range collectPVCEvictorIdentities(llmSvc) {
+		if strings.HasPrefix(identity, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 type pvcEvictorTarget struct {

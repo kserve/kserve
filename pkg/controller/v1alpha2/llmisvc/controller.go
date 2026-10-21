@@ -167,7 +167,7 @@ type LLMISVCReconciler struct {
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceserviceconfigs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=servingruntimes;clusterservingruntimes,verbs=get;list;watch
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get
+//+kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch
 //+kubebuilder:rbac:groups=leaderworkerset.x-k8s.io,resources=leaderworkersets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=disaggregatedset.x-k8s.io,resources=disaggregatedsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=disaggregatedset.x-k8s.io,resources=disaggregatedsetrolescalers,verbs=get;list;watch
@@ -466,6 +466,9 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := setupGroupFieldIndex(context.Background(), mgr.GetFieldIndexer()); err != nil {
 		return fmt.Errorf("failed to set up field indexer for routing group: %w", err)
 	}
+	if err := setupPVCEvictorIndexes(context.Background(), mgr.GetFieldIndexer()); err != nil {
+		return fmt.Errorf("failed to set up field indexes for PVC evictors: %w", err)
+	}
 
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha2.LLMInferenceService{}).
@@ -475,6 +478,7 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(childResourcesPredicate)).
 		Watches(&appsv1.Deployment{}, r.enqueueOnPVCEvictorResourceChange(), builder.WithPredicates(pvcEvictorDeploymentPredicate())).
 		Watches(&corev1.ServiceAccount{}, r.enqueueOnPVCEvictorResourceChange(), builder.WithPredicates(pvcEvictorServiceAccountPredicate())).
+		Watches(&corev1.PersistentVolumeClaim{}, r.enqueueOnPVCEvictorPVCChange(), builder.WithPredicates(pvcEvictorPVCPredicate())).
 		Owns(&corev1.Secret{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&autoscalingv2.HorizontalPodAutoscaler{}, builder.WithPredicates(childResourcesPredicate)).
