@@ -170,7 +170,7 @@ var _ = Describe("LLMInferenceService HTTPRoute sharding", func() {
 			WithHTTPRouteSpec(spec),
 		)
 
-		// when: more than 16 rules pass admission now that the inline schema has no rule limit
+		// when: more than 16 rules pass admission, the inline schema allows up to 256
 		Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
 		defer func() {
 			testNs.DeleteAndWait(ctx, llmSvc)
@@ -184,7 +184,8 @@ var _ = Describe("LLMInferenceService HTTPRoute sharding", func() {
 			g.Expect(cond).NotTo(BeNil())
 			g.Expect(cond.IsFalse()).To(BeTrue())
 			g.Expect(cond.Reason).To(Equal("RoutingPreconditionNotMet"))
-			g.Expect(cond.Message).To(ContainSubstring("needs 2 HTTPRoutes"))
+			g.Expect(cond.Message).To(ContainSubstring("needs 20 rules (at most 16 per HTTPRoute)"))
+			g.Expect(cond.Message).To(ContainSubstring("allows 1 HTTPRoutes"))
 		}).WithContext(ctx).Should(Succeed())
 		routes, err := sortedManagedRoutes(ctx, llmSvc)
 		Expect(err).NotTo(HaveOccurred())
