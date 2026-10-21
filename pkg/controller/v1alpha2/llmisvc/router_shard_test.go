@@ -94,7 +94,7 @@ func TestShardHTTPRouteRules(t *testing.T) {
 		{name: "no rules yields one empty shard", rules: nil, wantShards: 1, wantRules: []int{0}},
 		{name: "fits in one route", rules: repeatRules(16, 1), wantShards: 1, wantRules: []int{16}},
 		{name: "rule cap splits", rules: repeatRules(17, 1), wantShards: 2, wantRules: []int{16, 1}},
-		{name: "rule cap splits many", rules: repeatRules(64, 0), wantShards: 4, wantRules: []int{16, 16, 16, 16}},
+		{name: "rule cap splits many", rules: repeatRules(64, 1), wantShards: 4, wantRules: []int{16, 16, 16, 16}},
 		{name: "total match cap splits", rules: repeatRules(3, 60), wantShards: 2, wantRules: []int{2, 1}},
 		{name: "chunks of a named rule go to separate shards", rules: []gwapiv1.HTTPRouteRule{pathRule("lora", 150)}, wantShards: 3, wantRules: []int{1, 1, 1}},
 		{name: "chunks of an unnamed rule share a shard", rules: []gwapiv1.HTTPRouteRule{pathRule("", 150)}, wantShards: 2, wantRules: []int{2, 1}},
@@ -444,6 +444,29 @@ func TestShardHTTPRouteRulesPrecedenceGroups(t *testing.T) {
 		}
 		if len(shards) != 2 {
 			t.Fatalf("got %d shards, want 2", len(shards))
+		}
+	})
+
+	t.Run("same backend rules with different names stay together", func(t *testing.T) {
+		named := func(name string) gwapiv1.HTTPRouteRule {
+			r := backendRule("/v1/chat", gwapiv1.PathMatchPathPrefix, "same")
+			r.Name = ptr.To(gwapiv1.SectionName(name))
+			return r
+		}
+		shards, err := shardHTTPRouteRules(append(filler(15), named("first"), named("second")))
+		if err != nil {
+			t.Fatal(err)
+		}
+		at := map[string]int{}
+		for s := range shards {
+			for _, r := range shards[s] {
+				if r.Name != nil {
+					at[string(*r.Name)] = s
+				}
+			}
+		}
+		if at["first"] != at["second"] {
+			t.Fatalf("rules named first and second split over shards %d and %d", at["first"], at["second"])
 		}
 	})
 

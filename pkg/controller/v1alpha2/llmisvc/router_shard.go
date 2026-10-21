@@ -270,10 +270,12 @@ func orderDependentRuleGroups(rules []gwapiv1.HTTPRouteRule) [][]int {
 }
 
 // ruleActionKey identifies what a rule does with a request it matches:
-// everything but its name and matches.
+// everything but its matches. The name is part of the action, because a
+// policy can attach to a rule by sectionName, so two overlapping rules with
+// the same backend but different names must keep their list order. Chunks of
+// one split rule share its name, so LoRA chunks still split freely.
 func ruleActionKey(rule *gwapiv1.HTTPRouteRule) string {
 	action := rule.DeepCopy()
-	action.Name = nil
 	action.Matches = nil
 	data, err := json.Marshal(action)
 	if err != nil {
