@@ -24,6 +24,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
@@ -34,6 +35,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
+	"github.com/kserve/kserve/pkg/credentials"
 	. "github.com/kserve/kserve/pkg/testing"
 )
 
@@ -86,6 +88,158 @@ var _ = Describe("LLMInferenceService Controller — Standalone Tokenizer", func
 				g.Expect(svc.Spec.Ports[0].Name).To(Equal("render-http"))
 				g.Expect(svc.Spec.Ports[0].Port).To(Equal(int32(8000)))
 				g.Expect(svc.Spec.Selector).To(Equal(llmisvc.TokenizerLabels(llmSvc)))
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should run tokenizer pod with the main workload ServiceAccount when the tokenizer sets none", func(ctx SpecContext) {
+			svcName := "test-llm-tokenizer-sa-cascade"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			mainSAName := svcName + "-main-sa"
+			roleARN := "arn:aws:iam::123456789012:role/kserve-s3"
+			mainSA := &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      mainSAName,
+					Namespace: testNs.Name,
+					Annotations: map[string]string{
+						credentials.AwsIrsaAnnotationKey: roleARN,
+					},
+				},
+			}
+			Expect(envTest.Create(ctx, mainSA)).To(Succeed())
+
+			// The main workload template sets the ServiceAccount; the scheduler
+			// and tokenizer templates set none. The tokenizer must not fall
+			// back to the generated scheduler (EPP) ServiceAccount: its token
+			// subject differs from the main workload subject, so a trust
+			// policy scoped to the main ServiceAccount would reject the STS
+			// token exchange.
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithManagedTokenizer(),
+				WithTemplate(&corev1.PodSpec{
+					ServiceAccountName: mainSAName,
+				}),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			tokenizerName := kmeta.ChildName(svcName, "-tokenizer")
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				dep := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{
+					Name:      tokenizerName,
+					Namespace: testNs.Name,
+				}, dep)).To(Succeed())
+				g.Expect(dep.Spec.Template.Spec.ServiceAccountName).To(Equal(mainSAName),
+					"tokenizer pod must run with the main workload ServiceAccount when the tokenizer sets none")
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should keep the tokenizer template ServiceAccount when explicitly set", func(ctx SpecContext) {
+			svcName := "test-llm-tokenizer-explicit-sa"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			tokenizerSAName := svcName + "-tokenizer-sa"
+			tokenizerSA := &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      tokenizerSAName,
+					Namespace: testNs.Name,
+				},
+			}
+			Expect(envTest.Create(ctx, tokenizerSA)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithManagedTokenizer(),
+			)
+			llmSvc.Spec.Router.Scheduler.Tokenizer.Template = &corev1.PodSpec{
+				ServiceAccountName: tokenizerSAName,
+				Containers:         []corev1.Container{{Name: "main"}},
+			}
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			tokenizerName := kmeta.ChildName(svcName, "-tokenizer")
+
+			// The explicitly configured tokenizer ServiceAccount must win over
+			// every fallback, and the credential lookup must use the same
+			// ServiceAccount the pod runs with.
+			Eventually(func(g Gomega, ctx context.Context) {
+				dep := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{
+					Name:      tokenizerName,
+					Namespace: testNs.Name,
+				}, dep)).To(Succeed())
+				g.Expect(dep.Spec.Template.Spec.ServiceAccountName).To(Equal(tokenizerSAName),
+					"tokenizer pod must keep the explicitly configured ServiceAccount")
+			}).WithContext(ctx).Should(Succeed())
+		})
+
+		It("should run tokenizer pod with the main worker ServiceAccount in a worker-only configuration", func(ctx SpecContext) {
+			svcName := "test-llm-tokenizer-worker-sa"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			workerSAName := svcName + "-worker-sa"
+			workerSA := &corev1.ServiceAccount{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      workerSAName,
+					Namespace: testNs.Name,
+					Annotations: map[string]string{
+						credentials.AwsIrsaAnnotationKey: "arn:aws:iam::123456789012:role/kserve-s3",
+					},
+				},
+			}
+			Expect(envTest.Create(ctx, workerSA)).To(Succeed())
+
+			// Worker-only configuration: the main workload sets its
+			// ServiceAccount through spec.worker; the leader template sets
+			// none. The tokenizer resolution must use the same precedence as
+			// the main workload.
+			workerSpec := SimpleWorkerPodSpec()
+			workerSpec.ServiceAccountName = workerSAName
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithManagedTokenizer(),
+				WithParallelism(ParallelismSpec(WithDataParallelism(2), WithDataLocalParallelism(1))),
+				WithTemplate(SimpleWorkerPodSpec()),
+				WithWorker(workerSpec),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			tokenizerName := kmeta.ChildName(svcName, "-tokenizer")
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				dep := &appsv1.Deployment{}
+				g.Expect(envTest.Get(ctx, types.NamespacedName{
+					Name:      tokenizerName,
+					Namespace: testNs.Name,
+				}, dep)).To(Succeed())
+				g.Expect(dep.Spec.Template.Spec.ServiceAccountName).To(Equal(workerSAName),
+					"tokenizer pod must run with the main worker ServiceAccount in a worker-only configuration")
 			}).WithContext(ctx).Should(Succeed())
 		})
 
