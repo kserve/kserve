@@ -25,10 +25,11 @@
 # Sourced by build-images.sh and build-server-runtimes.sh. The e2e-image-cache
 # workflow runs it directly to fill the cache from master:
 #
-#   image-cache.sh plan             JSON list of images missing from the cache
-#   image-cache.sh publish <image>  build and push one image unless present
-#   image-cache.sh prune [days]     delete versions no current key uses, older
-#                                   than days (default 7); needs gh and GH_TOKEN
+#   image-cache.sh plan               publish jobs for the images e2e runs
+#                                     cannot read yet, as JSON
+#   image-cache.sh publish <image>... build and push images unless present
+#   image-cache.sh prune [days]       delete versions no current key uses, older
+#                                     than days (default 7); needs gh, GH_TOKEN
 #
 # E2E_IMAGE_CACHE names the cache repository, e.g.
 # ghcr.io/kserve/kserve-e2e-images. When unset, build_image only builds.
@@ -329,28 +330,98 @@ build_image() {
   fi
 }
 
+# Succeeds when a reference is readable without credentials, the way e2e runs
+# read the cache. BUILDX_BUILDER names a builder kept in the real DOCKER_CONFIG,
+# so the check uses the default one.
+_image_public() {
+  local config rc=0
+  config="$(mktemp -d)" || return 1
+  env -u BUILDX_BUILDER DOCKER_CONFIG="${config}" \
+    docker buildx imagetools inspect --raw "$1" >/dev/null 2>&1 || rc=$?
+  rm -rf "${config}"
+  return "${rc}"
+}
+
+# Prints the publish job an image belongs to. Images sharing a build context
+# build in one job, so per-job setup and shared stages are paid once;
+# huggingfaceserver gets its own because it takes as long as the rest together.
+_image_group() {
+  if [[ "$1" == huggingfaceserver ]]; then
+    echo "$1"
+    return 0
+  fi
+  image_spec "$1" || return 1
+  if [[ "${IMAGE_CONTEXT}" == . ]]; then echo go; else echo "${IMAGE_CONTEXT}"; fi
+}
+
+# Prints the publish jobs as a JSON list of {group, images}, for the images
+# e2e runs cannot read yet. Looks anonymously, as they do, so a private package
+# shows up as missing and its publish job fails loudly.
 image_cache_plan() {
-  local name missing=()
+  local name group lines=""
   while IFS= read -r name; do
     # An image that cannot be keyed here (e.g. a rate-limited base lookup) is
     # left to its publish job, which retries and fails loudly.
-    if ! image_key "${name}" || ! _image_published "${E2E_IMAGE_CACHE}:${name}-${IMAGE_KEY}"; then
-      missing+=("${name}")
+    if ! image_key "${name}" || ! _image_public "${E2E_IMAGE_CACHE}:${name}-${IMAGE_KEY}"; then
+      group="$(_image_group "${name}")" || return 1
+      lines+="${group} ${name}"$'\n'
     fi
   done < <(printf '%s\n' "${!IMAGE_SPECS[@]}" | sort)
-  jq -cn '$ARGS.positional' --args "${missing[@]}"
+  jq -cRn '[inputs | select(length > 0) | split(" ")]
+    | group_by(.[0]) | map({group: .[0][0], images: (map(.[1]) | join(" "))})' <<<"${lines}"
 }
 
-image_cache_publish() {
-  local name=$1 cached
-  image_key "${name}" || return 1
-  cached="${E2E_IMAGE_CACHE}:${name}-${IMAGE_KEY}"
-  # A run queued behind another one for the same image finds it published.
+# Publishes one image under <cached>, its bases pinned to <bases> as keyed.
+_publish_one() {
+  local name=$1 cached=$2
+  IMAGE_BASES=$3
+  image_spec "${name}" || return 1
+  # A job queued behind another one for the same image finds it published.
   if _image_published "${cached}"; then
     echo "image-cache: ${cached} already published"
-    return 0
+  else
+    _build_spec -t "${cached}" --provenance=false --push || return 1
   fi
-  _build_spec -t "${cached}" --provenance=false --push
+  if ! _image_public "${cached}"; then
+    echo "::error::image-cache: ${cached} is not readable without credentials, so every e2e lookup misses. Make the package public."
+    return 1
+  fi
+}
+
+# Builds and pushes the given images that are not published yet, up to
+# IMAGE_CACHE_JOBS (default 4) at a time in one builder, then checks each is
+# readable without credentials. Logs are printed per image once all finish.
+image_cache_publish() {
+  local name failed=0 logs
+  local -A keys=() key_bases=() pids=()
+  # Keys first, in this shell: they memoize, the builds run in subshells.
+  for name in "$@"; do
+    image_key "${name}" || return 1
+    keys[${name}]="${IMAGE_KEY}"
+    key_bases[${name}]="${IMAGE_BASES}"
+  done
+  logs="$(mktemp -d)" || return 1
+  for name in "$@"; do
+    while (($(jobs -rp | wc -l) >= ${IMAGE_CACHE_JOBS:-4})); do
+      sleep 2
+    done
+    echo "image-cache: publishing ${name}"
+    _publish_one "${name}" "${E2E_IMAGE_CACHE}:${name}-${keys[${name}]}" "${key_bases[${name}]}" \
+      >"${logs}/${name}" 2>&1 &
+    pids[${name}]=$!
+  done
+  for name in "$@"; do
+    if wait "${pids[${name}]}"; then
+      echo "::group::${name}"
+    else
+      echo "::group::${name} (failed)"
+      failed=1
+    fi
+    cat "${logs}/${name}"
+    echo "::endgroup::"
+  done
+  rm -rf "${logs}"
+  return "${failed}"
 }
 
 # Deletes cache versions that no current key uses and that are older than
@@ -407,10 +478,13 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   : "${E2E_IMAGE_CACHE:?E2E_IMAGE_CACHE must name the cache repository}"
   case "${1:-}" in
     plan) image_cache_plan ;;
-    publish) image_cache_publish "${2:?usage: $0 publish <image>}" ;;
+    publish)
+      shift
+      image_cache_publish "${@:?usage: $0 publish <image>...}"
+      ;;
     prune) image_cache_prune "${2:-7}" ;;
     *)
-      echo "usage: $0 plan | publish <image> | prune [days]" >&2
+      echo "usage: $0 plan | publish <image>... | prune [days]" >&2
       exit 2
       ;;
   esac

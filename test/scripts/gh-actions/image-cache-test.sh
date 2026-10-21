@@ -149,6 +149,32 @@ done < <(awk '{print $2}' <<<"${BASES}" | sort -u)
 
 check "other daemon platform" "${GO} ${PYTHON}" "$(PLATFORM=linux/arm64 keys "${WORK}/baseline")"
 
+# Publishing pins every base a key covers to the keyed digest, so a tag moving
+# between keying and building cannot put another base under that key. Runs the
+# real publish path with docker stubbed for the push builds only.
+pins="$(bash -c '
+  set -o errexit -o nounset -o pipefail
+  source "$1/'"${LIB}"'"
+  _base_digest() { REPLY="sha256:stub-$1"; }
+  _image_published() { return 1; }
+  _image_public() { return 0; }
+  docker() {
+    if [[ " $* " != *" --push "* ]]; then command docker "$@"; return; fi
+    printf "%s\n" "$@" | awk '"'"'p {print "pin " $0} {p = ($0 == "--build-context")}'"'"'
+  }
+  E2E_IMAGE_CACHE=example.invalid/cache image_cache_publish $(printf "%s\n" "${!IMAGE_SPECS[@]}" | sort) 2>/dev/null
+' _ "${WORK}/baseline" | awk '
+  /^::group::/ {name = substr($0, 10)}
+  /^pin / {split($2, kv, "="); print name, kv[1], kv[2]}')"
+expected="$(awk '{print $1, $2, "docker-image://" $2 "@sha256:stub-" $2}' <<<"${BASES}" | sort -u)"
+if [[ "$(sort -u <<<"${pins}")" == "${expected}" ]]; then
+  echo "ok   publish pins every keyed base"
+else
+  echo "FAIL publish pins every keyed base:"
+  diff <(echo "${expected}") <(sort -u <<<"${pins}") || true
+  failures=$((failures + 1))
+fi
+
 # No Dockerfile reads an external image through COPY --from today; one that
 # starts to must still rekey when that image moves.
 (cd "${WORK}/tree" && echo "COPY --from=busybox:1.36 /bin/true /true" >>router.Dockerfile)
