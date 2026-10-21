@@ -1314,6 +1314,92 @@ func TestReconcilePVCEvictorsDeletesDuplicateDeployments(t *testing.T) {
 	}
 }
 
+func TestReconcilePVCEvictorsDeletesStaleDeploymentBeforeReplacement(t *testing.T) {
+	svc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+					PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{
+						Name: "shared-pvc", Path: "new-path",
+					}},
+				}}},
+			},
+		}},
+	}
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-pvc", Namespace: "test"},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		},
+	}
+	stale := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{
+		claimName:            "shared-pvc",
+		subPath:              "old-path",
+		requiresNodeAffinity: true,
+	})
+	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{
+		claimName:            "shared-pvc",
+		subPath:              "new-path",
+		requiresNodeAffinity: true,
+	})
+
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{
+		appsv1.AddToScheme,
+		corev1.AddToScheme,
+		v1alpha2.AddToScheme,
+	} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var deletedDeployment bool
+	var createdDeployment bool
+	var propagation *metav1.DeletionPropagation
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(svc, stale).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Create: func(ctx context.Context, c client.WithWatch, object client.Object, options ...client.CreateOption) error {
+				if _, ok := object.(*appsv1.Deployment); ok {
+					createdDeployment = true
+				}
+				return c.Create(ctx, object, options...)
+			},
+			Delete: func(ctx context.Context, c client.WithWatch, object client.Object, options ...client.DeleteOption) error {
+				if deployment, ok := object.(*appsv1.Deployment); ok && deployment.Name == stale.Name {
+					deleteOptions := client.DeleteOptions{}
+					for _, option := range options {
+						option.ApplyToDelete(&deleteOptions)
+					}
+					propagation = deleteOptions.PropagationPolicy
+					deletedDeployment = true
+				}
+				return c.Delete(ctx, object, options...)
+			},
+		}).
+		Build()
+	pvcReader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: pvcReader}
+
+	if err := reconciler.reconcilePVCEvictors(t.Context(), svc, &Config{}); err != nil {
+		t.Fatalf("reconcilePVCEvictors() error = %v", err)
+	}
+	if !deletedDeployment {
+		t.Fatal("stale evictor Deployment was not deleted")
+	}
+	if propagation == nil || *propagation != metav1.DeletePropagationForeground {
+		t.Fatalf("deletion propagation = %v, want foreground", propagation)
+	}
+	if createdDeployment {
+		t.Fatal("replacement evictor Deployment was created before stale Deployment deletion completed")
+	}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(expected), &appsv1.Deployment{}); err == nil {
+		t.Fatal("replacement evictor Deployment exists while stale Deployment is being deleted")
+	}
+}
+
 func TestReconcilePVCEvictorsSharedPVCAndFinalCleanup(t *testing.T) {
 	service := func(name string) *v1alpha2.LLMInferenceService {
 		return &v1alpha2.LLMInferenceService{

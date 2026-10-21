@@ -527,6 +527,14 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 			}
 		}
 	}
+	deletionPending, err := r.cleanupUnusedPVCEvictorsWithResult(ctx, llmSvc.Namespace, config, llmSvc, "")
+	if err != nil {
+		return err
+	}
+	if deletionPending {
+		markPVCEvictorReadiness(llmSvc, expected, current.Items)
+		return nil
+	}
 
 	logger := log.FromContext(ctx)
 	for _, deployment := range expected {
@@ -537,7 +545,7 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 				return err
 			}
 			for _, duplicate := range matches[1:] {
-				if err := r.Delete(ctx, duplicate); err != nil && !apierrors.IsNotFound(err) {
+				if err := r.deletePVCEvictorDeployment(ctx, duplicate); err != nil && !apierrors.IsNotFound(err) {
 					return fmt.Errorf("failed to delete duplicate PVC evictor Deployment %s/%s: %w", duplicate.Namespace, duplicate.Name, err)
 				}
 				logger.Info("Deleted duplicate shared PVC evictor Deployment", "deployment", duplicate.Name,
@@ -566,7 +574,7 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 		}
 	}
 	markPVCEvictorReadiness(llmSvc, expected, current.Items)
-	return r.cleanupUnusedPVCEvictors(ctx, llmSvc.Namespace, config, llmSvc, "")
+	return nil
 }
 
 func markPVCEvictorReadiness(llmSvc *v1alpha2.LLMInferenceService, expected map[string]*appsv1.Deployment, current []appsv1.Deployment) {
@@ -717,7 +725,7 @@ func (r *LLMISVCReconciler) reconcileExistingPVCEvictorDeployment(ctx context.Co
 		}
 	}
 	if !equality.Semantic.DeepEqual(current.Spec.Selector, expected.Spec.Selector) {
-		if err := r.Delete(ctx, current); err != nil && !apierrors.IsNotFound(err) {
+		if err := r.deletePVCEvictorDeployment(ctx, current); err != nil && !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to delete shared PVC evictor Deployment with changed selector %s/%s: %w", current.Namespace, current.Name, err)
 		}
 		return nil
@@ -969,20 +977,26 @@ func addPVCEvictorConsumerLabels(labels map[string]string, secondary []v1alpha2.
 }
 
 func (r *LLMISVCReconciler) cleanupUnusedPVCEvictors(ctx context.Context, namespace string, config *Config, currentService *v1alpha2.LLMInferenceService, excludedService string) error {
+	_, err := r.cleanupUnusedPVCEvictorsWithResult(ctx, namespace, config, currentService, excludedService)
+	return err
+}
+
+func (r *LLMISVCReconciler) cleanupUnusedPVCEvictorsWithResult(ctx context.Context, namespace string, config *Config, currentService *v1alpha2.LLMInferenceService, excludedService string) (bool, error) {
 	referenced, cleanupSafe, err := r.referencedPVCEvictorIdentities(ctx, namespace, config, currentService, excludedService)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if !cleanupSafe {
 		log.FromContext(ctx).Info("Skipping PVC evictor cleanup because one or more LLMInferenceServices could not be resolved")
-		return nil
+		return false, nil
 	}
 
 	current := &appsv1.DeploymentList{}
 	if err := r.List(ctx, current, client.InNamespace(namespace), client.MatchingLabels{pvcEvictorLabel: "true"}); err != nil {
-		return fmt.Errorf("failed to list PVC evictor Deployments for cleanup: %w", err)
+		return false, fmt.Errorf("failed to list PVC evictor Deployments for cleanup: %w", err)
 	}
 	deleted := make(map[string]struct{})
+	deletionPending := false
 	for i := range current.Items {
 		deployment := &current.Items[i]
 		pvcName := deployment.Annotations[pvcEvictorPVCName]
@@ -993,12 +1007,27 @@ func (r *LLMISVCReconciler) cleanupUnusedPVCEvictors(ctx context.Context, namesp
 		if _, ok := referenced[pvcEvictorIdentity(pvcName, pvcPath)]; ok {
 			continue
 		}
-		if err := r.Delete(ctx, deployment); err != nil && !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to delete unused PVC evictor Deployment %s/%s: %w", namespace, deployment.Name, err)
+		if !deployment.DeletionTimestamp.IsZero() {
+			deletionPending = true
+			continue
+		}
+		if err := r.deletePVCEvictorDeployment(ctx, deployment); err != nil {
+			if apierrors.IsNotFound(err) {
+				continue
+			}
+			return false, fmt.Errorf("failed to delete unused PVC evictor Deployment %s/%s: %w", namespace, deployment.Name, err)
 		}
 		deleted[deployment.Name] = struct{}{}
+		deletionPending = true
 	}
-	return r.cleanupPVCEvictorServiceAccount(ctx, namespace, referenced, deleted)
+	if err := r.cleanupPVCEvictorServiceAccount(ctx, namespace, referenced, deleted); err != nil {
+		return false, err
+	}
+	return deletionPending, nil
+}
+
+func (r *LLMISVCReconciler) deletePVCEvictorDeployment(ctx context.Context, deployment *appsv1.Deployment) error {
+	return r.Delete(ctx, deployment, client.PropagationPolicy(metav1.DeletePropagationForeground))
 }
 
 func (r *LLMISVCReconciler) cleanupPVCEvictorServiceAccount(ctx context.Context, namespace string, referenced map[string]struct{}, deleted map[string]struct{}) error {
