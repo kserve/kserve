@@ -21,8 +21,9 @@ from kserve.errors import InferenceError
 from kserve_storage import Storage
 from typing import Dict, Union
 
-from kserve.protocol.infer_type import InferRequest, InferResponse
-from kserve.utils.utils import get_predict_input, get_predict_response
+from kserve.protocol.infer_type import InferOutput, InferRequest, InferResponse
+from kserve.utils.numpy_codec import from_np_dtype
+from kserve.utils.utils import generate_uuid, get_predict_input, get_predict_response
 
 
 class PaddleModel(Model):
@@ -32,8 +33,8 @@ class PaddleModel(Model):
         self.model_dir = model_dir
         self.ready = False
         self.predictor = None
-        self.input_tensor = None
-        self.output_tensor = None
+        self.input_tensors = {}
+        self.output_tensors = {}
 
     def load(self) -> bool:
         def get_model_file(primary_ext: str, fallback_ext: str = None) -> str:
@@ -68,24 +69,104 @@ class PaddleModel(Model):
 
         self.predictor = inference.create_predictor(config)
 
-        # TODO: add support for multiple input_names/output_names
-        input_names = self.predictor.get_input_names()
-        self.input_tensor = self.predictor.get_input_handle(input_names[0])
-        output_names = self.predictor.get_output_names()
-        self.output_tensor = self.predictor.get_output_handle(output_names[0])
+        self.input_tensors = {
+            name: self.predictor.get_input_handle(name)
+            for name in self.predictor.get_input_names()
+        }
+        self.output_tensors = {
+            name: self.predictor.get_output_handle(name)
+            for name in self.predictor.get_output_names()
+        }
 
         self.ready = True
         return self.ready
+
+    def _validate_input_names(self, names):
+        expected = set(self.input_tensors)
+        if len(names) != len(set(names)) or set(names) != expected:
+            raise ValueError(
+                f"Expected inputs {sorted(expected)}, received {sorted(names)}"
+            )
+
+    def _get_inputs(self, payload):
+        if isinstance(payload, InferRequest):
+            # Existing single-input clients may use a generic name such as inputs.
+            if len(self.input_tensors) == 1 and len(payload.inputs) == 1:
+                return {next(iter(self.input_tensors)): payload.inputs[0].as_numpy()}
+            self._validate_input_names([item.name for item in payload.inputs])
+            return {item.name: item.as_numpy() for item in payload.inputs}
+
+        if "inputs" in payload and isinstance(payload["inputs"], dict):
+            values = payload["inputs"]
+            self._validate_input_names(list(values))
+        elif len(self.input_tensors) == 1:
+            values = {next(iter(self.input_tensors)): get_predict_input(payload)}
+        else:
+            instances = payload.get("instances", [])
+            if not isinstance(instances, list) or not instances:
+                raise ValueError("Multi-input models require named inputs or instances")
+            for instance in instances:
+                if not isinstance(instance, dict):
+                    raise ValueError(
+                        "Each instance must be a dictionary of named inputs"
+                    )
+                self._validate_input_names(list(instance))
+            values = {
+                name: [instance[name] for instance in instances]
+                for name in self.input_tensors
+            }
+        # JSON carries no dtype. Use the model's input types instead of forcing
+        # integer token IDs (and other inputs) to float32.
+        return {
+            name: np.asarray(value, dtype=self.input_tensors[name].type().name.lower())
+            for name, value in values.items()
+        }
+
+    def _get_response(self, payload, results):
+        if len(results) == 1:
+            # Preserve the legacy output-0 name and V1 predictions structure.
+            return get_predict_response(
+                payload, next(iter(results.values())), self.name
+            )
+        if isinstance(payload, dict):
+            batch_sizes = {value.shape[0] for value in results.values() if value.ndim}
+            if len(batch_sizes) != 1 or any(
+                value.ndim == 0 for value in results.values()
+            ):
+                raise ValueError(
+                    "V1 outputs must share a batch dimension; use V2 otherwise"
+                )
+            return {
+                "predictions": [
+                    {name: value[index].tolist() for name, value in results.items()}
+                    for index in range(next(iter(batch_sizes)))
+                ]
+            }
+        outputs = []
+        for name, value in results.items():
+            output = InferOutput(name, list(value.shape), from_np_dtype(value.dtype))
+            output.set_data_from_numpy(value, binary_data=payload.use_binary_outputs)
+            outputs.append(output)
+        return InferResponse(
+            model_name=self.name,
+            infer_outputs=outputs,
+            response_id=payload.id if payload.id else generate_uuid(),
+            use_binary_outputs=payload.use_binary_outputs,
+            requested_outputs=payload.request_outputs,
+        )
 
     def predict(
         self, payload: Union[Dict, InferRequest], headers: Dict[str, str] = None
     ) -> Union[Dict, InferResponse]:
         try:
-            instances = get_predict_input(payload)
-            np_array_input = np.array(instances, dtype="float32")
-            self.input_tensor.copy_from_cpu(np_array_input)
+            inputs = self._get_inputs(payload)
+            for name, value in inputs.items():
+                self.input_tensors[name].copy_from_cpu(value)
             self.predictor.run()
-            result = self.output_tensor.copy_to_cpu()
-            return get_predict_response(payload, result, self.name)
+            results = {
+                name: tensor.copy_to_cpu()
+                for name, tensor in self.output_tensors.items()
+            }
+            return self._get_response(payload, results)
         except Exception as e:
             raise InferenceError(str(e))
