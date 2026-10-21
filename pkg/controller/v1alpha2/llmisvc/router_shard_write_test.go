@@ -85,10 +85,14 @@ func TestHTTPRouteShardWriteOrder(t *testing.T) {
 }
 
 func TestMatchKeyAppliesDefaults(t *testing.T) {
-	bare := gwapiv1.HTTPRouteMatch{Path: &gwapiv1.HTTPPathMatch{Value: ptr.To("/x")},
-		Headers: []gwapiv1.HTTPHeaderMatch{{Name: "X-Model", Value: "m"}}}
-	defaulted := gwapiv1.HTTPRouteMatch{Path: &gwapiv1.HTTPPathMatch{Type: ptr.To(gwapiv1.PathMatchPathPrefix), Value: ptr.To("/x")},
-		Headers: []gwapiv1.HTTPHeaderMatch{{Type: ptr.To(gwapiv1.HeaderMatchExact), Name: "x-model", Value: "m"}}}
+	bare := gwapiv1.HTTPRouteMatch{
+		Path:    &gwapiv1.HTTPPathMatch{Value: ptr.To("/x")},
+		Headers: []gwapiv1.HTTPHeaderMatch{{Name: "X-Model", Value: "m"}},
+	}
+	defaulted := gwapiv1.HTTPRouteMatch{
+		Path:    &gwapiv1.HTTPPathMatch{Type: ptr.To(gwapiv1.PathMatchPathPrefix), Value: ptr.To("/x")},
+		Headers: []gwapiv1.HTTPHeaderMatch{{Type: ptr.To(gwapiv1.HeaderMatchExact), Name: "x-model", Value: "m"}},
+	}
 	assert.Equal(t, matchKey(bare), matchKey(defaulted))
 	assert.Equal(t, matchKey(gwapiv1.HTTPRouteMatch{}), matchKey(*prefixRule("/").Matches[0].DeepCopy()))
 }
