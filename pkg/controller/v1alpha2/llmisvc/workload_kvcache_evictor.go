@@ -50,7 +50,7 @@ import (
 )
 
 const (
-	pvcEvictorImage          = "quay.io/opendatahub/odh-llm-d-kv-pvc-evictor:odh-stable"
+	pvcEvictorImage          = "ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499"
 	pvcEvictorCacheDirectory = "kv/model-cache/models"
 	pvcEvictorMountPath      = "/mnt/kv-cache-evictor"
 	pvcEvictorTemplateName   = "pvc-evictor"
