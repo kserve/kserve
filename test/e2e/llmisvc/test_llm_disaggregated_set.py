@@ -529,9 +529,11 @@ def test_disaggregated_set_keda_scales_roles(test_case: TestCase):
             for role in ROLES:
 
                 def _scaled_up(role=role):
-                    pods = [p for p in list_role_pods(name, ns, role) if p.revision]
-                    assert len(pods) >= 2, (
-                        f"{role} role has {len(pods)} pods, want at least 2"
+                    pods = list_role_pods(name, ns, role)
+                    ready = [p for p in pods if p.revision and p.ready]
+                    assert len(ready) >= 2, (
+                        f"{role} role has {len(ready)} Ready pods, want at least 2: "
+                        f"{[(p.name, p.revision, p.ready) for p in pods]}"
                     )
 
                 wait_for(_scaled_up, timeout=120, interval=5.0)
