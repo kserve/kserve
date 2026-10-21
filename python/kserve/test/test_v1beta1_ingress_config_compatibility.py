@@ -35,3 +35,9 @@ def test_tls_profile_fields_are_keyword_only():
 
     assert config.llm_inference_service_tls_min_version == "VersionTLS12"
     assert config.llm_inference_service_tls_cipher_suites.startswith("TLS_ECDHE_RSA")
+
+
+def test_http_route_max_shards_is_keyword_only():
+    config = V1beta1IngressConfig(http_route_max_shards=4)
+
+    assert config.http_route_max_shards == 4
