@@ -11,6 +11,9 @@ name: E2E Image Cache
 # receive an image master built from the same inputs; anything else misses and
 # builds as before. RUN steps that fetch from the network (apt, pip indexes)
 # are not part of the key, the same trade-off as any layer cache.
+#
+# GHCR expires nothing, so the daily run prunes versions that no current key
+# uses once they are a week old.
 
 on:
   push:
@@ -112,3 +115,30 @@ jobs:
         env:
           IMAGE: ${{ matrix.image }}
         run: ./test/scripts/gh-actions/image-cache.sh publish "${IMAGE}"
+
+  prune:
+    if: >-
+      github.ref == 'refs/heads/master' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # The publishing repository holds the admin role on the package, which
+      # deleting versions requires.
+      packages: write
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+
+      - name: Delete stale cache versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./test/scripts/gh-actions/image-cache.sh prune

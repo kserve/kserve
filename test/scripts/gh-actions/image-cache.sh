@@ -27,6 +27,8 @@
 #
 #   image-cache.sh plan             JSON list of images missing from the cache
 #   image-cache.sh publish <image>  build and push one image unless present
+#   image-cache.sh prune [days]     delete versions no current key uses, older
+#                                   than days (default 7); needs gh and GH_TOKEN
 #
 # E2E_IMAGE_CACHE names the cache repository, e.g.
 # ghcr.io/kserve/kserve-e2e-images. When unset, build_image only builds.
@@ -351,6 +353,53 @@ image_cache_publish() {
   _build_spec -t "${cached}" --provenance=false --push
 }
 
+# Deletes cache versions that no current key uses and that are older than
+# <days>. PR runs merge the latest master, so only current keys can hit; the
+# grace period covers runs that merged a slightly older master. Deletes nothing
+# unless every image could be keyed, since a missing key would look stale.
+image_cache_prune() {
+  local days=${1:-7} name owner package scope live=() stale="" id tags deleted=0 failed=0
+  owner="${E2E_IMAGE_CACHE#*/}"
+  package="${owner#*/}"
+  owner="${owner%%/*}"
+  while IFS= read -r name; do
+    if ! image_key "${name}"; then
+      echo "image-cache: ${name} has no key, not pruning" >&2
+      return 1
+    fi
+    live+=("${name}-${IMAGE_KEY}")
+  done < <(printf '%s\n' "${!IMAGE_SPECS[@]}" | sort)
+
+  scope="users/${owner}"
+  if [[ "$(gh api "users/${owner}" --jq .type)" == Organization ]]; then
+    scope="orgs/${owner}"
+  fi
+  scope+="/packages/container/${package//\//%2F}/versions"
+
+  stale="$(gh api --paginate "${scope}" --jq '.[]' | jq -rs \
+    --argjson live "$(jq -cn '$ARGS.positional | map({(.): true}) | add // {}' --args "${live[@]}")" \
+    --argjson days "${days}" '
+      .[]
+      | select((.created_at | fromdateiso8601) < now - $days * 86400)
+      | select(any(.metadata.container.tags[]?; $live[.]) | not)
+      | "\(.id) \(.metadata.container.tags | join(","))"')" || return 1
+
+  while read -r id tags; do
+    [[ -n "${id}" ]] || continue
+    # Public versions with over 5,000 downloads cannot be deleted.
+    if gh api -X DELETE "${scope}/${id}" >/dev/null; then
+      echo "image-cache: deleted ${id} ${tags:-untagged}"
+      deleted=$((deleted + 1))
+    else
+      echo "::warning::image-cache: could not delete version ${id} ${tags:-untagged}"
+      failed=$((failed + 1))
+    fi
+  done <<<"${stale}"
+  echo "image-cache: pruned ${deleted}, kept ${failed} undeletable, ${#live[@]} live keys"
+  # Every deletion failing points at permissions rather than single versions.
+  ((deleted > 0 || failed == 0))
+}
+
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   set -o errexit
   set -o nounset
@@ -359,8 +408,9 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   case "${1:-}" in
     plan) image_cache_plan ;;
     publish) image_cache_publish "${2:?usage: $0 publish <image>}" ;;
+    prune) image_cache_prune "${2:-7}" ;;
     *)
-      echo "usage: $0 plan | publish <image>" >&2
+      echo "usage: $0 plan | publish <image> | prune [days]" >&2
       exit 2
       ;;
   esac
