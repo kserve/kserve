@@ -1110,7 +1110,8 @@ func BuildObservedGateways(routes []*gwapiv1.HTTPRoute) []v1alpha2.ObservedGatew
 // v1alpha2 unsupported when any shard reports that.
 func inferencePoolMigrationState(stored []*gwapiv1.HTTPRoute, v1MigrationValue string) (bool, metav1.ConditionStatus, metav1.ConditionStatus) {
 	isMigrated := false
-	var v1Alpha2, v1 []metav1.ConditionStatus
+	v1Alpha2 := make([]metav1.ConditionStatus, 0, len(stored))
+	v1 := make([]metav1.ConditionStatus, 0, len(stored))
 	for _, route := range stored {
 		if route.Annotations[AnnotationInferencePoolMigrated] == v1MigrationValue {
 			isMigrated = true
@@ -1126,10 +1127,10 @@ func inferencePoolMigrationState(stored []*gwapiv1.HTTPRoute, v1MigrationValue s
 func foldConditionStatus(statuses []metav1.ConditionStatus, decisive metav1.ConditionStatus) metav1.ConditionStatus {
 	out := metav1.ConditionUnknown
 	for _, s := range statuses {
-		switch {
-		case s == decisive:
+		switch s {
+		case decisive:
 			return decisive
-		case s == metav1.ConditionTrue || s == metav1.ConditionFalse:
+		case metav1.ConditionTrue, metav1.ConditionFalse:
 			out = s
 		}
 	}

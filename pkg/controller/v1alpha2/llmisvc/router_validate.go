@@ -98,7 +98,7 @@ func isQuotaExceeded(err error) bool {
 func packInlineRouteForValidation(namespace, name string, spec *gwapiv1.HTTPRouteSpec) ([]*gwapiv1.HTTPRoute, [][]int) {
 	rules, origins := splitOversizedRules(spec.Rules)
 	var groups [][]int
-	var current []int
+	current := make([]int, 0, min(len(rules), httpRouteMaxRules))
 	matches, names := 0, map[int]struct{}{}
 	for i := range rules {
 		n := ruleMatchCount(&rules[i])
@@ -106,7 +106,7 @@ func packInlineRouteForValidation(namespace, name string, spec *gwapiv1.HTTPRout
 		sameName = sameName && rules[i].Name != nil
 		if len(current) > 0 && (sameName || len(current) == httpRouteMaxRules || matches+n > httpRouteMaxTotalMatches) {
 			groups = append(groups, current)
-			current, matches, names = nil, 0, map[int]struct{}{}
+			current, matches, names = make([]int, 0, min(len(rules)-i, httpRouteMaxRules)), 0, map[int]struct{}{}
 		}
 		current = append(current, i)
 		matches += n

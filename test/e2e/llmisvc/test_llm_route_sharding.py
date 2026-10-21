@@ -84,13 +84,39 @@ def _rendered_route(kserve_client, llm_service):
 
 
 def _filler(template, index):
-    """A rule on its own path that no test request hits."""
+    """A rule on its own path that no test request hits.
+
+    The path sits one segment below the serving rule's path. The controller
+    advertises the shallowest service-backed path as the status URL, so a
+    top-level filler path such as /kserve-e2e-filler-00 would become the URL
+    the test sends traffic to.
+    """
     rule = copy.deepcopy(template)
     rule.pop("name", None)
+    base = "/"
+    for match in template.get("matches") or []:
+        path = match.get("path") or {}
+        if path.get("type", "PathPrefix") == "PathPrefix" and path.get("value"):
+            base = path["value"]
+            break
     rule["matches"] = [
-        {"path": {"type": "PathPrefix", "value": f"/kserve-e2e-filler-{index:02d}"}}
+        {
+            "path": {
+                "type": "PathPrefix",
+                "value": f"{base.rstrip('/')}/kserve-e2e-filler-{index:02d}",
+            }
+        }
     ]
     return rule
+
+
+def _service_url(kserve_client, llm_service):
+    """The completions URL, read before any inline rules are set.
+
+    Once the test owns the route spec, the advertised URL follows whatever
+    paths the inline rules carry, so it is captured from the rendered route.
+    """
+    return get_llm_service_url(kserve_client, llm_service) + "/v1/completions"
 
 
 def _tagged(template, tag, trailing_slash=None):
@@ -206,6 +232,7 @@ def test_route_sharding_boundary_tie(test_case):
 
     def body(kserve_client, llm_service):
         route = _rendered_route(kserve_client, llm_service)
+        url = _service_url(kserve_client, llm_service)
         template = route["spec"]["rules"][0]
         fillers = [_filler(template, i) for i in range(RULES_PER_ROUTE - 1)]
         # Rules 15 and 16: plain packing would put them in different shards.
@@ -228,8 +255,6 @@ def test_route_sharding_boundary_tie(test_case):
 
         _wait_for_shards(kserve_client, llm_service, 2, tied_rules_share_a_route)
         wait_for_llm_isvc_ready(kserve_client, llm_service)
-
-        url = get_llm_service_url(kserve_client, llm_service) + "/v1/completions"
 
         def first_rule_serves():
             response = _completion(url)
@@ -259,6 +284,7 @@ def test_route_resharding_under_traffic(test_case, traffic_driver):
 
     def body(kserve_client, llm_service):
         route = _rendered_route(kserve_client, llm_service)
+        url = _service_url(kserve_client, llm_service)
         template = route["spec"]["rules"][0]
         serving = _tagged(template, "serving")
         fillers = [_filler(template, i) for i in range(2 * RULES_PER_ROUTE)]
@@ -286,7 +312,6 @@ def test_route_resharding_under_traffic(test_case, traffic_driver):
         _wait_for_shards(kserve_client, llm_service, 1, serving_in(0))
         wait_for_llm_isvc_ready(kserve_client, llm_service)
 
-        url = get_llm_service_url(kserve_client, llm_service) + "/v1/completions"
         driver = traffic_driver(
             url=url,
             payload={"model": MODEL, "prompt": "hi", "max_tokens": 1},
