@@ -171,8 +171,9 @@ For `pvc.spec`, KServe runs one evictor sidecar in each vLLM pod. For `pvc.ref`,
 KServe creates one evictor Deployment for each referenced PVC and path, avoiding
 multiple evictors deleting the same files. For an RWO PVC, the Deployment uses
 pod affinity to match a vLLM pod using the same PVC and path. It also merges the
-tolerations from all vLLM Pods using that PVC and path, so the evictor can follow
-them onto tainted nodes. For an RWX PVC, the evictor has no same-node affinity
+tolerations from all vLLM Pods using that PVC and path, including tolerations
+added by cluster admission, so the evictor can follow them onto tainted nodes.
+For an RWX PVC, the evictor has no same-node affinity
 and receives no workload tolerations; it may run on a CPU node.
 
 PVC-backed tiers must use a writable PVC access mode. Read-only PVCs are not
