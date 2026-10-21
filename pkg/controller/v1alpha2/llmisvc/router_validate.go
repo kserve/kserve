@@ -19,39 +19,76 @@ package llmisvc
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
 
-const httpRouteValidateNamePattern = "-kserve-route-validate-%d"
-
 // NewInlineRouteDryRun returns the validating webhook's inline route check:
 // the rules are split and packed into HTTPRoutes that each fit the Gateway
-// API limits, and every one is sent to the API server as a dry-run create,
-// so the Gateway API CRD validates the nested rules the inline schema leaves
-// out. It runs on kubectl apply and, through the rendered spec dry-run in
+// API limits, and every one is sent to the API server as a dry-run, so the
+// Gateway API CRD validates the nested rules the inline schema leaves out.
+// It runs on kubectl apply and, through the rendered spec dry-run in
 // combineBaseRefsConfig, on presets, so a bad rule fails before the workload
 // rolls. Precedence grouping does not matter for validation, so the rules
 // are packed in list order.
+//
+// Each packed route takes the name of the managed shard at its position.
+// When that shard exists it is dry-run updated, otherwise dry-run created,
+// so an update of a service never needs spare HTTPRoute quota. A create that
+// only fails on quota is skipped: the quota says nothing about the rules,
+// and the controller reports it when it writes the shard.
+//
+// A rejection of the rules is returned as *v1alpha2.InlineRouteRejectedError;
+// any other error means the rules could not be checked and is worth a retry.
 func NewInlineRouteDryRun(c client.Client) v1alpha2.InlineRouteDryRunFunc {
 	return func(ctx context.Context, namespace, name string, spec *gwapiv1.HTTPRouteSpec) error {
 		routes, sources := packInlineRouteForValidation(namespace, name, spec)
 		for i, route := range routes {
-			if err := c.Create(ctx, route, client.DryRunAll); err != nil {
-				if meta.IsNoMatchError(err) {
-					return nil // Gateway API is not installed; nothing to validate against.
+			err := dryRunInlineRouteShard(ctx, c, route)
+			switch {
+			case err == nil, isQuotaExceeded(err):
+				continue
+			case meta.IsNoMatchError(err):
+				return nil // Gateway API is not installed; nothing to validate against.
+			case apierrors.IsInvalid(err), apierrors.IsBadRequest(err):
+				return &v1alpha2.InlineRouteRejectedError{
+					Err: fmt.Errorf("%s: %w", describeSourceRange(sources[i]), apiServerVerdict(err)),
 				}
-				return fmt.Errorf("%s: %w", describeSourceRange(sources[i]), apiServerVerdict(err))
+			default:
+				return fmt.Errorf("dry-run of %s: %w", describeSourceRange(sources[i]), err)
 			}
 		}
 		return nil
 	}
+}
+
+// dryRunInlineRouteShard dry-run updates route over the stored HTTPRoute of
+// the same name, or dry-run creates it when there is none.
+func dryRunInlineRouteShard(ctx context.Context, c client.Client, route *gwapiv1.HTTPRoute) error {
+	stored := &gwapiv1.HTTPRoute{}
+	err := c.Get(ctx, client.ObjectKeyFromObject(route), stored)
+	switch {
+	case err == nil:
+		stored.Spec = route.Spec
+		return c.Update(ctx, stored, client.DryRunAll)
+	case apierrors.IsNotFound(err):
+		return c.Create(ctx, route, client.DryRunAll)
+	default:
+		return err
+	}
+}
+
+// isQuotaExceeded reports a ResourceQuota rejection, which the API server
+// returns as Forbidden with "exceeded quota" in the message.
+func isQuotaExceeded(err error) bool {
+	return apierrors.IsForbidden(err) && strings.Contains(err.Error(), "exceeded quota")
 }
 
 // packInlineRouteForValidation packs the rules of spec in list order into
@@ -84,7 +121,7 @@ func packInlineRouteForValidation(namespace, name string, spec *gwapiv1.HTTPRout
 	for g, group := range groups {
 		route := &gwapiv1.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      kmeta.ChildName(name, fmt.Sprintf(httpRouteValidateNamePattern, g)),
+				Name:      managedHTTPRouteName(name, g),
 				Namespace: namespace,
 			},
 			Spec: *spec.DeepCopy(),

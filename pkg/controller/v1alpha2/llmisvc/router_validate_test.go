@@ -18,10 +18,12 @@ package llmisvc
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -29,7 +31,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 )
+
+func quotaExceeded(name string) error {
+	return apierrors.NewForbidden(schema.GroupResource{Group: httpRouteGV.Group, Resource: "httproutes"}, name,
+		errors.New("exceeded quota: routes, requested: count/httproutes.gateway.networking.k8s.io=1, used: count/httproutes.gateway.networking.k8s.io=4, limited: count/httproutes.gateway.networking.k8s.io=4"))
+}
 
 func TestPackInlineRouteForValidation(t *testing.T) {
 	spec := &gwapiv1.HTTPRouteSpec{Rules: append(repeatRules(17, 1), pathRule("lora", 70))}
@@ -73,7 +82,7 @@ func TestInlineRouteDryRun(t *testing.T) {
 		c := fake.NewClientBuilder().WithScheme(invalidRouteScheme(t)).WithRESTMapper(restMapper).
 			WithInterceptorFuncs(interceptor.Funcs{
 				Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
-					if obj.GetName() == "svc-kserve-route-validate-1" {
+					if obj.GetName() == "svc-kserve-route-1" {
 						return rejectedHeaderValue(obj.GetName())
 					}
 					return nil
@@ -81,6 +90,47 @@ func TestInlineRouteDryRun(t *testing.T) {
 			}).Build()
 		err := NewInlineRouteDryRun(c)(t.Context(), "ns", "svc", spec)
 		require.ErrorContains(t, err, "inline route rules 16-19")
+		var rejected *v1alpha2.InlineRouteRejectedError
+		require.ErrorAs(t, err, &rejected, "a rejection of the rules is a spec error")
+	})
+
+	t.Run("a stored shard is dry-run updated so no spare quota is needed", func(t *testing.T) {
+		stored := &gwapiv1.HTTPRoute{ObjectMeta: metav1.ObjectMeta{Name: "svc-kserve-route", Namespace: "ns"}}
+		var creates, updates []string
+		c := fake.NewClientBuilder().WithScheme(invalidRouteScheme(t)).WithRESTMapper(restMapper).WithObjects(stored).
+			WithInterceptorFuncs(interceptor.Funcs{
+				Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
+					creates = append(creates, obj.GetName())
+					return quotaExceeded(obj.GetName())
+				},
+				Update: func(_ context.Context, _ client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+					o := &client.UpdateOptions{}
+					for _, opt := range opts {
+						opt.ApplyToUpdate(o)
+					}
+					require.True(t, slices.Contains(o.DryRun, metav1.DryRunAll), "only dry-run updates are allowed")
+					require.Len(t, obj.(*gwapiv1.HTTPRoute).Spec.Rules, 16, "the packed rules replace the stored ones")
+					updates = append(updates, obj.GetName())
+					return nil
+				},
+			}).Build()
+		require.NoError(t, NewInlineRouteDryRun(c)(t.Context(), "ns", "svc", spec),
+			"a create rejected only by quota says nothing about the rules")
+		require.Equal(t, []string{"svc-kserve-route"}, updates)
+		require.Equal(t, []string{"svc-kserve-route-1"}, creates)
+	})
+
+	t.Run("a failure to check is not a rejection", func(t *testing.T) {
+		c := fake.NewClientBuilder().WithScheme(invalidRouteScheme(t)).WithRESTMapper(restMapper).
+			WithInterceptorFuncs(interceptor.Funcs{
+				Create: func(context.Context, client.WithWatch, client.Object, ...client.CreateOption) error {
+					return apierrors.NewTimeoutError("request timed out", 1)
+				},
+			}).Build()
+		err := NewInlineRouteDryRun(c)(t.Context(), "ns", "svc", spec)
+		require.Error(t, err)
+		var rejected *v1alpha2.InlineRouteRejectedError
+		require.False(t, errors.As(err, &rejected), "a timeout must stay retryable: %v", err)
 	})
 
 	t.Run("no Gateway API means nothing to validate", func(t *testing.T) {

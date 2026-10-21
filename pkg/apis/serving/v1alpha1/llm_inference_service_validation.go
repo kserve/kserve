@@ -28,6 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	kservevalidation "github.com/kserve/kserve/pkg/validation"
@@ -99,12 +100,17 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
 
 	// Last and only on an otherwise valid spec, as it calls the API server.
-	if r := llmSvc.Spec.Router; len(allErrs) == 0 && l.InlineRouteDryRun != nil && r != nil && r.Route != nil &&
-		r.Route.HTTP != nil && r.Route.HTTP.Spec != nil && len(r.Route.HTTP.Spec.Rules) > 0 {
-		if err := l.InlineRouteDryRun(ctx, llmSvc.Namespace, llmSvc.Name, r.Route.HTTP.Spec); err != nil {
-			allErrs = append(allErrs, field.Invalid(field.NewPath("spec", "router", "route", "http", "spec", "rules"),
-				"<inline route rules>", "rejected as an HTTPRoute by the Gateway API CRD: "+err.Error()))
+	if len(allErrs) == 0 {
+		var spec *gwapiv1.HTTPRouteSpec
+		if r := llmSvc.Spec.Router; r != nil && r.Route != nil && r.Route.HTTP != nil {
+			spec = r.Route.HTTP.Spec
 		}
+		dryRunErrs, err := v1alpha2.DryRunInlineRouteSpec(ctx, l.InlineRouteDryRun, llmSvc.Namespace, llmSvc.Name,
+			spec, field.NewPath("spec", "router", "route", "http", "spec"))
+		if err != nil {
+			return err
+		}
+		allErrs = append(allErrs, dryRunErrs...)
 	}
 
 	if len(allErrs) == 0 {

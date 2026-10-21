@@ -19,6 +19,7 @@ package v1alpha2
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"slices"
@@ -56,8 +57,21 @@ type LLMInferenceServiceValidator struct {
 // InlineRouteDryRunFunc dry-runs the rules of an inline route as one or more
 // HTTPRoutes in namespace, named after name, and returns the API server's
 // verdict. It returns nil when the Gateway API is not installed.
+// A rejection of the rules is an *InlineRouteRejectedError; any other error
+// means the rules could not be checked.
 // +kubebuilder:object:generate=false
 type InlineRouteDryRunFunc func(ctx context.Context, namespace, name string, spec *gwapiv1.HTTPRouteSpec) error
+
+// InlineRouteRejectedError is the API server rejecting the inline route
+// rules as an HTTPRoute.
+// +kubebuilder:object:generate=false
+type InlineRouteRejectedError struct {
+	Err error
+}
+
+func (e *InlineRouteRejectedError) Error() string { return e.Err.Error() }
+
+func (e *InlineRouteRejectedError) Unwrap() error { return e.Err }
 
 var _ admission.Validator[*LLMInferenceService] = &LLMInferenceServiceValidator{}
 
@@ -121,8 +135,12 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 
 	// Last and only on an otherwise valid spec, as it calls the API server.
 	if len(allErrs) == 0 {
-		allErrs = append(allErrs, DryRunInlineRoute(ctx, l.InlineRouteDryRun, llmSvc.Namespace, llmSvc.Name, llmSvc.Spec.Router,
-			field.NewPath("spec", "router", "route", "http", "spec"))...)
+		dryRunErrs, err := DryRunInlineRoute(ctx, l.InlineRouteDryRun, llmSvc.Namespace, llmSvc.Name, llmSvc.Spec.Router,
+			field.NewPath("spec", "router", "route", "http", "spec"))
+		if err != nil {
+			return warnings, err
+		}
+		allErrs = append(allErrs, dryRunErrs...)
 	}
 
 	if len(allErrs) == 0 {
@@ -1129,16 +1147,32 @@ func ValidateHTTPRouteSize(spec *gwapiv1.HTTPRouteSpec, path *field.Path) field.
 }
 
 // DryRunInlineRoute runs dryRun on the inline route of router, when both are
-// set and the route has rules, and turns a rejection into a field error.
+// set and the route has rules. A rejection of the rules becomes a field
+// error. Any other failure means the rules could not be checked; it is
+// returned as an InternalError, not Invalid, so the client retries and the
+// controller requeues instead of marking the rendered spec invalid.
 // Shared with the v1alpha1 validator.
-func DryRunInlineRoute(ctx context.Context, dryRun InlineRouteDryRunFunc, namespace, name string, router *RouterSpec, path *field.Path) field.ErrorList {
-	if dryRun == nil || router == nil || router.Route == nil || router.Route.HTTP == nil || router.Route.HTTP.Spec == nil ||
-		len(router.Route.HTTP.Spec.Rules) == 0 {
-		return nil
+func DryRunInlineRoute(ctx context.Context, dryRun InlineRouteDryRunFunc, namespace, name string, router *RouterSpec, path *field.Path) (field.ErrorList, error) {
+	if router == nil || router.Route == nil || router.Route.HTTP == nil {
+		return nil, nil
 	}
-	if err := dryRun(ctx, namespace, name, router.Route.HTTP.Spec); err != nil {
+	return DryRunInlineRouteSpec(ctx, dryRun, namespace, name, router.Route.HTTP.Spec, path)
+}
+
+// DryRunInlineRouteSpec is DryRunInlineRoute for the inline HTTPRoute spec
+// itself, for API versions whose RouterSpec differs.
+func DryRunInlineRouteSpec(ctx context.Context, dryRun InlineRouteDryRunFunc, namespace, name string, spec *gwapiv1.HTTPRouteSpec, path *field.Path) (field.ErrorList, error) {
+	if dryRun == nil || spec == nil || len(spec.Rules) == 0 {
+		return nil, nil
+	}
+	err := dryRun(ctx, namespace, name, spec)
+	if err == nil {
+		return nil, nil
+	}
+	var rejected *InlineRouteRejectedError
+	if errors.As(err, &rejected) {
 		return field.ErrorList{field.Invalid(path.Child("rules"), "<inline route rules>",
-			"rejected as an HTTPRoute by the Gateway API CRD: "+err.Error())}
+			"rejected as an HTTPRoute by the Gateway API CRD: "+rejected.Error())}, nil
 	}
-	return nil
+	return nil, apierrors.NewInternalError(fmt.Errorf("could not validate the inline route rules, try again: %w", err))
 }

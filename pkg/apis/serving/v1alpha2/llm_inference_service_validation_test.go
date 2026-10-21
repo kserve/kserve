@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -1400,20 +1401,29 @@ func TestDryRunInlineRoute(t *testing.T) {
 	}}}}
 	calls := 0
 	accept := func(context.Context, string, string, *gwapiv1.HTTPRouteSpec) error { calls++; return nil }
-	reject := func(context.Context, string, string, *gwapiv1.HTTPRouteSpec) error { return errors.New("bad header") }
-
-	if errs := DryRunInlineRoute(context.Background(), nil, "ns", "svc", router, path); len(errs) != 0 {
-		t.Fatalf("no dry-run func means no check: %v", errs)
+	reject := func(context.Context, string, string, *gwapiv1.HTTPRouteSpec) error {
+		return &InlineRouteRejectedError{Err: errors.New("bad header")}
 	}
-	if errs := DryRunInlineRoute(context.Background(), accept, "ns", "svc", router, path); len(errs) != 0 || calls != 1 {
-		t.Fatalf("accepted route: errs=%v calls=%d", errs, calls)
+	unavailable := func(context.Context, string, string, *gwapiv1.HTTPRouteSpec) error {
+		return errors.New("etcdserver: request timed out")
+	}
+
+	if errs, err := DryRunInlineRoute(context.Background(), nil, "ns", "svc", router, path); len(errs) != 0 || err != nil {
+		t.Fatalf("no dry-run func means no check: %v %v", errs, err)
+	}
+	if errs, err := DryRunInlineRoute(context.Background(), accept, "ns", "svc", router, path); len(errs) != 0 || err != nil || calls != 1 {
+		t.Fatalf("accepted route: errs=%v err=%v calls=%d", errs, err, calls)
 	}
 	empty := &RouterSpec{Route: &GatewayRoutesSpec{HTTP: &HTTPRouteSpec{Spec: &gwapiv1.HTTPRouteSpec{}}}}
-	if DryRunInlineRoute(context.Background(), accept, "ns", "svc", empty, path); calls != 1 {
+	if _, _ = DryRunInlineRoute(context.Background(), accept, "ns", "svc", empty, path); calls != 1 {
 		t.Fatalf("a route without rules is not sent")
 	}
-	errs := DryRunInlineRoute(context.Background(), reject, "ns", "svc", router, path)
-	if len(errs) != 1 || !strings.Contains(errs[0].Error(), "bad header") {
-		t.Fatalf("rejection must surface as a field error: %v", errs)
+	errs, err := DryRunInlineRoute(context.Background(), reject, "ns", "svc", router, path)
+	if err != nil || len(errs) != 1 || !strings.Contains(errs[0].Error(), "bad header") {
+		t.Fatalf("rejection must surface as a field error: %v %v", errs, err)
+	}
+	errs, err = DryRunInlineRoute(context.Background(), unavailable, "ns", "svc", router, path)
+	if len(errs) != 0 || !apierrors.IsInternalError(err) || apierrors.IsInvalid(err) {
+		t.Fatalf("a failure to check must be a retryable internal error, not a field error: %v %v", errs, err)
 	}
 }
