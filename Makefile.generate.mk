@@ -70,9 +70,12 @@ manifests: controller-gen kustomize yq
 	mv config/crd/full/serving.kserve.io_kernelcachecaptures.yaml config/crd/full/kernelcache/serving.kserve.io_kernelcachecaptures.yaml
 	mv config/crd/full/serving.kserve.io_kernelcachenodegroups.yaml config/crd/full/kernelcache/serving.kserve.io_kernelcachenodegroups.yaml
 		
-	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year=$(CURRENT_YEAR) paths=./pkg/apis/serving/v1alpha1
-	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year=$(CURRENT_YEAR) paths=./pkg/apis/serving/v1alpha2
-	@$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt",year=$(CURRENT_YEAR) paths=./pkg/apis/serving/v1beta1
+	@# An existing deepcopy file keeps its copyright year, a new one gets CURRENT_YEAR.
+	@for api in v1alpha1 v1alpha2 v1beta1; do \
+		dir=pkg/apis/serving/$$api; \
+		year=$$(awk '/^Copyright [0-9]+ The KServe Authors/ { print $$2; exit }' "$$dir/zz_generated.deepcopy.go" 2>/dev/null); \
+		$(CONTROLLER_GEN) object:headerFile=hack/boilerplate.go.txt,year="$${year:-$(CURRENT_YEAR)}" paths="./$$dir" || exit 1; \
+	done
 
 	# Strip schema validation from embedded external types in LLMInferenceServiceConfig.
 	# These subtrees contain Go template expressions (e.g. {{ .GlobalConfig.ModelBasedRoutingHeaderName }})
