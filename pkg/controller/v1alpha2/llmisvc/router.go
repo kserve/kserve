@@ -303,27 +303,7 @@ func (r *LLMISVCReconciler) reconcileHTTPRoutes(ctx context.Context, llmSvc *v1a
 		if len(shards) > limit {
 			return nil, httpRouteShardCapError(fmt.Sprintf("%d HTTPRoutes", len(shards)), limit, source)
 		}
-		// Kubernetes has no atomic write across several HTTPRoutes, so the whole
-		// set is validated first: a shard the API server would reject fails the
-		// reconcile before any shard is written, and the stored routes keep
-		// serving. This cannot stop a transient mix of old and new shards while
-		// the writes below run.
-		if err := r.dryRunHTTPRouteShards(ctx, llmSvc, shards, sources); err != nil {
-			return nil, err
-		}
-		stored, err := managedHTTPRoutes(ctx, r, llmSvc)
-		if err != nil {
-			return nil, err
-		}
-		for _, i := range httpRouteShardWriteOrder(stored, shards) {
-			shard := shards[i]
-			if err := Reconcile(ctx, r, llmSvc, &gwapiv1.HTTPRoute{}, shard, semanticHTTPRouteIsEqual); err != nil {
-				return nil, fmt.Errorf("failed to reconcile HTTPRoute %s/%s: %w", shard.GetNamespace(), shard.GetName(), apiServerVerdict(err))
-			}
-		}
-		// Only after every current shard is written, so traffic covered by a
-		// shrinking route never loses its rules in between.
-		if err := r.deleteStaleHTTPRouteShards(ctx, llmSvc, len(shards)); err != nil {
+		if err := r.reconcileHTTPRouteShards(ctx, llmSvc, shards, sources); err != nil {
 			return nil, err
 		}
 		referencedRoutes = append(referencedRoutes, shards...)

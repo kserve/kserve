@@ -585,31 +585,98 @@ func apiServerVerdict(err error) error {
 	return err
 }
 
-// dryRunHTTPRouteShards sends every desired shard to the API server as a
-// dry-run create or update, so the Gateway API CRD validates the whole set
-// before the first real write.
-func (r *LLMISVCReconciler) dryRunHTTPRouteShards(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shards []*gwapiv1.HTTPRoute, sources [][]int) error {
-	for s, shard := range shards {
-		probe := shard.DeepCopy()
-		curr := &gwapiv1.HTTPRoute{}
-		err := r.Get(ctx, client.ObjectKeyFromObject(probe), curr)
-		switch {
-		case apierrors.IsNotFound(err):
-			err = r.Create(ctx, probe, client.DryRunAll)
-		case err != nil:
-			return fmt.Errorf("failed to get HTTPRoute %s/%s: %w", probe.GetNamespace(), probe.GetName(), err)
-		case !metav1.IsControlledBy(curr, llmSvc):
-			return fmt.Errorf("failed to reconcile HTTPRoute %s/%s: it is not controlled by %s/%s",
-				probe.GetNamespace(), probe.GetName(), llmSvc.GetNamespace(), llmSvc.GetName())
-		default:
-			probe.SetResourceVersion(curr.GetResourceVersion())
-			err = r.Update(ctx, probe, client.DryRunAll)
+// reconcileHTTPRouteShards writes the shards of the inline route and then
+// deletes the shards the route no longer needs.
+//
+// Kubernetes has no atomic write across several HTTPRoutes, so the whole
+// set is validated first: a shard the API server would reject fails the
+// reconcile before any shard is written, and the stored routes keep
+// serving. This cannot stop a transient mix of old and new shards while
+// the writes below run.
+//
+// That dry-run is also the defaults dry-run the comparison needs, so each
+// shard costs one dry-run per reconcile and only the shards that differ are
+// written.
+func (r *LLMISVCReconciler) reconcileHTTPRouteShards(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shards []*gwapiv1.HTTPRoute, sources [][]int) error {
+	stored, err := managedHTTPRoutes(ctx, r, llmSvc)
+	if err != nil {
+		return err
+	}
+	writes, err := r.prepareHTTPRouteShards(ctx, llmSvc, shards, sources)
+	if err != nil {
+		return err
+	}
+	for _, i := range httpRouteShardWriteOrder(stored, shards) {
+		if err := r.writeHTTPRouteShard(ctx, llmSvc, shards[i], writes[i]); err != nil {
+			return err
 		}
-		if err != nil {
+	}
+	// Only after every current shard is written, so traffic covered by a
+	// shrinking route never loses its rules in between.
+	return r.deleteStaleHTTPRouteShards(ctx, llmSvc, len(shards))
+}
+
+// httpRouteShardWrite is what prepareHTTPRouteShards decided for one shard.
+type httpRouteShardWrite int
+
+const (
+	httpRouteShardUnchanged httpRouteShardWrite = iota
+	httpRouteShardCreate
+	httpRouteShardUpdate
+)
+
+// prepareHTTPRouteShards sends every desired shard to the API server as a
+// dry-run create or update, so the Gateway API CRD validates the whole set
+// before the first real write. The dry-run update is the one PrepareUpdate
+// uses for server defaults, so each shard is dry-run once per reconcile;
+// shards that would update are left carrying the dry-run result for
+// writeHTTPRouteShard.
+func (r *LLMISVCReconciler) prepareHTTPRouteShards(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shards []*gwapiv1.HTTPRoute, sources [][]int) ([]httpRouteShardWrite, error) {
+	writes := make([]httpRouteShardWrite, len(shards))
+	for s, shard := range shards {
+		rejected := func(err error) error {
 			return fmt.Errorf("failed to reconcile HTTPRoute %s/%s (%s): rejected on dry-run, "+
 				"no HTTPRoute was written and the stored routes keep serving: %w",
-				probe.GetNamespace(), probe.GetName(), describeSourceRange(sources[s]), apiServerVerdict(err))
+				shard.GetNamespace(), shard.GetName(), describeSourceRange(sources[s]), apiServerVerdict(err))
 		}
+		curr := &gwapiv1.HTTPRoute{}
+		switch err := r.Get(ctx, client.ObjectKeyFromObject(shard), curr); {
+		case apierrors.IsNotFound(err):
+			if err := r.Create(ctx, shard.DeepCopy(), client.DryRunAll); err != nil {
+				return nil, rejected(err)
+			}
+			writes[s] = httpRouteShardCreate
+		case err != nil:
+			return nil, fmt.Errorf("failed to get HTTPRoute %s/%s: %w", shard.GetNamespace(), shard.GetName(), err)
+		case !metav1.IsControlledBy(curr, llmSvc):
+			return nil, fmt.Errorf("failed to reconcile HTTPRoute %s/%s: it is not controlled by %s/%s",
+				shard.GetNamespace(), shard.GetName(), llmSvc.GetNamespace(), llmSvc.GetName())
+		default:
+			changed, err := PrepareUpdate(ctx, r, llmSvc, curr, shard, semanticHTTPRouteIsEqual)
+			if err != nil {
+				return nil, rejected(err)
+			}
+			if changed {
+				writes[s] = httpRouteShardUpdate
+			}
+		}
+	}
+	return writes, nil
+}
+
+// writeHTTPRouteShard performs the write prepareHTTPRouteShards decided on.
+func (r *LLMISVCReconciler) writeHTTPRouteShard(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shard *gwapiv1.HTTPRoute, write httpRouteShardWrite) error {
+	var err error
+	switch write {
+	case httpRouteShardCreate:
+		err = Create(ctx, r, llmSvc, shard)
+	case httpRouteShardUpdate:
+		err = CommitUpdate(ctx, r, llmSvc, shard)
+	default:
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to reconcile HTTPRoute %s/%s: %w", shard.GetNamespace(), shard.GetName(), apiServerVerdict(err))
 	}
 	return nil
 }

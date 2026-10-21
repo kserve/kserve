@@ -240,3 +240,79 @@ func TestManagedHTTPRoutesUsesNameAndOwnership(t *testing.T) {
 	assert.ElementsMatch(t, []string{base.Name, foreignLabels.Name, foreignAtShardName.Name}, remaining,
 		"only the owned stale shard is deleted")
 }
+
+// TestReconcileHTTPRouteShards_UnchangedShardsDryRunOnce checks that the whole-set
+// dry-run doubles as the defaults dry-run: reconciling an unchanged route
+// sends one dry-run per shard and writes nothing.
+func TestReconcileHTTPRouteShards_UnchangedShardsDryRunOnce(t *testing.T) {
+	seedInferencePoolV1Alpha2Discovery(t)
+
+	llmSvc := invalidRouteService()
+	rules := make([]gwapiv1.HTTPRouteRule, 0, 20)
+	for i := range 20 {
+		rules = append(rules, prefixRule(fmt.Sprintf("/r%d", i)))
+	}
+	route := managedRoute(llmSvc)
+	route.Spec.Rules = rules
+	reshard := func() ([]*gwapiv1.HTTPRoute, [][]int) {
+		shards, sources, err := shardHTTPRouteWithSources(llmSvc, route.DeepCopy())
+		require.NoError(t, err)
+		return shards, sources
+	}
+
+	dryRuns, writes := 0, 0
+	isDryRun := func(dry []string) bool { return slices.Contains(dry, metav1.DryRunAll) }
+	count := func(dry []string) {
+		if isDryRun(dry) {
+			dryRuns++
+		} else {
+			writes++
+		}
+	}
+	funcs := interceptor.Funcs{
+		Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+			if _, ok := obj.(*gwapiv1.HTTPRoute); ok {
+				o := &client.CreateOptions{}
+				for _, opt := range opts {
+					opt.ApplyToCreate(o)
+				}
+				count(o.DryRun)
+			}
+			return c.Create(ctx, obj, opts...)
+		},
+		Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+			if _, ok := obj.(*gwapiv1.HTTPRoute); ok {
+				o := &client.UpdateOptions{}
+				for _, opt := range opts {
+					opt.ApplyToUpdate(o)
+				}
+				count(o.DryRun)
+			}
+			return c.Update(ctx, obj, opts...)
+		},
+	}
+	restMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{httpRouteGV})
+	restMapper.Add(httpRouteGV.WithKind("HTTPRoute"), meta.RESTScopeNamespace)
+	reconciler := &LLMISVCReconciler{
+		Client: fake.NewClientBuilder().
+			WithScheme(invalidRouteScheme(t)).
+			WithRESTMapper(restMapper).
+			WithObjects(llmSvc).
+			WithInterceptorFuncs(funcs).
+			Build(),
+		EventRecorder: record.NewFakeRecorder(10),
+	}
+
+	shards, sources := reshard()
+	require.NoError(t, reconciler.reconcileHTTPRouteShards(t.Context(), llmSvc, shards, sources))
+	assert.Equal(t, 2, dryRuns, "first reconcile dry-runs each new shard once")
+	assert.Equal(t, 2, writes, "first reconcile creates both shards")
+
+	dryRuns, writes = 0, 0
+	for range 3 {
+		shards, sources := reshard()
+		require.NoError(t, reconciler.reconcileHTTPRouteShards(t.Context(), llmSvc, shards, sources))
+	}
+	assert.Equal(t, 6, dryRuns, "an unchanged reconcile dry-runs each shard once")
+	assert.Zero(t, writes, "an unchanged reconcile writes nothing")
+}
