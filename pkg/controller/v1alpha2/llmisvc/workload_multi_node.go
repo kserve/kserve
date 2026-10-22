@@ -247,6 +247,8 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 			},
 			Spec: *llmSvc.Spec.Template.DeepCopy(),
 		}
+		leaderEvictorTemplate := takePVCEvictorContainerTemplate(&group.LeaderTemplate.Spec)
+		leaderEvictorTemplate = withPVCEvictorDefaultImage(leaderEvictorTemplate, config.PVCEvictorImage)
 
 		serviceAccount, _, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
 		if err != nil {
@@ -258,7 +260,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 			return nil, fmt.Errorf("failed to attach model artifacts to main leader template: %w", err)
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
-			attachKVCacheSecondaryTiers(&group.LeaderTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+			attachKVCacheSecondaryTiers(&group.LeaderTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main", leaderEvictorTemplate)
 		}
 		if err := attachModelExpress(llmSvc, &group.LeaderTemplate.Spec, config.ModelExpress); err != nil {
 			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
@@ -278,6 +280,11 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 	}
 	if llmSvc.Spec.Worker != nil && !utils.GetForceStopRuntime(llmSvc) {
 		group.WorkerTemplate.Spec = *llmSvc.Spec.Worker.DeepCopy()
+		workerEvictorTemplate := takePVCEvictorContainerTemplate(&group.WorkerTemplate.Spec)
+		if workerEvictorTemplate == nil {
+			workerEvictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
+		}
+		workerEvictorTemplate = withPVCEvictorDefaultImage(workerEvictorTemplate, config.PVCEvictorImage)
 
 		serviceAccount, _, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
 		if err != nil {
@@ -289,7 +296,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 			return nil, fmt.Errorf("failed to attach model artifacts to main worker template: %w", err)
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
-			attachKVCacheSecondaryTiers(&group.WorkerTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+			attachKVCacheSecondaryTiers(&group.WorkerTemplate.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main", workerEvictorTemplate)
 		}
 		if err := attachModelExpress(llmSvc, &group.WorkerTemplate.Spec, config.ModelExpress); err != nil {
 			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
@@ -313,9 +320,15 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 	if group.LeaderTemplate != nil {
 		utils.PropagateMap(llmSvc.Spec.Labels, &group.LeaderTemplate.Labels)
 		utils.PropagateMap(llmSvc.Spec.Annotations, &group.LeaderTemplate.Annotations, nonPropagatedSpecAnnotations...)
+		if llmSvc.Spec.KVCacheOffloading != nil {
+			group.LeaderTemplate.Labels = addPVCEvictorConsumerLabels(group.LeaderTemplate.Labels, llmSvc.Spec.KVCacheOffloading.Secondary)
+		}
 	}
 	utils.PropagateMap(llmSvc.Spec.Labels, &group.WorkerTemplate.Labels)
 	utils.PropagateMap(llmSvc.Spec.Annotations, &group.WorkerTemplate.Annotations, nonPropagatedSpecAnnotations...)
+	if llmSvc.Spec.KVCacheOffloading != nil {
+		group.WorkerTemplate.Labels = addPVCEvictorConsumerLabels(group.WorkerTemplate.Labels, llmSvc.Spec.KVCacheOffloading.Secondary)
+	}
 
 	// Inject tracing instrumentation when spec.tracing is set
 	if llmSvc.Spec.Tracing != nil {
@@ -434,6 +447,11 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 				},
 				Spec: *llmSvc.Spec.Prefill.Template.DeepCopy(),
 			}
+			prefillLeaderEvictorTemplate := takePVCEvictorContainerTemplate(&group.LeaderTemplate.Spec)
+			if prefillLeaderEvictorTemplate == nil {
+				prefillLeaderEvictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
+			}
+			prefillLeaderEvictorTemplate = withPVCEvictorDefaultImage(prefillLeaderEvictorTemplate, config.PVCEvictorImage)
 
 			group.LeaderTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
@@ -441,7 +459,7 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill leader template: %w", err)
 			}
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
-				attachKVCacheSecondaryTiers(&group.LeaderTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+				attachKVCacheSecondaryTiers(&group.LeaderTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main", prefillLeaderEvictorTemplate)
 			}
 			if err := attachModelExpress(llmSvc, &group.LeaderTemplate.Spec, config.ModelExpress); err != nil {
 				return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
@@ -449,6 +467,14 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 		}
 		if llmSvc.Spec.Prefill.Worker != nil {
 			group.WorkerTemplate.Spec = *llmSvc.Spec.Prefill.Worker.DeepCopy()
+			prefillWorkerEvictorTemplate := takePVCEvictorContainerTemplate(&group.WorkerTemplate.Spec)
+			if prefillWorkerEvictorTemplate == nil {
+				prefillWorkerEvictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Prefill.Template)
+				if prefillWorkerEvictorTemplate == nil {
+					prefillWorkerEvictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
+				}
+			}
+			prefillWorkerEvictorTemplate = withPVCEvictorDefaultImage(prefillWorkerEvictorTemplate, config.PVCEvictorImage)
 
 			group.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
@@ -456,7 +482,7 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 				return nil, fmt.Errorf("failed to attach model artifacts to prefill worker template: %w", err)
 			}
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
-				attachKVCacheSecondaryTiers(&group.WorkerTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+				attachKVCacheSecondaryTiers(&group.WorkerTemplate.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main", prefillWorkerEvictorTemplate)
 			}
 			if err := attachModelExpress(llmSvc, &group.WorkerTemplate.Spec, config.ModelExpress); err != nil {
 				return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
@@ -484,9 +510,15 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 		if group.LeaderTemplate != nil {
 			utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &group.LeaderTemplate.Labels)
 			utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &group.LeaderTemplate.Annotations, nonPropagatedSpecAnnotations...)
+			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
+				group.LeaderTemplate.Labels = addPVCEvictorConsumerLabels(group.LeaderTemplate.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary)
+			}
 		}
 		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &group.WorkerTemplate.Labels)
 		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &group.WorkerTemplate.Annotations, nonPropagatedSpecAnnotations...)
+		if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
+			group.WorkerTemplate.Labels = addPVCEvictorConsumerLabels(group.WorkerTemplate.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary)
+		}
 	}
 
 	applyLeaderWorkerSetWorkloadRevision(&group, config)

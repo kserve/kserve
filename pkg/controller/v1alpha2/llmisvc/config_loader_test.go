@@ -205,6 +205,7 @@ func TestNewLLMISVCConfig(t *testing.T) {
 		configMapData        map[string]string
 		wantErr              bool
 		wantDisaggregatedSet bool
+		wantPVCEvictorImage  string
 	}{
 		{
 			// The key is not shipped in the default ConfigMap, so this is the
@@ -233,6 +234,13 @@ func TestNewLLMISVCConfig(t *testing.T) {
 				"llmisvc": `{"featureGates":{"disaggregatedSet":true}}`,
 			},
 			wantDisaggregatedSet: true,
+		},
+		{
+			name: "pvcEvictorImage can be set",
+			configMapData: map[string]string{
+				"llmisvc": `{"pvcEvictorImage":"registry.example.com/kv-cache-evictor:v1"}`,
+			},
+			wantPVCEvictorImage: "registry.example.com/kv-cache-evictor:v1",
 		},
 		{
 			name: "disaggregatedSet can be explicitly disabled",
@@ -282,6 +290,9 @@ func TestNewLLMISVCConfig(t *testing.T) {
 				t.Errorf("FeatureGates.DisaggregatedSet = %v, want %v",
 					got.FeatureGates.DisaggregatedSet, tt.wantDisaggregatedSet)
 			}
+			if got.PVCEvictorImage != tt.wantPVCEvictorImage {
+				t.Errorf("PVCEvictorImage = %q, want %q", got.PVCEvictorImage, tt.wantPVCEvictorImage)
+			}
 		})
 	}
 }
@@ -321,4 +332,16 @@ func TestLoadConfigFeatureGates(t *testing.T) {
 		require.ErrorContains(t, err, "llmisvc",
 			"a typo in the gate block must surface loudly rather than read as gates-off")
 	})
+}
+
+func TestLoadConfigPVCEvictorImage(t *testing.T) {
+	cm := fixture.InferenceServiceCfgMap(constants.KServeNamespace)
+	cm.Data["llmisvc"] = `{"pvcEvictorImage":" registry.example.com/kv-cache-evictor:v1 "}`
+	c := fake.NewClientBuilder().WithScheme(clientgoscheme.Scheme).WithObjects(cm).Build()
+
+	got, err := llmisvc.LoadConfig(t.Context(), c)
+
+	require.NoError(t, err)
+	require.Equal(t, "registry.example.com/kv-cache-evictor:v1", got.PVCEvictorImage,
+		"the ConfigMap PVC evictor image should be trimmed and propagated")
 }

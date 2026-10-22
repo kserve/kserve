@@ -37,7 +37,7 @@ tidy:
 go-lint: golangci-lint
 	@for dir in . qpext; do \
 	  echo "Linting $$dir..."; \
-	  (cd $$dir && $(GOLANGCI_LINT) run --fix) || exit 1; \
+	  (cd $$dir && $(GOLANGCI_LINT) run --fix ./...) || exit 1; \
 	done
 	@if pkg-config --exists gpgme 2>/dev/null; then \
 		echo "Linting kernelcache/mcv..."; \

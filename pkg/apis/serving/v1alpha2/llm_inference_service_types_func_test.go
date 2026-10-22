@@ -676,6 +676,17 @@ func TestDetermineWorkloadReadiness_ScalingConditions(t *testing.T) {
 		cond := svc.GetStatus().GetCondition(WorkloadReady)
 		assert.Equal(t, "DeploymentUnavailable", cond.Reason, "MainWorkloadReady comes first in order")
 	})
+
+	t.Run("PVCEvictorReady=False blocks WorkloadsReady", func(t *testing.T) {
+		svc := newTestLLMISVC()
+		svc.MarkMainWorkloadReady()
+		svc.MarkPVCEvictorNotReady("PVCEvictorNotReady", "%s", "evictor unavailable")
+
+		svc.DetermineWorkloadReadiness()
+
+		assert.Equal(t, "False", getConditionStatus(svc, WorkloadReady))
+		assert.Equal(t, "PVCEvictorNotReady", svc.GetStatus().GetCondition(WorkloadReady).Reason)
+	})
 }
 
 func TestHasManagedDRA(t *testing.T) {
