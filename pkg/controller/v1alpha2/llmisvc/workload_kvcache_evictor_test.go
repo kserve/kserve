@@ -1535,6 +1535,59 @@ func TestReconcilePVCEvictorsDeletesStaleDeploymentBeforeReplacement(t *testing.
 	}
 }
 
+func TestReconcilePVCEvictorsDoesNotWaitForUnrelatedStaleDeployment(t *testing.T) {
+	svc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+					PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "active-pvc", Path: "cache"}},
+				}}},
+			},
+		}},
+	}
+	activePVC := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "active-pvc", Namespace: "test"},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		},
+	}
+	stale := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{
+		claimName:            "unrelated-pvc",
+		subPath:              "cache",
+		requiresNodeAffinity: true,
+	})
+	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{
+		claimName:            "active-pvc",
+		subPath:              "cache",
+		requiresNodeAffinity: true,
+	})
+
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{
+		appsv1.AddToScheme,
+		corev1.AddToScheme,
+		v1alpha2.AddToScheme,
+	} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(svc, stale).Build()
+	pvcReader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(activePVC).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: pvcReader}
+
+	if err := reconciler.reconcilePVCEvictors(t.Context(), svc, &Config{}); err != nil {
+		t.Fatalf("reconcilePVCEvictors() error = %v", err)
+	}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(expected), &appsv1.Deployment{}); err != nil {
+		t.Fatalf("active evictor Deployment was blocked by unrelated cleanup: %v", err)
+	}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(stale), &appsv1.Deployment{}); err == nil {
+		t.Fatal("unrelated stale evictor Deployment was not deleted")
+	}
+}
+
 func TestReconcilePVCEvictorsSharedPVCAndFinalCleanup(t *testing.T) {
 	service := func(name string) *v1alpha2.LLMInferenceService {
 		return &v1alpha2.LLMInferenceService{
