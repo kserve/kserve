@@ -80,7 +80,8 @@ jobs:
 
   kserve-image-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # A cold build plus one cache pull that times out (image-cache.sh).
+    timeout-minutes: 30
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1

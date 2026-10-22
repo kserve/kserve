@@ -459,6 +459,44 @@ source_of() {
   ' _ "${WORK}/baseline"
 }
 if [[ "$(source_of yes)" == cache ]]; then pass "verified tag is pulled by digest"; else fail "verified tag is pulled by digest"; fi
+
+# A registry timeout turns the cache off for the rest of the job: the next
+# image builds without another lookup. STALL is "lookup" or "pull".
+stalled() {
+  : >"${WORK}/lookups"
+  STALL="$1" bash -c '
+    set -o errexit -o nounset -o pipefail
+    source "$1/'"${LIB}"'"
+    lookups="$2"
+    _base_digest() { REPLY="sha256:stub-$1"; }
+    _attested() { return 0; }
+    timeout() { while [[ "$1" == -* ]]; do shift 2; done; shift; "$@"; }
+    docker() {
+      local IFS=" "
+      if [[ "$*" == "buildx imagetools inspect"* ]]; then
+        echo x >>"${lookups}"
+        if [[ "${STALL}" == lookup ]]; then return 124; fi
+        echo "{}"
+        return 0
+      fi
+      if [[ " $* " != *" type=docker,dest="* ]]; then command docker "$@"; return; fi
+      if [[ " $* " == *" - "* ]]; then cat >/dev/null; if [[ "${STALL}" == pull ]]; then return 124; fi; fi
+    }
+    for name in router agent; do
+      E2E_IMAGE_CACHE=example.invalid/cache E2E_IMAGE_CACHE_SIGNER=owner/repo build_image "${name}" "test/${name}:t" /dev/null >>"$3" 2>/dev/null
+    done
+  ' _ "${WORK}/baseline" "${WORK}/lookups" "${WORK}/stalled.out"
+  awk "{print \$4}" "${WORK}/stalled.out" | xargs
+  rm -f "${WORK}/stalled.out"
+}
+for stall in lookup pull; do
+  got="$(stalled "${stall}") $(wc -l <"${WORK}/lookups")"
+  if [[ "${got}" == "build build 1" ]]; then
+    pass "a stalled ${stall} turns the cache off for the rest of the job"
+  else
+    fail "a stalled ${stall} turns the cache off for the rest of the job: got [${got}], want [build build 1]"
+  fi
+done
 if [[ "$(source_of no)" == build ]]; then pass "unattested tag is built"; else fail "unattested tag is built"; fi
 republished="$(bash -c '
   set -o errexit -o nounset -o pipefail

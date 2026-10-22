@@ -391,12 +391,22 @@ ${bases}"
   printf 'image-cache: %s key %s\n%s' "${name}" "${IMAGE_KEY}" "${manifest}" | sed '2,$s/^/  /' >&2
 }
 
+# A registry that stalls once tends to stall again: after the first timeout
+# the rest of the job builds without the cache, so a stall costs one timeout
+# per job rather than one per image, and the job still has time to build.
+_image_cache_stalled() {
+  _IMAGE_CACHE_STALLED=1
+  echo "image-cache: $1 timed out, building the remaining images without the cache" >&2
+}
+
 # Sets REPLY to the digest a reference points to now. A stalled registry must
 # not hang a build; a timeout reads as not published.
 _image_digest() {
-  local digest
+  local digest rc=0
   digest="$(timeout 60 docker buildx imagetools inspect --raw "$1" 2>/dev/null | sha256sum
-    exit "${PIPESTATUS[0]}")" || return 1
+    exit "${PIPESTATUS[0]}")" || rc=$?
+  ((rc != 124)) || _image_cache_stalled "looking up $1"
+  ((rc == 0)) || return 1
   REPLY="sha256:${digest%% *}"
 }
 
@@ -459,21 +469,26 @@ _attested() {
 # E2E_IMAGE_CACHE when master published the same key, otherwise builds it.
 build_image() {
   local name=$1 ref=$2 dest=$3
-  local start=${SECONDS} source=build key=- cached seconds errors=""
+  local start=${SECONDS} source=build key=- cached seconds errors="" rc
   IMAGE_BASES=""
-  if [[ -n "${E2E_IMAGE_CACHE:-}" ]] && image_key "${name}"; then
+  if [[ -n "${E2E_IMAGE_CACHE:-}" && -z "${_IMAGE_CACHE_STALLED:-}" ]] && image_key "${name}"; then
     key="${IMAGE_KEY}"
     cached="${E2E_IMAGE_CACHE,,}:${name}-${key}"
     errors="$(mktemp 2>/dev/null)" || errors=""
     if _image_verified "${cached}" "${errors:-/dev/null}"; then
-      # A stalled registry falls back to building rather than hanging the job.
-      if echo "FROM ${REPLY}" |
-        timeout -k 30 1200 docker buildx build -t "${ref}" -o "type=docker,dest=${dest},compression-level=0" -; then
+      # Several times a normal pull, and short enough that the job's
+      # timeout-minutes still leaves time to build instead.
+      rc=0
+      echo "FROM ${REPLY}" |
+        timeout -k 30 300 docker buildx build -t "${ref}" -o "type=docker,dest=${dest},compression-level=0" - || rc=$?
+      if ((rc == 0)); then
         source=cache
+      elif ((rc == 124 || rc == 137)); then
+        _image_cache_stalled "pulling ${REPLY}"
       else
         echo "image-cache: pulling ${REPLY} failed, building instead" >&2
       fi
-    elif _image_published "${cached}"; then
+    elif [[ -z "${_IMAGE_CACHE_STALLED:-}" ]] && _image_published "${cached}"; then
       echo "image-cache: ${cached} did not verify as the publisher's, building instead" >&2
       [[ -z "${errors}" ]] || sed 's/^/image-cache:   /' "${errors}" >&2
     fi
