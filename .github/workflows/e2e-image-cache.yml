@@ -8,8 +8,12 @@ name: E2E Image Cache
 # write can push a tag to this package. e2e runs only use an image when the
 # publish job below, running on master, attested that exact tag and digest; a
 # tag pushed or re-tagged by anyone else misses and builds as before, and the
-# next publish pushes over it. RUN steps that fetch from the network (apt, pip
-# indexes) are not part of the key, the same trade-off as any layer cache.
+# next publish pushes over it.
+#
+# What RUN steps fetch from the network is not part of the key: the uv
+# installer (curl | sh), unpinned pip packages, vLLM's build requirements, a
+# git clone of a tag, apt. Whatever a publish run fetches gets signed as
+# master's build and is reused until the key changes.
 #
 # Never add pull_request_target, workflow_run or workflow_call triggers here:
 # they run with refs/heads/master and would sign as this publisher. Only the
