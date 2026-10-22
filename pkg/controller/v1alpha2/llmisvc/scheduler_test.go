@@ -2946,6 +2946,9 @@ func TestMigrateProducerParams(t *testing.T) {
 						"tokenizersPoolConfig": map[string]interface{}{
 							"modelName": "test-model",
 						},
+						"kvBlockScorerConfig": map[string]interface{}{
+							"legacy": true,
+						},
 						"kvBlockIndexConfig": map[string]interface{}{
 							"enableMetrics": true,
 						},
@@ -2955,6 +2958,7 @@ func TestMigrateProducerParams(t *testing.T) {
 			validate: func(g Gomega, result map[string]interface{}) {
 				ic := result["indexerConfig"].(map[string]interface{})
 				g.Expect(ic).NotTo(HaveKey("tokenizersPoolConfig"))
+				g.Expect(ic).NotTo(HaveKey("kvBlockScorerConfig"))
 				g.Expect(ic).To(HaveKey("kvBlockIndexConfig"))
 			},
 		},

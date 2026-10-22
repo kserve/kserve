@@ -425,11 +425,11 @@ schedulingProfiles:
 		svc.UID = "role-test-uid"
 		svc.Spec.Router = &v1alpha2.RouterSpec{
 			Scheduler: &v1alpha2.SchedulerSpec{
-				Annotations: map[string]string{"app.kubernetes.io/version": "0.11.0"},
+				Annotations: map[string]string{"app.kubernetes.io/version": "1.0.0"},
 				Template: &corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:  "main",
-						Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0",
+						Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v1.0.0",
 						Args:  []string{"--config-text", config},
 					}},
 				},
@@ -480,7 +480,7 @@ schedulingProfiles:
 		d, err := r.expectedSchedulerDeployment(t.Context(), svc)
 
 		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(d.Spec.Template.Spec.Containers[0].Image).To(HaveSuffix(":v0.11.0"))
+		g.Expect(d.Spec.Template.Spec.Containers[0].Image).To(HaveSuffix(":v1.0.0"))
 		g.Expect(recorder.Events).To(BeEmpty())
 	})
 }

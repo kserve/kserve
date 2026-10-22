@@ -1874,12 +1874,13 @@ func withRemoveUnnecessaryTokenizer(d *appsv1.Deployment) mutateSchedulerConfigF
 
 // migrateProducerParams extracts parameters from the old monolithic
 // precise-prefix-cache-scorer plugin and returns them in a form suitable for
-// the new precise-prefix-cache-producer. Two keys are cleaned from
+// the new precise-prefix-cache-producer. Three keys are cleaned from
 // indexerConfig: tokenizersPoolConfig (tokenization is now served by the
 // standalone token-producer) and tokenProcessorConfig (promoted to the
 // top-level parameters where the new producer expects it; older versions
 // of kvcache.Config accepted it inside indexerConfig, but the current
-// version does not and silently ignores it).
+// version does not and silently ignores it), and kvBlockScorerConfig
+// (removed from the producer in llm-d-router v1.0.0).
 func migrateProducerParams(oldPlugin map[string]interface{}) map[string]interface{} {
 	params, ok := oldPlugin["parameters"].(map[string]interface{})
 	if !ok || len(params) == 0 {
@@ -1893,7 +1894,7 @@ func migrateProducerParams(oldPlugin map[string]interface{}) map[string]interfac
 			if ic, ok := v.(map[string]interface{}); ok {
 				cleaned := make(map[string]interface{}, len(ic))
 				for ik, iv := range ic {
-					if ik == "tokenizersPoolConfig" {
+					if ik == "tokenizersPoolConfig" || ik == "kvBlockScorerConfig" {
 						continue
 					}
 					if ik == "tokenProcessorConfig" {
@@ -2248,6 +2249,9 @@ func withCoreMetricsExtractorPlugin(extracted map[string]string) mutateScheduler
 			"name": coreMetricsExtractorPlugin,
 			"type": coreMetricsExtractorPlugin,
 			"parameters": map[string]interface{}{
+				// TODO: Migrate this together with the model-server Pod labels.
+				// Keep the old key during the upgrade; handle the new llm-d.ai key
+				// with the other label changes in a later release.
 				"engineLabelKey": "inference.networking.k8s.io/engine-type",
 				"defaultEngine":  "vllm",
 				"engineConfigs": []interface{}{

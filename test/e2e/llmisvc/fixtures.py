@@ -965,7 +965,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "llm-d.ai/v1alpha1",
+                        "apiVersion": "llm-d.ai/v1",
                         "kind": "EndpointPickerConfig",
                         "plugins": [
                             {"type": "single-profile-handler"},
@@ -993,7 +993,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "llm-d.ai/v1alpha1",
+                        "apiVersion": "llm-d.ai/v1",
                         "kind": "EndpointPickerConfig",
                         "plugins": [
                             {"type": "single-profile-handler"},
@@ -1058,7 +1058,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                             "args": [
                                 "--config-text",
                                 (
-                                    "apiVersion: llm-d.ai/v1alpha1\n"
+                                    "apiVersion: llm-d.ai/v1\n"
                                     "kind: EndpointPickerConfig\n"
                                     "plugins:\n"
                                     "- type: single-profile-handler\n"
@@ -1104,7 +1104,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "llm-d.ai/v1alpha1",
+                        "apiVersion": "llm-d.ai/v1",
                         "kind": "EndpointPickerConfig",
                         "plugins": [
                             {"type": "single-profile-handler"},
@@ -1346,7 +1346,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 "vllm:kv_cache_usage_perc",
                                 "--config-text",
                                 (
-                                    "apiVersion: llm-d.ai/v1alpha1\n"
+                                    "apiVersion: llm-d.ai/v1\n"
                                     "kind: EndpointPickerConfig\n"
                                     "plugins:\n"
                                     "- type: single-profile-handler\n"
@@ -1808,7 +1808,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "llm-d.ai/v1alpha1",
+                        "apiVersion": "llm-d.ai/v1",
                         "kind": "EndpointPickerConfig",
                         "featureGates": ["flowControl"],
                         "plugins": [
@@ -2147,7 +2147,7 @@ def inject_k8s_proxy():
 
 
 # Scheduler config YAML used for ConfigMap ref tests
-SCHEDULER_CONFIG_YAML = """apiVersion: llm-d.ai/v1alpha1
+SCHEDULER_CONFIG_YAML = """apiVersion: llm-d.ai/v1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
