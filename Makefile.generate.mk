@@ -81,7 +81,12 @@ manifests: controller-gen kustomize yq
 	# These subtrees contain Go template expressions (e.g. {{ .GlobalConfig.ModelBasedRoutingHeaderName }})
 	# that fail upstream schema validation at apply time. Recursive descent per subtree survives
 	# schema restructuring across Gateway API / GIE / core API version bumps.
-	@for ver in 0 1; do \
+	# Then remove validation for the LLMInferenceServiceConfig and LLMInferenceService APIs so that
+	# we can override only specific values (both versions).
+	# All edits to a file run as one sequential yq pipeline: each yq invocation re-parses the
+	# multi-megabyte CRD.
+	@set -e; strip='.'; required='.'; \
+	for ver in 0 1; do \
 		base=".spec.versions[$$ver].schema.openAPIV3Schema.properties.spec.properties"; \
 		for path in \
 			"$$base.router.properties.route.properties.http.properties.spec" \
@@ -94,94 +99,80 @@ manifests: controller-gen kustomize yq
 			"$$base.router.properties.scheduler.properties.tokenizer.properties.template"; \
 		do \
 			for field in pattern x-kubernetes-validations minLength minItems minProperties; do \
-				$(YQ) "($$path | .. | select(has(\"$$field\"))) |= del(.$$field)" -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml; \
+				strip="$$strip | (($$path | .. | select(has(\"$$field\"))) |= del(.$$field))"; \
 			done; \
 		done; \
-	done
-	# Remove validation for the LLMInferenceServiceConfig API so that we can override only specific values (both versions).
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml
-	# Remove validation for the LLMInferenceService API so that we can override only specific values (both versions).
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.prefill.properties.worker.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
-	@$(YQ) 'del(.spec.versions[1].schema.openAPIV3Schema.properties.spec.properties.router.properties.scheduler.properties.template.required)' -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
+	done; \
+	for ver in 0 1; do \
+		base=".spec.versions[$$ver].schema.openAPIV3Schema.properties.spec.properties"; \
+		for path in worker template prefill.properties.template prefill.properties.worker router.properties.scheduler.properties.template; do \
+			required="$$required | del($$base.$$path.required)"; \
+		done; \
+	done; \
+	$(YQ) "$$strip | $$required" -i config/crd/full/llmisvc/serving.kserve.io_llminferenceserviceconfigs.yaml; \
+	$(YQ) "$$required" -i config/crd/full/llmisvc/serving.kserve.io_llminferenceservices.yaml
 
+	# InferenceService CRD edits, as one yq pipeline:
 	#remove the required property on framework as name field needs to be optional
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	#remove ephemeralContainers properties for compress crd size https://github.com/kubeflow/kfserving/pull/1141#issuecomment-714170602
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.ephemeralContainers)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	#knative does not allow setting port on liveness or readiness probe
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.readinessProbe.properties.tcpSocket.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.*.properties.livenessProbe.properties.tcpSocket.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
-	@$(YQ) 'del(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required)' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
 	#With v1 and newer kubernetes protocol requires default
-	@$(YQ) '(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | .protocol.default) = "TCP"' -i config/crd/full/serving.kserve.io_inferenceservices.yaml
+	@spec='.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties'; \
+	$(YQ) -i "del($$spec.*.properties.*.required) \
+		| del($$spec.*.properties.ephemeralContainers) \
+		| del($$spec.*.properties.*.properties.readinessProbe.properties.httpGet.required) \
+		| del($$spec.*.properties.*.properties.livenessProbe.properties.httpGet.required) \
+		| del($$spec.*.properties.*.properties.readinessProbe.properties.tcpSocket.required) \
+		| del($$spec.*.properties.*.properties.livenessProbe.properties.tcpSocket.required) \
+		| del($$spec.*.properties.containers.items.properties.livenessProbe.properties.httpGet.required) \
+		| del($$spec.*.properties.containers.items.properties.readinessProbe.properties.httpGet.required) \
+		| (($$spec | .. | select(has(\"protocol\")) | .protocol.default) = \"TCP\")" \
+		config/crd/full/serving.kserve.io_inferenceservices.yaml
 	@$(YQ) '(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | .protocol.default) = "TCP"' -i config/crd/full/serving.kserve.io_clusterservingruntimes.yaml
 	@$(YQ) '(.spec.versions[0].schema.openAPIV3Schema.properties.spec.properties | .. | select(has("protocol")) | .protocol.default) = "TCP"' -i config/crd/full/serving.kserve.io_servingruntimes.yaml
 	
-	# Copy kserve crd (with conversion webhook patches applied via kustomize)
-	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "inferenceservices.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_inferenceservices.yaml
-	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "trainedmodels.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_trainedmodels.yaml
-	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "clusterservingruntimes.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_clusterservingruntimes.yaml
-	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "servingruntimes.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_servingruntimes.yaml
-	$(KUSTOMIZE) build config/crd/full | $(YQ) 'select(.metadata.name == "inferencegraphs.serving.kserve.io")' > charts/kserve-crd/templates/serving.kserve.io_inferencegraphs.yaml
+	# Copy kserve and llmisvc crds (with conversion webhook patches applied via kustomize), and
+	# concatenate the full crds into the test folder. Each kustomization is built once.
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf "$$tmp"' EXIT; \
+	$(KUSTOMIZE) build config/crd/full > "$$tmp/kserve.yaml"; \
+	$(KUSTOMIZE) build config/crd/full/llmisvc > "$$tmp/llmisvc.yaml"; \
+	for crd in inferenceservices trainedmodels clusterservingruntimes servingruntimes inferencegraphs; do \
+		$(YQ) -e "select(.metadata.name == \"$$crd.serving.kserve.io\")" "$$tmp/kserve.yaml" > charts/kserve-crd/templates/serving.kserve.io_$$crd.yaml; \
+	done; \
+	for crd in llminferenceservices llminferenceserviceconfigs; do \
+		$(YQ) -e "select(.metadata.name == \"$$crd.serving.kserve.io\")" "$$tmp/llmisvc.yaml" > charts/kserve-llmisvc-crd/templates/serving.kserve.io_$$crd.yaml; \
+	done; \
+	{ \
+		cat "$$tmp/kserve.yaml"; echo "---"; \
+		$(KUSTOMIZE) build config/crd/full/clusterstoragecontainer; echo "---"; \
+		cat "$$tmp/llmisvc.yaml"; echo "---"; \
+		$(KUSTOMIZE) build config/crd/full/localmodel; echo "---"; \
+		$(KUSTOMIZE) build config/crd/full/kernelcache; \
+	} > test/crds/serving.kserve.io_all_crds.yaml
 	cp config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd/files/
 	cp config/crd/full/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-llmisvc-crd/files/
 	cp -f config/crd/full/localmodel/*.yaml charts/kserve-localmodel-crd/templates/
 	cp -f config/crd/full/kernelcache/*.yaml charts/kserve-localmodel-crd/templates/
 	rm charts/kserve-localmodel-crd/templates/kustomization.yaml
 	
-	# Copy llmisvc crd (with conversion webhook patches applied via kustomize)
-	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceservices.yaml
-	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
-	
-	# Copy the full crd to the test folder
-	$(KUSTOMIZE) build config/crd/full > test/crds/serving.kserve.io_all_crds.yaml
-	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
-	$(KUSTOMIZE) build config/crd/full/clusterstoragecontainer >> test/crds/serving.kserve.io_all_crds.yaml
-	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
-	$(KUSTOMIZE) build config/crd/full/llmisvc >> test/crds/serving.kserve.io_all_crds.yaml
-	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
-	$(KUSTOMIZE) build config/crd/full/localmodel >> test/crds/serving.kserve.io_all_crds.yaml
-	echo "---" >> test/crds/serving.kserve.io_all_crds.yaml
-	$(KUSTOMIZE) build config/crd/full/kernelcache >> test/crds/serving.kserve.io_all_crds.yaml
-	
 	# Generate minimal crd
 	./hack/minimal-crdgen.sh
 	
-	# Copy kserve minimal crd (with conversion webhook patches applied via kustomize)
-	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "inferenceservices.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_inferenceservices.yaml
-	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "trainedmodels.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_trainedmodels.yaml
-	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "clusterservingruntimes.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_clusterservingruntimes.yaml
-	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "servingruntimes.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_servingruntimes.yaml
-	$(KUSTOMIZE) build config/crd/minimal | $(YQ) 'select(.metadata.name == "inferencegraphs.serving.kserve.io")' > charts/kserve-crd-minimal/templates/serving.kserve.io_inferencegraphs.yaml
+	# Copy kserve and llmisvc minimal crds (with conversion webhook patches applied via kustomize)
+	@set -e; tmp=$$(mktemp -d); trap 'rm -rf "$$tmp"' EXIT; \
+	$(KUSTOMIZE) build config/crd/minimal > "$$tmp/kserve.yaml"; \
+	$(KUSTOMIZE) build config/crd/minimal/llmisvc > "$$tmp/llmisvc.yaml"; \
+	for crd in inferenceservices trainedmodels clusterservingruntimes servingruntimes inferencegraphs; do \
+		$(YQ) -e "select(.metadata.name == \"$$crd.serving.kserve.io\")" "$$tmp/kserve.yaml" > charts/kserve-crd-minimal/templates/serving.kserve.io_$$crd.yaml; \
+	done; \
+	for crd in llminferenceservices llminferenceserviceconfigs; do \
+		$(YQ) -e "select(.metadata.name == \"$$crd.serving.kserve.io\")" "$$tmp/llmisvc.yaml" > charts/kserve-llmisvc-crd-minimal/templates/serving.kserve.io_$$crd.yaml; \
+	done
 	cp -f config/crd/minimal/localmodel/*.yaml charts/kserve-localmodel-crd-minimal/templates/
 	cp -f config/crd/minimal/kernelcache/*.yaml charts/kserve-localmodel-crd-minimal/templates/
 	cp -f config/crd/minimal/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-crd-minimal/files/
 	cp -f config/crd/minimal/clusterstoragecontainer/serving.kserve.io_clusterstoragecontainers.yaml charts/kserve-llmisvc-crd-minimal/files/
 	rm charts/kserve-localmodel-crd-minimal/templates/kustomization.yaml
-
-	# Copy minimal llmisvc crd (with conversion webhook patches applied via kustomize)
-	$(KUSTOMIZE) build config/crd/minimal/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd-minimal/templates/serving.kserve.io_llminferenceservices.yaml
-	$(KUSTOMIZE) build config/crd/minimal/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd-minimal/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
 	
     # Copy Test inferenceconfig configmap to test overlay
 	cp config/configmap/inferenceservice.yaml config/overlays/test/configmap/inferenceservice.yaml
