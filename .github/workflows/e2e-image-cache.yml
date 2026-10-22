@@ -108,8 +108,10 @@ jobs:
 
   publish:
     needs: plan
+    # The events that may sign are listed, so a trigger added later doesn't
+    # publish by default; e2e runs reject any other trigger anyway.
     if: >-
-      github.event_name != 'pull_request' &&
+      contains(fromJSON('["push", "schedule", "workflow_dispatch"]'), github.event_name) &&
       github.ref == 'refs/heads/master' &&
       needs.plan.outputs.groups != '[]'
     runs-on: ubuntu-latest
