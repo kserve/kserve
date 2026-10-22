@@ -59026,6 +59026,7 @@ data:
 
            # enableModelcar enabled allows you to directly access an OCI container image by
            # using a source URL with an "oci://" schema.
+           # Deprecated: use enableOciModelSupport instead (see #5679)
            "enableModelcar": false,
 
            # enableOciModelSupport enables any OCI-backed model storage path (modelcar, native ImageVolume, or fetch).
@@ -59722,7 +59723,7 @@ data:
         "cpuLimit": "1",
         "caBundleConfigMapName": "",
         "caBundleVolumeMountPath": "/etc/ssl/custom-certs",
-        "enableModelcar": true,
+        "enableOciModelSupport": true,
         "cpuModelcar": "10m",
         "memoryModelcar": "15Mi",
         "uidModelcar": 1010,
