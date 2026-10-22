@@ -28,6 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	kservevalidation "github.com/kserve/kserve/pkg/validation"
@@ -38,7 +39,11 @@ import (
 // LLMInferenceServiceValidator is responsible for validating the LLMInferenceService resource
 // when it is created, updated, or deleted.
 // +kubebuilder:object:generate=false
-type LLMInferenceServiceValidator struct{}
+type LLMInferenceServiceValidator struct {
+	// InlineRouteDryRun, when set, dry-runs the inline route rules as
+	// HTTPRoutes; see v1alpha2.LLMInferenceServiceValidator.
+	InlineRouteDryRun v1alpha2.InlineRouteDryRunFunc
+}
 
 var _ admission.Validator[*LLMInferenceService] = &LLMInferenceServiceValidator{}
 
@@ -86,8 +91,27 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, kservevalidation.ValidateManagedDRAAnnotations(llmSvc.GetAnnotations())...)
 	allErrs = append(allErrs, l.validateModelExpress(llmSvc)...)
 	allErrs = append(allErrs, v1alpha2.ValidateLoRAModelRoutingStrategyAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
+	allErrs = append(allErrs, v1alpha2.ValidateHTTPRouteMaxShardsAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
+	if r := llmSvc.Spec.Router; r != nil && r.Route != nil && r.Route.HTTP != nil && r.Route.HTTP.Spec != nil {
+		allErrs = append(allErrs, v1alpha2.ValidateHTTPRoutePaths(r.Route.HTTP.Spec, field.NewPath("spec", "router", "route", "http", "spec"))...)
+		allErrs = append(allErrs, v1alpha2.ValidateHTTPRouteSize(r.Route.HTTP.Spec, field.NewPath("spec", "router", "route", "http", "spec"))...)
+	}
 	allErrs = append(allErrs, kservevalidation.ValidateDisaggregatedSetAnnotation(llmSvc.Spec.Annotations, field.NewPath("spec", "annotations"))...)
 	allErrs = append(allErrs, l.validateImmutable(prev, llmSvc)...)
+
+	// Last and only on an otherwise valid spec, as it calls the API server.
+	if len(allErrs) == 0 {
+		var spec *gwapiv1.HTTPRouteSpec
+		if r := llmSvc.Spec.Router; r != nil && r.Route != nil && r.Route.HTTP != nil {
+			spec = r.Route.HTTP.Spec
+		}
+		dryRunErrs, err := v1alpha2.DryRunInlineRouteSpec(ctx, l.InlineRouteDryRun, llmSvc.Namespace, llmSvc.Name,
+			spec, field.NewPath("spec", "router", "route", "http", "spec"))
+		if err != nil {
+			return err
+		}
+		allErrs = append(allErrs, dryRunErrs...)
+	}
 
 	if len(allErrs) == 0 {
 		logger.V(2).Info("LLMInferenceService v1alpha1 is valid", "llmisvc", llmSvc)

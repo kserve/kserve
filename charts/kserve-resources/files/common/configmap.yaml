@@ -410,6 +410,19 @@ data:
            # HTTPRoute.
            "loraModelRoutingStrategy": "exact",
 
+           # httpRouteMaxShards caps how many managed HTTPRoutes an LLMInferenceService inline route
+           # (including generated LoRA adapter matches) may be sharded into, between 1 and 16. Each
+           # emitted HTTPRoute stays within the Gateway API per-route limits. The default of 1 keeps
+           # sharding off; a route that needs more reports HTTPRoutesReady=False with reason
+           # RoutingPreconditionNotMet and the existing HTTPRoutes keep serving. A service overrides
+           # it with the spec annotation serving.kserve.io/httproute-max-shards. Consumers should
+           # find the emitted routes through status.router.gateways[].httpRoutes.
+           # Sharding keeps rules whose order matters in one HTTPRoute and relies on the gateway
+           # ordering the rest by Gateway API match precedence across HTTPRoutes. For RegularExpression
+           # paths it relies on the gateway ranking a longer pattern first, as Istio and Envoy Gateway
+           # do; on a gateway that ranks regexes another way, keep overlapping regex rules unsharded.
+           "httpRouteMaxShards": 1,
+
            # pathTemplate specifies the template for generating path based url for each inference service.
            # The following variables can be used in the template for generating url.
            # Name of the inference service  ( {{ .Name}} )

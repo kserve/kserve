@@ -8475,6 +8475,13 @@ func schema_pkg_apis_serving_v1beta1_IngressConfig(ref common.ReferenceCallback)
 							Format:      "",
 						},
 					},
+					"httpRouteMaxShards": {
+						SchemaProps: spec.SchemaProps{
+							Description: "HTTPRouteMaxShards caps how many managed HTTPRoutes an LLMInferenceService inline route may be sharded into. Defaults to 1, so sharding is opt-in; a service overrides it with serving.kserve.io/httproute-max-shards.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 			},
 		},

@@ -169,6 +169,11 @@ type Config struct {
 	// directly constructed Configs keep the byte-compatible default.
 	LoRAModelRoutingStrategy LoRAModelRoutingStrategy `json:"loraModelRoutingStrategy,omitempty"`
 
+	// HTTPRouteMaxShards is the cluster-wide cap on managed HTTPRoutes per
+	// service; a service overrides it with AnnotationHTTPRouteMaxShards. The
+	// zero value behaves as constants.DefaultHTTPRouteMaxShards.
+	HTTPRouteMaxShards int `json:"httpRouteMaxShards,omitempty"`
+
 	// FeatureGates holds the opt-in behaviour switches from the "llmisvc" key of
 	// inferenceservice-config. The zero value leaves every gate off, so a directly
 	// constructed Config behaves as it did before any gate existed.
@@ -213,6 +218,17 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		return nil, err
 	}
 
+	// Checked here rather than in v1beta1.NewIngressConfig, which the
+	// InferenceService manager shares, so a bad value only fails llmisvc.
+	maxShards := ingressConfig.HTTPRouteMaxShards
+	switch {
+	case maxShards == 0:
+		maxShards = constants.DefaultHTTPRouteMaxShards
+	case maxShards < 1 || maxShards > constants.MaxHTTPRouteMaxShards:
+		return nil, fmt.Errorf("invalid ingress config - httpRouteMaxShards must be between 1 and %d, got %d",
+			constants.MaxHTTPRouteMaxShards, maxShards)
+	}
+
 	return &Config{
 		SystemNamespace:             constants.KServeNamespace,
 		IngressGatewayNamespace:     igwNs,
@@ -225,6 +241,7 @@ func NewConfig(ingressConfig *v1beta1.IngressConfig, storageConfig *types.Storag
 		ModelBasedRoutingHeaderName: ingressConfig.ModelBasedRoutingHeaderName,
 		ModelBasedRoutingMode:       parseModelBasedRoutingMode(ingressConfig.ModelBasedRoutingMode),
 		LoRAModelRoutingStrategy:    LoRAModelRoutingStrategy(ingressConfig.LoRAModelRoutingStrategy),
+		HTTPRouteMaxShards:          maxShards,
 		StorageConfig:               storageConfig,
 		CredentialConfig:            credentialConfig,
 		SchedulerConfig:             schedulerConfig,

@@ -482,6 +482,13 @@ const (
 	// LLMRoutingGroupLabelKey identifies which traffic splitting group an LLMInferenceService belongs to.
 	LLMRoutingGroupLabelKey = "serving.kserve.io/routing-group"
 
+	// LLMHTTPRouteShardLabelKey marks an additional controller-managed HTTPRoute that carries part of an
+	// LLMInferenceService's logical route. The value is the shard index; the first shard keeps the
+	// original route name and carries no shard label. The label is a hint for humans only: the
+	// controller finds its shards by name and ownership, and consumers should read
+	// status.router.gateways[].httpRoutes.
+	LLMHTTPRouteShardLabelKey = "serving.kserve.io/httproute-shard"
+
 	// LLMServedByAnnotationKey enables the x-served-by response header middleware.
 	// Set to "true" on an LLMInferenceService to inject the middleware.
 	LLMServedByAnnotationKey = "serving.kserve.io/enable-served-by-header"
@@ -1055,6 +1062,21 @@ func KernelCacheTargetImage(registry, namespace, inferenceServiceName, captureID
 // LLMInferenceService, overriding the cluster-wide loraModelRoutingStrategy.
 // Set on spec.annotations, so a preset can carry it.
 const LoRAModelRoutingStrategyAnnotationKey = KServeAPIGroupName + "/lora-model-routing-strategy"
+
+// HTTPRouteMaxShardsAnnotationKey sets, for one LLMInferenceService, how many
+// managed HTTPRoutes its inline route may be sharded into, overriding the
+// cluster-wide httpRouteMaxShards ingress key. Read from spec.annotations.
+// Consumers should find the resulting routes through
+// status.router.gateways[].httpRoutes, not by name or label. A sectionName
+// policy on a rule applies in every shard that holds part of that rule.
+const HTTPRouteMaxShardsAnnotationKey = KServeAPIGroupName + "/httproute-max-shards"
+
+// Bounds of the httpRouteMaxShards ingress key and HTTPRouteMaxShardsAnnotationKey.
+// The default of 1 keeps sharding opt-in.
+const (
+	DefaultHTTPRouteMaxShards = 1
+	MaxHTTPRouteMaxShards     = 16
+)
 
 // Values accepted by the loraModelRoutingStrategy ConfigMap key and the
 // LoRAModelRoutingStrategyAnnotationKey annotation; compared case-insensitively.
