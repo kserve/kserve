@@ -38,7 +38,12 @@ import (
 // LLMInferenceServiceValidator is responsible for validating the LLMInferenceService resource
 // when it is created, updated, or deleted.
 // +kubebuilder:object:generate=false
-type LLMInferenceServiceValidator struct{}
+type LLMInferenceServiceValidator struct {
+	// TLSConfigEnabledFunc reports whether cluster-wide LLMI TLS is enabled.
+	// It is injected by the controller binary because the API package does not
+	// own the cluster ConfigMap loading logic.
+	TLSConfigEnabledFunc func(context.Context) (bool, error)
+}
 
 var _ admission.Validator[*LLMInferenceService] = &LLMInferenceServiceValidator{}
 
@@ -49,7 +54,7 @@ func (l *LLMInferenceServiceValidator) SetupWithManager(mgr ctrl.Manager) error 
 }
 
 func (l *LLMInferenceServiceValidator) ValidateCreate(ctx context.Context, llmSvc *LLMInferenceService) (admission.Warnings, error) {
-	warnings := admission.Warnings{}
+	warnings := v1alpha2.RuntimeWarnings(llmSvc.Spec.Runtime)
 
 	return warnings, l.validate(ctx, nil, llmSvc)
 }
@@ -59,6 +64,7 @@ func (l *LLMInferenceServiceValidator) ValidateUpdate(ctx context.Context, prev,
 	if llmSvc.GetDeletionTimestamp() != nil {
 		return warnings, nil
 	}
+	warnings = append(warnings, v1alpha2.RuntimeWarnings(llmSvc.Spec.Runtime)...)
 
 	return warnings, l.validate(ctx, prev, llmSvc)
 }
@@ -79,6 +85,11 @@ func (l *LLMInferenceServiceValidator) validate(ctx context.Context, prev *LLMIn
 	allErrs = append(allErrs, l.validateParallelismConstraints(llmSvc)...)
 	allErrs = append(allErrs, l.validateSchedulerConfig(llmSvc)...)
 	allErrs = append(allErrs, l.validateWVAConfig(prev, llmSvc)...)
+	tlsEnabled, err := l.runtimeTLSEnabled(ctx, llmSvc.Spec.Runtime)
+	if err != nil {
+		return fmt.Errorf("failed to determine whether LLMI TLS is enabled: %w", err)
+	}
+	allErrs = append(allErrs, l.validateRuntimeFeatures(llmSvc, tlsEnabled)...)
 	allErrs = append(allErrs, l.validateScaling(llmSvc)...)
 	allErrs = append(allErrs, l.validateKVCacheOffloading(llmSvc)...)
 	allErrs = append(allErrs, l.validateRolloutStrategy(llmSvc)...)
@@ -457,6 +468,30 @@ func (l *LLMInferenceServiceValidator) validateLoRAAdapters(llmSvc *LLMInference
 	}
 	hub := convertLoRASpecToV1Alpha2(llmSvc.Spec.Model.LoRA)
 	return v1alpha2.ValidateLoRAAdapters(hub, ptr.Deref(llmSvc.Spec.Model.Name, llmSvc.Name), field.NewPath("spec", "model", "lora"))
+}
+
+// validateRuntimeFeatures delegates to the v1alpha2 feature-matrix check.
+// Runtime is *string in both versions, so no conversion is needed for it.
+// The spec fields checked (LoRA, Tracing, KVCacheOffloading, Worker, Prefill)
+// have the same semantics in both versions; boolean flags avoid full type
+// conversion.
+func (l *LLMInferenceServiceValidator) runtimeTLSEnabled(ctx context.Context, runtime *string) (bool, error) {
+	if runtime == nil || *runtime != v1alpha2.SGLangRuntimeName || l.TLSConfigEnabledFunc == nil {
+		return false, nil
+	}
+	return l.TLSConfigEnabledFunc(ctx)
+}
+
+func (l *LLMInferenceServiceValidator) validateRuntimeFeatures(llmSvc *LLMInferenceService, tlsEnabled bool) field.ErrorList {
+	return v1alpha2.ValidateRuntimeFeatures(
+		llmSvc.Spec.Runtime,
+		llmSvc.Spec.Model.LoRA != nil && len(llmSvc.Spec.Model.LoRA.Adapters) > 0,
+		llmSvc.Spec.Tracing != nil,
+		llmSvc.Spec.KVCacheOffloading != nil,
+		llmSvc.Spec.Worker != nil,
+		llmSvc.Spec.Prefill != nil,
+		tlsEnabled,
+	)
 }
 
 // immutable returns a *Error indicating "unsupported mutation".

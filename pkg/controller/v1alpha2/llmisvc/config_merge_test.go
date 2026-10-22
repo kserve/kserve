@@ -3546,7 +3546,7 @@ func TestSelectSingleNodeTemplateNames(t *testing.T) {
 	}{
 		{name: "nil runtime defaults to vllm template", runtime: nil, want: []string{"kserve-config-llm-template"}},
 		{name: "empty runtime defaults to vllm template", runtime: ptr.To(""), want: []string{"kserve-config-llm-template"}},
-		{name: "unknown runtime name defaults to vllm template", runtime: ptr.To("some-other-runtime"), want: []string{"kserve-config-llm-template"}},
+		{name: "custom runtime keeps the backward-compatible vllm template", runtime: ptr.To("some-other-runtime"), want: []string{"kserve-config-llm-template"}},
 		{name: "kserve-llm-sglang runtime selects sglang template", runtime: ptr.To(llmisvc.SGLangServingRuntimeName), want: []string{"kserve-config-sglang-template"}},
 		{name: "kserve-llm-omni runtime layers the omni overlay on the vllm template", runtime: ptr.To(llmisvc.OmniServingRuntimeName), want: []string{"kserve-config-llm-template", "kserve-config-llm-omni-template"}},
 	}

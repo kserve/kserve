@@ -271,12 +271,17 @@ func main() {
 	ctrlmetrics.Registry.MustRegister(llmisvc.NewInfoMetricsCollector(mgr.GetClient()))
 
 	// Register webhooks: validation (v1alpha1, v1alpha2) and conversion
-	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
+	tlsConfigEnabledFunc := createTLSConfigEnabledFunc(mgr.GetAPIReader())
+	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{
+		TLSConfigEnabledFunc: tlsConfigEnabledFunc,
+	}
 	if err = v1alpha2LLMValidator.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice-v1alpha2")
 		os.Exit(1)
 	}
-	v1alpha1LLMValidator := &v1alpha1.LLMInferenceServiceValidator{}
+	v1alpha1LLMValidator := &v1alpha1.LLMInferenceServiceValidator{
+		TLSConfigEnabledFunc: tlsConfigEnabledFunc,
+	}
 	if err = v1alpha1LLMValidator.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "llminferenceservice-v1alpha1")
 		os.Exit(1)
@@ -436,6 +441,16 @@ func validateLLMISVCConfig(ctx context.Context, reader client.Reader, config *v1
 	}
 	_, err = llmisvc.ReplaceVariables(llmisvc.LLMInferenceServiceSample(), config, cfg)
 	return err
+}
+
+func createTLSConfigEnabledFunc(reader client.Reader) func(context.Context) (bool, error) {
+	return func(ctx context.Context) (bool, error) {
+		cfg, err := llmisvc.LoadConfig(ctx, reader)
+		if err != nil {
+			return false, err
+		}
+		return cfg.EnableTLS, nil
+	}
 }
 
 // createV1Alpha1ConfigValidationFunc creates a validation function for v1alpha1 LLMInferenceServiceConfig.

@@ -3,6 +3,8 @@ kind: LLMInferenceService
 metadata:
   name: sglang-opt-125m-cpu
 spec:
+  # Requires enableLLMInferenceServiceTLS: false in the ingress configuration
+  # of the inferenceservice-config ConfigMap; SGLang does not support LLMI TLS.
   # References the kserve-llm-sglang ClusterServingRuntime for its container
   # spec. The runtime pins the default CUDA image; the CPU-only image is
   # substituted below via spec.template so this sample runs without a GPU.
