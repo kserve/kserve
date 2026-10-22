@@ -137,6 +137,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.InferenceServicesConfig":           schema_pkg_apis_serving_v1beta1_InferenceServicesConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.IngressConfig":                     schema_pkg_apis_serving_v1beta1_IngressConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheArtifactCertConfig":     schema_pkg_apis_serving_v1beta1_KernelCacheArtifactCertConfig(ref),
+		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheArtifactKeylessConfig":  schema_pkg_apis_serving_v1beta1_KernelCacheArtifactKeylessConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheArtifactSecurityConfig": schema_pkg_apis_serving_v1beta1_KernelCacheArtifactSecurityConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheConfig":                 schema_pkg_apis_serving_v1beta1_KernelCacheConfig(ref),
 		"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheConfigMapKeyRef":        schema_pkg_apis_serving_v1beta1_KernelCacheConfigMapKeyRef(ref),
@@ -8518,6 +8519,30 @@ func schema_pkg_apis_serving_v1beta1_KernelCacheArtifactCertConfig(ref common.Re
 	}
 }
 
+func schema_pkg_apis_serving_v1beta1_KernelCacheArtifactKeylessConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"subject": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"issuer": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_pkg_apis_serving_v1beta1_KernelCacheArtifactSecurityConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -8543,11 +8568,17 @@ func schema_pkg_apis_serving_v1beta1_KernelCacheArtifactSecurityConfig(ref commo
 							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheArtifactCertConfig"),
 						},
 					},
+					"keyless": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheArtifactKeylessConfig"),
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheArtifactCertConfig"},
+			"github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheArtifactCertConfig", "github.com/kserve/kserve/pkg/apis/serving/v1beta1.KernelCacheArtifactKeylessConfig"},
 	}
 }
 

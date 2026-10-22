@@ -348,9 +348,10 @@ func validateKernelCacheRegistryRoleRef(field string, ref *KernelCacheRegistryRo
 // +kubebuilder:object:generate=false
 // KernelCacheArtifactSecurityConfig configures signing of completed artifacts.
 type KernelCacheArtifactSecurityConfig struct {
-	Mode          string                        `json:"mode,omitempty"`
-	FailurePolicy string                        `json:"failurePolicy,omitempty"`
-	Cert          KernelCacheArtifactCertConfig `json:"cert,omitempty"`
+	Mode          string                           `json:"mode,omitempty"`
+	FailurePolicy string                           `json:"failurePolicy,omitempty"`
+	Cert          KernelCacheArtifactCertConfig    `json:"cert,omitempty"`
+	Keyless       KernelCacheArtifactKeylessConfig `json:"keyless,omitempty"`
 }
 
 // KernelCacheArtifactCertConfig contains certificate signing profile settings.
@@ -359,6 +360,11 @@ type KernelCacheArtifactCertConfig struct {
 	TrustBundle       string `json:"trustBundle,omitempty"`
 	TrustBundleKey    string `json:"trustBundleKey,omitempty"`
 	SubjectRegexp     string `json:"subjectRegexp,omitempty"`
+}
+
+type KernelCacheArtifactKeylessConfig struct {
+	Subject string `json:"subject,omitempty"`
+	Issuer  string `json:"issuer,omitempty"`
 }
 
 // ToSecurityConfig converts ConfigMap data to the security package contract.
@@ -374,6 +380,10 @@ func (c *KernelCacheArtifactSecurityConfig) ToSecurityConfig() kernelcachetypes.
 			TrustBundle:    c.Cert.TrustBundle,
 			TrustBundleKey: c.Cert.TrustBundleKey,
 			SubjectRegexp:  c.Cert.SubjectRegexp,
+		},
+		Keyless: kernelcachetypes.KeylessConfig{
+			Subject: c.Keyless.Subject,
+			Issuer:  c.Keyless.Issuer,
 		},
 	}
 }
