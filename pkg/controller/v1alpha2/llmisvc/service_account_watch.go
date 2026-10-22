@@ -22,6 +22,7 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -57,13 +58,20 @@ func serviceAccountImagePullSecretsChangedPredicate() predicate.Funcs {
 	}
 }
 
-// enqueueOnServiceAccountChange enqueues every LLMInferenceService in the ServiceAccount's namespace.
+// enqueueOnServiceAccountChange enqueues the owning LLMInferenceService of a ServiceAccount the
+// controller manages, and every LLMInferenceService in the namespace for any other ServiceAccount.
 func (r *LLMISVCReconciler) enqueueOnServiceAccountChange(logger logr.Logger) handler.MapFunc {
 	logger = logger.WithName("enqueueOnServiceAccountChange")
 	return func(ctx context.Context, obj client.Object) []reconcile.Request {
 		sa, ok := obj.(*corev1.ServiceAccount)
 		if !ok || sa == nil {
 			return nil
+		}
+
+		if ownerRef := metav1.GetControllerOf(sa); ownerRef != nil &&
+			ownerRef.Kind == v1alpha2.LLMInferenceServiceGVK.Kind &&
+			ownerRef.APIVersion == v1alpha2.LLMInferenceServiceGVK.GroupVersion().String() {
+			return []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: sa.Namespace, Name: ownerRef.Name}}}
 		}
 
 		llmSvcList := &v1alpha2.LLMInferenceServiceList{}

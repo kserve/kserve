@@ -56,6 +56,11 @@ func TestServiceAccountImagePullSecretsChangedPredicate(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "update that removes all pull secrets is accepted",
+			got:  p.Update(event.UpdateEvent{ObjectOld: serviceAccount("old-pull"), ObjectNew: serviceAccount()}),
+			want: true,
+		},
+		{
 			name: "update that keeps the pull secrets is dropped",
 			got: p.Update(event.UpdateEvent{
 				ObjectOld: serviceAccount("pull"),
@@ -100,21 +105,59 @@ func TestServiceAccountImagePullSecretsChangedPredicate(t *testing.T) {
 }
 
 func TestEnqueueOnServiceAccountChange(t *testing.T) {
-	g := NewGomegaWithT(t)
-	r := disaggTestReconciler(t)
-	for _, svc := range []*v1alpha2.LLMInferenceService{
-		{ObjectMeta: metav1.ObjectMeta{Name: "svc-a", Namespace: "ns-a"}},
-		{ObjectMeta: metav1.ObjectMeta{Name: "svc-b", Namespace: "ns-a"}},
-		{ObjectMeta: metav1.ObjectMeta{Name: "svc-c", Namespace: "ns-b"}},
-	} {
-		g.Expect(r.Create(t.Context(), svc)).To(Succeed())
+	svcA := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "svc-a", Namespace: "ns-a", UID: "uid-a"}}
+	svcB := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "svc-b", Namespace: "ns-a", UID: "uid-b"}}
+	svcC := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "svc-c", Namespace: "ns-b", UID: "uid-c"}}
+	requestFor := func(svc *v1alpha2.LLMInferenceService) reconcile.Request {
+		return reconcile.Request{NamespacedName: types.NamespacedName{Namespace: svc.Namespace, Name: svc.Name}}
 	}
 
-	reqs := r.enqueueOnServiceAccountChange(logr.Discard())(t.Context(),
-		&corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "ns-a"}})
+	for _, tt := range []struct {
+		name           string
+		serviceAccount *corev1.ServiceAccount
+		want           []reconcile.Request
+	}{
+		{
+			name:           "default ServiceAccount enqueues every service in its namespace",
+			serviceAccount: &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "ns-a"}},
+			want:           []reconcile.Request{requestFor(svcA), requestFor(svcB)},
+		},
+		{
+			name:           "user ServiceAccount enqueues every service in its namespace",
+			serviceAccount: &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "my-sa", Namespace: "ns-a"}},
+			want:           []reconcile.Request{requestFor(svcA), requestFor(svcB)},
+		},
+		{
+			name: "ServiceAccount owned by a service enqueues only its owner",
+			serviceAccount: &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
+				Name:            "svc-a-epp-sa",
+				Namespace:       "ns-a",
+				OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(svcA, v1alpha2.LLMInferenceServiceGVK)},
+			}},
+			want: []reconcile.Request{requestFor(svcA)},
+		},
+		{
+			name: "ServiceAccount controlled by another kind enqueues every service in its namespace",
+			serviceAccount: &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
+				Name:      "other-sa",
+				Namespace: "ns-a",
+				OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(
+					&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "svc-a", UID: "uid-cm"}},
+					corev1.SchemeGroupVersion.WithKind("ConfigMap"))},
+			}},
+			want: []reconcile.Request{requestFor(svcA), requestFor(svcB)},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			r := disaggTestReconciler(t)
+			for _, svc := range []*v1alpha2.LLMInferenceService{svcA, svcB, svcC} {
+				g.Expect(r.Create(t.Context(), svc.DeepCopy())).To(Succeed())
+			}
 
-	g.Expect(reqs).To(ConsistOf(
-		reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "ns-a", Name: "svc-a"}},
-		reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "ns-a", Name: "svc-b"}},
-	))
+			reqs := r.enqueueOnServiceAccountChange(logr.Discard())(t.Context(), tt.serviceAccount)
+
+			g.Expect(reqs).To(ConsistOf(tt.want))
+		})
+	}
 }
