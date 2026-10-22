@@ -163,7 +163,7 @@ fails() {
 }
 
 first() {
-  find "$1" -name "$2" -type f | sort | head -1
+  find "$1" -name "$2" -type f | sort | sed -n 1p
 }
 
 # Adds a stage in front of router.Dockerfile and reads from it in the final
@@ -369,10 +369,11 @@ verified() {
         return 1
       fi
       ((GH_RC == 0)) || return "${GH_RC}"
+      # Parenthesised: jq 1.7 (ubuntu-24.04) binds "as" tighter than "+".
       jq -Rn --argjson cert "${CERT}" "
-        {subjectAlternativeName: \"https://github.com/owner/repo/.github/workflows/e2e-image-cache.yml@refs/heads/master\",
+        ({subjectAlternativeName: \"https://github.com/owner/repo/.github/workflows/e2e-image-cache.yml@refs/heads/master\",
          sourceRepositoryRef: \"refs/heads/master\", sourceRepositoryURI: \"https://github.com/owner/repo\",
-         runnerEnvironment: \"github-hosted\", githubWorkflowTrigger: \"push\"} + \$cert as \$c
+         runnerEnvironment: \"github-hosted\", githubWorkflowTrigger: \"push\"} + \$cert) as \$c
         | [{verificationResult: {signature: {certificate: \$c},
             statement: {subject: [inputs | select(length > 0) | split(\" \") | {name: .[0], digest: {sha256: .[1]}}]}}}]" <<<"${SUBJECTS}"
     }
