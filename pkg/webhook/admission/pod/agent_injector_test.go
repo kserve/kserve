@@ -1876,6 +1876,41 @@ func TestAgentInjector(t *testing.T) {
 			t.Errorf("Test %q unexpected result (-want +got): %v", name, diff)
 		}
 	}
+	// Run logger worker scenarios
+	workers := int32(10)
+	loggerConfigWithWorkers := *loggerConfig
+	loggerConfigWithWorkers.Agent = &v1beta1.LoggerAgentSpec{
+		Workers: &workers,
+	}
+
+	pod := scenariosLoggerStorage["AddLoggerWithStorage"].original.DeepCopy()
+
+	injector := &AgentInjector{
+		credentialBuilder,
+		agentConfig,
+		&loggerConfigWithWorkers,
+		batcherTestConfig,
+	}
+
+	if err := injector.InjectAgent(pod); err != nil {
+		t.Fatalf("InjectAgent() error = %v", err)
+	}
+
+	agentContainer := pod.Spec.Containers[len(pod.Spec.Containers)-1]
+
+	found := false
+	for i := 0; i < len(agentContainer.Args)-1; i++ {
+		if agentContainer.Args[i] == constants.ArgumentWorkers &&
+			agentContainer.Args[i+1] == "10" {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Errorf("expected %s 10 in agent container args, got %v",
+			constants.ArgumentWorkers, agentContainer.Args)
+	}
 	// Run logger storage scenarios
 	for name, scenario := range scenariosLoggerStorage {
 		injector := &AgentInjector{
@@ -1908,6 +1943,7 @@ func TestGetLoggerConfigs(t *testing.T) {
 			Name: "podname",
 		},
 	}
+	workers := int32(10)
 
 	cases := []struct {
 		name      string
@@ -2128,6 +2164,50 @@ func TestGetLoggerConfigs(t *testing.T) {
 							StorageKey: &storageKey,
 						},
 						ServiceAccountName: &serviceAccountName,
+					},
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
+			name: "Logger agent workers",
+			configMap: &corev1.ConfigMap{
+				Data: map[string]string{
+					LoggerConfigMapKeyName: `{
+                "Image":         "gcr.io/kfserving/logger:latest",
+                "CpuRequest":    "100m",
+                "CpuLimit":      "1",
+                "MemoryRequest": "200Mi",
+                "MemoryLimit":   "1Gi"
+            }`,
+				},
+			},
+			isvc: &v1beta1.InferenceService{
+				Spec: v1beta1.InferenceServiceSpec{
+					Predictor: v1beta1.PredictorSpec{
+						ComponentExtensionSpec: v1beta1.ComponentExtensionSpec{
+							Logger: &v1beta1.LoggerSpec{
+								URL:  &url,
+								Mode: mode,
+								Agent: &v1beta1.LoggerAgentSpec{
+									Workers: &workers,
+								},
+							},
+						},
+					},
+				},
+			},
+			pod: pod,
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&LoggerConfig{
+					Image:         "gcr.io/kfserving/logger:latest",
+					CpuRequest:    "100m",
+					CpuLimit:      "1",
+					MemoryRequest: "200Mi",
+					MemoryLimit:   "1Gi",
+					Store:         nil,
+					Agent: &v1beta1.LoggerAgentSpec{
+						Workers: &workers,
 					},
 				}),
 				gomega.BeNil(),

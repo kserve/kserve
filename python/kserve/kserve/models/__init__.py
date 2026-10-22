@@ -142,6 +142,7 @@ from kserve.models.v1beta1_kernel_cache_registry_config import V1beta1KernelCach
 from kserve.models.v1beta1_kernel_cache_registry_role_ref import V1beta1KernelCacheRegistryRoleRef
 from kserve.models.v1beta1_light_gbm_spec import V1beta1LightGBMSpec
 from kserve.models.v1beta1_local_model_config import V1beta1LocalModelConfig
+from kserve.models.v1beta1_logger_agent_spec import V1beta1LoggerAgentSpec
 from kserve.models.v1beta1_logger_spec import V1beta1LoggerSpec
 from kserve.models.v1beta1_logger_storage_spec import V1beta1LoggerStorageSpec
 from kserve.models.v1beta1_metric_target import V1beta1MetricTarget
