@@ -464,7 +464,10 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(&corev1.ConfigMap{}, r.enqueueOnInferenceServiceConfigMapChange(logger), builder.WithPredicates(inferenceServiceConfigMapPredicate)).
 		Watches(&corev1.Pod{},
 			handler.EnqueueRequestsFromMapFunc(r.EnqueueOnLLMInferenceServicePods),
-			builder.WithPredicates(PodStatusPredicate()))
+			builder.WithPredicates(PodStatusPredicate())).
+		Watches(&corev1.ServiceAccount{},
+			handler.EnqueueRequestsFromMapFunc(r.enqueueOnServiceAccountChange(logger)),
+			builder.WithPredicates(serviceAccountImagePullSecretsChangedPredicate()))
 
 	b = b.Watches(
 		&v1alpha2.LLMInferenceService{},

@@ -1290,6 +1290,19 @@ func TestSGLangTemplateForwardsContainerArgs(t *testing.T) {
 	}
 }
 
+func TestTokenizerPresetOptsInToImagePullSecretInheritance(t *testing.T) {
+	filePath := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig", "config-llm-tokenizer.yaml")
+	data, err := os.ReadFile(filepath.Clean(filePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := loadConfig(t, data, filePath)
+	container := config.Spec.Router.Scheduler.Tokenizer.Template.Containers[0]
+	if version, _ := utils.GetEnvVarValue(container.Env, "KSERVE_PULL_SECRETS_CONFIG_VERSION"); version != "1" {
+		t.Fatal("tokenizer preset must opt in to image pull secret inheritance")
+	}
+}
+
 func TestTokenizerPresetForwardsTracingArgs(t *testing.T) {
 	filePath := filepath.Join(kservetesting.ProjectRoot(), "config", "llmisvcconfig", "config-llm-tokenizer.yaml")
 	data, err := os.ReadFile(filepath.Clean(filePath))
