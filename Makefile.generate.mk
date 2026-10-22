@@ -150,8 +150,9 @@ manifests: controller-gen kustomize yq
 	rm charts/kserve-localmodel-crd/templates/kustomization.yaml
 	
 	# Copy llmisvc crd (with conversion webhook patches applied via kustomize)
-	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceservices.yaml
-	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
+	# Hardcoded "kserve" namespace is replaced with Helm template variable so the chart works in any namespace
+	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' | sed 's|inject-ca-from: kserve/llmisvc-serving-cert|inject-ca-from: {{ .Release.Namespace }}/llmisvc-serving-cert|g' | sed 's|namespace: kserve$$|namespace: "{{ .Release.Namespace }}"|g' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceservices.yaml
+	$(KUSTOMIZE) build config/crd/full/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' | sed 's|inject-ca-from: kserve/llmisvc-serving-cert|inject-ca-from: {{ .Release.Namespace }}/llmisvc-serving-cert|g' | sed 's|namespace: kserve$$|namespace: "{{ .Release.Namespace }}"|g' > charts/kserve-llmisvc-crd/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
 	
 	# Copy the full crd to the test folder
 	$(KUSTOMIZE) build config/crd/full > test/crds/serving.kserve.io_all_crds.yaml
@@ -180,8 +181,9 @@ manifests: controller-gen kustomize yq
 	rm charts/kserve-localmodel-crd-minimal/templates/kustomization.yaml
 
 	# Copy minimal llmisvc crd (with conversion webhook patches applied via kustomize)
-	$(KUSTOMIZE) build config/crd/minimal/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' > charts/kserve-llmisvc-crd-minimal/templates/serving.kserve.io_llminferenceservices.yaml
-	$(KUSTOMIZE) build config/crd/minimal/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' > charts/kserve-llmisvc-crd-minimal/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
+	# Hardcoded "kserve" namespace is replaced with Helm template variable so the chart works in any namespace
+	$(KUSTOMIZE) build config/crd/minimal/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceservices.serving.kserve.io")' | sed 's|inject-ca-from: kserve/llmisvc-serving-cert|inject-ca-from: {{ .Release.Namespace }}/llmisvc-serving-cert|g' | sed 's|namespace: kserve$$|namespace: "{{ .Release.Namespace }}"|g' > charts/kserve-llmisvc-crd-minimal/templates/serving.kserve.io_llminferenceservices.yaml
+	$(KUSTOMIZE) build config/crd/minimal/llmisvc | $(YQ) 'select(.metadata.name == "llminferenceserviceconfigs.serving.kserve.io")' | sed 's|inject-ca-from: kserve/llmisvc-serving-cert|inject-ca-from: {{ .Release.Namespace }}/llmisvc-serving-cert|g' | sed 's|namespace: kserve$$|namespace: "{{ .Release.Namespace }}"|g' > charts/kserve-llmisvc-crd-minimal/templates/serving.kserve.io_llminferenceserviceconfigs.yaml
 	
     # Copy Test inferenceconfig configmap to test overlay
 	cp config/configmap/inferenceservice.yaml config/overlays/test/configmap/inferenceservice.yaml
