@@ -2,6 +2,7 @@
 # squash-merges them. A PR is ready when it carries the lgtm label, has no hold
 # label, has an approving review from an OWNERS approver for its current head
 # commit, and its enforce-all-checks aggregate is green on that same commit.
+# When GitHub refuses the merge, the PR gets one comment per head commit.
 
 name: "Prow merge on lgtm label"
 on:
@@ -19,7 +20,7 @@ on:
 # succeed without them, but the block should say what the job actually touches.
 permissions:
   contents: write      # squash-merge the pull request
-  pull-requests: write # squash-merge the pull request
+  pull-requests: write # squash-merge the pull request, comment when that is refused
   checks: read         # read the check aggregate on the head commit
   issues: read         # list open pull requests by label
 
@@ -99,14 +100,42 @@ jobs:
               return run.status === 'completed' ? run.conclusion : run.status;
             };
 
+            // The marker keys the comment to the head commit, so the 10-minute schedule
+            // reports a refused merge once, and again only after a push.
+            const refusalMarker = (sha) => `<!-- automerge-refused:${sha} -->`;
+
+            const hasRefusalComment = async (pr) => {
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number: pr.number, per_page: 100,
+              });
+              return comments.some(
+                c => c.user?.login === 'github-actions[bot]' && c.body?.includes(refusalMarker(pr.head.sha))
+              );
+            };
+
+            const postRefusalComment = async (pr, reason) => {
+              const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: pr.number,
+                body: [
+                  `Auto-merge could not merge \`${pr.head.sha.slice(0, 7)}\`: GitHub answered \`${reason}\` ([run](${runUrl})).`,
+                  'It keeps retrying every 10 minutes without commenting again. If it keeps failing, a maintainer can merge it by hand.',
+                  '',
+                  refusalMarker(pr.head.sha),
+                ].join('\n'),
+              });
+              core.info(`PR #${pr.number} got a refused-merge comment for head ${pr.head.sha}`);
+            };
+
             const prs = await github.paginate(github.rest.issues.listForRepo, {
               owner, repo, state: 'open', labels: 'lgtm',
             });
             debug(`Found ${prs.length} open issues/PRs with the lgtm label`);
 
-            // PRs that passed every gate but the merge call rejected. The loop keeps
-            // going so one bad PR does not hold up the rest, and the run fails at the
-            // end: a green run must mean nothing ready was left behind.
+            // PRs that passed every gate but the merge call rejected, and nobody has
+            // been told yet. The loop keeps going so one bad PR does not hold up the
+            // rest, and the run fails at the end: a green run must mean nothing ready
+            // was left behind unreported.
             const failedMerges = [];
 
             for (const issue of prs) {
@@ -204,6 +233,18 @@ jobs:
                   if (apiErrors) {
                     core.info(`[debug] PR #${issue.number} API errors: ${JSON.stringify(apiErrors)}`);
                   }
+                }
+
+                // A PR stuck on the same head is reported on the PR once. Failing every
+                // run for it would bury the next PR that gets refused.
+                try {
+                  if (await hasRefusalComment(pr)) {
+                    core.info(`PR #${issue.number} could not be merged (${errorDetails.join(', ')}), already reported for head ${pr.head.sha}`);
+                    continue;
+                  }
+                  await postRefusalComment(pr, `${e.status ?? 'unknown'} ${responseData?.message ?? e.message}`);
+                } catch (commentError) {
+                  core.warning(`Could not comment on PR #${issue.number}: ${commentError.message}`);
                 }
 
                 core.error(`Could not merge PR #${issue.number}: ${errorDetails.join(', ')}`);
