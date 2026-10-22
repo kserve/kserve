@@ -142,6 +142,21 @@ func inheritedPVCEvictorContainerTemplate(workload *v1alpha2.WorkloadSpec, fallb
 	return fallback.DeepCopy()
 }
 
+func withPVCEvictorDefaultImage(template *corev1.Container, defaultImage string) *corev1.Container {
+	if defaultImage == "" {
+		return template
+	}
+	if template == nil {
+		return &corev1.Container{Image: defaultImage}
+	}
+	if template.Image != "" {
+		return template
+	}
+	updated := template.DeepCopy()
+	updated.Image = defaultImage
+	return updated
+}
+
 func validatePVCEvictorCachePath(workloadName string, workload *v1alpha2.WorkloadSpec) error {
 	if workload == nil || !workloadHasPVCTier(workload) {
 		return nil
@@ -162,6 +177,10 @@ func validatePVCEvictorCachePath(workloadName string, workload *v1alpha2.Workloa
 }
 
 func validatePVCEvictorContainerTemplates(llmSvc *v1alpha2.LLMInferenceService) error {
+	return validatePVCEvictorContainerTemplatesWithDefaultImage(llmSvc, "")
+}
+
+func validatePVCEvictorContainerTemplatesWithDefaultImage(llmSvc *v1alpha2.LLMInferenceService, defaultImage string) error {
 	type pvcEvictorReference struct {
 		name string
 		path string
@@ -180,7 +199,10 @@ func validatePVCEvictorContainerTemplates(llmSvc *v1alpha2.LLMInferenceService) 
 	}
 
 	workloads := make([]workloadTemplates, 0, 2)
-	mainTemplate := workloadPVCEvictorContainerTemplate(&llmSvc.Spec.WorkloadSpec)
+	mainTemplate := withPVCEvictorDefaultImage(
+		workloadPVCEvictorContainerTemplate(&llmSvc.Spec.WorkloadSpec),
+		defaultImage,
+	)
 	addWorkload := func(workload *v1alpha2.WorkloadSpec, template *corev1.Container) {
 		if workload == nil || workload.KVCacheOffloading == nil || !workloadHasPVCTier(workload) {
 			return
@@ -201,7 +223,10 @@ func validatePVCEvictorContainerTemplates(llmSvc *v1alpha2.LLMInferenceService) 
 		})
 	}
 	addWorkload(&llmSvc.Spec.WorkloadSpec, mainTemplate)
-	addWorkload(llmSvc.Spec.Prefill, inheritedPVCEvictorContainerTemplate(llmSvc.Spec.Prefill, mainTemplate))
+	addWorkload(llmSvc.Spec.Prefill, withPVCEvictorDefaultImage(
+		inheritedPVCEvictorContainerTemplate(llmSvc.Spec.Prefill, mainTemplate),
+		defaultImage,
+	))
 	if len(workloads) == 0 {
 		return nil
 	}
@@ -684,7 +709,7 @@ func (r *LLMISVCReconciler) finalizePVCEvictors(ctx context.Context, llmSvc *v1a
 }
 
 func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	expected, err := r.expectedPVCEvictorDeployments(ctx, llmSvc)
+	expected, err := r.expectedPVCEvictorDeployments(ctx, llmSvc, config)
 	if err != nil {
 		return err
 	}
@@ -1002,6 +1027,10 @@ func (r *LLMISVCReconciler) desiredPVCEvictorTemplateAgreements(ctx context.Cont
 			service.Spec = combined.Config.Spec
 		}
 		for _, target := range collectPVCEvictorTargets(service) {
+			target.containerTemplate = withPVCEvictorDefaultImage(
+				target.containerTemplate,
+				config.PVCEvictorImage,
+			)
 			identity := pvcEvictorIdentity(target.claimName, target.subPath)
 			if hashesByIdentity[identity] == nil {
 				hashesByIdentity[identity] = make(map[templateHashes]struct{})
@@ -1119,7 +1148,7 @@ func retainExternalOwnerReferences(ownerReferences []metav1.OwnerReference) []me
 	return retained
 }
 
-func (r *LLMISVCReconciler) expectedPVCEvictorDeployments(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (map[string]*appsv1.Deployment, error) {
+func (r *LLMISVCReconciler) expectedPVCEvictorDeployments(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (map[string]*appsv1.Deployment, error) {
 	if utils.GetForceStopRuntime(llmSvc) {
 		return map[string]*appsv1.Deployment{}, nil
 	}
@@ -1137,6 +1166,10 @@ func (r *LLMISVCReconciler) expectedPVCEvictorDeployments(ctx context.Context, l
 			return nil, fmt.Errorf("PVC %s/%s is not writable for a pvc.ref evictor; use ReadWriteOnce or ReadWriteMany", llmSvc.Namespace, targets[i].claimName)
 		}
 		targets[i].requiresNodeAffinity = pvcRequiresNodeAffinity(pvc)
+		targets[i].containerTemplate = withPVCEvictorDefaultImage(
+			targets[i].containerTemplate,
+			config.PVCEvictorImage,
+		)
 		target := targets[i]
 		deployment := expectedPVCEvictorDeployment(llmSvc, target)
 		expected[deployment.Name] = deployment

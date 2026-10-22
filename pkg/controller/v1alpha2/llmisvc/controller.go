@@ -317,7 +317,7 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	llmSvc.Spec = baseCfg.Spec
 
 	if !utils.GetForceStopRuntime(llmSvc) {
-		if err := validatePVCEvictorContainerTemplates(llmSvc); err != nil {
+		if err := validatePVCEvictorContainerTemplatesWithDefaultImage(llmSvc, config.PVCEvictorImage); err != nil {
 			llmSvc.MarkPVCEvictorNotReady("InvalidPVCEvictorConfiguration", "%s", err.Error())
 			llmSvc.DetermineWorkloadReadiness()
 			return reconcile.TerminalError(fmt.Errorf("invalid PVC evictor configuration: %w", err))
