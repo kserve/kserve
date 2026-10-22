@@ -181,7 +181,10 @@ _base_digest() {
 _base_digests() {
   local IFS=$' \t\n'
   local dockerfile=$1 target=${2:-} line="" logical="" instr="" word="" name="" value="" image="" stage=""
-  local dep="" out="" ref="" syntax="" heredoc='<<-?["'\'']?[A-Za-z_]'
+  # BuildKit takes any word of <<, an optional -, and a name as a heredoc,
+  # whatever the name starts with. Anything that could be one is refused, here
+  # strings included; refusing too much only costs the cache.
+  local dep="" out="" ref="" syntax="" heredoc='<<-?[^[:space:]<]'
   local i=0 n=-1 seen_from=false header=true first=true
   local -A args=() index=() visited=()
   local -a deps=() words=() from=() todo=() refs=()

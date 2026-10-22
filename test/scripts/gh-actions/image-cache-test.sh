@@ -252,6 +252,7 @@ moved "unreachable stage base" "" busybox:1.36 \
 
 # Anything the key cannot read the way BuildKit does leaves the image unkeyed.
 fails "heredoc" router 'printf "RUN <<EOF\necho x\nEOF\n" >>router.Dockerfile'
+fails "heredoc with a numeric delimiter" router 'printf "RUN cat <<0\nFROM busybox:1.36\n0\n" >>router.Dockerfile'
 fails "ARG forward reference" router \
   "{ echo 'ARG B=golang\${A}'; echo 'ARG A=:1.26.8'; } >a.new && cat router.Dockerfile >>a.new && mv a.new router.Dockerfile &&
    set -- 'FROM \${B} AS extra'; ${with_stage}"
