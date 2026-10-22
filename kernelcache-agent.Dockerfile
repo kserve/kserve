@@ -15,7 +15,7 @@ COPY cmd/${CMD}/ cmd/${CMD}/
 COPY pkg/ pkg/
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=readonly go build -tags "${GOTAGS}" -a -o kernelcachenode-agent ./cmd/${CMD}
+    CGO_ENABLED=0 GOOS=linux GOFLAGS=-mod=readonly go build -tags "${GOTAGS}" -o kernelcachenode-agent ./cmd/${CMD}
 
 FROM deps AS license
 
