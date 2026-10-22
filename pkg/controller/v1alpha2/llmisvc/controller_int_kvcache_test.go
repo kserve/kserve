@@ -18,6 +18,7 @@ package llmisvc_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -521,7 +522,7 @@ var _ = Describe("LLMInferenceService Controller - KV Cache secondary tiers", fu
 			Eventually(func(g Gomega, ctx context.Context) error {
 				return envTest.Get(ctx, types.NamespacedName{Name: svcName, Namespace: testNs.Name}, current)
 			}).WithContext(ctx).Should(Succeed())
-			current.Spec.WorkloadSpec.KVCacheOffloading.Secondary[0].FileSystem.PVC.Ref.Path = "new-cache"
+			current.Spec.KVCacheOffloading.Secondary[0].FileSystem.PVC.Ref.Path = "new-cache"
 			Expect(envTest.Update(ctx, current)).To(Succeed())
 
 			Eventually(func(g Gomega, ctx context.Context) error {
@@ -530,7 +531,7 @@ var _ = Describe("LLMInferenceService Controller - KV Cache secondary tiers", fu
 					return err
 				}
 				if updated.DeletionTimestamp.IsZero() {
-					return fmt.Errorf("old evictor Deployment is not deleting")
+					return errors.New("old evictor Deployment is not deleting")
 				}
 				return nil
 			}).WithContext(ctx).Should(Succeed())

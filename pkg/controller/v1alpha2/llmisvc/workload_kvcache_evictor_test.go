@@ -1112,7 +1112,7 @@ func TestEnqueueOnPVCEvictorPVCChangeTargetsDirectAndBaseRefServices(t *testing.
 	requests := enqueueRequestsForObject(reconciler.enqueueOnPVCEvictorPVCChange(), pvc)
 	got := make(map[string]struct{}, len(requests))
 	for _, request := range requests {
-		got[request.NamespacedName.Namespace+"/"+request.NamespacedName.Name] = struct{}{}
+		got[request.Namespace+"/"+request.Name] = struct{}{}
 	}
 	for _, name := range []string{"direct", "base-ref", "implicit"} {
 		if _, ok := got["test/"+name]; !ok {
