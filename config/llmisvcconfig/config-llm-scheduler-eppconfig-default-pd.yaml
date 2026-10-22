@@ -10,7 +10,7 @@ spec:
         # Default Prefill/Decode disaggregation EndpointPickerConfig.
         # lora-affinity-scorer is injected by the scheduler when the LLMInferenceService has spec.model.lora.adapters set.
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
             - type: always-disagg-pd-decider

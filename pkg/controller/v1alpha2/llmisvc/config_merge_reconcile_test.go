@@ -494,7 +494,7 @@ func TestCombineBaseRefsConfig_ResolvesAndClearsSchedulerConfigRef(t *testing.T)
 	schedulerConfig := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{Name: configMapName, Namespace: namespace},
 		Data: map[string]string{"epp": `
-apiVersion: llm-d.ai/v1alpha1
+apiVersion: llm-d.ai/v1
 kind: EndpointPickerConfig
 plugins: []
 `},
@@ -630,7 +630,7 @@ func TestCombineBaseRefsConfig_ConfigFlagInWellKnownPresetSuppressesInjection(t 
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
 
 	const adminConfig = `
-apiVersion: llm-d.ai/v1alpha1
+apiVersion: llm-d.ai/v1
 kind: EndpointPickerConfig
 plugins:
 - type: admin-owned-plugin
@@ -640,7 +640,7 @@ plugins:
 		Spec: v1alpha2.LLMInferenceServiceSpec{
 			Router: &v1alpha2.RouterSpec{
 				Scheduler: &v1alpha2.SchedulerSpec{
-					Annotations: map[string]string{"app.kubernetes.io/version": "0.11.0"},
+					Annotations: map[string]string{"app.kubernetes.io/version": "1.0.0"},
 					Template: &corev1.PodSpec{
 						Containers: []corev1.Container{{
 							Name: "main",

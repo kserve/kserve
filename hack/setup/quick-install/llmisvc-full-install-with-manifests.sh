@@ -661,7 +661,7 @@ OPENTELEMETRY_OPERATOR_VERSION=0.114.1
 LWS_VERSION=v1.0.0
 GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.6.2
-LLMD_ROUTER_VERSION=v0.11.0
+LLMD_ROUTER_VERSION=v1.0.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -2944,7 +2944,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3341,7 +3341,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -4079,7 +4079,7 @@ spec:
             fieldPath: status.podIP
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -4528,7 +4528,7 @@ spec:
             fieldPath: status.podIP
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -6748,7 +6748,7 @@ spec:
   router:
     scheduler:
       annotations:
-        app.kubernetes.io/version: 0.11.0
+        app.kubernetes.io/version: 1.0.0
       pool:
         spec:
           endpointPickerRef:
@@ -6791,7 +6791,7 @@ spec:
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v1.0.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -6872,7 +6872,7 @@ spec:
     scheduler:
       config:
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
           - type: approx-prefix-cache-producer
@@ -6895,7 +6895,7 @@ spec:
     scheduler:
       config:
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
           - type: always-disagg-pd-decider
@@ -6934,7 +6934,7 @@ spec:
     scheduler:
       config:
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
           - type: active-request-scorer
