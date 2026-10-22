@@ -21,6 +21,7 @@ import (
 
 	"github.com/go-logr/logr"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 func TestServiceAccountImagePullSecretsChangedPredicate(t *testing.T) {
@@ -111,10 +113,33 @@ func TestEnqueueOnServiceAccountChange(t *testing.T) {
 	requestFor := func(svc *v1alpha2.LLMInferenceService) reconcile.Request {
 		return reconcile.Request{NamespacedName: types.NamespacedName{Namespace: svc.Namespace, Name: svc.Name}}
 	}
+	deploymentFor := func(svc *v1alpha2.LLMInferenceService, labels map[string]string, serviceAccountName string) *appsv1.Deployment {
+		return &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:            svc.Name + "-" + labels[constants.KubernetesComponentLabelKey],
+				Namespace:       svc.Namespace,
+				Labels:          labels,
+				OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(svc, v1alpha2.LLMInferenceServiceGVK)},
+			},
+			Spec: appsv1.DeploymentSpec{Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{ServiceAccountName: serviceAccountName}}},
+		}
+	}
+	tokenizerFor := func(svc *v1alpha2.LLMInferenceService, serviceAccountName string) *appsv1.Deployment {
+		return deploymentFor(svc, TokenizerLabels(svc), serviceAccountName)
+	}
+	schedulerFor := func(svc *v1alpha2.LLMInferenceService, serviceAccountName string) *appsv1.Deployment {
+		return deploymentFor(svc, SchedulerLabels(svc), serviceAccountName)
+	}
+	sharedServiceAccount := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
+		Name:            "svc-a-epp-sa",
+		Namespace:       "ns-a",
+		OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(svcA, v1alpha2.LLMInferenceServiceGVK)},
+	}}
 
 	for _, tt := range []struct {
 		name           string
 		serviceAccount *corev1.ServiceAccount
+		deployments    []*appsv1.Deployment
 		want           []reconcile.Request
 	}{
 		{
@@ -128,13 +153,23 @@ func TestEnqueueOnServiceAccountChange(t *testing.T) {
 			want:           []reconcile.Request{requestFor(svcA), requestFor(svcB)},
 		},
 		{
-			name: "ServiceAccount owned by a service enqueues only its owner",
-			serviceAccount: &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
-				Name:            "svc-a-epp-sa",
-				Namespace:       "ns-a",
-				OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(svcA, v1alpha2.LLMInferenceServiceGVK)},
-			}},
+			name:           "ServiceAccount owned by a service enqueues only its owner",
+			serviceAccount: sharedServiceAccount,
+			deployments: []*appsv1.Deployment{
+				tokenizerFor(svcA, "svc-a-epp-sa"),
+				tokenizerFor(svcB, "default"),
+				schedulerFor(svcB, "svc-a-epp-sa"),
+			},
 			want: []reconcile.Request{requestFor(svcA)},
+		},
+		{
+			name:           "ServiceAccount owned by a service also enqueues services whose tokenizer runs as it",
+			serviceAccount: sharedServiceAccount,
+			deployments: []*appsv1.Deployment{
+				tokenizerFor(svcB, "svc-a-epp-sa"),
+				tokenizerFor(svcC, "svc-a-epp-sa"),
+			},
+			want: []reconcile.Request{requestFor(svcA), requestFor(svcB)},
 		},
 		{
 			name: "ServiceAccount controlled by another kind enqueues every service in its namespace",
@@ -153,6 +188,9 @@ func TestEnqueueOnServiceAccountChange(t *testing.T) {
 			r := disaggTestReconciler(t)
 			for _, svc := range []*v1alpha2.LLMInferenceService{svcA, svcB, svcC} {
 				g.Expect(r.Create(t.Context(), svc.DeepCopy())).To(Succeed())
+			}
+			for _, deployment := range tt.deployments {
+				g.Expect(r.Create(t.Context(), deployment)).To(Succeed())
 			}
 
 			reqs := r.enqueueOnServiceAccountChange(logr.Discard())(t.Context(), tt.serviceAccount)

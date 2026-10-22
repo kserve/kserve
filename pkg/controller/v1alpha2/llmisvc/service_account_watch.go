@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 )
 
 // serviceAccountImagePullSecretsChangedPredicate accepts ServiceAccount updates that change
@@ -58,8 +60,9 @@ func serviceAccountImagePullSecretsChangedPredicate() predicate.Funcs {
 	}
 }
 
-// enqueueOnServiceAccountChange enqueues the owning LLMInferenceService of a ServiceAccount the
-// controller manages, and every LLMInferenceService in the namespace for any other ServiceAccount.
+// enqueueOnServiceAccountChange enqueues, for a ServiceAccount the controller manages, its owning
+// LLMInferenceService and every LLMInferenceService whose tokenizer runs as that ServiceAccount.
+// For any other ServiceAccount it enqueues every LLMInferenceService in the namespace.
 func (r *LLMISVCReconciler) enqueueOnServiceAccountChange(logger logr.Logger) handler.MapFunc {
 	logger = logger.WithName("enqueueOnServiceAccountChange")
 	return func(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -68,10 +71,27 @@ func (r *LLMISVCReconciler) enqueueOnServiceAccountChange(logger logr.Logger) ha
 			return nil
 		}
 
-		if ownerRef := metav1.GetControllerOf(sa); ownerRef != nil &&
-			ownerRef.Kind == v1alpha2.LLMInferenceServiceGVK.Kind &&
-			ownerRef.APIVersion == v1alpha2.LLMInferenceServiceGVK.GroupVersion().String() {
-			return []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: sa.Namespace, Name: ownerRef.Name}}}
+		if ownerRef := llmSvcControllerOf(sa); ownerRef != nil {
+			reqs := []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: sa.Namespace, Name: ownerRef.Name}}}
+
+			tokenizers := &appsv1.DeploymentList{}
+			if err := r.List(ctx, tokenizers, client.InNamespace(sa.Namespace), client.MatchingLabels{
+				constants.KubernetesComponentLabelKey: constants.LLMComponentTokenizer,
+				constants.KubernetesPartOfLabelKey:    constants.LLMInferenceServicePartOfValue,
+			}); err != nil {
+				logger.Error(err, "failed to list tokenizer Deployments", "serviceAccount", sa.Name, "namespace", sa.Namespace)
+				return reqs
+			}
+			for i := range tokenizers.Items {
+				tokenizer := &tokenizers.Items[i]
+				if tokenizer.Spec.Template.Spec.ServiceAccountName != sa.Name {
+					continue
+				}
+				if tokenizerOwnerRef := llmSvcControllerOf(tokenizer); tokenizerOwnerRef != nil && tokenizerOwnerRef.Name != ownerRef.Name {
+					reqs = append(reqs, reconcile.Request{NamespacedName: types.NamespacedName{Namespace: sa.Namespace, Name: tokenizerOwnerRef.Name}})
+				}
+			}
+			return reqs
 		}
 
 		llmSvcList := &v1alpha2.LLMInferenceServiceList{}
@@ -89,4 +109,15 @@ func (r *LLMISVCReconciler) enqueueOnServiceAccountChange(logger logr.Logger) ha
 		}
 		return reqs
 	}
+}
+
+// llmSvcControllerOf returns the controller reference of obj when it points to an LLMInferenceService.
+func llmSvcControllerOf(obj metav1.Object) *metav1.OwnerReference {
+	ownerRef := metav1.GetControllerOf(obj)
+	if ownerRef == nil ||
+		ownerRef.Kind != v1alpha2.LLMInferenceServiceGVK.Kind ||
+		ownerRef.APIVersion != v1alpha2.LLMInferenceServiceGVK.GroupVersion().String() {
+		return nil
+	}
+	return ownerRef
 }
