@@ -124,7 +124,7 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.llmisvc.controller.readinessProbe.periodSeconds | int | `5` |  |
 | kserve.llmisvc.controller.readinessProbe.timeoutSeconds | int | `5` |  |
 | kserve.llmisvc.controller.replicas | int | `1` |  |
-| kserve.llmisvc.controller.resources.limits.cpu | string | `"100m"` |  |
+| kserve.llmisvc.controller.resources.limits.cpu | string | `"500m"` |  |
 | kserve.llmisvc.controller.resources.limits.memory | string | `"300Mi"` |  |
 | kserve.llmisvc.controller.resources.requests.cpu | string | `"100m"` |  |
 | kserve.llmisvc.controller.resources.requests.memory | string | `"300Mi"` |  |
