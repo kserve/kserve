@@ -229,17 +229,20 @@ def test_disaggregated_set_scale_keeps_pods(test_case: TestCase):
     kserve_client = _new_kserve_client()
     with _service(kserve_client, test_case) as llm_isvc:
         name, ns = llm_isvc.metadata.name, llm_isvc.metadata.namespace
-        ds = _assert_on_disaggregated_set(kserve_client, llm_isvc)
-        hash_version = (
-            ds["metadata"]
-            .get("annotations", {})
-            .get(DS_REVISION_HASH_VERSION_ANNOTATION)
-        )
+        _assert_on_disaggregated_set(kserve_client, llm_isvc)
 
         before = {
             role: wait_for_role_pods(name, ns, role, count=1, timeout=POD_TIMEOUT)
             for role in ROLES
         }
+        ds = get_ds(name, ns)
+        hash_version = (ds["metadata"].get("annotations") or {}).get(
+            DS_REVISION_HASH_VERSION_ANNOTATION
+        )
+        assert hash_version, (
+            f"{DS_REVISION_HASH_VERSION_ANNOTATION} not set: "
+            f"{ds['metadata'].get('annotations')}"
+        )
         lws_before = {role: role_lws_names(name, ns, role) for role in ROLES}
 
         # Static roles must be all zero or all non-zero, so scale them together.
@@ -260,12 +263,10 @@ def test_disaggregated_set_scale_keeps_pods(test_case: TestCase):
             )
 
         ds = get_ds(name, ns)
-        assert (
-            ds["metadata"]
-            .get("annotations", {})
-            .get(DS_REVISION_HASH_VERSION_ANNOTATION)
-            == hash_version
-        ), (
+        hash_version_after = (ds["metadata"].get("annotations") or {}).get(
+            DS_REVISION_HASH_VERSION_ANNOTATION
+        )
+        assert hash_version_after == hash_version, (
             f"{DS_REVISION_HASH_VERSION_ANNOTATION} changed from {hash_version!r}: "
             f"{ds['metadata'].get('annotations')}"
         )
