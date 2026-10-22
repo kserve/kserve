@@ -902,7 +902,10 @@ func TestDesiredPVCEvictorTemplateAgreementsMarksUnresolved(t *testing.T) {
 				pvcEvictorConsumerLabelKey("shared-pvc", "kv-cache"): "true",
 			},
 		},
-		Spec: corev1.PodSpec{Tolerations: []corev1.Toleration{admittedToleration}},
+		Spec: corev1.PodSpec{
+			NodeName:    "node-a",
+			Tolerations: []corev1.Toleration{admittedToleration},
+		},
 	}
 	terminatingPod := consumerPod.DeepCopy()
 	terminatingPod.Name = "terminating-consumer"
@@ -926,6 +929,9 @@ func TestDesiredPVCEvictorTemplateAgreementsMarksUnresolved(t *testing.T) {
 	}
 	if diff := cmp.Diff([]corev1.Toleration{admittedToleration}, agreement.tolerations); diff != "" {
 		t.Errorf("admitted tolerations diff (-want +got):\n%s", diff)
+	}
+	if got, want := agreement.consumerNodeHash, pvcEvictorConsumerNodeHashValue([]string{"node-a"}); got != want {
+		t.Errorf("consumer node hash = %q, want %q", got, want)
 	}
 }
 
@@ -1025,6 +1031,11 @@ func TestPVCEvictorConsumerPodPredicate(t *testing.T) {
 	updated.Spec.Tolerations = []corev1.Toleration{{Key: "admission", Operator: corev1.TolerationOpExists}}
 	if !predicate.Update(event.UpdateEvent{ObjectOld: consumer, ObjectNew: updated}) {
 		t.Fatal("consumer Pod toleration update was not accepted")
+	}
+	updated = consumer.DeepCopy()
+	updated.Spec.NodeName = "node-b"
+	if !predicate.Update(event.UpdateEvent{ObjectOld: consumer, ObjectNew: updated}) {
+		t.Fatal("consumer Pod node movement was not accepted")
 	}
 }
 

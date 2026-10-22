@@ -50,22 +50,23 @@ import (
 )
 
 const (
-	pvcEvictorImage          = "ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499"
-	pvcEvictorCacheDirectory = "kv/model-cache/models"
-	pvcEvictorMountPath      = "/mnt/kv-cache-evictor"
-	pvcEvictorTemplateName   = "pvc-evictor"
-	pvcEvictorNamePrefix     = "kserve-llm-isvc-kv-pvc-evictor"
-	pvcEvictorServiceAccount = pvcEvictorNamePrefix
-	pvcEvictorLabel          = "serving.kserve.io/pvc-evictor"
-	pvcEvictorKeyLabel       = "serving.kserve.io/pvc-evictor-key"
-	pvcEvictorConsumerPrefix = "serving.kserve.io/pvc-evictor-consumer-"
-	pvcEvictorPVCName        = "serving.kserve.io/pvc-name"
-	pvcEvictorPVCPath        = "serving.kserve.io/pvc-path"
-	pvcEvictorNodeAffinity   = "serving.kserve.io/pvc-node-affinity"
-	pvcEvictorSecurityHash   = "serving.kserve.io/pvc-security-context-hash"
-	pvcEvictorContainerHash  = "serving.kserve.io/pvc-evictor-container-hash"
-	pvcEvictorPVCIndex       = "serving.kserve.io/pvc-evictor-pvc"
-	pvcEvictorBaseRefsIndex  = "serving.kserve.io/pvc-evictor-base-ref"
+	pvcEvictorImage            = "ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499"
+	pvcEvictorCacheDirectory   = "kv/model-cache/models"
+	pvcEvictorMountPath        = "/mnt/kv-cache-evictor"
+	pvcEvictorTemplateName     = "pvc-evictor"
+	pvcEvictorNamePrefix       = "kserve-llm-isvc-kv-pvc-evictor"
+	pvcEvictorServiceAccount   = pvcEvictorNamePrefix
+	pvcEvictorLabel            = "serving.kserve.io/pvc-evictor"
+	pvcEvictorKeyLabel         = "serving.kserve.io/pvc-evictor-key"
+	pvcEvictorConsumerPrefix   = "serving.kserve.io/pvc-evictor-consumer-"
+	pvcEvictorPVCName          = "serving.kserve.io/pvc-name"
+	pvcEvictorPVCPath          = "serving.kserve.io/pvc-path"
+	pvcEvictorNodeAffinity     = "serving.kserve.io/pvc-node-affinity"
+	pvcEvictorConsumerNodeHash = "serving.kserve.io/pvc-consumer-node-hash"
+	pvcEvictorSecurityHash     = "serving.kserve.io/pvc-security-context-hash"
+	pvcEvictorContainerHash    = "serving.kserve.io/pvc-evictor-container-hash"
+	pvcEvictorPVCIndex         = "serving.kserve.io/pvc-evictor-pvc"
+	pvcEvictorBaseRefsIndex    = "serving.kserve.io/pvc-evictor-base-ref"
 )
 
 func pvcEvictorContainerSecurityContext() *corev1.SecurityContext {
@@ -455,7 +456,8 @@ func pvcEvictorConsumerPodPredicate() predicate.Predicate {
 			if !oldOK || !newOK {
 				return true
 			}
-			return !equality.Semantic.DeepEqual(oldPod.Spec.Tolerations, newPod.Spec.Tolerations)
+			return !equality.Semantic.DeepEqual(oldPod.Spec.Tolerations, newPod.Spec.Tolerations) ||
+				oldPod.Spec.NodeName != newPod.Spec.NodeName
 		},
 	}
 }
@@ -654,9 +656,10 @@ type pvcEvictorTarget struct {
 }
 
 type pvcEvictorTemplateAgreement struct {
-	agreed      bool
-	unresolved  bool
-	tolerations []corev1.Toleration
+	agreed           bool
+	unresolved       bool
+	tolerations      []corev1.Toleration
+	consumerNodeHash string
 }
 
 func (r *LLMISVCReconciler) finalizePVCEvictors(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) error {
@@ -714,6 +717,12 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 			)
 			if agreement, ok := agreements[identity]; ok && !agreement.unresolved {
 				deployment.Spec.Template.Spec.Tolerations = slices.Clone(agreement.tolerations)
+				if agreement.consumerNodeHash != "" {
+					if deployment.Spec.Template.Annotations == nil {
+						deployment.Spec.Template.Annotations = make(map[string]string)
+					}
+					deployment.Spec.Template.Annotations[pvcEvictorConsumerNodeHash] = agreement.consumerNodeHash
+				}
 			}
 		}
 	}
@@ -960,6 +969,7 @@ func (r *LLMISVCReconciler) desiredPVCEvictorTemplateAgreements(ctx context.Cont
 	}
 	hashesByIdentity := make(map[string]map[templateHashes]struct{})
 	tolerationsByIdentity := make(map[string][]corev1.Toleration)
+	nodesByIdentity := make(map[string][]string)
 	referencesByIdentity := make(map[string]struct {
 		claimName string
 		subPath   string
@@ -1013,14 +1023,18 @@ func (r *LLMISVCReconciler) desiredPVCEvictorTemplateAgreements(ctx context.Cont
 			tolerationsByIdentity[identity] = mergePVCEvictorTolerations(
 				tolerationsByIdentity[identity], pods.Items[i].Spec.Tolerations...,
 			)
+			if nodeName := pods.Items[i].Spec.NodeName; nodeName != "" && !slices.Contains(nodesByIdentity[identity], nodeName) {
+				nodesByIdentity[identity] = append(nodesByIdentity[identity], nodeName)
+			}
 		}
 	}
 	agreements := make(map[string]pvcEvictorTemplateAgreement, len(hashesByIdentity))
 	for identity, hashes := range hashesByIdentity {
 		agreements[identity] = pvcEvictorTemplateAgreement{
-			agreed:      len(hashes) == 1,
-			unresolved:  unresolved,
-			tolerations: slices.Clone(tolerationsByIdentity[identity]),
+			agreed:           len(hashes) == 1,
+			unresolved:       unresolved,
+			tolerations:      slices.Clone(tolerationsByIdentity[identity]),
+			consumerNodeHash: pvcEvictorConsumerNodeHashValue(nodesByIdentity[identity]),
 		}
 	}
 	return agreements, nil
@@ -1377,6 +1391,21 @@ func mergePVCEvictorTolerations(existing []corev1.Toleration, additions ...corev
 func pvcEvictorTolerationSortKey(toleration corev1.Toleration) string {
 	data, _ := json.Marshal(toleration)
 	return string(data)
+}
+
+func pvcEvictorConsumerNodeHashValue(nodes []string) string {
+	if len(nodes) == 0 {
+		return ""
+	}
+	sortedNodes := slices.Clone(nodes)
+	slices.Sort(sortedNodes)
+	sortedNodes = slices.Compact(sortedNodes)
+	data, err := json.Marshal(sortedNodes)
+	if err != nil {
+		return ""
+	}
+	hash := sha256.Sum256(data)
+	return hex.EncodeToString(hash[:])
 }
 
 func workloadPVCEvictorSecurityContext(workload *v1alpha2.WorkloadSpec) *corev1.PodSecurityContext {
