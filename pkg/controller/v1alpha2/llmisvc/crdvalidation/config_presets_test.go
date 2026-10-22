@@ -97,7 +97,6 @@ var _ = Describe("LLMInferenceServiceConfig CRD", func() {
 		Expect(envTest.Client.Create(ctx, probe)).To(Succeed(),
 			"CRD schema rejected Go template in requestHeaderModifier - embedded type validation not stripped")
 	})
-
 })
 
 func mustParseURL() apis.URL {

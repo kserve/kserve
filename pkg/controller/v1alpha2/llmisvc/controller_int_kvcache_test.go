@@ -33,6 +33,7 @@ import (
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
@@ -432,6 +433,17 @@ var _ = Describe("LLMInferenceService Controller - KV Cache secondary tiers", fu
 			Expect(findContainer(mainDeployment, "pvc-evictor")).To(BeNil())
 
 			testNs.DeleteAndWait(ctx, llmSvc)
+			Eventually(func(g Gomega, ctx context.Context) error {
+				deleting := &appsv1.Deployment{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(&deployment), deleting); err != nil {
+					return err
+				}
+				if deleting.DeletionTimestamp.IsZero() {
+					return errors.New("shared evictor Deployment is not deleting")
+				}
+				controllerutil.RemoveFinalizer(deleting, metav1.FinalizerDeleteDependents)
+				return envTest.Update(ctx, deleting)
+			}).WithContext(ctx).Should(Succeed())
 			Eventually(func(g Gomega, ctx context.Context) {
 				g.Expect(envTest.List(ctx, deployments,
 					client.InNamespace(testNs.Name),
