@@ -180,37 +180,14 @@ def parse_semver(ver_str):
     return (major, minor, patch)
 
 
-def find_best_chart_version(versions, requested_app_version, existing_version=None):
-    """Select a chart without silently downgrading an existing release line."""
+def find_best_chart_version(versions, requested_app_version):
     valid = [v for v in versions if v.get("app_version") and v["app_version"] != "-"]
     if not valid:
-        return existing_version or versions[0]["version"]
+        return versions[0]["version"]
 
     for v in valid:
         if v["app_version"].lstrip("v") == requested_app_version:
             return v["version"]
-
-    # Helm indexes can lag the module version. Keep the existing release-line
-    # pin instead of selecting an older patch or a release candidate.
-    if existing_version:
-        try:
-            requested_major, requested_minor, _ = parse_semver(requested_app_version)
-            existing_major, existing_minor, _ = parse_semver(existing_version)
-            if (requested_major, requested_minor) == (existing_major, existing_minor):
-                print(
-                    f"⚠️  No exact chart for requested {requested_app_version}; "
-                    f"keeping existing {existing_version}"
-                )
-                return existing_version
-        except Exception:
-            pass
-
-    # Do not choose a prerelease over a stable chart when falling back to the
-    # closest available version.
-    stable = [
-        v for v in valid if "-" not in v["version"] and "-" not in v["app_version"]
-    ]
-    candidates = stable or valid
 
     try:
         target_major, target_minor, target_patch = parse_semver(requested_app_version)
@@ -224,7 +201,7 @@ def find_best_chart_version(versions, requested_app_version, existing_version=No
             except Exception:
                 return float("inf")
 
-        closest = min(candidates, key=version_distance)
+        closest = min(valid, key=version_distance)
         print(
             f"⚠️  Using {closest['version']} (app: {closest['app_version']}) for requested {requested_app_version}"
         )
@@ -288,11 +265,7 @@ def main():
 
         if helm_repo and helm_chart:
             helm_versions = get_helm_versions(helm_repo, helm_chart)
-            chart_version = find_best_chart_version(
-                helm_versions,
-                app_version,
-                existing_version=existing_versions.get(var_name),
-            )
+            chart_version = find_best_chart_version(helm_versions, app_version)
             versions[var_name] = chart_version
         else:
             raw_version = f"v{app_version}"
