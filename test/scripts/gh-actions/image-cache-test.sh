@@ -183,6 +183,8 @@ edit "LICENSE" "${GO}" 'echo x >>LICENSE'
 # kernelcache/ is in the root context, mcv.Dockerfile with it.
 edit "kernelcache/" "${GO}" 'echo x >kernelcache/new-file.txt'
 edit "root Dockerfile" "router" 'echo "# x" >>router.Dockerfile'
+# Its BuildKit and build setup produce what gets published.
+edit "publish workflow" "${GO} ${PYTHON}" 'echo "# x" >>.github/workflows/e2e-image-cache.yml'
 edit "outside every context" "" \
   'for d in test/e2e charts config hack docs install; do mkdir -p "${d}"; echo x >"${d}/new-file.txt"; done'
 edit "dockerignored python tests" "" 'echo x >python/kserve/test/new_test.py'
@@ -287,7 +289,8 @@ pins_check() {
 }
 # The real publish path, docker stubbed for the push builds only; each push
 # reports a digest made from its tag, as buildx would in --metadata-file.
-: >"${WORK}/subjects"
+# A line left from an earlier run must not be attested again.
+echo "0000  example.invalid/cache:stale" >"${WORK}/subjects"
 pins_check "publish pins every keyed base" "$(bash -c '
   set -o errexit -o nounset -o pipefail
   source "$1/'"${LIB}"'"
@@ -346,17 +349,25 @@ pins_check "PR builds pin every keyed base under IFS=," "$(bash -c '
 # digest, from the publish workflow on master. gh is stubbed: it records its
 # arguments and answers with the subjects in SUBJECTS ("<name> <digest>"
 # lines), signed by the certificate of master's publish job for owner/repo
-# with the fields in CERT (a JSON object) changed.
+# with the fields in CERT (a JSON object) changed. The first GH_5XX calls fail
+# the way the attestations API does when it is down; gh.calls counts calls.
 verified() {
-  SUBJECTS="$1" GH_RC="${2:-0}" SIGNER="${3-owner/repo}" CERT="${4:-{\}}" bash -c '
+  rm -f "${WORK}/gh.calls"
+  SUBJECTS="$1" GH_RC="${2:-0}" SIGNER="${3-owner/repo}" CERT="${4:-{\}}" GH_5XX="${GH_5XX:-0}" bash -c '
     set -o errexit -o nounset -o pipefail
     source "$1/'"${LIB}"'"
     args_file="$2"
     # timeout runs a program, not a function; let it reach the gh stub.
     timeout() { while [[ "$1" == -* ]]; do shift 2; done; shift; "$@"; }
+    sleep() { :; }
     _image_digest() { REPLY="sha256:aaaa"; }
     gh() {
       printf "%s\n" "$@" >"${args_file}"
+      echo x >>"${args_file%/*}/gh.calls"
+      if (($(wc -l <"${args_file%/*}/gh.calls") <= GH_5XX)); then
+        echo "HTTP 502: Server Error (https://api.github.com/repos/owner/repo/attestations/sha256:aaaa)" >&2
+        return 1
+      fi
       ((GH_RC == 0)) || return "${GH_RC}"
       jq -Rn --argjson cert "${CERT}" "
         {subjectAlternativeName: \"https://github.com/owner/repo/.github/workflows/e2e-image-cache.yml@refs/heads/master\",
@@ -383,6 +394,13 @@ attested "attested tag, other digest (re-tag)" unverified "example.invalid/cache
 example.invalid/cache:agent-k aaaa"
 attested "attested digest, other tag" unverified "example.invalid/cache:agent-k aaaa"
 attested "verification fails" unverified "${ok_subject}" 1
+if [[ "$(wc -l <"${WORK}/gh.calls")" == 1 ]]; then
+  pass "a failed verification is not retried"
+else
+  fail "a failed verification is not retried: $(wc -l <"${WORK}/gh.calls") calls"
+fi
+GH_5XX=1 attested "attestations API fails once with 5xx" "verified example.invalid/cache@sha256:aaaa" "${ok_subject}"
+GH_5XX=2 attested "attestations API keeps failing with 5xx" unverified "${ok_subject}"
 attested "no signer repository" unverified "${ok_subject}" 0 ""
 # The certificate is checked here too, not only by gh, whose matching has
 # changed between releases (case-insensitive refs, prefix workflow paths).
@@ -402,7 +420,7 @@ args=" $(tr '\n' ' ' <"${WORK}/gh.args") "
 missing=""
 for want in "oci://example.invalid/cache@sha256:aaaa" "--repo owner/repo" \
   "--signer-workflow owner/repo/.github/workflows/e2e-image-cache.yml@refs/heads/master" \
-  "--source-ref refs/heads/master" "--deny-self-hosted-runners"; do
+  "--source-ref refs/heads/master" "--deny-self-hosted-runners" "--limit 100"; do
   [[ "${args}" == *" ${want} "* ]] || missing+=" [${want}]"
 done
 if [[ -z "${missing}" ]]; then
@@ -463,6 +481,37 @@ if [[ "${built}" == "${specs}" ]] && ! grep -q 'docker buildx build' "${scripts[
   pass "build scripts and specs agree"
 else
   fail "build scripts and specs disagree: built [${built}] specs [${specs}], raw builds: $(grep -c 'docker buildx build' "${scripts[@]}" | xargs)"
+fi
+
+# A workflow that reads the cache runs PR code with its token, so the token is
+# read-only. In the publisher only publish signs, and only publish and prune
+# write packages. Prints "<job> <scope> <level>", (workflow) for the top level.
+permissions_of() {
+  yq e '
+    [{"job": "(workflow)", "p": .permissions}] + [.jobs | to_entries[] | {"job": .key, "p": .value.permissions}]
+    | .[] | select(.p != null) | .job as $job
+    | (select(.p | tag == "!!map") | .p | to_entries[] | $job + " " + .key + " " + .value),
+      (select(.p | tag != "!!map") | $job + " (all) " + .p)' "$1"
+}
+publisher_writes="prune packages
+publish attestations
+publish id-token
+publish packages"
+bad=""
+for wf in "${PROJECT_ROOT}"/.github/workflows/*.y*ml; do
+  grep -q 'E2E_IMAGE_CACHE:' "${wf}" || continue
+  perms="$(permissions_of "${wf}")"
+  writes="$(awk '$3 != "read" && $3 != "none" {print $1, $2}' <<<"${perms}" | sort)"
+  want=""
+  [[ "${wf##*/}" != e2e-image-cache.yml ]] || want="${publisher_writes}"
+  if ! grep -q '^(workflow) ' <<<"${perms}" || [[ "${writes}" != "${want}" ]]; then
+    bad+=" ${wf##*/}: [$(xargs <<<"${writes}")]"
+  fi
+done
+if [[ -z "${bad}" ]]; then
+  pass "workflows reading the cache hold read-only tokens"
+else
+  fail "workflows reading the cache hold write tokens or no permissions block:${bad}"
 fi
 
 echo "${failures} failed"

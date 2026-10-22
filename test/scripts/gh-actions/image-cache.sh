@@ -18,10 +18,11 @@
 #
 # An image's key covers everything its build can read: the Dockerfile, the
 # build target, the build context as BuildKit sees it after .dockerignore, the
-# digests of the base images, the daemon platform and this script. When master
-# has published and attested an image under the same key, build_image pulls it
-# instead of building. Anything that cannot be keyed or verified is built as
-# before.
+# digests of the base images, the daemon platform, this script and the publish
+# workflow. When master has published and attested an image under the same key,
+# build_image pulls it instead of building. Anything that cannot be keyed or
+# verified is built as before. Editing this script or the workflow rekeys every
+# image, which is also how to drop the whole cache at once.
 #
 # Who can push a tag doesn't matter: a hit needs a provenance attestation that
 # the publish job in .github/workflows/e2e-image-cache.yml signed on master for
@@ -44,6 +45,8 @@
 
 _IMAGE_CACHE_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 _IMAGE_CACHE_ROOT="$(cd "$(dirname "${_IMAGE_CACHE_LIB}")/../../.." && pwd)"
+# Its BuildKit and build setup produce the published images.
+_IMAGE_CACHE_PUBLISHER=.github/workflows/e2e-image-cache.yml
 
 # Image name -> "<dockerfile> <context> [target]", relative to the repo root.
 # Names match the cache tags, not the kserve-images.sh variables, so that
@@ -338,7 +341,7 @@ _base_digests() {
 # image and logs the inputs, so a surprising miss can be diffed against the
 # publisher's log. Both are empty when the image cannot be keyed.
 image_key() {
-  local name=$1 platform hash context_hash dockerfile_hash script_hash bases manifest
+  local name=$1 platform hash context_hash dockerfile_hash script_hash publisher_hash bases manifest
   IMAGE_KEY=""
   IMAGE_BASES=""
   image_spec "${name}" || return 1
@@ -352,12 +355,15 @@ image_key() {
   dockerfile_hash="${hash%% *}"
   hash="$(sha256sum <"${_IMAGE_CACHE_LIB}")" || return 1
   script_hash="${hash%% *}"
+  hash="$(sha256sum <"${_IMAGE_CACHE_ROOT}/${_IMAGE_CACHE_PUBLISHER}")" || return 1
+  publisher_hash="${hash%% *}"
   _context_hash "${IMAGE_CONTEXT}" || return 1
   context_hash="${REPLY}"
   _base_digests "${IMAGE_DOCKERFILE}" "${IMAGE_TARGET}" || return 1
   bases="${REPLY}"
 
   manifest="script ${script_hash}
+publisher ${publisher_hash}
 platform ${platform}
 dockerfile ${IMAGE_DOCKERFILE} ${dockerfile_hash}
 target ${IMAGE_TARGET:--}
@@ -390,19 +396,40 @@ _image_published() {
 # only that job can attest one. Use the returned reference, not the tag, so a
 # tag moved after the check is not what gets pulled. Errors go to $2.
 _image_verified() {
-  local ref=$1 signer="${E2E_IMAGE_CACHE_SIGNER:-${GITHUB_REPOSITORY:-}}" digest pinned workflow
+  local ref=$1 signer="${E2E_IMAGE_CACHE_SIGNER:-${GITHUB_REPOSITORY:-}}" digest pinned workflow errors rc=1
   [[ -n "${signer}" ]] || return 1
   _image_digest "${ref}" || return 1
   digest="${REPLY}"
   pinned="${ref%:*}@${digest}"
-  workflow="${signer}/.github/workflows/e2e-image-cache.yml@refs/heads/master"
-  # gh enforces the identity, but how strictly (case, anchoring) has changed
-  # between releases, so the certificate is checked again here: the publish
-  # workflow on master, on a GitHub-hosted runner, from one of its own
-  # triggers, and a subject of exactly this tag and digest.
+  workflow="${signer}/${_IMAGE_CACHE_PUBLISHER}@refs/heads/master"
+  errors="$(mktemp)" || return 1
+  # The attestations API answers 5xx now and then; a retry is cheaper than the
+  # build a miss costs.
+  for _ in 1 2; do
+    if _attested "${pinned}" "${ref}" "${signer}" "${workflow}" 2>"${errors}"; then
+      rc=0
+      break
+    fi
+    grep -q 'HTTP 5[0-9][0-9]' "${errors}" || break
+    sleep 5
+  done
+  cat "${errors}" >>"${2:-/dev/null}"
+  rm -f "${errors}"
+  ((rc == 0)) || return 1
+  REPLY="${pinned}"
+}
+
+# gh enforces the identity, but how strictly (case, anchoring) has changed
+# between releases, so the certificate is checked again here: the publish
+# workflow on master, on a GitHub-hosted runner, from one of its own triggers,
+# and a subject of exactly this tag and digest. Anyone with a write token can
+# attest a digest too; the limit keeps their attestations from crowding out
+# the publisher's.
+_attested() {
+  local pinned=$1 ref=$2 signer=$3 workflow=$4
   timeout -k 10 120 gh attestation verify "oci://${pinned}" --repo "${signer}" --signer-workflow "${workflow}" \
-    --source-ref refs/heads/master --deny-self-hosted-runners --format json 2>"${2:-/dev/null}" |
-    jq -e --arg name "${ref}" --arg digest "${digest#sha256:}" \
+    --source-ref refs/heads/master --deny-self-hosted-runners --limit 100 --format json |
+    jq -e --arg name "${ref}" --arg digest "${pinned##*@sha256:}" \
       --arg san "https://github.com/${workflow}" --arg repo "https://github.com/${signer}" '
       any(.[].verificationResult
         | select(.signature.certificate as $c
@@ -410,8 +437,7 @@ _image_verified() {
             and $c.sourceRepositoryURI == $repo and $c.runnerEnvironment == "github-hosted"
             and ($c.githubWorkflowTrigger | IN("push", "schedule", "workflow_dispatch")))
         | .statement.subject[];
-        .name == $name and .digest.sha256 == $digest)' >/dev/null || return 1
-  REPLY="${pinned}"
+        .name == $name and .digest.sha256 == $digest)' >/dev/null
 }
 
 # Writes image <ref> as a docker archive to <dest>. Pulls it from
@@ -527,13 +553,15 @@ _publish_one() {
 
 # Builds and pushes the given images that are not attested yet, up to
 # IMAGE_CACHE_JOBS (default 4) at a time in one builder, then checks each is
-# readable without credentials. Appends "<digest>  <tag>" per pushed image to
-# E2E_IMAGE_CACHE_SUBJECTS for the workflow to attest. Output streams live,
-# prefixed per image.
+# readable without credentials. Lists "<digest>  <tag>" per pushed image in
+# E2E_IMAGE_CACHE_SUBJECTS for the workflow to attest, and nothing else: the
+# workflow attests whatever the file holds. Output streams live, prefixed per
+# image.
 image_cache_publish() {
   local name failed=0 status
   local -a keyed=()
   local -A keys=() key_bases=()
+  [[ -z "${E2E_IMAGE_CACHE_SUBJECTS:-}" ]] || : >"${E2E_IMAGE_CACHE_SUBJECTS}"
   # Keys first, in this shell: they memoize, the builds run in subshells. An
   # image that cannot be keyed fails the job without holding up the others.
   for name in "$@"; do
