@@ -79,14 +79,21 @@ func (m *PodMutator) injectMCVSidecar(ctx context.Context, pod *corev1.Pod, cfg 
 	if !known {
 		return nil
 	}
-	capture, err := captureForSidecar(ctx, reader, pod.Namespace, workload, revisionID)
+	capture, err := kernelcacheutil.ResolveCaptureOverride(ctx, reader, pod.Namespace, pod.Annotations, workload.Name)
 	if err != nil {
 		return err
+	}
+	if capture == nil {
+		capture, err = captureForSidecar(ctx, reader, pod.Namespace, workload, revisionID)
+		if err != nil {
+			return err
+		}
 	}
 	if skipSidecarForTerminalCapture(capture) {
 		return nil
 	}
 	if capture != nil {
+		captureName = capture.Name
 		if len(capture.Spec.CachePaths) > 0 {
 			updatedConfig.CachePaths = append([]v1alpha1.KernelCachePath(nil), capture.Spec.CachePaths...)
 		}
