@@ -166,7 +166,11 @@ def _assert_on_disaggregated_set(kserve_client, llm_isvc):
     role_names = sorted(r["name"] for r in ds["spec"]["roles"])
     assert role_names == sorted(ROLES), f"DisaggregatedSet roles: {role_names}"
     wait_for_pd_deployments(name, ns, exist=False)
-    assert_status_workloads_reference_ds(kserve_client, llm_isvc)
+    wait_for(
+        lambda: assert_status_workloads_reference_ds(kserve_client, llm_isvc),
+        timeout=120,
+        interval=2.0,
+    )
     return ds
 
 
