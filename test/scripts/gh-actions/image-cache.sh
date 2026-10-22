@@ -51,6 +51,10 @@ _IMAGE_CACHE_PUBLISHER=.github/workflows/e2e-image-cache.yml
 # Image name -> "<dockerfile> <context> [target]", relative to the repo root.
 # Names match the cache tags, not the kserve-images.sh variables, so that
 # overriding an image name locally cannot point at another image's cache.
+#
+# A new e2e image needs a line here and a build_image call in build-images.sh
+# or build-server-runtimes.sh; image-cache-test.sh fails when the two disagree.
+# The publisher, its job groups and pruning all read this table.
 declare -gA IMAGE_SPECS=(
   [kserve-controller]="Dockerfile ."
   [kserve-localmodel-controller]="localmodel.Dockerfile ."
@@ -85,7 +89,7 @@ image_spec() {
   local IFS=$' \t\n'
   local spec="${IMAGE_SPECS[$1]:-}"
   if [[ -z "${spec}" ]]; then
-    echo "image-cache: unknown image $1" >&2
+    echo "image-cache: unknown image $1, add it to IMAGE_SPECS in ${_IMAGE_CACHE_LIB#"${_IMAGE_CACHE_ROOT}"/}" >&2
     return 1
   fi
   read -r IMAGE_DOCKERFILE IMAGE_CONTEXT IMAGE_TARGET <<<"${spec}"

@@ -35,6 +35,9 @@ on:
       - ".github/workflows/e2e-image-cache.yml"
       - "test/scripts/gh-actions/image-cache.sh"
       - "test/scripts/gh-actions/image-cache-test.sh"
+      # Every image they build needs a spec in image-cache.sh.
+      - "test/scripts/gh-actions/build-images.sh"
+      - "test/scripts/gh-actions/build-server-runtimes.sh"
       - "**/.dockerignore"
       # A Dockerfile edit the key cannot read would otherwise just turn the
       # cache off for that image.
