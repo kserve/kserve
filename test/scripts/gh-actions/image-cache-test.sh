@@ -285,26 +285,49 @@ pins_check() {
     diff <(echo "${expected}") <(echo "${got}") || true
   fi
 }
-# The real publish path, docker stubbed for the push builds only.
+# The real publish path, docker stubbed for the push builds only; each push
+# reports a digest made from its tag, as buildx would in --metadata-file.
+: >"${WORK}/subjects"
 pins_check "publish pins every keyed base" "$(bash -c '
   set -o errexit -o nounset -o pipefail
   source "$1/'"${LIB}"'"
   _base_digest() { REPLY="sha256:stub-$1"; }
-  _image_published() { return 1; }
+  _image_verified() { return 1; }
   _image_public() { return 0; }
   docker() {
-    local IFS=" "
+    local IFS=" " meta="" tag="" prev=""
     if [[ " $* " != *" --push "* ]]; then command docker "$@"; return; fi
+    for arg in "$@"; do
+      [[ "${prev}" != --metadata-file ]] || meta="${arg}"
+      [[ "${prev}" != -t ]] || tag="${arg}"
+      prev="${arg}"
+    done
+    printf "{\"containerimage.digest\": \"sha256:%s\"}" "$(sha256sum <<<"${tag}" | cut -d" " -f1)" >"${meta}"
     '"${pin_args}"'
   }
   mapfile -t names < <(_image_names)
-  E2E_IMAGE_CACHE=example.invalid/cache image_cache_publish "${names[@]}" 2>/dev/null
-' _ "${WORK}/baseline")"
+  E2E_IMAGE_CACHE=example.invalid/cache E2E_IMAGE_CACHE_SUBJECTS="$2" image_cache_publish "${names[@]}" 2>/dev/null
+' _ "${WORK}/baseline" "${WORK}/subjects")"
+# Every pushed image is listed for the attestation step, under its exact tag
+# and the digest the push reported.
+expected="$(while read -r name key; do
+  tag="example.invalid/cache:${name}-${key}"
+  echo "$(sha256sum <<<"${tag}" | cut -d" " -f1)  ${tag}"
+done <<<"${BASELINE}" | sort)"
+if [[ "$(sort "${WORK}/subjects")" == "${expected}" ]]; then
+  pass "publish lists every pushed image for attestation"
+else
+  fail "publish lists every pushed image for attestation:"
+  diff <(echo "${expected}") <(sort "${WORK}/subjects") || true
+fi
+expected="$(awk '$3 == "base" {print $1, $2, "docker-image://" $2 "@sha256:stub-" $2}
+  $3 == "syntax" {print $1, "BUILDKIT_SYNTAX", $2 "@sha256:stub-" $2}' <<<"${BASES}" | sort -u)"
 # The PR-side build path, under the IFS=, that build-server-runtimes.sh sets.
 pins_check "PR builds pin every keyed base under IFS=," "$(bash -c '
   set -o errexit -o nounset -o pipefail
   source "$1/'"${LIB}"'"
   _base_digest() { REPLY="sha256:stub-$1"; }
+  _image_verified() { return 1; }
   _image_published() { return 1; }
   # build_image keeps the image in its local "name".
   docker() {
@@ -318,6 +341,118 @@ pins_check "PR builds pin every keyed base under IFS=," "$(bash -c '
     E2E_IMAGE_CACHE=example.invalid/cache build_image "${name}" "test/${name}:t" /dev/null 2>/dev/null
   done
 ' _ "${WORK}/baseline")"
+
+# A cached image is used only with an attestation for exactly its tag and
+# digest, from the publish workflow on master. gh is stubbed: it records its
+# arguments and answers with the subjects in SUBJECTS ("<name> <digest>"
+# lines), signed by the certificate of master's publish job for owner/repo
+# with the fields in CERT (a JSON object) changed.
+verified() {
+  SUBJECTS="$1" GH_RC="${2:-0}" SIGNER="${3-owner/repo}" CERT="${4:-{\}}" bash -c '
+    set -o errexit -o nounset -o pipefail
+    source "$1/'"${LIB}"'"
+    args_file="$2"
+    # timeout runs a program, not a function; let it reach the gh stub.
+    timeout() { while [[ "$1" == -* ]]; do shift 2; done; shift; "$@"; }
+    _image_digest() { REPLY="sha256:aaaa"; }
+    gh() {
+      printf "%s\n" "$@" >"${args_file}"
+      ((GH_RC == 0)) || return "${GH_RC}"
+      jq -Rn --argjson cert "${CERT}" "
+        {subjectAlternativeName: \"https://github.com/owner/repo/.github/workflows/e2e-image-cache.yml@refs/heads/master\",
+         sourceRepositoryRef: \"refs/heads/master\", sourceRepositoryURI: \"https://github.com/owner/repo\",
+         runnerEnvironment: \"github-hosted\", githubWorkflowTrigger: \"push\"} + \$cert as \$c
+        | [{verificationResult: {signature: {certificate: \$c},
+            statement: {subject: [inputs | select(length > 0) | split(\" \") | {name: .[0], digest: {sha256: .[1]}}]}}}]" <<<"${SUBJECTS}"
+    }
+    if E2E_IMAGE_CACHE_SIGNER="${SIGNER}" GITHUB_REPOSITORY= _image_verified example.invalid/cache:router-k; then
+      echo "verified ${REPLY}"
+    else
+      echo unverified
+    fi
+  ' _ "${WORK}/baseline" "${WORK}/gh.args"
+}
+attested() {
+  local got
+  got="$(verified "${@:3}")"
+  if [[ "${got}" == "$2" ]]; then pass "$1"; else fail "$1: expected [$2] got [${got}]"; fi
+}
+ok_subject="example.invalid/cache:router-k aaaa"
+attested "attested tag and digest" "verified example.invalid/cache@sha256:aaaa" "${ok_subject}"
+attested "attested tag, other digest (re-tag)" unverified "example.invalid/cache:router-k bbbb
+example.invalid/cache:agent-k aaaa"
+attested "attested digest, other tag" unverified "example.invalid/cache:agent-k aaaa"
+attested "verification fails" unverified "${ok_subject}" 1
+attested "no signer repository" unverified "${ok_subject}" 0 ""
+# The certificate is checked here too, not only by gh, whose matching has
+# changed between releases (case-insensitive refs, prefix workflow paths).
+attested "signed from a MASTER branch" unverified "${ok_subject}" 0 owner/repo \
+  '{"sourceRepositoryRef": "refs/heads/MASTER", "subjectAlternativeName": "https://github.com/owner/repo/.github/workflows/e2e-image-cache.yml@refs/heads/MASTER"}'
+attested "signed by another workflow" unverified "${ok_subject}" 0 owner/repo \
+  '{"subjectAlternativeName": "https://github.com/owner/repo/.github/workflows/e2e-image-cache.yml.evil@refs/heads/master"}'
+attested "signed by another repository" unverified "${ok_subject}" 0 owner/repo \
+  '{"sourceRepositoryURI": "https://github.com/owner/other"}'
+attested "signed on a self-hosted runner" unverified "${ok_subject}" 0 owner/repo '{"runnerEnvironment": "self-hosted"}'
+attested "signed from pull_request_target" unverified "${ok_subject}" 0 owner/repo \
+  '{"githubWorkflowTrigger": "pull_request_target"}'
+attested "signed from a schedule" "verified example.invalid/cache@sha256:aaaa" "${ok_subject}" 0 owner/repo \
+  '{"githubWorkflowTrigger": "schedule"}'
+verified "${ok_subject}" >/dev/null
+args=" $(tr '\n' ' ' <"${WORK}/gh.args") "
+missing=""
+for want in "oci://example.invalid/cache@sha256:aaaa" "--repo owner/repo" \
+  "--signer-workflow owner/repo/.github/workflows/e2e-image-cache.yml@refs/heads/master" \
+  "--source-ref refs/heads/master" "--deny-self-hosted-runners"; do
+  [[ "${args}" == *" ${want} "* ]] || missing+=" [${want}]"
+done
+if [[ -z "${missing}" ]]; then
+  pass "verifies by digest, signer workflow and master"
+else
+  fail "verifies by digest, signer workflow and master: missing${missing}"
+fi
+
+# Only a verified tag is pulled, by digest; a published one without its
+# attestation builds. In publish it is pushed over and listed for attestation.
+source_of() {
+  VERIFIED="$1" bash -c '
+    set -o errexit -o nounset -o pipefail
+    source "$1/'"${LIB}"'"
+    _base_digest() { REPLY="sha256:stub-$1"; }
+    _image_verified() { [[ "${VERIFIED}" == yes ]] && REPLY="example.invalid/cache@sha256:aaaa"; }
+    _image_published() { return 0; }
+    timeout() { while [[ "$1" == -* ]]; do shift 2; done; shift; "$@"; }
+    docker() {
+      local IFS=" "
+      if [[ " $* " != *" type=docker,dest="* ]]; then command docker "$@"; return; fi
+      # The pull reads its Dockerfile from stdin; it must name the digest.
+      if [[ " $* " == *" - "* ]]; then [[ "$(cat)" == "FROM example.invalid/cache@sha256:aaaa" ]]; fi
+    }
+    E2E_IMAGE_CACHE=example.invalid/cache build_image router test/router:t /dev/null 2>/dev/null | awk "{print \$4}"
+  ' _ "${WORK}/baseline"
+}
+if [[ "$(source_of yes)" == cache ]]; then pass "verified tag is pulled by digest"; else fail "verified tag is pulled by digest"; fi
+if [[ "$(source_of no)" == build ]]; then pass "unattested tag is built"; else fail "unattested tag is built"; fi
+republished="$(bash -c '
+  set -o errexit -o nounset -o pipefail
+  source "$1/'"${LIB}"'"
+  _base_digest() { REPLY="sha256:stub-$1"; }
+  _image_verified() { return 1; }
+  _image_published() { return 0; }
+  _image_public() { return 0; }
+  docker() {
+    local IFS=" " prev="" meta=""
+    if [[ " $* " != *" --push "* ]]; then command docker "$@"; return; fi
+    for arg in "$@"; do [[ "${prev}" != --metadata-file ]] || meta="${arg}"; prev="${arg}"; done
+    echo "{\"containerimage.digest\": \"sha256:cccc\"}" >"${meta}"
+    echo pushed
+  }
+  E2E_IMAGE_CACHE=example.invalid/cache E2E_IMAGE_CACHE_SUBJECTS="$2" image_cache_publish router 2>/dev/null
+' _ "${WORK}/baseline" "${WORK}/republished")"
+if grep -q "pushed" <<<"${republished}" && grep -q "^cccc  example.invalid/cache:router-" "${WORK}/republished"; then
+  pass "publish pushes over an unattested tag and attests it"
+else
+  fail "publish pushes over an unattested tag and attests it"
+fi
 
 # The specs and the build scripts agree: every image built has a spec, every
 # spec is built, and nothing bypasses build_image (it would never be cached).

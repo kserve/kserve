@@ -4,13 +4,15 @@ name: E2E Image Cache
 # whose image inputs match master pull them instead of rebuilding them. The key
 # covers everything a build can read; see test/scripts/gh-actions/image-cache.sh.
 #
-# Why packages: write is safe here: only the publish and prune jobs hold it,
-# and they run only for master (push, the daily refresh, or a dispatch on
-# master). e2e runs, including forks and same-repo PR branches, read the cache
-# anonymously and never write to it. Since the tag is the key of the inputs, a PR can only
-# receive an image master built from the same inputs; anything else misses and
-# builds as before. RUN steps that fetch from the network (apt, pip indexes)
-# are not part of the key, the same trade-off as any layer cache.
+# Integrity doesn't rest on who can push: any workflow token with packages:
+# write can push a tag to this package. e2e runs only use an image when the
+# publish job below, running on master, attested that exact tag and digest; a
+# tag pushed or re-tagged by anyone else misses and builds as before, and the
+# next publish pushes over it. RUN steps that fetch from the network (apt, pip
+# indexes) are not part of the key, the same trade-off as any layer cache.
+#
+# Never add pull_request_target, workflow_run or workflow_call triggers here:
+# they run with refs/heads/master and would sign as this publisher.
 #
 # GHCR expires nothing, so the daily run prunes versions that no current key
 # uses once they are a week old.
@@ -60,6 +62,9 @@ jobs:
   plan:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      attestations: read
     outputs:
       groups: ${{ steps.plan.outputs.groups }}
     steps:
@@ -73,11 +78,13 @@ jobs:
         with:
           cache-binary: true
 
-      # Plans without credentials, the way e2e runs read the cache: a private
-      # package shows up as missing and its publish job fails on the check.
+      # Plans the way e2e runs read the cache, without registry credentials: a
+      # private package or a tag without its attestation shows up as missing.
       # On pull requests nothing publishes; it runs to show every image keys.
-      - name: Find images e2e runs cannot read yet
+      - name: Find images e2e runs cannot use yet
         id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           groups="$(./test/scripts/gh-actions/image-cache.sh plan)"
           echo "Missing: ${groups}"
@@ -94,6 +101,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # Signing the provenance attestations e2e runs verify.
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -129,9 +139,18 @@ jobs:
       - name: Build and push
         env:
           IMAGES: ${{ matrix.images }}
+          GH_TOKEN: ${{ github.token }}
+          E2E_IMAGE_CACHE_SUBJECTS: ${{ github.workspace }}/.image-cache-subjects
         run: |
           read -r -a images <<<"${IMAGES}"
           ./test/scripts/gh-actions/image-cache.sh publish "${images[@]}"
+
+      # Also after a partial failure: every image that was pushed gets attested.
+      - name: Attest pushed images
+        if: always() && hashFiles('.image-cache-subjects') != ''
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: .image-cache-subjects
 
   prune:
     if: >-

@@ -19,20 +19,28 @@
 # An image's key covers everything its build can read: the Dockerfile, the
 # build target, the build context as BuildKit sees it after .dockerignore, the
 # digests of the base images, the daemon platform and this script. When master
-# has published an image under the same key, build_image pulls it instead of
-# building. Anything that cannot be keyed is built as before.
+# has published and attested an image under the same key, build_image pulls it
+# instead of building. Anything that cannot be keyed or verified is built as
+# before.
+#
+# Who can push a tag doesn't matter: a hit needs a provenance attestation that
+# the publish job in .github/workflows/e2e-image-cache.yml signed on master for
+# exactly that tag and digest (see _image_verified).
 #
 # Sourced by build-images.sh and build-server-runtimes.sh. The e2e-image-cache
 # workflow runs it directly to fill the cache from master:
 #
 #   image-cache.sh plan               publish jobs for the images e2e runs
-#                                     cannot read yet, as JSON
-#   image-cache.sh publish <image>... build and push images unless present
+#                                     cannot use yet, as JSON
+#   image-cache.sh publish <image>... build and push images unless attested
 #   image-cache.sh prune [days]       delete versions no current key uses, older
-#                                     than days (default 7); needs gh, GH_TOKEN
+#                                     than days (default 7)
 #
 # E2E_IMAGE_CACHE names the cache repository, e.g.
 # ghcr.io/kserve/kserve-e2e-images. When unset, build_image only builds.
+# Verifying attestations needs gh with a token (GH_TOKEN or GITHUB_TOKEN);
+# E2E_IMAGE_CACHE_SIGNER overrides the repository whose publish job must have
+# signed them, E2E_IMAGE_CACHE_SUBJECTS is where publish lists what to attest.
 
 _IMAGE_CACHE_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 _IMAGE_CACHE_ROOT="$(cd "$(dirname "${_IMAGE_CACHE_LIB}")/../../.." && pwd)"
@@ -362,28 +370,73 @@ ${bases}"
   printf 'image-cache: %s key %s\n%s' "${name}" "${IMAGE_KEY}" "${manifest}" | sed '2,$s/^/  /' >&2
 }
 
-# A stalled registry must not hang a build; a timeout reads as not published.
+# Sets REPLY to the digest a reference points to now. A stalled registry must
+# not hang a build; a timeout reads as not published.
+_image_digest() {
+  local digest
+  digest="$(timeout 60 docker buildx imagetools inspect --raw "$1" 2>/dev/null | sha256sum
+    exit "${PIPESTATUS[0]}")" || return 1
+  REPLY="sha256:${digest%% *}"
+}
+
 _image_published() {
-  timeout 60 docker buildx imagetools inspect --raw "$1" >/dev/null 2>&1
+  _image_digest "$1"
+}
+
+# Sets REPLY to <repository>@<digest> when the tag <ref> points to an image the
+# publish job of E2E_IMAGE_CACHE_SIGNER (owner/repo, default: the current
+# repository) attested on master under exactly that tag and digest. Anyone with
+# a write token can push a tag, including a re-tag of an older attested image;
+# only that job can attest one. Use the returned reference, not the tag, so a
+# tag moved after the check is not what gets pulled. Errors go to $2.
+_image_verified() {
+  local ref=$1 signer="${E2E_IMAGE_CACHE_SIGNER:-${GITHUB_REPOSITORY:-}}" digest pinned workflow
+  [[ -n "${signer}" ]] || return 1
+  _image_digest "${ref}" || return 1
+  digest="${REPLY}"
+  pinned="${ref%:*}@${digest}"
+  workflow="${signer}/.github/workflows/e2e-image-cache.yml@refs/heads/master"
+  # gh enforces the identity, but how strictly (case, anchoring) has changed
+  # between releases, so the certificate is checked again here: the publish
+  # workflow on master, on a GitHub-hosted runner, from one of its own
+  # triggers, and a subject of exactly this tag and digest.
+  timeout -k 10 120 gh attestation verify "oci://${pinned}" --repo "${signer}" --signer-workflow "${workflow}" \
+    --source-ref refs/heads/master --deny-self-hosted-runners --format json 2>"${2:-/dev/null}" |
+    jq -e --arg name "${ref}" --arg digest "${digest#sha256:}" \
+      --arg san "https://github.com/${workflow}" --arg repo "https://github.com/${signer}" '
+      any(.[].verificationResult
+        | select(.signature.certificate as $c
+          | $c.subjectAlternativeName == $san and $c.sourceRepositoryRef == "refs/heads/master"
+            and $c.sourceRepositoryURI == $repo and $c.runnerEnvironment == "github-hosted"
+            and ($c.githubWorkflowTrigger | IN("push", "schedule", "workflow_dispatch")))
+        | .statement.subject[];
+        .name == $name and .digest.sha256 == $digest)' >/dev/null || return 1
+  REPLY="${pinned}"
 }
 
 # Writes image <ref> as a docker archive to <dest>. Pulls it from
 # E2E_IMAGE_CACHE when master published the same key, otherwise builds it.
 build_image() {
   local name=$1 ref=$2 dest=$3
-  local start=${SECONDS} source=build key=- cached seconds
+  local start=${SECONDS} source=build key=- cached seconds errors=""
   IMAGE_BASES=""
   if [[ -n "${E2E_IMAGE_CACHE:-}" ]] && image_key "${name}"; then
     key="${IMAGE_KEY}"
     cached="${E2E_IMAGE_CACHE,,}:${name}-${key}"
-    if _image_published "${cached}"; then
-      if echo "FROM ${cached}" |
-        docker buildx build -t "${ref}" -o "type=docker,dest=${dest},compression-level=0" -; then
+    errors="$(mktemp 2>/dev/null)" || errors=""
+    if _image_verified "${cached}" "${errors:-/dev/null}"; then
+      # A stalled registry falls back to building rather than hanging the job.
+      if echo "FROM ${REPLY}" |
+        timeout -k 30 1200 docker buildx build -t "${ref}" -o "type=docker,dest=${dest},compression-level=0" -; then
         source=cache
       else
-        echo "image-cache: pulling ${cached} failed, building instead" >&2
+        echo "image-cache: pulling ${REPLY} failed, building instead" >&2
       fi
+    elif _image_published "${cached}"; then
+      echo "image-cache: ${cached} did not verify as the publisher's, building instead" >&2
+      [[ -z "${errors}" ]] || sed 's/^/image-cache:   /' "${errors}" >&2
     fi
+    [[ -z "${errors}" ]] || rm -f "${errors}"
   fi
 
   if [[ "${source}" == build ]]; then
@@ -434,7 +487,8 @@ image_cache_plan() {
   while IFS= read -r name; do
     # An image that cannot be keyed here (e.g. a rate-limited base lookup) is
     # left to its publish job, which retries and fails loudly.
-    if ! image_key "${name}" || ! _image_public "${E2E_IMAGE_CACHE}:${name}-${IMAGE_KEY}"; then
+    if ! image_key "${name}" || ! _image_public "${E2E_IMAGE_CACHE}:${name}-${IMAGE_KEY}" ||
+      ! _image_verified "${E2E_IMAGE_CACHE}:${name}-${IMAGE_KEY}"; then
       group="$(_image_group "${name}")" || return 1
       lines+="${group} ${name}"$'\n'
     fi
@@ -443,16 +497,27 @@ image_cache_plan() {
     | group_by(.[0]) | map({group: .[0][0], images: (map(.[1]) | join(" "))})' <<<"${lines}"
 }
 
-# Publishes one image under <cached>, its bases pinned to <bases> as keyed.
+# Publishes one image under <cached>, its bases pinned to <bases> as keyed,
+# and appends "<digest> <cached>" to <subjects> for the attestation step.
 _publish_one() {
-  local name=$1 cached=$2
+  local name=$1 cached=$2 subjects=$4 meta digest
   IMAGE_BASES=$3
   image_spec "${name}" || return 1
-  # A job queued behind another one for the same image finds it published.
-  if _image_published "${cached}"; then
+  # A job queued behind another one for the same image finds it attested. A
+  # tag without the attestation (pushed by anyone else, or by a run whose
+  # attestation step failed) is built and pushed over.
+  if _image_verified "${cached}"; then
     echo "image-cache: ${cached} already published"
   else
-    _build_spec -t "${cached}" --provenance=false --push || return 1
+    meta="$(mktemp)" || return 1
+    if ! _build_spec -t "${cached}" --provenance=false --push --metadata-file "${meta}"; then
+      rm -f "${meta}"
+      return 1
+    fi
+    digest="$(jq -r '."containerimage.digest" // empty' "${meta}")"
+    rm -f "${meta}"
+    [[ "${digest}" == sha256:* ]] || return 1
+    echo "${digest#sha256:}  ${cached}" >"${subjects}"
   fi
   if ! _image_public "${cached}" /dev/stderr; then
     echo "image-cache: ${cached} is not readable without credentials, so every e2e lookup misses. Make the package public."
@@ -460,9 +525,11 @@ _publish_one() {
   fi
 }
 
-# Builds and pushes the given images that are not published yet, up to
+# Builds and pushes the given images that are not attested yet, up to
 # IMAGE_CACHE_JOBS (default 4) at a time in one builder, then checks each is
-# readable without credentials. Output streams live, prefixed per image.
+# readable without credentials. Appends "<digest>  <tag>" per pushed image to
+# E2E_IMAGE_CACHE_SUBJECTS for the workflow to attest. Output streams live,
+# prefixed per image.
 image_cache_publish() {
   local name failed=0 status
   local -a keyed=()
@@ -486,7 +553,8 @@ image_cache_publish() {
     done
     {
       rc=0
-      _publish_one "${name}" "${E2E_IMAGE_CACHE}:${name}-${keys[${name}]}" "${key_bases[${name}]}" 2>&1 || rc=$?
+      _publish_one "${name}" "${E2E_IMAGE_CACHE}:${name}-${keys[${name}]}" "${key_bases[${name}]}" \
+        "${status}/${name}.subject" 2>&1 || rc=$?
       echo "${rc}" >"${status}/${name}"
     } | sed -u "s/^/[${name}] /" &
   done
@@ -495,6 +563,14 @@ image_cache_publish() {
     if [[ "$(cat "${status}/${name}" 2>/dev/null)" != 0 ]]; then
       echo "::error::image-cache: publishing ${name} failed, see the [${name}] lines above"
       failed=1
+    fi
+    # Every pushed image gets attested, also when a later check failed.
+    if [[ -s "${status}/${name}.subject" ]]; then
+      if [[ -n "${E2E_IMAGE_CACHE_SUBJECTS:-}" ]]; then
+        cat "${status}/${name}.subject" >>"${E2E_IMAGE_CACHE_SUBJECTS}"
+      else
+        echo "::warning::image-cache: E2E_IMAGE_CACHE_SUBJECTS is unset, ${name} will not be attested and never hit"
+      fi
     fi
   done
   rm -rf "${status}"
