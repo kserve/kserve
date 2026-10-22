@@ -26,6 +26,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	"knative.dev/pkg/apis/duck"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -2271,4 +2272,472 @@ func TestInferenceServiceStatus_ClearCondition(t *testing.T) {
 
 	// Try clearing a condition that was never set
 	status.ClearCondition(TransformerReady)
+}
+func TestEvaluateRawDeploymentConfigurationStatus(t *testing.T) {
+	tests := []struct {
+		name       string
+		deployment *appsv1.Deployment
+		wantStatus corev1.ConditionStatus
+	}{
+		{
+			name:       "nil deployment",
+			wantStatus: corev1.ConditionUnknown,
+		},
+		{
+			name: "stale generation",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 2},
+				Status:     appsv1.DeploymentStatus{ObservedGeneration: 1},
+			},
+			wantStatus: corev1.ConditionUnknown,
+		},
+		{
+			name: "replica failure",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+						{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+						{Type: appsv1.DeploymentReplicaFailure, Status: corev1.ConditionTrue, Reason: "FailedCreate", Message: "Failed to create replicas."},
+					},
+				},
+			},
+			wantStatus: corev1.ConditionFalse,
+		},
+		{
+			name: "progressing condition missing",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+					},
+				},
+			},
+			wantStatus: corev1.ConditionUnknown,
+		},
+		{
+			name: "progressing false",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionFalse, Reason: "ProgressDeadlineExceeded", Message: "Deployment exceeded deadline."},
+					},
+				},
+			},
+			wantStatus: corev1.ConditionFalse,
+		},
+		{
+			name: "progressing unknown",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionUnknown, Reason: "ProgressUnknown", Message: "Rollout progress is unknown."},
+					},
+				},
+			},
+			wantStatus: corev1.ConditionUnknown,
+		},
+		{
+			name: "progressing true but rollout incomplete",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "ReplicaSetUpdated", Message: "Waiting for rollout to finish."},
+					},
+				},
+			},
+			wantStatus: corev1.ConditionUnknown,
+		},
+		{
+			name: "available condition missing",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+					},
+				},
+			},
+			wantStatus: corev1.ConditionUnknown,
+		},
+		{
+			name: "available false",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+						{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionFalse, Reason: "MinimumReplicasUnavailable", Message: "Deployment is not available."},
+					},
+				},
+			},
+			wantStatus: corev1.ConditionFalse,
+		},
+		{
+			name: "available unknown",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+						{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionUnknown, Reason: "AvailabilityUnknown", Message: "Availability has not been determined."},
+					},
+				},
+			},
+			wantStatus: corev1.ConditionUnknown,
+		},
+		{
+			name: "updated replicas incomplete",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Replicas:           1,
+					UpdatedReplicas:    0,
+					AvailableReplicas:  1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+						{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+					},
+				},
+			},
+			wantStatus: corev1.ConditionUnknown,
+		},
+		{
+			name: "total replicas mismatch",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Replicas:           0,
+					UpdatedReplicas:    1,
+					AvailableReplicas:  1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+						{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+					},
+				},
+			},
+			wantStatus: corev1.ConditionUnknown,
+		},
+		{
+			name: "available replicas incomplete",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Replicas:           1,
+					UpdatedReplicas:    1,
+					AvailableReplicas:  0,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+						{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+					},
+				},
+			},
+			wantStatus: corev1.ConditionUnknown,
+		},
+		{
+			name: "completed rollout",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Replicas:           1,
+					UpdatedReplicas:    1,
+					AvailableReplicas:  1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable", Message: "Rollout complete."},
+						{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+					},
+				},
+			},
+			wantStatus: corev1.ConditionTrue,
+		},
+		{
+			name: "replicas default to one when unset",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Generation: 1},
+				Status: appsv1.DeploymentStatus{
+					ObservedGeneration: 1,
+					Replicas:           1,
+					UpdatedReplicas:    1,
+					AvailableReplicas:  1,
+					Conditions: []appsv1.DeploymentCondition{
+						{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable", Message: "Rollout complete."},
+						{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+					},
+				},
+			},
+			wantStatus: corev1.ConditionTrue,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			condition := evaluateRawDeploymentConfigurationStatus(tt.deployment, PredictorConfigurationReady)
+			if condition == nil {
+				t.Fatal("expected a condition, got nil")
+			}
+			if condition.Type != PredictorConfigurationReady {
+				t.Errorf("expected condition type %q, got %q", PredictorConfigurationReady, condition.Type)
+			}
+			if condition.Status != tt.wantStatus {
+				t.Errorf("expected status %q, got %q", tt.wantStatus, condition.Status)
+			}
+		})
+	}
+}
+
+func TestPropagateRawConfigurationStatus(t *testing.T) {
+	tests := []struct {
+		name          string
+		component     ComponentType
+		deployments   []*appsv1.Deployment
+		conditionType apis.ConditionType
+		wantStatus    corev1.ConditionStatus
+	}{
+		{
+			name:      "predictor ready",
+			component: PredictorComponent,
+			deployments: []*appsv1.Deployment{
+				{
+					ObjectMeta: metav1.ObjectMeta{Generation: 1},
+					Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+					Status: appsv1.DeploymentStatus{
+						ObservedGeneration: 1, Replicas: 1, UpdatedReplicas: 1, AvailableReplicas: 1,
+						Conditions: []appsv1.DeploymentCondition{
+							{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+							{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+						},
+					},
+				},
+			},
+			conditionType: PredictorConfigurationReady,
+			wantStatus:    corev1.ConditionTrue,
+		},
+		{
+			name:      "transformer ready",
+			component: TransformerComponent,
+			deployments: []*appsv1.Deployment{
+				{
+					ObjectMeta: metav1.ObjectMeta{Generation: 1},
+					Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+					Status: appsv1.DeploymentStatus{
+						ObservedGeneration: 1, Replicas: 1, UpdatedReplicas: 1, AvailableReplicas: 1,
+						Conditions: []appsv1.DeploymentCondition{
+							{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+							{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+						},
+					},
+				},
+			},
+			conditionType: TransformerConfigurationReady,
+			wantStatus:    corev1.ConditionTrue,
+		},
+		{
+			name:      "explainer ready",
+			component: ExplainerComponent,
+			deployments: []*appsv1.Deployment{
+				{
+					ObjectMeta: metav1.ObjectMeta{Generation: 1},
+					Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+					Status: appsv1.DeploymentStatus{
+						ObservedGeneration: 1, Replicas: 1, UpdatedReplicas: 1, AvailableReplicas: 1,
+						Conditions: []appsv1.DeploymentCondition{
+							{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+							{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+						},
+					},
+				},
+			},
+			conditionType: ExplainerConfigurationReady,
+			wantStatus:    corev1.ConditionTrue,
+		},
+		{
+			name:          "empty deployment list",
+			component:     PredictorComponent,
+			conditionType: PredictorConfigurationReady,
+			wantStatus:    corev1.ConditionUnknown,
+		},
+		{
+			name:          "nil deployment",
+			component:     PredictorComponent,
+			deployments:   []*appsv1.Deployment{nil},
+			conditionType: PredictorConfigurationReady,
+			wantStatus:    corev1.ConditionUnknown,
+		},
+		{
+			name:      "unknown takes precedence over ready",
+			component: PredictorComponent,
+			deployments: []*appsv1.Deployment{
+				{
+					ObjectMeta: metav1.ObjectMeta{Generation: 1},
+					Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+					Status: appsv1.DeploymentStatus{
+						ObservedGeneration: 1, Replicas: 1, UpdatedReplicas: 1, AvailableReplicas: 1,
+						Conditions: []appsv1.DeploymentCondition{
+							{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+							{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Generation: 1},
+					Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+					Status: appsv1.DeploymentStatus{
+						ObservedGeneration: 1, Replicas: 1, UpdatedReplicas: 1, AvailableReplicas: 1,
+						Conditions: []appsv1.DeploymentCondition{
+							{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "ReplicaSetUpdated", Message: "Waiting for rollout."},
+							{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+						},
+					},
+				},
+			},
+			conditionType: PredictorConfigurationReady,
+			wantStatus:    corev1.ConditionUnknown,
+		},
+		{
+			name:      "failure takes precedence over ready",
+			component: PredictorComponent,
+			deployments: []*appsv1.Deployment{
+				{
+					ObjectMeta: metav1.ObjectMeta{Generation: 1},
+					Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+					Status: appsv1.DeploymentStatus{
+						ObservedGeneration: 1, Replicas: 1, UpdatedReplicas: 1, AvailableReplicas: 1,
+						Conditions: []appsv1.DeploymentCondition{
+							{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+							{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Generation: 1},
+					Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+					Status: appsv1.DeploymentStatus{
+						ObservedGeneration: 1, Replicas: 1, UpdatedReplicas: 1, AvailableReplicas: 1,
+						Conditions: []appsv1.DeploymentCondition{
+							{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionFalse, Reason: "ProgressDeadlineExceeded", Message: "Rollout failed."},
+							{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+						},
+					},
+				},
+			},
+			conditionType: PredictorConfigurationReady,
+			wantStatus:    corev1.ConditionFalse,
+		},
+		{
+			name:      "failure takes precedence over unknown",
+			component: PredictorComponent,
+			deployments: []*appsv1.Deployment{
+				{
+					ObjectMeta: metav1.ObjectMeta{Generation: 1},
+					Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+					Status: appsv1.DeploymentStatus{
+						ObservedGeneration: 1, Replicas: 1, UpdatedReplicas: 1, AvailableReplicas: 1,
+						Conditions: []appsv1.DeploymentCondition{
+							{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "ReplicaSetUpdated", Message: "Waiting for rollout."},
+							{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Generation: 1},
+					Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+					Status: appsv1.DeploymentStatus{
+						ObservedGeneration: 1, Replicas: 1, UpdatedReplicas: 1, AvailableReplicas: 1,
+						Conditions: []appsv1.DeploymentCondition{
+							{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionFalse, Reason: "ProgressDeadlineExceeded", Message: "Rollout failed."},
+							{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+						},
+					},
+				},
+			},
+			conditionType: PredictorConfigurationReady,
+			wantStatus:    corev1.ConditionFalse,
+		},
+		{
+			name:      "all deployments ready",
+			component: PredictorComponent,
+			deployments: []*appsv1.Deployment{
+				{
+					ObjectMeta: metav1.ObjectMeta{Generation: 1},
+					Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+					Status: appsv1.DeploymentStatus{
+						ObservedGeneration: 1, Replicas: 1, UpdatedReplicas: 1, AvailableReplicas: 1,
+						Conditions: []appsv1.DeploymentCondition{
+							{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+							{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+						},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{Generation: 1},
+					Spec:       appsv1.DeploymentSpec{Replicas: ptr.To[int32](1)},
+					Status: appsv1.DeploymentStatus{
+						ObservedGeneration: 1, Replicas: 1, UpdatedReplicas: 1, AvailableReplicas: 1,
+						Conditions: []appsv1.DeploymentCondition{
+							{Type: appsv1.DeploymentProgressing, Status: corev1.ConditionTrue, Reason: "NewReplicaSetAvailable"},
+							{Type: appsv1.DeploymentAvailable, Status: corev1.ConditionTrue},
+						},
+					},
+				},
+			},
+			conditionType: PredictorConfigurationReady,
+			wantStatus:    corev1.ConditionTrue,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status := &InferenceServiceStatus{}
+			status.InitializeConditions()
+			status.PropagateRawConfigurationStatus(tt.component, tt.deployments)
+
+			condition := status.GetCondition(tt.conditionType)
+			if condition == nil {
+				t.Fatalf("expected condition %q, got nil", tt.conditionType)
+			}
+			if condition.Status != tt.wantStatus {
+				t.Errorf("expected status %q, got %q", tt.wantStatus, condition.Status)
+			}
+		})
+	}
+}
+
+func TestPropagateRawConfigurationStatusUnsupportedComponent(t *testing.T) {
+	status := &InferenceServiceStatus{}
+	status.InitializeConditions()
+	status.SetCondition(PredictorConfigurationReady, &apis.Condition{
+		Type: PredictorConfigurationReady, Status: corev1.ConditionTrue,
+		Reason: "Existing", Message: "Existing condition.",
+	})
+
+	status.PropagateRawConfigurationStatus(ComponentType("unsupported"), nil)
+
+	condition := status.GetCondition(PredictorConfigurationReady)
+	if condition == nil {
+		t.Fatal("expected existing predictor condition to remain")
+	}
+	if condition.Status != corev1.ConditionTrue || condition.Reason != "Existing" || condition.Message != "Existing condition." {
+		t.Errorf("expected existing condition to remain unchanged, got status %q, reason %q, message %q", condition.Status, condition.Reason, condition.Message)
+	}
 }
