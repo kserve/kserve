@@ -19,10 +19,12 @@
 # An image's key covers everything its build can read: the Dockerfile, the
 # build target, the build context as BuildKit sees it after .dockerignore, the
 # digests of the base images, the daemon platform, this script and the publish
-# workflow. When master has published and attested an image under the same key,
-# build_image pulls it instead of building. Anything that cannot be keyed or
-# verified is built as before. Editing this script or the workflow rekeys every
-# image, which is also how to drop the whole cache at once.
+# workflow - and the ISO week, so that what a build fetched unpinned (see the
+# workflow) is reused for a week at most. When master has published and
+# attested an image under the same key, build_image pulls it instead of
+# building. Anything that cannot be keyed or verified is built as before.
+# Editing this script or the workflow rekeys every image, which is also how to
+# drop the whole cache at once.
 #
 # Who can push a tag doesn't matter: a hit needs a provenance attestation that
 # the publish job in .github/workflows/e2e-image-cache.yml signed on master for
@@ -41,7 +43,8 @@
 # ghcr.io/kserve/kserve-e2e-images. When unset, build_image only builds.
 # Verifying attestations needs gh with a token (GH_TOKEN or GITHUB_TOKEN);
 # E2E_IMAGE_CACHE_SIGNER overrides the repository whose publish job must have
-# signed them, E2E_IMAGE_CACHE_SUBJECTS is where publish lists what to attest.
+# signed them, E2E_IMAGE_CACHE_SUBJECTS is where publish lists what to attest,
+# E2E_IMAGE_CACHE_EPOCH replaces the week (tests).
 
 _IMAGE_CACHE_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 _IMAGE_CACHE_ROOT="$(cd "$(dirname "${_IMAGE_CACHE_LIB}")/../../.." && pwd)"
@@ -346,6 +349,7 @@ _base_digests() {
 # publisher's log. Both are empty when the image cannot be keyed.
 image_key() {
   local name=$1 platform hash context_hash dockerfile_hash script_hash publisher_hash bases manifest
+  local epoch="${E2E_IMAGE_CACHE_EPOCH:-$(date -u +%G-W%V)}"
   IMAGE_KEY=""
   IMAGE_BASES=""
   image_spec "${name}" || return 1
@@ -366,7 +370,8 @@ image_key() {
   _base_digests "${IMAGE_DOCKERFILE}" "${IMAGE_TARGET}" || return 1
   bases="${REPLY}"
 
-  manifest="script ${script_hash}
+  manifest="epoch ${epoch}
+script ${script_hash}
 publisher ${publisher_hash}
 platform ${platform}
 dockerfile ${IMAGE_DOCKERFILE} ${dockerfile_hash}

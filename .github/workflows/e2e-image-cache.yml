@@ -13,7 +13,8 @@ name: E2E Image Cache
 # What RUN steps fetch from the network is not part of the key: the uv
 # installer (curl | sh), unpinned pip packages, vLLM's build requirements, a
 # git clone of a tag, apt. Whatever a publish run fetches gets signed as
-# master's build and is reused until the key changes.
+# master's build and is reused until the key changes - at the latest the next
+# ISO week, which every key includes, so Monday's first run republishes all.
 #
 # Never add pull_request_target, workflow_run or workflow_call triggers here:
 # they run with refs/heads/master and would sign as this publisher. Only the

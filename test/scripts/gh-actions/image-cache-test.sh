@@ -35,6 +35,9 @@ trap 'rm -rf "${WORK}"' EXIT
 # Temp dirs of child shells (context probes) go away with WORK, also when a
 # run is interrupted.
 export TMPDIR="${WORK}"
+# Keys include the ISO week; a run crossing midnight on Sunday must not see
+# every key move.
+export E2E_IMAGE_CACHE_EPOCH=test
 
 # Two copies of the committed tree at different paths, with the working copy
 # of the cache script. install/ and docs/ are large and outside every context.
@@ -213,6 +216,7 @@ else
 fi
 
 check "other daemon platform" "${GO} ${PYTHON}" "$(PLATFORM=linux/arm64 keys "${WORK}/baseline")"
+check "next week" "${GO} ${PYTHON}" "$(E2E_IMAGE_CACHE_EPOCH=next keys "${WORK}/baseline")"
 
 # The Go images reach their golang base only through COPY --from a builder
 # stage; expected from the Dockerfiles, not from the key's own manifest.
