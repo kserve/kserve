@@ -20,15 +20,16 @@ name: E2E Image Cache
 # This file is part of every key, as is image-cache.sh: editing either drops
 # every cached image at once.
 #
-# GHCR expires nothing, so the daily run prunes versions that no current key
+# GHCR expires nothing, so scheduled runs prune versions that no current key
 # uses once they are a week old.
 
 on:
   push:
     branches: [master]
   schedule:
-    # Base image tags move without a commit, which changes the keys.
-    - cron: "30 4 * * *"
+    # Base image tags move without a commit, which changes the keys, and merges
+    # by prow-pr-automerge.yml use GITHUB_TOKEN, which starts no push run.
+    - cron: "30 */3 * * *"
   workflow_dispatch:
   pull_request:
     paths:
