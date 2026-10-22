@@ -103,6 +103,30 @@ def _vllm_running_requests_trigger(pod_prefix_template, threshold):
     }
 
 
+def _ds_vllm_running_requests_trigger(role, threshold="1"):
+    """Build a KEDA `prometheus` trigger for one DisaggregatedSet role.
+
+    The regex matches the role's pods, named
+    <svc>-kserve-pd-<slice>-<revision>-<role>-<group index>.
+    """
+    query = (
+        "avg(vllm:num_requests_running{"
+        'namespace="{{ .ObjectMeta.Namespace }}",'
+        'pod=~"^{{ .ObjectMeta.Name }}-kserve-pd-[0-9]+-[a-z0-9]+-' + role + '-[0-9]+$"'
+        "})"
+    )
+    return {
+        "type": "prometheus",
+        "name": "vllm-running-requests",
+        "metadata": {
+            "serverAddress": PROMETHEUS_SERVER_ADDRESS,
+            "query": query,
+            "threshold": threshold,
+            "unsafeSsl": "true",
+        },
+    }
+
+
 # PVC storage test constants
 PVC_STORAGE_NAME = "e2e-pvc-model-storage"
 STORAGE_INITIALIZER_IMAGE = os.environ.get(
@@ -1694,6 +1718,34 @@ LLMINFERENCESERVICE_CONFIGS = {
                         threshold="1",
                     )
                 ],
+            },
+        }
+    },
+    # Direct KEDA triggers for roles on the DisaggregatedSet backend. Role pods
+    # are named <svc>-kserve-pd-<slice>-<revision>-<role>-<group index>.
+    "scaling-prefill-ds-keda": {
+        "prefill": {
+            "scaling": {
+                "minReplicas": 1,
+                "maxReplicas": 3,
+                "keda": {
+                    "pollingInterval": 5,
+                    "cooldownPeriod": 10,
+                    "initialCooldownPeriod": 0,
+                    "triggers": [_ds_vllm_running_requests_trigger("prefill")],
+                },
+            }
+        }
+    },
+    "scaling-decode-ds-keda": {
+        "scaling": {
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "keda": {
+                "pollingInterval": 5,
+                "cooldownPeriod": 10,
+                "initialCooldownPeriod": 0,
+                "triggers": [_ds_vllm_running_requests_trigger("decode")],
             },
         }
     },
