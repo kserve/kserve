@@ -259,6 +259,8 @@ fails "ARG forward reference" router \
 fails "base named like a stage" router "set -- 'FROM alpine AS alpine'; ${with_stage/--from=extra/--from=alpine}"
 fails "unsupported parser directive" router \
   '{ echo "# escape=\`"; cat router.Dockerfile; } >r.new && mv r.new router.Dockerfile'
+fails "indented parser directive" router \
+  '{ echo "  # escape=\`"; cat router.Dockerfile; } >r.new && mv r.new router.Dockerfile'
 fails "open continuation at the end" router 'printf "COPY --from=busybox:1.36 /bin/true /true \\\\\n" >>router.Dockerfile'
 fails "no FROM" router 'grep -viE "^[[:space:]]*FROM[[:space:]]" router.Dockerfile >r.new; mv r.new router.Dockerfile'
 

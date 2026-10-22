@@ -196,8 +196,8 @@ _base_digests() {
       line="${line#$'\xef\xbb\xbf'}"
       [[ "${line}" != '#!'* ]] || continue
     fi
-    # Parser directives are comments before anything else.
-    if [[ "${header}" == true && "${line}" =~ ^#[[:space:]]*([A-Za-z]+)[[:space:]]*=[[:space:]]*([^[:space:]]*) ]]; then
+    # Parser directives are comments before anything else, indented or not.
+    if [[ "${header}" == true && "${line}" =~ ^[[:space:]]*#[[:space:]]*([A-Za-z]+)[[:space:]]*=[[:space:]]*([^[:space:]]*) ]]; then
       case "${BASH_REMATCH[1],,}" in
         syntax) syntax="${BASH_REMATCH[2]}" ;;
         check) ;;
