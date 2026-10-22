@@ -162,6 +162,9 @@ jobs:
           # Outside the checkout, so no committed file can add subjects.
           E2E_IMAGE_CACHE_SUBJECTS: ${{ runner.temp }}/image-cache-subjects
         run: |
+          # Before anything that can fail: the attest step signs whatever the
+          # file holds.
+          : >"${E2E_IMAGE_CACHE_SUBJECTS}"
           read -r -a images <<<"${IMAGES}"
           ./test/scripts/gh-actions/image-cache.sh publish "${images[@]}"
 
