@@ -246,6 +246,8 @@ moved "line ending in an escaped backslash" "router" alpine:3.21 \
 # BuildKit appends the next line as is: an option split over two lines is one.
 moved "mount option continued on the next line" "router" busybox:1.36 \
   'printf "RUN --mount=type=bind,\\\\\nfrom=busybox:1.36,target=/m true\n" >>router.Dockerfile'
+moved "mount option in capitals" "router" busybox:1.36 \
+  'printf "RUN --mount=type=bind,FROM=busybox:1.36,target=/m true\n" >>router.Dockerfile'
 # A stage the target does not reach is not built, so its base is no input.
 moved "unreachable stage base" "" busybox:1.36 \
   '{ echo "FROM busybox:1.36 AS unused"; cat router.Dockerfile; } >r.new && mv r.new router.Dockerfile'

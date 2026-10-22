@@ -184,10 +184,10 @@ _base_digests() {
   # BuildKit takes any word of <<, an optional -, and a name as a heredoc,
   # whatever the name starts with. Anything that could be one is refused, here
   # strings included; refusing too much only costs the cache.
-  local dep="" out="" ref="" syntax="" heredoc='<<-?[^[:space:]<]'
+  local dep="" out="" ref="" syntax="" opt="" heredoc='<<-?[^[:space:]<]'
   local i=0 n=-1 seen_from=false header=true first=true
   local -A args=() index=() visited=()
-  local -a deps=() words=() from=() todo=() refs=()
+  local -a deps=() words=() from=() todo=() refs=() opts=()
   while IFS= read -r line || [[ -n "${line}" ]]; do
     line="${line%$'\r'}"
     if [[ "${first}" == true ]]; then
@@ -262,9 +262,12 @@ _base_digests() {
       for word in "${words[@]}"; do
         case "${word}" in
           --from=*) from+=("${word#--from=}") ;;
-          --mount=*from=*)
-            value="${word#*from=}"
-            from+=("${value%%,*}")
+          --mount=*)
+            # BuildKit lowercases mount option names.
+            IFS=, read -r -a opts <<<"${word#--mount=}"
+            for opt in "${opts[@]}"; do
+              [[ "${opt,,}" != from=* ]] || from+=("${opt#*=}")
+            done
             ;;
         esac
       done
