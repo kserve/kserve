@@ -342,11 +342,22 @@ func CreateInitContainerWithConfig(storageConfig *types.StorageInitializerConfig
 		storageInitializerImage = storageConfig.Image
 	}
 
+	// The restricted Pod Security Standard context is the default so the fallback
+	// init container injected without a ClusterStorageContainer is admitted in a
+	// restricted namespace. Operators whose storageInitializer.image runs as root
+	// set storageInitializer.securityContext in the inferenceservice-config
+	// ConfigMap, which takes precedence in full.
+	securityContext := RestrictedStorageInitializerSecurityContext()
+	if storageConfig.SecurityContext != nil {
+		securityContext = storageConfig.SecurityContext.DeepCopy()
+	}
+
 	return &corev1.Container{
 		Name:                     constants.StorageInitializerContainerName,
 		Image:                    storageInitializerImage,
 		Args:                     containerArgs,
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+		SecurityContext:          securityContext,
 		Resources: corev1.ResourceRequirements{
 			Limits: map[corev1.ResourceName]resource.Quantity{
 				corev1.ResourceCPU:    resource.MustParse(storageConfig.CpuLimit),
