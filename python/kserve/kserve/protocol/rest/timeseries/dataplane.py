@@ -73,5 +73,6 @@ class TimeSeriesDataPlane(DataPlane):
         return [
             model
             for model in self.model_registry.get_models().values()
-            if getattr(model, "__class__", None).__name__ == "TimeSeriesModel"
+            if getattr(model, "__class__", None).__name__
+            == "HuggingFaceTimeSeriesModel"
         ]
