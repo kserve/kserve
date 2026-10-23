@@ -19,14 +19,22 @@ from typing import Any, Callable
 
 from kubernetes import client, config as k8s_config
 from kubernetes.client.exceptions import ApiException
+from kubernetes.stream import stream
 
 from kserve.constants.constants import (
     KSERVE_GROUP,
+    KSERVE_KIND_INFERENCESERVICE,
     KSERVE_V1ALPHA1_VERSION,
+    KSERVE_V1BETA1,
     KSERVE_PLURAL_KERNELCACHE,
     KSERVE_PLURAL_KERNELCACHECAPTURE,
     KSERVE_PLURAL_KERNELCACHENODE,
 )
+from kserve.models.v1beta1_inference_service import V1beta1InferenceService
+from kserve.models.v1beta1_inference_service_spec import V1beta1InferenceServiceSpec
+from kserve.models.v1beta1_model_format import V1beta1ModelFormat
+from kserve.models.v1beta1_model_spec import V1beta1ModelSpec
+from kserve.models.v1beta1_predictor_spec import V1beta1PredictorSpec
 
 _logger = logging.getLogger(__name__)
 
@@ -102,6 +110,38 @@ def wait_for(
                 _logger.info("Waiting: %s", msg)
                 last_msg = msg
             time.sleep(interval)
+
+
+def make_producer_isvc(
+    name: str, namespace: str, storage_uri: str
+) -> V1beta1InferenceService:
+    """Build a KC producer ISVC that triggers MCV capture via kernelcache-test-runtime.
+
+    Resources are NOT specified here - the ClusterServingRuntime (kc_test_runtime)
+    defines them.
+    """
+    return V1beta1InferenceService(
+        api_version=KSERVE_V1BETA1,
+        kind=KSERVE_KIND_INFERENCESERVICE,
+        metadata=client.V1ObjectMeta(
+            name=name,
+            namespace=namespace,
+            # Standard mode bypasses Knative (which strips the HTTP readinessProbe
+            # from the pod spec when injecting queue-proxy, breaking the MCV webhook).
+            annotations={"serving.kserve.io/deploymentMode": "Standard"},
+        ),
+        spec=V1beta1InferenceServiceSpec(
+            predictor=V1beta1PredictorSpec(
+                min_replicas=1,
+                model=V1beta1ModelSpec(
+                    model_format=V1beta1ModelFormat(name="test-cache"),
+                    # storageUri causes the storage annotation to be set on the pod,
+                    # which is required by the MCV sidecar injection webhook.
+                    storage_uri=storage_uri,
+                ),
+            )
+        ),
+    )
 
 
 def wait_for_resource_deleted(
@@ -275,8 +315,8 @@ def wait_for_capture_complete(
         if phase == "Unchanged":
             raise TerminalFailure(
                 f"KernelCacheCapture {namespace}/{kcc_name} reached Unchanged phase. "
-                "This test always writes a new dummy cache file, so Unchanged means "
-                "MCV did not detect the file (wrong timing, file not written, etc.)"
+                "This test always compiles new kernel cache files, so Unchanged means "
+                "MCV did not detect the files (wrong timing, compilation failed, etc.)"
             )
         assert phase == "Complete", (
             f"KernelCacheCapture {namespace}/{kcc_name} phase: {phase or '(empty)'}"
@@ -354,6 +394,134 @@ def wait_for_kernelcache_verified(
     return wait_for(check_verification, timeout=timeout, interval=5.0)
 
 
+_KERNEL_CACHE_SOURCE_VOLUME = "kernel-cache-source"
+_KERNEL_CACHE_LINKER_CONTAINER = "kernel-cache-linker"
+_KERNEL_CACHE_USAGE_ANNOTATION = "internal.serving.kserve.io/kernelcache-usage"
+
+
+def wait_for_kernelcachenode_cache_ready(
+    kc_namespace: str, kc_name: str, timeout: int = 300
+) -> None:
+    """Poll until at least one KernelCacheNode reports the KC as Ready.
+
+    The injection webhook reads KernelCacheNode.status.cacheStatus to find
+    candidates; if no node has the KC in Ready state the webhook falls back
+    to injecting MCV instead of mounting the cache.
+    """
+    api = _custom_api()
+    key = f"{kc_namespace}/{kc_name}"
+
+    def check_ready():
+        nodes = api.list_cluster_custom_object(
+            KSERVE_GROUP, KSERVE_V1ALPHA1_VERSION, KSERVE_PLURAL_KERNELCACHENODE
+        ).get("items", [])
+        for node in nodes:
+            info = node.get("status", {}).get("cacheStatus", {}).get(key, {})
+            state = info.get("state", "")
+            _logger.info(
+                "KernelCacheNode %s cacheStatus[%s].state=%s",
+                node["metadata"]["name"],
+                key,
+                state or "(absent)",
+            )
+            if state == "Ready":
+                return
+        raise AssertionError(f"KernelCache {key} not yet Ready on any KernelCacheNode")
+
+    wait_for(check_ready, timeout=timeout, interval=10.0)
+
+
+def pod_has_cache_injected(namespace: str, isvc_name: str) -> client.V1Pod | None:
+    """Return the ISVC pod if it has the kernel-cache volume and linker init
+    container injected, or None if not yet present or not injected."""
+    core = _core_api()
+    pods = core.list_namespaced_pod(
+        namespace,
+        label_selector=f"serving.kserve.io/inferenceservice={isvc_name}",
+    ).items
+    for pod in pods:
+        has_source_volume = any(
+            v.name == _KERNEL_CACHE_SOURCE_VOLUME and v.image is not None
+            for v in (pod.spec.volumes or [])
+        )
+        has_linker = any(
+            c.name == _KERNEL_CACHE_LINKER_CONTAINER
+            for c in (pod.spec.init_containers or [])
+        )
+        if has_source_volume and has_linker:
+            return pod
+    return None
+
+
+def wait_for_cache_injected(
+    namespace: str, isvc_name: str, timeout: int = 120
+) -> client.V1Pod:
+    """Poll until the ISVC pod has the kernel-cache OCI volume and linker
+    init container injected by the pod mutator webhook."""
+
+    def check_injected():
+        pod = pod_has_cache_injected(namespace, isvc_name)
+        if pod is not None:
+            _logger.info("Cache injected into ISVC %s/%s pod", namespace, isvc_name)
+            return pod
+        raise AssertionError(
+            f"No pod for ISVC {namespace}/{isvc_name} has cache injected yet"
+        )
+
+    return wait_for(check_injected, timeout=timeout, interval=5.0)
+
+
+def wait_for_isvc_pod_ready(namespace: str, isvc_name: str, timeout: int = 300) -> None:
+    """Poll until at least one pod for the ISVC is Ready (readiness probe passed).
+
+    A pod reaches Running phase as soon as its main container starts, but
+    Ready condition only becomes True after the readiness probe succeeds.
+
+    For cache injection tests, this ensures torch.compile has completed and
+    the HTTP server has started before we check logs for cache activity.
+    """
+    core = _core_api()
+
+    def check_ready():
+        pods = core.list_namespaced_pod(
+            namespace,
+            label_selector=f"serving.kserve.io/inferenceservice={isvc_name}",
+        ).items
+
+        # Default values in case no pods found or all pods lack status
+        phase = "Unknown"
+        ready_status = "Unknown"
+
+        for pod in pods:
+            if not pod.status:
+                continue
+
+            # Check pod conditions for Ready status
+            conditions = pod.status.conditions or []
+            for condition in conditions:
+                if condition.type == "Ready" and condition.status == "True":
+                    _logger.info(
+                        "Pod %s for ISVC %s/%s is Ready",
+                        pod.metadata.name,
+                        namespace,
+                        isvc_name,
+                    )
+                    return
+
+            # Update status for debugging (only if not ready yet)
+            phase = pod.status.phase or "Unknown"
+            ready_condition = next((c for c in conditions if c.type == "Ready"), None)
+            ready_status = ready_condition.status if ready_condition else "Unknown"
+
+        # Raise AssertionError if no pod is ready yet (will be retried by wait_for)
+        raise AssertionError(
+            f"No pod for ISVC {namespace}/{isvc_name} is Ready yet "
+            f"(latest: phase={phase}, ready={ready_status})"
+        )
+
+    wait_for(check_ready, timeout=timeout, interval=5.0)
+
+
 def pod_has_mcv_sidecar(namespace: str, isvc_name: str) -> bool:
     """Return True if any pod for the ISVC has a container named 'mcv'."""
     core = _core_api()
@@ -377,3 +545,206 @@ def wait_for_mcv_sidecar(namespace: str, isvc_name: str, timeout: int = 120) -> 
         )
 
     wait_for(check_mcv, timeout=timeout, interval=5.0)
+
+
+def check_pod_logs_for_cache_usage(
+    namespace: str, isvc_name: str, since_seconds: int = 300
+) -> dict[str, bool]:
+    """Check pod logs for torch.compile cache hit/miss indicators.
+
+    Returns a dict with:
+      - "cache_hit_found": True if "cache hit" or similar found in logs
+      - "cache_miss_found": True if "cache miss" or compilation logs found
+      - "logs_checked": True if logs were successfully retrieved
+
+    This provides evidence of whether torch.compile reused cached artifacts
+    or regenerated them.
+    """
+    core = _core_api()
+    result = {
+        "cache_hit_found": False,
+        "cache_miss_found": False,
+        "logs_checked": False,
+    }
+
+    try:
+        pods = core.list_namespaced_pod(
+            namespace,
+            label_selector=f"serving.kserve.io/inferenceservice={isvc_name}",
+        ).items
+        if not pods:
+            _logger.warning("No pods found for ISVC %s/%s", namespace, isvc_name)
+            return result
+
+        pod_name = pods[0].metadata.name
+        logs = core.read_namespaced_pod_log(
+            name=pod_name,
+            namespace=namespace,
+            container="kserve-container",
+            since_seconds=since_seconds,
+        )
+        result["logs_checked"] = True
+
+        # Look for cache hit indicators
+        cache_hit_patterns = [
+            "cache hit",
+            "using cached",
+            "loaded from cache",
+            "fx graph cache hit",
+        ]
+        for pattern in cache_hit_patterns:
+            if pattern.lower() in logs.lower():
+                result["cache_hit_found"] = True
+                _logger.info(
+                    "Found cache hit indicator in logs for %s/%s: %s",
+                    namespace,
+                    pod_name,
+                    pattern,
+                )
+                break
+
+        # Look for cache miss indicators
+        cache_miss_patterns = [
+            "cache miss",
+            "compiling",
+            "fx graph cache miss",
+        ]
+        for pattern in cache_miss_patterns:
+            if pattern.lower() in logs.lower():
+                result["cache_miss_found"] = True
+                _logger.info(
+                    "Found cache miss indicator in logs for %s/%s: %s",
+                    namespace,
+                    pod_name,
+                    pattern,
+                )
+                break
+
+    except ApiException as e:
+        _logger.warning(
+            "Could not retrieve logs for %s/%s: %s", namespace, isvc_name, e.reason
+        )
+
+    return result
+
+
+def verify_cache_files_accessible(
+    namespace: str, isvc_name: str, timeout: int = 60
+) -> None:
+    """Verify that injected cache files are accessible in the consumer pod.
+
+    The kernel-cache-linker init container symlinks the OCI image contents to
+    /root/.cache/vllm/torch_compile_cache/. This function verifies the cache
+    files are present and readable, confirming the cache is actually being
+    used rather than regenerated.
+    """
+    core = _core_api()
+    pods = core.list_namespaced_pod(
+        namespace,
+        label_selector=f"serving.kserve.io/inferenceservice={isvc_name}",
+    ).items
+    if not pods:
+        raise AssertionError(f"No pod found for ISVC {namespace}/{isvc_name}")
+
+    pod_name = pods[0].metadata.name
+    # Cache location matches TORCHINDUCTOR_CACHE_DIR from the runtime.
+    # PyTorch writes cache files to this explicitly configured directory.
+    cache_dir = "/root/.cache/vllm/torch_compile_cache/inductor_cache"
+    # The kernel-cache-source OCI image volume is mounted at this path
+    # (from pkg/webhook/admission/kernelcache/consumer.go kernelCacheSourceMountPath)
+    source_mount_path = "/var/run/gkm/kernel-cache"
+
+    # Verify cache directory exists and contains files.
+    # The kernel-cache-linker init container symlinks the OCI image contents,
+    # including the torch cache written during producer pod compilation.
+    # NOTE: kernel-cache-linker uses 'cp -sr' which creates symlinks, so we must
+    # use 'find -L' to follow symlinks. Regular 'find -type f' only finds regular
+    # files and will miss symlinks, causing false failures.
+    find_script = f"""
+set -e
+if [ ! -d "{cache_dir}" ]; then
+    echo "ERROR: Cache directory does not exist: {cache_dir}"
+    exit 1
+fi
+# -L follows symlinks, -type f finds regular files (after following links)
+files=$(find -L "{cache_dir}" -type f 2>&1)
+if [ -z "$files" ]; then
+    echo "ERROR: No cache files found in {cache_dir}"
+    exit 1
+fi
+echo "$files" | head -5
+"""
+
+    # Verify that cache files are symlinks, not regular files.
+    # This confirms cache injection worked - the kernel-cache-linker uses 'cp -sr'
+    # which creates symlinks. If the linker failed to expose the image files,
+    # torch.compile would regenerate them as regular files into the EmptyDir target.
+    # Finding symlinks proves the injected cache is being used, not regenerated files.
+    symlink_check_script = f"""
+set -e
+# Count symlinks vs regular files in the cache directory
+symlink_count=$(find "{cache_dir}" -type l 2>/dev/null | wc -l)
+regular_file_count=$(find "{cache_dir}" -type f 2>/dev/null | wc -l)
+
+if [ "$symlink_count" -eq 0 ]; then
+    echo "ERROR: No symlinks found in {cache_dir} (found $regular_file_count regular files)"
+    echo "This indicates cache was regenerated, not injected"
+    exit 1
+fi
+
+echo "OK: Found $symlink_count symlinks in cache directory (vs $regular_file_count regular files)"
+"""
+    try:
+        resp = stream(
+            core.connect_get_namespaced_pod_exec,
+            name=pod_name,
+            namespace=namespace,
+            container="kserve-container",
+            command=["sh", "-c", find_script],
+            stderr=True,
+            stdin=False,
+            stdout=True,
+            tty=False,
+        )
+        # Check for error conditions in output
+        if "ERROR:" in resp:
+            raise AssertionError(
+                f"Cache verification failed in pod {namespace}/{pod_name}: {resp.strip()}"
+            )
+        if not resp or len(resp.strip()) == 0:
+            raise AssertionError(
+                f"Cache directory {cache_dir} is empty in pod {namespace}/{pod_name}. "
+                "Cache injection may have failed or files are not accessible."
+            )
+        file_count = len(resp.strip().split("\n"))
+        _logger.info(
+            "Found %d cache files in %s (showing first 5): %s",
+            file_count,
+            cache_dir,
+            resp.strip(),
+        )
+
+        # Verify symlinks point to the source mount (injected cache, not regenerated)
+        symlink_resp = stream(
+            core.connect_get_namespaced_pod_exec,
+            name=pod_name,
+            namespace=namespace,
+            container="kserve-container",
+            command=["sh", "-c", symlink_check_script],
+            stderr=True,
+            stdin=False,
+            stdout=True,
+            tty=False,
+        )
+        if "ERROR:" in symlink_resp:
+            raise AssertionError(
+                f"Symlink verification failed in pod {namespace}/{pod_name}: {symlink_resp.strip()}"
+            )
+        _logger.info(
+            "Verified cache symlinks point to source mount %s", source_mount_path
+        )
+
+    except ApiException as e:
+        raise AssertionError(
+            f"Failed to verify cache files in {namespace}/{pod_name}: {e.reason}"
+        ) from e
