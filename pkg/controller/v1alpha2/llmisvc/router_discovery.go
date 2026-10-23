@@ -854,6 +854,22 @@ func resolvedGatewayKeys(resolved []ResolvedGateway) []types.NamespacedName {
 	return keys
 }
 
+// uniqueResolvedGateways keeps the first entry for each Gateway. A Gateway reached
+// through several parentRefs or gateway refs, one per listener, resolves once per
+// reference, but readiness evaluation must see it only once.
+func uniqueResolvedGateways(resolved []ResolvedGateway) []ResolvedGateway {
+	seen := make(map[types.NamespacedName]struct{}, len(resolved))
+	unique := make([]ResolvedGateway, 0, len(resolved))
+	for _, rg := range resolved {
+		key := types.NamespacedName{Namespace: rg.Gateway.Namespace, Name: rg.Gateway.Name}
+		if _, ok := seen[key]; !ok {
+			seen[key] = struct{}{}
+			unique = append(unique, rg)
+		}
+	}
+	return unique
+}
+
 // resolveSpecRefGateways resolves the Gateways named in spec.router.gateway.refs into
 // the same ResolvedGateway shape that DiscoverGateways produces for HTTPRoute parents.
 // The ref is turned into a synthetic ParentReference (carrying SectionName when the user

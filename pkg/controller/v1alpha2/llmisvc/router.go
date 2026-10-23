@@ -509,7 +509,9 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 				)),
 			},
 		}}
-		return specGateways, nil
+		// Deduplicated only now: observed status above needs the sectionName of every
+		// ref, while readiness evaluation needs each Gateway once.
+		return uniqueResolvedGateways(specGateways), nil
 	}
 
 	cfg, err := r.loadConfig(ctx)
@@ -574,17 +576,7 @@ func (r *LLMISVCReconciler) updateRoutingStatus(ctx context.Context, llmSvc *v1a
 	// the readiness scope for the same reason.
 
 	// Deduplicate resolved gateways for downstream condition evaluation.
-	seen := make(map[string]struct{})
-	deduped := allResolved[:0]
-	for _, gw := range allResolved {
-		key := gw.Gateway.Namespace + "/" + gw.Gateway.Name
-		if _, ok := seen[key]; !ok {
-			seen[key] = struct{}{}
-			deduped = append(deduped, gw)
-		}
-	}
-
-	return deduped, nil
+	return uniqueResolvedGateways(allResolved), nil
 }
 
 // preferPathBasedURL selects the first URL whose path starts with
@@ -1032,27 +1024,52 @@ func (r *LLMISVCReconciler) evaluateInferencePoolCondition(ctx context.Context, 
 
 // observedGatewaysFromResolved projects resolved gateways into observed status when no
 // KServe-managed HTTPRoute binds them, as in bring-your-own-gateway deployments where an
-// external controller attaches the InferencePool. Listeners are reported only when the
-// user pinned one via sectionName; HTTPRoutes is left empty because the attaching route
-// belongs to the gateway implementation.
+// external controller attaches the InferencePool. HTTPRoutes is left empty because the
+// attaching route belongs to the gateway implementation.
+//
+// As in BuildObservedGateways, each Gateway gets one entry with its listeners merged.
+// spec.router.gateway.refs is not validated for uniqueness, so it can repeat a Gateway or
+// mix a whole-Gateway ref with listener pins. A ref without sectionName covers every
+// listener, so any such ref leaves Listeners nil regardless of the pins beside it.
 func observedGatewaysFromResolved(resolved []ResolvedGateway) []v1alpha2.ObservedGateway {
 	if len(resolved) == 0 {
 		return nil
 	}
 
-	observed := make([]v1alpha2.ObservedGateway, 0, len(resolved))
+	type gatewayListeners struct {
+		pinned []gwapiv1.SectionName
+		all    bool
+	}
+
+	byGateway := make(map[types.NamespacedName]*gatewayListeners, len(resolved))
 	for _, rg := range resolved {
+		key := types.NamespacedName{Namespace: rg.Gateway.Namespace, Name: rg.Gateway.Name}
+		gl, ok := byGateway[key]
+		if !ok {
+			gl = &gatewayListeners{}
+			byGateway[key] = gl
+		}
+		if rg.ParentRef.SectionName == nil {
+			gl.all = true
+			continue
+		}
+		gl.pinned = append(gl.pinned, *rg.ParentRef.SectionName)
+	}
+
+	observed := make([]v1alpha2.ObservedGateway, 0, len(byGateway))
+	for key, gl := range byGateway {
 		var listeners []gwapiv1.SectionName
-		if rg.ParentRef.SectionName != nil {
-			listeners = []gwapiv1.SectionName{*rg.ParentRef.SectionName}
+		if !gl.all {
+			slices.Sort(gl.pinned)
+			listeners = slices.Compact(gl.pinned)
 		}
 
 		observed = append(observed, v1alpha2.ObservedGateway{
 			ObjectReference: gwapiv1.ObjectReference{
 				Group:     gwapiv1.Group(gwapiv1.GroupName),
 				Kind:      "Gateway",
-				Name:      gwapiv1.ObjectName(rg.Gateway.Name),
-				Namespace: ptr.To(gwapiv1.Namespace(rg.Gateway.Namespace)),
+				Name:      gwapiv1.ObjectName(key.Name),
+				Namespace: ptr.To(gwapiv1.Namespace(key.Namespace)),
 			},
 			Listeners: listeners,
 		})
