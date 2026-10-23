@@ -31,6 +31,7 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/ptr"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -73,6 +74,9 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 			EventRecorder: eventBroadcaster.NewRecorder(mgr.GetScheme(), corev1.EventSource{Component: "LLMInferenceServiceController"}),
 
 			GenerateCertificateKey: certificateKey,
+			// Group members deleted together finalize after their peers release them;
+			// the default requeue would make every such spec wait it out.
+			FinalizationRequeueAfter: ptr.To(250 * time.Millisecond),
 		}
 		return llmCtrl.SetupWithManager(mgr)
 	}
