@@ -26,6 +26,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from kserve.protocol.rest.openai.errors import OpenAIError
 from kserve.protocol.rest.openai.types import CompletionRequest
 
 from huggingfaceserver.generative_model import HuggingfaceGenerativeModel
@@ -68,3 +69,20 @@ def test_logit_bias_keys_are_token_ids():
     )
     config = HuggingfaceGenerativeModel.build_generation_config(stub_self, request)
     assert config.sequence_bias == {(50256,): -100, (9,): 5}
+
+
+@pytest.mark.parametrize("token", ["abc", "", "-1", "1.5"])
+def test_logit_bias_rejects_keys_that_are_not_token_ids(token):
+    stub_self = SimpleNamespace(_tokenizer=SimpleNamespace(pad_token_id=0))
+    request = CompletionRequest(
+        model="test-model",
+        prompt="hello",
+        stream=False,
+        max_tokens=8,
+        logit_bias={token: 5},
+    )
+    with pytest.raises(OpenAIError) as exc_info:
+        HuggingfaceGenerativeModel.build_generation_config(stub_self, request)
+    error = exc_info.value.response.error
+    assert error.code == "400"
+    assert error.param == "logit_bias"
