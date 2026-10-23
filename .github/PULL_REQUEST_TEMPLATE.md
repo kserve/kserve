@@ -1,4 +1,4 @@
-<!--  Thanks for sending a pull request! Read the comments in this template, then delete every one. CI fails while the description contains `<!--` or `-->`.
+<!--  Thanks for sending a pull request! Read the comments in this template, then delete every one. CI fails while the description contains HTML comment markers.
 
 Before you open it:
 - If this is your first time, read our contributor guidelines https://www.kubeflow.org/docs/about/contributing/ and developer guide https://github.com/kserve/kserve/blob/master/docs/DEVELOPER_GUIDE.md
