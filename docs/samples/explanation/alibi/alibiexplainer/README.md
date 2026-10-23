@@ -20,7 +20,7 @@ $ uv run python alibiexplainer/__main__.py {AnchorTabular|AnchorText|AnchorImage
 
 ## Samples
 
-To run a local example follow the [income classifier explanation sample](../../docs/samples/explanation/alibi/income/README.md).
+To run a local example follow the [income classifier explanation sample](../income/README.md).
 
 ## Development
 
