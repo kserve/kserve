@@ -60,6 +60,7 @@ const (
 	prefixCacheScorerPlugin           = "prefix-cache-scorer"
 	tokenProducerPlugin               = "token-producer"
 	precisePrefixCacheProducerPlugin  = "precise-prefix-cache-producer"
+	kvBlockScorerConfigField          = "kvBlockScorerConfig"
 	loraAffinityScorerPlugin          = "lora-affinity-scorer"
 	coreMetricsExtractorPlugin        = "model-server-protocol-metrics"
 	coreMetricsExtractorPluginRenamed = "core-metrics-extractor"
@@ -1594,6 +1595,8 @@ func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
 //     relocate saturationDetector and parser (removed from EndpointPickerConfig
 //     in v0.11.0) and dataLayer.peerDiscovery (only deprecated in v0.11.0, not
 //     removed) to the fields that replaced them
+//  10. withRemoveKVBlockScorerConfig - drop indexerConfig.kvBlockScorerConfig from
+//     precise-prefix-cache-producer (v1.0.0 rejects the field)
 func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService, enableTLS bool) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
@@ -1712,6 +1715,10 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 		)
 	}
 
+	if v.Compare(*semver.New("1.0.0")) >= 0 {
+		opts = append(opts, withRemoveKVBlockScorerConfig)
+	}
+
 	if err := mutateSchedulerConfig(ctx, d, opts...); err != nil {
 		return fmt.Errorf("failed to mutate config: %w", err)
 	}
@@ -1780,6 +1787,29 @@ func withMigratePeerDiscovery(_ context.Context, u *unstructured.Unstructured) e
 		[]string{"dataLayer", "peerDiscovery"},
 		[]string{"dataLayer", "discovery", "peers"},
 		nil)
+}
+
+// withRemoveKVBlockScorerConfig removes a field that llm-d-router v1.0.0
+// rejects in precise-prefix-cache-producer parameters.
+func withRemoveKVBlockScorerConfig(_ context.Context, u *unstructured.Unstructured) error {
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+	if err != nil || !found {
+		return err
+	}
+	plugins, ok := val.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	for _, plugin := range plugins {
+		pluginMap, ok := plugin.(map[string]interface{})
+		if !ok || pluginMap["type"] != precisePrefixCacheProducerPlugin {
+			continue
+		}
+		unstructured.RemoveNestedField(pluginMap, "parameters", "indexerConfig", kvBlockScorerConfigField)
+	}
+
+	return nil
 }
 
 // withMigrateLLMDAPIVersion rewrites the deprecated EndpointPickerConfig
@@ -1894,7 +1924,7 @@ func migrateProducerParams(oldPlugin map[string]interface{}) map[string]interfac
 			if ic, ok := v.(map[string]interface{}); ok {
 				cleaned := make(map[string]interface{}, len(ic))
 				for ik, iv := range ic {
-					if ik == "tokenizersPoolConfig" || ik == "kvBlockScorerConfig" {
+					if ik == "tokenizersPoolConfig" || ik == kvBlockScorerConfigField {
 						continue
 					}
 					if ik == "tokenProcessorConfig" {
