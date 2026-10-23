@@ -1,4 +1,4 @@
-{{- if .Values.kserve.inferenceServiceConfig.enabled | default .Values.kserve.createSharedResources }}
+{{- if (ternary .Values.kserve.inferenceServiceConfig.enabled .Values.kserve.createSharedResources (kindIs "bool" .Values.kserve.inferenceServiceConfig.enabled)) }}
 {{- include "kserve-common.renderPatchedResource" (dict
   "baseFile" "files/common/configmap.yaml"
   "patchFile" "files/common/configmap-patch.yaml"
