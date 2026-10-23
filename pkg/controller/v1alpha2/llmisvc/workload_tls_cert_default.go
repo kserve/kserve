@@ -25,7 +25,7 @@ import "context"
 // ca.crt is therefore identical to tls.crt.
 func (r *LLMISVCReconciler) createWorkloadCertificate(_ context.Context, dnsNames []string, ips []string) createCertFunc {
 	return func() (*certBundle, error) {
-		keyBytes, certBytes, err := createSelfSignedTLSCertificate(dnsNames, ips)
+		keyBytes, certBytes, err := createSelfSignedTLSCertificate(dnsNames, ips, r.generateCertificateKey)
 		if err != nil {
 			return nil, err
 		}

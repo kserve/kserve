@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"crypto/rsa"
 	"errors"
 	"fmt"
 	"slices"
@@ -139,6 +140,10 @@ const (
 // unless --max-concurrent-reconciles says otherwise.
 const DefaultMaxConcurrentReconciles = 8
 
+// DefaultFinalizationRequeueAfter is how long the reconciler waits before re-checking
+// a finalization that is not complete yet.
+const DefaultFinalizationRequeueAfter = 5 * time.Second
+
 // LLMISVCReconciler reconciles an LLMInferenceService object.
 // It orchestrates the reconciliation of child resources based on the spec.
 type LLMISVCReconciler struct {
@@ -156,6 +161,20 @@ type LLMISVCReconciler struct {
 	// DisaggregatedSetRoleScalerAvailable reports whether the DisaggregatedSetRoleScaler
 	// CRD was present when SetupWithManager ran.
 	DisaggregatedSetRoleScalerAvailable bool
+
+	// GenerateCertificateKey creates the private key of each workload serving
+	// certificate. Nil means a fresh RSA 4096 key per certificate.
+	GenerateCertificateKey func() (*rsa.PrivateKey, error)
+
+	// FinalizationRequeueAfter overrides DefaultFinalizationRequeueAfter when set.
+	FinalizationRequeueAfter *time.Duration
+}
+
+func (r *LLMISVCReconciler) finalizationRequeueAfter() time.Duration {
+	if r.FinalizationRequeueAfter != nil {
+		return *r.FinalizationRequeueAfter
+	}
+	return DefaultFinalizationRequeueAfter
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
@@ -233,7 +252,7 @@ func (r *LLMISVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 				if statusErr := r.updateStatus(ctx, original); statusErr != nil {
 					logger.Error(statusErr, "Failed to persist finalization status")
 				}
-				return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+				return ctrl.Result{RequeueAfter: r.finalizationRequeueAfter()}, nil
 			}
 
 			// Cleanup successful, remove finalizer to allow deletion
