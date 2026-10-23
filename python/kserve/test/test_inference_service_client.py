@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from unittest.mock import patch
+from pathlib import Path
 
 from kubernetes import client
 
@@ -22,7 +23,8 @@ from kserve import V1beta1InferenceServiceSpec
 from kserve import V1beta1InferenceService
 from kserve import KServeClient
 
-kserve_client = KServeClient(config_file="./kserve/test/kubeconfig")
+KUBECONFIG_PATH = Path(__file__).parent / "kubeconfig"
+kserve_client = KServeClient(config_file=str(KUBECONFIG_PATH))
 
 mocked_unit_result = """
 {
