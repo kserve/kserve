@@ -1014,6 +1014,26 @@ func TestCheckDeploymentExist(t *testing.T) {
 	}
 }
 
+func TestCustomizeExistingDeploymentDefault(t *testing.T) {
+	reconciler := &DeploymentReconciler{}
+	existing := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "existing", Namespace: "default"},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "model", Image: "example/model:v1"}},
+				},
+			},
+		},
+	}
+	desired := existing.DeepCopy()
+	desired.Spec.Template.Spec.Containers[0].Image = "example/model:v2"
+	before := desired.DeepCopy()
+
+	require.NoError(t, reconciler.customizeExistingDeployment(t.Context(), existing, desired))
+	assert.Equal(t, before, desired)
+}
+
 // mockClientForReconcile is a mock client used to test DeploymentReconciler.Reconcile.
 // It records which operations were called and allows configuring Get/Create/Patch/Delete behaviour.
 type mockClientForReconcile struct {
