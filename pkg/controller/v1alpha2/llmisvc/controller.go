@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"crypto/rsa"
 	"errors"
 	"fmt"
 	"slices"
@@ -156,6 +157,10 @@ type LLMISVCReconciler struct {
 	// DisaggregatedSetRoleScalerAvailable reports whether the DisaggregatedSetRoleScaler
 	// CRD was present when SetupWithManager ran.
 	DisaggregatedSetRoleScalerAvailable bool
+
+	// GenerateCertificateKey creates the private key of each workload serving
+	// certificate. Nil means a fresh RSA 4096 key per certificate.
+	GenerateCertificateKey func() (*rsa.PrivateKey, error)
 }
 
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceservices,verbs=get;list;watch;create;update;patch;delete
