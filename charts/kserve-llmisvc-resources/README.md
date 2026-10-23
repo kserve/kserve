@@ -116,6 +116,7 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.llmisvc.controller.nodeSelector | object | `{}` |  |
 | kserve.llmisvc.controller.podAnnotations | object | `{}` |  |
 | kserve.llmisvc.controller.podLabels | object | `{}` |  |
+| kserve.llmisvc.controller.priorityClassName | string | `""` | Name of an existing PriorityClass for llmisvc-controller-manager pods. Empty omits priorityClassName. This chart does not create the PriorityClass. |
 | kserve.llmisvc.controller.readinessProbe.enabled | bool | `true` |  |
 | kserve.llmisvc.controller.readinessProbe.failureThreshold | int | `5` |  |
 | kserve.llmisvc.controller.readinessProbe.httpGet.path | string | `"/readyz"` |  |
@@ -211,3 +212,14 @@ $ helm install kserve-llmisvc-resources oci://ghcr.io/kserve/charts/kserve-llmis
 | kserve.storage.uidModelcar | int | `1010` |  |
 | kserve.storagecontainer.enabled | string | `""` |  |
 | kserve.version | string | `"v0.21.0"` |  |
+
+## Scheduling priority
+
+`kserve.llmisvc.controller.priorityClassName` sets `spec.template.spec.priorityClassName` on the `llmisvc-controller-manager` Deployment. Leave it empty to omit the field, which is the default. The chart only references a PriorityClass; it does not create one.
+
+```yaml
+kserve:
+  llmisvc:
+    controller:
+      priorityClassName: kserve-control-plane
+```
