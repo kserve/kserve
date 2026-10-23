@@ -69,9 +69,9 @@ envtest runs a real API server and etcd but NOT built-in controllers (Deployment
 3. **Implement** - minimal, focused changes following existing project patterns
 4. **Verify** - run selective tests, then `make precommit` before committing
 
-## Pull Requests
+## Pull requests
 
-Use the template in `.github/PULL_REQUEST_TEMPLATE.md`. Fill in every section. Focus on **what** changed and **why** - avoid listing implementation details, files changed, or lines of code.
+Before you write a PR title or description, read `.github/PULL_REQUEST_TEMPLATE.md`. Its comments are the rules: follow them, then delete every one. `.github/PR_DESCRIPTION_EXAMPLES.md` shows the right size.
 
 ## Controller-Runtime Patterns
 
