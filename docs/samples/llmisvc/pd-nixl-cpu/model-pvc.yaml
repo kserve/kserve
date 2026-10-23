@@ -1,0 +1,108 @@
+# facebook/opt-125m in a PVC, downloaded once and shared by the prefill and decode pods.
+# Only the files vLLM reads are fetched: about 252 MB of the repo's 753 MB, whose TF and
+# Flax weights vLLM never loads.
+#
+# ${VLLM_NIXL_CPU_IMAGE} is the image built from ./Dockerfile; run.sh substitutes it.
+# Reusing it here keeps the sample to one image, already present on the node.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: opt-125m-model
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: opt-125m-model-download
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: download
+          image: ${VLLM_NIXL_CPU_IMAGE}
+          imagePullPolicy: IfNotPresent
+          command: ["python3", "-c"]
+          args:
+            - |
+              # Hugging Face throttles each connection (roughly 150-250 KB/s was seen), so the
+              # weights are fetched as parallel byte ranges and checked against the LFS sha256.
+              import concurrent.futures, hashlib, os, urllib.request
+              from huggingface_hub import HfApi, hf_hub_url, snapshot_download
+
+              repo, dest, weights = "facebook/opt-125m", "/mnt/models", "pytorch_model.bin"
+              streams = int(os.environ["STREAMS"])
+
+              snapshot_download(repo, local_dir=dest, allow_patterns=["*.json", "*.txt"])
+
+              info = next(iter(HfApi().get_paths_info(repo, [weights], expand=True)))
+              size, want = info.size, info.lfs.sha256
+              path = os.path.join(dest, weights)
+
+              def sha256(p):
+                  h = hashlib.sha256()
+                  with open(p, "rb") as f:
+                      for chunk in iter(lambda: f.read(1 << 20), b""):
+                          h.update(chunk)
+                  return h.hexdigest()
+
+              if os.path.exists(path) and os.path.getsize(path) == size and sha256(path) == want:
+                  print(f"{weights} already present and verified")
+              else:
+                  url, part = hf_hub_url(repo, weights), path + ".part"
+                  with open(part, "wb") as f:
+                      f.truncate(size)
+                  seg = -(-size // streams)
+
+                  def fetch(i):
+                      start, end = i * seg, min(size, (i + 1) * seg) - 1
+                      err = None
+                      for _ in range(8):
+                          try:
+                              req = urllib.request.Request(url, headers={"Range": f"bytes={start}-{end}"})
+                              with urllib.request.urlopen(req, timeout=60) as r, open(part, "r+b") as f:
+                                  if r.status != 206:
+                                      raise RuntimeError(f"expected 206, got {r.status}")
+                                  f.seek(start)
+                                  got = 0
+                                  for chunk in iter(lambda: r.read(1 << 20), b""):
+                                      f.write(chunk)
+                                      got += len(chunk)
+                              if got == end - start + 1:
+                                  return
+                              err = RuntimeError(f"segment {i}: {got} of {end - start + 1} bytes")
+                          except Exception as e:  # retried below
+                              err = e
+                      raise RuntimeError(f"segment {i} failed: {err}")
+
+                  with concurrent.futures.ThreadPoolExecutor(streams) as pool:
+                      list(pool.map(fetch, range(streams)))
+                  got = sha256(part)
+                  if got != want:
+                      raise SystemExit(f"sha256 mismatch for {weights}: {got} != {want}")
+                  os.replace(part, path)
+                  print(f"{weights}: {size} bytes, sha256 verified")
+
+              # Readable by the vLLM containers, which run as uid 1000.
+              os.system(f"chmod -R a+rX {dest}")
+              for name in sorted(os.listdir(dest)):
+                  p = os.path.join(dest, name)
+                  if os.path.isfile(p):
+                      print(f"{os.path.getsize(p) / 1e6:9.1f} MB  {name}")
+          env:
+            - name: STREAMS
+              value: "48"
+            - name: HF_HOME
+              value: /tmp/hf
+          volumeMounts:
+            - name: models
+              mountPath: /mnt/models
+      volumes:
+        - name: models
+          persistentVolumeClaim:
+            claimName: opt-125m-model
