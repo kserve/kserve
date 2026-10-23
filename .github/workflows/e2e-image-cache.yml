@@ -1,0 +1,217 @@
+name: E2E Image Cache
+
+# Publishes the e2e images to GHCR under their content key, so that e2e runs
+# whose image inputs match master pull them instead of rebuilding them. The key
+# covers everything a build can read; see test/scripts/gh-actions/image-cache.sh.
+#
+# Integrity doesn't rest on who can push: any workflow token with packages:
+# write can push a tag to this package. e2e runs only use an image when the
+# publish job below, running on master, attested that exact tag and digest; a
+# tag pushed or re-tagged by anyone else misses and builds as before, and the
+# next publish pushes over it.
+#
+# What RUN steps fetch from the network is not part of the key: the uv
+# installer (curl | sh), unpinned pip packages, vLLM's build requirements, a
+# git clone of a tag, apt. Whatever a publish run fetches gets signed as
+# master's build and is reused until the key changes - at the latest the next
+# ISO week, which every key includes, so Monday's first run republishes all.
+#
+# Never add pull_request_target, workflow_run or workflow_call triggers here:
+# they run with refs/heads/master and would sign as this publisher. Only the
+# publish job holds id-token: write, and only publish and prune hold packages:
+# write; image-cache-test.sh checks both, and that every workflow reading the
+# cache has a read-only token.
+#
+# This file is part of every key, as is image-cache.sh: editing either drops
+# every cached image at once.
+#
+# GHCR expires nothing, so scheduled runs prune versions that no current key
+# uses once they are a week old.
+
+on:
+  push:
+    branches: [master]
+  schedule:
+    # Base image tags move without a commit, which changes the keys, and merges
+    # by prow-pr-automerge.yml use GITHUB_TOKEN, which starts no push run.
+    - cron: "30 */3 * * *"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/e2e-image-cache.yml"
+      - "test/scripts/gh-actions/image-cache.sh"
+      - "test/scripts/gh-actions/image-cache-test.sh"
+      # Every image they build needs a spec in image-cache.sh.
+      - "test/scripts/gh-actions/build-images.sh"
+      - "test/scripts/gh-actions/build-server-runtimes.sh"
+      - "**/.dockerignore"
+      # A Dockerfile edit the key cannot read would otherwise just turn the
+      # cache off for that image.
+      - "**/*Dockerfile*"
+
+permissions:
+  contents: read
+
+env:
+  E2E_IMAGE_CACHE: ghcr.io/${{ github.repository_owner }}/kserve-e2e-images
+  # The builder runs privileged next to the job's token; pinned, so a moved tag
+  # cannot change what runs there or what gets published. buildx-stable-1 as of
+  # 2026-09-30.
+  BUILDKIT_IMAGE: moby/buildkit:v0.33.1@sha256:cec9f139f45e93c5c69c60f8b07cfad9f43f4ef6b6a6cd917527fea5ff2e3dea
+
+jobs:
+  test:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+          driver-opts: image=${{ env.BUILDKIT_IMAGE }}
+
+      - name: Check which edits change which keys
+        run: ./test/scripts/gh-actions/image-cache-test.sh
+
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      attestations: read
+    outputs:
+      groups: ${{ steps.plan.outputs.groups }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+          driver-opts: image=${{ env.BUILDKIT_IMAGE }}
+
+      # Plans the way e2e runs read the cache, without registry credentials: a
+      # private package or a tag without its attestation shows up as missing.
+      # On pull requests nothing publishes; it runs to show every image keys.
+      - name: Find images e2e runs cannot use yet
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          groups="$(./test/scripts/gh-actions/image-cache.sh plan)"
+          echo "Missing: ${groups}"
+          echo "groups=${groups}" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: plan
+    # The events that may sign are listed, so a trigger added later doesn't
+    # publish by default; e2e runs reject any other trigger anyway.
+    if: >-
+      contains(fromJSON('["push", "schedule", "workflow_dispatch"]'), github.event_name) &&
+      github.ref == 'refs/heads/master' &&
+      needs.plan.outputs.groups != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+      # Signing the provenance attestations e2e runs verify.
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.groups) }}
+    # Queue instead of cancelling: with frequent merges, cancelling would starve
+    # the slow builds (huggingfaceserver takes ~35 min). GitHub keeps only the
+    # newest queued job per group; it skips images already published.
+    concurrency:
+      group: e2e-image-cache-${{ matrix.group }}
+      cancel-in-progress: false
+    name: publish (${{ matrix.group }})
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Free-up disk space
+        uses: ./.github/actions/free-up-disk-space
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+          driver-opts: image=${{ env.BUILDKIT_IMAGE }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        env:
+          IMAGES: ${{ matrix.images }}
+          GH_TOKEN: ${{ github.token }}
+          # Outside the checkout, so no committed file can add subjects.
+          E2E_IMAGE_CACHE_SUBJECTS: ${{ runner.temp }}/image-cache-subjects
+        run: |
+          # Before anything that can fail: the attest step signs whatever the
+          # file holds.
+          : >"${E2E_IMAGE_CACHE_SUBJECTS}"
+          read -r -a images <<<"${IMAGES}"
+          ./test/scripts/gh-actions/image-cache.sh publish "${images[@]}"
+
+      # Also after a partial failure: every image that was pushed gets attested.
+      - name: List pushed images
+        id: pushed
+        if: always()
+        run: |
+          if [[ -s "${RUNNER_TEMP}/image-cache-subjects" ]]; then
+            echo "subjects=${RUNNER_TEMP}/image-cache-subjects" >>"${GITHUB_OUTPUT}"
+          fi
+
+      - name: Attest pushed images
+        if: always() && steps.pushed.outputs.subjects != ''
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: ${{ steps.pushed.outputs.subjects }}
+
+  prune:
+    if: >-
+      github.ref == 'refs/heads/master' &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      # The publishing repository holds the admin role on the package, which
+      # deleting versions requires.
+      packages: write
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+        with:
+          cache-binary: true
+          driver-opts: image=${{ env.BUILDKIT_IMAGE }}
+
+      - name: Delete stale cache versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./test/scripts/gh-actions/image-cache.sh prune
