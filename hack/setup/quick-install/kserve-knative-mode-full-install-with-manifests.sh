@@ -59717,7 +59717,12 @@ data:
            "cpuLimit": "1",
 
            # defaultUrl specifies the default logger url. If logger is not specified in the resource this url is used.
-           "defaultUrl": "http://default-broker"
+           "defaultUrl": "http://default-broker",
+
+           # logAllResponses logs response payloads regardless of their status code and adds a statuscode
+           # extension attribute to the response cloud event. Defaults to false, in which case only 200 responses are logged.
+           # The logAllResponses field of the InferenceService logger spec takes precedence over this value.
+           "logAllResponses": false
        }
 
      # ====================================== BATCHER CONFIGURATION ======================================
