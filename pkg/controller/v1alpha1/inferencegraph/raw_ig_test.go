@@ -643,3 +643,31 @@ func TestPropagateRawStatus(t *testing.T) {
 		})
 	}
 }
+
+// TestPropagateRawStatus_DoesNotSetObservedGeneration verifies that the
+// InferenceGraph PropagateRawStatus helper no longer copies the child
+// Deployment's ObservedGeneration onto the graph status. The field is set
+// by updateStatus() from the InferenceGraph's own metadata.Generation.
+func TestPropagateRawStatus_DoesNotSetObservedGeneration(t *testing.T) {
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ig"},
+		Status: appsv1.DeploymentStatus{
+			// Simulate a child Deployment at its own generation 9.
+			ObservedGeneration: 9,
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:   appsv1.DeploymentAvailable,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+	graphStatus := &InferenceGraphStatus{}
+
+	PropagateRawStatus(graphStatus, deployment, nil)
+
+	if graphStatus.ObservedGeneration != 0 {
+		t.Errorf("PropagateRawStatus must not copy the child Deployment's ObservedGeneration: got %d, want 0",
+			graphStatus.ObservedGeneration)
+	}
+}

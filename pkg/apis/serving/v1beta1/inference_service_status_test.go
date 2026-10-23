@@ -274,6 +274,75 @@ func TestPropagateRawStatus_EmptyDeploymentList(t *testing.T) {
 	g.Expect(status.ObservedGeneration).To(gomega.Equal(int64(0)))
 }
 
+// TestPropagateRawStatus_DoesNotSetObservedGeneration verifies that
+// PropagateRawStatus no longer copies the child Deployment's ObservedGeneration
+// onto the InferenceServiceStatus. The field is now set by updateStatus() in
+// the controller from the InferenceService's own metadata.Generation.
+func TestPropagateRawStatus_DoesNotSetObservedGeneration(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				"deployment.kubernetes.io/revision": "1",
+			},
+		},
+		Status: appsv1.DeploymentStatus{
+			// Simulate a child Deployment that has been updated 7 times.
+			ObservedGeneration: 7,
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:   appsv1.DeploymentAvailable,
+					Status: corev1.ConditionTrue,
+					Reason: "MinimumReplicasAvailable",
+				},
+			},
+		},
+	}
+	status := &InferenceServiceStatus{}
+	parsedURL, _ := url.Parse("http://test-predictor-default.default.example.com")
+	serviceURL := (*apis.URL)(parsedURL)
+
+	status.PropagateRawStatus(PredictorComponent, []*appsv1.Deployment{deployment}, serviceURL)
+
+	// PropagateRawStatus must NOT copy the child's ObservedGeneration (7).
+	// The controller's updateStatus() is responsible for setting it from
+	// isvc.Generation instead.
+	g.Expect(status.ObservedGeneration).To(gomega.Equal(int64(0)),
+		"PropagateRawStatus must not copy the child Deployment's ObservedGeneration")
+}
+
+// TestPropagateStatus_DoesNotSetObservedGeneration verifies that PropagateStatus
+// no longer copies the child Knative Service's ObservedGeneration onto the
+// InferenceServiceStatus. Same contract as TestPropagateRawStatus_DoesNotSetObservedGeneration.
+func TestPropagateStatus_DoesNotSetObservedGeneration(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	parsedURL, _ := url.Parse("http://test-predictor-default.default.example.com")
+	serviceStatus := &knservingv1.ServiceStatus{
+		Status: duckv1.Status{
+			// Simulate a child Knative Service at its own generation 5.
+			ObservedGeneration: 5,
+			Conditions: duckv1.Conditions{
+				{Type: "RoutesReady", Status: corev1.ConditionTrue},
+				{Type: "ConfigurationsReady", Status: corev1.ConditionTrue},
+				{Type: knservingv1.ServiceConditionReady, Status: corev1.ConditionTrue},
+			},
+		},
+		RouteStatusFields: knservingv1.RouteStatusFields{
+			URL:     (*apis.URL)(parsedURL),
+			Address: &duckv1.Addressable{},
+		},
+	}
+	status := &InferenceServiceStatus{}
+
+	status.PropagateStatus(PredictorComponent, serviceStatus)
+
+	// PropagateStatus must NOT copy the child Knative Service's ObservedGeneration (5).
+	g.Expect(status.ObservedGeneration).To(gomega.Equal(int64(0)),
+		"PropagateStatus must not copy the child Knative Service's ObservedGeneration")
+}
+
 func TestPropagateRawStatusWithMessages(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
