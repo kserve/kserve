@@ -19,6 +19,7 @@ package pod
 import (
 	"encoding/json"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -2264,6 +2265,36 @@ func TestGetLoggerConfigs(t *testing.T) {
 			},
 		},
 		{
+			name: "Log all responses enabled in the configmap",
+			configMap: &corev1.ConfigMap{
+				TypeMeta:   metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{},
+				Data: map[string]string{
+					LoggerConfigMapKeyName: `{
+						"Image":           "gcr.io/kfserving/logger:latest",
+						"CpuRequest":      "100m",
+						"CpuLimit":        "1",
+						"MemoryRequest":   "200Mi",
+						"MemoryLimit":     "1Gi",
+						"logAllResponses": true
+					}`,
+				},
+				BinaryData: map[string][]byte{},
+			},
+			pod: pod,
+			matchers: []types.GomegaMatcher{
+				gomega.Equal(&LoggerConfig{
+					Image:           "gcr.io/kfserving/logger:latest",
+					CpuRequest:      "100m",
+					CpuLimit:        "1",
+					MemoryRequest:   "200Mi",
+					MemoryLimit:     "1Gi",
+					LogAllResponses: true,
+				}),
+				gomega.BeNil(),
+			},
+		},
+		{
 			name: "Invalid Resource Value",
 			configMap: &corev1.ConfigMap{
 				TypeMeta:   metav1.TypeMeta{},
@@ -2518,4 +2549,98 @@ func marshalReadinessProbe(probe *corev1.Probe) (string, error) {
 	}
 
 	return string(probeJson), nil
+}
+
+func TestInjectAgentLogAllResponsesPrecedence(t *testing.T) {
+	clientset := fakeclientset.NewSimpleClientset()
+	credentialBuilder := credentials.NewCredentialBuilder(c, clientset, &corev1.ConfigMap{
+		Data: map[string]string{},
+	})
+
+	cases := map[string]struct {
+		configMapValue bool
+		annotation     *string
+		expectedArg    string
+	}{
+		"neither the annotation nor the configmap enable it": {
+			expectedArg: "",
+		},
+		"configmap enables it when the annotation is absent": {
+			configMapValue: true,
+			expectedArg:    LoggerArgumentLogAllResponses + "=true",
+		},
+		"annotation true is rendered": {
+			annotation:  ptr.To("true"),
+			expectedArg: LoggerArgumentLogAllResponses + "=true",
+		},
+		"annotation false overrides a configmap that enables it": {
+			configMapValue: true,
+			annotation:     ptr.To("false"),
+			expectedArg:    LoggerArgumentLogAllResponses + "=false",
+		},
+		"annotation true is kept when the configmap disables it": {
+			annotation:  ptr.To("true"),
+			expectedArg: LoggerArgumentLogAllResponses + "=true",
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "deployment",
+					Namespace: "default",
+					Annotations: map[string]string{
+						constants.LoggerInternalAnnotationKey:        "true",
+						constants.LoggerSinkUrlInternalAnnotationKey: "http://httpbin.org/",
+						constants.LoggerModeInternalAnnotationKey:    string(v1beta1.LogAll),
+					},
+					Labels: map[string]string{
+						"serving.kserve.io/inferenceservice": "sklearn",
+						constants.KServiceEndpointLabel:      "default",
+						constants.KServiceComponentLabel:     "predictor",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "sklearn"}, {Name: "queue-proxy"}},
+				},
+			}
+			if tc.annotation != nil {
+				pod.Annotations[constants.LoggerLogAllResponsesInternalAnnotationKey] = *tc.annotation
+			}
+
+			injector := &AgentInjector{
+				credentialBuilder,
+				agentConfig,
+				&LoggerConfig{
+					Image:           "gcr.io/kserve/agent:latest",
+					DefaultUrl:      "http://httpbin.org/",
+					LogAllResponses: tc.configMapValue,
+				},
+				batcherTestConfig,
+			}
+			g.Expect(injector.InjectAgent(pod)).To(gomega.Succeed())
+
+			var agentArgs []string
+			for _, container := range pod.Spec.Containers {
+				if container.Name == constants.AgentContainerName {
+					agentArgs = container.Args
+				}
+			}
+			g.Expect(agentArgs).NotTo(gomega.BeEmpty())
+
+			var logAllResponsesArgs []string
+			for _, arg := range agentArgs {
+				if strings.HasPrefix(arg, LoggerArgumentLogAllResponses) {
+					logAllResponsesArgs = append(logAllResponsesArgs, arg)
+				}
+			}
+			if tc.expectedArg == "" {
+				g.Expect(logAllResponsesArgs).To(gomega.BeEmpty())
+			} else {
+				g.Expect(logAllResponsesArgs).To(gomega.ConsistOf(tc.expectedArg))
+			}
+		})
+	}
 }
