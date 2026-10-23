@@ -66,19 +66,20 @@ type AgentConfig struct {
 }
 
 type LoggerConfig struct {
-	Image         string                     `json:"image"`
-	CpuRequest    string                     `json:"cpuRequest"`
-	CpuLimit      string                     `json:"cpuLimit"`
-	MemoryRequest string                     `json:"memoryRequest"`
-	MemoryLimit   string                     `json:"memoryLimit"`
-	DefaultUrl    string                     `json:"defaultUrl"`
-	CaBundle      string                     `json:"caBundle"`
-	CaCertFile    string                     `json:"caCertFile"`
-	TlsSkipVerify bool                       `json:"tlsSkipVerify"`
-	Store         *v1beta1.LoggerStorageSpec `json:"storage"`
-	MarshallerURL string                     `json:"marshallerUrl,omitempty"`
-	BatchSize     int                        `json:"batchSize,omitempty"`
-	BatchInterval string                     `json:"batchInterval,omitempty"`
+	Image           string                     `json:"image"`
+	CpuRequest      string                     `json:"cpuRequest"`
+	CpuLimit        string                     `json:"cpuLimit"`
+	MemoryRequest   string                     `json:"memoryRequest"`
+	MemoryLimit     string                     `json:"memoryLimit"`
+	DefaultUrl      string                     `json:"defaultUrl"`
+	CaBundle        string                     `json:"caBundle"`
+	CaCertFile      string                     `json:"caCertFile"`
+	TlsSkipVerify   bool                       `json:"tlsSkipVerify"`
+	Store           *v1beta1.LoggerStorageSpec `json:"storage"`
+	MarshallerURL   string                     `json:"marshallerUrl,omitempty"`
+	BatchSize       int                        `json:"batchSize,omitempty"`
+	BatchInterval   string                     `json:"batchInterval,omitempty"`
+	LogAllResponses bool                       `json:"logAllResponses,omitempty"`
 }
 
 type AgentInjector struct {
@@ -305,7 +306,12 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			}
 			loggerArgs = append(loggerArgs, LoggerArgumentMetadataAnnotations, strings.Join(kvPairs, ","))
 		}
+		// The InferenceService value, carried by the annotation, takes precedence over the
+		// ConfigMap default so that a component can opt out when the ConfigMap enables it.
 		logAllResponses, ok := pod.Annotations[constants.LoggerLogAllResponsesInternalAnnotationKey]
+		if !ok && ag.loggerConfig.LogAllResponses {
+			logAllResponses, ok = "true", true
+		}
 		if ok {
 			// pflag only honours the value of a bool flag in the --flag=value form.
 			loggerArgs = append(loggerArgs, LoggerArgumentLogAllResponses+"="+logAllResponses)
