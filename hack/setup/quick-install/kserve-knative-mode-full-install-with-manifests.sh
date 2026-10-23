@@ -14444,6 +14444,139 @@ spec:
                                       x-kubernetes-int-or-string: true
                                   type: object
                               type: object
+                            keda:
+                              properties:
+                                advanced:
+                                  properties:
+                                    horizontalPodAutoscalerConfig:
+                                      properties:
+                                        behavior:
+                                          properties:
+                                            scaleDown:
+                                              properties:
+                                                policies:
+                                                  items:
+                                                    properties:
+                                                      periodSeconds:
+                                                        format: int32
+                                                        type: integer
+                                                      type:
+                                                        type: string
+                                                      value:
+                                                        format: int32
+                                                        type: integer
+                                                    required:
+                                                    - periodSeconds
+                                                    - type
+                                                    - value
+                                                    type: object
+                                                  type: array
+                                                  x-kubernetes-list-type: atomic
+                                                selectPolicy:
+                                                  type: string
+                                                stabilizationWindowSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                tolerance:
+                                                  anyOf:
+                                                  - type: integer
+                                                  - type: string
+                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                  x-kubernetes-int-or-string: true
+                                              type: object
+                                            scaleUp:
+                                              properties:
+                                                policies:
+                                                  items:
+                                                    properties:
+                                                      periodSeconds:
+                                                        format: int32
+                                                        type: integer
+                                                      type:
+                                                        type: string
+                                                      value:
+                                                        format: int32
+                                                        type: integer
+                                                    required:
+                                                    - periodSeconds
+                                                    - type
+                                                    - value
+                                                    type: object
+                                                  type: array
+                                                  x-kubernetes-list-type: atomic
+                                                selectPolicy:
+                                                  type: string
+                                                stabilizationWindowSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                tolerance:
+                                                  anyOf:
+                                                  - type: integer
+                                                  - type: string
+                                                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                                  x-kubernetes-int-or-string: true
+                                              type: object
+                                          type: object
+                                        name:
+                                          type: string
+                                      type: object
+                                    restoreToOriginalReplicaCount:
+                                      type: boolean
+                                    scalingModifiers:
+                                      properties:
+                                        activationTarget:
+                                          type: string
+                                        formula:
+                                          type: string
+                                        metricType:
+                                          enum:
+                                          - AverageValue
+                                          - Value
+                                          type: string
+                                        target:
+                                          type: string
+                                      type: object
+                                  type: object
+                                cooldownPeriod:
+                                  format: int32
+                                  minimum: 0
+                                  type: integer
+                                fallback:
+                                  properties:
+                                    behavior:
+                                      default: static
+                                      enum:
+                                      - static
+                                      - currentReplicas
+                                      - currentReplicasIfHigher
+                                      - currentReplicasIfLower
+                                      - scalingModifiers
+                                      type: string
+                                    failureThreshold:
+                                      format: int32
+                                      minimum: 0
+                                      type: integer
+                                    replicas:
+                                      format: int32
+                                      minimum: 0
+                                      type: integer
+                                  required:
+                                  - failureThreshold
+                                  - replicas
+                                  type: object
+                                idleReplicaCount:
+                                  format: int32
+                                  minimum: 0
+                                  type: integer
+                                initialCooldownPeriod:
+                                  format: int32
+                                  minimum: 0
+                                  type: integer
+                                pollingInterval:
+                                  format: int32
+                                  minimum: 1
+                                  type: integer
+                              type: object
                             metrics:
                               items:
                                 properties:
@@ -14505,6 +14638,8 @@ spec:
                                     - metric
                                     - target
                                     type: object
+                                  name:
+                                    type: string
                                   podmetric:
                                     properties:
                                       metric:
@@ -14593,6 +14728,8 @@ spec:
                                     - External
                                     - PodMetric
                                     type: string
+                                  useCachedMetrics:
+                                    type: boolean
                                 required:
                                 - type
                                 type: object
@@ -31881,6 +32018,139 @@ spec:
                                 x-kubernetes-int-or-string: true
                             type: object
                         type: object
+                      keda:
+                        properties:
+                          advanced:
+                            properties:
+                              horizontalPodAutoscalerConfig:
+                                properties:
+                                  behavior:
+                                    properties:
+                                      scaleDown:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                      scaleUp:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                    type: object
+                                  name:
+                                    type: string
+                                type: object
+                              restoreToOriginalReplicaCount:
+                                type: boolean
+                              scalingModifiers:
+                                properties:
+                                  activationTarget:
+                                    type: string
+                                  formula:
+                                    type: string
+                                  metricType:
+                                    enum:
+                                    - AverageValue
+                                    - Value
+                                    type: string
+                                  target:
+                                    type: string
+                                type: object
+                            type: object
+                          cooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          fallback:
+                            properties:
+                              behavior:
+                                default: static
+                                enum:
+                                - static
+                                - currentReplicas
+                                - currentReplicasIfHigher
+                                - currentReplicasIfLower
+                                - scalingModifiers
+                                type: string
+                              failureThreshold:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              replicas:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                            required:
+                            - failureThreshold
+                            - replicas
+                            type: object
+                          idleReplicaCount:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          initialCooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          pollingInterval:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
                       metrics:
                         items:
                           properties:
@@ -31942,6 +32212,8 @@ spec:
                               - metric
                               - target
                               type: object
+                            name:
+                              type: string
                             podmetric:
                               properties:
                                 metric:
@@ -32030,6 +32302,8 @@ spec:
                               - External
                               - PodMetric
                               type: string
+                            useCachedMetrics:
+                              type: boolean
                           required:
                           - type
                           type: object
@@ -35363,6 +35637,139 @@ spec:
                                 x-kubernetes-int-or-string: true
                             type: object
                         type: object
+                      keda:
+                        properties:
+                          advanced:
+                            properties:
+                              horizontalPodAutoscalerConfig:
+                                properties:
+                                  behavior:
+                                    properties:
+                                      scaleDown:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                      scaleUp:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                    type: object
+                                  name:
+                                    type: string
+                                type: object
+                              restoreToOriginalReplicaCount:
+                                type: boolean
+                              scalingModifiers:
+                                properties:
+                                  activationTarget:
+                                    type: string
+                                  formula:
+                                    type: string
+                                  metricType:
+                                    enum:
+                                    - AverageValue
+                                    - Value
+                                    type: string
+                                  target:
+                                    type: string
+                                type: object
+                            type: object
+                          cooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          fallback:
+                            properties:
+                              behavior:
+                                default: static
+                                enum:
+                                - static
+                                - currentReplicas
+                                - currentReplicasIfHigher
+                                - currentReplicasIfLower
+                                - scalingModifiers
+                                type: string
+                              failureThreshold:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              replicas:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                            required:
+                            - failureThreshold
+                            - replicas
+                            type: object
+                          idleReplicaCount:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          initialCooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          pollingInterval:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
                       metrics:
                         items:
                           properties:
@@ -35424,6 +35831,8 @@ spec:
                               - metric
                               - target
                               type: object
+                            name:
+                              type: string
                             podmetric:
                               properties:
                                 metric:
@@ -35512,6 +35921,8 @@ spec:
                               - External
                               - PodMetric
                               type: string
+                            useCachedMetrics:
+                              type: boolean
                           required:
                           - type
                           type: object
@@ -51174,6 +51585,139 @@ spec:
                                 x-kubernetes-int-or-string: true
                             type: object
                         type: object
+                      keda:
+                        properties:
+                          advanced:
+                            properties:
+                              horizontalPodAutoscalerConfig:
+                                properties:
+                                  behavior:
+                                    properties:
+                                      scaleDown:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                      scaleUp:
+                                        properties:
+                                          policies:
+                                            items:
+                                              properties:
+                                                periodSeconds:
+                                                  format: int32
+                                                  type: integer
+                                                type:
+                                                  type: string
+                                                value:
+                                                  format: int32
+                                                  type: integer
+                                              required:
+                                              - periodSeconds
+                                              - type
+                                              - value
+                                              type: object
+                                            type: array
+                                            x-kubernetes-list-type: atomic
+                                          selectPolicy:
+                                            type: string
+                                          stabilizationWindowSeconds:
+                                            format: int32
+                                            type: integer
+                                          tolerance:
+                                            anyOf:
+                                            - type: integer
+                                            - type: string
+                                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                            x-kubernetes-int-or-string: true
+                                        type: object
+                                    type: object
+                                  name:
+                                    type: string
+                                type: object
+                              restoreToOriginalReplicaCount:
+                                type: boolean
+                              scalingModifiers:
+                                properties:
+                                  activationTarget:
+                                    type: string
+                                  formula:
+                                    type: string
+                                  metricType:
+                                    enum:
+                                    - AverageValue
+                                    - Value
+                                    type: string
+                                  target:
+                                    type: string
+                                type: object
+                            type: object
+                          cooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          fallback:
+                            properties:
+                              behavior:
+                                default: static
+                                enum:
+                                - static
+                                - currentReplicas
+                                - currentReplicasIfHigher
+                                - currentReplicasIfLower
+                                - scalingModifiers
+                                type: string
+                              failureThreshold:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                              replicas:
+                                format: int32
+                                minimum: 0
+                                type: integer
+                            required:
+                            - failureThreshold
+                            - replicas
+                            type: object
+                          idleReplicaCount:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          initialCooldownPeriod:
+                            format: int32
+                            minimum: 0
+                            type: integer
+                          pollingInterval:
+                            format: int32
+                            minimum: 1
+                            type: integer
+                        type: object
                       metrics:
                         items:
                           properties:
@@ -51235,6 +51779,8 @@ spec:
                               - metric
                               - target
                               type: object
+                            name:
+                              type: string
                             podmetric:
                               properties:
                                 metric:
@@ -51323,6 +51869,8 @@ spec:
                               - External
                               - PodMetric
                               type: string
+                            useCachedMetrics:
+                              type: boolean
                           required:
                           - type
                           type: object

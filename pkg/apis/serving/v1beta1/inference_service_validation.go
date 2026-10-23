@@ -601,12 +601,36 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 	}
 
 	if compExtSpec.AutoScaling != nil {
+		// Validate KEDA-specific configuration
+		if compExtSpec.AutoScaling.KEDA != nil {
+			if err := validateKEDAConfig(compExtSpec.AutoScaling.KEDA, compExtSpec.MinReplicas); err != nil {
+				return err
+			}
+			if err := validateKEDAFallbackMetrics(compExtSpec.AutoScaling.KEDA, compExtSpec.AutoScaling.Metrics); err != nil {
+				return err
+			}
+		}
+
+		// Validate trigger names are unique
+		triggerNames := make(map[string]bool)
 		for _, metric := range compExtSpec.AutoScaling.Metrics {
+			if metric.Name != "" {
+				if triggerNames[metric.Name] {
+					return fmt.Errorf("duplicate trigger name: %s. Trigger names must be unique", metric.Name)
+				}
+				triggerNames[metric.Name] = true
+			}
+
 			metricType := metric.Type
 			switch metricType {
 			case ResourceMetricSourceType:
 				if metric.Resource == nil {
 					return errors.New("metricSpec.Resource is not set for resource metric source type")
+				}
+				// KEDA's ValidateTriggers rejects useCachedMetrics on cpu, memory and cron
+				// scalers, so reject it here rather than letting ScaledObject creation fail.
+				if metric.UseCachedMetrics {
+					return fmt.Errorf("useCachedMetrics is not supported for the %s scaler", metric.Resource.Name)
 				}
 				switch metric.Resource.Name {
 				case ResourceMetricCPU:
@@ -661,6 +685,82 @@ func validateScalingKedaCompExtension(compExtSpec *ComponentExtensionSpec) error
 			}
 		}
 	}
+	return nil
+}
+
+// validateKEDAFallbackMetrics mirrors KEDA's CheckFallbackValid: a fallback is only
+// honoured when at least one trigger is neither cpu nor memory, because those scalers
+// cannot report the averaged metric the fallback relies on. Scaling modifiers compose
+// their own metric, so KEDA exempts them from the rule. Without this check the
+// InferenceService is admitted and KEDA then rejects the ScaledObject at reconcile.
+func validateKEDAFallbackMetrics(keda *KEDAScalingConfig, metrics []MetricsSpec) error {
+	if keda == nil || keda.Fallback == nil {
+		return nil
+	}
+
+	if keda.Advanced != nil {
+		sm := keda.Advanced.ScalingModifiers
+		if sm.Formula != "" || sm.Target != "" || sm.ActivationTarget != "" || sm.MetricType != "" {
+			return nil
+		}
+	}
+
+	for _, metric := range metrics {
+		if metric.Type != ResourceMetricSourceType {
+			return nil
+		}
+	}
+
+	return errors.New("fallback requires at least one metric that is not a cpu or memory resource metric")
+}
+
+// validateKEDAConfig validates KEDA-specific configuration
+func validateKEDAConfig(keda *KEDAScalingConfig, minReplicas *int32) error {
+	if keda == nil {
+		return nil
+	}
+
+	// Validate IdleReplicaCount vs MinReplicas.
+	// MinReplicas is not defaulted at admission time, only when the ScaledObject is built,
+	// so an unset MinReplicas has to be rejected here rather than silently compared against
+	// the reconciler default.
+	if keda.IdleReplicaCount != nil {
+		if minReplicas == nil {
+			return fmt.Errorf("minReplicas is required when idleReplicaCount is set; "+
+				"idleReplicaCount (%d) must be less than minReplicas", *keda.IdleReplicaCount)
+		}
+		if *keda.IdleReplicaCount >= *minReplicas {
+			return fmt.Errorf("idleReplicaCount (%d) must be less than minReplicas (%d)",
+				*keda.IdleReplicaCount, *minReplicas)
+		}
+	}
+
+	// Validate fallback configuration
+	if keda.Fallback != nil {
+		if keda.Fallback.FailureThreshold < 0 {
+			return errors.New("fallback.failureThreshold must be >= 0")
+		}
+		if keda.Fallback.Replicas < 0 {
+			return errors.New("fallback.replicas must be >= 0")
+		}
+		// Behavior is validated by kubebuilder enum validation
+	}
+
+	// Validate advanced configuration
+	if keda.Advanced != nil {
+		// Validate HPA config name should not be set (we manage the HPA name)
+		if keda.Advanced.HorizontalPodAutoscalerConfig != nil &&
+			keda.Advanced.HorizontalPodAutoscalerConfig.Name != "" {
+			return errors.New("advanced.horizontalPodAutoscalerConfig.name should not be set; the controller manages the HPA name")
+		}
+
+		// Validate scaling modifiers
+		sm := keda.Advanced.ScalingModifiers
+		if (sm.Target != "" || sm.ActivationTarget != "" || sm.MetricType != "") && sm.Formula == "" {
+			return errors.New("advanced.scalingModifiers.formula must be set when using scaling modifiers")
+		}
+	}
+
 	return nil
 }
 
