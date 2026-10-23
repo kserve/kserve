@@ -1,12 +1,12 @@
 name: "Precommit Check"
 
 on:
-  # Master runs keep the Go cache below warm for PR runs. The schedule covers
-  # merges by github-actions[bot], which start no push runs.
+  # Push runs check the latest master commit and keep the Go cache below warm
+  # for PR runs; a burst of merges coalesces into one run for its last commit.
+  # Merges by github-actions[bot] start no push runs, so a dependency bump the
+  # bot merges is picked up by the next human merge.
   push:
     branches: [master]
-  schedule:
-    - cron: "17 */6 * * *"
   pull_request:
   merge_group:
     types: [ checks_requested ]
@@ -26,8 +26,6 @@ jobs:
     runs-on: ubuntu-latest
     # A master run that misses the cache builds from scratch and then saves ~2GB.
     timeout-minutes: 30
-    env:
-      WARM_CACHE: ${{ github.event_name == 'push' || github.event_name == 'schedule' }}
     steps:
       - name: Checkout source code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -60,7 +58,7 @@ jobs:
       # version, so one entry serves a dependency set and kserve's own
       # packages recompile on top of it.
       #
-      # Only master runs (push and schedule) save it. PR and merge queue runs
+      # Only master push runs save it. PR and merge queue runs
       # restore the master entry and never save: their entries are visible to
       # that one ref and would only push the master entry out of the 10GB quota.
       #
@@ -89,20 +87,14 @@ jobs:
           # PR runs fall back to the newest master entry when go.sum differs.
           # Master builds each entry from scratch, so modules dropped from
           # go.sum don't pile up in it.
-          restore-keys: ${{ env.WARM_CACHE != 'true' && format('precommit-go-{0}-{1}-', runner.os, steps.setup-go.outputs.go-version) || '' }}
-          # A master run only needs to know whether the entry exists: on an
-          # exact hit there is nothing to save, and the merged code was already
-          # checked in its PR, so the steps below are skipped.
-          lookup-only: ${{ env.WARM_CACHE == 'true' }}
+          restore-keys: ${{ github.event_name != 'push' && format('precommit-go-{0}-{1}-', runner.os, steps.setup-go.outputs.go-version) || '' }}
 
       - name: Setup Python
-        if: env.WARM_CACHE != 'true' || steps.go-cache.outputs.cache-hit != 'true'
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
             python-version: "3.12"
 
       - name: Install build dependencies
-        if: env.WARM_CACHE != 'true' || steps.go-cache.outputs.cache-hit != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -114,21 +106,18 @@ jobs:
             libgpg-error-dev
 
       - name: Install dependencies
-        if: env.WARM_CACHE != 'true' || steps.go-cache.outputs.cache-hit != 'true'
         run: |
           go mod download
           (cd qpext && go mod download)
           (cd kernelcache/mcv && go mod download)
 
       - name: Cache openapi-generator JAR
-        if: env.WARM_CACHE != 'true' || steps.go-cache.outputs.cache-hit != 'true'
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: hack/python-sdk/openapi-generator-cli-*.jar
           key: openapi-generator-${{ hashFiles('hack/python-sdk/client-gen.sh') }}
 
       - name: Check
-        if: env.WARM_CACHE != 'true' || steps.go-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           make check
@@ -137,7 +126,7 @@ jobs:
       # A failed check saves nothing either, so a half-built cache never takes
       # the key.
       - name: Save Go cache
-        if: env.WARM_CACHE == 'true' && steps.go-cache.outputs.cache-hit != 'true'
+        if: github.event_name == 'push' && steps.go-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
