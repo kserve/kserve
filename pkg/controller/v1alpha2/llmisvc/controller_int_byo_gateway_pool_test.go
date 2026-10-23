@@ -99,14 +99,108 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.RouterReady), "True"))
 			}).WithContext(ctx).Should(Succeed())
 		})
+
+		// Regression guard: spec-ref resolution must keep the stale-parent scoping
+		// from #5691. A pool parent only counts when it matches a gateway the service
+		// declares, so a parent left behind by a gateway the service has moved away
+		// from must not keep InferencePoolReady at True. Accepting any parent would
+		// also make the spec above pass, which is how v0.19 reached Ready by accident.
+		It("should not count a pool parent from a gateway that is no longer referenced", func(ctx SpecContext) {
+			svcName := "test-byo-gw-stale-parent"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			oldGw := Gateway("byo-gw-old",
+				InNamespace[*gwapiv1.Gateway](testNs.Name),
+				WithListener(gwapiv1.HTTPProtocolType),
+			)
+			newGw := Gateway("byo-gw-new",
+				InNamespace[*gwapiv1.Gateway](testNs.Name),
+				WithListener(gwapiv1.HTTPProtocolType),
+			)
+			Expect(envTest.Client.Create(ctx, oldGw)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, newGw)).To(Succeed())
+			ensureGatewayReady(ctx, envTest.Client, oldGw)
+			ensureGatewayReady(ctx, envTest.Client, newGw)
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithGatewayRefs(LLMGatewayRef(oldGw.Name, testNs.Name)),
+				WithManagedScheduler(),
+			)
+
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			poolKey := client.ObjectKey{Name: svcName + "-inference-pool", Namespace: testNs.Name}
+			Eventually(func(g Gomega, ctx context.Context) {
+				g.Expect(envTest.Client.Get(ctx, poolKey, &igwapi.InferencePool{})).To(Succeed())
+			}).WithContext(ctx).Should(Succeed())
+
+			parentFor := func(gw *gwapiv1.Gateway) igwapi.ParentReference {
+				return igwapi.ParentReference{
+					Group:     ptr.To(igwapi.Group("gateway.networking.k8s.io")),
+					Kind:      igwapi.Kind("Gateway"),
+					Name:      igwapi.ObjectName(gw.Name),
+					Namespace: igwapi.Namespace(gw.Namespace),
+				}
+			}
+
+			// given - the pool is accepted by the gateway the service references
+			acceptPoolFromGateway(ctx, envTest.Client, poolKey, parentFor(oldGw))
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.InferencePoolReady), "True"))
+			}).WithContext(ctx).Should(Succeed())
+
+			// when - the service moves to another gateway, and the old gateway's parent
+			// stays in the pool status because nothing has removed it yet
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				_, err := controllerutil.CreateOrUpdate(ctx, envTest.Client, llmSvc, func() error {
+					llmSvc.Spec.Router.Gateway.Refs = []v1alpha2.GatewayObjectReference{
+						LLMGatewayRef(newGw.Name, testNs.Name),
+					}
+					return nil
+				})
+				return err
+			})).To(Succeed())
+
+			// then - the stale parent does not satisfy readiness
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+
+				cond := current.Status.GetCondition(v1alpha2.InferencePoolReady)
+				g.Expect(cond).ToNot(BeNil())
+				g.Expect(cond.IsFalse()).To(BeTrue(),
+					"a pool parent from a gateway the service no longer references must not satisfy readiness")
+				g.Expect(cond.Reason).To(Equal("WaitingForGateway"))
+			}).WithContext(ctx).Should(Succeed())
+
+			// when - the new gateway accepts the pool, with the stale parent still listed
+			acceptPoolFromGateway(ctx, envTest.Client, poolKey, parentFor(oldGw), parentFor(newGw))
+
+			// then
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvc), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.InferencePoolReady), "True"),
+					"the parent from the newly referenced gateway must satisfy readiness despite the stale one")
+			}).WithContext(ctx).Should(Succeed())
+		})
 	})
 })
 
 // acceptPoolFromGateway sets an InferencePool's status to Accepted by the given
-// gateway parent, simulating an external gateway controller (e.g. Envoy AI Gateway)
-// that attaches the pool to a bring-your-own gateway. Only runs in envtest (no-op
-// against a real cluster where the gateway controller manages pool status).
-func acceptPoolFromGateway(ctx context.Context, c client.Client, poolKey client.ObjectKey, parentRef igwapi.ParentReference) {
+// gateway parents, replacing any existing parents, simulating an external gateway
+// controller (e.g. Envoy AI Gateway) that attaches the pool to a bring-your-own
+// gateway. Only runs in envtest (no-op against a real cluster where the gateway
+// controller manages pool status).
+func acceptPoolFromGateway(ctx context.Context, c client.Client, poolKey client.ObjectKey, parentRefs ...igwapi.ParentReference) {
 	if envTest.UsingExistingCluster() {
 		return
 	}
@@ -114,7 +208,7 @@ func acceptPoolFromGateway(ctx context.Context, c client.Client, poolKey client.
 	Eventually(func(g Gomega, ctx context.Context) {
 		pool := &igwapi.InferencePool{}
 		g.Expect(c.Get(ctx, poolKey, pool)).To(Succeed())
-		WithInferencePoolReadyStatus(parentRef)(pool)
+		WithInferencePoolReadyStatus(parentRefs...)(pool)
 		g.Expect(c.Status().Update(ctx, pool)).To(Succeed())
 	}).WithContext(ctx).Should(Succeed())
 }
