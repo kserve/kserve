@@ -17,13 +17,18 @@ limitations under the License.
 package inferenceservice
 
 import (
+	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
 	"github.com/kserve/kserve/pkg/constants"
 )
 
@@ -42,6 +47,7 @@ func NewCacheOptions() (cache.Options, error) {
 	})
 
 	return cache.Options{
+		ReaderFailOnMissingInformer: true,
 		ByObject: map[client.Object]cache.ByObject{
 			&appsv1.Deployment{}: {Label: managedSelector},
 			&corev1.Service{}:    {Label: managedSelector},
@@ -52,10 +58,23 @@ func NewCacheOptions() (cache.Options, error) {
 	}, nil
 }
 
-// NewClientOptions keeps pre-existing, unlabeled resources visible during
-// upgrades, including orphan cleanup. Watches still use the filtered cache.
+// NewClientOptions uses direct reads for resources without guaranteed informers.
+// This also keeps pre-existing, unlabeled resources visible during upgrades,
+// including orphan cleanup. Watches still use the filtered cache.
 func NewClientOptions() client.Options {
 	return client.Options{Cache: &client.CacheOptions{
-		DisableFor: []client.Object{&appsv1.Deployment{}, &corev1.Service{}},
+		DisableFor: []client.Object{
+			// These are read during reconciliation/admission but have no watches.
+			&appsv1.Deployment{}, &corev1.Service{},
+			&autoscalingv2.HorizontalPodAutoscaler{},
+			&v1alpha1.ClusterStorageContainer{},
+			&v1alpha1.LocalModelCache{}, &v1alpha1.LocalModelNamespaceCache{},
+			// Runtime discovery and cleanup also read these when their watches
+			// are disabled (missing CSR API or disableIstioVirtualHost).
+			&v1alpha1.ClusterServingRuntime{}, &istioclientv1beta1.VirtualService{},
+			// Routing mode can change through the config map after startup;
+			// only the initial mode's informer is registered by the controller.
+			&gwapiv1.HTTPRoute{}, &netv1.Ingress{},
+		},
 	}}
 }

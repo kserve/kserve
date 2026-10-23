@@ -35,6 +35,7 @@ import (
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -819,6 +820,12 @@ func memberSvc(name, group string, weight int32, stopped bool, ts metav1.Time) v
 	return svc
 }
 
+// httpRouteGVK builds the HTTPRoute GroupVersionKind from the non-deprecated
+// GroupVersion declaration.
+func httpRouteGVK() schema.GroupVersionKind {
+	return schema.GroupVersion(gwapiv1.GroupVersion).WithKind("HTTPRoute")
+}
+
 func TestFinalizeGroupMembership(t *testing.T) {
 	const group = "group"
 	deleting := &v1alpha2.LLMInferenceService{
@@ -872,6 +879,7 @@ func TestFinalizeGroupMembership(t *testing.T) {
 		route     *gwapiv1.HTTPRoute
 		poolRef   string
 		getErr    error
+		mapper    meta.RESTMapper
 		converged bool
 		wantErr   bool
 	}{
@@ -890,6 +898,20 @@ func TestFinalizeGroupMembership(t *testing.T) {
 			converged: true,
 		},
 		{
+			// The strict cache rejects the read before discovery because the
+			// Gateway API watch is CRD-gated and never started an informer.
+			name:      "HTTPRoute API is not installed and its informer is missing",
+			getErr:    &cache.ErrResourceNotCached{GVK: httpRouteGVK()},
+			mapper:    restMapperFor(),
+			converged: true,
+		},
+		{
+			name:    "HTTPRoute informer is missing for an installed API",
+			getErr:  &cache.ErrResourceNotCached{GVK: httpRouteGVK()},
+			mapper:  restMapperFor(httpRouteGVK()),
+			wantErr: true,
+		},
+		{
 			name: "peer route read denied",
 			getErr: apierrors.NewForbidden(
 				schema.GroupResource{Group: gwapiv1.GroupName, Resource: "httproutes"}, "route", errors.New("denied")),
@@ -903,6 +925,9 @@ func TestFinalizeGroupMembership(t *testing.T) {
 
 			builder := fake.NewClientBuilder().WithScheme(scheme).WithObjects(deleting, peer).
 				WithIndex(&v1alpha2.LLMInferenceService{}, groupFieldIndex, groupIndexValue)
+			if tt.mapper != nil {
+				builder = builder.WithRESTMapper(tt.mapper)
+			}
 			if tt.route != nil {
 				builder = builder.WithObjects(tt.route)
 			}
