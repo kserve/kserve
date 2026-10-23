@@ -60,6 +60,7 @@ const (
 	prefixCacheScorerPlugin           = "prefix-cache-scorer"
 	tokenProducerPlugin               = "token-producer"
 	precisePrefixCacheProducerPlugin  = "precise-prefix-cache-producer"
+	kvBlockScorerConfigField          = "kvBlockScorerConfig"
 	loraAffinityScorerPlugin          = "lora-affinity-scorer"
 	coreMetricsExtractorPlugin        = "model-server-protocol-metrics"
 	coreMetricsExtractorPluginRenamed = "core-metrics-extractor"
@@ -1594,6 +1595,8 @@ func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
 //     relocate saturationDetector and parser (removed from EndpointPickerConfig
 //     in v0.11.0) and dataLayer.peerDiscovery (only deprecated in v0.11.0, not
 //     removed) to the fields that replaced them
+//  10. withRemoveKVBlockScorerConfig - drop indexerConfig.kvBlockScorerConfig from
+//     precise-prefix-cache-producer (v1.0.0 rejects the field)
 func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService, enableTLS bool) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
@@ -1710,6 +1713,10 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 			withMigrateParser,
 			withMigratePeerDiscovery,
 		)
+	}
+
+	if v.Compare(*semver.New("1.0.0")) >= 0 {
+		opts = append(opts, withRemoveKVBlockScorerConfig)
 	}
 
 	if err := mutateSchedulerConfig(ctx, d, opts...); err != nil {
@@ -1892,6 +1899,29 @@ func withMigratePeerDiscovery(_ context.Context, u *unstructured.Unstructured) e
 		nil)
 }
 
+// withRemoveKVBlockScorerConfig removes a field that llm-d-router v1.0.0
+// rejects in precise-prefix-cache-producer parameters.
+func withRemoveKVBlockScorerConfig(_ context.Context, u *unstructured.Unstructured) error {
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+	if err != nil || !found {
+		return err
+	}
+	plugins, ok := val.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	for _, plugin := range plugins {
+		pluginMap, ok := plugin.(map[string]interface{})
+		if !ok || pluginMap["type"] != precisePrefixCacheProducerPlugin {
+			continue
+		}
+		unstructured.RemoveNestedField(pluginMap, "parameters", "indexerConfig", kvBlockScorerConfigField)
+	}
+
+	return nil
+}
+
 // withMigrateLLMDAPIVersion rewrites the deprecated EndpointPickerConfig
 // apiVersion inference.networking.x-k8s.io/v1alpha1 to llm-d.ai/v1alpha1, which
 // is the apiVersion accepted by the scheduler binary from v0.9.0 onward.
@@ -1984,13 +2014,14 @@ func withRemoveUnnecessaryTokenizer(d *appsv1.Deployment) mutateSchedulerConfigF
 
 // migrateProducerParams extracts parameters from the old monolithic
 // precise-prefix-cache-scorer plugin and returns them in a form suitable for
-// the new precise-prefix-cache-producer. Three keys are cleaned from
+// the new precise-prefix-cache-producer. Two keys are cleaned from
 // indexerConfig: tokenizersPoolConfig (tokenization is now served by the
 // standalone token-producer) and tokenProcessorConfig (promoted to the
 // top-level parameters where the new producer expects it; older versions
 // of kvcache.Config accepted it inside indexerConfig, but the current
-// version does not and silently ignores it), and kvBlockScorerConfig
-// (removed from the producer in llm-d-router v1.0.0).
+// version does not and silently ignores it). kvBlockScorerConfig is preserved
+// here because llm-d-router versions before v1.0.0 still accept it;
+// withRemoveKVBlockScorerConfig removes it only for v1.0.0 and newer.
 func migrateProducerParams(oldPlugin map[string]interface{}) map[string]interface{} {
 	params, ok := oldPlugin["parameters"].(map[string]interface{})
 	if !ok || len(params) == 0 {
@@ -2004,7 +2035,7 @@ func migrateProducerParams(oldPlugin map[string]interface{}) map[string]interfac
 			if ic, ok := v.(map[string]interface{}); ok {
 				cleaned := make(map[string]interface{}, len(ic))
 				for ik, iv := range ic {
-					if ik == "tokenizersPoolConfig" || ik == "kvBlockScorerConfig" {
+					if ik == "tokenizersPoolConfig" {
 						continue
 					}
 					if ik == "tokenProcessorConfig" {
@@ -2079,6 +2110,8 @@ func withInjectTokenProducerConfig(tokenizerURL string) mutateSchedulerConfigFun
 // User-specified parameters (tokenProcessorConfig, kvEventsConfig,
 // indexerConfig.kvBlockIndexConfig) are preserved on the producer plugin;
 // only tokenizersPoolConfig is dropped (handled by token-producer over HTTP).
+// kvBlockScorerConfig is also preserved here for pre-v1.0.0 routers and is
+// removed by the version-gated withRemoveKVBlockScorerConfig migration.
 func withDecomposePrecisePrefixCacheScorer(tokenizerURL string) mutateSchedulerConfigFunc {
 	return func(ctx context.Context, u *unstructured.Unstructured) error {
 		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
