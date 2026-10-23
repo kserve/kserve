@@ -142,10 +142,10 @@ func cacheCanMountToPod(cache *v1alpha1.KernelCache, pod *corev1.Pod) bool {
 		if containerIndex < 0 {
 			return false
 		}
-		if _, err := kernelcacheutil.ResolveContainerPath(&pod.Spec.Containers[containerIndex], cachePath.ContainerPath); err != nil {
+		if _, err := kernelcacheutil.ResolveOCIPath(cachePath.OCIPath); err != nil {
 			return false
 		}
-		if _, err := kernelcacheutil.ResolveOCIPath(cachePath.OCIPath); err != nil {
+		if _, err := kernelcacheutil.ResolveContainerPath(&pod.Spec.Containers[containerIndex], cachePath.ContainerPath, cachePath.OCIPath); err != nil {
 			return false
 		}
 	}
