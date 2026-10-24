@@ -1437,6 +1437,11 @@ func MergeSpecs(ctx context.Context, cfgs ...v1alpha2.LLMInferenceServiceSpec) (
 // mergeSpecs performs a strategic merge by creating a clean patch from the override
 // object and applying it to the base object.
 func mergeSpecs(ctx context.Context, base, override v1alpha2.LLMInferenceServiceSpec) (v1alpha2.LLMInferenceServiceSpec, error) {
+	// Work on a copy: clearing inherited probe handlers below must not mutate the
+	// caller's spec, which MergeSpecs reuses as the running base across merges.
+	base = *base.DeepCopy()
+	clearOverriddenProbeHandlers(&base, override)
+
 	baseJSON, err := json.Marshal(base)
 	if err != nil {
 		return v1alpha2.LLMInferenceServiceSpec{}, fmt.Errorf("could not marshal base spec: %w", err)
@@ -1484,6 +1489,88 @@ func mergeSpecs(ctx context.Context, base, override v1alpha2.LLMInferenceService
 		return v1alpha2.LLMInferenceServiceSpec{}, fmt.Errorf("could not unmarshal merged spec: %w", err)
 	}
 	return finalSpec, nil
+}
+
+// clearOverriddenProbeHandlers drops an inherited probe handler wherever an
+// override supplies a different handler type, across every pod spec a config can
+// override. Kubernetes allows exactly one handler per probe (httpGet, tcpSocket,
+// grpc, exec are mutually exclusive), but a strategic merge combines their
+// independent fields, so an override that switches type would otherwise produce a
+// pod the API server rejects.
+func clearOverriddenProbeHandlers(base *v1alpha2.LLMInferenceServiceSpec, override v1alpha2.LLMInferenceServiceSpec) {
+	pairs := [][2]*corev1.PodSpec{
+		{base.Template, override.Template},
+		{base.Worker, override.Worker},
+	}
+	if base.Prefill != nil && override.Prefill != nil {
+		pairs = append(pairs,
+			[2]*corev1.PodSpec{base.Prefill.Template, override.Prefill.Template},
+			[2]*corev1.PodSpec{base.Prefill.Worker, override.Prefill.Worker},
+		)
+	}
+	if base.Router != nil && base.Router.Scheduler != nil &&
+		override.Router != nil && override.Router.Scheduler != nil {
+		pairs = append(pairs, [2]*corev1.PodSpec{base.Router.Scheduler.Template, override.Router.Scheduler.Template})
+	}
+	for _, pair := range pairs {
+		clearPodProbeHandlers(pair[0], pair[1])
+	}
+}
+
+// clearPodProbeHandlers matches override containers to base containers by name
+// and clears the base handler on each probe the override redefines with a
+// different handler type.
+func clearPodProbeHandlers(base, override *corev1.PodSpec) {
+	if base == nil || override == nil {
+		return
+	}
+	baseContainers := make(map[string]*corev1.Container, len(base.Containers))
+	for i := range base.Containers {
+		c := &base.Containers[i]
+		baseContainers[c.Name] = c
+	}
+	for i := range override.Containers {
+		oc := &override.Containers[i]
+		bc, ok := baseContainers[oc.Name]
+		if !ok {
+			continue
+		}
+		clearProbeHandler(bc.LivenessProbe, oc.LivenessProbe)
+		clearProbeHandler(bc.ReadinessProbe, oc.ReadinessProbe)
+		clearProbeHandler(bc.StartupProbe, oc.StartupProbe)
+	}
+}
+
+// clearProbeHandler clears the inherited handler only when the override switches
+// to a different handler type. A timing-only override keeps the inherited handler,
+// and a same-type override still merges field-by-field so fields it leaves unset
+// are inherited rather than dropped.
+func clearProbeHandler(base, override *corev1.Probe) {
+	if base == nil || override == nil {
+		return
+	}
+	want := probeHandlerType(override)
+	if want == "" {
+		return
+	}
+	if probeHandlerType(base) != want {
+		base.ProbeHandler = corev1.ProbeHandler{}
+	}
+}
+
+// probeHandlerType names the single handler a probe sets, or "" if it sets none.
+func probeHandlerType(p *corev1.Probe) string {
+	switch {
+	case p.Exec != nil:
+		return "exec"
+	case p.HTTPGet != nil:
+		return "httpGet"
+	case p.TCPSocket != nil:
+		return "tcpSocket"
+	case p.GRPC != nil:
+		return "grpc"
+	}
+	return ""
 }
 
 func isDefaultBackendRef(llmSvc *v1alpha2.LLMInferenceService, ref gwapiv1.BackendRef) bool {
