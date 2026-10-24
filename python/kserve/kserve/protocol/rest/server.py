@@ -147,9 +147,14 @@ class RESTServer:
         )
         self._server = _RefreshingServer(self.config)
 
+    async def _live(self) -> dict[str, str]:
+        if not await self.dataplane.is_live():
+            raise ServerNotLive()
+        return await self.dataplane.live()
+
     def _register_endpoints(self, app: fastapi.FastAPI):
         root_router = APIRouter()
-        root_router.add_api_route(r"/", self.dataplane.live)
+        root_router.add_api_route(r"/", self._live)
         root_router.add_api_route(r"/metrics", metrics_handler, methods=["GET"])
         app.include_router(root_router)
         register_v1_endpoints(app, self.dataplane, self.model_repository_extension)

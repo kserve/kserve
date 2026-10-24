@@ -270,6 +270,9 @@ class VLLMModel(OpenAIEncoderModel, OpenAIGenerativeModel):  # pylint:disable=c-
         return await self._engine_health.is_live()
 
     async def healthy(self) -> bool:
+        return self._engine_health.ready
+
+    async def is_ready(self) -> bool:
         return await self._engine_health.is_ready()
 
     async def create_completion(

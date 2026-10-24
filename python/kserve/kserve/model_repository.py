@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import os
-from typing import Dict, Iterator, Optional
+from typing import Awaitable, Callable, Dict, Iterator, Optional
 
 from .logging import logger
 from .model import BaseKServeModel
@@ -55,41 +55,48 @@ class ModelRepository:
             return False
         return await model.healthy()
 
-    def _server_health_models(self) -> Iterator[BaseKServeModel]:
-        """Yield opted-in models once even when registered under aliases."""
+    def _server_health_models(
+        self, *, readiness_only: bool = False
+    ) -> Iterator[BaseKServeModel]:
+        """Snapshot models and yield each once, optionally filtering readiness."""
         seen: set[int] = set()
-        for model in self.models.values():
+        for model in list(self.models.values()):
             model_id = id(model)
-            if model_id in seen or not getattr(
-                model, "server_health_check_enabled", False
+            if model_id in seen or (
+                readiness_only
+                and not getattr(model, "server_health_check_enabled", False)
             ):
                 continue
             seen.add(model_id)
             yield model
 
-    async def is_server_live(self) -> bool:
-        for model in self._server_health_models():
+    async def _check_server_health(
+        self,
+        check: Callable[[BaseKServeModel], Awaitable[bool]],
+        probe_name: str,
+        *,
+        readiness_only: bool = False,
+    ) -> bool:
+        for model in self._server_health_models(readiness_only=readiness_only):
             try:
-                if not await model.is_live():
+                if not await check(model):
                     return False
             except Exception:
                 logger.exception(
-                    "Server liveness check failed for model %s", model.name
+                    "Server %s check failed for model %s", probe_name, model.name
                 )
                 return False
         return True
 
+    async def is_server_live(self) -> bool:
+        return await self._check_server_health(
+            lambda model: model.is_live(), "liveness"
+        )
+
     async def is_server_ready(self) -> bool:
-        for model in self._server_health_models():
-            try:
-                if not await model.healthy():
-                    return False
-            except Exception:
-                logger.exception(
-                    "Server readiness check failed for model %s", model.name
-                )
-                return False
-        return True
+        return await self._check_server_health(
+            lambda model: model.is_ready(), "readiness", readiness_only=True
+        )
 
     def update(self, model: BaseKServeModel, name: Optional[str] = None):
         """

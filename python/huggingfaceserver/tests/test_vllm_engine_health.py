@@ -13,10 +13,13 @@
 # limitations under the License.
 
 import asyncio
+import builtins
+import importlib.util
 
 import pytest
 from vllm.v1.engine.exceptions import EngineDeadError
 
+from huggingfaceserver.vllm import engine_health
 from huggingfaceserver.vllm.engine_health import VLLMEngineHealth
 
 
@@ -111,7 +114,7 @@ async def test_worker_exit_is_latched_for_live_and_ready():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("probe_name", ["is_live", "is_ready"])
-async def test_health_check_timeouts_fail_closed_and_allow_recovery(probe_name):
+async def test_health_check_timeouts_only_fail_readiness_and_allow_recovery(probe_name):
     client = FakeEngineClient(block=True)
     health = VLLMEngineHealth(timeout_seconds=0.01)
     health.set_engine_client(client)
@@ -119,7 +122,7 @@ async def test_health_check_timeouts_fail_closed_and_allow_recovery(probe_name):
 
     probe = getattr(health, probe_name)
     for _ in range(2):
-        assert await asyncio.wait_for(probe(), timeout=0.2) is False
+        assert await asyncio.wait_for(probe(), timeout=0.2) is (probe_name == "is_live")
         assert health.failure is None
 
     client.block = False
@@ -131,7 +134,7 @@ async def test_health_check_timeouts_fail_closed_and_allow_recovery(probe_name):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("probe_name", ["is_live", "is_ready"])
 @pytest.mark.parametrize("error_type", [RuntimeError, ValueError])
-async def test_health_check_exception_fails_closed_and_allows_recovery(
+async def test_health_check_exception_only_fails_readiness_and_allows_recovery(
     probe_name, error_type
 ):
     client = FakeEngineClient(error=error_type("transient health check failure"))
@@ -139,7 +142,7 @@ async def test_health_check_exception_fails_closed_and_allows_recovery(
     health.set_engine_client(client)
     health.mark_ready()
 
-    assert await getattr(health, probe_name)() is False
+    assert await getattr(health, probe_name)() is (probe_name == "is_live")
     assert health.failure is None
 
     client.error = None
@@ -244,3 +247,110 @@ async def test_graceful_shutdown_is_not_latched_as_engine_failure():
     assert await health.is_ready() is False
     assert health.failure is None
     assert client.check_count == 0
+
+
+def test_default_health_check_timeout_leaves_room_for_the_probe_response():
+    assert engine_health.DEFAULT_VLLM_HEALTH_CHECK_TIMEOUT_SECONDS == 0.5
+
+
+@pytest.mark.parametrize("timeout_seconds", [0, -0.1])
+def test_health_check_timeout_must_be_positive(timeout_seconds):
+    with pytest.raises(ValueError, match="greater than zero"):
+        VLLMEngineHealth(timeout_seconds)
+
+
+@pytest.fixture
+def missing_engine_dead_error(monkeypatch):
+    original_import = builtins.__import__
+
+    def import_without_engine_dead_error(name, *args, **kwargs):
+        if name == "vllm" or name.startswith("vllm."):
+            raise ImportError("EngineDeadError is unavailable")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", import_without_engine_dead_error)
+
+
+def test_health_module_can_be_imported_without_vllm(missing_engine_dead_error):
+    spec = importlib.util.spec_from_file_location(
+        "engine_health_without_vllm", engine_health.__file__
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    assert module.DEFAULT_VLLM_HEALTH_CHECK_TIMEOUT_SECONDS > 0
+
+
+def test_vllm_health_initialization_fails_if_engine_death_cannot_be_detected(
+    missing_engine_dead_error, caplog
+):
+    with pytest.raises(RuntimeError, match="EngineDeadError") as failure:
+        VLLMEngineHealth(timeout_seconds=0.1)
+
+    assert isinstance(failure.value.__cause__, ImportError)
+    assert any(
+        record.levelname == "ERROR" and "EngineDeadError" in record.getMessage()
+        for record in caplog.records
+    )
+
+
+@pytest.mark.parametrize("state", ["initializing", "ready", "stopping", "failed"])
+def test_inference_readiness_only_reads_the_engine_state(state):
+    client = FakeEngineClient(block=True)
+    health = VLLMEngineHealth(timeout_seconds=0.1)
+    health.set_engine_client(client)
+    if state != "initializing":
+        health.mark_ready()
+    if state == "stopping":
+        health.mark_stopping()
+    elif state == "failed":
+        health.mark_failed(EngineDeadError())
+
+    assert health.ready is (state == "ready")
+    assert client.check_count == 0
+
+
+@pytest.mark.asyncio
+async def test_readiness_timeout_does_not_poison_inference_readiness():
+    client = FakeEngineClient(block=True)
+    health = VLLMEngineHealth(timeout_seconds=0.01)
+    health.set_engine_client(client)
+    health.mark_ready()
+
+    assert await health.is_ready() is False
+    assert health.ready is True
+    assert health.failure is None
+
+    client.block = False
+    client.error = EngineDeadError()
+    assert await health.is_ready() is False
+    assert health.ready is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("probe_name", ["is_live", "is_ready"])
+async def test_health_check_cancellation_propagates_without_latching(probe_name):
+    started = asyncio.Event()
+
+    class CancellableEngineClient(FakeEngineClient):
+        async def check_health(self) -> None:
+            started.set()
+            await super().check_health()
+
+    client = CancellableEngineClient(block=True)
+    health = VLLMEngineHealth(timeout_seconds=1)
+    health.set_engine_client(client)
+    health.mark_ready()
+    probe = asyncio.create_task(getattr(health, probe_name)())
+    try:
+        await asyncio.wait_for(started.wait(), timeout=2)
+    finally:
+        probe.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await probe
+
+    assert health.failure is None
+    client.block = False
+    assert await health.is_live() is True
+    assert await health.is_ready() is True

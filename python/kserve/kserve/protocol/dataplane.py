@@ -159,23 +159,14 @@ class DataPlane:
         ) as e:
             raise InvalidInput(f"Cloud Event Exceptions: {e}")
 
-    async def live(self: Optional["DataPlane"] = None) -> Dict[str, str]:
-        """Server live.
+    @staticmethod
+    async def live() -> Dict[str, str]:
+        """Return the legacy heartbeat; health routes use instance ``is_live``."""
+        return {"status": "alive"}
 
-        Returns ``{"status": "alive"}`` when all opted-in engine-backed models
-        are live, otherwise ``{"status": "unavailable"}``.
-        Primarily meant to be used for Kubernetes liveness check.
-
-        Returns:
-            Dict: Server liveness status.
-        """
-        # ``live`` historically supported the class-level ``DataPlane.live()``
-        # call because it was a static method. Keep that invocation compatible.
-        if self is None:
-            return {"status": "alive"}
-
-        is_live = await self._model_registry.is_server_live()
-        return {"status": "alive" if is_live else "unavailable"}
+    async def is_live(self) -> bool:
+        """Return whether all registered model engines are live."""
+        return await self._model_registry.is_server_live()
 
     def metadata(self) -> Dict:
         """Server metadata.

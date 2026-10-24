@@ -59,8 +59,7 @@ class InferenceServicer(grpc_predict_v2_pb2_grpc.GRPCInferenceServiceServicer):
     async def ServerLive(
         self, request: pb.ServerLiveRequest, context
     ) -> pb.ServerLiveResponse:
-        response = await self._data_plane.live()
-        is_live = response["status"] == "alive"
+        is_live = await self._data_plane.is_live()
         return pb.ServerLiveResponse(live=is_live)
 
     async def ServerReady(

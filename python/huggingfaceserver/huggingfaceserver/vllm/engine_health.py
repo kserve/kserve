@@ -18,17 +18,7 @@ from typing import Optional, Protocol
 from kserve.logging import logger
 
 
-# This module is also imported by backends that do not require vLLM.
-_ENGINE_DEAD_ERRORS: tuple[type[Exception], ...]
-try:
-    from vllm.v1.engine.exceptions import EngineDeadError
-
-    _ENGINE_DEAD_ERRORS = (EngineDeadError,)
-except ImportError:
-    _ENGINE_DEAD_ERRORS = ()
-
-
-DEFAULT_VLLM_HEALTH_CHECK_TIMEOUT_SECONDS = 1.0
+DEFAULT_VLLM_HEALTH_CHECK_TIMEOUT_SECONDS = 0.5
 
 
 class HealthCheckableEngineClient(Protocol):
@@ -44,14 +34,27 @@ class VLLMEngineHealth:
     vLLM's public ``EngineClient.check_health`` method reports both a failed
     AsyncLLM output handler and an EngineCore/worker process failure through
     ``EngineDeadError``. This explicit engine-death error is latched. Timeouts
-    and other exceptions fail the current probe while allowing later probes to
-    retry and recover.
+    and other transient exceptions only fail readiness, allowing later probes
+    to retry and recover without triggering a container restart.
     """
 
     def __init__(self, timeout_seconds: float):
         if timeout_seconds <= 0:
             raise ValueError("vLLM health check timeout must be greater than zero")
 
+        # Other backends import this module for the default timeout, so require
+        # the vLLM exception API only when an engine health tracker is created.
+        try:
+            from vllm.v1.engine.exceptions import EngineDeadError
+        except ImportError as error:
+            message = (
+                "Cannot initialize vLLM health checks: EngineDeadError is "
+                "unavailable. Install a supported vLLM version."
+            )
+            logger.error(message, exc_info=error)
+            raise RuntimeError(message) from error
+
+        self._engine_dead_error = EngineDeadError
         self._timeout_seconds = timeout_seconds
         self._engine_client: Optional[HealthCheckableEngineClient] = None
         self._ready = False
@@ -61,6 +64,11 @@ class VLLMEngineHealth:
     @property
     def failure(self) -> Optional[BaseException]:
         return self._failure
+
+    @property
+    def ready(self) -> bool:
+        """Return inference readiness without actively probing the engine."""
+        return self._ready and not self._stopping and self._failure is None
 
     def set_engine_client(self, engine_client: HealthCheckableEngineClient) -> None:
         self._engine_client = engine_client
@@ -95,10 +103,11 @@ class VLLMEngineHealth:
             return True
         # Once the client exists, check it even before readiness so a worker
         # that dies during the remainder of initialization is not hidden.
-        return await self._check_engine()
+        await self._check_engine()
+        return self._failure is None
 
     async def is_ready(self) -> bool:
-        if self._stopping or self._failure is not None or not self._ready:
+        if not self.ready:
             return False
         return await self._check_engine()
 
@@ -134,7 +143,7 @@ class VLLMEngineHealth:
             )
             return False
         except Exception as error:
-            if isinstance(error, _ENGINE_DEAD_ERRORS):
+            if isinstance(error, self._engine_dead_error):
                 self.mark_failed(error)
             logger.error("vLLM engine health check failed", exc_info=error)
             return False

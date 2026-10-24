@@ -170,7 +170,10 @@ parser.add_argument(
     dest="vllm_health_check_timeout",
     type=float,
     default=DEFAULT_VLLM_HEALTH_CHECK_TIMEOUT_SECONDS,
-    help="Timeout in seconds for a vLLM engine health check.",
+    help=(
+        "Timeout in seconds for a vLLM engine health check. "
+        "Kubernetes probe timeoutSeconds must exceed this value."
+    ),
 )
 
 # The initial_args are required to determine whether the vLLM backend is enabled.
