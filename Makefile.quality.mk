@@ -154,7 +154,7 @@ test: fmt vet manifests envtest test-qpext
 .PHONY: test-focus
 test-focus: export override RUN := $(value RUN)
 test-focus: export override FOCUS := $(value FOCUS)
-test-focus: envtest
+test-focus: envtest ## While iterating: run PKG=, RUN=, FOCUS= without fmt, vet, manifests. Fails if nothing ran.
 	@KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
 		TEST_TIMEOUT=$(TEST_TIMEOUT) hack/test-focus.sh
 
