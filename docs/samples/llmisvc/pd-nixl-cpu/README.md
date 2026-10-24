@@ -310,15 +310,17 @@ and the condition under which they stop being necessary.
 ### NIXL 0.10.1 instead of vLLM v0.19's pinned range
 
 vLLM v0.19.0's `requirements/kv_connectors.txt` declares `nixl >= 0.7.1, < 0.10.0`, and
-its CPU Dockerfile installs no NIXL at all. Every PyPI wheel in that range links the UCX
-plugin against `libcuda.so.1`, so on a CPU image the plugin fails to load and NIXL
-reports only `GUSLI`, `OBJ` and `POSIX` backends:
+its CPU Dockerfile installs no NIXL at all. In that range `nixl` is a pure-Python meta
+package, and the binaries come from `nixl-cu12`. Every `nixl-cu12` wheel there (0.7.1,
+0.8.0 and 0.9.0, on both x86_64 and aarch64) links its UCX plugin against
+`libcuda.so.1`. On a CPU image the plugin fails to load, and NIXL reports only `GUSLI`,
+`OBJ` and `POSIX` backends:
 
 ```
 Failed to load plugin from .../libplugin_UCX.so: libcuda.so.1: cannot open shared object file
 ```
 
-0.10.0 is the first wheel whose UCX plugin loads without CUDA. The image uses 0.10.1, the
+0.10.0 is the first release whose UCX plugin loads without CUDA. The image uses 0.10.1, the
 highest version vLLM v0.20.0 accepts (`<= 0.10.1`); vLLM v0.21 and later require
 `>= 1.1.0`. `nixl` is a meta package, so the backing `nixl-cu12` wheel is pinned too,
 or pip resolves the newest one.
@@ -424,7 +426,11 @@ minikube delete -p pd-nixl-cpu     # if you created the profile for this
 
 ## Toward CI
 
-What would turn this into a regression test:
+This sample has its own harness: shell scripts, a locally built image, and a model in a
+PVC. It does not plug into the pytest e2e suite as it stands, but its checks map onto
+the suite, and the llmisvc e2e job already provides what the sample works around: x86
+runners (no oneDNN or NUMA workaround), minikube sized to the runner, and opt-125m from
+the in-cluster S3 cache instead of Hugging Face.
 
 - **The prefill assertion needs no NIXL.** The existing CPU P/D e2e cases could compare
   the prefill pod's `vllm:request_success_total` before and after their request, as
@@ -432,7 +438,10 @@ What would turn this into a regression test:
   decode alone with today's image; the
   [no-NIXL run](#without-nixl-the-configuration-ci-runs) shows it separating the two
   paths.
-- **The KV assertion needs a NIXL image.** A published CPU image with a CUDA-free NIXL
-  wheel would let a CPU job assert
-  `prompt_tokens_by_source_total{source="external_kv_transfer"} > 0` on decode. CI runs on
-  x86, so neither Apple-silicon workaround would apply there.
+- **The KV assertion needs a NIXL image.** The `seed-image-cache` job could build this
+  `Dockerfile` for `linux/amd64` and ship it as an artifact, the way it ships the stock
+  vLLM CPU image today. A `workload-pd-nixl-cpu` fixture would then add the
+  `VLLM_ADDITIONAL_ARGS` and `UCX_TLS` env, and a test could assert
+  `prompt_tokens_by_source_total{source="external_kv_transfer"} > 0` on decode. The
+  x86_64 NIXL 0.10.1 wheel's UCX plugin does not link `libcuda` either, but the image has
+  only been run on arm64 so far.

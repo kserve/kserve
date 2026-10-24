@@ -3,9 +3,10 @@
 ARG VLLM_CPU_IMAGE=vllm/vllm-openai-cpu:v0.19.0
 FROM ${VLLM_CPU_IMAGE}
 
-# vLLM v0.19.0 declares nixl >= 0.7.1, < 0.10.0, but every PyPI wheel in that range
-# links its UCX plugin against libcuda.so.1, so UCX never loads on a CPU image.
-# 0.10.0 is the first wheel without that link, and vLLM v0.20.0 accepts <= 0.10.1.
+# vLLM v0.19.0 declares nixl >= 0.7.1, < 0.10.0, but every nixl-cu12 wheel in that
+# range (x86_64 and aarch64) links its UCX plugin against libcuda.so.1, so UCX never
+# loads on a CPU image. 0.10.0 is the first release without that link, and vLLM
+# v0.20.0 accepts <= 0.10.1.
 # nixl is a meta package: pin the backing nixl-cu12 wheel too, or pip resolves the
 # newest one.
 ARG NIXL_VERSION=0.10.1
