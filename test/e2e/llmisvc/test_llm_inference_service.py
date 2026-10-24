@@ -21,6 +21,7 @@ import requests
 from dataclasses import dataclass, field
 from kserve import KServeClient, V1alpha1LLMInferenceService, constants
 from kubernetes import client
+from kubernetes.stream import stream as k8s_stream
 from typing import Any, Callable, Dict, List, Optional
 
 from .diagnostic import collect_diagnostics
@@ -233,6 +234,9 @@ class TestCase:
     extra_headers: Optional[Dict[str, str]] = None
     url_getter: Optional[Callable] = None
     expected_gateway: Optional[str] = None
+    # Set on P/D cases using the default EndpointPickerConfig: also assert the
+    # prefill pods served a request, since decode alone would return 200 too.
+    expect_prefill_traffic: bool = False
     namespace: Optional[str] = None
     before_test: List[Callable[..., Any]] = field(default_factory=list)
     after_test: List[Callable[..., Any]] = field(default_factory=list)
@@ -387,6 +391,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 "Explain the challenges of serving large-scale models, GPU scheduling, and how KServe integrates with capabilities like multi-model serving. "
                 "Provide a detailed comparison with open source alternatives, focusing on operational trade-offs.",
                 response_assertion=assert_200_with_choices,
+                expect_prefill_traffic=True,
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
@@ -403,6 +408,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 "Provide a detailed comparison with open source alternatives, focusing on operational trade-offs.",
                 service_name="custom-route-timeout-pd-test",
                 response_assertion=assert_200_with_choices,
+                expect_prefill_traffic=True,
             ),
             marks=[pytest.mark.cluster_cpu, pytest.mark.cluster_single_node],
         ),
@@ -420,6 +426,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 service_name="router-with-refs-pd-test",
                 response_assertion=assert_200_with_choices,
                 expected_gateway="router-gateway-2",
+                expect_prefill_traffic=True,
                 before_test=[
                     lambda tc: create_router_resources(
                         gateways=[
@@ -866,6 +873,7 @@ def chat_completions_payload(test_case: TestCase) -> Dict[str, Any]:
                 ],
                 prompt="KServe is a",
                 response_assertion=assert_200_with_choices,
+                expect_prefill_traffic=True,
                 before_test=[lambda tc: ensure_pvc_with_model(namespace=tc.namespace)],
             ),
             marks=[
@@ -921,6 +929,8 @@ def test_llm_inference_service(test_case: TestCase):  # noqa: F811
             test_case.wait_timeout,
             extra_headers=test_case.extra_headers,
         )
+        if test_case.expect_prefill_traffic:
+            assert_prefill_serves_requests(kserve_client, test_case)
 
         for peer in test_case.peers:
             test_llm_inference_service(peer)
@@ -1154,6 +1164,101 @@ def assert_tokenizer_pipeline_wired(
                 )
         except Exception as e:
             logger.warning("Could not read tokenizer logs: %s", e)
+
+
+# vLLM's count of finished requests. The routing sidecar sends prefill a copy of
+# each request capped at one token, and that copy finishes and counts there even
+# when no KV connector is loaded, so this works on the CPU image too.
+VLLM_REQUEST_COUNTER = "vllm:request_success_total"
+
+# Run inside the vLLM container: /metrics is on the API port, served over TLS
+# with a self-signed cert when LLMInferenceService TLS is on, plain HTTP if not.
+_READ_VLLM_METRICS = """
+import ssl, urllib.request
+ctx = ssl._create_unverified_context()
+for scheme in ("https", "http"):
+    try:
+        with urllib.request.urlopen(
+            scheme + "://localhost:8000/metrics", context=ctx, timeout=10
+        ) as resp:
+            print(resp.read().decode())
+        break
+    except Exception as e:
+        print(scheme, "failed:", e)
+"""
+
+
+def _sum_counter(metrics_text: str, name: str) -> float:
+    """Sum every series of a counter in Prometheus text format."""
+    total = 0.0
+    for line in metrics_text.splitlines():
+        if line.startswith(name + "{"):
+            total += float(line.rsplit("}", 1)[1].split()[0])
+        elif line.startswith(name + " "):
+            total += float(line.split()[1])
+    return total
+
+
+def prefill_request_count(service_name: str, namespace: str) -> float:
+    """Total finished requests across the service's prefill pods."""
+    core_v1 = client.CoreV1Api()
+    pods = core_v1.list_namespaced_pod(
+        namespace,
+        label_selector=(
+            f"app.kubernetes.io/name={service_name},"
+            "app.kubernetes.io/component=llminferenceservice-workload-prefill"
+        ),
+    )
+    pod_names = [
+        p.metadata.name for p in pods.items if p.metadata.deletion_timestamp is None
+    ]
+    assert pod_names, f"No prefill pods found for {service_name}"
+
+    total = 0.0
+    for pod_name in pod_names:
+        out = k8s_stream(
+            core_v1.connect_get_namespaced_pod_exec,
+            pod_name,
+            namespace,
+            container="main",
+            command=["python3", "-c", _READ_VLLM_METRICS],
+            stderr=True,
+            stdout=True,
+            stdin=False,
+            tty=False,
+        )
+        assert "# TYPE vllm:" in out, (
+            f"Could not read /metrics from prefill pod {pod_name}: {out[:500]}"
+        )
+        total += _sum_counter(out, VLLM_REQUEST_COUNTER)
+    return total
+
+
+def assert_prefill_serves_requests(kserve_client: KServeClient, test_case: TestCase):
+    """Send one more request and assert the prefill pods' request count went up.
+
+    A 200 alone does not show P/D ran: when the scheduler picks no prefill
+    endpoint, the routing sidecar sends the request straight to decode, which
+    serves all of it. The default P/D EndpointPickerConfig uses
+    always-disagg-pd-decider, so every request should also reach prefill.
+    """
+    service_name = test_case.llm_service.metadata.name
+    namespace = test_case.llm_service.metadata.namespace
+
+    before = prefill_request_count(service_name, namespace)
+    wait_for_model_response(
+        kserve_client, test_case, 120, extra_headers=test_case.extra_headers
+    )
+
+    def assert_count_went_up():
+        after = prefill_request_count(service_name, namespace)
+        assert after > before, (
+            f"Prefill pods of {service_name} did not serve the request: "
+            f"{VLLM_REQUEST_COUNTER} stayed at {after}"
+        )
+
+    wait_for(assert_count_went_up, timeout=30, interval=2.0)
+    logger.info(f"Prefill pods of {service_name} served the request")
 
 
 @log_execution
