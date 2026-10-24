@@ -191,6 +191,10 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			statusCode := 0
 			if eh.logAllResponses {
 				statusCode = lrw.statusCode
+				// A handler that only calls Write never calls WriteHeader, and net/http implies a 200.
+				if statusCode == 0 {
+					statusCode = http.StatusOK
+				}
 			}
 			// responseBuf already holds the full response body; no need to
 			// wrap it in another reader and copy it again. This aliases
