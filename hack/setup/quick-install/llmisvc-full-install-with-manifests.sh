@@ -659,9 +659,9 @@ ISTIO_VERSION=1.31.2
 KEDA_VERSION=2.20.2
 OPENTELEMETRY_OPERATOR_VERSION=0.114.1
 LWS_VERSION=v1.0.0
-GATEWAY_API_VERSION=v1.5.1
+GATEWAY_API_VERSION=v1.6.2
 GIE_VERSION=v1.6.2
-LLMD_ROUTER_VERSION=v0.11.0
+LLMD_ROUTER_VERSION=v1.0.0
 
 #================================================
 # Global Variables (from global-vars.env)
@@ -2944,7 +2944,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -3341,7 +3341,7 @@ spec:
             fieldPath: metadata.namespace
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -4079,7 +4079,7 @@ spec:
             fieldPath: status.podIP
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -4528,7 +4528,7 @@ spec:
             fieldPath: status.podIP
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v0.11.0
+      image: ghcr.io/llm-d/llm-d-router-disagg-sidecar:v1.0.0
       imagePullPolicy: IfNotPresent
       livenessProbe:
         failureThreshold: 3
@@ -6748,7 +6748,7 @@ spec:
   router:
     scheduler:
       annotations:
-        app.kubernetes.io/version: 0.11.0
+        app.kubernetes.io/version: 1.0.0
       pool:
         spec:
           endpointPickerRef:
@@ -6791,7 +6791,7 @@ spec:
           env:
           - name: SSL_CERT_DIR
             value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
-          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0
+          image: ghcr.io/llm-d/llm-d-router-endpoint-picker:v1.0.0
           imagePullPolicy: IfNotPresent
           lifecycle:
             preStop:
@@ -6872,7 +6872,7 @@ spec:
     scheduler:
       config:
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
           - type: approx-prefix-cache-producer
@@ -6895,7 +6895,7 @@ spec:
     scheduler:
       config:
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
           - type: always-disagg-pd-decider
@@ -6934,7 +6934,7 @@ spec:
     scheduler:
       config:
         inline:
-          apiVersion: llm-d.ai/v1alpha1
+          apiVersion: llm-d.ai/v1
           kind: EndpointPickerConfig
           plugins:
           - type: active-request-scorer
@@ -18438,6 +18438,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           type: string
@@ -18447,7 +18448,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -18462,8 +18463,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -44204,6 +44203,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           type: string
@@ -44213,7 +44213,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -44228,8 +44228,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -70622,6 +70620,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
@@ -70632,7 +70631,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -70648,9 +70647,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -97272,6 +97268,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
@@ -97282,7 +97279,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -97298,9 +97295,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string

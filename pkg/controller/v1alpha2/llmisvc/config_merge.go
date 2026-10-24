@@ -144,10 +144,10 @@ const (
 	precisePrefixCacheScorerName = "precise-prefix-cache-scorer"
 )
 
-// routerPresetMinVersion is the minimum llm-d-router version that supports the
-// preset-based EPPConfig plugins. Services running older router images fall
-// back to the hardcoded schedulerConfigText().
-var routerPresetMinVersion = semver.New("0.11.0")
+// routerPresetMinVersion is the minimum llm-d-router version that supports
+// both the preset-based EPPConfig plugins and the llm-d.ai/v1 API. Services
+// running older router images fall back to the hardcoded schedulerConfigText().
+var routerPresetMinVersion = semver.New("1.0.0")
 
 var useVersionedConfig, _ = strconv.ParseBool(constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_VERSIONED_CONFIG", "true"))
 
