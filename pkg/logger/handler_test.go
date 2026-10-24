@@ -497,11 +497,6 @@ func TestLoggerLogAllResponses(t *testing.T) {
 
 	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
 
-	type loggedEvent struct {
-		ceType     string
-		statusCode string
-		body       string
-	}
 	events := make(chan loggedEvent, 2)
 	// Start a local HTTP server
 	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
@@ -545,19 +540,85 @@ func TestLoggerLogAllResponses(t *testing.T) {
 	oh.ServeHTTP(w, r)
 	g.Expect(w.Code).To(gomega.Equal(http.StatusUnprocessableEntity))
 
+	logged := collectEventsByType(t, events, 2)
+
+	g.Expect(logged).To(gomega.HaveKey(CEInferenceRequest))
+	g.Expect(logged).To(gomega.HaveKey(CEInferenceResponse))
+	g.Expect(logged[CEInferenceResponse].statusCode).To(gomega.Equal("422"))
+	g.Expect(logged[CEInferenceResponse].body).To(gomega.ContainSubstring("unprocessable"))
+}
+
+// A handler that only calls Write never calls WriteHeader, so net/http implies a 200.
+func TestLoggerLogAllResponsesImplicitOK(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	predictorRequest := []byte(`{"instances":[[0,0,0]]}`)
+	predictorResponse := []byte(`{"predictions":[1]}`)
+
+	events := make(chan loggedEvent, 2)
+	// Start a local HTTP server
+	logSvc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		b, err := io.ReadAll(req.Body)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		events <- loggedEvent{
+			ceType:     req.Header.Get("Ce-Type"),
+			statusCode: req.Header.Get("Ce-Statuscode"),
+			body:       string(b),
+		}
+		_, err = rw.Write([]byte(`ok`))
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	}))
+	// Close the server when test finishes
+	defer logSvc.Close()
+
+	reader := bytes.NewReader(predictorRequest)
+	r := httptest.NewRequest(http.MethodPost, "http://a", reader)
+	w := httptest.NewRecorder()
+	logger, _ := pkglogging.NewLogger("", "INFO")
+	pkgtest.SetupTestLogger()
+	logSvcUrl, err := url.Parse(logSvc.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	sourceUri, err := url.Parse("http://localhost:9081/")
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+
+	StartDispatcher(5, LoggerWorkerQueueSize, &MockStore{}, &ImmediateBatch{}, logger)
+	next := http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		_, err := rw.Write(predictorResponse)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	})
+	oh := New(logSvcUrl, sourceUri, v1beta1.LogAll, "mymodel", "default", "default",
+		"default", next, nil, "", nil, true, true)
+
+	oh.ServeHTTP(w, r)
+	g.Expect(w.Code).To(gomega.Equal(http.StatusOK))
+
+	logged := collectEventsByType(t, events, 2)
+
+	g.Expect(logged).To(gomega.HaveKey(CEInferenceRequest))
+	g.Expect(logged).To(gomega.HaveKey(CEInferenceResponse))
+	g.Expect(logged[CEInferenceResponse].statusCode).To(gomega.Equal("200"))
+	g.Expect(logged[CEInferenceResponse].body).To(gomega.Equal(string(predictorResponse)))
+}
+
+type loggedEvent struct {
+	ceType     string
+	statusCode string
+	body       string
+}
+
+// collectEventsByType reads n events and indexes them by CloudEvent type, because the
+// dispatcher sends request and response events concurrently and their order is not guaranteed.
+func collectEventsByType(t *testing.T, events <-chan loggedEvent, n int) map[string]loggedEvent {
+	t.Helper()
 	timeout := time.After(5 * time.Second)
-	var logged []loggedEvent
-	for len(logged) < 2 {
+	logged := make(map[string]loggedEvent, n)
+	for received := range n {
 		select {
 		case e := <-events:
-			logged = append(logged, e)
+			logged[e.ceType] = e
 		case <-timeout:
-			t.Fatalf("timed out after %d CloudEvents, expected 2", len(logged))
+			t.Fatalf("timed out after %d CloudEvents, expected %d", received, n)
 		}
 	}
-
-	g.Expect(logged[0].ceType).To(gomega.Equal(CEInferenceRequest))
-	g.Expect(logged[1].ceType).To(gomega.Equal(CEInferenceResponse))
-	g.Expect(logged[1].statusCode).To(gomega.Equal("422"))
-	g.Expect(logged[1].body).To(gomega.ContainSubstring("unprocessable"))
+	return logged
 }

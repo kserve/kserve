@@ -187,6 +187,10 @@ func (eh *LoggerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			statusCode := 0
 			if eh.logAllResponses {
 				statusCode = lrw.statusCode
+				// A handler that only calls Write never calls WriteHeader, and net/http implies a 200.
+				if statusCode == 0 {
+					statusCode = http.StatusOK
+				}
 			}
 			if err := QueueLogRequest(LogRequest{
 				Url:              eh.logUrl,
