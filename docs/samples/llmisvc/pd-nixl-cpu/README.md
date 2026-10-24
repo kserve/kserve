@@ -8,8 +8,8 @@ proves the transfer happened, not just that a request returned 200.
 It exists because the CPU P/D e2e tests (`workload-pd-cpu`) exercise the scheduler's
 prefill and decode profiles, the routing sidecar and both workloads, but:
 
-- they assert only `200` with `choices`, which a request served by decode alone also
-  passes, and
+- they asserted only `200` with `choices`, which a request served by decode alone also
+  passes (they now also check the prefill counter; see [Toward CI](#toward-ci)), and
 - the stock `vllm/vllm-openai-cpu` image ships without NIXL, so the preset leaves
   `--kv-transfer-config` unset and decode recomputes the whole prompt. No KV moves.
 
@@ -283,7 +283,11 @@ control: decode only     HTTP 200 | prefill requests +0 | decode prompt tokens: 
 ```
 
 Without a connector the sidecar still sends the prefill request, so the prefill counter
-still separates the two paths. Decode then recomputes the whole prompt. The image here was
+still separates the two paths. Decode then recomputes the whole prompt. In
+`llm-d-router-disagg-sidecar` v0.11.0 (`pkg/sidecar/proxy/connector_nixlv2.go` in
+`llm-d/llm-d-inference-scheduler`), a prefill response without `kv_transfer_params` only
+logs a warning before the decode step, and a prefill error goes back to the client as
+is, so a 200 also means prefill succeeded. The image here was
 the stock `vllm/vllm-openai-cpu:v0.19.0` with only the Apple-silicon oneDNN workaround
 applied, because the unmodified image does not start on that host. To reproduce:
 
@@ -432,12 +436,14 @@ the suite, and the llmisvc e2e job already provides what the sample works around
 runners (no oneDNN or NUMA workaround), minikube sized to the runner, and opt-125m from
 the in-cluster S3 cache instead of Hugging Face.
 
-- **The prefill assertion needs no NIXL.** The existing CPU P/D e2e cases could compare
-  the prefill pod's `vllm:request_success_total` before and after their request, as
+- **The prefill assertion needs no NIXL, and the e2e suite now has it.** The four
+  `workload-pd-cpu` cases in `test/e2e/llmisvc/test_llm_inference_service.py` set
+  `expect_prefill_traffic`: after the 200 check they read the prefill pods'
+  `vllm:request_success_total`, send one more request and assert the count went up, as
   `validate.sh` does with `EXPECT_KV_TRANSFER=false`. That catches a request served by
   decode alone with today's image; the
-  [no-NIXL run](#without-nixl-the-configuration-ci-runs) shows it separating the two
-  paths.
+  [no-NIXL run](#without-nixl-the-configuration-ci-runs) shows the counter separating
+  the two paths.
 - **The KV assertion needs a NIXL image.** The `seed-image-cache` job could build this
   `Dockerfile` for `linux/amd64` and ship it as an artifact, the way it ships the stock
   vLLM CPU image today. A `workload-pd-nixl-cpu` fixture would then add the
