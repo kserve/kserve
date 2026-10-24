@@ -6,6 +6,10 @@ on:
     paths:
       - "pkg/controller/v1alpha1/localmodel*/**"
       - "pkg/apis/serving/v1alpha1/localmodel*"
+      - "pkg/controller/v1alpha1/kernelcache*/**"
+      - "pkg/apis/serving/v1alpha1/kernel_cache*"
+      - "pkg/kernelcache/**"
+      - "pkg/constants/constants.go"
       - "pkg/apis/serving/v1alpha1/llm*"
       - "pkg/apis/serving/v1alpha2/llm*"
       - "pkg/controller/v1alpha1/llmisvc/**"
@@ -15,6 +19,7 @@ on:
       - "config/llmisvc/**"
       - "cmd/llmisvc/**"
       - "test/e2e/modelcache/**"
+      - "test/e2e/kernelcache/**"
       - "python/kserve/kserve/models/v1alpha1/local_model*"
       - ".github/workflows/e2e-test-modelcache.yaml"
       - ".github/actions/**"
@@ -443,6 +448,20 @@ jobs:
         timeout-minutes: 25
         run: |
           ./test/scripts/gh-actions/run-e2e-tests.sh "modelcache" "1"
+
+      - name: Run KernelCache capture selection E2E tests
+        timeout-minutes: 10
+        run: |
+          # Only the control plane runs: test Pods remain unscheduled, so no
+          # MCV image, registry, or GPU setup is needed.
+          patch=$(kubectl get configmap inferenceservice-config -n kserve -o json |
+            jq '{data: {kernelcache: (.data.kernelcache | fromjson | .enabled = true | tojson)}}')
+          kubectl patch configmap inferenceservice-config -n kserve --type=merge --patch "${patch}"
+          # Run only this suite's file. The `kernelcache` marker also picks up
+          # the basic KernelCache tests, whose session fixtures require the
+          # registry/MCV setup that only the dedicated KernelCache job has.
+          PYTEST_ARGS="kernelcache/test_capture_override.py" \
+            ./test/scripts/gh-actions/run-e2e-tests.sh "" "1"
 
       - name: Check system status
         if: always()
