@@ -102,6 +102,9 @@ func TestNewKernelCacheConfigDefaults(t *testing.T) {
 		g.Expect(config.JobNamespace).To(gomega.Equal(DefaultKernelCacheJobNamespace))
 		g.Expect(config.MCVImage).To(gomega.Equal(DefaultKernelCacheMCVImage))
 		g.Expect(config.PrefetchImage).To(gomega.Equal(DefaultKernelCachePrefetchImage))
+		g.Expect(config.RuntimeImagePrefetch.Enabled).To(gomega.BeFalse())
+		g.Expect(config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
+		g.Expect(*config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished).To(gomega.Equal(DefaultKernelCacheRuntimeImagePrefetchJobTTLSeconds))
 		g.Expect(config.MCVCaptureReadinessTimeoutSeconds).To(gomega.Equal(DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds))
 		g.Expect(config.AbandonedCapturePolicy).To(gomega.Equal(DefaultKernelCacheAbandonedCapturePolicy))
 		g.Expect(config.Registry.Endpoint).To(gomega.BeEmpty())
@@ -417,6 +420,10 @@ func TestNewKernelCacheConfigUsesConfiguredValues(t *testing.T) {
 			"mcvImage": "example/mcv:test",
 			"mcvCaptureReadinessTimeoutSeconds": 900,
 			"prefetchImage": "example/prefetch:test",
+			"runtimeImagePrefetch": {
+				"enabled": true,
+				"jobTTLSecondsAfterFinished": 7200
+			},
 			"jobTTLSecondsAfterFinished": 600,
 			"reconcileIntervalSeconds": 300,
 			"abandonedCapturePolicy": "delete"
@@ -433,6 +440,9 @@ func TestNewKernelCacheConfigUsesConfiguredValues(t *testing.T) {
 	g.Expect(config.MCVImage).To(gomega.Equal("example/mcv:test"))
 	g.Expect(config.MCVCaptureReadinessTimeoutSeconds).To(gomega.Equal(int64(900)))
 	g.Expect(config.PrefetchImage).To(gomega.Equal("example/prefetch:test"))
+	g.Expect(config.RuntimeImagePrefetch.Enabled).To(gomega.BeTrue())
+	g.Expect(config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
+	g.Expect(*config.RuntimeImagePrefetch.JobTTLSecondsAfterFinished).To(gomega.Equal(int32(7200)))
 	g.Expect(config.JobTTLSecondsAfterFinished).ToNot(gomega.BeNil())
 	g.Expect(*config.JobTTLSecondsAfterFinished).To(gomega.Equal(int32(600)))
 	g.Expect(config.ReconcileIntervalSeconds).ToNot(gomega.BeNil())

@@ -17,6 +17,8 @@ limitations under the License.
 package reconcilers
 
 import (
+	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -27,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
@@ -54,7 +57,12 @@ func TestKernelCacheReconcilerCreatesPrefetchJobAndAggregatesStatus(t *testing.T
 	cache := &v1alpha1.KernelCache{
 		ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "team"},
 		Spec: v1alpha1.KernelCacheSpec{
-			Artifact:     v1alpha1.KernelCacheArtifact{ImageReference: "registry.example/cache@sha256:" + strings.Repeat("a", 64)},
+			Artifact: v1alpha1.KernelCacheArtifact{
+				ImageReference: "registry.example/cache@sha256:" + strings.Repeat("a", 64),
+				Identity: v1alpha1.KernelCacheIdentity{Factors: map[string]string{
+					"runtimeImage": "registry.example/vllm@sha256:" + strings.Repeat("b", 64),
+				}},
+			},
 			NodeGroupRef: &corev1.LocalObjectReference{Name: "gpu"},
 		},
 	}
@@ -70,7 +78,7 @@ func TestKernelCacheReconcilerCreatesPrefetchJobAndAggregatesStatus(t *testing.T
 		"team/cache": {State: v1alpha1.KernelCacheNodePreparationStatePending},
 	}}}
 	configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, Data: map[string]string{
-		"kernelcache": `{"enabled":true,"jobNamespace":"jobs","prefetchImage":"example/prefetch:latest","artifactSecurity":{"mode":"none"}}`,
+		"kernelcache": `{"enabled":true,"jobNamespace":"jobs","prefetchImage":"example/prefetch:latest","runtimeImagePrefetch":{"enabled":true},"artifactSecurity":{"mode":"none"}}`,
 	}}
 	jobNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "jobs"}}
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(cache).WithObjects(cache, group, node, kernelCacheNode, configMap, jobNamespace).Build()
@@ -99,11 +107,144 @@ func TestKernelCacheReconcilerCreatesPrefetchJobAndAggregatesStatus(t *testing.T
 	if err := k8sClient.List(t.Context(), jobs, client.InNamespace("jobs")); err != nil {
 		t.Fatal(err)
 	}
-	if len(jobs.Items) != 1 {
-		t.Fatalf("expected one prefetch Job, got %d", len(jobs.Items))
+	if len(jobs.Items) != 2 {
+		t.Fatalf("expected OCI and runtime image prefetch Jobs, got %d", len(jobs.Items))
 	}
-	if jobs.Items[0].Spec.Template.Spec.ServiceAccountName != kernelCachePrefetchServiceAccount {
-		t.Fatalf("unexpected Job ServiceAccountName: %q", jobs.Items[0].Spec.Template.Spec.ServiceAccountName)
+	runtimeJobs := 0
+	for i := range jobs.Items {
+		if jobs.Items[i].Spec.Template.Spec.ServiceAccountName != kernelCachePrefetchServiceAccount {
+			t.Fatalf("unexpected Job ServiceAccountName: %q", jobs.Items[i].Spec.Template.Spec.ServiceAccountName)
+		}
+		if jobs.Items[i].Labels[runtimeImagePrefetchJobLabel] == "true" {
+			runtimeJobs++
+			if jobs.Items[i].Spec.ActiveDeadlineSeconds == nil || *jobs.Items[i].Spec.ActiveDeadlineSeconds != runtimeImagePrefetchActiveDeadlineSeconds {
+				t.Fatalf("unexpected runtime image prefetch deadline: %#v", jobs.Items[i].Spec.ActiveDeadlineSeconds)
+			}
+		} else if jobs.Items[i].Spec.ActiveDeadlineSeconds != nil {
+			t.Fatalf("artifact prefetch Job must not have a deadline: %#v", jobs.Items[i].Spec.ActiveDeadlineSeconds)
+		}
+	}
+	if runtimeJobs != 1 {
+		t.Fatalf("expected one runtime image prefetch Job, got %d", runtimeJobs)
+	}
+}
+
+func TestKernelCacheReconcilerAggregatesStatusDespiteRuntimePrefetchFailure(t *testing.T) {
+	for _, ready := range []bool{true, false} {
+		for _, operation := range []string{"deleting", "get", "create", "delete"} {
+			stateName := "Preparing"
+			if ready {
+				stateName = "Ready"
+			}
+			t.Run(stateName+"/"+operation, func(t *testing.T) {
+				scheme := runtime.NewScheme()
+				if err := v1alpha1.AddToScheme(scheme); err != nil {
+					t.Fatal(err)
+				}
+				if err := corev1.AddToScheme(scheme); err != nil {
+					t.Fatal(err)
+				}
+				if err := rbacv1.AddToScheme(scheme); err != nil {
+					t.Fatal(err)
+				}
+				if err := batchv1.AddToScheme(scheme); err != nil {
+					t.Fatal(err)
+				}
+
+				runtimeImage := "registry.example/vllm@sha256:" + strings.Repeat("b", 64)
+				cache := &v1alpha1.KernelCache{
+					ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "team"},
+					Spec: v1alpha1.KernelCacheSpec{
+						Artifact: v1alpha1.KernelCacheArtifact{
+							ImageReference: "registry.example/cache@sha256:" + strings.Repeat("a", 64),
+							Identity:       v1alpha1.KernelCacheIdentity{Factors: map[string]string{"runtimeImage": runtimeImage}},
+						},
+						NodeGroupRef: &corev1.LocalObjectReference{Name: "gpu"},
+					},
+				}
+				group := &v1alpha1.KernelCacheNodeGroup{
+					ObjectMeta: metav1.ObjectMeta{Name: "gpu"},
+					Spec:       v1alpha1.KernelCacheNodeGroupSpec{NodeSelector: map[string]string{"role": "gpu"}},
+				}
+				node := &corev1.Node{
+					ObjectMeta: metav1.ObjectMeta{Name: "node-a", UID: "node-uid", Labels: map[string]string{"role": "gpu", "kubernetes.io/hostname": "node-a"}},
+					Status:     corev1.NodeStatus{Conditions: []corev1.NodeCondition{{Type: corev1.NodeReady, Status: corev1.ConditionTrue}}},
+				}
+				kernelCacheNode := &v1alpha1.KernelCacheNode{ObjectMeta: metav1.ObjectMeta{Name: node.Name}, Status: v1alpha1.KernelCacheNodeStatus{CacheStatus: map[string]v1alpha1.KernelCacheNodeCacheInfo{
+					"team/cache": {State: v1alpha1.KernelCacheNodePreparationStateReady},
+				}}}
+				if !ready {
+					kernelCacheNode.Status.CacheStatus["team/cache"] = v1alpha1.KernelCacheNodeCacheInfo{State: v1alpha1.KernelCacheNodePreparationStatePending}
+				}
+				configMap := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: constants.InferenceServiceConfigMapName, Namespace: constants.KServeNamespace}, Data: map[string]string{
+					"kernelcache": `{"enabled":true,"jobNamespace":"jobs","prefetchImage":"example/prefetch:latest","runtimeImagePrefetch":{"enabled":true},"artifactSecurity":{"mode":"none"}}`,
+				}}
+				jobNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "jobs"}}
+				deletionTime := metav1.Now()
+				deletingJob := buildImagePrefetchJob(imagePrefetchJobOptions{
+					name: runtimeImagePrefetchJobName(runtimeImage, node, nil), namespace: "jobs",
+					containerName: "runtime-image-prefetch", helperImage: "example/prefetch:latest",
+					imageReference: runtimeImage, volumeName: runtimeImagePrefetchVolumeName,
+					mountPath: runtimeImagePrefetchMountPath, node: node,
+				})
+				deletingJob.DeletionTimestamp = &deletionTime
+				deletingJob.Finalizers = []string{"test.kserve.io/prefetch-job"}
+				apiErr := errors.New("runtime prefetch API unavailable")
+				runtimeJobName := deletingJob.Name
+				builder := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(cache).WithObjects(cache, group, node, kernelCacheNode, configMap, jobNamespace)
+				if operation == "deleting" {
+					builder.WithObjects(deletingJob)
+				}
+				if operation == "delete" {
+					deletingJob.DeletionTimestamp = nil
+					deletingJob.Finalizers = nil
+					deletingJob.Status.Conditions = []batchv1.JobCondition{{Type: batchv1.JobFailed, Status: corev1.ConditionTrue}}
+					builder.WithObjects(deletingJob)
+				}
+				k8sClient := builder.WithInterceptorFuncs(interceptor.Funcs{
+					Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+						if _, ok := obj.(*batchv1.Job); ok && key.Name == runtimeJobName && operation == "get" {
+							return apiErr
+						}
+						return c.Get(ctx, key, obj, opts...)
+					},
+					Create: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.CreateOption) error {
+						if _, ok := obj.(*batchv1.Job); ok && obj.GetName() == runtimeJobName && operation == "create" {
+							return apiErr
+						}
+						return c.Create(ctx, obj, opts...)
+					},
+					Delete: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.DeleteOption) error {
+						if _, ok := obj.(*batchv1.Job); ok && obj.GetName() == runtimeJobName && operation == "delete" {
+							return apiErr
+						}
+						return c.Delete(ctx, obj, opts...)
+					},
+				}).Build()
+				reconciler := &KernelCacheReconciler{Client: k8sClient}
+
+				result, err := reconciler.Reconcile(t.Context(), reconcile.Request{NamespacedName: client.ObjectKeyFromObject(cache)})
+				if operation == "deleting" {
+					if err != nil || result.RequeueAfter != runtimeImagePrefetchRequeueDelay {
+						t.Fatalf("expected deletion requeue without error, got %#v, %v", result, err)
+					}
+				} else if !errors.Is(err, apiErr) || result.RequeueAfter != 0 {
+					t.Fatalf("expected API error for rate-limited retry, got %#v, %v", result, err)
+				}
+				updated := &v1alpha1.KernelCache{}
+				if err := k8sClient.Get(t.Context(), client.ObjectKeyFromObject(cache), updated); err != nil {
+					t.Fatal(err)
+				}
+				if string(updated.Status.State) != stateName {
+					t.Fatalf("expected artifact status %s, got %#v", stateName, updated.Status)
+				}
+				if updated.Status.Counts == nil || updated.Status.Counts.NodeCount != 1 ||
+					(ready && updated.Status.Counts.NodesReady != 1) ||
+					(!ready && updated.Status.Counts.NodesPreparing != 1) {
+					t.Fatalf("unexpected artifact counts: %#v", updated.Status.Counts)
+				}
+			})
+		}
 	}
 }
 

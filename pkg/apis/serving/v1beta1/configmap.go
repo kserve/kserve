@@ -193,6 +193,7 @@ const (
 	DefaultKernelCacheMountType                               = "oci"
 	DefaultKernelCacheJobNamespace                            = "kserve-kernelcache-jobs"
 	DefaultKernelCacheJobTTLSeconds                     int32 = 600
+	DefaultKernelCacheRuntimeImagePrefetchJobTTLSeconds int32 = 86400
 	DefaultKernelCacheReconcileIntervalSeconds          int64 = 300
 	DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds int64 = 600
 	// DefaultKernelCacheRegistryTokenTTLSeconds is the default lifetime of a
@@ -211,20 +212,27 @@ const (
 )
 
 // +kubebuilder:object:generate=false
+type KernelCacheRuntimeImagePrefetchConfig struct {
+	Enabled                    bool   `json:"enabled,omitempty"`
+	JobTTLSecondsAfterFinished *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
+}
+
+// +kubebuilder:object:generate=false
 // KernelCacheConfig contains the shared KernelCache configuration loaded from
 // the kernelcache entry in the inferenceservice-config ConfigMap.
 type KernelCacheConfig struct {
-	Enabled                           bool   `json:"enabled"`
-	DefaultSidecarInjection           bool   `json:"defaultSidecarInjection"`
-	DefaultMountType                  string `json:"defaultMountType,omitempty"`
-	DefaultNodeGroup                  string `json:"defaultNodeGroup,omitempty"`
-	JobNamespace                      string `json:"jobNamespace"`
-	MCVImage                          string `json:"mcvImage,omitempty"`
-	MCVCaptureReadinessTimeoutSeconds int64  `json:"mcvCaptureReadinessTimeoutSeconds,omitempty"`
-	PrefetchImage                     string `json:"prefetchImage,omitempty"`
-	JobTTLSecondsAfterFinished        *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
-	ReconcileIntervalSeconds          *int64 `json:"reconcileIntervalSeconds,omitempty"`
-	AbandonedCapturePolicy            string `json:"abandonedCapturePolicy,omitempty"`
+	Enabled                           bool                                  `json:"enabled"`
+	DefaultSidecarInjection           bool                                  `json:"defaultSidecarInjection"`
+	DefaultMountType                  string                                `json:"defaultMountType,omitempty"`
+	DefaultNodeGroup                  string                                `json:"defaultNodeGroup,omitempty"`
+	JobNamespace                      string                                `json:"jobNamespace"`
+	MCVImage                          string                                `json:"mcvImage,omitempty"`
+	MCVCaptureReadinessTimeoutSeconds int64                                 `json:"mcvCaptureReadinessTimeoutSeconds,omitempty"`
+	PrefetchImage                     string                                `json:"prefetchImage,omitempty"`
+	RuntimeImagePrefetch              KernelCacheRuntimeImagePrefetchConfig `json:"runtimeImagePrefetch,omitempty"`
+	JobTTLSecondsAfterFinished        *int32                                `json:"jobTTLSecondsAfterFinished,omitempty"`
+	ReconcileIntervalSeconds          *int64                                `json:"reconcileIntervalSeconds,omitempty"`
+	AbandonedCapturePolicy            string                                `json:"abandonedCapturePolicy,omitempty"`
 	// Registry configures the OCI registry used by capture and prefetch operations.
 	Registry KernelCacheRegistryConfig `json:"registry,omitempty"`
 	// ArtifactSecurity controls signing of completed capture artifacts.
@@ -386,6 +394,10 @@ func (c *KernelCacheConfig) DeepCopy() *KernelCacheConfig {
 	if c.JobTTLSecondsAfterFinished != nil {
 		value := *c.JobTTLSecondsAfterFinished
 		out.JobTTLSecondsAfterFinished = &value
+	}
+	if c.RuntimeImagePrefetch.JobTTLSecondsAfterFinished != nil {
+		value := *c.RuntimeImagePrefetch.JobTTLSecondsAfterFinished
+		out.RuntimeImagePrefetch.JobTTLSecondsAfterFinished = &value
 	}
 	if c.ReconcileIntervalSeconds != nil {
 		value := *c.ReconcileIntervalSeconds
@@ -654,6 +666,7 @@ func NewLocalModelConfig(isvcConfigMap *corev1.ConfigMap) (*LocalModelConfig, er
 // NewKernelCacheConfig parses the KernelCache configuration and applies source defaults.
 func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, error) {
 	jobTTLSeconds := DefaultKernelCacheJobTTLSeconds
+	runtimeImagePrefetchJobTTLSeconds := DefaultKernelCacheRuntimeImagePrefetchJobTTLSeconds
 	reconcileIntervalSeconds := DefaultKernelCacheReconcileIntervalSeconds
 	kernelCacheConfig := &KernelCacheConfig{
 		DefaultSidecarInjection:           true,
@@ -662,9 +675,12 @@ func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, 
 		MCVImage:                          DefaultKernelCacheMCVImage,
 		MCVCaptureReadinessTimeoutSeconds: DefaultKernelCacheMCVCaptureReadinessTimeoutSeconds,
 		PrefetchImage:                     DefaultKernelCachePrefetchImage,
-		JobTTLSecondsAfterFinished:        &jobTTLSeconds,
-		ReconcileIntervalSeconds:          &reconcileIntervalSeconds,
-		AbandonedCapturePolicy:            DefaultKernelCacheAbandonedCapturePolicy,
+		RuntimeImagePrefetch: KernelCacheRuntimeImagePrefetchConfig{
+			JobTTLSecondsAfterFinished: &runtimeImagePrefetchJobTTLSeconds,
+		},
+		JobTTLSecondsAfterFinished: &jobTTLSeconds,
+		ReconcileIntervalSeconds:   &reconcileIntervalSeconds,
+		AbandonedCapturePolicy:     DefaultKernelCacheAbandonedCapturePolicy,
 		Registry: KernelCacheRegistryConfig{
 			Insecure: false,
 			Auth:     KernelCacheRegistryAuth{Type: KernelCacheRegistryAuthTypeNone},
@@ -699,6 +715,10 @@ func NewKernelCacheConfig(isvcConfigMap *corev1.ConfigMap) (*KernelCacheConfig, 
 	if kernelCacheConfig.JobTTLSecondsAfterFinished == nil {
 		value := DefaultKernelCacheJobTTLSeconds
 		kernelCacheConfig.JobTTLSecondsAfterFinished = &value
+	}
+	if kernelCacheConfig.RuntimeImagePrefetch.JobTTLSecondsAfterFinished == nil {
+		value := DefaultKernelCacheRuntimeImagePrefetchJobTTLSeconds
+		kernelCacheConfig.RuntimeImagePrefetch.JobTTLSecondsAfterFinished = &value
 	}
 	if kernelCacheConfig.ReconcileIntervalSeconds == nil {
 		value := DefaultKernelCacheReconcileIntervalSeconds

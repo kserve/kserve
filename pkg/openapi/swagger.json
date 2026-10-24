@@ -4733,6 +4733,10 @@
           "description": "Registry configures the OCI registry used by capture and prefetch operations.",
           "default": {},
           "$ref": "#/definitions/v1beta1.KernelCacheRegistryConfig"
+        },
+        "runtimeImagePrefetch": {
+          "default": {},
+          "$ref": "#/definitions/v1beta1.KernelCacheRuntimeImagePrefetchConfig"
         }
       }
     },
@@ -4819,6 +4823,18 @@
           "description": "Name is the name of the referenced Role or ClusterRole.",
           "type": "string",
           "default": ""
+        }
+      }
+    },
+    "v1beta1.KernelCacheRuntimeImagePrefetchConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "jobTTLSecondsAfterFinished": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     },
