@@ -15,6 +15,8 @@ prefill and decode profiles, the routing sidecar and both workloads, but:
 
 Here a custom image adds NIXL, both workloads set a NixlConnector config, and
 `validate.sh` checks vLLM's own counters on both pods.
+Adding these checks to the e2e suite is tracked in
+[kserve#6462](https://github.com/kserve/kserve/issues/6462).
 
 > This is a functional check of the P/D data path, not a performance setup. On CPU a
 > disaggregated request is slower than serving it from one pod.
@@ -42,32 +44,42 @@ own, also the default P/D endpoint-picker config, which uses `always-disagg-pd-d
 
 ```mermaid
 flowchart TB
-  subgraph applied["Applied by run.sh (namespace pd-nixl-cpu)"]
-    job["Job opt-125m-model-download"]
-    pvc[("PVC opt-125m-model")]
-    svc["LLMInferenceService<br/>opt-125m-pd-nixl-cpu<br/>template + prefill + router"]
+  subgraph inputs["Inputs"]
+    svc["LLMInferenceService"]
+    presets["Config presets"]
+    pvc[("Model PVC")]
   end
 
-  subgraph ks["kserve namespace"]
-    ctrl["llmisvc controller"]
-    presets["LLMInferenceServiceConfig presets<br/>llm-decode-template, llm-prefill-template,<br/>llm-scheduler, scheduler-eppconfig-default-pd,<br/>llm-router-route"]
-    gw["Gateway kserve-ingress-gateway<br/>(Envoy Gateway)"]
+  ctrl["llmisvc controller"]
+  svc --> ctrl
+  presets -- "merged" --> ctrl
+
+  subgraph created["Created by the controller"]
+    route["HTTPRoute"] -- "backendRef" --> pool["InferencePool"]
+    pool -- "picker" --> epp["Scheduler (EPP)"]
+    pool -- "selects" --> dec["Decode Deployment"]
+    pool -- "selects" --> pre["Prefill Deployment"]
   end
 
-  job -- "writes model files" --> pvc
-  svc -- "reconciled by" --> ctrl
-  presets -- "merged under the spec" --> ctrl
-
-  ctrl --> dec["Deployment ...-kserve (decode)<br/>routing sidecar :8000 -> vLLM :8001<br/>llm-d.ai/role=decode"]
-  ctrl --> pre["Deployment ...-kserve-prefill<br/>vLLM :8000<br/>llm-d.ai/role=prefill"]
-  ctrl --> epp["Deployment ...-kserve-router-scheduler<br/>EPP with always-disagg-pd-decider"]
-  ctrl --> pool["InferencePool ...-inference-pool<br/>selects decode and prefill pods<br/>endpoint picker -> EPP"]
-  ctrl --> route["HTTPRoute ...-kserve-route<br/>backendRef -> InferencePool"]
-
-  route -- "parentRef" --> gw
-  pvc -. "mounted read-only at /mnt/models" .-> dec
-  pvc -. "mounted read-only at /mnt/models" .-> pre
+  ctrl -- "creates" --> created
+  gw["Gateway"] -- "parentRef of" --> route
+  pvc -. "mounted" .-> dec
+  pvc -. "mounted" .-> pre
 ```
+
+The controller, the presets and the Gateway are in the `kserve` namespace; everything else is
+in the sample's namespace, `pd-nixl-cpu`.
+
+| Object | Name | Role |
+|---|---|---|
+| Decode Deployment | `opt-125m-pd-nixl-cpu-kserve` | Routing sidecar on :8000 in front of vLLM on :8001; label `llm-d.ai/role=decode` |
+| Prefill Deployment | `opt-125m-pd-nixl-cpu-kserve-prefill` | vLLM on :8000; label `llm-d.ai/role=prefill` |
+| Scheduler (EPP) | `opt-125m-pd-nixl-cpu-kserve-router-scheduler` | Endpoint picker running `always-disagg-pd-decider` |
+| InferencePool | `opt-125m-pd-nixl-cpu-inference-pool` | Selects the decode and prefill pods; its endpoint picker is the EPP |
+| HTTPRoute | `opt-125m-pd-nixl-cpu-kserve-route` | Attached to the `kserve-ingress-gateway` Gateway; routes to the InferencePool |
+| Model PVC | `opt-125m-model` | Filled once by the `opt-125m-model-download` Job; mounted read-only at `/mnt/models` in both workloads |
+| Gateway | `kserve-ingress-gateway` | The HTTPRoute's parent; Envoy Gateway in the tested setup |
+| Config presets | `kserve-config-llm-decode-template`, `-prefill-template`, `-scheduler`, `-scheduler-eppconfig-default-pd`, `-router-route` | Merged under the service's spec |
 
 With the `DisaggregatedSet` feature gate off (the default), prefill and decode are two
 plain Deployments.
@@ -80,14 +92,22 @@ transfers KV, and why this sample sets the flag itself.
 
 ```mermaid
 flowchart TD
-  start["main container starts"] --> user{"--kv-transfer-config in<br/>VLLM_ADDITIONAL_ARGS or args?"}
-  user -- "yes (this sample)" --> keep["use it unchanged"]
-  user -- "no" --> off{"KSERVE_KV_TRANSFER_ARGS set<br/>and vLLM >= 0.22?"}
-  off -- "yes" --> offload["KV offloading connector"]
-  off -- "no" --> nixl{"python3 -c 'import nixl'<br/>succeeds?"}
-  nixl -- "yes" --> inject["inject NixlConnector<br/>kv_producer / kv_consumer"]
-  nixl -- "no (stock CPU image)" --> none["no connector:<br/>decode recomputes the prompt"]
+  start["vLLM container starts"] --> q1["Config set by user?"]
+  q1 -- "yes: this sample" --> keep["Use it as is"]
+  q1 -- "no" --> q2["KV offloading on?"]
+  q2 -- "yes" --> offload["Offloading connector"]
+  q2 -- "no" --> q3["NIXL importable?"]
+  q3 -- "yes" --> inject["NixlConnector"]
+  q3 -- "no: stock CPU image" --> none["No connector"]
 ```
+
+- **Config set by user:** `--kv-transfer-config` appears in `VLLM_ADDITIONAL_ARGS` or the
+  container `args`.
+- **KV offloading on:** `KSERVE_KV_TRANSFER_ARGS` is set and vLLM is 0.22 or later.
+- **NIXL importable:** `python3 -c 'import nixl'` succeeds. The preset then injects
+  `NixlConnector` as `kv_producer` on prefill and `kv_consumer` on decode.
+- **No connector:** decode recomputes the prompt itself, which is what the stock CPU image
+  gets.
 
 The sample passes the config through `VLLM_ADDITIONAL_ARGS`, with the JSON in single
 quotes. The preset expands both that variable and the container `args` inside `eval`, so
@@ -170,7 +190,7 @@ not move.
 
 With `EXPECT_KV_TRANSFER=false`, `validate.sh` checks only the prefill counter. That is
 the assertion that works without NIXL, where prefill is still called but no KV moves; see
-[Without NIXL](#without-nixl-the-configuration-ci-runs).
+[Without NIXL](#without-nixl).
 
 ## Prerequisites
 
@@ -234,58 +254,13 @@ kubectl wait -n pd-nixl-cpu --for=condition=Ready llminferenceservice/opt-125m-p
 VLLM_NIXL_CPU_IMAGE=$IMAGE ./validate.sh
 ```
 
-## Results
+### Without NIXL
 
-A from-scratch `run.sh` on a single-node minikube cluster passed every check:
-
-```
-via gateway              HTTP 200 | prefill requests +1 | decode prompt tokens: kv_transfer +75, local_compute +1 | nixl: transfers +1, bytes +4718592, failed +0
-  PASS  gateway request returns 200
-  PASS  gateway request reaches the prefill pod
-  PASS  decode receives prompt tokens over KV transfer
-  PASS  NIXL completes a transfer
-  PASS  no failed NIXL transfers
-
-control: decode only     HTTP 200 | prefill requests +0 | decode prompt tokens: kv_transfer +0, local_compute +74 | nixl: transfers +0, bytes +0, failed +0
-  PASS  direct request returns 200
-  PASS  direct request does not reach the prefill pod
-  PASS  decode computes the prompt itself
-  PASS  decode receives no KV
-
-PASSED
-```
-
-Through the gateway, decode received 75 prompt tokens' worth of KV from prefill and
-computed only the last token itself. The 4,718,592 bytes are exactly one 128-token KV
-block for opt-125m in bf16: 128 tokens × 12 layers × 2 (K and V) × 768 × 2 bytes. A
-second run gave the same per-request deltas.
-
-| | Tested with |
-|---|---|
-| Host | Apple M4 Pro, macOS 15.7, Docker Desktop (Docker 27.5.1), arm64 |
-| Cluster | minikube v1.36.0, Docker driver, Kubernetes v1.33.1, one node at 6 CPUs / 14 GiB |
-| KServe | llmisvc controller and CRDs from `master` at `6605032e9`, installed with `config/overlays/test-llmisvc` and `config/llmisvcconfig`; `DisaggregatedSet` feature gate off |
-| Gateway | Envoy Gateway v1.8.1, `kserve-ingress-gateway` |
-| Router | `llm-d-router-endpoint-picker:v0.11.0`, `llm-d-router-disagg-sidecar:v0.11.0` (`--kv-connector=nixlv2`) |
-| Engine | vLLM 0.19.0+cpu, torch 2.10.0+cpu, NIXL 0.10.1 (UCX), `DISABLE_ONEDNN_GEMM=true` |
-| Timings | model PVC 1m54s; service Ready 2 minutes after creation |
-
-### Without NIXL: the configuration CI runs
-
-The same service was also run the way the `workload-pd-cpu` e2e cases run it: an image
-without NIXL and no `--kv-transfer-config`. Both pods logged
-`[kv-transfer] NIXL not available, P/D KV transfer stays disabled`, and
-`EXPECT_KV_TRANSFER=false ./validate.sh` passed:
-
-```
-via gateway              HTTP 200 | prefill requests +1 | decode prompt tokens: kv_transfer +0, local_compute +75 | nixl: transfers +0, bytes +0, failed +0
-control: decode only     HTTP 200 | prefill requests +0 | decode prompt tokens: kv_transfer +0, local_compute +74 | nixl: transfers +0, bytes +0, failed +0
-```
-
-Without a connector the sidecar still sends the prefill request, so the prefill counter
-still separates the two paths. Decode then recomputes the whole prompt. The image here was
-the stock `vllm/vllm-openai-cpu:v0.19.0` with only the Apple-silicon oneDNN workaround
-applied, because the unmodified image does not start on that host. To reproduce:
+To check the configuration the `workload-pd-cpu` e2e cases run, use an image without
+NIXL and drop `VLLM_ADDITIONAL_ARGS`. Both pods then log
+`[kv-transfer] NIXL not available, P/D KV transfer stays disabled`. The sidecar still
+sends the prefill request, so the prefill counter still separates the two paths, while
+decode recomputes the whole prompt:
 
 ```bash
 # Apple silicon only. On x86, skip the build and use vllm/vllm-openai-cpu:v0.19.0 directly.
@@ -302,106 +277,84 @@ sed "s|\${VLLM_NIXL_CPU_IMAGE}|kserve-dev/vllm-openai-cpu:v0.19.0-baseline|g" ll
 EXPECT_KV_TRANSFER=false ./validate.sh
 ```
 
-## Workarounds, and when each can go
+## Tested with
 
-Each of these was needed to get the sample running. They are listed with the evidence
-and the condition under which they stop being necessary.
+`run.sh` passed all nine checks on single-node minikube (Kubernetes v1.33.1, 6 CPUs /
+14 GiB) on an Apple M4 Pro, with the llmisvc controller from `master` at `6605032e9`,
+Envoy Gateway v1.8.1, llm-d router v0.11.0, vLLM 0.19.0+cpu and NIXL 0.10.1. Through the
+gateway, decode received 75 prompt tokens over NIXL (4,718,592 bytes, one 128-token KV
+block) and computed only the last one. The [no-NIXL variant](#without-nixl) passed with
+prefill +1 through the gateway and +0 straight to decode.
+
+## Workarounds
+
+Each of these was needed to get the sample running.
 
 ### NIXL 0.10.1 instead of vLLM v0.19's pinned range
 
-vLLM v0.19.0's `requirements/kv_connectors.txt` declares `nixl >= 0.7.1, < 0.10.0`, and
-its CPU Dockerfile installs no NIXL at all. In that range `nixl` is a pure-Python meta
-package, and the binaries come from `nixl-cu12`. Every `nixl-cu12` wheel there (0.7.1,
-0.8.0 and 0.9.0, on both x86_64 and aarch64) links its UCX plugin against
-`libcuda.so.1`. On a CPU image the plugin fails to load, and NIXL reports only `GUSLI`,
-`OBJ` and `POSIX` backends:
+vLLM v0.19.0 declares `nixl >= 0.7.1, < 0.10.0`, and its CPU image ships no NIXL. In that
+range the binaries come from `nixl-cu12`, and every wheel (0.7.1, 0.8.0 and 0.9.0, on
+x86_64 and aarch64) links its UCX plugin against `libcuda.so.1`, so on CPU it fails to
+load:
 
 ```
 Failed to load plugin from .../libplugin_UCX.so: libcuda.so.1: cannot open shared object file
 ```
 
-0.10.0 is the first release whose UCX plugin loads without CUDA. The image uses 0.10.1, the
-highest version vLLM v0.20.0 accepts (`<= 0.10.1`); vLLM v0.21 and later require
-`>= 1.1.0`. `nixl` is a meta package, so the backing `nixl-cu12` wheel is pinned too,
-or pip resolves the newest one.
-
-**Can go when** the CPU e2e image moves to a vLLM release whose declared NIXL range
-includes a CUDA-free UCX wheel.
+0.10.0 is the first release without that link. The image pins both `nixl` and
+`nixl-cu12` to 0.10.1, the highest version vLLM v0.20.0 accepts.
 
 ### `--kv-transfer-config` supplied by the user
 
-With NIXL importable, the preset would inject `NixlConnector` with `kv_producer` and
-`kv_consumer` roles. This sample was only run with its own config (`kv_both`,
-`kv_buffer_device=cpu`), which the preset never overrides. In vLLM v0.19,
-`kv_buffer_device` defaults to the platform's device type (`cpu` here), and on the CPU
-platform NixlConnector registers the KV cache directly as `DRAM`
-(`use_host_buffer: False`), so no host staging buffer is involved.
-
-`UCX_TLS=tcp,self` makes the transport explicit. The two engines run in separate pods.
+The sample sets `kv_both` with `kv_buffer_device=cpu`, which the preset never overrides.
+On the CPU platform NixlConnector registers the KV cache directly as `DRAM`
+(`use_host_buffer: False`), so no staging buffer is involved. `UCX_TLS=tcp,self` makes
+the transport explicit. The preset's own `kv_producer`/`kv_consumer` injection was not
+tested here.
 
 ### Apple silicon: oneDNN `SIGILL` (`DISABLE_ONEDNN_GEMM`)
 
-On an Apple-silicon Mac running Docker Desktop, the stock `vllm/vllm-openai-cpu:v0.19.0`
-arm64 image kills its engine core right after loading weights, with or without NIXL:
+On Docker Desktop on Apple silicon, the stock arm64 image kills its engine core right
+after loading weights, with or without NIXL:
 
 ```
 Fatal Python error: Illegal instruction
   File ".../vllm/_custom_ops.py", line 2996 in create_onednn_mm
-  File ".../vllm/model_executor/layers/utils.py", line 276 in dispatch_cpu_unquantized_gemm
 ```
 
 Without `PYTHONFAULTHANDLER=1` the only symptom is
 `Engine core initialization failed ... Failed core proc(s): {}`.
-`ONEDNN_MAX_CPU_ISA=ASIMD` does not help. The VM's `/proc/cpuinfo` lists `sve2` without
-`sve`, which may be what sends oneDNN down an unsupported path, but that is not confirmed.
-
-`DISABLE_ONEDNN_GEMM=true` sets vLLM's `_supports_onednn` to `False`, which makes it take
-its existing `torch.nn.functional.linear` fallback. This is a local workaround for one
-development platform. It is off by default and not needed on x86 or other arm64 hosts.
-
-**Can go when** the vLLM arm64 CPU build starts on Apple silicon.
+`ONEDNN_MAX_CPU_ISA=ASIMD` does not help, and the cause is not confirmed.
+`DISABLE_ONEDNN_GEMM=true` makes vLLM take its `torch.nn.functional.linear` fallback. It
+is off by default and not needed on x86.
 
 ### No NUMA nodes: `VLLM_CPU_OMP_THREADS_BIND=nobind`
 
-vLLM's CPU worker binds its OpenMP threads per NUMA node. Docker Desktop's VM has no
-`/sys/devices/system/node`, so it finds none and fails:
-
-```
-AssertionError: Not enough allowed NUMA nodes to bind threads of 1 local CPUWorkers. Allowed NUMA nodes are [].
-```
-
-`nobind` skips the binding. On hosts that expose NUMA (CI's x86 runners) it only gives up
-thread pinning, which does not matter for this check.
+Docker Desktop's VM has no `/sys/devices/system/node`, so vLLM's per-NUMA thread binding
+fails with `Not enough allowed NUMA nodes ... Allowed NUMA nodes are []`. `nobind` skips
+the binding; on hosts with NUMA it only gives up thread pinning.
 
 ### Node sizing on minikube
 
-With the Docker driver, the kubelet reports the whole Docker VM as allocatable (8 CPUs
-and 23 GiB on the machine tested), while the node container itself is capped by
-minikube's `--cpus` and `--memory` (4 CPUs and 8 GiB there). The scheduler places both
-vLLM pods, and they then compete for far less than it believes. Symptoms seen:
+With the Docker driver, the kubelet reports the whole Docker VM as allocatable, while the
+node container is capped by minikube's `--cpus` and `--memory` (4 CPUs and 8 GiB on the
+node tested). Both vLLM pods get scheduled and then run short:
 
-- The prefill container `OOMKilled` during warm-up, with the kernel log naming the node
-  container's cgroup (`oom_memcg=/docker/<node>`), not the pod's.
-- The EPP and Envoy restarted on liveness timeouts while the vLLM pods compiled. After
-  that, Envoy stayed at `/ready` 503: its liveness kill ran the shutdown-manager drain hook,
-  the `envoy` container itself never restarted, and it stayed draining. Deleting the
-  Envoy pod fixed it.
+- Prefill was `OOMKilled` during warm-up, at the node container's cgroup rather than the
+  pod's.
+- The EPP and Envoy restarted on liveness timeouts. One restart left Envoy draining, with
+  `/ready` at 503, until its pod was deleted.
 
-Start minikube with `--cpus 6 --memory 14g`. On a running node,
-`docker update --cpus 6 --memory 14g --memory-swap 14g <profile>` raises the caps until
-the next `minikube stop`.
+Start minikube with `--cpus 6 --memory 14g`, or raise a running node with
+`docker update --cpus 6 --memory 14g --memory-swap 14g <profile>`.
 
 ### Model download: PVC and parallel ranges
 
-With `hf://`, the storage initializer downloads the full opt-125m repo (753 MB, two
-thirds of it TF and Flax weights vLLM never reads) in every pod, on every rollout and
-after every crash. Hugging Face throttles each connection: about 150-250 KB/s per
-stream was measured, while 8 parallel ranges reached about 860 KB/s and 48 fetched the
-250 MB weights in about 3 minutes.
-
-The Job fetches only the files vLLM reads, downloads the weights as parallel byte ranges,
-checks them against the LFS sha256, and writes them to a PVC that both pods mount. A
-`pvc://` model URI mounts the claim directly, with no storage initializer.
+With `hf://`, every pod downloads the whole opt-125m repo (753 MB, two thirds of it TF
+and Flax weights) on each rollout and crash, and Hugging Face throttles each connection
+to roughly 150-250 KB/s. The Job fetches only the files vLLM reads, as 48 parallel byte
+ranges (about 3 minutes for the 250 MB weights), checks the LFS sha256, and fills a PVC
+that both pods mount through `pvc://`.
 
 ## Troubleshooting
 
@@ -423,25 +376,3 @@ checks them against the LFS sha256, and writes them to a PVC that both pods moun
 kubectl delete namespace pd-nixl-cpu
 minikube delete -p pd-nixl-cpu     # if you created the profile for this
 ```
-
-## Toward CI
-
-This sample has its own harness: shell scripts, a locally built image, and a model in a
-PVC. It does not plug into the pytest e2e suite as it stands, but its checks map onto
-the suite, and the llmisvc e2e job already provides what the sample works around: x86
-runners (no oneDNN or NUMA workaround), minikube sized to the runner, and opt-125m from
-the in-cluster S3 cache instead of Hugging Face.
-
-- **The prefill assertion needs no NIXL.** The existing CPU P/D e2e cases could compare
-  the prefill pod's `vllm:request_success_total` before and after their request, as
-  `validate.sh` does with `EXPECT_KV_TRANSFER=false`. That catches a request served by
-  decode alone with today's image; the
-  [no-NIXL run](#without-nixl-the-configuration-ci-runs) shows it separating the two
-  paths.
-- **The KV assertion needs a NIXL image.** The `seed-image-cache` job could build this
-  `Dockerfile` for `linux/amd64` and ship it as an artifact, the way it ships the stock
-  vLLM CPU image today. A `workload-pd-nixl-cpu` fixture would then add the
-  `VLLM_ADDITIONAL_ARGS` and `UCX_TLS` env, and a test could assert
-  `prompt_tokens_by_source_total{source="external_kv_transfer"} > 0` on decode. The
-  x86_64 NIXL 0.10.1 wheel's UCX plugin does not link `libcuda` either, but the image has
-  only been run on arm64 so far.
