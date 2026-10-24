@@ -163,6 +163,10 @@ jobs:
       - name: Build and push
         env:
           IMAGES: ${{ matrix.images }}
+          # A Go build uses every vCPU, and one after another they reuse each
+          # other's compiled packages: 775 s for the Go images one at a time
+          # against 1,128 s four at once (4 vCPUs, measured locally).
+          IMAGE_CACHE_JOBS: ${{ matrix.group == 'go' && 1 || 4 }}
           GH_TOKEN: ${{ github.token }}
           # Outside the checkout, so no committed file can add subjects.
           E2E_IMAGE_CACHE_SUBJECTS: ${{ runner.temp }}/image-cache-subjects
