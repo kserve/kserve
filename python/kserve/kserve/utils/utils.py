@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+import posixpath
 import sys
 import uuid
 
@@ -55,23 +56,58 @@ def get_ig_namespace(inferencegraph):
 
 
 def _cgroup_v1_cpu_limit():
-    """Return the cgroup v1 CPU limit as a whole number of cpus, or None if unset."""
+    """Return the cgroup v1 CPU limit as a whole number of cpus, or None if unset.
+
+    The process's own cgroup and its ancestor cgroups are checked up to the
+    mount root, and the minimum effective limit is returned.
+    """
+    candidates = []
     try:
-        with open("/sys/fs/cgroup/cpu,cpuacct/cpu.cfs_quota_us") as f:
-            quota = int(f.read())
-        with open("/sys/fs/cgroup/cpu,cpuacct/cpu.cfs_period_us") as f:
-            period = int(f.read())
-        return int(quota / period)
+        with open("/proc/self/cgroup") as f:
+            for line in f:
+                parts = line.strip().split(":", 2)
+                if len(parts) >= 3:
+                    subsystems = parts[1].split(",")
+                    if "cpu" in subsystems:
+                        path = parts[2]
+                        if path:
+                            candidates.append(path)
     except Exception:
-        return None
+        pass
+
+    dirs = []
+    for path in candidates:
+        clean_path = posixpath.normpath("/" + path.lstrip("/"))
+        curr = clean_path
+        while curr not in ("", "/"):
+            dirs.append(curr)
+            curr = posixpath.dirname(curr)
+    dirs.append("")
+    dirs = list(dict.fromkeys(dirs))
+
+    mount_bases = ["/sys/fs/cgroup/cpu,cpuacct", "/sys/fs/cgroup/cpu"]
+    limits = []
+    for d in dirs:
+        for base in mount_bases:
+            try:
+                with open(f"{base}{d}/cpu.cfs_quota_us") as f:
+                    quota = int(f.read())
+                with open(f"{base}{d}/cpu.cfs_period_us") as f:
+                    period = int(f.read())
+                if quota > 0 and period > 0:
+                    limit = max(1, int(int(quota) / int(period)))
+                    limits.append(limit)
+            except Exception:
+                continue
+    return min(limits) if limits else None
 
 
 def _cgroup_v2_cpu_limit():
     """Return the cgroup v2 CPU limit as a whole number of cpus, or None if unset.
 
     cpu.max holds "<quota> <period>", or "max <period>" when there is no limit.
-    The file for the process's own cgroup is tried first, then the mount root,
-    which is the process's cgroup when it runs in its own cgroup namespace.
+    The process's own cgroup and its ancestor cgroups are checked up to the
+    mount root, and the minimum effective limit is returned.
     """
     paths = []
     try:
@@ -79,20 +115,27 @@ def _cgroup_v2_cpu_limit():
             for line in f:
                 hierarchy, _, path = line.strip().partition("::")
                 if hierarchy == "0" and path:
-                    paths.append("/sys/fs/cgroup" + path + "/cpu.max")
+                    clean_path = posixpath.normpath("/" + path.lstrip("/"))
+                    curr = clean_path
+                    while curr not in ("", "/"):
+                        paths.append(f"/sys/fs/cgroup{curr}/cpu.max")
+                        curr = posixpath.dirname(curr)
     except Exception:
         pass
     paths.append("/sys/fs/cgroup/cpu.max")
+    paths = list(dict.fromkeys(paths))
+
+    limits = []
     for path in paths:
         try:
             with open(path) as f:
                 quota, period = f.read().split()[:2]
-            if quota == "max":
-                return None
-            return int(int(quota) / int(period))
+            if quota != "max" and int(quota) > 0 and int(period) > 0:
+                limit = max(1, int(int(quota) / int(period)))
+                limits.append(limit)
         except Exception:
             continue
-    return None
+    return min(limits) if limits else None
 
 
 def cpu_count():
