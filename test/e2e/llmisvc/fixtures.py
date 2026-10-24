@@ -2223,7 +2223,7 @@ def delete_scheduler_configmap(namespace):
 
 
 INFERENCE_OBJECTIVE_GROUP = "llm-d.ai"
-INFERENCE_OBJECTIVE_VERSION = "v1alpha2"
+INFERENCE_OBJECTIVE_VERSION = "v1"
 INFERENCE_OBJECTIVE_PLURAL = "inferenceobjectives"
 
 
@@ -2247,7 +2247,7 @@ def create_inference_objectives(pool_name, objectives, namespace):
                 "namespace": namespace,
             },
             "spec": {
-                "poolRef": {"name": pool_name},
+                "poolRefs": [{"name": pool_name}],
                 "priority": obj["priority"],
             },
         }
