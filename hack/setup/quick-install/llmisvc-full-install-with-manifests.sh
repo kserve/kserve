@@ -18438,6 +18438,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           type: string
@@ -18447,7 +18448,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -18462,8 +18463,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -44204,6 +44203,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           type: string
@@ -44213,7 +44213,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -44228,8 +44228,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -70622,6 +70620,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
@@ -70632,7 +70631,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -70648,9 +70647,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
@@ -97272,6 +97268,7 @@ spec:
                                     retry:
                                       properties:
                                         attempts:
+                                          minimum: 1
                                           type: integer
                                         backoff:
                                           pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
@@ -97282,7 +97279,7 @@ spec:
                                             minimum: 400
                                             type: integer
                                           type: array
-                                          x-kubernetes-list-type: atomic
+                                          x-kubernetes-list-type: set
                                       type: object
                                     sessionPersistence:
                                       properties:
@@ -97298,9 +97295,6 @@ spec:
                                               - Session
                                               type: string
                                           type: object
-                                        idleTimeout:
-                                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
-                                          type: string
                                         sessionName:
                                           maxLength: 128
                                           type: string
