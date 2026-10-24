@@ -115247,6 +115247,10 @@ metadata:
 apiVersion: v1
 kind: Service
 metadata:
+  annotations:
+    prometheus.io/port: "8443"
+    prometheus.io/scheme: https
+    prometheus.io/scrape: "true"
   labels:
     app.kubernetes.io/component: controller
     control-plane: llmisvc-controller-manager
@@ -115303,7 +115307,7 @@ spec:
     spec:
       containers:
       - args:
-        - --metrics-addr=127.0.0.1:8443
+        - --metrics-addr=:8443
         - --leader-elect
         command:
         - /manager
