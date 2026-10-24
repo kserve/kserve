@@ -145,6 +145,19 @@ TEST_TIMEOUT ?= 30m
 test: fmt vet manifests envtest test-qpext
 	KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test --timeout $(TEST_TIMEOUT) $(TEST_PKGS) -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 
+# Run a subset of the Go tests against the envtest assets of `make test`, without
+# its fmt, vet, manifests and qpext steps. Fails when no test or spec ran.
+#   make test-focus PKG=./pkg/controller/v1alpha2/llmisvc RUN=TestLLMInferenceServiceController FOCUS='<spec text>'
+# PKG takes package patterns, RUN a `go test -run` regex, FOCUS a Ginkgo focus regex.
+# RUN and FOCUS are exported unexpanded: make would otherwise read `$|` or `$/`
+# in a regex as a variable reference and pass a different pattern.
+.PHONY: test-focus
+test-focus: export override RUN := $(value RUN)
+test-focus: export override FOCUS := $(value FOCUS)
+test-focus: envtest
+	@KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
+		TEST_TIMEOUT=$(TEST_TIMEOUT) hack/test-focus.sh
+
 test-qpext:
 	cd qpext && go test -v ./... -cover
 
