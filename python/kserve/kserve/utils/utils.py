@@ -65,10 +65,10 @@ def _cgroup_v1_cpu_limit():
     try:
         with open("/proc/self/cgroup") as f:
             for line in f:
-                parts = line.strip().split(":")
+                parts = line.strip().split(":", 2)
                 if len(parts) >= 3:
                     subsystems = parts[1].split(",")
-                    if "cpu" in subsystems or "cpuacct" in subsystems:
+                    if "cpu" in subsystems:
                         path = parts[2]
                         if path:
                             candidates.append(path)
@@ -95,9 +95,8 @@ def _cgroup_v1_cpu_limit():
                 with open(f"{base}{d}/cpu.cfs_period_us") as f:
                     period = int(f.read())
                 if quota > 0 and period > 0:
-                    limit = int(quota / period)
-                    if limit > 0:
-                        limits.append(limit)
+                    limit = max(1, int(int(quota) / int(period)))
+                    limits.append(limit)
             except Exception:
                 continue
     return min(limits) if limits else None
@@ -131,10 +130,9 @@ def _cgroup_v2_cpu_limit():
         try:
             with open(path) as f:
                 quota, period = f.read().split()[:2]
-            if quota != "max":
-                limit = int(int(quota) / int(period))
-                if limit > 0:
-                    limits.append(limit)
+            if quota != "max" and int(quota) > 0 and int(period) > 0:
+                limit = max(1, int(int(quota) / int(period)))
+                limits.append(limit)
         except Exception:
             continue
     return min(limits) if limits else None
