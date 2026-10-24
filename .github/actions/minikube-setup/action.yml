@@ -52,6 +52,10 @@ runs:
         cpus: 'max'
         memory: 'max'
         start-args: --wait-timeout=6m0s --nodes=${{ inputs.nodes }} ${{ inputs.start-args }}
+        # The e2e workflows never run on master, so every entry would be scoped
+        # to one PR: 0.8-1.6 GB of the repo's 10 GB cache quota to save ~4 s on
+        # that PR's re-pushes.
+        cache: false
 
     - name: Configure MetalLB address pool
       if: contains(inputs.addons, 'metallb')
