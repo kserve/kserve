@@ -127,6 +127,17 @@ type LoggerSpec struct {
 	// Only used when BatchSize > 1. Defaults to "0" (no time-based flushing).
 	// +optional
 	BatchInterval *string `json:"batchInterval,omitempty"`
+	// Configuration for the logger agent sidecar.
+	// +optional
+	Agent *LoggerAgentSpec `json:"agent,omitempty"`
+}
+
+// LoggerAgentSpec configures the logger agent sidecar.
+type LoggerAgentSpec struct {
+	// Number of workers used by the logger agent.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	Workers *int32 `json:"workers,omitempty"`
 }
 
 // MetricsBackend enum

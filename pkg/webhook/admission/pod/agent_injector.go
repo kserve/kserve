@@ -78,6 +78,7 @@ type LoggerConfig struct {
 	MarshallerURL string                     `json:"marshallerUrl,omitempty"`
 	BatchSize     int                        `json:"batchSize,omitempty"`
 	BatchInterval string                     `json:"batchInterval,omitempty"`
+	Agent         *v1beta1.LoggerAgentSpec   `json:"-"`
 }
 
 type AgentInjector struct {
@@ -136,6 +137,9 @@ func getLoggerConfigs(pod *corev1.Pod, configMap *corev1.ConfigMap, isvc *v1beta
 		}
 		if isvc.Spec.Predictor.Logger.BatchInterval != nil {
 			loggerConfig.BatchInterval = *isvc.Spec.Predictor.Logger.BatchInterval
+		}
+		if isvc.Spec.Predictor.Logger.Agent != nil {
+			loggerConfig.Agent = isvc.Spec.Predictor.Logger.Agent
 		}
 	} else {
 		if isvc == nil {
@@ -267,6 +271,9 @@ func (ag *AgentInjector) InjectAgent(pod *corev1.Pod) error {
 			endpoint,
 			LoggerArgumentComponent,
 			component,
+		}
+		if ag.loggerConfig.Agent != nil && ag.loggerConfig.Agent.Workers != nil {
+			loggerArgs = append(loggerArgs, constants.ArgumentWorkers, strconv.Itoa(int(*ag.loggerConfig.Agent.Workers)))
 		}
 		if storagePath != "" {
 			loggerArgs = append(loggerArgs, LoggerArgumentStorePath)
