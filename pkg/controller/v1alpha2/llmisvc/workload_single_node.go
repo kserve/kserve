@@ -182,6 +182,8 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 
 	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		template.Spec = *llmSvc.Spec.Template.DeepCopy()
+		evictorTemplate := takePVCEvictorContainerTemplate(&template.Spec)
+		evictorTemplate = withPVCEvictorDefaultImage(evictorTemplate, config.PVCEvictorImage)
 
 		var serviceAccount *corev1.ServiceAccount = nil
 		if hasRoutingSidecar(template.Spec) || config.ModelExpress != nil {
@@ -214,7 +216,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 			return nil, fmt.Errorf("failed to attach model artifacts to main pod template: %w", err)
 		}
 		if llmSvc.Spec.KVCacheOffloading != nil {
-			attachKVCacheSecondaryTiers(&template.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main")
+			attachKVCacheSecondaryTiers(&template.Spec, llmSvc.Spec.KVCacheOffloading.Secondary, "main", evictorTemplate)
 		}
 		if err := attachModelExpress(llmSvc, &template.Spec, config.ModelExpress); err != nil {
 			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
@@ -225,6 +227,9 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 
 	utils.PropagateMap(llmSvc.Spec.Labels, &template.Labels)
 	utils.PropagateMap(llmSvc.Spec.Annotations, &template.Annotations, nonPropagatedSpecAnnotations...)
+	if llmSvc.Spec.KVCacheOffloading != nil {
+		template.Labels = addPVCEvictorConsumerLabels(template.Labels, llmSvc.Spec.KVCacheOffloading.Secondary)
+	}
 
 	// Inject tracing instrumentation when spec.tracing is set
 	if llmSvc.Spec.Tracing != nil {
@@ -330,6 +335,11 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
+		evictorTemplate := takePVCEvictorContainerTemplate(&template.Spec)
+		if evictorTemplate == nil {
+			evictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
+		}
+		evictorTemplate = withPVCEvictorDefaultImage(evictorTemplate, config.PVCEvictorImage)
 
 		// A prefill workload that already runs keeps the ServiceAccount it
 		// runs with — including none — whichever backend deploys it: the
@@ -374,7 +384,7 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 			return nil, fmt.Errorf("failed to attach model artifacts to prefill pod template: %w", err)
 		}
 		if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.KVCacheOffloading != nil {
-			attachKVCacheSecondaryTiers(&template.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main")
+			attachKVCacheSecondaryTiers(&template.Spec, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, "main", evictorTemplate)
 		}
 		if err := attachModelExpress(llmSvc, &template.Spec, config.ModelExpress); err != nil {
 			return nil, fmt.Errorf("failed to attach ModelExpress: %w", err)
@@ -386,6 +396,9 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 	if llmSvc.Spec.Prefill != nil {
 		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &template.Labels)
 		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &template.Annotations, nonPropagatedSpecAnnotations...)
+		if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
+			template.Labels = addPVCEvictorConsumerLabels(template.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary)
+		}
 	}
 
 	// Inject tracing instrumentation when spec.tracing is set

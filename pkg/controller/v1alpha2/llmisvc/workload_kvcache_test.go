@@ -545,7 +545,8 @@ func TestAttachKVCacheSecondaryTiers(t *testing.T) {
 					{Name: "main"},
 				},
 			}
-			attachKVCacheSecondaryTiers(podSpec, tt.secondary, tt.containerName)
+			evictorTemplate := takePVCEvictorContainerTemplate(podSpec)
+			attachKVCacheSecondaryTiers(podSpec, tt.secondary, tt.containerName, evictorTemplate)
 
 			if diff := cmp.Diff(tt.wantVolumes, podSpec.Volumes); diff != "" {
 				t.Errorf("volumes mismatch (-want +got):\n%s", diff)

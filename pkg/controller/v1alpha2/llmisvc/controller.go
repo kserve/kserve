@@ -149,7 +149,9 @@ const DefaultFinalizationRequeueAfter = 5 * time.Second
 // It orchestrates the reconciliation of child resources based on the spec.
 type LLMISVCReconciler struct {
 	client.Client
-	Config *rest.Config
+	// APIReader reads resources directly from the API server without using the cache.
+	APIReader client.Reader
+	Config    *rest.Config
 	record.EventRecorder
 	Clientset kubernetes.Interface
 
@@ -185,6 +187,7 @@ func (r *LLMISVCReconciler) finalizationRequeueAfter() time.Duration {
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=llminferenceserviceconfigs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=serving.kserve.io,resources=servingruntimes;clusterservingruntimes,verbs=get;list;watch
 //+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=persistentvolumeclaims,verbs=get;list;watch
 //+kubebuilder:rbac:groups=leaderworkerset.x-k8s.io,resources=leaderworkersets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=disaggregatedset.x-k8s.io,resources=disaggregatedsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=disaggregatedset.x-k8s.io,resources=disaggregatedsetrolescalers,verbs=get;list;watch
@@ -342,6 +345,14 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 			strings.Join(migrated, ", "), constants.InferencePoolV1APIGroupName)
 	}
 
+	if !utils.GetForceStopRuntime(llmSvc) {
+		if err := validatePVCEvictorContainerTemplatesWithDefaultImage(llmSvc, config.PVCEvictorImage); err != nil {
+			llmSvc.MarkPVCEvictorNotReady("InvalidPVCEvictorConfiguration", "%s", err.Error())
+			llmSvc.DetermineWorkloadReadiness()
+			return reconcile.TerminalError(fmt.Errorf("invalid PVC evictor configuration: %w", err))
+		}
+	}
+
 	RecordAcceleratorAnnotation(llmSvc)
 
 	if err := r.reconcileWorkload(ctx, llmSvc, config); err != nil {
@@ -383,6 +394,9 @@ func (r *LLMISVCReconciler) finalize(ctx context.Context, llmSvc *v1alpha2.LLMIn
 	// surfaces in the controller logs.
 	if err := r.finalizePlatformResources(ctx, llmSvc); err != nil {
 		return false, err
+	}
+	if err := r.finalizePVCEvictors(ctx, llmSvc); err != nil {
+		return false, fmt.Errorf("failed to finalize PVC evictors: %w", err)
 	}
 
 	if err := r.reconcileSchedulerServiceAccount(ctx, llmSvc); err != nil {
@@ -476,16 +490,24 @@ func GetFailConditions(svc *v1alpha2.LLMInferenceService) string {
 // The controller conditionally registers watchers based on CRD availability to avoid errors in environments where optional CRDs are not installed.
 func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	logger := mgr.GetLogger().WithName("LLMInferenceService.SetupWithManager")
+	r.APIReader = mgr.GetAPIReader()
 
 	if err := setupGroupFieldIndex(context.Background(), mgr.GetFieldIndexer()); err != nil {
 		return fmt.Errorf("failed to set up field indexer for routing group: %w", err)
 	}
+	if err := setupPVCEvictorIndexes(context.Background(), mgr.GetFieldIndexer()); err != nil {
+		return fmt.Errorf("failed to set up field indexes for PVC evictors: %w", err)
+	}
 
 	b := ctrl.NewControllerManagedBy(mgr).
 		For(&v1alpha2.LLMInferenceService{}).
+		Watches(&v1alpha2.LLMInferenceService{}, r.enqueueOnPVCEvictorResourceChange(), builder.WithPredicates(pvcEvictorServiceChangePredicate())).
 		Watches(&v1alpha2.LLMInferenceServiceConfig{}, r.enqueueOnLLMInferenceServiceConfigChange(logger)).
 		Owns(&netv1.Ingress{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&appsv1.Deployment{}, builder.WithPredicates(childResourcesPredicate)).
+		Watches(&appsv1.Deployment{}, r.enqueueOnPVCEvictorResourceChange(), builder.WithPredicates(pvcEvictorDeploymentPredicate())).
+		Watches(&corev1.ServiceAccount{}, r.enqueueOnPVCEvictorResourceChange(), builder.WithPredicates(pvcEvictorServiceAccountPredicate())).
+		Watches(&corev1.PersistentVolumeClaim{}, r.enqueueOnPVCEvictorPVCChange(), builder.WithPredicates(pvcEvictorPVCPredicate())).
 		Owns(&corev1.Secret{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&corev1.Service{}, builder.WithPredicates(childResourcesPredicate)).
 		Owns(&autoscalingv2.HorizontalPodAutoscaler{}, builder.WithPredicates(childResourcesPredicate)).
@@ -496,7 +518,10 @@ func (r *LLMISVCReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			builder.WithPredicates(PodStatusPredicate())).
 		Watches(&corev1.ServiceAccount{},
 			handler.EnqueueRequestsFromMapFunc(r.enqueueOnServiceAccountChange(logger)),
-			builder.WithPredicates(serviceAccountImagePullSecretsChangedPredicate()))
+			builder.WithPredicates(serviceAccountImagePullSecretsChangedPredicate())).
+		Watches(&corev1.Pod{},
+			handler.EnqueueRequestsFromMapFunc(r.EnqueueOnLLMInferenceServicePods),
+			builder.WithPredicates(pvcEvictorConsumerPodPredicate()))
 
 	b = b.Watches(
 		&v1alpha2.LLMInferenceService{},

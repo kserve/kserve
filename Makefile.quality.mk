@@ -37,7 +37,7 @@ tidy: ## After changing Go dependencies: go mod tidy in the three Go modules.
 go-lint: golangci-lint ## golangci-lint --fix on the Go modules. Rewrites files.
 	@for dir in . qpext; do \
 	  echo "Linting $$dir..."; \
-	  (cd $$dir && $(GOLANGCI_LINT) run --fix) || exit 1; \
+	  (cd $$dir && $(GOLANGCI_LINT) run --fix ./...) || exit 1; \
 	done
 	@if pkg-config --exists gpgme 2>/dev/null; then \
 		echo "Linting kernelcache/mcv..."; \
