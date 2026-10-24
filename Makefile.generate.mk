@@ -1,5 +1,7 @@
 # Code/manifest generation and artifact sync.
 
+##@ Code generation
+
 # --fail keeps an HTTP error body out of the downloaded artifact; 5xx and timeouts are
 # retried so a flaky release download does not fail the whole generation run.
 CURL ?= curl --fail --silent --show-error --location --retry 3 --retry-delay 2
@@ -16,13 +18,12 @@ generate-quick-install-scripts: validate-infra-scripts $(PYTHON_VENV)
 	@$(PYTHON_BIN)/pip install -q -r hack/setup/scripts/install-script-generator/requirements.txt
 	@$(PYTHON_BIN)/python hack/setup/scripts/install-script-generator/generator.py
 
-generate-chart-manifests:
+generate-chart-manifests: ## After config/ or charts/_common edits: regenerate chart files, then helm lint. Needs helm.
 	@bash hack/setup/scripts/generate_chart_manifests.sh
 	make lint-helm-charts
 	make verify-helm-helpers-consistency
 
-# Generate manifests e.g. CRD, RBAC etc.
-manifests: controller-gen kustomize yq
+manifests: controller-gen kustomize yq ## After API type or RBAC marker changes: CRDs, RBAC, deepcopy. Needs network.
 	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full	
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-manager-role paths={./pkg/controller/v1alpha1/inferencegraph,./pkg/controller/v1alpha1/trainedmodel,./pkg/controller/v1beta1/inferenceservice} output:rbac:artifacts:config=config/rbac
 	@$(CONTROLLER_GEN) rbac:roleName=kserve-llmisvc-manager-role paths=./pkg/controller/v1alpha2/llmisvc output:rbac:artifacts:config=config/rbac/llmisvc
@@ -177,8 +178,7 @@ manifests: controller-gen kustomize yq
     # Copy Test inferenceconfig configmap to test overlay
 	cp config/configmap/inferenceservice.yaml config/overlays/test/configmap/inferenceservice.yaml
 
-# Generate code
-generate: controller-gen helm-docs
+generate: controller-gen helm-docs ## After API type changes: clientsets, OpenAPI, Python SDK, chart READMEs. Needs Java.
 	@# Preserve existing copyright years across regeneration.
 	@grep -rn 'Copyright [0-9]\{4\} The KServe Authors' --include='*.go' --include='*.py' \
 		pkg/ cmd/ python/ 2>/dev/null | \
@@ -191,8 +191,7 @@ generate: controller-gen helm-docs
 	@rm -f /tmp/copyright_years_cache
 	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
 
-# Update uv.lock files
-uv-lock: $(UV)
+uv-lock: $(UV) ## After Python dependency changes: re-lock the python/ uv.lock files. Needs network.
 # Update the kserve package first as other packages depends on it.
 	cd ./python && \
 	cd kserve && $(UV) lock && cd .. && \
