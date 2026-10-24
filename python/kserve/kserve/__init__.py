@@ -15,6 +15,7 @@
 from __future__ import absolute_import
 
 from .model import Model
+from .async_model import AsyncModel
 from .predictor_config import PredictorConfig
 from .model_server import ModelServer
 from .inference_client import InferenceGRPCClient, InferenceRESTClient, RESTConfig
