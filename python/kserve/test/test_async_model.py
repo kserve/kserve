@@ -14,6 +14,8 @@
 
 import atexit
 import asyncio
+import contextvars
+import inspect
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -23,6 +25,8 @@ import pytest
 
 from kserve import AsyncModel
 from kserve import async_model
+from kserve import context as kserve_context
+from kserve.predictor_config import PredictorConfig
 
 
 class SyncPredictModel(AsyncModel):
@@ -285,3 +289,122 @@ async def test_async_model_runs_predicts_concurrently(monkeypatch):
     assert threading.get_ident() not in results
     # Concurrent execution finishes in ~delay; serialized would be num*delay.
     assert elapsed < num_requests * delay * 0.5
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("workers", [None, "1", "2"])
+async def test_predict_preserves_request_context_without_leaking_changes(
+    monkeypatch, workers
+):
+    if workers is None:
+        monkeypatch.delenv("ASYNC_MODEL_WORKERS", raising=False)
+    else:
+        monkeypatch.setenv("ASYNC_MODEL_WORKERS", workers)
+    request_id = contextvars.ContextVar("request_id", default="outside")
+
+    class ContextModel(AsyncModel):
+        def predict(self, payload, headers=None):
+            config = self.predictor_config
+            value = request_id.get()
+            request_id.set("worker-only")
+            kserve_context.set_predictor_config(PredictorConfig("worker-only"))
+            return config, value, threading.get_ident()
+
+    model = ContextModel("context-model")
+    loop_thread = threading.get_ident()
+
+    async def request(name):
+        config = PredictorConfig(name)
+        kserve_context.set_predictor_config(config)
+        request_id.set(name)
+        result, _ = await model({"instances": [1]})
+        assert result[0] is config
+        assert result[1] == name
+        assert result[2] != loop_thread
+        assert model.predictor_config is config
+        assert request_id.get() == name
+
+    # Reuse the same model/worker while each task has its own configuration.
+    await asyncio.gather(request("first"), request("second"))
+    await asyncio.gather(request("third"), request("fourth"))
+    assert request_id.get() == "outside"
+
+
+@pytest.mark.asyncio
+async def test_sync_super_calls_keep_return_values_and_instance_binding():
+    class Parent(AsyncModel):
+        def predict(self, payload, headers=None):
+            return [self.name, threading.get_ident(), headers["x-request-id"]]
+
+    class Child(Parent):
+        def predict(self, payload, headers=None):
+            return super().predict(payload, headers) + ["child"]
+
+    class Grandchild(Child):
+        def predict(self, payload, headers=None):
+            return super().predict(payload, headers) + ["grandchild"]
+
+    for cls, suffix in ((Child, ["child"]), (Grandchild, ["child", "grandchild"])):
+        first, second = cls("first"), cls("second")
+        for model in (first, second, first):
+            result, _ = await model({}, {"x-request-id": model.name})
+            assert result[0] == result[2] == model.name
+            assert result[1] != threading.get_ident()
+            assert result[3:] == suffix
+
+
+@pytest.mark.asyncio
+async def test_inherited_sync_mixin_predict_is_offloaded():
+    class SyncPredictMixin:
+        def predict(self, payload, headers=None):
+            return threading.get_ident()
+
+    class ServedModel(SyncPredictMixin, AsyncModel):
+        pass
+
+    class InheritedModel(ServedModel):
+        pass
+
+    for cls in (ServedModel, InheritedModel):
+        result, _ = await cls("inherited")({})
+        assert result != threading.get_ident()
+
+
+@pytest.mark.asyncio
+async def test_async_predict_and_response_header_pipeline_stay_on_event_loop(
+    monkeypatch,
+):
+    class AsyncPredictMixin:
+        async def predict(self, payload, headers=None, response_headers=None):
+            response_headers["x-model"] = self.name
+            return {"thread": threading.get_ident(), "value": payload["value"]}
+
+    class ServedModel(AsyncPredictMixin, AsyncModel):
+        pass
+
+    model = ServedModel("native-async", return_response_headers=True)
+    monkeypatch.setattr(
+        model,
+        "_get_executor",
+        Mock(side_effect=AssertionError("offloaded async predict")),
+    )
+    assert inspect.iscoroutinefunction(model.predict)
+    result, headers = await model({"value": 42})
+    assert result == {"thread": threading.get_ident(), "value": 42}
+    assert headers == {"x-model": "native-async"}
+
+
+@pytest.mark.asyncio
+async def test_sync_predict_response_headers_and_exceptions():
+    class HeaderModel(AsyncModel):
+        def predict(self, payload, headers=None, response_headers=None):
+            if payload.get("fail"):
+                raise ValueError("prediction failed")
+            response_headers["x-model"] = self.name
+            return payload
+
+    model = HeaderModel("sync-headers", return_response_headers=True)
+    assert await model({"value": 42}) == ({"value": 42}, {"x-model": "sync-headers"})
+    with pytest.raises(ValueError, match="prediction failed"):
+        await model({"fail": True})
+    assert await model({"value": 43}) == ({"value": 43}, {"x-model": "sync-headers"})

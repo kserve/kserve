@@ -14,6 +14,7 @@
 
 import atexit
 import asyncio
+import contextvars
 import functools
 import inspect
 import os
@@ -45,9 +46,10 @@ class AsyncModel(Model):
 
     How it works
     1) Subclass defines sync predict() as usual.
-    2) __init_subclass__ wraps it in async + run_in_executor.
+    2) __init__ wraps the instance's bound predict in async + run_in_executor.
     3) KServe's __call__ sees async predict and awaits it.
-    4) Sync code runs in a thread pool (non-blocking).
+    4) Sync code runs in a thread pool with a copy of the request's context.
+       Class methods remain unchanged so synchronous super() calls still work.
 
     Configuration
     - A positive ASYNC_MODEL_WORKERS sets a single per-process worker limit shared
@@ -97,23 +99,24 @@ class AsyncModel(Model):
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        predict_attr = cls.__dict__.get("predict")
-        if predict_attr is None:
-            return
-
+        predict_attr = inspect.getattr_static(cls, "predict")
         if isinstance(predict_attr, (staticmethod, classmethod)):
             raise TypeError("AsyncModel.predict must be an instance method.")
 
-        original_predict = predict_attr
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Resolve the effective method, including methods inherited from mixins,
+        # without replacing class attributes used by synchronous super() calls.
+        original_predict = self.predict
 
         if inspect.iscoroutinefunction(original_predict):
             return
 
         @functools.wraps(original_predict)
-        async def async_predict(self, *args, **kwargs):
+        async def async_predict(*args, **kwargs):
             loop = asyncio.get_running_loop()
-            executor = cls._get_executor()
-            bound = functools.partial(original_predict, self, *args, **kwargs)
-            return await loop.run_in_executor(executor, bound)
+            context = contextvars.copy_context()
+            bound = functools.partial(original_predict, *args, **kwargs)
+            return await loop.run_in_executor(self._get_executor(), context.run, bound)
 
-        cls.predict = async_predict
+        self.predict = async_predict
