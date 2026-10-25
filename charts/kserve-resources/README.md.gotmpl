@@ -14,3 +14,13 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 {{ template "chart.requirementsSection" . }}
 
 {{ template "chart.valuesSection" . }}
+
+## Scheduling priority
+
+`kserve.controller.priorityClassName` sets `spec.template.spec.priorityClassName` on the `kserve-controller-manager` Deployment. Leave it empty to omit the field, which is the default. The chart only references a PriorityClass; it does not create one.
+
+```yaml
+kserve:
+  controller:
+    priorityClassName: kserve-control-plane
+```

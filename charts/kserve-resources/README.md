@@ -56,6 +56,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.nodeSelector | object | `{}` |  |
 | kserve.controller.podAnnotations | object | `{}` |  |
 | kserve.controller.podLabels | object | `{}` |  |
+| kserve.controller.priorityClassName | string | `""` | Name of an existing PriorityClass for kserve-controller-manager pods. Empty omits priorityClassName. This chart does not create the PriorityClass. |
 | kserve.controller.rbacProxy.resources.limits.cpu | string | `"100m"` |  |
 | kserve.controller.rbacProxy.resources.limits.memory | string | `"300Mi"` |  |
 | kserve.controller.rbacProxy.resources.requests.cpu | string | `"100m"` |  |
@@ -179,3 +180,13 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.storage.uidModelcar | int | `1010` |  |
 | kserve.storagecontainer.enabled | string | `""` |  |
 | kserve.version | string | `"v0.21.0"` |  |
+
+## Scheduling priority
+
+`kserve.controller.priorityClassName` sets `spec.template.spec.priorityClassName` on the `kserve-controller-manager` Deployment. Leave it empty to omit the field, which is the default. The chart only references a PriorityClass; it does not create one.
+
+```yaml
+kserve:
+  controller:
+    priorityClassName: kserve-control-plane
+```

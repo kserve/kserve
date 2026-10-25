@@ -89,8 +89,12 @@ verify-pinned-actions:
 validate-infra-scripts:
 	@python3 hack/setup/scripts/validate-install-scripts.py
 
+.PHONY: lint-helm-charts test-helm-charts
 lint-helm-charts:
 	@bash hack/setup/scripts/lint-helm.sh
+
+test-helm-charts:
+	@bash hack/setup/scripts/test-controller-priority-class.sh
 
 verify-helm-helpers-consistency:
 	@bash hack/setup/scripts/verify-helm-helpers.sh
@@ -126,7 +130,7 @@ spell-check: $(CODESPELL)
 	$(CODESPELL)
 
 # This runs all necessary steps to prepare for a commit.
-precommit: ensure-go-version-upgrade sync-deps sync-img-env vet go-lint py-fmt py-lint sh-lint e2e-collect generate tidy manifests uv-lock generate-quick-install-scripts generate-chart-manifests sync-helm-common-helpers sync-helm-common-resource-helpers sync-helm-multi-resource-helpers verify-pinned-actions verify-minimal-crd-sync boilerplate spell-check
+precommit: ensure-go-version-upgrade sync-deps sync-img-env vet go-lint py-fmt py-lint sh-lint e2e-collect generate tidy manifests uv-lock generate-quick-install-scripts generate-chart-manifests test-helm-charts sync-helm-common-helpers sync-helm-common-resource-helpers sync-helm-multi-resource-helpers verify-pinned-actions verify-minimal-crd-sync boilerplate spell-check
 
 # This is used by CI to ensure that the precommit checks are met.
 check: precommit
