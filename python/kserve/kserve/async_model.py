@@ -17,6 +17,7 @@ import asyncio
 import functools
 import inspect
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
@@ -49,41 +50,50 @@ class AsyncModel(Model):
     4) Sync code runs in a thread pool (non-blocking).
 
     Configuration
-    - ASYNC_MODEL_WORKERS env var for max workers, or ModelServer --max_asyncio_workers.
-    - Default (when using ModelServer): min(32, cpu_count + 4).
+    - A positive ASYNC_MODEL_WORKERS sets a single per-process worker limit shared
+      by all AsyncModel subclasses and instances.
+    - Otherwise, use the event loop's default executor, configured by ModelServer
+      --max_asyncio_workers (default: min(32, cpu_count + 4)).
     """
 
     _shared_executor: Optional[ThreadPoolExecutor] = None
     _max_workers: Optional[int] = None
     _cleanup_registered: bool = False
+    _executor_lock = threading.Lock()
 
-    @classmethod
-    def _cleanup_executor(cls):
-        if cls._shared_executor is not None:
-            cls._shared_executor.shutdown(wait=False, cancel_futures=True)
-            cls._shared_executor = None
+    @staticmethod
+    def _cleanup_executor():
+        with AsyncModel._executor_lock:
+            if AsyncModel._shared_executor is not None:
+                AsyncModel._shared_executor.shutdown(wait=False, cancel_futures=True)
+                AsyncModel._shared_executor = None
 
-    @classmethod
-    def _get_executor(cls) -> Optional[ThreadPoolExecutor]:
-        if cls._shared_executor is not None:
-            return cls._shared_executor
+    @staticmethod
+    def _get_executor() -> Optional[ThreadPoolExecutor]:
+        # State belongs to AsyncModel, not to the subclass invoking this method.
+        # Serialize first use across model classes and event-loop threads.
+        with AsyncModel._executor_lock:
+            if AsyncModel._shared_executor is not None:
+                return AsyncModel._shared_executor
 
-        if cls._max_workers is None:
-            env_workers = os.getenv("ASYNC_MODEL_WORKERS")
-            if env_workers:
-                try:
-                    cls._max_workers = int(env_workers)
-                except ValueError:
-                    cls._max_workers = -1
+            if AsyncModel._max_workers is None:
+                env_workers = os.getenv("ASYNC_MODEL_WORKERS")
+                if env_workers:
+                    try:
+                        AsyncModel._max_workers = int(env_workers)
+                    except ValueError:
+                        AsyncModel._max_workers = -1
 
-        if cls._max_workers and cls._max_workers > 0:
-            cls._shared_executor = ThreadPoolExecutor(max_workers=cls._max_workers)
-            if not cls._cleanup_registered:
-                atexit.register(cls._cleanup_executor)
-                cls._cleanup_registered = True
-            return cls._shared_executor
+            if AsyncModel._max_workers and AsyncModel._max_workers > 0:
+                AsyncModel._shared_executor = ThreadPoolExecutor(
+                    max_workers=AsyncModel._max_workers
+                )
+                if not AsyncModel._cleanup_registered:
+                    atexit.register(AsyncModel._cleanup_executor)
+                    AsyncModel._cleanup_registered = True
+                return AsyncModel._shared_executor
 
-        return None
+            return None
 
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)

@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import atexit
 import asyncio
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from unittest.mock import Mock
 
 import pytest
 
 from kserve import AsyncModel
+from kserve import async_model
 
 
 class SyncPredictModel(AsyncModel):
@@ -72,18 +75,140 @@ _MODEL_CLASSES = (SyncPredictModel, GatedModel, SlowModel)
 
 def _reset_state(cls):
     cls._cleanup_executor()
-    cls._shared_executor = None
-    cls._max_workers = None
-    cls._cleanup_registered = False
+    atexit.unregister(cls._cleanup_executor)
+    if cls is AsyncModel:
+        cls._shared_executor = None
+        cls._max_workers = None
+        cls._cleanup_registered = False
+    else:
+        for name in ("_shared_executor", "_max_workers", "_cleanup_registered"):
+            if name in cls.__dict__:
+                delattr(cls, name)
 
 
 @pytest.fixture(autouse=True)
 def reset_async_model_state():
-    for cls in _MODEL_CLASSES:
+    for cls in (AsyncModel, *_MODEL_CLASSES):
         _reset_state(cls)
     yield
-    for cls in _MODEL_CLASSES:
+    for cls in (AsyncModel, *_MODEL_CLASSES):
         _reset_state(cls)
+
+
+def test_executor_is_shared_across_model_classes(monkeypatch):
+    monkeypatch.setenv("ASYNC_MODEL_WORKERS", "2")
+    executor = SyncPredictModel._get_executor()
+
+    assert GatedModel._get_executor() is executor
+    assert SlowModel._get_executor() is executor
+    assert AsyncModel._get_executor() is executor
+
+
+def test_concurrent_first_use_creates_one_executor(monkeypatch):
+    monkeypatch.setenv("ASYNC_MODEL_WORKERS", "2")
+    factory = Mock(wraps=ThreadPoolExecutor)
+    register = Mock(wraps=atexit.register)
+    monkeypatch.setattr(async_model, "ThreadPoolExecutor", factory)
+    monkeypatch.setattr(async_model.atexit, "register", register)
+    barrier = threading.Barrier(6)
+
+    def get_executor(cls):
+        barrier.wait(timeout=5)
+        return cls._get_executor()
+
+    with ThreadPoolExecutor(max_workers=6) as callers:
+        futures = [callers.submit(get_executor, cls) for cls in _MODEL_CLASSES * 2]
+        executors = [future.result(timeout=5) for future in futures]
+
+    assert all(executor is executors[0] for executor in executors)
+    factory.assert_called_once_with(max_workers=2)
+    register.assert_called_once_with(AsyncModel._cleanup_executor)
+
+
+def test_cleanup_from_another_class_closes_the_shared_pool(monkeypatch):
+    monkeypatch.setenv("ASYNC_MODEL_WORKERS", "1")
+    executor = SyncPredictModel._get_executor()
+    GatedModel._cleanup_executor()
+
+    with pytest.raises(RuntimeError, match="shutdown"):
+        executor.submit(lambda: None)
+    assert AsyncModel._shared_executor is None
+    replacement = SlowModel._get_executor()
+    assert replacement is not executor
+    assert SyncPredictModel._get_executor() is replacement
+
+
+@pytest.mark.parametrize("workers", [None, "invalid", "0", "-1"])
+def test_default_executor_fallback_is_shared(monkeypatch, workers):
+    if workers is None:
+        monkeypatch.delenv("ASYNC_MODEL_WORKERS", raising=False)
+    else:
+        monkeypatch.setenv("ASYNC_MODEL_WORKERS", workers)
+
+    assert all(cls._get_executor() is None for cls in _MODEL_CLASSES)
+    assert AsyncModel._shared_executor is None
+    assert not AsyncModel._cleanup_registered
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("workers", [1, 2])
+async def test_worker_limit_applies_across_model_classes(monkeypatch, workers):
+    monkeypatch.setenv("ASYNC_MODEL_WORKERS", str(workers))
+    loop = asyncio.get_running_loop()
+    release = threading.Event()
+    workers_started = asyncio.Event()
+    all_submitted = asyncio.Event()
+    state_lock = threading.Lock()
+    active = 0
+    peak = 0
+    submitted = []
+    original_submit = ThreadPoolExecutor.submit
+
+    def predict(self, payload, headers=None):
+        nonlocal active, peak
+        with state_lock:
+            active += 1
+            peak = max(peak, active)
+            if active >= workers:
+                loop.call_soon_threadsafe(workers_started.set)
+        try:
+            if not release.wait(timeout=5):
+                raise TimeoutError("prediction was never released")
+            return self.name
+        finally:
+            with state_lock:
+                active -= 1
+
+    def submit(executor, fn, *args, **kwargs):
+        future = original_submit(executor, fn, *args, **kwargs)
+        submitted.append(future)
+        if len(submitted) == 3:
+            all_submitted.set()
+        return future
+
+    monkeypatch.setattr(ThreadPoolExecutor, "submit", submit)
+    classes = [
+        type(f"GatedModel{i}", (AsyncModel,), {"predict": predict}) for i in range(3)
+    ]
+    tasks = [
+        asyncio.create_task(cls(str(i)).predict({})) for i, cls in enumerate(classes)
+    ]
+    try:
+        await asyncio.wait_for(all_submitted.wait(), timeout=2)
+        await asyncio.wait_for(workers_started.wait(), timeout=2)
+        # All three calls have reached their executors; excess work must queue.
+        assert sum(future.running() for future in submitted) == workers
+        with state_lock:
+            assert active == workers
+    finally:
+        release.set()
+        results = await asyncio.wait_for(asyncio.gather(*tasks), timeout=5)
+        for cls in classes:
+            cls._cleanup_executor()
+            atexit.unregister(cls._cleanup_executor)
+
+    assert results == ["0", "1", "2"]
+    assert peak <= workers
 
 
 @pytest.mark.asyncio
