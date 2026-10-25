@@ -160,6 +160,13 @@ func (handler *BatchHandler) batch() {
 	for {
 		select {
 		case req := <-handler.channelIn:
+			// A batch is sent to a single path, so flush the pending batch before
+			// queueing a request for another model; otherwise its instances would be
+			// predicted by the wrong model.
+			if len(handler.batcherInfo.Instances) > 0 && req.Path != handler.batcherInfo.Path {
+				handler.log.Infof("batch predict with size %d %s", len(handler.batcherInfo.Instances), handler.batcherInfo.Path)
+				handler.batchPredict()
+			}
 			if len(handler.batcherInfo.Instances) == 0 {
 				handler.batcherInfo.Start = GetNowTime()
 			}

@@ -172,3 +172,53 @@ func TestBatcherDefaults(t *testing.T) {
 	g.Expect(batchHandler.MaxBatchSize).To(gomega.Equal(MaxBatchSize))
 	g.Expect(batchHandler.MaxLatency).To(gomega.Equal(MaxLatency))
 }
+
+// Tests that requests for different models are never sent to the predictor in one batch
+func TestBatcherMixedPaths(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	logger, _ := pkglogging.NewLogger("", "INFO")
+
+	// The predictor answers every instance with the path it was called on
+	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		b, err := io.ReadAll(req.Body)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		var request Request
+		err = json.Unmarshal(b, &request)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		predictions := make([]interface{}, len(request.Instances))
+		for i := range predictions {
+			predictions[i] = req.URL.Path
+		}
+		responseBytes, err := json.Marshal(PredictionResponse{Predictions: predictions})
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+		_, err = rw.Write(responseBytes)
+		g.Expect(err).ToNot(gomega.HaveOccurred())
+	}))
+	defer predictor.Close()
+	predictorSvcUrl, err := url.Parse(predictor.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	httpProxy := httputil.NewSingleHostReverseProxy(predictorSvcUrl)
+	batchHandler := New(32, 500, httpProxy, logger)
+
+	paths := []string{"/v1/models/model-a:predict", "/v1/models/model-b:predict"}
+	responses := make([]Response, 4)
+	var wg sync.WaitGroup
+	for i := range responses {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			reader := bytes.NewReader([]byte(`{"instances": [[1, 2], [3, 4]]}`))
+			r := httptest.NewRequest(http.MethodPost, paths[i%2], reader)
+			w := httptest.NewRecorder()
+			batchHandler.ServeHTTP(w, r)
+			g.Expect(json.Unmarshal(w.Body.Bytes(), &responses[i])).To(gomega.Succeed())
+		}(i)
+	}
+	wg.Wait()
+
+	for i, res := range responses {
+		g.Expect(res.Message).To(gomega.BeEmpty())
+		g.Expect(res.Predictions).To(gomega.Equal([]interface{}{paths[i%2], paths[i%2]}))
+	}
+}
