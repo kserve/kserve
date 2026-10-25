@@ -204,7 +204,8 @@ func (r *InferenceGraphReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		r.Log.Info("Inference graph raw", "deployment conditions", deployment.Status.Conditions)
 		if !forceStopRuntime {
-			// Check if the deployment is ready. If not, requeue
+			// Wait until the Deployment controller has reported an Available condition. Whether it is
+			// True or False is propagated onto the graph's Ready condition by PropagateRawStatus.
 			igAvailable := false
 			for _, con := range deployment.Status.Conditions {
 				if con.Type == appsv1.DeploymentAvailable {
