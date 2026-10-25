@@ -655,10 +655,10 @@ PROMETHEUS_VERSION=83.4.0
 PROMETHEUS_ADAPTER_VERSION=5.3.0
 JAEGER_VERSION=4.7.0
 KSERVE_VERSION=v0.21.0
-ISTIO_VERSION=1.27.1
+ISTIO_VERSION=1.31.2
 KEDA_VERSION=2.20.2
 OPENTELEMETRY_OPERATOR_VERSION=0.114.1
-LWS_VERSION=v0.11.0
+LWS_VERSION=v1.0.0
 GATEWAY_API_VERSION=v1.5.1
 GIE_VERSION=v1.6.2
 LLMD_ROUTER_VERSION=v0.11.0
@@ -2544,6 +2544,8 @@ spec:
       - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites
         }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
       env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:
@@ -2939,6 +2941,8 @@ spec:
       - '{{ if .GlobalConfig.TLSCipherSuites }}--tls-cipher-suites={{ .GlobalConfig.TLSCipherSuites
         }}{{ else }}__KSERVE_OMIT_ARG__{{ end }}'
       env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:
@@ -3671,6 +3675,8 @@ spec:
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
       env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:
@@ -4118,6 +4124,8 @@ spec:
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=decoder{{- end }}'
       - '{{ if .GlobalConfig.EnableTLS }}--enable-tls=prefiller{{- end }}'
       env:
+      - name: KSERVE_TRACING_CONFIG_VERSION
+        value: "1"
       - name: INFERENCE_POOL_NAMESPACE
         valueFrom:
           fieldRef:
@@ -6862,8 +6870,14 @@ spec:
                 {{ if .GlobalConfig.EnableTLS }}--enable-ssl-refresh \
                 --ssl-certfile /var/run/kserve/tls/tls.crt \
                 --ssl-keyfile /var/run/kserve/tls/tls.key{{ end }} \
-                {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{ end }}
+                {{ if and .GlobalConfig.EnableTLS .GlobalConfig.TLSCipherSuitesOpenSSL }}${TLS_CIPHER_ARGS}{{ end }} \
+                "$@"
+            - --
             env:
+            - name: KSERVE_TRACING_CONFIG_VERSION
+              value: "1"
+            - name: KSERVE_PULL_SECRETS_CONFIG_VERSION
+              value: "1"
             - name: HF_HOME
               value: /tmp/hf
             - name: DO_NOT_TRACK
@@ -7777,6 +7791,16 @@ spec:
                   - NodeDownloadError
                   type: string
                 type: object
+              sharedPVCImport:
+                properties:
+                  completionTime:
+                    format: date-time
+                    type: string
+                  pvcUID:
+                    type: string
+                required:
+                - pvcUID
+                type: object
             type: object
         type: object
     served: true
@@ -7951,6 +7975,16 @@ spec:
                   - NodeDownloaded
                   - NodeDownloadError
                   type: string
+                type: object
+              sharedPVCImport:
+                properties:
+                  completionTime:
+                    format: date-time
+                    type: string
+                  pvcUID:
+                    type: string
+                required:
+                - pvcUID
                 type: object
             type: object
         type: object
@@ -9015,6 +9049,13 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
 - apiGroups:
   - authentication.k8s.io
   resources:

@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -28,9 +29,11 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sfake "k8s.io/client-go/kubernetes/fake"
@@ -516,6 +519,106 @@ func TestReconcileDisaggregatedSetDeletesWhenNotUsed(t *testing.T) {
 	assert.Nil(t, ds)
 }
 
+// TestReconcileDisaggregatedSetKeepsControllerAnnotations checks that updating the
+// DisaggregatedSet keeps the annotations its controller sets on it.
+func TestReconcileDisaggregatedSetKeepsControllerAnnotations(t *testing.T) {
+	ctx := context.Background()
+	svc := disaggTestService(t)
+	r := disaggTestReconciler(t)
+	r.EventRecorder = record.NewFakeRecorder(10)
+	// Update resolves the object's scope through the RESTMapper, which by default does
+	// not know the DisaggregatedSet kind.
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{disaggregatedsetv1.GroupVersion})
+	mapper.Add(disaggregatedsetv1.GroupVersion.WithKind("DisaggregatedSet"), meta.RESTScopeNamespace)
+	r.Client = fake.NewClientBuilder().WithScheme(r.Scheme()).WithRESTMapper(mapper).Build()
+
+	_, err := r.reconcileDisaggregatedSet(ctx, svc, disaggTestConfig(), true)
+	require.NoError(t, err)
+
+	key := client.ObjectKey{Name: disaggregatedSetName(svc), Namespace: svc.Namespace}
+	stored := &disaggregatedsetv1.DisaggregatedSet{}
+	require.NoError(t, r.Get(ctx, key, stored))
+	stored.Annotations = map[string]string{
+		disaggregatedsetv1.RevisionHashVersionAnnotationKey: disaggregatedsetv1.RevisionHashVersion,
+		disaggregatedsetv1.MaxUnavailableAnnotationKey:      `{"decode":1,"prefill":1}`,
+	}
+	require.NoError(t, r.Update(ctx, stored))
+
+	svc.Spec.Replicas = ptr.To[int32](3)
+	svc.Spec.Prefill.Replicas = ptr.To[int32](3)
+	ds, err := r.reconcileDisaggregatedSet(ctx, svc, disaggTestConfig(), true)
+	require.NoError(t, err)
+
+	assert.Equal(t, ptr.To[int32](3), findDisaggregatedRole(ds, constants.LLMDRoleDecode).Spec.Replicas, "the update is applied")
+	assert.Equal(t, disaggregatedsetv1.RevisionHashVersion, ds.Annotations[disaggregatedsetv1.RevisionHashVersionAnnotationKey])
+	assert.JSONEq(t, `{"decode":1,"prefill":1}`, ds.Annotations[disaggregatedsetv1.MaxUnavailableAnnotationKey])
+}
+
+func TestPreserveDisaggregatedSetControllerAnnotations(t *testing.T) {
+	opts := &updateOptions[*disaggregatedsetv1.DisaggregatedSet]{}
+	PreserveDisaggregatedSetControllerAnnotations()(opts)
+	require.Len(t, opts.afterDryRunFns, 1)
+	fn := opts.afterDryRunFns[0]
+
+	withAnnotations := func(annotations map[string]string) *disaggregatedsetv1.DisaggregatedSet {
+		return &disaggregatedsetv1.DisaggregatedSet{ObjectMeta: metav1.ObjectMeta{Annotations: annotations}}
+	}
+
+	tests := []struct {
+		name     string
+		expected map[string]string
+		curr     map[string]string
+		want     map[string]string
+	}{
+		{
+			name: "copies the controller annotations from curr",
+			curr: map[string]string{
+				disaggregatedsetv1.RevisionHashVersionAnnotationKey: disaggregatedsetv1.RevisionHashVersion,
+				disaggregatedsetv1.MaxUnavailableAnnotationKey:      `{"decode":1}`,
+			},
+			want: map[string]string{
+				disaggregatedsetv1.RevisionHashVersionAnnotationKey: disaggregatedsetv1.RevisionHashVersion,
+				disaggregatedsetv1.MaxUnavailableAnnotationKey:      `{"decode":1}`,
+			},
+		},
+		{
+			name:     "keeps the annotations expected sets",
+			expected: map[string]string{"kserve": "value"},
+			curr:     map[string]string{disaggregatedsetv1.RevisionHashVersionAnnotationKey: disaggregatedsetv1.RevisionHashVersion},
+			want: map[string]string{
+				"kserve": "value",
+				disaggregatedsetv1.RevisionHashVersionAnnotationKey: disaggregatedsetv1.RevisionHashVersion,
+			},
+		},
+		{
+			name: "adds no controller annotation that curr does not have",
+			curr: map[string]string{"other": "value"},
+			want: nil,
+		},
+		{
+			name: "copies only annotations in the DisaggregatedSet API group",
+			curr: map[string]string{
+				"example.com/other": "value",
+				"leaderworkerset.sigs.k8s.io/exclusive-topology": "rack",
+			},
+			want: nil,
+		},
+		{
+			name:     "a value expected sets wins over curr",
+			expected: map[string]string{disaggregatedsetv1.RevisionHashVersionAnnotationKey: "v3"},
+			curr:     map[string]string{disaggregatedsetv1.RevisionHashVersionAnnotationKey: disaggregatedsetv1.RevisionHashVersion},
+			want:     map[string]string{disaggregatedsetv1.RevisionHashVersionAnnotationKey: "v3"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			expected := withAnnotations(tt.expected)
+			fn(expected, expected.DeepCopy(), withAnnotations(tt.curr))
+			assert.Equal(t, tt.want, expected.Annotations)
+		})
+	}
+}
+
 // TestDisaggregatedSetAnnotationStaysOffPodTemplates checks that the annotation that
 // requests the DisaggregatedSet backend, which the P/D presets set, never reaches a pod
 // template. A pod template that gains it changes, so adding it to the presets would roll
@@ -601,6 +704,7 @@ func TestDisaggregatedRolesMatchWorkloadBuilders(t *testing.T) {
 	tests := []struct {
 		name   string
 		mutate func(svc *v1alpha2.LLMInferenceService)
+		legacy bool
 	}{
 		{
 			name: "single node",
@@ -621,9 +725,9 @@ func TestDisaggregatedRolesMatchWorkloadBuilders(t *testing.T) {
 			name: "multi node with leaders",
 			mutate: func(svc *v1alpha2.LLMInferenceService) {
 				svc.Spec.Template = disaggTestPodWithSidecar()
-				svc.Spec.Worker = disaggTestPod()
+				svc.Spec.Worker = disaggTestPodWithSidecar()
 				svc.Spec.Parallelism = disaggTestParallelism()
-				svc.Spec.Prefill.Worker = disaggTestPod()
+				svc.Spec.Prefill.Worker = disaggTestPodWithSidecar()
 				svc.Spec.Prefill.Parallelism = &v1alpha2.ParallelismSpec{Data: ptr.To[int32](4), DataLocal: ptr.To[int32](2)}
 				withRouter(svc)
 				withFeatures(svc)
@@ -660,11 +764,23 @@ func TestDisaggregatedRolesMatchWorkloadBuilders(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
+	legacyTests := slices.Clone(tests)
+	for i := range legacyTests {
+		legacyTests[i].name += " with legacy presets"
+		legacyTests[i].legacy = true
+	}
+	for _, tt := range slices.Concat(tests, legacyTests) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			svc := disaggTestService(t)
 			tt.mutate(svc)
+			if !tt.legacy {
+				for _, pod := range []*corev1.PodSpec{svc.Spec.Template, svc.Spec.Worker, svc.Spec.Prefill.Template, svc.Spec.Prefill.Worker} {
+					if sidecar := routingSidecar(pod); sidecar != nil {
+						sidecar.Env = append(sidecar.Env, corev1.EnvVar{Name: "KSERVE_TRACING_CONFIG_VERSION", Value: "1"})
+					}
+				}
+			}
 			r := disaggTestReconciler(t)
 
 			ds, err := r.expectedDisaggregatedSet(ctx, svc.DeepCopy(), disaggTestConfig(), nil)
@@ -673,6 +789,17 @@ func TestDisaggregatedRolesMatchWorkloadBuilders(t *testing.T) {
 			decode, prefill := ds.Spec.Roles[0], ds.Spec.Roles[1]
 			require.Equal(t, constants.LLMDRoleDecode, decode.Name)
 			require.Equal(t, constants.LLMDRolePrefill, prefill.Name)
+			for _, role := range ds.Spec.Roles {
+				pods := []*corev1.PodSpec{&role.Spec.LeaderWorkerTemplate.WorkerTemplate.Spec}
+				if role.Spec.LeaderWorkerTemplate.LeaderTemplate != nil {
+					pods = append(pods, &role.Spec.LeaderWorkerTemplate.LeaderTemplate.Spec)
+				}
+				for _, pod := range pods {
+					if sidecar := routingSidecar(pod); sidecar != nil {
+						assert.Equal(t, svc.Spec.Tracing != nil && !tt.legacy, slices.Contains(sidecar.Args, "--tracing=true"))
+					}
+				}
+			}
 
 			if svc.Spec.Worker != nil {
 				lws, err := r.expectedMainMultiNodeLWS(ctx, svc.DeepCopy(), disaggTestConfig())

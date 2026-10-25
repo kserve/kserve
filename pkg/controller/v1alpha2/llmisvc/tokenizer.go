@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"maps"
 	"path"
+	"slices"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -44,7 +45,15 @@ const (
 	tokenizerDeploymentContainerName = "main"
 	tokenizerServicePort             = 8000
 	tokenizerPortName                = "render-http"
+	imagePullConfigVersionEnvVar     = "KSERVE_PULL_SECRETS_CONFIG_VERSION"
 )
+
+// supportsImagePullSecretInheritance reports whether the tokenizer container opts in to
+// inheriting image pull secrets by setting KSERVE_PULL_SECRETS_CONFIG_VERSION to "1".
+func supportsImagePullSecretInheritance(container *corev1.Container) bool {
+	version, _ := utils.GetEnvVarValue(container.Env, imagePullConfigVersionEnvVar)
+	return version == "1"
+}
 
 func tokenizerDeploymentName(llmSvc *v1alpha2.LLMInferenceService) string {
 	return kmeta.ChildName(llmSvc.GetName(), "-tokenizer")
@@ -227,6 +236,65 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Tokenizer.Template.DeepCopy()
 	}
 
+	if container := utils.GetContainerWithName(&d.Spec.Template.Spec, tokenizerDeploymentContainerName); container != nil && supportsComponentTracing(container) {
+		injectVLLMTracing(llmSvc.Spec.Tracing, llmSvc.Namespace, llmSvc.Name, defaultTokenizerServiceName, container)
+	}
+
+	// Fetch the current deployment before resolving the ServiceAccount: a
+	// tokenizer that already runs keeps the ServiceAccount it runs with, so
+	// a controller upgrade never rewrites the tokenizer identity and never
+	// rolls the deployment. The main-workload fallback below applies at
+	// creation only.
+	curr := &appsv1.Deployment{}
+	currFound := false
+	if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return d, fmt.Errorf("failed to get current tokenizer deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+		}
+	} else {
+		currFound = true
+	}
+
+	// The tokenizer downloads model files, so it runs with the
+	// ServiceAccount its template names, the one an already-running
+	// tokenizer uses, or — at creation only — the main workload's.
+	// Resolution: the tokenizer template, then the deployed
+	// ServiceAccount, then the main template and the main worker.
+	tokenizerServiceAccountName := d.Spec.Template.Spec.ServiceAccountName
+	if tokenizerServiceAccountName == "" && currFound {
+		tokenizerServiceAccountName = curr.Spec.Template.Spec.ServiceAccountName
+	} else if tokenizerServiceAccountName == "" {
+		if llmSvc.Spec.Template != nil && llmSvc.Spec.Template.ServiceAccountName != "" {
+			tokenizerServiceAccountName = llmSvc.Spec.Template.ServiceAccountName
+		} else if llmSvc.Spec.Worker != nil && llmSvc.Spec.Worker.ServiceAccountName != "" {
+			tokenizerServiceAccountName = llmSvc.Spec.Worker.ServiceAccountName
+		}
+	}
+	if tokenizerServiceAccountName != "" && tokenizerServiceAccountName != curr.Spec.Template.Spec.ServiceAccountName {
+		// Fail closed: a ServiceAccount that does not exist — whether the
+		// tokenizer template names it, the main-workload fallback resolved
+		// it, or an update switches the tokenizer to it — would leave the
+		// tokenizer downloading without the identity the spec asks for.
+		// The identity an already-running tokenizer keeps is not
+		// re-validated, so deleting that ServiceAccount in the meantime
+		// does not block reconciling an otherwise unchanged deployment.
+		tokenizerServiceAccount := &corev1.ServiceAccount{}
+		if err := r.Get(ctx, types.NamespacedName{
+			Name:      tokenizerServiceAccountName,
+			Namespace: llmSvc.Namespace,
+		}, tokenizerServiceAccount); err != nil {
+			return d, fmt.Errorf("failed to fetch tokenizer service account %s/%s: %w",
+				llmSvc.Namespace, tokenizerServiceAccountName, err)
+		}
+	}
+	d.Spec.Template.Spec.ServiceAccountName = tokenizerServiceAccountName
+
+	// Static storage credentials keep coming from the scheduler (EPP)
+	// ServiceAccount, exactly as in releases before this change, so an
+	// existing tokenizer keeps its credential environment on upgrade. IRSA
+	// needs no credential lookup here: it follows the ServiceAccount the
+	// pod runs with.
+
 	// Attach model artifacts so the tokenizer has access to tokenizer files
 	var existingServiceAccount *corev1.ServiceAccount
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil &&
@@ -245,9 +313,13 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 		}
 	}
 
-	curr := &appsv1.Deployment{}
-	if err := r.Get(ctx, client.ObjectKeyFromObject(d), curr); err != nil && !apierrors.IsNotFound(err) {
-		return d, fmt.Errorf("failed to get current tokenizer deployment %s/%s: %w", d.GetNamespace(), d.GetName(), err)
+	if container := utils.GetContainerWithName(&d.Spec.Template.Spec, tokenizerDeploymentContainerName); container != nil &&
+		supportsImagePullSecretInheritance(container) && len(d.Spec.Template.Spec.ImagePullSecrets) == 0 {
+		imagePullSecrets, err := r.inheritedTokenizerImagePullSecrets(ctx, llmSvc, &d.Spec.Template.Spec)
+		if err != nil {
+			return d, err
+		}
+		d.Spec.Template.Spec.ImagePullSecrets = imagePullSecrets
 	}
 
 	config, err := r.loadConfig(ctx)
@@ -262,6 +334,47 @@ func (r *LLMISVCReconciler) expectedTokenizerDeployment(ctx context.Context, llm
 
 	log.FromContext(ctx).V(2).Info("Expected tokenizer deployment", "deployment", d)
 	return d, nil
+}
+
+// inheritedTokenizerImagePullSecrets returns the image pull secrets of the scheduler
+// template, then those of the main workload template, then those of the ServiceAccount
+// the tokenizer Pod runs as (its template ServiceAccount, or the namespace's default one),
+// each secret listed once. It returns nil when neither template has a list.
+func (r *LLMISVCReconciler) inheritedTokenizerImagePullSecrets(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, tokenizerPodSpec *corev1.PodSpec) ([]corev1.LocalObjectReference, error) {
+	var inherited []corev1.LocalObjectReference
+	appendMissing := func(secrets []corev1.LocalObjectReference) {
+		for _, secret := range secrets {
+			if !slices.ContainsFunc(inherited, func(s corev1.LocalObjectReference) bool { return s.Name == secret.Name }) {
+				inherited = append(inherited, secret)
+			}
+		}
+	}
+	if schedulerTemplate := llmSvc.Spec.Router.Scheduler.Template; schedulerTemplate != nil {
+		appendMissing(schedulerTemplate.ImagePullSecrets)
+	}
+	if llmSvc.Spec.Template != nil {
+		appendMissing(llmSvc.Spec.Template.ImagePullSecrets)
+	}
+	if len(inherited) == 0 {
+		return nil, nil
+	}
+
+	serviceAccountName := tokenizerPodSpec.ServiceAccountName
+	if serviceAccountName == "" {
+		serviceAccountName = constants.LLMISVCDefaultServiceAccountName
+	}
+	serviceAccount := &corev1.ServiceAccount{}
+	if err := r.Get(ctx, types.NamespacedName{Name: serviceAccountName, Namespace: llmSvc.Namespace}, serviceAccount); err != nil {
+		if apierrors.IsNotFound(err) {
+			return inherited, nil
+		}
+		return nil, fmt.Errorf("failed to fetch tokenizer service account %s/%s: %w",
+			llmSvc.Namespace, serviceAccountName, err)
+	}
+	// ServiceAccount admission adds the ServiceAccount's image pull secrets only to Pods
+	// without a list, so they are carried into the inherited list here.
+	appendMissing(serviceAccount.ImagePullSecrets)
+	return inherited, nil
 }
 
 func (r *LLMISVCReconciler) expectedTokenizerService(llmSvc *v1alpha2.LLMInferenceService) *corev1.Service {

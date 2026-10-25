@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
+	disaggregatedsetv1 "sigs.k8s.io/lws/api/disaggregatedset/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -57,6 +58,13 @@ func newFakeClientWithLWSNoMatch(t *testing.T) client.Client {
 	}
 	if err := lwsapi.AddToScheme(scheme); err != nil {
 		t.Fatalf("failed to add lwsapi to scheme: %v", err)
+	}
+	// The prefill ServiceAccount preservation path reads the DisaggregatedSet
+	// regardless of the deployed backend, so the fake client scheme needs the
+	// type registered to serve those lookups (a missing CRD on a real cluster
+	// surfaces as a NoKindMatchError, which currentDisaggregatedSet tolerates).
+	if err := disaggregatedsetv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("failed to add disaggregatedsetv1 to scheme: %v", err)
 	}
 
 	return fake.NewClientBuilder().

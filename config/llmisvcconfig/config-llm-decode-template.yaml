@@ -350,6 +350,8 @@ spec:
             name: tls-certs
             readOnly: true
         env:
+          - name: KSERVE_TRACING_CONFIG_VERSION
+            value: "1"
           - name: INFERENCE_POOL_NAMESPACE
             valueFrom:
               fieldRef:
