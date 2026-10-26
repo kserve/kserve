@@ -225,9 +225,10 @@ func TestWorkloadMetricsCollector_ConditionStatus(t *testing.T) {
 	_ = kservescheme.AddLLMISVCAPIs(scheme)
 
 	tests := []struct {
-		name           string
-		llmisvcs       []v1alpha2.LLMInferenceService
-		expectedMetric map[string]map[string]bool // condition_type:status -> llmisvc_name -> present
+		name     string
+		llmisvcs []v1alpha2.LLMInferenceService
+		// llmisvc_name -> condition_type -> active status label (true/false/unknown)
+		activeStatus map[string]map[string]string
 	}{
 		{
 			name: "all conditions true",
@@ -253,9 +254,11 @@ func TestWorkloadMetricsCollector_ConditionStatus(t *testing.T) {
 					},
 				},
 			},
-			expectedMetric: map[string]map[string]bool{
-				string(apis.ConditionReady) + ":true":    {"ready-isvc": true},
-				string(v1alpha2.WorkloadReady) + ":true": {"ready-isvc": true},
+			activeStatus: map[string]map[string]string{
+				"ready-isvc": {
+					string(apis.ConditionReady):    "true",
+					string(v1alpha2.WorkloadReady): "true",
+				},
 			},
 		},
 		{
@@ -286,71 +289,91 @@ func TestWorkloadMetricsCollector_ConditionStatus(t *testing.T) {
 					},
 				},
 			},
-			expectedMetric: map[string]map[string]bool{
-				string(apis.ConditionReady) + ":false":    {"mixed-isvc": true},
-				string(v1alpha2.WorkloadReady) + ":true":  {"mixed-isvc": true},
-				string(v1alpha2.RouterReady) + ":unknown": {"mixed-isvc": true},
+			activeStatus: map[string]map[string]string{
+				"mixed-isvc": {
+					string(apis.ConditionReady):    "false",
+					string(v1alpha2.WorkloadReady): "true",
+					string(v1alpha2.RouterReady):   "unknown",
+				},
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create fake client with test data
 			clientBuilder := fake.NewClientBuilder().WithScheme(scheme)
 			for i := range tt.llmisvcs {
 				clientBuilder.WithObjects(&tt.llmisvcs[i])
 			}
 			client := clientBuilder.Build()
 
-			// Create collector and collect metrics
 			collector := llmisvc.NewWorkloadMetricsCollector(client)
-			metricCh := make(chan prometheus.Metric, 100)
-			collector.Collect(metricCh)
-			close(metricCh)
+			conditionValues := collectConditionGaugeValues(t, collector)
 
-			// Parse collected metrics
-			collectedMetrics := make(map[string]map[string]bool)
-			for metric := range metricCh {
-				var m dto.Metric
-				if err := metric.Write(&m); err != nil {
-					t.Fatalf("failed to write metric: %v", err)
-				}
-
-				// Extract labels
-				var conditionType, llmisvName, status string
-				for _, label := range m.GetLabel() {
-					switch label.GetName() {
-					case "condition_type":
-						conditionType = label.GetValue()
-					case "llmisvc_name":
-						llmisvName = label.GetValue()
-					case "status":
-						status = label.GetValue()
-					}
-				}
-
-				if conditionType == "" || llmisvName == "" || status == "" {
-					continue
-				}
-
-				key := conditionType + ":" + status
-				if collectedMetrics[key] == nil {
-					collectedMetrics[key] = make(map[string]bool)
-				}
-				collectedMetrics[key][llmisvName] = true
-			}
-
-			// Verify expected metrics
-			for key, expected := range tt.expectedMetric {
-				for llmisvName := range expected {
-					if !collectedMetrics[key][llmisvName] {
-						t.Errorf("missing metric for %s llmisvc_name=%s", key, llmisvName)
+			for llmisvcName, conditions := range tt.activeStatus {
+				for conditionType, wantActive := range conditions {
+					for _, status := range []string{"true", "false", "unknown"} {
+						wantValue := 0.0
+						if status == wantActive {
+							wantValue = 1.0
+						}
+						got, ok := conditionValues[llmisvcName][conditionType][status]
+						if !ok {
+							t.Errorf("missing series llmisvc=%s condition=%s status=%s", llmisvcName, conditionType, status)
+							continue
+						}
+						if got != wantValue {
+							t.Errorf("llmisvc=%s condition=%s status=%s: got %v, want %v",
+								llmisvcName, conditionType, status, got, wantValue)
+						}
 					}
 				}
 			}
 		})
 	}
+}
+
+// collectConditionGaugeValues returns llmisvc_name -> condition_type -> status -> gauge value.
+func collectConditionGaugeValues(t *testing.T, collector *llmisvc.WorkloadMetricsCollector) map[string]map[string]map[string]float64 {
+	t.Helper()
+	metricCh := make(chan prometheus.Metric, 100)
+	collector.Collect(metricCh)
+	close(metricCh)
+
+	out := make(map[string]map[string]map[string]float64)
+	for metric := range metricCh {
+		var m dto.Metric
+		if err := metric.Write(&m); err != nil {
+			t.Fatalf("failed to write metric: %v", err)
+		}
+		if m.GetGauge() == nil {
+			continue
+		}
+
+		var conditionType, llmisvName, status string
+		for _, label := range m.GetLabel() {
+			switch label.GetName() {
+			case "condition_type":
+				conditionType = label.GetValue()
+			case "llmisvc_name":
+				llmisvName = label.GetValue()
+			case "status":
+				status = label.GetValue()
+			}
+		}
+		if conditionType == "" || llmisvName == "" || status == "" {
+			continue
+		}
+
+		if out[llmisvName] == nil {
+			out[llmisvName] = make(map[string]map[string]float64)
+		}
+		if out[llmisvName][conditionType] == nil {
+			out[llmisvName][conditionType] = make(map[string]float64)
+		}
+		out[llmisvName][conditionType][status] = m.GetGauge().GetValue()
+	}
+	return out
 }
 
 func TestWorkloadMetricsCollector_CardinalityControl(t *testing.T) {
