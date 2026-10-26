@@ -68,8 +68,9 @@ func ruleMatchCount(rule *gwapiv1.HTTPRouteRule) int {
 // may hold into consecutive rules with the same name, filters, backends and
 // timeouts. origins[i] is the index of the input rule that out[i] came from.
 // Chunks keep the rule name, so shardHTTPRouteRules never puts two chunks of
-// a named rule in one HTTPRoute, where rule names must be unique; a
-// sectionName policy on the rule then applies in every shard.
+// a named rule in one HTTPRoute, where rule names must be unique. Policies
+// are not copied: a policy that targets the rule by sectionName must target
+// every shard HTTPRoute holding a chunk, since it also names one HTTPRoute.
 func splitOversizedRules(rules []gwapiv1.HTTPRouteRule) (out []gwapiv1.HTTPRouteRule, origins []int) {
 	out = make([]gwapiv1.HTTPRouteRule, 0, len(rules))
 	origins = make([]int, 0, len(rules))

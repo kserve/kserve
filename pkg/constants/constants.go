@@ -1067,8 +1067,9 @@ const LoRAModelRoutingStrategyAnnotationKey = KServeAPIGroupName + "/lora-model-
 // managed HTTPRoutes its inline route may be sharded into, overriding the
 // cluster-wide httpRouteMaxShards ingress key. Read from spec.annotations.
 // Consumers should find the resulting routes through
-// status.router.gateways[].httpRoutes, not by name or label. A sectionName
-// policy on a rule applies in every shard that holds part of that rule.
+// status.router.gateways[].httpRoutes, not by name or label. A policy that
+// targets a rule by sectionName must target every shard HTTPRoute holding
+// part of that rule; the controller copies rules, not policies.
 const HTTPRouteMaxShardsAnnotationKey = KServeAPIGroupName + "/httproute-max-shards"
 
 // Bounds of the httpRouteMaxShards ingress key and HTTPRouteMaxShardsAnnotationKey.

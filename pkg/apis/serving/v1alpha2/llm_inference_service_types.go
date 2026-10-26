@@ -460,8 +460,9 @@ type HTTPRouteSpec struct {
 	// When the rules do not fit in one HTTPRoute and the httpRouteMaxShards ingress key or the
 	// serving.kserve.io/httproute-max-shards annotation allows it, they are split over several
 	// HTTPRoutes. Consumers should read status.router.gateways[].httpRoutes to find them rather
-	// than relying on route names or labels. A policy that targets a rule by sectionName applies
-	// in every HTTPRoute that holds part of that rule.
+	// than relying on route names or labels. Every chunk of a split rule keeps the rule name, but a
+	// policy also targets one HTTPRoute by name: a policy that should cover a rule must target every
+	// HTTPRoute listed in status that holds part of that rule, each with the same sectionName.
 	// +optional
 	Spec *gwapiv1.HTTPRouteSpec `json:"spec,omitempty"`
 }
