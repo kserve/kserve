@@ -26,12 +26,22 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
 const ErrBlockedHTTPStorageURI = "http(s) storageUri %q targets a blocked host or IP"
 
 var lookupIPFn = net.LookupIP
+
+// allowHTTPStorageLoopback is only for unit tests that use net/http/httptest.
+// Production code must leave this disabled.
+var allowHTTPStorageLoopback atomic.Bool
+
+// AllowHTTPStorageLoopbackForTesting enables loopback http(s) storage URIs for tests.
+func AllowHTTPStorageLoopbackForTesting(allow bool) {
+	allowHTTPStorageLoopback.Store(allow)
+}
 
 var sharedAddressSpace = netip.MustParsePrefix("100.64.0.0/10")
 
@@ -127,6 +137,9 @@ func resolveHTTPStorageHost(host string) ([]netip.Addr, error) {
 
 func isBlockedHostname(host string) bool {
 	h := strings.ToLower(strings.TrimSuffix(host, "."))
+	if allowHTTPStorageLoopback.Load() && (h == "localhost" || strings.HasSuffix(h, ".localhost")) {
+		return false
+	}
 	switch h {
 	case "localhost", "metadata", "metadata.google.internal",
 		"kubernetes", "kubernetes.default", "kubernetes.default.svc",
@@ -147,6 +160,9 @@ func isBlockedIPLiteral(host string) bool {
 
 func isBlockedAddr(addr netip.Addr) bool {
 	addr = addr.Unmap()
+	if allowHTTPStorageLoopback.Load() && addr.IsLoopback() {
+		return false
+	}
 	if addr.IsLoopback() || addr.IsPrivate() ||
 		addr.IsLinkLocalUnicast() || addr.IsLinkLocalMulticast() ||
 		addr.IsMulticast() || addr.IsUnspecified() || sharedAddressSpace.Contains(addr) {

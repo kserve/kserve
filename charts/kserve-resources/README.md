@@ -65,7 +65,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.controller.rbacProxy.securityContext.privileged | bool | `false` |  |
 | kserve.controller.rbacProxy.securityContext.readOnlyRootFilesystem | bool | `true` |  |
 | kserve.controller.rbacProxy.securityContext.runAsNonRoot | bool | `true` |  |
-| kserve.controller.rbacProxyImage | string | `"quay.io/brancz/kube-rbac-proxy:v0.18.0"` |  |
+| kserve.controller.rbacProxyImage | string | `"quay.io/brancz/kube-rbac-proxy:v0.23.0"` |  |
 | kserve.controller.resources.limits.cpu | string | `"100m"` |  |
 | kserve.controller.resources.limits.memory | string | `"300Mi"` |  |
 | kserve.controller.resources.requests.cpu | string | `"100m"` |  |
@@ -129,6 +129,7 @@ $ helm install kserve-resources oci://ghcr.io/kserve/charts/kserve-resources --v
 | kserve.localmodel.jobNamespace | string | `"kserve-localmodel-jobs"` |  |
 | kserve.localmodel.jobTTLSecondsAfterFinished | int | `3600` |  |
 | kserve.localmodel.securityContext.fsGroup | int | `1000` |  |
+| kserve.localmodel.sharedPVCImportFSGroup | int | `1000` | fsGroup for shared-PVC import Jobs, which run in the cache's namespace. Independent of securityContext.fsGroup (per-node download Jobs). Set to null to omit it and let namespace admission (e.g. an OpenShift SCC) assign the group. |
 | kserve.metricsaggregator.enableMetricAggregation | string | `"false"` |  |
 | kserve.metricsaggregator.enablePrometheusScraping | string | `"false"` |  |
 | kserve.opentelemetryCollector.metricReceiverEndpoint | string | `"keda-otel-scaler.keda.svc:4317"` |  |

@@ -56,6 +56,11 @@ const (
 )
 
 // InferenceService Constants
+const (
+	KServeManagedLabelKey   = "serving.kserve.io/managed-by"
+	KServeManagedLabelValue = "kserve-controller-manager"
+)
+
 var (
 	InferenceServiceName                  = "inferenceservice"
 	InferenceServiceAPIName               = "inferenceservices"
@@ -149,6 +154,14 @@ var (
 	ManagedDRACelSelectorAnnotationKey   = KServeAPIGroupName + "/exp-dra-cel-selector"
 	ManagedDRADeviceCountAnnotationKey   = KServeAPIGroupName + "/exp-dra-device-count"
 	ManagedDRAContainerNameAnnotationKey = KServeAPIGroupName + "/exp-dra-container-name"
+	// ModelExpress Experimental Annotations
+	// The mode annotation enables ModelExpress weight loading for an LLMInferenceService:
+	// "layered" keeps KServe's model delivery and adds peer-to-peer transfer, "native"
+	// hands weight loading to ModelExpress.
+	ModelExpressModeAnnotationKey          = KServeAPIGroupName + "/exp-modelexpress-mode"
+	ModelExpressAddressAnnotationKey       = KServeAPIGroupName + "/exp-modelexpress-address"
+	ModelExpressTokenAudienceAnnotationKey = KServeAPIGroupName + "/exp-modelexpress-token-audience"
+	ModelExpressRevisionAnnotationKey      = KServeAPIGroupName + "/exp-modelexpress-revision"
 )
 
 // ServingRuntime Server Type Annotations
@@ -441,7 +454,10 @@ const (
 	LLMDRoleLabelKey = "llm-d.ai/role"
 	LLMDRoleDecode   = "decode"
 	LLMDRolePrefill  = "prefill"
-	LLMDRoleBoth     = "both"
+	// llm-d-router v0.11.0 no longer accepts "both"; it only remains on workloads created in old version
+	// use LLMDRolePrefillDecode to replace for newer version
+	LLMDRoleBoth          = "both"
+	LLMDRolePrefillDecode = "prefill-decode"
 )
 
 // LLMInferenceService label constants (uses Kubernetes recommended label keys above)
@@ -470,19 +486,20 @@ const (
 	// Set to "true" on an LLMInferenceService to inject the middleware.
 	LLMServedByAnnotationKey = "serving.kserve.io/enable-served-by-header"
 
-	// LLMDisaggregatedSetAnnotationKey opts a disaggregated (prefill/decode)
-	// LLMInferenceService into the DisaggregatedSet workload backend, which manages
-	// both roles as one object so they roll together during an upgrade instead of
-	// racing independently.
+	// LLMDisaggregatedSetAnnotationKey selects the DisaggregatedSet workload backend for
+	// a disaggregated (prefill/decode) LLMInferenceService, which manages both roles as
+	// one object so they roll together during an upgrade instead of racing independently.
 	//
-	// Set on the object's metadata, not spec.annotations, since the latter propagate to
-	// pods. The only accepted values are "true" and "false", compared case-insensitively
-	// after trimming, matching StopAnnotationKey; anything else is rejected at admission.
+	// It is read from spec.annotations after presets are merged. The P/D presets set it
+	// to "true", so DisaggregatedSet is the default; a service sets it to "false" in its
+	// own spec.annotations to keep using Deployments or LeaderWorkerSets. The only
+	// accepted values are "true" and "false", compared case-insensitively after trimming,
+	// matching StopAnnotationKey; anything else is rejected at admission.
 	//
-	// Opting in additionally requires the DisaggregatedSet feature gate in the "llmisvc"
-	// key of inferenceservice-config and the LWS DisaggregatedSet CRD on the cluster.
-	// Without either, the annotation is inert and the service keeps using the Deployment
-	// or LeaderWorkerSet path unchanged.
+	// Using the backend additionally requires the DisaggregatedSet feature gate in the
+	// "llmisvc" key of inferenceservice-config and the LWS DisaggregatedSet CRD on the
+	// cluster. Without either, the annotation is inert and the service keeps using the
+	// Deployment or LeaderWorkerSet path unchanged.
 	LLMDisaggregatedSetAnnotationKey = KServeAPIGroupName + "/enable-disaggregated-set"
 
 	// LLMAcceleratorAnnotationKey is the Status.Annotations key where the

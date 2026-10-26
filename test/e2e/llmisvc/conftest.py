@@ -45,6 +45,8 @@ _LLMISVC_CORE_EXCLUDED = {
     "test_llm_lora_regex_routing.py",
     "test_llm_inference_service_config_deletion.py",
     "test_llm_canary_lifecycle.py",
+    "test_llm_modelexpress.py",
+    "test_llm_disaggregated_set.py",
 }
 
 
@@ -73,12 +75,15 @@ def _auto_assign_group_markers(items):
     the ``llminferenceservice`` marker.  Additionally:
 
     * ``test_llm_autoscaling_<variant>.py`` -> ``llmisvc_autoscaling`` +
-      ``autoscaling_<variant>`` (e.g. ``autoscaling_wva``, ``autoscaling_keda``).
+      ``autoscaling_<variant>`` (e.g. ``autoscaling_keda``).
     * ``test_llm_tracing.py`` -> skipped from ``llmisvc_core`` (has its own
       ``tracing`` marker).
     * ``test_llm_lora_regex_routing.py`` -> skipped from ``llmisvc_core`` (has
       its own ``lora_routing`` marker and CI job; three vLLM cold starts do not
       fit in what the core job has left).
+    * ``test_llm_disaggregated_set.py`` -> skipped from ``llmisvc_core`` (has
+      its own ``llmisvc_disaggregated_set`` marker and CI job, which enables
+      the cluster-wide ``disaggregatedSet`` feature gate).
     * Everything else -> ``llmisvc_core``.
     """
     for item in items:

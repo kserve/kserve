@@ -19,9 +19,12 @@ package v1alpha2
 import (
 	"testing"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -63,7 +66,7 @@ func TestEPPServiceName(t *testing.T) {
 				Scheduler: &SchedulerSpec{
 					Pool: &InferencePoolSpec{
 						Spec: &igwapi.InferencePoolSpec{
-							EndpointPickerRef: igwapi.EndpointPickerRef{
+							EndpointPickerRef: &igwapi.EndpointPickerRef{
 								Name: igwapi.ObjectName(defaultName),
 							},
 						},
@@ -84,7 +87,7 @@ func TestEPPServiceName(t *testing.T) {
 				Scheduler: &SchedulerSpec{
 					Pool: &InferencePoolSpec{
 						Spec: &igwapi.InferencePoolSpec{
-							EndpointPickerRef: igwapi.EndpointPickerRef{
+							EndpointPickerRef: &igwapi.EndpointPickerRef{
 								Name: "my-custom-epp",
 							},
 						},
@@ -111,7 +114,7 @@ func TestEPPServiceName(t *testing.T) {
 					Pool: &InferencePoolSpec{
 						Ref: &corev1.LocalObjectReference{Name: "external-pool"},
 						Spec: &igwapi.InferencePoolSpec{
-							EndpointPickerRef: igwapi.EndpointPickerRef{
+							EndpointPickerRef: &igwapi.EndpointPickerRef{
 								Name: "should-be-ignored",
 							},
 						},
@@ -126,7 +129,7 @@ func TestEPPServiceName(t *testing.T) {
 				Scheduler: &SchedulerSpec{
 					Pool: &InferencePoolSpec{
 						Spec: &igwapi.InferencePoolSpec{
-							EndpointPickerRef: igwapi.EndpointPickerRef{
+							EndpointPickerRef: &igwapi.EndpointPickerRef{
 								Name: "",
 							},
 						},
@@ -144,6 +147,20 @@ func TestEPPServiceName(t *testing.T) {
 				t.Errorf("EPPServiceName() = %q, want %q", got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestValidateWorkloadScalingDirectKEDA(t *testing.T) {
+	workload := &WorkloadSpec{Scaling: &ScalingSpec{MinReplicas: ptr.To(int32(1)), MaxReplicas: 4, KEDA: &DirectKEDAScalingSpec{Triggers: []kedav1alpha1.ScaleTriggers{{Type: "cpu"}}}}}
+	if errs := ValidateWorkloadScaling(field.NewPath("spec"), workload); len(errs) != 0 {
+		t.Fatalf("unexpected validation errors: %v", errs)
+	}
+}
+
+func TestValidateWorkloadScalingRequiresKEDA(t *testing.T) {
+	workload := &WorkloadSpec{Scaling: &ScalingSpec{MaxReplicas: 4}}
+	if errs := ValidateWorkloadScaling(field.NewPath("spec"), workload); len(errs) == 0 {
+		t.Fatal("expected missing KEDA validation error")
 	}
 }
 
@@ -576,6 +593,18 @@ func TestDetermineWorkloadReadiness_ScalingConditions(t *testing.T) {
 		assert.Equal(t, "FailedGetExternalMetric", cond.Reason)
 	})
 
+	t.Run("unsupported WVA scaling does not block WorkloadsReady", func(t *testing.T) {
+		svc := newTestLLMISVC()
+		svc.MarkMainWorkloadReady()
+		svc.MarkScalingNotReady(WVAUnsupportedReason, "WVA autoscaling is no longer supported")
+
+		svc.DetermineWorkloadReadiness()
+
+		assert.Equal(t, "False", getConditionStatus(svc, ScalingReady))
+		assert.Equal(t, WVAUnsupportedReason, svc.GetStatus().GetCondition(ScalingReady).Reason)
+		assert.Equal(t, "True", getConditionStatus(svc, WorkloadReady))
+	})
+
 	t.Run("PrefillScalingReady=False blocks WorkloadsReady", func(t *testing.T) {
 		svc := newTestLLMISVC()
 		svc.MarkMainWorkloadReady()
@@ -884,35 +913,36 @@ func TestManagedDRAContainerName(t *testing.T) {
 
 func TestDisaggregatedSetRequested(t *testing.T) {
 	tests := []struct {
-		name        string
-		llmSvc      *LLMInferenceService
-		annotations map[string]string
-		want        bool
+		name                string
+		llmSvc              *LLMInferenceService
+		specAnnotations     map[string]string
+		metadataAnnotations map[string]string
+		want                bool
 	}{
 		{name: "nil receiver", llmSvc: nil, want: false},
-		{name: "no annotations", annotations: nil, want: false},
-		{name: "unrelated annotation", annotations: map[string]string{"foo": "bar"}, want: false},
+		{name: "no annotations", specAnnotations: nil, want: false},
+		{name: "unrelated annotation", specAnnotations: map[string]string{"foo": "bar"}, want: false},
 		{
-			name:        "opted in",
-			annotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "true"},
-			want:        true,
+			name:            "opted in",
+			specAnnotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "true"},
+			want:            true,
 		},
 		{
-			name:        "opted out",
-			annotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "false"},
-			want:        false,
+			name:            "opted out",
+			specAnnotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "false"},
+			want:            false,
 		},
 		{
-			// Read from metadata, not spec.annotations, since spec.annotations are
-			// propagated onto pods.
-			name:        "spec annotations are not consulted",
-			annotations: nil,
-			want:        false,
+			// Read from spec.annotations, where the presets that turn it on by default
+			// can set it; presets cannot set the service's metadata.
+			name:                "metadata annotations are not consulted",
+			metadataAnnotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "true"},
+			want:                false,
 		},
 		{
-			name:        "malformed value is not opt-in",
-			annotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "yes"},
-			want:        false,
+			name:            "malformed value is not opt-in",
+			specAnnotations: map[string]string{"serving.kserve.io/enable-disaggregated-set": "yes"},
+			want:            false,
 		},
 	}
 
@@ -920,7 +950,10 @@ func TestDisaggregatedSetRequested(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := tt.llmSvc
 			if svc == nil && tt.name != "nil receiver" {
-				svc = &LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Annotations: tt.annotations}}
+				svc = &LLMInferenceService{
+					ObjectMeta: metav1.ObjectMeta{Annotations: tt.metadataAnnotations},
+					Spec:       LLMInferenceServiceSpec{WorkloadSpec: WorkloadSpec{Annotations: tt.specAnnotations}},
+				}
 			}
 			if got := svc.DisaggregatedSetRequested(); got != tt.want {
 				t.Errorf("DisaggregatedSetRequested() = %v, want %v", got, tt.want)

@@ -52498,9 +52498,6 @@ spec:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: either wva or keda must be specified when scaling is
-                        configured
-                      rule: has(self.wva) || has(self.keda)
                     - message: wva and keda are mutually exclusive
                       rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct
@@ -61354,7 +61351,6 @@ spec:
                                     - FailClose
                                     type: string
                                   group:
-                                    maxLength: 253
                                     type: string
                                   kind:
                                     maxLength: 63
@@ -69581,8 +69577,6 @@ spec:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: either wva or keda must be specified when scaling is configured
-                  rule: has(self.wva) || has(self.keda)
                 - message: wva and keda are mutually exclusive
                   rule: '!(has(self.wva) && has(self.keda))'
                 - message: at least one trigger is required when using direct KEDA
@@ -78270,9 +78264,6 @@ spec:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: either wva or keda must be specified when scaling is
-                        configured
-                      rule: has(self.wva) || has(self.keda)
                     - message: wva and keda are mutually exclusive
                       rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct
@@ -87182,7 +87173,6 @@ spec:
                                 type: array
                                 x-kubernetes-list-type: atomic
                             required:
-                            - endpointPickerRef
                             - selector
                             - targetPorts
                             type: object
@@ -95384,8 +95374,6 @@ spec:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: either wva or keda must be specified when scaling is configured
-                  rule: has(self.wva) || has(self.keda)
                 - message: wva and keda are mutually exclusive
                   rule: '!(has(self.wva) && has(self.keda))'
                 - message: at least one trigger is required when using direct KEDA
@@ -104123,9 +104111,6 @@ spec:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: either wva or keda must be specified when scaling is
-                        configured
-                      rule: has(self.wva) || has(self.keda)
                     - message: wva and keda are mutually exclusive
                       rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct
@@ -113638,8 +113623,6 @@ spec:
                                     - FailClose
                                     type: string
                                   group:
-                                    maxLength: 253
-                                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                                     type: string
                                   kind:
                                     maxLength: 63
@@ -121904,8 +121887,6 @@ spec:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: either wva or keda must be specified when scaling is configured
-                  rule: has(self.wva) || has(self.keda)
                 - message: wva and keda are mutually exclusive
                   rule: '!(has(self.wva) && has(self.keda))'
                 - message: at least one trigger is required when using direct KEDA
@@ -130780,9 +130761,6 @@ spec:
                     - maxReplicas
                     type: object
                     x-kubernetes-validations:
-                    - message: either wva or keda must be specified when scaling is
-                        configured
-                      rule: has(self.wva) || has(self.keda)
                     - message: wva and keda are mutually exclusive
                       rule: '!(has(self.wva) && has(self.keda))'
                     - message: at least one trigger is required when using direct
@@ -140367,7 +140345,6 @@ spec:
                                 - message: port number must be unique
                                   rule: self.all(p1, self.exists_one(p2, p1.number==p2.number))
                             required:
-                            - endpointPickerRef
                             - selector
                             - targetPorts
                             type: object
@@ -148603,8 +148580,6 @@ spec:
                 - maxReplicas
                 type: object
                 x-kubernetes-validations:
-                - message: either wva or keda must be specified when scaling is configured
-                  rule: has(self.wva) || has(self.keda)
                 - message: wva and keda are mutually exclusive
                   rule: '!(has(self.wva) && has(self.keda))'
                 - message: at least one trigger is required when using direct KEDA
@@ -156836,6 +156811,22 @@ spec:
             type: object
           spec:
             properties:
+              imagePullSecrets:
+                items:
+                  properties:
+                    name:
+                      default: ""
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                maxItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: imagePullSecrets.name must be non-empty
+                  rule: self.all(s, s.name != '')
               modelSize:
                 anyOf:
                 - type: integer
@@ -156947,6 +156938,16 @@ spec:
                   - NodeDownloadError
                   type: string
                 type: object
+              sharedPVCImport:
+                properties:
+                  completionTime:
+                    format: date-time
+                    type: string
+                  pvcUID:
+                    type: string
+                required:
+                - pvcUID
+                type: object
             type: object
         type: object
     served: true
@@ -156981,6 +156982,22 @@ spec:
             type: object
           spec:
             properties:
+              imagePullSecrets:
+                items:
+                  properties:
+                    name:
+                      default: ""
+                      type: string
+                  type: object
+                  x-kubernetes-map-type: atomic
+                maxItems: 1
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+                x-kubernetes-validations:
+                - message: imagePullSecrets.name must be non-empty
+                  rule: self.all(s, s.name != '')
               modelSize:
                 anyOf:
                 - type: integer
@@ -157105,6 +157122,16 @@ spec:
                   - NodeDownloaded
                   - NodeDownloadError
                   type: string
+                type: object
+              sharedPVCImport:
+                properties:
+                  completionTime:
+                    format: date-time
+                    type: string
+                  pvcUID:
+                    type: string
+                required:
+                - pvcUID
                 type: object
             type: object
         type: object
@@ -157835,6 +157862,19 @@ spec:
               localModels:
                 items:
                   properties:
+                    imagePullSecrets:
+                      items:
+                        properties:
+                          name:
+                            default: ""
+                            type: string
+                        type: object
+                        x-kubernetes-map-type: atomic
+                      maxItems: 1
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - name
+                      x-kubernetes-list-type: map
                     modelName:
                       type: string
                     namespace:

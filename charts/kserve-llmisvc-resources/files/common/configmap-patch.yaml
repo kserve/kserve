@@ -131,6 +131,9 @@ data:
       "jobTTLSecondsAfterFinished": {{ .Values.kserve.localmodel.jobTTLSecondsAfterFinished }},
       "defaultJobImage": "{{ .Values.kserve.localmodel.defaultJobImage }}:{{ .Values.kserve.localmodel.defaultJobTag | default .Values.kserve.version }}",
       "fsGroup": {{ .Values.kserve.localmodel.securityContext.fsGroup }},
+      {{- if not (kindIs "invalid" .Values.kserve.localmodel.sharedPVCImportFSGroup) }}
+      "sharedPVCImportFSGroup": {{ .Values.kserve.localmodel.sharedPVCImportFSGroup }},
+      {{- end }}
       "reconcilationFrequencyInSecs": {{ .Values.kserve.localmodel.agent.reconcilationFrequencyInSecs }},
       "disableVolumeManagement": {{ .Values.kserve.localmodel.disableVolumeManagement }}
     }

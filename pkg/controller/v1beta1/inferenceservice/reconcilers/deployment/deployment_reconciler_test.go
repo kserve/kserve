@@ -1673,6 +1673,31 @@ func TestSetControllerReferences(t *testing.T) {
 	assert.Equal(t, owner.Name, deployment1.GetOwnerReferences()[0].Name)
 	assert.Len(t, deployment2.GetOwnerReferences(), 1)
 	assert.Equal(t, owner.Name, deployment2.GetOwnerReferences()[0].Name)
+	assert.Equal(t, constants.KServeManagedLabelValue, deployment1.Labels[constants.KServeManagedLabelKey])
+	assert.Equal(t, constants.KServeManagedLabelValue, deployment2.Labels[constants.KServeManagedLabelKey])
+}
+
+func TestReconcileLabelsExistingDeploymentWithoutRollout(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, appsv1.AddToScheme(scheme))
+	require.NoError(t, v1beta1.AddToScheme(scheme))
+	existing := createRawDefaultDeployment(metav1.ObjectMeta{
+		Name: "model", Namespace: "default", Labels: map[string]string{"app": "model"},
+	}, nil, &corev1.PodSpec{}, nil)
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(existing).Build()
+	desired := existing.DeepCopy()
+	// Exercise the shared label map used by the resource constructor.
+	desired.Labels = desired.Spec.Template.Labels
+	reconciler := &DeploymentReconciler{client: cl, DeploymentList: []*appsv1.Deployment{desired}}
+	require.NoError(t, reconciler.SetControllerReferences(&v1beta1.InferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "model", Namespace: "default", UID: "model"},
+	}, scheme))
+	_, err := reconciler.Reconcile(t.Context())
+	require.NoError(t, err)
+	actual := &appsv1.Deployment{}
+	require.NoError(t, cl.Get(t.Context(), kclient.ObjectKeyFromObject(existing), actual))
+	assert.Equal(t, constants.KServeManagedLabelValue, actual.Labels[constants.KServeManagedLabelKey])
+	assert.Equal(t, existing.Spec.Template, actual.Spec.Template)
 }
 
 func TestCleanupOrphans(t *testing.T) {
@@ -1805,6 +1830,41 @@ func TestGetArgValue(t *testing.T) {
 			wantVal: "5000",
 			wantOk:  true,
 		},
+		{
+			name:   "flag followed by another flag has no value",
+			args:   []string{"--http_port", "--model_name", "foo"},
+			flag:   "--http_port",
+			wantOk: false,
+		},
+		{
+			name:   "flag followed by another flag at end has no value",
+			args:   []string{"--model_name", "foo", "--http_port", "--enable_docs_url"},
+			flag:   "--http_port",
+			wantOk: false,
+		},
+		{
+			// getArgValue only tokenizes: "-1" is this flag's value rather than a
+			// separate flag. It is rejected as a port later, by utils.ParsePort.
+			name:    "negative number is a value, not a flag",
+			args:    []string{"--http_port", "-1"},
+			flag:    "--http_port",
+			wantVal: "-1",
+			wantOk:  true,
+		},
+		{
+			name:    "lone dash is a value, not a flag",
+			args:    []string{"--http_port", "-"},
+			flag:    "--http_port",
+			wantVal: "-",
+			wantOk:  true,
+		},
+		{
+			name:    "valueless occurrence does not mask an earlier value",
+			args:    []string{"--http_port", "9090", "--http_port", "--model_name", "foo"},
+			flag:    "--http_port",
+			wantVal: "9090",
+			wantOk:  true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1853,6 +1913,62 @@ func TestSetArgValue(t *testing.T) {
 			value:    "8443",
 			expected: []string{"--http_port", "8443"},
 		},
+		{
+			name:     "append value to trailing flag",
+			args:     []string{"--model_name", "foo", "--http_port"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--model_name", "foo", "--http_port", "8443"},
+		},
+		{
+			name:     "replace duplicate mixed forms",
+			args:     []string{"--http_port", "9000", "--http_port=0"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443", "--http_port=8443"},
+		},
+		{
+			name:     "replace duplicate mixed forms in reverse order",
+			args:     []string{"--http_port=9000", "--http_port", "65536"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port=8443", "--http_port", "8443"},
+		},
+		{
+			name:     "insert value when flag is followed by another flag",
+			args:     []string{"--http_port", "--model_name", "foo"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443", "--model_name", "foo"},
+		},
+		{
+			name:     "insert value when flag is followed by another flag mid-slice",
+			args:     []string{"--model_name", "foo", "--http_port", "--enable_docs_url"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--model_name", "foo", "--http_port", "8443", "--enable_docs_url"},
+		},
+		{
+			name:     "replace negative value rather than inserting",
+			args:     []string{"--http_port", "-1", "--model_name", "foo"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443", "--model_name", "foo"},
+		},
+		{
+			name:     "insert and replace across duplicate occurrences",
+			args:     []string{"--http_port", "--model_name", "foo", "--http_port", "9000"},
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443", "--model_name", "foo", "--http_port", "8443"},
+		},
+		{
+			name:     "insert does not corrupt caller slice with spare capacity",
+			args:     append(make([]string, 0, 8), "--http_port", "--model_name", "foo"),
+			flag:     "--http_port",
+			value:    "8443",
+			expected: []string{"--http_port", "8443", "--model_name", "foo"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1893,6 +2009,42 @@ func TestSetDefaultPodSpec_ReadinessProbeRespectsHttpPort(t *testing.T) {
 			ports:        []corev1.ContainerPort{{ContainerPort: 9090}},
 			args:         []string{"--http_port", "8443"},
 			expectedPort: 8443,
+		},
+		{
+			name:         "zero --http_port falls back to default",
+			args:         []string{"--http_port", "0"},
+			expectedPort: 8080,
+		},
+		{
+			name:         "negative --http_port falls back to container port",
+			ports:        []corev1.ContainerPort{{ContainerPort: 9090}},
+			args:         []string{"--http_port", "-1"},
+			expectedPort: 9090,
+		},
+		{
+			name:         "negative --http_port falls back to default",
+			args:         []string{"--http_port", "-1"},
+			expectedPort: 8080,
+		},
+		{
+			name:         "negative --http_port= falls back to default",
+			args:         []string{"--http_port=-1"},
+			expectedPort: 8080,
+		},
+		{
+			name:         "large negative --http_port falls back to default",
+			args:         []string{"--http_port", "-65535"},
+			expectedPort: 8080,
+		},
+		{
+			name:         "oversized --http_port falls back to default",
+			args:         []string{"--http_port=65536"},
+			expectedPort: 8080,
+		},
+		{
+			name:         "malformed --http_port falls back to default",
+			args:         []string{"--http_port", "not-a-port"},
+			expectedPort: 8080,
 		},
 	}
 	for _, tt := range tests {

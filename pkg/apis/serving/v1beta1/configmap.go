@@ -130,10 +130,14 @@ type IngressConfig struct {
 	DomainTemplate               string    `json:"domainTemplate,omitempty"`
 	UrlScheme                    string    `json:"urlScheme,omitempty"`
 	EnableLLMInferenceServiceTLS bool      `json:"enableLLMInferenceServiceTLS,omitempty"`
-	DisableIstioVirtualHost      bool      `json:"disableIstioVirtualHost,omitempty"`
-	PathTemplate                 string    `json:"pathTemplate,omitempty"`
-	DisableIngressCreation       bool      `json:"disableIngressCreation,omitempty"`
-	DisableHTTPRouteTimeout      bool      `json:"disableHTTPRouteTimeout,omitempty"`
+	// LLMInferenceServiceTLSMinVersion configures the minimum TLS version for Go-based LLMISVC components. vLLM does not expose a minimum-version option.
+	LLMInferenceServiceTLSMinVersion string `json:"llmInferenceServiceTLSMinVersion,omitempty"`
+	// LLMInferenceServiceTLSCipherSuites configures TLS 1.2 cipher suites using Go/IANA names; values are translated to OpenSSL names for vLLM.
+	LLMInferenceServiceTLSCipherSuites string `json:"llmInferenceServiceTLSCipherSuites,omitempty"`
+	DisableIstioVirtualHost            bool   `json:"disableIstioVirtualHost,omitempty"`
+	PathTemplate                       string `json:"pathTemplate,omitempty"`
+	DisableIngressCreation             bool   `json:"disableIngressCreation,omitempty"`
+	DisableHTTPRouteTimeout            bool   `json:"disableHTTPRouteTimeout,omitempty"`
 
 	ModelBasedRoutingHeaderName string `json:"modelBasedRoutingHeaderName,omitempty"`
 	ModelBasedRoutingMode       string `json:"modelBasedRoutingMode,omitempty"`
@@ -170,10 +174,14 @@ type RolloutSpec struct {
 
 // +kubebuilder:object:generate=false
 type LocalModelConfig struct {
-	Enabled                      bool   `json:"enabled"`
-	JobNamespace                 string `json:"jobNamespace"`
-	DefaultJobImage              string `json:"defaultJobImage,omitempty"`
-	FSGroup                      *int64 `json:"fsGroup,omitempty"`
+	Enabled         bool   `json:"enabled"`
+	JobNamespace    string `json:"jobNamespace"`
+	DefaultJobImage string `json:"defaultJobImage,omitempty"`
+	FSGroup         *int64 `json:"fsGroup,omitempty"`
+	// SharedPVCImportFSGroup is applied to shared-PVC import Jobs, which run in the cache's
+	// own namespace. It is independent of FSGroup, which applies only to per-node download
+	// Jobs in JobNamespace. Leave it unset to let namespace admission assign the group.
+	SharedPVCImportFSGroup       *int64 `json:"sharedPVCImportFSGroup,omitempty"`
 	JobTTLSecondsAfterFinished   *int32 `json:"jobTTLSecondsAfterFinished,omitempty"`
 	ReconcilationFrequencyInSecs *int64 `json:"reconcilationFrequencyInSecs,omitempty"`
 	DisableVolumeManagement      bool   `json:"disableVolumeManagement,omitempty"`
