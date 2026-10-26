@@ -15,7 +15,11 @@
 import atexit
 import asyncio
 import contextvars
+import copy
 import inspect
+import multiprocessing
+import os
+import pickle
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -27,6 +31,11 @@ from kserve import AsyncModel
 from kserve import async_model
 from kserve import context as kserve_context
 from kserve.predictor_config import PredictorConfig
+from kserve import ModelRepository
+from kserve.constants.constants import FASTAPI_APP_IMPORT_STRING
+from kserve.protocol.dataplane import DataPlane
+from kserve.protocol.model_repository_extension import ModelRepositoryExtension
+from kserve.protocol.rest.server import RESTServer
 
 
 class SyncPredictModel(AsyncModel):
@@ -72,6 +81,51 @@ class SlowModel(AsyncModel):
     def predict(self, payload, headers=None):
         time.sleep(self.delay)
         return threading.get_ident()
+
+
+class SerializablePredictMixin:
+    def predict(self, payload, headers=None, response_headers=None):
+        response_headers["x-model"] = self.name
+        return {
+            "value": payload["value"] * self.factor,
+            "host": self.predictor_config.predictor_host,
+            "thread": threading.get_ident(),
+        }
+
+
+class SerializableModel(SerializablePredictMixin, AsyncModel):
+    __slots__ = ("factor",)
+
+    def __init__(self, name):
+        super().__init__(name, return_response_headers=True)
+        self.factor = 2
+        self.ready = True
+
+
+class SerializableChildModel(SerializableModel):
+    def predict(self, payload, headers=None, response_headers=None):
+        result = super().predict(payload, headers, response_headers)
+        result["value"] += 1
+        return result
+
+
+class SerializableAsyncModel(SerializableModel):
+    async def predict(self, payload, headers=None, response_headers=None):
+        return super().predict(payload, headers, response_headers)
+
+
+def _predict_in_spawned_server(server, connection):
+    async def predict():
+        kserve_context.set_predictor_config(PredictorConfig("child-host"))
+        loop_thread = threading.get_ident()
+        model = server.dataplane.model_registry.get_model("spawned")
+        result, headers = await model({"value": 3})
+        connection.send((os.getpid(), loop_thread, result, headers))
+
+    try:
+        asyncio.run(predict())
+    finally:
+        connection.close()
 
 
 _MODEL_CLASSES = (SyncPredictModel, GatedModel, SlowModel)
@@ -408,3 +462,85 @@ async def test_sync_predict_response_headers_and_exceptions():
     with pytest.raises(ValueError, match="prediction failed"):
         await model({"fail": True})
     assert await model({"value": 43}) == ({"value": 43}, {"x-model": "sync-headers"})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "model_type", [SerializableModel, SerializableChildModel, SerializableAsyncModel]
+)
+@pytest.mark.parametrize("transport", ["pickle-4", "pickle-5", "deepcopy"])
+async def test_serialized_model_keeps_prediction_behavior(
+    monkeypatch, model_type, transport
+):
+    monkeypatch.setenv("ASYNC_MODEL_WORKERS", "1")
+    original = model_type("original")
+    # Exercise serialization after first use, when the shared pool already exists.
+    config = kserve_context.get_predictor_config()
+    kserve_context.set_predictor_config(PredictorConfig("parent-host"))
+    try:
+        await original({"value": 1})
+        if transport == "deepcopy":
+            restored = copy.deepcopy(original)
+        else:
+            restored = pickle.loads(pickle.dumps(original, protocol=int(transport[-1])))
+        restored.name = "restored"
+        restored.factor = 3
+        assert restored.ready
+        assert inspect.iscoroutinefunction(restored.predict)
+        result, headers = await restored({"value": 4})
+        assert result["value"] == (13 if model_type is SerializableChildModel else 12)
+        assert result["host"] == "parent-host"
+        assert (result["thread"] == threading.get_ident()) == (
+            model_type is SerializableAsyncModel
+        )
+        assert headers == {"x-model": "restored"}
+        original_result, original_headers = await original({"value": 4})
+        assert original_result["value"] == (
+            9 if model_type is SerializableChildModel else 8
+        )
+        assert original_headers == {"x-model": "original"}
+    finally:
+        kserve_context.set_predictor_config(config)
+
+
+def test_registered_async_model_can_predict_in_spawned_workers(monkeypatch):
+    monkeypatch.setenv("ASYNC_MODEL_WORKERS", "1")
+    registry = ModelRepository()
+    registry.update(SerializableChildModel("spawned"))
+    server = RESTServer(
+        FASTAPI_APP_IMPORT_STRING,
+        DataPlane(registry),
+        ModelRepositoryExtension(registry),
+        http_port=0,
+        workers=2,
+    )
+    context = multiprocessing.get_context("spawn")
+    children = []
+    try:
+        for _ in range(server.config.workers):
+            reader, writer = context.Pipe(duplex=False)
+            process = context.Process(
+                target=_predict_in_spawned_server, args=(server, writer)
+            )
+            children.append((process, reader, writer))
+            process.start()
+            writer.close()
+        for process, reader, _ in children:
+            assert reader.poll(30), "spawned worker did not return a prediction"
+            pid, loop_thread, result, headers = reader.recv()
+            assert pid == process.pid != os.getpid()
+            assert result["value"] == 7
+            assert result["host"] == "child-host"
+            assert result["thread"] != loop_thread
+            assert headers == {"x-model": "spawned"}
+            process.join(timeout=10)
+            assert process.exitcode == 0
+    finally:
+        for process, reader, writer in children:
+            if process.pid is not None:
+                if process.is_alive():
+                    process.kill()
+                process.join(timeout=10)
+                process.close()
+            reader.close()
+            writer.close()

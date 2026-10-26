@@ -112,11 +112,13 @@ class AsyncModel(Model):
         if inspect.iscoroutinefunction(original_predict):
             return
 
-        @functools.wraps(original_predict)
-        async def async_predict(*args, **kwargs):
-            loop = asyncio.get_running_loop()
-            context = contextvars.copy_context()
-            bound = functools.partial(original_predict, *args, **kwargs)
-            return await loop.run_in_executor(self._get_executor(), context.run, bound)
+        # A partial of a named async method remains awaitable and picklable for
+        # multiprocessing spawn. Keep the unbound sync function: pickling a bound
+        # predict would resolve back to this adapter when the model is restored.
+        self.predict = functools.partial(self._predict_async, original_predict.__func__)
 
-        self.predict = async_predict
+    async def _predict_async(self, predict, *args, **kwargs):
+        loop = asyncio.get_running_loop()
+        context = contextvars.copy_context()
+        bound = functools.partial(predict, self, *args, **kwargs)
+        return await loop.run_in_executor(self._get_executor(), context.run, bound)
