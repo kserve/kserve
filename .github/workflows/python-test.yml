@@ -28,7 +28,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -102,7 +102,7 @@ jobs:
       # ----------------------------------------Kserve Numpy 1.x Unit Tests--------------------------------------------
       # numpy 1.x publishes no cp313 wheels and cannot build against the Python 3.13 C
       # API, so this compatibility job is skipped on 3.13. numpy 1.x remains covered by
-      # the 3.10-3.12 matrix rows.
+      # the 3.11-3.12 matrix rows.
       - name: Setup kserve numpy 1-x directory
         if: matrix.python-version != '3.13'
         run: |
