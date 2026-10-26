@@ -21,6 +21,8 @@ KServe is a Kubernetes-native platform for serving machine learning models. The 
 
 ## Commands
 
+`make help` lists the targets you run directly, when to run each and what it rewrites or needs.
+
 Prerequisites: Go (version pinned in `go.mod`) and `make`.
 
 ```

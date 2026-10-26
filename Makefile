@@ -58,6 +58,19 @@ endif
 
 all: test manager agent router
 
+##@ General
+
+# Lists every `target: ## description` line in the included makefiles, grouped
+# under the `##@ Section` above it; a file without one is listed under its own
+# name. Keep it below the first rule so a bare `make` keeps its default goal.
+.PHONY: help
+help: ## Show this list.
+	@awk 'BEGIN { FS = ":.*##"; print "Usage: make <target> [VAR=value ...]"; print "Tools install into bin/ on first use, which needs network." } \
+		FNR == 1 { section = "" } \
+		/^##@/ { section = substr($$0, 5); printf "\n%s\n", section; next } \
+		/^[a-zA-Z0-9_-]+:.*##/ { if (section == "") { section = FILENAME; printf "\n%s\n", section }; printf "  %-24s%s\n", $$1, $$2 }' \
+		$(MAKEFILE_LIST)
+
 include Makefile.generate.mk
 include Makefile.quality.mk
 include Makefile.image.mk
