@@ -38,6 +38,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/apis"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
@@ -1430,6 +1431,125 @@ func TestMergeSpecs(t *testing.T) {
 			}
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("MergeSpecs() got = \n%#v\n, want \n%#v\nDiff (-want, +got):\n%s", got, tt.want, diff)
+			}
+		})
+	}
+}
+
+// TestMergeSpecsProbeHandlerOverride covers issue #6379: an override probe that
+// switches handler type must replace the inherited handler, leaving exactly one
+// handler so Kubernetes validation accepts the pod. It runs the same assertion
+// over every pod spec a config can override.
+func TestMergeSpecsProbeHandlerOverride(t *testing.T) {
+	httpProbe := func() *corev1.Probe {
+		return &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{HTTPGet: &corev1.HTTPGetAction{
+				Path: "/health", Port: intstr.FromInt(8001), Scheme: corev1.URISchemeHTTP,
+			}},
+			PeriodSeconds: 10, FailureThreshold: 60,
+		}
+	}
+	execProbe := func() *corev1.Probe {
+		return &corev1.Probe{
+			ProbeHandler:     corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{"true"}}},
+			FailureThreshold: 1,
+		}
+	}
+	containers := func(probe *corev1.Probe) []corev1.Container {
+		return []corev1.Container{{Name: "main", StartupProbe: probe}}
+	}
+
+	tests := []struct {
+		name     string
+		base     v1alpha2.LLMInferenceServiceSpec
+		override v1alpha2.LLMInferenceServiceSpec
+		probe    func(*v1alpha2.LLMInferenceServiceSpec) *corev1.Probe
+	}{
+		{
+			name: "spec.template",
+			base: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{Containers: containers(httpProbe())}}},
+			override: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{Containers: containers(execProbe())}}},
+			probe: func(s *v1alpha2.LLMInferenceServiceSpec) *corev1.Probe {
+				return s.Template.Containers[0].StartupProbe
+			},
+		},
+		{
+			name: "spec.worker",
+			base: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+				Worker: &corev1.PodSpec{Containers: containers(httpProbe())}}},
+			override: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+				Worker: &corev1.PodSpec{Containers: containers(execProbe())}}},
+			probe: func(s *v1alpha2.LLMInferenceServiceSpec) *corev1.Probe {
+				return s.Worker.Containers[0].StartupProbe
+			},
+		},
+		{
+			name: "spec.prefill.template",
+			base: v1alpha2.LLMInferenceServiceSpec{Prefill: &v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{Containers: containers(httpProbe())}}},
+			override: v1alpha2.LLMInferenceServiceSpec{Prefill: &v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{Containers: containers(execProbe())}}},
+			probe: func(s *v1alpha2.LLMInferenceServiceSpec) *corev1.Probe {
+				return s.Prefill.Template.Containers[0].StartupProbe
+			},
+		},
+		{
+			name: "spec.prefill.worker",
+			base: v1alpha2.LLMInferenceServiceSpec{Prefill: &v1alpha2.WorkloadSpec{
+				Worker: &corev1.PodSpec{Containers: containers(httpProbe())}}},
+			override: v1alpha2.LLMInferenceServiceSpec{Prefill: &v1alpha2.WorkloadSpec{
+				Worker: &corev1.PodSpec{Containers: containers(execProbe())}}},
+			probe: func(s *v1alpha2.LLMInferenceServiceSpec) *corev1.Probe {
+				return s.Prefill.Worker.Containers[0].StartupProbe
+			},
+		},
+		{
+			name: "spec.router.scheduler.template",
+			base: v1alpha2.LLMInferenceServiceSpec{Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Template: &corev1.PodSpec{Containers: containers(httpProbe())}}}},
+			override: v1alpha2.LLMInferenceServiceSpec{Router: &v1alpha2.RouterSpec{
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Template: &corev1.PodSpec{Containers: containers(execProbe())}}}},
+			probe: func(s *v1alpha2.LLMInferenceServiceSpec) *corev1.Probe {
+				return s.Router.Scheduler.Template.Containers[0].StartupProbe
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := log.IntoContext(t.Context(), pkgtest.NewTestLogger(t))
+			got, err := llmisvc.MergeSpecs(ctx, tt.base, tt.override)
+			if err != nil {
+				t.Fatalf("MergeSpecs() error = %v", err)
+			}
+			p := tt.probe(&got)
+			if p == nil {
+				t.Fatal("merged probe is nil")
+			}
+			handlers := 0
+			for _, set := range []bool{p.Exec != nil, p.HTTPGet != nil, p.TCPSocket != nil, p.GRPC != nil} {
+				if set {
+					handlers++
+				}
+			}
+			if handlers != 1 {
+				t.Errorf("merged probe has %d handlers, want 1", handlers)
+			}
+			if p.Exec == nil {
+				t.Errorf("merged probe lost the override exec handler")
+			}
+			if p.HTTPGet != nil {
+				t.Errorf("merged probe kept the inherited httpGet handler alongside exec")
+			}
+			if p.PeriodSeconds != 10 {
+				t.Errorf("PeriodSeconds = %d, want inherited 10", p.PeriodSeconds)
+			}
+			if p.FailureThreshold != 1 {
+				t.Errorf("FailureThreshold = %d, want override 1", p.FailureThreshold)
 			}
 		})
 	}
