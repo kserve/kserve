@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    llm-d.ai/bundle-version: v0.10.0
+    llm-d.ai/bundle-version: v0.11.0
   name: inferencemodelrewrites.llm-d.ai
 spec:
   group: llm-d.ai
@@ -238,7 +238,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    llm-d.ai/bundle-version: v0.10.0
+    llm-d.ai/bundle-version: v0.11.0
   name: inferenceobjectives.llm-d.ai
 spec:
   group: llm-d.ai
@@ -431,7 +431,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api-inference-extension/pull/1173
-    inference.networking.k8s.io/bundle-version: v1.5.0-rc.2
+    inference.networking.k8s.io/bundle-version: v1.6.2
   name: inferencepools.inference.networking.k8s.io
 spec:
   group: inference.networking.k8s.io
@@ -623,7 +623,6 @@ spec:
                 - message: port number must be unique
                   rule: self.all(p1, self.exists_one(p2, p1.number==p2.number))
             required:
-            - endpointPickerRef
             - selector
             - targetPorts
             type: object
@@ -1205,7 +1204,6 @@ rules:
 - apiGroups:
   - authentication.k8s.io
   resources:
-  - subjectaccessreviews
   - tokenreviews
   verbs:
   - create
@@ -1231,6 +1229,26 @@ rules:
   - coordination.k8s.io
   resources:
   - leases
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - disaggregatedset.x-k8s.io
+  resources:
+  - disaggregatedsetrolescalers
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - disaggregatedset.x-k8s.io
+  resources:
+  - disaggregatedsets
   verbs:
   - create
   - delete
@@ -1373,6 +1391,17 @@ rules:
 - apiGroups:
   - serving.kserve.io
   resources:
+  - clusterservingruntimes
+  - localmodelcaches
+  - localmodelnamespacecaches
+  - servingruntimes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - serving.kserve.io
+  resources:
   - llminferenceserviceconfigs
   - llminferenceservices
   verbs:
@@ -1399,15 +1428,6 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - serving.kserve.io
-  resources:
-  - localmodelcaches
-  - localmodelnamespacecaches
-  verbs:
-  - get
-  - list
-  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -1532,7 +1552,7 @@ spec:
           timeoutSeconds: 5
         resources:
           limits:
-            cpu: 100m
+            cpu: 500m
             memory: 300Mi
           requests:
             cpu: 100m

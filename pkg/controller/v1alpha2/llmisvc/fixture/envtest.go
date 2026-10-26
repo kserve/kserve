@@ -34,6 +34,7 @@ import (
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc"
 	pkgtest "github.com/kserve/kserve/pkg/testing"
+	llmisvcwebhook "github.com/kserve/kserve/pkg/webhook/admission/llminferenceservice"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -73,57 +74,94 @@ func SetupTestEnv(ctx context.Context) *pkgtest.Client {
 		return llmConfigCtrl.SetupWithManager(mgr)
 	}
 
-	webhookManifests := pkgtest.WithWebhookManifests(filepath.Join(pkgtest.ProjectRoot(), "test", "webhooks"))
-	webhooks := func(_ *rest.Config, mgr ctrl.Manager) error {
-		// Create validation function for config template validation
-		v2ConfigValidationFunc := func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
-			llmisvcConfig, err := llmisvc.LoadConfig(ctx, mgr.GetAPIReader())
-			if err != nil {
-				return err
-			}
-			_, err = llmisvc.ReplaceVariables(llmisvc.LLMInferenceServiceSample(), config, llmisvcConfig)
-			return err
-		}
-		v1ConfigValidationFunc := func(ctx context.Context, config *v1alpha1.LLMInferenceServiceConfig) error {
-			v2Config := &v1alpha2.LLMInferenceServiceConfig{}
-			if err := config.ConvertTo(v2Config); err != nil {
-				return err
-			}
-			return v2ConfigValidationFunc(ctx, v2Config)
-		}
-
-		// Register v1alpha1 validators
-		v1alpha1LLMValidator := &v1alpha1.LLMInferenceServiceValidator{}
-		if err := v1alpha1LLMValidator.SetupWithManager(mgr); err != nil {
-			return err
-		}
-
-		v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{
-			ConfigValidationFunc: v1ConfigValidationFunc,
-		}
-		if err := v1alpha1ConfigValidator.SetupWithManager(mgr); err != nil {
-			return err
-		}
-
-		// Register v1alpha2 validators
-		v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
-		if err := v1alpha2LLMValidator.SetupWithManager(mgr); err != nil {
-			return err
-		}
-
-		v1alpha2ConfigValidator := &v1alpha2.LLMInferenceServiceConfigValidator{
-			ConfigValidationFunc: v2ConfigValidationFunc,
-		}
-		return v1alpha2ConfigValidator.SetupWithManager(mgr)
-	}
-
+	// The production manifest, not a copy of it: envtest rewrites clientConfig to
+	// its own local address, so the kustomize $(...) placeholders never matter,
+	// and there is no second file to drift.
+	webhookManifests := pkgtest.WithWebhookManifests(
+		filepath.Join(pkgtest.ProjectRoot(), "config", "webhook", "llmisvc", "manifests.yaml"))
 	envTest := pkgtest.NewEnvTest(append([]pkgtest.Option{webhookManifests}, additionalEnvTestOptions()...)...).
-		WithWebhooks(webhooks).
+		WithWebhooks(SetupWebhooks).
 		WithControllers(llmCtrlFunc, llmConfigCtrlFunc).
+		// Reconcile with the production worker count, so the suite catches reconciles of
+		// different objects interfering with each other.
+		WithManagerOptions(func(opts *ctrl.Options) {
+			opts.Controller.MaxConcurrentReconciles = llmisvc.DefaultMaxConcurrentReconciles
+		}).
 		// The suite manager/webhook must outlive BeforeSuite node context.
 		Start(context.Background()) //nolint:contextcheck // intentional: manager context must not be tied to BeforeSuite
 
 	RequiredResources(ctx, envTest.Client, systemNs)
 
 	return envTest
+}
+
+// SetupWebhooks registers the handlers declared by the production LLMInferenceService webhook manifest.
+// Upgrade tests can reuse these handlers without starting the service controllers.
+func SetupWebhooks(cfg *rest.Config, mgr ctrl.Manager) error {
+	// Create validation function for config template validation
+	v2ConfigValidationFunc := func(ctx context.Context, config *v1alpha2.LLMInferenceServiceConfig) error {
+		llmisvcConfig, err := llmisvc.LoadConfig(ctx, mgr.GetAPIReader())
+		if err != nil {
+			return err
+		}
+		_, err = llmisvc.ReplaceVariables(llmisvc.LLMInferenceServiceSample(), config, llmisvcConfig)
+		return err
+	}
+	v1ConfigValidationFunc := func(ctx context.Context, config *v1alpha1.LLMInferenceServiceConfig) error {
+		v2Config := &v1alpha2.LLMInferenceServiceConfig{}
+		if err := config.ConvertTo(v2Config); err != nil {
+			return err
+		}
+		return v2ConfigValidationFunc(ctx, v2Config)
+	}
+
+	// Register v1alpha1 validators
+	v1alpha1LLMValidator := &v1alpha1.LLMInferenceServiceValidator{}
+	if err := v1alpha1LLMValidator.SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	v1alpha1ConfigValidator := &v1alpha1.LLMInferenceServiceConfigValidator{
+		ConfigValidationFunc: v1ConfigValidationFunc,
+	}
+	if err := v1alpha1ConfigValidator.SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	// Register v1alpha2 validators
+	v1alpha2LLMValidator := &v1alpha2.LLMInferenceServiceValidator{}
+	if err := v1alpha2LLMValidator.SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	v1alpha2ConfigValidator := &v1alpha2.LLMInferenceServiceConfigValidator{
+		ConfigValidationFunc: v2ConfigValidationFunc,
+	}
+	if err := v1alpha2ConfigValidator.SetupWithManager(mgr); err != nil {
+		return err
+	}
+
+	// Both mutating defaulters, matching config/webhook/llmisvc/manifests.yaml.
+	// Every webhook that manifest declares must be registered here: they all
+	// carry failurePolicy: Fail, so a missing handler blocks every create.
+	defaulterClientSet, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	if err := ctrl.NewWebhookManagedBy(mgr, &v1alpha1.LLMInferenceService{}).
+		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha1{
+			Client:    mgr.GetClient(),
+			Clientset: defaulterClientSet,
+		}).
+		Complete(); err != nil {
+		return err
+	}
+
+	return ctrl.NewWebhookManagedBy(mgr, &v1alpha2.LLMInferenceService{}).
+		WithDefaulter(&llmisvcwebhook.LLMInferenceServiceDefaulterV1Alpha2{
+			Client:    mgr.GetClient(),
+			Clientset: defaulterClientSet,
+		}).
+		Complete()
 }

@@ -21,10 +21,13 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	kmeta "knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -51,18 +54,17 @@ type resolvedMember struct {
 // setupGroupFieldIndex registers a field indexer on spec.router.route.group
 // for efficient group member discovery without listing all LLMISVCs in a namespace.
 func setupGroupFieldIndex(ctx context.Context, mgr client.FieldIndexer) error {
-	return mgr.IndexField(
-		ctx,
-		&v1alpha2.LLMInferenceService{},
-		groupFieldIndex,
-		func(obj client.Object) []string {
-			llmSvc := obj.(*v1alpha2.LLMInferenceService)
-			if g := llmSvc.Spec.Router.Group(); g != nil {
-				return []string{llmSvc.Namespace + "/" + *g}
-			}
-			return nil
-		},
-	)
+	return mgr.IndexField(ctx, &v1alpha2.LLMInferenceService{}, groupFieldIndex, groupIndexValue)
+}
+
+// groupIndexValue keys an LLMInferenceService by its namespace and group so
+// members are looked up without listing the whole namespace.
+func groupIndexValue(obj client.Object) []string {
+	llmSvc := obj.(*v1alpha2.LLMInferenceService)
+	if g := llmSvc.Spec.Router.Group(); g != nil {
+		return []string{llmSvc.Namespace + "/" + *g}
+	}
+	return nil
 }
 
 // injectGroupBackendRefs post-processes the template-rendered HTTPRoute to add
@@ -145,13 +147,14 @@ func (r *LLMISVCReconciler) resolveGroupMembers(
 
 // resolvedModelNames returns the deduplicated, sorted set of model names
 // served by a member. Prefers status.Addresses (which reflects baseRef merges)
-// over raw spec.
+// over raw spec. Names are compared as declared, without the publisher prefix,
+// so a member without path URLs (AnnotationModelBasedRoutingOnly) compares
+// equal to peers serving the same models.
 func resolvedModelNames(m *v1alpha2.LLMInferenceService) []string {
+	publisherPrefix := fullyQualifiedModelName(m.Namespace, "")
 	var names []string
 	for _, addr := range m.Status.Addresses {
-		for _, model := range addr.Models {
-			names = append(names, model.Name)
-		}
+		names = append(names, declaredModelNames(addr, publisherPrefix)...)
 	}
 
 	if len(names) > 0 {
@@ -171,6 +174,43 @@ func resolvedModelNames(m *v1alpha2.LLMInferenceService) []string {
 	return slices.Compact(names)
 }
 
+// declaredModelNames recovers the model names as declared in the spec from the
+// names an address lists. A model-routing address lists each model only by its
+// publisher-qualified name, so the prefix is trimmed once. A path-based address
+// lists each model under both names. Count occurrences because a qualified
+// alias may also be another model's declared name. Consume shorter names first,
+// pairing each with one qualified occurrence, independently of list order.
+func declaredModelNames(addr v1alpha2.SourcedAddress, publisherPrefix string) []string {
+	names := make([]string, 0, len(addr.Models))
+	if addr.URL != nil && IsModelRoutingURL(addr.URL) {
+		for _, model := range addr.Models {
+			names = append(names, strings.TrimPrefix(model.Name, publisherPrefix))
+		}
+		return names
+	}
+
+	counts := make(map[string]int, len(addr.Models))
+	var candidates []string
+	for _, model := range addr.Models {
+		if counts[model.Name] == 0 {
+			candidates = append(candidates, model.Name)
+		}
+		counts[model.Name]++
+	}
+	slices.SortFunc(candidates, func(a, b string) int {
+		return cmp.Compare(len(a), len(b))
+	})
+	for _, declared := range candidates {
+		qualified := publisherPrefix + declared
+		for counts[declared] > 0 && counts[qualified] > 0 {
+			names = append(names, declared)
+			counts[declared]--
+			counts[qualified]--
+		}
+	}
+	return names
+}
+
 // resolveMemberBackendRef reads the member's backend from its status or spec.
 func resolveMemberBackendRef(
 	member *v1alpha2.LLMInferenceService,
@@ -179,7 +219,7 @@ func resolveMemberBackendRef(
 		member.Spec.Router.Scheduler != nil &&
 		member.Spec.Router.Scheduler.Pool.HasRef() {
 		return gwapiv1.BackendObjectReference{
-			Group: ptr.To(gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName)),
+			Group: ptr.To(gwapiv1.Group(constants.InferencePoolV1APIGroupName)),
 			Kind:  ptr.To(gwapiv1.Kind("InferencePool")),
 			Name:  gwapiv1.ObjectName(member.Spec.Router.Scheduler.Pool.Ref.Name),
 			Port:  ptr.To(gwapiv1.PortNumber(8000)),
@@ -227,9 +267,6 @@ func (r *LLMISVCReconciler) finalizeGroupMembership(ctx context.Context, llmSvc 
 		return false, fmt.Errorf("finalizing group membership: %w", err)
 	}
 
-	poolName := (&v1alpha2.SchedulerSpec{}).InferencePoolName(llmSvc)
-	svcName := workloadServiceName(llmSvc)
-
 	for i := range members {
 		if members[i].Name == llmSvc.Name || !members[i].DeletionTimestamp.IsZero() {
 			continue
@@ -240,14 +277,16 @@ func (r *LLMISVCReconciler) finalizeGroupMembership(ctx context.Context, llmSvc 
 			Namespace: members[i].GetNamespace(),
 		}
 		if err := r.Get(ctx, routeKey, route); err != nil {
-			if apierrors.IsNotFound(err) {
+			// An uninstalled Gateway API holds no reference to release; erroring
+			// here would block deletion forever.
+			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
 				continue
 			}
 			return false, fmt.Errorf("checking member route %s for stale backendRefs: %w", routeKey.Name, err)
 		}
-		if routeReferencesBackend(route, poolName) || routeReferencesBackend(route, svcName) {
+		if routeReferencesMember(route, llmSvc) {
 			logger.Info("Waiting for member to remove backendRef before deletion",
-				"member", members[i].Name, "pool", poolName)
+				"member", members[i].Name)
 			llmSvc.MarkGroupNotReady(reasonFinalizationPending,
 				"waiting for member %s to remove backendRef before deletion", members[i].Name)
 			return false, nil
@@ -257,15 +296,34 @@ func (r *LLMISVCReconciler) finalizeGroupMembership(ctx context.Context, llmSvc 
 	return true, nil
 }
 
-func routeReferencesBackend(route *gwapiv1.HTTPRoute, backendName string) bool {
+// routeReferencesMember reports whether any rule still carries a backendRef for
+// member's backend.
+func routeReferencesMember(route *gwapiv1.HTTPRoute, member *v1alpha2.LLMInferenceService) bool {
 	for _, rule := range route.Spec.Rules {
 		for _, ref := range rule.BackendRefs {
-			if string(ref.Name) == backendName {
+			if backendRefersTo(ref, route.Namespace, member) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// backendRefersTo reports whether ref addresses one of member's backends.
+// Backend identity comes from isExpectedBackendRef, the same matcher the group
+// rewrite uses, so an explicitly referenced InferencePool is recognised here too.
+// The namespace guard is additional: a ref may name another namespace's
+// identically named backend.
+func backendRefersTo(ref gwapiv1.HTTPBackendRef, routeNamespace string, member *v1alpha2.LLMInferenceService) bool {
+	// An unset or empty namespace means the route's own namespace.
+	refNamespace := string(ptr.Deref(ref.Namespace, ""))
+	if refNamespace == "" {
+		refNamespace = routeNamespace
+	}
+	if refNamespace != member.Namespace {
+		return false
+	}
+	return isExpectedBackendRef(member, ref.BackendRef)
 }
 
 // listGroupMembers returns all LLMISVCs in the same namespace with the same group.
@@ -306,12 +364,28 @@ func filterEligibleMembers(members []v1alpha2.LLMInferenceService, selfName stri
 	return eligible
 }
 
-// isMemberRoutable reports whether a member has routing infrastructure ready
-// and at least one available replica on every configured workload.
+// isMemberRoutable reports whether a member's backend can take traffic from a
+// peer's route: its scheduler path (InferencePool, EPP, tokenizer) is ready
+// when configured, and every configured workload has at least one ready
+// replica.
+//
+// It deliberately ignores the member's own HTTPRoutesReady and GatewaysReady
+// (and so RouterReady, which rolls them up). Peers never send traffic through
+// a member's route, only to its backend. Every route write bumps the route's
+// generation and leaves HTTPRoutesReady False until the gateway re-accepts it,
+// so gating on RouterReady let one member's route write drop it from its peers'
+// routes, which rewrote and un-accepted their routes, which dropped them in
+// turn. With concurrent reconciles that feedback loop never settles.
 func isMemberRoutable(member *v1alpha2.LLMInferenceService) bool {
-	cond := member.Status.GetCondition(v1alpha2.RouterReady)
-	if cond == nil || !cond.IsTrue() {
-		return false
+	for _, t := range memberBackendConditions {
+		if cond := member.Status.GetCondition(t); cond != nil && !cond.IsTrue() {
+			return false
+		}
+	}
+	if member.Spec.Router != nil && member.Spec.Router.Scheduler != nil {
+		if cond := member.Status.GetCondition(v1alpha2.InferencePoolReady); cond == nil || !cond.IsTrue() {
+			return false
+		}
 	}
 	ws := member.Status.Workloads
 	if ws == nil || ws.Primary == nil {
@@ -323,4 +397,13 @@ func isMemberRoutable(member *v1alpha2.LLMInferenceService) bool {
 		}
 	}
 	return true
+}
+
+// memberBackendConditions are the router sub-conditions that describe a
+// member's backend rather than its own route. When present and not True the
+// member is not routable from peers.
+var memberBackendConditions = []apis.ConditionType{
+	v1alpha2.InferencePoolReady,
+	v1alpha2.SchedulerWorkloadReady,
+	v1alpha2.TokenizerReady,
 }

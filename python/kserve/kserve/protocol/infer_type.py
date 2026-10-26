@@ -1291,6 +1291,7 @@ class InferResponse:
         except orjson.JSONDecodeError as e:
             raise InvalidInput(f"Unrecognized request format: {e}")
         model_name = infer_res_dict["model_name"]
+        model_version = infer_res_dict.get("model_version", None)
         infer_outputs = []
         # Read the raw binary outputs appended after json
         start_index = json_length
@@ -1320,6 +1321,7 @@ class InferResponse:
             infer_outputs.append(infer_output)
         return cls(
             model_name=model_name,
+            model_version=model_version,
             response_id=infer_res_dict.get("id", None),
             parameters=infer_res_dict.get("parameters", None),
             infer_outputs=infer_outputs,

@@ -16,7 +16,10 @@ limitations under the License.
 
 package v1alpha1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 type LocalModelInfo struct {
 	// Original StorageUri
@@ -34,6 +37,16 @@ type LocalModelInfo struct {
 	// ServiceAccountName specifies the service account to use for credential lookup.
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName,omitempty"`
+	// ImagePullSecrets is a single kubernetes.io/dockerconfigjson secret in the
+	// download job namespace used to authenticate OCI (oci://) imports. Copied from
+	// LocalModelCache / LocalModelNamespaceCache (which already enforce MaxItems=1).
+	// The list shape matches those APIs. Combine credentials for multiple registries
+	// into one secret.
+	// +optional
+	// +listType=map
+	// +listMapKey=name
+	// +kubebuilder:validation:MaxItems=1
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	// +optional
 	Storage *LocalModelStorageSpec `json:"storage,omitempty"`
 }
@@ -73,8 +86,4 @@ type LocalModelNodeList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []LocalModelNode `json:"items" validate:"required"`
-}
-
-func init() {
-	SchemeBuilder.Register(&LocalModelNode{}, &LocalModelNodeList{})
 }

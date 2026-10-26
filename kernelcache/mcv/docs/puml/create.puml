@@ -1,0 +1,64 @@
+@startuml
+actor User
+participant "MCV CLI" as CLI
+participant "ImageBuilder" as Builder
+participant "Cache" as Cache
+participant "Filesystem" as FS
+participant "Buildah" as Buildah
+participant "Docker" as Docker
+participant "Registry" as Registry
+
+User -> CLI : mcv -c -i <image> -d <cacheDir> [--builder buildah|docker|oci]
+CLI -> Builder : NewWithBuilder(builder)\n(auto: buildah, else docker)
+
+alt --builder oci
+    Builder --> CLI : ociBuilder
+else buildah available (default) or --builder buildah
+    Builder --> CLI : buildahBuilder
+else docker available or --builder docker
+    Builder --> CLI : dockerBuilder
+else neither available
+    Builder --> CLI : error
+end
+
+CLI -> Builder : CreateImage(image, cacheDir)
+
+Builder -> Cache : DetectCaches(cacheDir)
+note right of Cache
+  Prefer vLLM (~/.cache/vllm)
+  else Triton (~/.triton/cache)
+end note
+
+alt vLLM cache detected
+    Cache --> Builder : VLLMCache\n(io.vllm.cache / io.vllm.manifest)
+else Triton cache detected
+    Cache --> Builder : TritonCache\n(io.triton.cache / io.triton.manifest)
+else no cache detected
+    Cache --> Builder : error
+end
+
+Builder -> FS : Copy cacheDir to temp build context
+FS --> Builder : cache + manifest staging dirs
+
+Builder -> Cache : BuildManifest + BuildLabels
+Cache --> Builder : manifest.json + OCI labels\n(summary, entry-count, cache-size-bytes, format)
+
+alt Buildah builder
+    Builder -> Buildah : NewBuilder(from scratch)
+    Builder -> Buildah : Add(manifest dir + cache dir)
+    Builder -> Buildah : SetLabel(cache labels)
+    Buildah --> Builder : Commit (Docker Schema 2 manifest)
+else OCI builder
+    Builder -> Registry : Push OCI image and return digest
+    Registry --> Builder : image digest
+else Docker builder
+    Builder -> Builder : schema2ImageFromBuildContext()\ncompat tar layer (Docker gzip)
+    Builder -> Docker : ImageLoad(tarball)
+    Docker --> Builder : image in local daemon
+end
+
+Builder -> FS : Cleanup temp dirs (/tmp/.mcv/)
+FS --> Builder : Success
+
+Builder --> CLI : Image build complete
+@enduml

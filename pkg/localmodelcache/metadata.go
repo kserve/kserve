@@ -1,0 +1,293 @@
+/*
+Copyright 2026 The KServe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package localmodelcache
+
+import (
+	"encoding/json"
+	"fmt"
+	"slices"
+	"strings"
+
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
+)
+
+// CacheEntry is a LocalModelCache or LocalModelNamespaceCache reference.
+// For the LoRA annotation, only Cache and Namespace are serialized. SourceURI and PVCName
+// are runtime-only fields populated by MatchCacheForURI (and ignored by JSON marshal).
+type CacheEntry struct {
+	Cache     string `json:"cache"`
+	Namespace string `json:"namespace,omitempty"` // set for LocalModelNamespaceCache; empty for cluster-scoped
+	SourceURI string `json:"-"`
+	PVCName   string `json:"-"`
+}
+
+// MatchCacheForURI finds a namespace-scoped or cluster-scoped cache matching storageURI.
+// LocalModelNamespaceCache takes precedence over LocalModelCache.
+func MatchCacheForURI(
+	storageURI string,
+	nodeGroup string,
+	nodeGroupExists bool,
+	models *v1alpha1.LocalModelCacheList,
+	nsModels *v1alpha1.LocalModelNamespaceCacheList,
+) *CacheEntry {
+	return MatchCacheForURIBound(storageURI, nodeGroup, nodeGroupExists, models, nsModels, nil)
+}
+
+// MatchCacheForURIBound is MatchCacheForURI for a consumer that may already be bound to a
+// cache for this storageURI. bound names that cache (Cache and Namespace; nil when unbound).
+//
+// A shared-PVC cache is selected only once Ready=True, so a new consumer is never routed to a
+// claim that may hold no data yet. The bound cache is still returned while NotReady as long
+// as its import record attests that the data is on the current claim (re-import blocked,
+// spec-generation bump): dropping the binding on an unrelated update there would roll the
+// consumer's pods back to downloading from source and remove it from the cache's re-import
+// gate while those pods still read the destination. Once the record is gone the claim holds
+// no data the consumer can use (it was recreated and a fresh import is underway), so the
+// binding is released like any other NotReady match.
+func MatchCacheForURIBound(
+	storageURI string,
+	nodeGroup string,
+	nodeGroupExists bool,
+	models *v1alpha1.LocalModelCacheList,
+	nsModels *v1alpha1.LocalModelNamespaceCacheList,
+	bound *CacheEntry,
+) *CacheEntry {
+	if storageURI == "" {
+		return nil
+	}
+
+	if nsModels != nil {
+		for i := range nsModels.Items {
+			nsModel := &nsModels.Items[i]
+			if !nsModel.Spec.MatchStorageURI(storageURI) {
+				continue
+			}
+			// Shared-PVC mode: the serving PVC is the referenced claim itself (node groups
+			// do not apply).
+			if nsModel.Spec.SharedPVCMode() {
+				if !nsModel.IsReady() && !HoldsBinding(bound, nsModel) {
+					continue
+				}
+				return &CacheEntry{
+					Cache:     nsModel.Name,
+					Namespace: nsModel.Namespace,
+					SourceURI: nsModel.Spec.SourceModelUri,
+					PVCName:   *nsModel.Spec.PVCRef,
+				}
+			}
+			pvcName, ok := PVCNameForNodeGroup(nsModel.Spec.NodeGroups, nodeGroup, nodeGroupExists, nsModel.Name)
+			if !ok {
+				continue
+			}
+			return &CacheEntry{
+				Cache:     nsModel.Name,
+				Namespace: nsModel.Namespace,
+				SourceURI: nsModel.Spec.SourceModelUri,
+				PVCName:   pvcName,
+			}
+		}
+	}
+
+	if models == nil {
+		return nil
+	}
+	for i := range models.Items {
+		model := &models.Items[i]
+		if !model.Spec.MatchStorageURI(storageURI) {
+			continue
+		}
+		pvcName, ok := PVCNameForNodeGroup(model.Spec.NodeGroups, nodeGroup, nodeGroupExists, model.Name)
+		if !ok {
+			continue
+		}
+		return &CacheEntry{
+			Cache:     model.Name,
+			SourceURI: model.Spec.SourceModelUri,
+			PVCName:   pvcName,
+		}
+	}
+	return nil
+}
+
+// HoldsBinding reports whether a consumer bound to this NotReady shared-PVC cache keeps its
+// binding. It does so only while the cache's import record is present: the record is written
+// when an import completes onto the current claim and cleared the moment a fresh import
+// starts, which after a successful import happens only when the claim was recreated under the
+// same name. A consumer updated during that import is released to its source URI instead of
+// being kept on a claim that holds no data yet.
+func HoldsBinding(bound *CacheEntry, nsModel *v1alpha1.LocalModelNamespaceCache) bool {
+	return boundTo(bound, nsModel) && nsModel.Status.SharedPVCImport != nil
+}
+
+// boundTo reports whether bound names this namespace-scoped cache.
+func boundTo(bound *CacheEntry, nsModel *v1alpha1.LocalModelNamespaceCache) bool {
+	return bound != nil && bound.Cache == nsModel.Name && bound.Namespace == nsModel.Namespace
+}
+
+// PVCNameForNodeGroup returns the serving PVC name for a cache and node group selection.
+func PVCNameForNodeGroup(nodeGroups []string, nodeGroup string, nodeGroupExists bool, cacheName string) (string, bool) {
+	if nodeGroupExists {
+		if !slices.Contains(nodeGroups, nodeGroup) {
+			return "", false
+		}
+		return cacheName + "-" + nodeGroup, true
+	}
+	if len(nodeGroups) == 0 {
+		return "", false
+	}
+	return cacheName + "-" + nodeGroups[0], true
+}
+
+// BuildCachedPVCURI rewrites storageURI to a local model cache PVC path.
+// subPath under sourceURI is preserved (e.g. hf://org/model/subdir).
+// Trailing slashes are trimmed only for CutPrefix so subdirectory matching works;
+// GetStorageKey uses sourceURI as stored so the hash matches the download job folder.
+func BuildCachedPVCURI(sourceURI, pvcName, storageURI string) string {
+	subPath, _ := strings.CutPrefix(storageURI, strings.TrimSuffix(sourceURI, "/"))
+	if !strings.HasPrefix(subPath, "/") {
+		subPath = "/" + subPath
+	}
+	storageKey := v1alpha1.GetStorageKey(sourceURI)
+	return "pvc://" + pvcName + "/models/" + storageKey + subPath
+}
+
+// MarshalLoRACacheAnnotation serializes adapter cache refs (cache + optional namespace) to JSON.
+func MarshalLoRACacheAnnotation(entries map[string]CacheEntry) (string, error) {
+	if len(entries) == 0 {
+		return "", nil
+	}
+	data, err := json.Marshal(entries)
+	if err != nil {
+		return "", fmt.Errorf("marshal LoRA local model cache annotation: %w", err)
+	}
+	return string(data), nil
+}
+
+// ParseLoRACacheAnnotation deserializes adapter cache refs from JSON.
+func ParseLoRACacheAnnotation(raw string) (map[string]CacheEntry, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	var entries map[string]CacheEntry
+	if err := json.Unmarshal([]byte(raw), &entries); err != nil {
+		return nil, fmt.Errorf("parse LoRA local model cache annotation: %w", err)
+	}
+	return entries, nil
+}
+
+func loRACacheAnnotationRaw(annotations map[string]string) string {
+	if annotations == nil {
+		return ""
+	}
+	return annotations[constants.LocalModelLoRAAnnotationKey]
+}
+
+// LLMISVCClusterCacheNames returns cluster-scoped LocalModelCache names referenced by an
+// LLMInferenceService via the base-model label or LoRA adapter annotation.
+// Malformed LoRA annotation JSON is ignored here; LLMISVCReferencesClusterCache fails closed instead.
+func LLMISVCClusterCacheNames(labels, annotations map[string]string) []string {
+	var names []string
+	if labels != nil {
+		if name, ok := labels[constants.LocalModelLabel]; ok && name != "" {
+			if _, nsOk := labels[constants.LocalModelNamespaceLabel]; !nsOk {
+				names = append(names, name)
+			}
+		}
+	}
+	if entries, err := ParseLoRACacheAnnotation(loRACacheAnnotationRaw(annotations)); err == nil {
+		for _, entry := range entries {
+			if entry.Cache != "" && entry.Namespace == "" {
+				names = append(names, entry.Cache)
+			}
+		}
+	}
+	return uniqueSorted(names)
+}
+
+// LLMISVCNamespaceCacheNames returns LocalModelNamespaceCache names in llmSvcNamespace
+// referenced by an LLMInferenceService via the base-model labels or LoRA adapter annotation.
+// Malformed LoRA annotation JSON is ignored here; LLMISVCReferencesNamespaceCache fails closed instead.
+func LLMISVCNamespaceCacheNames(llmSvcNamespace string, labels, annotations map[string]string) []string {
+	var names []string
+	if labels != nil {
+		name, hasModel := labels[constants.LocalModelLabel]
+		modelNamespace, hasNamespace := labels[constants.LocalModelNamespaceLabel]
+		if hasModel && hasNamespace && llmSvcNamespace == modelNamespace {
+			names = append(names, name)
+		}
+	}
+	if entries, err := ParseLoRACacheAnnotation(loRACacheAnnotationRaw(annotations)); err == nil {
+		for _, entry := range entries {
+			if entry.Cache != "" && entry.Namespace == llmSvcNamespace {
+				names = append(names, entry.Cache)
+			}
+		}
+	}
+	return uniqueSorted(names)
+}
+
+// CacheNamesEqual reports whether two cache name lists are equal (order ignored).
+func CacheNamesEqual(a, b []string) bool {
+	return slices.Equal(uniqueSorted(a), uniqueSorted(b))
+}
+
+// LLMISVCReferencesClusterCache reports whether labels/annotations reference a cluster-scoped cache.
+// A non-empty but malformed LoRA annotation is treated as a reference (fail-closed) so cache
+// deletion stays blocked until the annotation is fixed or removed.
+func LLMISVCReferencesClusterCache(cacheName string, labels, annotations map[string]string) bool {
+	if slices.Contains(LLMISVCClusterCacheNames(labels, annotations), cacheName) {
+		return true
+	}
+	raw := loRACacheAnnotationRaw(annotations)
+	if raw == "" {
+		return false
+	}
+	if _, err := ParseLoRACacheAnnotation(raw); err != nil {
+		return true
+	}
+	return false
+}
+
+// LLMISVCReferencesNamespaceCache reports whether labels/annotations reference a namespace-scoped cache.
+// A non-empty but malformed LoRA annotation is treated as a reference (fail-closed) so cache
+// deletion stays blocked until the annotation is fixed or removed.
+func LLMISVCReferencesNamespaceCache(cacheName, cacheNamespace, llmSvcNamespace string, labels, annotations map[string]string) bool {
+	if llmSvcNamespace != cacheNamespace {
+		return false
+	}
+	if slices.Contains(LLMISVCNamespaceCacheNames(llmSvcNamespace, labels, annotations), cacheName) {
+		return true
+	}
+	raw := loRACacheAnnotationRaw(annotations)
+	if raw == "" {
+		return false
+	}
+	if _, err := ParseLoRACacheAnnotation(raw); err != nil {
+		return true
+	}
+	return false
+}
+
+func uniqueSorted(names []string) []string {
+	if len(names) == 0 {
+		return nil
+	}
+	names = slices.Clone(names)
+	slices.Sort(names)
+	return slices.Compact(names)
+}

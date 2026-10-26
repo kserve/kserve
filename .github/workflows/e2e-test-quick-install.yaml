@@ -67,7 +67,7 @@ jobs:
 
   controller-image-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - name: Checkout source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -167,11 +167,11 @@ jobs:
       - name: Install all components via kserve-install.sh (KServe + LocalModel + LLMISvc)
         run: |
           if [ "${{ matrix.install-method }}" == "helm" ]; then
-            ./hack/kserve-install.sh --type kserve,localmodel,llmisvc --raw --helm --local-chart --kserve-version ${TAG}
+            ./hack/kserve-install.sh --ci --type kserve,localmodel,llmisvc --raw --helm --local-chart --kserve-version ${TAG}
           else
-            ./hack/kserve-install.sh --type kserve,localmodel,llmisvc --raw --kustomize --kserve-version ${TAG}
+            ./hack/kserve-install.sh --ci --type kserve,localmodel,llmisvc --raw --kustomize --kserve-version ${TAG}
           fi
-      - name: Verify all controllers are running
+      - name: Verify all controllers and agents are running
         run: |
           echo "=== KServe namespace pods ==="
           kubectl get pods -n kserve
@@ -184,8 +184,14 @@ jobs:
           kubectl wait deployment/llmisvc-controller-manager \
             -n kserve --for=condition=Available --timeout=120s
 
+          echo "=== Waiting for LocalModel agent DaemonSets ==="
+          kubectl rollout status daemonset/kserve-localmodelnode-agent \
+            -n kserve --timeout=120s
+          kubectl rollout status daemonset/kserve-kernelcachenode-agent \
+            -n kserve --timeout=120s
+
           echo "=== CRDs ==="
-          kubectl get crd | grep -E "(inferenceservice|llminference|localmodel)"
+          kubectl get crd | grep -E "(inferenceservice|llminference|localmodel|kernelcache)"
       - name: Check system status
         if: always()
         run: |

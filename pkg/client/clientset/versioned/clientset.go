@@ -1,5 +1,5 @@
 /*
-Copyright 2023 The KServe Authors.
+Copyright 2026 The KServe Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import (
 )
 
 type Interface interface {
-	Discovery() discovery.DiscoveryInterface
+	Discovery() discovery.DiscoveryInterfaces
 	ServingV1alpha1() servingv1alpha1.ServingV1alpha1Interface
 	ServingV1alpha2() servingv1alpha2.ServingV1alpha2Interface
 	ServingV1beta1() servingv1beta1.ServingV1beta1Interface
@@ -61,7 +61,7 @@ func (c *Clientset) ServingV1beta1() servingv1beta1.ServingV1beta1Interface {
 }
 
 // Discovery retrieves the DiscoveryClient
-func (c *Clientset) Discovery() discovery.DiscoveryInterface {
+func (c *Clientset) Discovery() discovery.DiscoveryInterfaces {
 	if c == nil {
 		return nil
 	}

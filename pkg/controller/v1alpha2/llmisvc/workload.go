@@ -19,23 +19,39 @@ package llmisvc
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
+	"strings"
 
+	"github.com/coreos/go-semver/semver"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
 	"knative.dev/pkg/kmeta"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	lwsapi "sigs.k8s.io/lws/api/leaderworkerset/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	"github.com/kserve/kserve/pkg/utils"
 )
+
+// nonPropagatedSpecAnnotations are spec.annotations keys the controller consumes
+// itself - the router's keys and the DisaggregatedSet backend request that the
+// P/D presets set. They are kept off the workload Service and pod templates,
+// where changing them would roll the pods. A key can only join before it ships:
+// dropping one that pod templates already carry changes their hash and rolls
+// every workload that has it on upgrade.
+var nonPropagatedSpecAnnotations = []string{AnnotationModelBasedRoutingEnabled, AnnotationModelBasedRoutingOnly, AnnotationLoRAModelRoutingStrategy, constants.LLMDisaggregatedSetAnnotationKey}
 
 // sidecarSSRFProtectionRules defines RBAC rules for the routing sidecar
 // These permissions are needed to discover and monitor inference pools and pods.
@@ -59,6 +75,23 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		llmSvc.MarkMainWorkloadNotReady("Stopped", "Service is stopped")
 	}
 
+	if err := r.reconcileModelExpress(ctx, llmSvc, config); err != nil {
+		llmSvc.MarkMainWorkloadNotReady("ModelExpressNotReady", err.Error())
+		return fmt.Errorf("failed to reconcile ModelExpress: %w", err)
+	}
+
+	disaggregatedSetDecision := r.decideDisaggregatedSet(llmSvc, config)
+	r.markDisaggregatedSetDecision(ctx, llmSvc, disaggregatedSetDecision)
+	useDisaggregatedSet := useDisaggregatedSetWorkload(llmSvc, disaggregatedSetDecision)
+
+	// A DisaggregatedSet computes its revision from its own roles.
+	if !useDisaggregatedSet {
+		if err := r.reconcileWorkloadRevision(ctx, llmSvc, config); err != nil {
+			llmSvc.MarkMainWorkloadNotReady("ComputeWorkloadRevisionError", err.Error())
+			return fmt.Errorf("failed to compute workload revision: %w", err)
+		}
+	}
+
 	// Set up TLS certificates for secure communication
 	if err := r.reconcileSelfSignedCertsSecret(ctx, llmSvc, config.SchedulerConfig); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileCertsError", err.Error())
@@ -73,18 +106,38 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	}
 
 	// We need to always reconcile every type of workload to handle transitions from P/D to another topology (meaning
-	// finalizing superfluous workloads).
+	// finalizing superfluous workloads). Switching to and from a DisaggregatedSet creates the new workloads and deletes
+	// the old ones in the same reconcile without waiting for the new pods to become ready, so the service has no ready
+	// endpoints until the new pods finish loading the model. markDisaggregatedSetDecision warns about it with a
+	// MigratingToDisaggregatedSet or MigratingFromDisaggregatedSet event.
+
+	// Handle disaggregated (P/D) deployments using a DisaggregatedSet
+	disaggregatedSet, err := r.reconcileDisaggregatedSet(ctx, llmSvc, config, useDisaggregatedSet)
+	if err != nil {
+		llmSvc.MarkMainWorkloadNotReady("ReconcileDisaggregatedSetError", err.Error())
+		return fmt.Errorf("failed to reconcile disaggregated set: %w", err)
+	}
 
 	// Handle multi-node deployments using LeaderWorkerSets
-	if err := r.reconcileMultiNodeWorkload(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileMultiNodeWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		llmSvc.MarkWorkerWorkloadNotReady("ReconcileMultiNodeWorkloadError", err.Error())
 		return fmt.Errorf("failed to reconcile multi node workload: %w", err)
 	}
 
 	// Handle single-node deployments using standard Deployments
-	if err := r.reconcileSingleNodeWorkload(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileSingleNodeWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileSingleNodeWorkloadError", err.Error())
 		return fmt.Errorf("failed to reconcile single node workload: %w", err)
+	}
+
+	if useDisaggregatedSet {
+		// After the other workloads, which clear the conditions of the workloads they delete.
+		targets, err := r.disaggregatedRoleTargets(ctx, disaggregatedSet)
+		if err != nil {
+			llmSvc.MarkMainWorkloadNotReady("ReconcileDisaggregatedSetError", err.Error())
+			return fmt.Errorf("failed to get disaggregated set replica targets: %w", err)
+		}
+		propagateDisaggregatedSetStatus(llmSvc, disaggregatedSet, targets)
 	}
 
 	// Create Service to expose workload pods
@@ -93,9 +146,9 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 		return fmt.Errorf("failed to reconcile workload service: %w", err)
 	}
 
-	// Reconcile autoscaling resources (HPA or KEDA ScaledObject, annotated for WVA discovery) when scaling is configured.
+	// Reconcile the KEDA ScaledObject when scaling is configured.
 	// A missing CRD is a hard error: the LLMISVC is misconfigured and deployment is blocked.
-	if err := r.reconcileScaling(ctx, llmSvc, config); err != nil {
+	if err := r.reconcileScaling(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		if meta.IsNoMatchError(err) {
 			r.Eventf(llmSvc, corev1.EventTypeWarning, "ScalingCRDNotFound",
 				"Required scaling CRD not installed: %v", err)
@@ -154,7 +207,7 @@ func (r *LLMISVCReconciler) reconcileWorkloadService(ctx context.Context, llmSvc
 	}
 
 	utils.PropagateMap(llmSvc.Spec.Labels, &expected.Labels)
-	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Annotations, AnnotationModelBasedRoutingEnabled)
+	utils.PropagateMap(llmSvc.Spec.Annotations, &expected.Annotations, nonPropagatedSpecAnnotations...)
 
 	if utils.GetForceStopRuntime(llmSvc) {
 		return Delete(ctx, r, llmSvc, expected)
@@ -173,6 +226,111 @@ func GetWorkloadLabelSelector(meta metav1.ObjectMeta, _ *v1alpha2.LLMInferenceSe
 	// TODO https://github.com/llm-d/llm-d-router/issues/220 and DP template
 
 	return s
+}
+
+// deploymentSelectorLabels returns the labels for a workload Deployment's spec.selector:
+// the component's identity labels, taking the values workloadLabels sets for those keys.
+// workloadLabels keys that identity does not define are left out.
+func deploymentSelectorLabels(identity, workloadLabels map[string]string) map[string]string {
+	selector := make(map[string]string, len(identity))
+	maps.Copy(selector, identity)
+	for k, v := range workloadLabels {
+		if _, isIdentity := selector[k]; isIdentity {
+			selector[k] = v
+		}
+	}
+	return selector
+}
+
+// prefillDecodeRoleMinVersion is the first llm-d-router version that expects
+// llm-d.ai/role=prefill-decode instead of "both".
+var prefillDecodeRoleMinVersion = semver.New("0.11.0")
+
+// nonDisaggregatedRole returns the llm-d.ai/role label for the pods of a
+// service without prefill. currentRole is the label on the existing workload,
+// or "" if the workload is not created yet.
+//
+// An existing workload labelled "both" or "prefill-decode" keeps its label.
+// The label is part of a Deployment's selector, which cannot be changed, and
+// changing it on an LWS restarts the pods. Without this, a KServe upgrade that
+// moves the preset to router v0.11.0 would break every running Deployment.
+//
+// Otherwise the role depends on the llm-d-router version in the scheduler's
+// app.kubernetes.io/version annotation:
+//   - "prefill-decode" for v0.11.0 or later,
+//   - "both" for older versions, or when the annotation is missing, the same
+//     way schedulerTransform treats a missing version as an old router.
+//
+// It returns an error if the annotation is not a valid version.
+func nonDisaggregatedRole(llmSvc *v1alpha2.LLMInferenceService, currentRole string) (string, error) {
+	if currentRole == constants.LLMDRoleBoth || currentRole == constants.LLMDRolePrefillDecode {
+		return currentRole, nil
+	}
+	if llmSvc.Spec.Router == nil || llmSvc.Spec.Router.Scheduler == nil {
+		return constants.LLMDRoleBoth, nil
+	}
+	version := llmSvc.Spec.Router.Scheduler.Annotations["app.kubernetes.io/version"]
+	if version == "" {
+		return constants.LLMDRoleBoth, nil
+	}
+	v, err := semver.NewVersion(version)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse llm-d-router version %q: %w", version, err)
+	}
+	if v.LessThan(*prefillDecodeRoleMinVersion) {
+		return constants.LLMDRoleBoth, nil
+	}
+	return constants.LLMDRolePrefillDecode, nil
+}
+
+// currentMainWorkloadRole returns the llm-d.ai/role label of the existing main
+// workload. For a multi-node service it reads the label of the LWS leader pods,
+// for a single-node service the label of the Deployment pods. It returns "" if
+// the workload does not exist.
+func (r *LLMISVCReconciler) currentMainWorkloadRole(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (string, error) {
+	if llmSvc.Spec.Worker != nil {
+		lws := &lwsapi.LeaderWorkerSet{}
+		key := types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: mainLWSName(llmSvc)}
+		if err := r.Get(ctx, key, lws); err != nil {
+			if apierrors.IsNotFound(err) || meta.IsNoMatchError(err) {
+				return "", nil
+			}
+			return "", fmt.Errorf("failed to get current leader worker set %s: %w", key, err)
+		}
+		if lws.Spec.LeaderWorkerTemplate.LeaderTemplate == nil {
+			return "", nil
+		}
+		return lws.Spec.LeaderWorkerTemplate.LeaderTemplate.Labels[constants.LLMDRoleLabelKey], nil
+	}
+
+	d := &appsv1.Deployment{}
+	key := types.NamespacedName{Namespace: llmSvc.GetNamespace(), Name: mainDeploymentName(llmSvc)}
+	if err := r.Get(ctx, key, d); err != nil {
+		if apierrors.IsNotFound(err) {
+			return "", nil
+		}
+		return "", fmt.Errorf("failed to get current deployment %s: %w", key, err)
+	}
+	return d.Spec.Template.Labels[constants.LLMDRoleLabelKey], nil
+}
+
+func (r *LLMISVCReconciler) propagateInferencePoolRefLabelSelector(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, labels map[string]string) error {
+	if !utils.GetForceStopRuntime(llmSvc) && llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
+		infPool := &igwapi.InferencePool{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: llmSvc.GetNamespace(),
+				Name:      llmSvc.Spec.Router.Scheduler.Pool.Ref.Name,
+			},
+		}
+		if err := r.Get(ctx, client.ObjectKeyFromObject(infPool), infPool); err != nil {
+			return fmt.Errorf("failed to get InferencePool %s/%s: %w", infPool.GetNamespace(), infPool.GetName(), err)
+		}
+
+		for k, v := range infPool.Spec.Selector.MatchLabels {
+			labels[string(k)] = string(v)
+		}
+	}
+	return nil
 }
 
 func workloadServiceName(llmSvc *v1alpha2.LLMInferenceService) string {
@@ -221,6 +379,38 @@ func PreserveDeploymentReplicas() UpdateOption[*appsv1.Deployment] {
 		if expectedGiven.Spec.Replicas == nil {
 			expected.Spec.Replicas = curr.Spec.Replicas
 		}
+	})
+}
+
+// PreserveDeploymentSelector returns an UpdateOption that carries the stored
+// Deployment's spec.selector over to the object being written, since spec.selector is
+// immutable and the API server accepts no other value.
+//
+// If the pod template does not satisfy that selector, it returns a
+// reconcile.TerminalError naming the labels it is missing: the Deployment has to be
+// recreated, so requeuing the update cannot change the outcome.
+func PreserveDeploymentSelector() UpdateOption[*appsv1.Deployment] {
+	return BeforeDryRun(func(expected, curr *appsv1.Deployment) error {
+		if curr.Spec.Selector == nil {
+			return nil
+		}
+		expected.Spec.Selector = curr.Spec.Selector.DeepCopy()
+
+		var unsatisfied []string
+		for k, v := range curr.Spec.Selector.MatchLabels {
+			if expected.Spec.Template.Labels[k] != v {
+				unsatisfied = append(unsatisfied, fmt.Sprintf("%s=%q", k, v))
+			}
+		}
+		if len(unsatisfied) == 0 {
+			return nil
+		}
+		slices.Sort(unsatisfied)
+
+		return reconcile.TerminalError(fmt.Errorf(
+			"deployment %s/%s must be recreated to reconcile: its selector is "+
+				"immutable and requires %s, which the pod template no longer sets",
+			curr.GetNamespace(), curr.GetName(), strings.Join(unsatisfied, ", ")))
 	})
 }
 

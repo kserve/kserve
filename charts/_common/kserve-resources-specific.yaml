@@ -1,7 +1,7 @@
 kserve:
   controller:
     deploymentMode: Knative
-    rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.18.0
+    rbacProxyImage: quay.io/brancz/kube-rbac-proxy:v0.23.0
     rbacProxy:
       resources:
         limits:
@@ -47,6 +47,7 @@ kserve:
       disableIstioVirtualHost: false
       disableIngressCreation: false
       disableHTTPRouteTimeout: false
+      loraModelRoutingStrategy: exact
       localGateway:
         gateway: knative-serving/knative-local-gateway
         gatewayService: knative-local-gateway.istio-system.svc.cluster.local
@@ -74,4 +75,3 @@ kserve:
         memory: 300Mi
     knativeAddressableResolver:
       enabled: false
-

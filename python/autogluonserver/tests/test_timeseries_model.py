@@ -23,8 +23,10 @@ from kserve.protocol.infer_type import InferRequest, InferInput
 from autogluonserver.timeseries_model import (
     AutoGluonTimeSeriesModel,
     TimeSeriesInferenceMetadata,
+    _dataframe_to_tsdf,
     _forecast_columns_rename_map,
     _forecast_to_records,
+    _inject_synthetic_id_if_needed,
     _load_ts_metadata,
 )
 
@@ -37,12 +39,15 @@ def _write_predictor_metadata(
     target: str = "y",
     id_column: str = "item_id",
     timestamp_column: str = "ts",
+    uses_synthetic_id: bool = False,
 ) -> None:
     payload = {
         "target": target,
         "id_column": id_column,
         "timestamp_column": timestamp_column,
     }
+    if uses_synthetic_id:
+        payload["uses_synthetic_id"] = True
     (tmp_path / "predictor_metadata.json").write_text(
         json.dumps(payload),
         encoding="utf-8",
@@ -74,8 +79,8 @@ def test_timeseries_load_and_predict_v1(monkeypatch, tmp_path):
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
-        lambda path: fake,
+        "autogluonserver.timeseries_model.load_predictor_tolerating_patch_mismatch",
+        lambda cls, path: fake,
     )
 
     model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
@@ -106,8 +111,8 @@ def test_timeseries_response_uses_metadata_column_names(monkeypatch, tmp_path):
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
-        lambda path: fake,
+        "autogluonserver.timeseries_model.load_predictor_tolerating_patch_mismatch",
+        lambda cls, path: fake,
     )
     model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
     assert model.load()
@@ -134,8 +139,8 @@ def test_timeseries_known_covariates_passed(monkeypatch, tmp_path):
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
-        lambda path: fake,
+        "autogluonserver.timeseries_model.load_predictor_tolerating_patch_mismatch",
+        lambda cls, path: fake,
     )
     model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
     model.load()
@@ -156,8 +161,8 @@ def test_timeseries_missing_known_covariates_raises(monkeypatch, tmp_path):
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
-        lambda path: FakeTimeSeriesPredictor(known_covariates_names=["promo"]),
+        "autogluonserver.timeseries_model.load_predictor_tolerating_patch_mismatch",
+        lambda cls, path: FakeTimeSeriesPredictor(known_covariates_names=["promo"]),
     )
     model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
     model.load()
@@ -173,8 +178,8 @@ def test_timeseries_without_metadata_json_uses_default_columns(
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
-        lambda path: fake,
+        "autogluonserver.timeseries_model.load_predictor_tolerating_patch_mismatch",
+        lambda cls, path: fake,
     )
     model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
     with caplog.at_level(logging.WARNING, logger="kserve"):
@@ -240,8 +245,8 @@ def test_timeseries_env_overrides_column_names(monkeypatch, tmp_path):
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
-        lambda path: fake,
+        "autogluonserver.timeseries_model.load_predictor_tolerating_patch_mismatch",
+        lambda cls, path: fake,
     )
     model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
     assert model.load()
@@ -420,8 +425,8 @@ def test_timeseries_v2_request_raises(monkeypatch, tmp_path):
         "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
     )
     monkeypatch.setattr(
-        "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
-        lambda path: FakeTimeSeriesPredictor(),
+        "autogluonserver.timeseries_model.load_predictor_tolerating_patch_mismatch",
+        lambda cls, path: FakeTimeSeriesPredictor(),
     )
     model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
     model.load()
@@ -433,3 +438,142 @@ def test_timeseries_v2_request_raises(monkeypatch, tmp_path):
     )
     with pytest.raises(InferenceError, match="REST v1 JSON"):
         model.predict(req)
+
+
+# --- Synthetic item ID injection tests ---
+
+
+def _synthetic_meta(**overrides):
+    defaults = dict(
+        target="y",
+        id_column="__synthetic_item_id",
+        timestamp_column="timestamp",
+        prediction_length=1,
+        known_covariates_names=[],
+        uses_synthetic_id=True,
+    )
+    defaults.update(overrides)
+    return TimeSeriesInferenceMetadata(**defaults)
+
+
+def test_inject_synthetic_id_adds_column_when_missing():
+    df = pd.DataFrame({"timestamp": ["2024-01-01"], "y": [1.0]})
+    meta = _synthetic_meta()
+    result = _inject_synthetic_id_if_needed(df, meta)
+    assert "__synthetic_item_id" in result.columns
+    assert result["__synthetic_item_id"].iloc[0] == "item_0"
+    assert "__synthetic_item_id" not in df.columns
+
+
+def test_inject_synthetic_id_noop_when_column_present():
+    df = pd.DataFrame(
+        {"__synthetic_item_id": ["custom"], "timestamp": ["2024-01-01"], "y": [1.0]}
+    )
+    meta = _synthetic_meta()
+    result = _inject_synthetic_id_if_needed(df, meta)
+    assert result["__synthetic_item_id"].iloc[0] == "custom"
+
+
+def test_inject_synthetic_id_noop_when_flag_false():
+    df = pd.DataFrame({"timestamp": ["2024-01-01"], "y": [1.0]})
+    meta = _synthetic_meta(uses_synthetic_id=False)
+    result = _inject_synthetic_id_if_needed(df, meta)
+    assert "__synthetic_item_id" not in result.columns
+
+
+def test_dataframe_to_tsdf_injects_synthetic_id():
+    df = pd.DataFrame({"timestamp": ["2024-01-01", "2024-01-02"], "y": [1.0, 2.0]})
+    meta = _synthetic_meta()
+    tsdf = _dataframe_to_tsdf(df, meta)
+    assert len(tsdf) == 2
+
+
+def test_dataframe_to_tsdf_still_raises_for_missing_non_id_columns():
+    df = pd.DataFrame({"y": [1.0]})
+    meta = _synthetic_meta()
+    with pytest.raises(InferenceError, match="timestamp"):
+        _dataframe_to_tsdf(df, meta)
+
+
+def test_forecast_to_records_strips_synthetic_id():
+    meta = _synthetic_meta()
+    idx = pd.MultiIndex.from_tuples(
+        [("item_0", pd.Timestamp("2024-01-05"))],
+        names=["item_id", "timestamp"],
+    )
+    forecasts = pd.DataFrame({"mean": [3.14]}, index=idx)
+    records = _forecast_to_records(forecasts, meta)
+    assert len(records) == 1
+    assert "__synthetic_item_id" not in records[0]
+    assert "item_id" not in records[0]
+    assert records[0]["timestamp"] == "2024-01-05T00:00:00"
+    assert records[0]["mean"] == pytest.approx(3.14)
+
+
+def test_forecast_to_records_keeps_id_when_not_synthetic():
+    meta = _synthetic_meta(uses_synthetic_id=False, id_column="item_id")
+    idx = pd.MultiIndex.from_tuples(
+        [("i1", pd.Timestamp("2024-01-05"))],
+        names=["item_id", "timestamp"],
+    )
+    forecasts = pd.DataFrame({"mean": [3.14]}, index=idx)
+    records = _forecast_to_records(forecasts, meta)
+    assert records[0]["item_id"] == "i1"
+
+
+def test_load_ts_metadata_reads_uses_synthetic_id_flag(tmp_path):
+    _write_predictor_metadata(
+        tmp_path,
+        id_column="__synthetic_item_id",
+        timestamp_column="timestamp",
+        uses_synthetic_id=True,
+    )
+    meta = _load_ts_metadata(FakeTimeSeriesPredictor(), str(tmp_path))
+    assert meta.uses_synthetic_id is True
+
+
+def test_load_ts_metadata_defaults_synthetic_id_to_false(tmp_path):
+    _write_predictor_metadata(tmp_path)
+    meta = _load_ts_metadata(FakeTimeSeriesPredictor(), str(tmp_path))
+    assert meta.uses_synthetic_id is False
+
+
+def test_load_ts_metadata_without_file_synthetic_id_is_false(tmp_path):
+    meta = _load_ts_metadata(FakeTimeSeriesPredictor(), str(tmp_path))
+    assert meta.uses_synthetic_id is False
+
+
+def test_timeseries_synthetic_id_full_predict_flow(monkeypatch, tmp_path):
+    _write_predictor_metadata(
+        tmp_path,
+        id_column="__synthetic_item_id",
+        timestamp_column="ts",
+        uses_synthetic_id=True,
+    )
+    fake = FakeTimeSeriesPredictor()
+    monkeypatch.setattr(
+        "autogluonserver.timeseries_model.Storage.download", lambda _: str(tmp_path)
+    )
+    monkeypatch.setattr(
+        "autogluonserver.timeseries_model.TimeSeriesPredictor.load",
+        lambda path: fake,
+    )
+    model = AutoGluonTimeSeriesModel("forecast", "s3://bucket/artifact")
+    assert model.load()
+    assert model._metadata.uses_synthetic_id is True
+
+    resp = model.predict(
+        {
+            "instances": [
+                {"ts": "2024-01-01", "y": 1.0},
+                {"ts": "2024-01-02", "y": 2.0},
+            ]
+        }
+    )
+    assert fake.last_data is not None
+    assert "predictions" in resp
+    row = resp["predictions"][0]
+    assert "__synthetic_item_id" not in row
+    assert "item_id" not in row
+    assert row["ts"] == "2024-01-05T00:00:00"
+    assert row["mean"] == pytest.approx(3.14)

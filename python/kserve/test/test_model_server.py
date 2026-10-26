@@ -113,3 +113,48 @@ def test_start_configures_executor_on_serving_loop(monkeypatch, configured_worke
         previous_loop.close()
         asyncio.set_event_loop(None)
         model_server.kserve_context.set_predictor_config(previous_config)
+
+
+def test_model_server_ssl_switches_to_https_port():
+    server = ModelServer(
+        ssl_certfile="/etc/tls/private/tls.crt",
+        ssl_keyfile="/etc/tls/private/tls.key",
+    )
+    assert server.http_port == 8443
+
+
+def test_model_server_ssl_keeps_explicit_port():
+    server = ModelServer(
+        http_port=9000,
+        ssl_certfile="/etc/tls/private/tls.crt",
+        ssl_keyfile="/etc/tls/private/tls.key",
+    )
+    assert server.http_port == 9000
+
+
+def test_model_server_ssl_keeps_explicit_default_http_port():
+    server = ModelServer(
+        http_port=8080,
+        ssl_certfile="/etc/tls/private/tls.crt",
+        ssl_keyfile="/etc/tls/private/tls.key",
+    )
+    assert server.http_port == 8080
+
+
+def test_model_server_no_ssl_keeps_default_port():
+    server = ModelServer()
+    assert server.http_port == 8080
+
+
+@pytest.mark.parametrize(
+    "ssl_certfile,ssl_keyfile",
+    [
+        ("/etc/tls/private/tls.crt", None),
+        (None, "/etc/tls/private/tls.key"),
+    ],
+)
+def test_model_server_rejects_partial_ssl_configuration(ssl_certfile, ssl_keyfile):
+    with pytest.raises(
+        ValueError, match="ssl_certfile and ssl_keyfile must be configured together"
+    ):
+        ModelServer(ssl_certfile=ssl_certfile, ssl_keyfile=ssl_keyfile)

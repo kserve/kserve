@@ -3,5 +3,6 @@ kind: Component
 
 resources:
 - ../../crd/full/localmodel
+- ../../crd/full/kernelcache
 - ../../localmodels
 

@@ -19,6 +19,7 @@ package llmisvc
 import (
 	"context"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	gwapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
@@ -26,4 +27,10 @@ import (
 
 func UpdateRoutingStatusForTest(ctx context.Context, r *LLMISVCReconciler, llmSvc *v1alpha2.LLMInferenceService, routes ...*gwapiv1.HTTPRoute) ([]ResolvedGateway, error) {
 	return r.updateRoutingStatus(ctx, llmSvc, routes...)
+}
+
+// GroupFieldIndexForTest exposes the group member index so tests outside this
+// package can register it on a fake client the way the manager does.
+func GroupFieldIndexForTest() (string, client.IndexerFunc) {
+	return groupFieldIndex, groupIndexValue
 }

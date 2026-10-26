@@ -700,6 +700,7 @@ func applyCanaryWeights(isvc *v1beta1.InferenceService, httpRoute *gwapiv1.HTTPR
 	}
 	stableWeight := int32(100) - totalReadyCanaryPercent
 
+	predictorName := constants.PredictorServiceName(isvc.Name, isvc.Spec.Predictor.Name)
 	for i := range httpRoute.Spec.Rules {
 		rule := &httpRoute.Spec.Rules[i]
 		if len(rule.BackendRefs) == 0 {
@@ -707,6 +708,9 @@ func applyCanaryWeights(isvc *v1beta1.InferenceService, httpRoute *gwapiv1.HTTPR
 		}
 
 		template := rule.BackendRefs[0]
+		if string(template.Name) != predictorName {
+			continue
+		}
 		weightedBackends := make([]gwapiv1.HTTPBackendRef, 0, 1+len(isvc.Spec.Canary))
 
 		sw := stableWeight

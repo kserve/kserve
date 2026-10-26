@@ -36,7 +36,7 @@ kserve:
       affinity: {}
       resources:
         limits:
-          cpu: 100m
+          cpu: 500m
           memory: 300Mi
         requests:
           cpu: 100m
@@ -87,6 +87,7 @@ kserve:
       disableIstioVirtualHost: false
       disableIngressCreation: false
       disableHTTPRouteTimeout: false
+      loraModelRoutingStrategy: exact
       localGateway:
         gateway: knative-serving/knative-local-gateway
         gatewayService: knative-local-gateway.istio-system.svc.cluster.local

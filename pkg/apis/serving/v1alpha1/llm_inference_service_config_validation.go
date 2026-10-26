@@ -22,15 +22,12 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/kserve/kserve/pkg/constants"
-	"github.com/kserve/kserve/pkg/utils"
 )
 
 // +kubebuilder:webhook:path=/validate-serving-kserve-io-v1alpha1-llminferenceserviceconfig,mutating=false,failurePolicy=fail,sideEffects=None,groups=serving.kserve.io,resources=llminferenceserviceconfigs,verbs=create;update,versions=v1alpha1,name=llminferenceserviceconfig.kserve-webhook-server.v1alpha1.validator,admissionReviewVersions=v1
@@ -50,37 +47,23 @@ type LLMInferenceServiceConfigValidator struct {
 	PreventWellKnownConfigDeletion bool
 }
 
-var _ webhook.CustomValidator = &LLMInferenceServiceConfigValidator{}
+var _ admission.Validator[*LLMInferenceServiceConfig] = &LLMInferenceServiceConfigValidator{}
 
 func (l *LLMInferenceServiceConfigValidator) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&LLMInferenceServiceConfig{}).
+	return ctrl.NewWebhookManagedBy(mgr, &LLMInferenceServiceConfig{}).
 		WithValidator(l).
 		Complete()
 }
 
-func (l *LLMInferenceServiceConfigValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (l *LLMInferenceServiceConfigValidator) ValidateCreate(ctx context.Context, config *LLMInferenceServiceConfig) (admission.Warnings, error) {
 	warnings := admission.Warnings{}
-	config, err := utils.Convert[*LLMInferenceServiceConfig](obj)
-	if err != nil {
-		return warnings, err
-	}
-
 	return warnings, l.validate(ctx, config)
 }
 
-func (l *LLMInferenceServiceConfigValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (l *LLMInferenceServiceConfigValidator) ValidateUpdate(ctx context.Context, oldConfig, newConfig *LLMInferenceServiceConfig) (admission.Warnings, error) {
 	logger := log.FromContext(ctx)
 	warnings := admission.Warnings{}
 
-	oldConfig, err := utils.Convert[*LLMInferenceServiceConfig](oldObj)
-	if err != nil {
-		return warnings, err
-	}
-	newConfig, err := utils.Convert[*LLMInferenceServiceConfig](newObj)
-	if err != nil {
-		return warnings, err
-	}
 	if newConfig.GetDeletionTimestamp() != nil {
 		return warnings, nil
 	}
@@ -97,14 +80,9 @@ func (l *LLMInferenceServiceConfigValidator) ValidateUpdate(ctx context.Context,
 	return warnings, l.validate(ctx, newConfig)
 }
 
-func (l *LLMInferenceServiceConfigValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (l *LLMInferenceServiceConfigValidator) ValidateDelete(ctx context.Context, config *LLMInferenceServiceConfig) (admission.Warnings, error) {
 	logger := log.FromContext(ctx)
 	warnings := admission.Warnings{}
-
-	config, err := utils.Convert[*LLMInferenceServiceConfig](obj)
-	if err != nil {
-		return warnings, err
-	}
 
 	// Warn if deleting a well-known config
 	if l.WellKnownConfigChecker != nil && l.WellKnownConfigChecker(config.Name) && constants.KServeNamespace == config.Namespace {

@@ -73,7 +73,7 @@ spec:
             port: 8081
         resources:
           limits:
-            cpu: 100m
+            cpu: 500m
             memory: 300Mi
           requests:
             cpu: 100m

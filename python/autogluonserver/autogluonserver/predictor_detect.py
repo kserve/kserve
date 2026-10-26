@@ -20,6 +20,7 @@ from autogluon.tabular import TabularPredictor
 from autogluon.timeseries import TimeSeriesPredictor
 from kserve.errors import InferenceError
 
+from autogluonserver.safe_deserialize import validate_model_artifacts_for_safe_load
 from autogluonserver.version_compat import load_predictor_tolerating_patch_mismatch
 
 
@@ -33,10 +34,11 @@ def detect_and_load_predictor(
 
     ``predictor_dir`` is the AutoGluon save path (same as for ``*.save()`` / ``*.load()``).
     """
+    validate_model_artifacts_for_safe_load(predictor_dir, context="predictor_detect")
     errors: List[str] = []
     try:
         ts = load_predictor_tolerating_patch_mismatch(
-            TimeSeriesPredictor, predictor_dir
+            TimeSeriesPredictor, predictor_dir, run_safe_load_validation=False
         )
         if isinstance(ts, TimeSeriesPredictor):
             return "timeseries", ts
@@ -46,7 +48,9 @@ def detect_and_load_predictor(
     except Exception as e:
         errors.append(f"timeseries: {e}")
     try:
-        tb = load_predictor_tolerating_patch_mismatch(TabularPredictor, predictor_dir)
+        tb = load_predictor_tolerating_patch_mismatch(
+            TabularPredictor, predictor_dir, run_safe_load_validation=False
+        )
         if isinstance(tb, TabularPredictor):
             return "tabular", tb
         errors.append(f"tabular: loaded object is not TabularPredictor: {type(tb)!r}")

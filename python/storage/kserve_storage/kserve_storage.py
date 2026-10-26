@@ -18,6 +18,7 @@ import fnmatch
 from functools import partial
 import glob
 import gzip
+import ipaddress
 import json
 import mimetypes
 import multiprocessing
@@ -25,6 +26,7 @@ import os
 import platform
 import re
 import shutil
+import socket
 import ssl
 import tarfile
 import tempfile
@@ -33,9 +35,12 @@ from typing import List, Optional, TYPE_CHECKING
 import zipfile
 from pathlib import Path
 from typing import Tuple
-from urllib.parse import urlparse
+from urllib.error import HTTPError
+from urllib.parse import urljoin, urlparse
+from urllib.request import Request, urlopen
 import certifi
 import requests
+import urllib3
 
 if TYPE_CHECKING:
     # oras is imported lazily inside _download_oci; this guarded import makes the
@@ -82,22 +87,235 @@ _HF_PREFIX = "hf://"
 _MS_PREFIX = "modelscope://"
 _OCI_PREFIX = "oci://"
 _GIT_RE = r"https://.+\.git"
+_SHARED_ADDRESS_SPACE = ipaddress.ip_network("100.64.0.0/10")
+_SENSITIVE_REDIRECT_HEADERS = {"authorization", "cookie", "proxy-authorization"}
+
+
+def _resolve_http_storage_uri(uri: str) -> tuple[str, ...]:
+    """Reject HTTP(S) model locations which target non-public networks."""
+    parsed = urlparse(uri)
+    if parsed.scheme.lower() not in ("http", "https"):
+        return ()
+    host = parsed.hostname
+    normalized_host = (host or "").rstrip(".").lower()
+    if (
+        not normalized_host
+        or normalized_host
+        in {
+            "localhost",
+            "metadata",
+            "metadata.google.internal",
+            "kubernetes",
+            "kubernetes.default",
+            "kubernetes.default.svc",
+            "kubernetes.default.svc.cluster.local",
+            "host.docker.internal",
+            "host.containers.internal",
+        }
+        or normalized_host.endswith(
+            (".localhost", ".svc", ".cluster.local", ".internal")
+        )
+    ):
+        raise RuntimeError(f"HTTP storage URI targets a blocked host or IP: {uri}")
+    try:
+        addresses = {ipaddress.ip_address(normalized_host)}
+    except ValueError:
+        try:
+            addresses = {
+                ipaddress.ip_address(result[4][0])
+                for result in socket.getaddrinfo(normalized_host, parsed.port or 443)
+            }
+        except socket.gaierror as error:
+            raise RuntimeError(
+                f"Unable to safely resolve HTTP storage URI host: {uri}"
+            ) from error
+
+    if any(
+        address.is_private
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_multicast
+        or address.is_unspecified
+        or address in _SHARED_ADDRESS_SPACE
+        for address in addresses
+    ):
+        raise RuntimeError(f"HTTP storage URI targets a blocked host or IP: {uri}")
+    return tuple(str(address) for address in addresses)
+
+
+def _assert_http_storage_uri_allowed(uri: str) -> None:
+    _resolve_http_storage_uri(uri)
+
+
+class _PinnedHTTPAdapter(requests.adapters.HTTPAdapter):
+    """Dial a validated IP while authenticating the original HTTP host."""
+
+    def __init__(self, uri: str, address: str):
+        parsed = urlparse(uri)
+        self._original_host = parsed.hostname
+        self._original_port = parsed.port
+        self._address = address
+        super().__init__()
+
+    def send(self, request, *args, **kwargs):
+        parsed = urlparse(request.url)
+        address = f"[{self._address}]" if ":" in self._address else self._address
+        port = f":{parsed.port}" if parsed.port is not None else ""
+        request.url = parsed._replace(netloc=f"{address}{port}").geturl()
+
+        original_host = self._original_host
+        if ":" in original_host:
+            original_host = f"[{original_host}]"
+        original_port = (
+            f":{self._original_port}" if self._original_port is not None else ""
+        )
+        request.headers["Host"] = f"{original_host}{original_port}"
+        return super().send(request, *args, **kwargs)
+
+    def build_connection_pool_key_attributes(self, request, verify, cert=None):
+        host_params, pool_kwargs = super().build_connection_pool_key_attributes(
+            request, verify, cert
+        )
+        if urlparse(request.url).scheme.lower() == "https":
+            pool_kwargs["server_hostname"] = self._original_host
+            pool_kwargs["assert_hostname"] = self._original_host
+        return host_params, pool_kwargs
+
+
+def _pinned_http_get(uri: str, **kwargs):
+    addresses = _resolve_http_storage_uri(uri)
+    last_error = None
+    for address in addresses:
+        try:
+            with requests.Session() as session:
+                session.mount(
+                    f"{urlparse(uri).scheme.lower()}://",
+                    _PinnedHTTPAdapter(uri, address),
+                )
+                return session.get(uri, **kwargs)
+        except (
+            requests.exceptions.ConnectionError,
+            requests.exceptions.Timeout,
+        ) as error:
+            last_error = error
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError(f"Unable to safely resolve HTTP storage URI host: {uri}")
+
+
+class _GuardedHTTPPoolMixin:
+    """Validate every urllib3 request, including recursive redirects."""
+
+    def urlopen(self, method, url, redirect=True, **kwargs):
+        _assert_http_storage_uri_allowed(url)
+        return super().urlopen(method, url, redirect=redirect, **kwargs)
+
+
+class _GuardedHTTPPoolManager(_GuardedHTTPPoolMixin, urllib3.PoolManager):
+    pass
+
+
+class _GuardedHTTPProxyManager(_GuardedHTTPPoolMixin, urllib3.ProxyManager):
+    pass
+
 
 # Env var by which the Go webhook (ConfigureOciFetchToContainer) signals where it mounted
 # the docker config.json. oras-py ignores DOCKER_CONFIG and only reads ~/.docker/config.json,
 # so the handler reads this path and passes it as an explicit config_path.
 _OCI_DOCKER_CONFIG_PATH_ENV = "KSERVE_OCI_DOCKER_CONFIG"
-# Default docker config.json path if the env var is unset (e.g. direct CLI invocation). Kept
-# in sync with ociFetchDockerConfigDir in pkg/webhook/admission/pod/oci_fetch.go. It is under
-# /mnt, not /root, because the storage-initializer runs as UID 1000 and cannot read /root.
+# Default docker config.json path if the env var is unset (e.g. direct CLI invocation).
+# Must match credentials.OciFetchDockerConfigDir in pkg/credentials/oci_docker_config.go.
+# It is under /mnt, not /root, because the storage-initializer runs as UID 1000.
 _OCI_DOCKER_CONFIG_PATH = "/mnt/oci-fetch-auth/config.json"
 
-# Env var by which the Go webhook (ConfigureOciFetchToContainer) signals that the
+# Env var by which the Go webhook and LocalModelCache download Job signal that the
 # target registry should be treated as plain-HTTP/insecure (self-signed or no TLS).
 # Defaults to secure (verified HTTPS) when unset -- this is an explicit opt-in,
 # mirroring how CA_BUNDLE_VOLUME_MOUNT_POINT etc. are wired: Go-side config field ->
 # env var on the init container -> read here.
 _OCI_INSECURE_REGISTRY_ENV = "KSERVE_OCI_INSECURE_REGISTRY"
+
+
+def _oci_insecure_registry_enabled() -> bool:
+    return os.environ.get(_OCI_INSECURE_REGISTRY_ENV, "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+
+def _oci_auth_backend_from_www_authenticate(header: str) -> str:
+    """Map a Www-Authenticate challenge to oras-py's auth_backend.
+
+    Bearer (Docker Hub, GHCR, quay.io) uses the token backend. Basic-only
+    (Distribution htpasswd) uses basic. When both appear, prefer token so
+    bearer-only registries keep working.
+    """
+    if not header:
+        return "token"
+    found = [m.lower() for m in re.findall(r"(?i)(?:^|,\s*)(Bearer|Basic)\b", header)]
+    if "bearer" in found:
+        return "token"
+    if "basic" in found:
+        return "basic"
+    return "token"
+
+
+def _oci_ssl_context_for_probe(url: str, insecure: bool) -> Optional[ssl.SSLContext]:
+    """SSL context for the urllib /v2/ auth probe.
+
+    urllib ignores REQUESTS_CA_BUNDLE (used by oras/requests after
+    _setup_oci_tls), so custom-CA registries need an explicit context
+    here or the probe fails TLS before seeing Www-Authenticate and we
+    incorrectly fall back to token for Basic-only registries.
+    """
+    if not url.startswith("https://"):
+        return None
+    if insecure:
+        return ssl._create_unverified_context()
+    ca_bundle = os.environ.get("REQUESTS_CA_BUNDLE", "").strip()
+    if ca_bundle and os.path.exists(ca_bundle):
+        return ssl.create_default_context(cafile=ca_bundle)
+    return None
+
+
+def _oci_auth_backend_for_registry(registry: str, insecure: bool) -> str:
+    """Probe GET /v2/ and select basic vs token from the 401 challenge.
+
+    Probe failure defaults to token so imagePullSecrets against bearer
+    registries do not break if /v2/ is unreachable. Call after
+    _setup_oci_tls() so a mounted custom CA is visible via
+    REQUESTS_CA_BUNDLE.
+    """
+    urls = []
+    if insecure:
+        urls.append("http://%s/v2/" % registry)
+    urls.append("https://%s/v2/" % registry)
+    for url in urls:
+        try:
+            ctx = _oci_ssl_context_for_probe(url, insecure)
+            req = Request(url, method="GET")
+            with urlopen(req, timeout=5, context=ctx) as resp:
+                header = resp.headers.get("Www-Authenticate", "")
+                backend = (
+                    _oci_auth_backend_from_www_authenticate(header)
+                    if header
+                    else "token"
+                )
+                logger.info("Selected OCI auth backend %s for %s", backend, registry)
+                return backend
+        except HTTPError as err:
+            header = err.headers.get("Www-Authenticate", "") if err.headers else ""
+            if header:
+                backend = _oci_auth_backend_from_www_authenticate(header)
+                logger.info("Selected OCI auth backend %s for %s", backend, registry)
+                return backend
+        except Exception as err:  # noqa: BLE001
+            logger.debug("OCI /v2/ probe failed for %s: %s", url, err)
+            continue
+    logger.info("Selected OCI auth backend token for %s (probe fallback)", registry)
+    return "token"
+
 
 # Prefix identifying the modelcar layout's model subtree within an OCI layer tar.
 _OCI_MODELS_PREFIX = "models/"
@@ -114,13 +332,23 @@ _OCI_INDEX_MEDIA_TYPES = {
 # The layer's compression is declared by its mediaType, not guessable from the blob, so the
 # streaming reader must be opened with the matching mode; a hardcoded "r|gz" mis-reads
 # uncompressed and zstd layers. zstd (application/vnd.oci.image.layer.v1.tar+zstd) is common
-# in newer containerd/buildx/GHCR/ECR but absent here: Python stdlib tarfile gained native
-# zstd support only in 3.14, and the storage-initializer runs 3.11 -- it is rejected with an
-# actionable error in _download_oci rather than silently mis-decoded.
+# in newer containerd/buildx/GHCR/ECR: Python stdlib tarfile only gains native zstd support
+# in 3.14 and the storage-initializer runs 3.11, so zstd layers are decompressed via the
+# zstandard package (see _LAYER_ZSTD_MEDIA_TYPES) and then read as an uncompressed tar
+# stream (mode "r|"). Any layer mediaType not in this map is a non-tar blob and is skipped.
 _LAYER_MEDIA_TYPE_MODES = {
     "application/vnd.oci.image.layer.v1.tar+gzip": "r|gz",
     "application/vnd.docker.image.rootfs.diff.tar.gzip": "r|gz",
     "application/vnd.oci.image.layer.v1.tar": "r|",
+    "application/vnd.oci.image.layer.v1.tar+zstd": "r|",
+}
+
+# Subset of _LAYER_MEDIA_TYPE_MODES whose blob is zstd-compressed and must be streamed
+# through a zstandard decompressor before tarfile reads it (as mode "r|"). zstd is OCI-only:
+# the Docker schema-2 media types were frozen before OCI added zstd (image-spec v1.1, 2022),
+# so there is no application/vnd.docker.*+zstd equivalent to add here.
+_LAYER_ZSTD_MEDIA_TYPES = {
+    "application/vnd.oci.image.layer.v1.tar+zstd",
 }
 
 _HDFS_SECRET_DIRECTORY = "/var/secrets/kserve-hdfscreds"
@@ -242,6 +470,42 @@ def _setup_oci_tls() -> None:
         os.environ["REQUESTS_CA_BUNDLE"] = ca_cert
 
 
+# Hostnames that all refer to Docker Hub. docker CLI / kubectl create secret
+# docker-registry typically store Hub credentials under https://index.docker.io/v1/
+# rather than "docker.io", so URI hosts and config.json keys often disagree.
+_DOCKER_HUB_HOSTS = frozenset({"docker.io", "index.docker.io", "registry-1.docker.io"})
+_DOCKER_HUB_AUTH_KEYS = (
+    "https://index.docker.io/v1/",
+    "https://index.docker.io/v2/",
+    "index.docker.io",
+    "https://index.docker.io",
+    "registry-1.docker.io",
+    "https://registry-1.docker.io",
+    "docker.io",
+    "https://docker.io",
+)
+
+
+def _docker_config_auth_keys(registry: str) -> list[str]:
+    """Candidate auths[] keys for a registry hostname (with optional :port).
+
+    Always tries the literal registry, https://<registry>, and the hostname
+    without port. For Docker Hub, also tries the index.docker.io forms that
+    `docker login` writes into config.json.
+    """
+    host = registry.split(":", 1)[0]
+    keys = [registry, f"https://{registry}", host]
+    if host in _DOCKER_HUB_HOSTS:
+        keys.extend(_DOCKER_HUB_AUTH_KEYS)
+    seen: set[str] = set()
+    out: list[str] = []
+    for key in keys:
+        if key not in seen:
+            seen.add(key)
+            out.append(key)
+    return out
+
+
 def _login_from_docker_config(
     client: "oras.client.OrasClient",
     target: str,
@@ -256,6 +520,13 @@ def _login_from_docker_config(
     try:
         with open(config_path) as f:
             cfg = json.load(f)
+    except PermissionError as err:
+        logger.warning(
+            "Cannot read OCI docker config %s: %s; falling back to anonymous pull",
+            config_path,
+            err,
+        )
+        return
     except (OSError, ValueError):
         return
     if not isinstance(cfg, dict):
@@ -265,9 +536,8 @@ def _login_from_docker_config(
         return
     # Resolve the target's registry hostname (first path segment)
     registry = target.split("/", 1)[0]
-    # Try multiple lookup keys docker config can use
     entry = None
-    for key in (registry, f"https://{registry}", registry.split(":", 1)[0]):
+    for key in _docker_config_auth_keys(registry):
         entry = auths.get(key)
         if entry:
             break
@@ -283,7 +553,14 @@ def _login_from_docker_config(
     except (ValueError, UnicodeDecodeError):
         return
     try:
-        client.login(username=username, password=password, hostname=registry)
+        login_kwargs = {
+            "username": username,
+            "password": password,
+            "hostname": registry,
+        }
+        if _oci_insecure_registry_enabled():
+            login_kwargs["tls_verify"] = False
+        client.login(**login_kwargs)
     except Exception:  # noqa: BLE001
         # Login failed (network, bad creds) — fall to anonymous; the
         # subsequent get_manifest/pull will surface a clear error
@@ -329,6 +606,8 @@ class Storage(object):
             ignore_patterns = _parse_patterns_from_env("STORAGE_IGNORE_PATTERNS")
 
         logger.info("Copying contents of %s to local", uri)
+
+        _assert_http_storage_uri_allowed(uri)
 
         if allow_patterns:
             logger.info("Allow patterns: %s", allow_patterns)
@@ -1455,12 +1734,17 @@ class Storage(object):
         if not os.path.exists(config_path):
             config_path = None
 
-        insecure = os.environ.get(_OCI_INSECURE_REGISTRY_ENV, "").strip().lower() in (
-            "1",
-            "true",
-            "yes",
+        insecure = _oci_insecure_registry_enabled()
+        # oras-py's default token backend 401s against htpasswd HTTP registries.
+        # Always-basic breaks Docker Hub / quay.io (bearer-only). Probe /v2/ and
+        # match the Www-Authenticate scheme; anonymous pulls stay on token.
+        registry = target.split("/", 1)[0]
+        auth_backend = (
+            _oci_auth_backend_for_registry(registry, insecure)
+            if config_path
+            else "token"
         )
-        client = oras.client.OrasClient(insecure=insecure)
+        client = oras.client.OrasClient(insecure=insecure, auth_backend=auth_backend)
         if config_path:
             _login_from_docker_config(client, target, config_path)
 
@@ -1488,15 +1772,6 @@ class Storage(object):
             media_type = layer.get("mediaType", "")
             mode = _LAYER_MEDIA_TYPE_MODES.get(media_type)
             if mode is None:
-                if media_type.endswith("+zstd"):
-                    raise RuntimeError(
-                        "OCI layer mediaType %r is zstd-compressed, which this "
-                        "storage handler cannot decompress: Python's stdlib tarfile "
-                        "gained native zstd support only in 3.14 and the "
-                        "storage-initializer runs on 3.11. Rebuild the model image "
-                        "with gzip-compressed layers (configure your image build "
-                        "tool to emit gzip rather than zstd) and retry." % media_type
-                    )
                 # Non-tar layers (attestations, image config, and other unknown
                 # non-tar blobs) carry nothing for a modelcar's /models/ subtree, so
                 # skip them rather than trying to read them as tar archives.
@@ -1504,7 +1779,24 @@ class Storage(object):
             digest = layer["digest"]
             with client.get_blob(target, digest, stream=True) as resp:
                 resp.raise_for_status()
-                with tarfile.open(fileobj=resp.raw, mode=mode) as tar:
+                stream = resp.raw
+                if media_type in _LAYER_ZSTD_MEDIA_TYPES:
+                    # stdlib tarfile can't decompress zstd before Python 3.14, so wrap
+                    # the raw blob in a zstandard stream decompressor and hand tarfile
+                    # the decompressed stream (mode "r|"). Kept streaming -- no temp
+                    # file, no full-blob buffering.
+                    import zstandard
+
+                    # read_across_frames=True: multi-frame blobs (multithreaded
+                    # zstd -T0/-TN, chunked/seekable layouts) must decompress as
+                    # one continuous stream. zstandard documents this parameter as
+                    # defaulting to False ("decompression is stopped at frame
+                    # boundaries"), so pass it explicitly rather than relying on
+                    # the current implementation's behavior.
+                    stream = zstandard.ZstdDecompressor().stream_reader(
+                        resp.raw, read_across_frames=True
+                    )
+                with tarfile.open(fileobj=stream, mode=mode) as tar:
                     for member in tar:
                         name = member.name.rstrip("/")
                         if not name:
@@ -1536,6 +1828,8 @@ class Storage(object):
         - Password from GIT_PASSWORD environment variable (from Kubernetes secret)
         """
         from dulwich import porcelain
+        from dulwich.client import default_urllib3_manager
+        from dulwich.config import StackedConfig, env_config
         from dulwich.errors import GitProtocolError
         from urllib.parse import urlparse, urlunparse
 
@@ -1563,8 +1857,23 @@ class Storage(object):
 
         password = os.getenv("GIT_PASSWORD")
 
+        config = StackedConfig.default()
+        environment_config = env_config(os.environ)
+        if environment_config is not None:
+            config.backends.insert(0, environment_config)
+        pool_manager = default_urllib3_manager(
+            config,
+            pool_manager_cls=_GuardedHTTPPoolManager,
+            proxy_manager_cls=_GuardedHTTPProxyManager,
+            base_url=clean_uri,
+        )
+
         try:
-            clone_kwargs = {"depth": 1}
+            clone_kwargs = {
+                "config": config,
+                "depth": 1,
+                "pool_manager": pool_manager,
+            }
             if username:
                 clone_kwargs["username"] = username
             if password:
@@ -1643,7 +1952,42 @@ class Storage(object):
         headers = json.loads(headers_json)
 
         try:
-            response = requests.get(uri, stream=True, headers=headers, timeout=30)
+            response = _pinned_http_get(
+                uri,
+                stream=True,
+                headers=headers,
+                timeout=30,
+                allow_redirects=False,
+            )
+
+            redirects = 0
+            while response.status_code in (301, 302, 303, 307, 308):
+                redirects += 1
+                if redirects > 10:
+                    response.close()
+                    raise RuntimeError("Too many redirects while downloading model")
+                redirected_uri = urljoin(uri, response.headers["Location"])
+                response.close()
+                current = urlparse(uri)
+                redirected = urlparse(redirected_uri)
+                if (current.scheme, current.hostname, current.port) != (
+                    redirected.scheme,
+                    redirected.hostname,
+                    redirected.port,
+                ):
+                    headers = {
+                        name: value
+                        for name, value in headers.items()
+                        if name.lower() not in _SENSITIVE_REDIRECT_HEADERS
+                    }
+                uri = redirected_uri
+                response = _pinned_http_get(
+                    uri,
+                    stream=True,
+                    headers=headers,
+                    timeout=30,
+                    allow_redirects=False,
+                )
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
             raise_storage_error("HTTP", uri, e, host_uri)
 

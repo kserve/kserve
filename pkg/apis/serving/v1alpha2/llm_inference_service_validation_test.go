@@ -17,13 +17,14 @@ limitations under the License.
 package v1alpha2
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
-	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
+	"github.com/kserve/kserve/pkg/constants"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -226,14 +227,7 @@ func TestValidateUpdate_DeletionBypass(t *testing.T) {
 	newSvc := newBaseLLMInferenceServiceV1Alpha2()
 	newSvc.Spec.WorkloadSpec = WorkloadSpec{
 		Replicas: ptr.To(int32(3)),
-		Scaling: &ScalingSpec{
-			MaxReplicas: 5,
-			WVA: &WVASpec{
-				ActuatorSpec: ActuatorSpec{
-					HPA: &HPAScalingSpec{},
-				},
-			},
-		},
+		Scaling:  &ScalingSpec{MaxReplicas: 5},
 	}
 
 	// Without DeletionTimestamp, this should be rejected (replicas + scaling are mutually exclusive)
@@ -250,1024 +244,126 @@ func TestValidateUpdate_DeletionBypass(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestValidateWorkloadScaling(t *testing.T) {
-	tests := []struct {
-		name           string
-		workload       *WorkloadSpec
-		wantErrCount   int
-		wantErrStrings []string
-	}{
-		{
-			name: "valid: scaling with WVA + HPA",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MinReplicas: ptr.To(int32(1)),
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						VariantCost: "10.0",
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{},
-						},
-					},
-				},
+func TestValidateWVAConfiguration(t *testing.T) {
+	makeWVAWorkload := func() WorkloadSpec {
+		return WorkloadSpec{Scaling: &ScalingSpec{
+			MinReplicas: ptr.To(int32(1)),
+			MaxReplicas: 2,
+			WVA: &WVASpec{
+				VariantCost: "10.0",
+				ActuatorSpec: ActuatorSpec{KEDA: &KEDAScalingSpec{
+					PollingInterval:  ptr.To(int32(30)),
+					IdleReplicaCount: ptr.To(int32(0)),
+				}},
 			},
-			wantErrCount: 0,
-		},
-		{
-			name: "valid: scaling with WVA + KEDA and idleReplicaCount",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MinReplicas: ptr.To(int32(2)),
-					MaxReplicas: 10,
-					WVA: &WVASpec{
-						VariantCost: "5.0",
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{
-								PollingInterval:  ptr.To(int32(30)),
-								CooldownPeriod:   ptr.To(int32(60)),
-								IdleReplicaCount: ptr.To(int32(1)),
-							},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name:         "valid: no scaling configured",
-			workload:     &WorkloadSpec{},
-			wantErrCount: 0,
-		},
-		{
-			name: "valid: scaling with only maxReplicas (no minReplicas)",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name: "valid: variantCost integer format",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						VariantCost: "10",
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name: "valid: variantCost decimal format",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						VariantCost: "0.5",
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name: "valid: HPA with behavior configured",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MinReplicas: ptr.To(int32(1)),
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{
-								Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
-									ScaleUp: &autoscalingv2.HPAScalingRules{
-										StabilizationWindowSeconds: ptr.To(int32(60)),
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name: "valid: empty variantCost (uses default)",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						VariantCost: "",
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name: "valid: idleReplicaCount=1 minReplicas=2 (minimum valid combo)",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MinReplicas: ptr.To(int32(2)),
-					MaxReplicas: 10,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{
-								IdleReplicaCount: ptr.To(int32(1)),
-							},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name: "valid: WVA KEDA idleReplicaCount=0 (scale-to-zero)",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MinReplicas: ptr.To(int32(1)),
-					MaxReplicas: 10,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{
-								IdleReplicaCount: ptr.To(int32(0)),
-							},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name: "valid: initialCooldownPeriod set",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{
-								InitialCooldownPeriod: ptr.To(int32(60)),
-							},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name: "valid: fallback set",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{
-								Fallback: &kedav1alpha1.Fallback{
-									FailureThreshold: 3,
-									Replicas:         2,
-								},
-							},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name: "valid: restoreToOriginalReplicaCount set in advanced",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{
-								Advanced: &kedav1alpha1.AdvancedConfig{
-									RestoreToOriginalReplicaCount: true,
-								},
-							},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name: "error: scalingModifiers target set",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{
-								Advanced: &kedav1alpha1.AdvancedConfig{
-									ScalingModifiers: kedav1alpha1.ScalingModifiers{
-										Target: "10",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"scalingModifiers must not be set"},
-		},
-		{
-			name: "error: scalingModifiers activationTarget set",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{
-								Advanced: &kedav1alpha1.AdvancedConfig{
-									ScalingModifiers: kedav1alpha1.ScalingModifiers{
-										ActivationTarget: "1",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"scalingModifiers must not be set"},
-		},
-		{
-			name: "error: scalingModifiers metricType set",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{
-								Advanced: &kedav1alpha1.AdvancedConfig{
-									ScalingModifiers: kedav1alpha1.ScalingModifiers{
-										MetricType: autoscalingv2.AverageValueMetricType,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"scalingModifiers must not be set"},
-		},
-		{
-			name: "error: both scalingModifiers and hpa name set (2 errors)",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{
-								Advanced: &kedav1alpha1.AdvancedConfig{
-									ScalingModifiers: kedav1alpha1.ScalingModifiers{
-										Formula: "wva_desired_replicas",
-									},
-									HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
-										Name: "my-hpa",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			wantErrCount:   2,
-			wantErrStrings: []string{"scalingModifiers must not be set", "horizontalPodAutoscalerConfig.name must not be set"},
-		},
-		{
-			name: "error: replicas and scaling both set",
-			workload: &WorkloadSpec{
-				Replicas: ptr.To(int32(3)),
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{},
-						},
-					},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"scaling and replicas are mutually exclusive"},
-		},
-		{
-			name: "error: minReplicas > maxReplicas",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MinReplicas: ptr.To(int32(10)),
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{},
-						},
-					},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"minReplicas (10) cannot exceed maxReplicas (5)"},
-		},
-		{
-			name: "error: scaling without WVA or direct KEDA",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"either wva or keda must be specified when scaling is configured"},
-		},
-		{
-			name: "error: scaling with both WVA and direct KEDA",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{},
-						},
-					},
-					KEDA: &DirectKEDAScalingSpec{
-						Triggers: []kedav1alpha1.ScaleTriggers{
-							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
-						},
-					},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"wva and keda are mutually exclusive"},
-		},
-		{
-			name: "valid: scaling with direct KEDA",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MinReplicas: ptr.To(int32(1)),
-					MaxReplicas: 5,
-					KEDA: &DirectKEDAScalingSpec{
-						KEDAScalingSpec: KEDAScalingSpec{
-							PollingInterval: ptr.To(int32(30)),
-						},
-						Triggers: []kedav1alpha1.ScaleTriggers{
-							{
-								Type: "cpu",
-								Metadata: map[string]string{
-									"value": "80",
-								},
-							},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name: "valid: direct KEDA idleReplicaCount=0 (scale-to-zero)",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MinReplicas: ptr.To(int32(1)),
-					MaxReplicas: 5,
-					KEDA: &DirectKEDAScalingSpec{
-						KEDAScalingSpec: KEDAScalingSpec{
-							IdleReplicaCount: ptr.To(int32(0)),
-						},
-						Triggers: []kedav1alpha1.ScaleTriggers{
-							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name: "valid: direct KEDA with scalingModifiers",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					KEDA: &DirectKEDAScalingSpec{
-						KEDAScalingSpec: KEDAScalingSpec{
-							Advanced: &kedav1alpha1.AdvancedConfig{
-								ScalingModifiers: kedav1alpha1.ScalingModifiers{
-									Formula: "trig0 + trig1",
-									Target:  "10",
-								},
-							},
-						},
-						Triggers: []kedav1alpha1.ScaleTriggers{
-							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
-							{Type: "memory", Metadata: map[string]string{"value": "70"}},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name: "error: direct KEDA without triggers",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					KEDA:        &DirectKEDAScalingSpec{},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"at least one trigger is required when using direct KEDA scaling"},
-		},
-		{
-			name: "error: direct KEDA idleReplicaCount without minReplicas",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 10,
-					KEDA: &DirectKEDAScalingSpec{
-						KEDAScalingSpec: KEDAScalingSpec{
-							IdleReplicaCount: ptr.To(int32(1)),
-						},
-						Triggers: []kedav1alpha1.ScaleTriggers{
-							{Type: "cpu", Metadata: map[string]string{"value": "80"}},
-						},
-					},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"minReplicas is required when idleReplicaCount is set"},
-		},
-		{
-			name: "error: WVA with both HPA and KEDA",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							HPA:  &HPAScalingSpec{},
-							KEDA: &KEDAScalingSpec{},
-						},
-					},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"hpa and keda are mutually exclusive"},
-		},
-		{
-			name: "error: WVA with neither HPA nor KEDA",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA:         &WVASpec{},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"either hpa or keda must be specified"},
-		},
-		{
-			name: "error: invalid variantCost - alphabetic",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						VariantCost: "abc",
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{},
-						},
-					},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"variantCost must be a non-negative numeric string"},
-		},
-		{
-			name: "error: invalid variantCost - negative",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						VariantCost: "-1",
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{},
-						},
-					},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"variantCost must be a non-negative numeric string"},
-		},
-		{
-			name: "error: invalid variantCost - multiple dots",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						VariantCost: "10.0.1",
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{},
-						},
-					},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"variantCost must be a non-negative numeric string"},
-		},
-		{
-			name: "error: KEDA idleReplicaCount without minReplicas",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MaxReplicas: 10,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{
-								IdleReplicaCount: ptr.To(int32(1)),
-							},
-						},
-					},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"minReplicas is required when idleReplicaCount is set"},
-		},
-		{
-			name: "error: KEDA idleReplicaCount >= minReplicas",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MinReplicas: ptr.To(int32(2)),
-					MaxReplicas: 10,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{
-								IdleReplicaCount: ptr.To(int32(3)),
-							},
-						},
-					},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"idleReplicaCount (3) must be less than minReplicas (2)"},
-		},
-		{
-			name: "error: KEDA idleReplicaCount == minReplicas",
-			workload: &WorkloadSpec{
-				Scaling: &ScalingSpec{
-					MinReplicas: ptr.To(int32(2)),
-					MaxReplicas: 10,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{
-								IdleReplicaCount: ptr.To(int32(2)),
-							},
-						},
-					},
-				},
-			},
-			wantErrCount:   1,
-			wantErrStrings: []string{"idleReplicaCount (2) must be less than minReplicas (2)"},
-		},
-		{
-			name: "valid: scaling and worker both set with HPA (multi-node autoscaling)",
-			workload: &WorkloadSpec{
-				Worker: &corev1.PodSpec{},
-				Scaling: &ScalingSpec{
-					MaxReplicas: 5,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							HPA: &HPAScalingSpec{},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name: "valid: scaling and worker both set with KEDA (multi-node autoscaling)",
-			workload: &WorkloadSpec{
-				Worker: &corev1.PodSpec{},
-				Scaling: &ScalingSpec{
-					MaxReplicas: 3,
-					WVA: &WVASpec{
-						ActuatorSpec: ActuatorSpec{
-							KEDA: &KEDAScalingSpec{},
-						},
-					},
-				},
-			},
-			wantErrCount: 0,
-		},
-		{
-			name: "valid: worker set with replicas (no scaling) - multi-node with static replicas",
-			workload: &WorkloadSpec{
-				Worker:   &corev1.PodSpec{},
-				Replicas: ptr.To(int32(3)),
-			},
-			wantErrCount: 0,
-		},
-		{
-			name:         "valid: worker set with no replicas and no scaling - multi-node defaults",
-			workload:     &WorkloadSpec{Worker: &corev1.PodSpec{}},
-			wantErrCount: 0,
-		},
+		}}
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			errs := ValidateWorkloadScaling(field.NewPath("spec"), tt.workload)
-			assert.Len(t, errs, tt.wantErrCount, "expected %d errors, got %d: %v", tt.wantErrCount, len(errs), errs)
-			for _, wantStr := range tt.wantErrStrings {
-				found := false
-				for _, e := range errs {
-					if strings.Contains(e.Error(), wantStr) {
-						found = true
-						break
+	type testCase struct {
+		name    string
+		old     *LLMInferenceService
+		current *LLMInferenceService
+		wantErr bool
+	}
+	tests := make([]testCase, 0, 8)
+	tests = append(tests, []testCase{
+		{
+			name: "create with WVA is rejected",
+			current: func() *LLMInferenceService {
+				svc := newBaseLLMInferenceServiceV1Alpha2()
+				svc.Spec.WorkloadSpec = makeWVAWorkload()
+				return svc
+			}(),
+			wantErr: true,
+		},
+		{
+			name: "update adding WVA is rejected",
+			old:  newBaseLLMInferenceServiceV1Alpha2(),
+			current: func() *LLMInferenceService {
+				svc := newBaseLLMInferenceServiceV1Alpha2()
+				svc.Spec.WorkloadSpec = makeWVAWorkload()
+				return svc
+			}(),
+			wantErr: true,
+		},
+		{
+			name: "update retaining existing WVA is allowed",
+			old: func() *LLMInferenceService {
+				svc := newBaseLLMInferenceServiceV1Alpha2()
+				svc.Spec.WorkloadSpec = makeWVAWorkload()
+				return svc
+			}(),
+			current: func() *LLMInferenceService {
+				svc := newBaseLLMInferenceServiceV1Alpha2()
+				svc.Spec.WorkloadSpec = makeWVAWorkload()
+				svc.Labels = map[string]string{"updated": "true"}
+				svc.Spec.Scaling.MaxReplicas = 3
+				return svc
+			}(),
+		},
+		{
+			name: "update removing existing WVA is allowed",
+			old: func() *LLMInferenceService {
+				svc := newBaseLLMInferenceServiceV1Alpha2()
+				svc.Spec.WorkloadSpec = makeWVAWorkload()
+				return svc
+			}(),
+			current: newBaseLLMInferenceServiceV1Alpha2(),
+		},
+	}...)
+
+	for _, mutation := range []struct {
+		name   string
+		modify func(*WVASpec)
+	}{
+		{"variant cost", func(wva *WVASpec) { wva.VariantCost = "20.0" }},
+		{"polling interval", func(wva *WVASpec) { wva.KEDA.PollingInterval = ptr.To(int32(60)) }},
+		{"idle replica count", func(wva *WVASpec) { wva.KEDA.IdleReplicaCount = ptr.To(int32(1)) }},
+		{"actuator", func(wva *WVASpec) {
+			wva.KEDA = nil
+			wva.HPA = &HPAScalingSpec{}
+		}},
+	} {
+		old := newBaseLLMInferenceServiceV1Alpha2()
+		old.Spec.WorkloadSpec = makeWVAWorkload()
+		current := old.DeepCopy()
+		mutation.modify(current.Spec.Scaling.WVA)
+		tests = append(tests, testCase{
+			name:    "update changing " + mutation.name + " is rejected",
+			old:     old,
+			current: current,
+			wantErr: true,
+		})
+	}
+
+	for _, workload := range []string{"main", "prefill"} {
+		t.Run(workload, func(t *testing.T) {
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					old, current := tt.old.DeepCopy(), tt.current.DeepCopy()
+					path := "spec.scaling.wva"
+					if workload == "prefill" {
+						path = "spec.prefill.scaling.wva"
+						if old != nil {
+							old.Spec.Prefill = &WorkloadSpec{Scaling: old.Spec.Scaling}
+							old.Spec.Scaling = nil
+						}
+						current.Spec.Prefill = &WorkloadSpec{Scaling: current.Spec.Scaling}
+						current.Spec.Scaling = nil
 					}
-				}
-				assert.True(t, found, "expected error containing %q, got: %v", wantStr, errs)
+					err := (&LLMInferenceServiceValidator{}).validateWVAConfig(old, current)
+					if tt.wantErr {
+						require.Len(t, err, 1)
+						assert.Equal(t, path, err[0].Field)
+						assert.Equal(t, field.ErrorTypeForbidden, err[0].Type)
+						assert.ErrorContains(t, err[0], "WVA autoscaling is no longer supported")
+						return
+					}
+					assert.Empty(t, err)
+				})
 			}
 		})
 	}
-}
-
-func TestValidateScaling_PrefillWorkload(t *testing.T) {
-	validator := &LLMInferenceServiceValidator{}
-
-	t.Run("error on prefill scaling uses correct field path", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.Prefill = &WorkloadSpec{
-			Replicas: ptr.To(int32(3)),
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA: &WVASpec{
-					ActuatorSpec: ActuatorSpec{
-						HPA: &HPAScalingSpec{},
-					},
-				},
-			},
-		}
-
-		errs := validator.validateScaling(svc)
-		require.Len(t, errs, 1)
-		assert.Contains(t, errs[0].Field, "spec.prefill.scaling",
-			"error should reference spec.prefill.scaling path")
-		assert.Contains(t, errs[0].Detail, "scaling and replicas are mutually exclusive")
-	})
-
-	t.Run("both decode and prefill with matching HPA backends", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.WorkloadSpec = WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MinReplicas: ptr.To(int32(1)),
-				MaxReplicas: 5,
-				WVA: &WVASpec{
-					ActuatorSpec: ActuatorSpec{
-						HPA: &HPAScalingSpec{},
-					},
-				},
-			},
-		}
-		svc.Spec.Prefill = &WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MinReplicas: ptr.To(int32(2)),
-				MaxReplicas: 8,
-				WVA: &WVASpec{
-					ActuatorSpec: ActuatorSpec{
-						HPA: &HPAScalingSpec{},
-					},
-				},
-			},
-		}
-
-		errs := validator.validateScaling(svc)
-		assert.Empty(t, errs, "expected no errors when both workloads use HPA")
-	})
-
-	t.Run("both decode and prefill with matching KEDA backends", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.WorkloadSpec = WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MinReplicas: ptr.To(int32(1)),
-				MaxReplicas: 5,
-				WVA: &WVASpec{
-					ActuatorSpec: ActuatorSpec{
-						KEDA: &KEDAScalingSpec{},
-					},
-				},
-			},
-		}
-		svc.Spec.Prefill = &WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MinReplicas: ptr.To(int32(2)),
-				MaxReplicas: 8,
-				WVA: &WVASpec{
-					ActuatorSpec: ActuatorSpec{
-						KEDA: &KEDAScalingSpec{
-							IdleReplicaCount: ptr.To(int32(1)),
-						},
-					},
-				},
-			},
-		}
-
-		errs := validator.validateScaling(svc)
-		assert.Empty(t, errs, "expected no errors when both workloads use KEDA")
-	})
-
-	t.Run("scalingModifiers set - rejected", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.WorkloadSpec = WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA: &WVASpec{
-					ActuatorSpec: ActuatorSpec{
-						KEDA: &KEDAScalingSpec{
-							Advanced: &kedav1alpha1.AdvancedConfig{
-								ScalingModifiers: kedav1alpha1.ScalingModifiers{
-									Formula: "wva_desired_replicas",
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-
-		errs := validator.validateScaling(svc)
-		require.Len(t, errs, 1)
-		assert.Equal(t, field.ErrorTypeForbidden, errs[0].Type)
-		assert.Contains(t, errs[0].Field, "scalingModifiers")
-	})
-
-	t.Run("horizontalPodAutoscalerConfig name set - rejected", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.WorkloadSpec = WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA: &WVASpec{
-					ActuatorSpec: ActuatorSpec{
-						KEDA: &KEDAScalingSpec{
-							Advanced: &kedav1alpha1.AdvancedConfig{
-								HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
-									Name: "my-hpa",
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-
-		errs := validator.validateScaling(svc)
-		require.Len(t, errs, 1)
-		assert.Equal(t, field.ErrorTypeForbidden, errs[0].Type)
-		assert.Contains(t, errs[0].Field, "horizontalPodAutoscalerConfig")
-	})
-
-	t.Run("keda advanced with only behavior - allowed", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.WorkloadSpec = WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA: &WVASpec{
-					ActuatorSpec: ActuatorSpec{
-						KEDA: &KEDAScalingSpec{
-							Advanced: &kedav1alpha1.AdvancedConfig{
-								HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
-									Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
-
-		errs := validator.validateScaling(svc)
-		assert.Empty(t, errs, "expected no errors when only behavior is set in advanced")
-	})
-
-	t.Run("errors on both decode and prefill are reported", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		// Decode: missing WVA
-		svc.Spec.WorkloadSpec = WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-			},
-		}
-		// Prefill: minReplicas > maxReplicas
-		svc.Spec.Prefill = &WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MinReplicas: ptr.To(int32(10)),
-				MaxReplicas: 5,
-				WVA: &WVASpec{
-					ActuatorSpec: ActuatorSpec{
-						HPA: &HPAScalingSpec{},
-					},
-				},
-			},
-		}
-
-		errs := validator.validateScaling(svc)
-		require.Len(t, errs, 2, "expected errors from both decode and prefill workloads")
-
-		foundDecodeErr := false
-		foundPrefillErr := false
-		for _, e := range errs {
-			if strings.Contains(e.Field, "spec.scaling") && !strings.Contains(e.Field, "prefill") {
-				foundDecodeErr = true
-			}
-			if strings.Contains(e.Field, "spec.prefill.scaling") {
-				foundPrefillErr = true
-			}
-		}
-		assert.True(t, foundDecodeErr, "expected error on spec.scaling path for decode workload")
-		assert.True(t, foundPrefillErr, "expected error on spec.prefill.scaling path for prefill workload")
-	})
-}
-
-func TestValidateActuatorConsistency(t *testing.T) {
-	validator := &LLMInferenceServiceValidator{}
-
-	t.Run("valid: decode HPA, no prefill scaling", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.WorkloadSpec = WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
-			},
-		}
-		svc.Spec.Prefill = &WorkloadSpec{Replicas: ptr.To(int32(2))}
-		errs := validator.validateScaling(svc)
-		assert.Empty(t, errs)
-	})
-
-	t.Run("valid: no prefill at all", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.WorkloadSpec = WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
-			},
-		}
-		errs := validator.validateScaling(svc)
-		assert.Empty(t, errs)
-	})
-
-	t.Run("valid: decode scaling only, prefill has no scaling", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.WorkloadSpec = WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{KEDA: &KEDAScalingSpec{}}},
-			},
-		}
-		svc.Spec.Prefill = &WorkloadSpec{Replicas: ptr.To(int32(3))}
-		errs := validator.validateScaling(svc)
-		assert.Empty(t, errs)
-	})
-
-	t.Run("valid: prefill scaling only, decode has no scaling", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.WorkloadSpec = WorkloadSpec{Replicas: ptr.To(int32(2))}
-		svc.Spec.Prefill = &WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
-			},
-		}
-		errs := validator.validateScaling(svc)
-		assert.Empty(t, errs)
-	})
-
-	t.Run("error: decode direct KEDA, prefill WVA", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.WorkloadSpec = WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				KEDA: &DirectKEDAScalingSpec{
-					Triggers: []kedav1alpha1.ScaleTriggers{
-						{Type: "cpu", Metadata: map[string]string{"value": "80"}},
-					},
-				},
-			},
-		}
-		svc.Spec.Prefill = &WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
-			},
-		}
-
-		errs := validator.validateScaling(svc)
-		require.Len(t, errs, 1)
-		assert.Contains(t, errs[0].Field, "spec.prefill.scaling")
-		assert.Contains(t, errs[0].Detail, "decode uses direct keda but prefill uses wva")
-	})
-
-	t.Run("error: decode WVA, prefill direct KEDA", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.WorkloadSpec = WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{KEDA: &KEDAScalingSpec{}}},
-			},
-		}
-		svc.Spec.Prefill = &WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				KEDA: &DirectKEDAScalingSpec{
-					Triggers: []kedav1alpha1.ScaleTriggers{
-						{Type: "memory", Metadata: map[string]string{"value": "70"}},
-					},
-				},
-			},
-		}
-
-		errs := validator.validateScaling(svc)
-		require.Len(t, errs, 1)
-		assert.Contains(t, errs[0].Field, "spec.prefill.scaling")
-		assert.Contains(t, errs[0].Detail, "decode uses wva but prefill uses direct keda")
-	})
-
-	t.Run("error: decode HPA, prefill KEDA", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.WorkloadSpec = WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
-			},
-		}
-		svc.Spec.Prefill = &WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{KEDA: &KEDAScalingSpec{}}},
-			},
-		}
-
-		errs := validator.validateScaling(svc)
-		require.Len(t, errs, 1)
-		assert.Contains(t, errs[0].Field, "spec.prefill.scaling.wva")
-		assert.Contains(t, errs[0].Detail, "decode uses hpa but prefill uses keda")
-	})
-
-	t.Run("error: decode KEDA, prefill HPA", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.WorkloadSpec = WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{KEDA: &KEDAScalingSpec{}}},
-			},
-		}
-		svc.Spec.Prefill = &WorkloadSpec{
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
-			},
-		}
-
-		errs := validator.validateScaling(svc)
-		require.Len(t, errs, 1)
-		assert.Contains(t, errs[0].Field, "spec.prefill.scaling.wva")
-		assert.Contains(t, errs[0].Detail, "decode uses keda but prefill uses hpa")
-	})
-
-	t.Run("valid: scaling+worker on decode workload (multi-node autoscaling)", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.WorkloadSpec = WorkloadSpec{
-			Worker: &corev1.PodSpec{},
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{HPA: &HPAScalingSpec{}}},
-			},
-		}
-
-		errs := validator.validateScaling(svc)
-		require.Empty(t, errs)
-	})
-
-	t.Run("valid: scaling+worker on prefill workload (multi-node autoscaling)", func(t *testing.T) {
-		svc := newBaseLLMInferenceServiceV1Alpha2()
-		svc.Spec.WorkloadSpec = WorkloadSpec{Replicas: ptr.To(int32(2))}
-		svc.Spec.Prefill = &WorkloadSpec{
-			Worker: &corev1.PodSpec{},
-			Scaling: &ScalingSpec{
-				MaxReplicas: 5,
-				WVA:         &WVASpec{ActuatorSpec: ActuatorSpec{KEDA: &KEDAScalingSpec{}}},
-			},
-		}
-
-		errs := validator.validateScaling(svc)
-		require.Empty(t, errs)
-	})
 }
 
 func TestValidateLoRAAdapters(t *testing.T) {
@@ -1390,6 +486,39 @@ func TestValidateLoRAAdapters(t *testing.T) {
 		}))
 		assert.Empty(t, errs)
 	})
+}
+
+func TestValidateLoRAModelRoutingStrategyAnnotation(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	for _, tt := range []struct {
+		name    string
+		value   *string
+		wantErr bool
+	}{
+		{name: "absent defers to the ConfigMap", value: nil},
+		{name: "empty defers to the ConfigMap", value: ptr.To("")},
+		{name: "exact", value: ptr.To("exact")},
+		{name: "regex", value: ptr.To("regex")},
+		{name: "trimmed and case-insensitive like the consumer", value: ptr.To(" Regex ")},
+		{name: "typo is rejected at admission", value: ptr.To("regexp"), wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceServiceV1Alpha2()
+			if tt.value != nil {
+				svc.Spec.Annotations = map[string]string{constants.LoRAModelRoutingStrategyAnnotationKey: *tt.value}
+			}
+
+			errs := validator.validateLoRAModelRoutingStrategyAnnotation(svc)
+
+			if !tt.wantErr {
+				require.Empty(t, errs)
+				return
+			}
+			require.Len(t, errs, 1)
+			assert.Equal(t, field.ErrorTypeNotSupported, errs[0].Type)
+			assert.Contains(t, errs[0].Field, constants.LoRAModelRoutingStrategyAnnotationKey)
+		})
+	}
 }
 
 func TestValidateManagedDRAAnnotations(t *testing.T) {
@@ -1890,6 +1019,45 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 	})
 }
 
+func TestValidateKVCacheOffloadingNegativeCPU(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+
+	makeSvc := func(kv *KVCacheOffloadingSpec) *LLMInferenceService {
+		return &LLMInferenceService{
+			Spec: LLMInferenceServiceSpec{
+				WorkloadSpec: WorkloadSpec{KVCacheOffloading: kv},
+			},
+		}
+	}
+	negative := &KVCacheOffloadingSpec{CPU: resource.MustParse("-1Gi")}
+
+	t.Run("rejected", func(t *testing.T) {
+		errs := validator.validateKVCacheOffloading(makeSvc(negative))
+		require.Len(t, errs, 1)
+		assert.Equal(t, field.ErrorTypeInvalid, errs[0].Type)
+		assert.Contains(t, errs[0].Field, "cpu")
+	})
+
+	// Correcting the field is accepted, so a stored negative is not stranded even
+	// though the rule is not ratcheted against the previous object.
+	t.Run("correcting it is accepted", func(t *testing.T) {
+		assert.Empty(t, validator.validateKVCacheOffloading(
+			makeSvc(&KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi")})))
+	})
+
+	t.Run("zero is left alone", func(t *testing.T) {
+		assert.Empty(t, validator.validateKVCacheOffloading(makeSvc(&KVCacheOffloadingSpec{})))
+	})
+
+	t.Run("prefill is checked too", func(t *testing.T) {
+		svc := makeSvc(&KVCacheOffloadingSpec{CPU: resource.MustParse("10Gi")})
+		svc.Spec.Prefill = &WorkloadSpec{KVCacheOffloading: negative}
+		errs := validator.validateKVCacheOffloading(svc)
+		require.Len(t, errs, 1)
+		assert.Contains(t, errs[0].Field, "prefill")
+	})
+}
+
 func TestValidateRolloutStrategy(t *testing.T) {
 	validator := &LLMInferenceServiceValidator{}
 
@@ -2021,4 +1189,114 @@ func TestValidateRolloutStrategy(t *testing.T) {
 		assert.Contains(t, errs[0].Field, "prefill")
 		assert.Contains(t, errs[0].Field, "maxUnavailable")
 	})
+}
+
+func TestValidateDisaggregatedSetAnnotation(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	for _, tt := range []struct {
+		name       string
+		value      *string
+		inMetadata bool
+		scaling    bool
+		wantErr    bool
+	}{
+		{name: "absent is valid", value: nil},
+		{name: "opted out is valid", value: ptr.To("false")},
+		{name: "opted in is valid", value: ptr.To("true")},
+		{name: "case-insensitive", value: ptr.To("True")},
+		{name: "trimmed value is valid", value: ptr.To("  true  ")},
+		// Admission checks the annotation's shape only. It cannot read the feature
+		// gate, and presets merged after admission can still add spec.scaling, so
+		// opting in alongside scaling must be admitted here and constrained by the
+		// reconciler instead.
+		{name: "opted in with scaling is admitted", value: ptr.To("true"), scaling: true},
+		// The contract is exactly true/false, narrower than strconv.ParseBool.
+		{name: "unrecognised value is rejected", value: ptr.To("yes"), wantErr: true},
+		{name: "empty value is rejected", value: ptr.To(""), wantErr: true},
+		{name: "ParseBool shorthand is rejected", value: ptr.To("1"), wantErr: true},
+		// The key is read from spec.annotations only, so a value in metadata is ignored.
+		{name: "metadata annotation is not validated", value: ptr.To("yes"), inMetadata: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceServiceV1Alpha2()
+			if tt.value != nil {
+				annotations := map[string]string{constants.LLMDisaggregatedSetAnnotationKey: *tt.value}
+				if tt.inMetadata {
+					svc.Annotations = annotations
+				} else {
+					svc.Spec.Annotations = annotations
+				}
+			}
+			if tt.scaling {
+				svc.Spec.Scaling = &ScalingSpec{}
+				svc.Spec.Prefill = &WorkloadSpec{Scaling: &ScalingSpec{}}
+			}
+
+			errs := validator.validateDisaggregatedSetAnnotation(svc)
+
+			if !tt.wantErr {
+				require.Empty(t, errs)
+				return
+			}
+			require.Len(t, errs, 1)
+			assert.Equal(t, field.ErrorTypeNotSupported, errs[0].Type)
+			assert.Equal(t, "spec.annotations["+constants.LLMDisaggregatedSetAnnotationKey+"]", errs[0].Field)
+		})
+	}
+}
+
+func TestValidateModelExpress(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	uriField := field.NewPath("spec", "model", "uri").String()
+
+	parse := func(t *testing.T, uri string) apis.URL {
+		t.Helper()
+		u, err := apis.ParseURL(uri)
+		require.NoError(t, err)
+		return *u
+	}
+
+	tests := []struct {
+		name        string
+		annotations map[string]string
+		modelURI    string
+		loraURIs    []string
+		wantFields  []string
+	}{
+		{name: "disabled", modelURI: "oci://registry/model:tag"},
+		{name: "native s3", annotations: map[string]string{constants.ModelExpressModeAnnotationKey: "native"}, modelURI: "s3://bucket/llama"},
+		{name: "native hf with remote adapter", annotations: map[string]string{constants.ModelExpressModeAnnotationKey: "native"}, modelURI: "hf://org/model", loraURIs: []string{"s3://bucket/adapter"}},
+		{name: "layered pvc", annotations: map[string]string{constants.ModelExpressModeAnnotationKey: "layered"}, modelURI: "pvc://models/llama"},
+		{name: "native pvc rejected", annotations: map[string]string{constants.ModelExpressModeAnnotationKey: "native"}, modelURI: "pvc://models/llama", wantFields: []string{uriField}},
+		{name: "native s3 with hf adapter rejected", annotations: map[string]string{constants.ModelExpressModeAnnotationKey: "native"}, modelURI: "s3://bucket/llama", loraURIs: []string{"hf://org/adapter"}, wantFields: []string{uriField}},
+		{name: "native with preset-supplied uri skips the source check", annotations: map[string]string{constants.ModelExpressModeAnnotationKey: "native"}},
+		{
+			name:        "annotation errors short-circuit the source check",
+			annotations: map[string]string{constants.ModelExpressModeAnnotationKey: "turbo"},
+			modelURI:    "pvc://models/llama",
+			wantFields:  []string{field.NewPath("metadata", "annotations").Key(constants.ModelExpressModeAnnotationKey).String()},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceServiceV1Alpha2()
+			svc.Annotations = tt.annotations
+			svc.Spec.Model.URI = apis.URL{}
+			if tt.modelURI != "" {
+				svc.Spec.Model.URI = parse(t, tt.modelURI)
+			}
+			if len(tt.loraURIs) > 0 {
+				svc.Spec.Model.LoRA = &LoRASpec{}
+				for i, uri := range tt.loraURIs {
+					svc.Spec.Model.LoRA.Adapters = append(svc.Spec.Model.LoRA.Adapters, LLMModelSpec{Name: ptr.To("a" + strconv.Itoa(i)), URI: parse(t, uri)})
+				}
+			}
+
+			errs := validator.validateModelExpress(svc)
+			require.Len(t, errs, len(tt.wantFields), "errors: %v", errs)
+			for i, e := range errs {
+				assert.Equal(t, tt.wantFields[i], e.Field)
+			}
+		})
+	}
 }

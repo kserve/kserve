@@ -21,6 +21,9 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,6 +36,7 @@ import (
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
 	. "github.com/kserve/kserve/pkg/controller/v1alpha2/llmisvc/fixture"
+	. "github.com/kserve/kserve/pkg/testing"
 )
 
 var _ = Describe("LLMInferenceService Group Routing", func() {
@@ -139,6 +143,92 @@ var _ = Describe("LLMInferenceService Group Routing", func() {
 				g.Expect(cond).ToNot(BeNil())
 				g.Expect(cond.IsTrue()).To(BeTrue())
 			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("Member route re-acceptance", func() {
+		It("should keep a member in its peer's route while the member's own route is not yet accepted", func(ctx SpecContext) {
+			// given
+			groupName := "reaccept-group"
+			svcNameA := "test-reaccept-a"
+			svcNameB := "test-reaccept-b"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvcA := LLMInferenceService(svcNameA,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithGroup(groupName),
+				WithWeight(80),
+			)
+			llmSvcB := LLMInferenceService(svcNameB,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithGroup(groupName),
+				WithWeight(20),
+			)
+
+			Expect(envTest.Create(ctx, llmSvcA)).To(Succeed())
+			Expect(envTest.Create(ctx, llmSvcB)).To(Succeed())
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvcA)
+				testNs.DeleteAndWait(ctx, llmSvcB)
+			}()
+
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvcA)
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvcB)
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, llmSvcB)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				g.Expect(groupRoutingBackendRefs(&routes[0], llmSvcB)).To(HaveLen(2))
+			}).WithContext(ctx).Should(Succeed())
+
+			// B's route must be settled before the trigger, or a rewrite below could
+			// not be attributed to A's readiness change.
+			specB := settledRouteSpec(ctx, llmSvcB)
+
+			// when - the gateway has not yet accepted A's current route generation,
+			// as happens right after every route write.
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, llmSvcA)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				route := routes[0].DeepCopy()
+				g.Expect(route.Generation).To(BeNumerically(">", 1), "group injection must have rewritten A's route at least once")
+				withStaleRouteAcceptance(route)
+				g.Expect(envTest.Status().Update(ctx, route)).To(Succeed())
+			}).WithContext(ctx).Should(Succeed())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				currentA := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvcA), currentA)).To(Succeed())
+				g.Expect(currentA.Status).To(HaveCondition(string(v1alpha2.HTTPRoutesReady), "False"))
+				g.Expect(currentA.Status).To(HaveCondition(string(v1alpha2.RouterReady), "False"))
+			}).WithContext(ctx).Should(Succeed())
+
+			// then - B keeps routing to A's backend and does not rewrite its route.
+			Consistently(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, llmSvcB)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				g.Expect(routes[0].Spec).To(Equal(specB), "B's route must not be rewritten")
+
+				backendRefs := groupRoutingBackendRefs(&routes[0], llmSvcB)
+				g.Expect(backendRefs).To(HaveLen(2))
+				g.Expect(backendRefs).To(ContainElement(SatisfyAll(
+					HaveBackendName(svcNameA),
+					HaveBackendWeight(int32(80)),
+				)))
+			}).WithContext(ctx).WithTimeout(5 * time.Second).Should(Succeed())
 		})
 	})
 
@@ -480,6 +570,116 @@ var _ = Describe("LLMInferenceService Group Routing", func() {
 				g.Expect(currentA.Status.Router.Group.Members).To(HaveLen(1))
 				g.Expect(currentA.Status.Router.Group.Members[0].Name).To(Equal(svcNameA))
 			}).WithContext(ctx).Should(Succeed())
+		})
+	})
+
+	Context("Member deletion with an unreconcilable peer", func() {
+		It("should complete deletion when a surviving peer cannot render its desired route", func(ctx SpecContext) {
+			// given - two healthy members of one group
+			groupName := "stuck-group"
+			svcNameA := "test-stuck-a"
+			svcNameB := "test-stuck-b"
+			testNs := NewTestNamespace(ctx, envTest)
+
+			llmSvcA := LLMInferenceService(svcNameA,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithGroup(groupName),
+				WithWeight(60),
+			)
+
+			llmSvcB := LLMInferenceService(svcNameB,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithModelURI("hf://facebook/opt-125m"),
+				WithModelName("facebook/opt-125m"),
+				WithManagedRoute(),
+				WithManagedGateway(),
+				WithManagedScheduler(),
+				WithGroup(groupName),
+				WithWeight(40),
+			)
+
+			Expect(envTest.Create(ctx, llmSvcA)).To(Succeed())
+			Expect(envTest.Create(ctx, llmSvcB)).To(Succeed())
+			defer func() {
+				// A is deliberately left unreconcilable, so tear it down first:
+				// once both members terminate neither finalizer waits on the other.
+				testNs.DeleteAndWait(ctx, llmSvcA)
+				testNs.DeleteAndWait(ctx, llmSvcB)
+			}()
+
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvcA)
+			ensureRouterManagedResourcesAreReady(ctx, envTest.Client, llmSvcB)
+
+			routeBefore := &gwapiv1.HTTPRoute{}
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, llmSvcA)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				g.Expect(groupRoutingBackendRefs(&routes[0], llmSvcA)).To(HaveLen(2))
+				routeBefore = routes[0].DeepCopy()
+			}).WithContext(ctx).Should(Succeed())
+
+			// when - A can no longer resolve its configuration
+			Expect(retry.RetryOnConflict(retry.DefaultRetry, func() error {
+				current := &v1alpha2.LLMInferenceService{}
+				if err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvcA), current); err != nil {
+					return err
+				}
+				current.Spec.BaseRefs = []corev1.LocalObjectReference{{Name: "does-not-exist"}}
+				return envTest.Update(ctx, current)
+			})).To(Succeed())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				current := &v1alpha2.LLMInferenceService{}
+				g.Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvcA), current)).To(Succeed())
+				g.Expect(current.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "False"))
+				g.Expect(current.Status.GetCondition(v1alpha2.PresetsCombined).Reason).To(Equal("ConfigNotFound"))
+			}).WithContext(ctx).Should(Succeed())
+
+			// A's stored route is frozen with B's backendRef still in it
+			Consistently(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, llmSvcA)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+				g.Expect(backendRefNames(groupRoutingBackendRefs(&routes[0], llmSvcA))).
+					To(ContainElement(HavePrefix(svcNameB)))
+			}).WithContext(ctx).WithTimeout(5 * time.Second).Should(Succeed())
+
+			// when - B is deleted while A stays broken
+			Expect(envTest.Delete(ctx, llmSvcB)).To(Succeed())
+
+			// then - deletion finishes without anyone repairing A
+			Eventually(func(g Gomega, ctx context.Context) {
+				err := envTest.Get(ctx, client.ObjectKeyFromObject(llmSvcB), &v1alpha2.LLMInferenceService{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue(),
+					"deletion must not depend on repairing peer %s, got: %v", svcNameA, err)
+			}).WithContext(ctx).Should(Succeed())
+
+			// and - A survives with B pruned from its route and nothing else touched
+			Eventually(func(g Gomega, ctx context.Context) {
+				routes, err := managedRoutes(ctx, llmSvcA)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(routes).To(HaveLen(1))
+
+				refs := groupRoutingBackendRefs(&routes[0], llmSvcA)
+				g.Expect(refs).To(HaveLen(1))
+				g.Expect(refs[0]).To(HaveBackendName(svcNameA))
+				g.Expect(refs[0].Weight).To(Equal(new(int32(60))), "surviving weights must be preserved")
+				g.Expect(routes[0].Spec.Hostnames).To(Equal(routeBefore.Spec.Hostnames))
+				g.Expect(routeRuleMatches(&routes[0])).To(Equal(routeRuleMatches(routeBefore)),
+					"pruning must not regenerate the route")
+			}).WithContext(ctx).Should(Succeed())
+
+			currentA := &v1alpha2.LLMInferenceService{}
+			Expect(envTest.Get(ctx, client.ObjectKeyFromObject(llmSvcA), currentA)).To(Succeed())
+			Expect(currentA.DeletionTimestamp.IsZero()).To(BeTrue())
+			Expect(currentA.Status).To(HaveCondition(string(v1alpha2.PresetsCombined), "False"),
+				"cleanup must not paper over the unresolved configuration")
 		})
 	})
 
@@ -1027,6 +1227,16 @@ func groupRoutingBackendRefs(route *gwapiv1.HTTPRoute, owner *v1alpha2.LLMInfere
 	return nil
 }
 
+// routeRuleMatches returns the match rules of every rule, so a test can assert
+// that pruning backendRefs left the routing decisions themselves alone.
+func routeRuleMatches(route *gwapiv1.HTTPRoute) [][]gwapiv1.HTTPRouteMatch {
+	matches := make([][]gwapiv1.HTTPRouteMatch, len(route.Spec.Rules))
+	for i, rule := range route.Spec.Rules {
+		matches[i] = rule.Matches
+	}
+	return matches
+}
+
 // backendRefNames extracts the backend names from a slice of HTTPBackendRef.
 func backendRefNames(refs []gwapiv1.HTTPBackendRef) []string {
 	names := make([]string, len(refs))
@@ -1049,4 +1259,35 @@ func HaveBackendWeight(weight int32) OmegaMatcher {
 	return WithTransform(func(ref gwapiv1.HTTPBackendRef) *int32 {
 		return ref.Weight
 	}, Equal(ptr.To(weight)))
+}
+
+// withStaleRouteAcceptance leaves the route accepted for its previous generation
+// only, which is what a gateway controller reports between a spec write and its
+// re-acceptance of the new generation.
+func withStaleRouteAcceptance(route *gwapiv1.HTTPRoute) {
+	WithHTTPRouteReadyStatus(DefaultGatewayControllerName)(route)
+	for i := range route.Status.Parents {
+		for j := range route.Status.Parents[i].Conditions {
+			route.Status.Parents[i].Conditions[j].ObservedGeneration = route.Generation - 1
+		}
+	}
+}
+
+// settledRouteSpec returns the managed route spec of llmSvc once it has stayed
+// unchanged for a few seconds.
+func settledRouteSpec(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) gwapiv1.HTTPRouteSpec {
+	GinkgoHelper()
+	var last gwapiv1.HTTPRouteSpec
+	var lastChange time.Time
+	Eventually(func(g Gomega, ctx context.Context) {
+		routes, err := managedRoutes(ctx, llmSvc)
+		g.Expect(err).ToNot(HaveOccurred())
+		g.Expect(routes).To(HaveLen(1))
+		if lastChange.IsZero() || !equality.Semantic.DeepEqual(routes[0].Spec, last) {
+			last = *routes[0].Spec.DeepCopy()
+			lastChange = time.Now()
+		}
+		g.Expect(time.Since(lastChange)).To(BeNumerically(">=", 3*time.Second), "route spec still changing")
+	}).WithContext(ctx).WithTimeout(60 * time.Second).WithPolling(250 * time.Millisecond).Should(Succeed())
+	return last
 }

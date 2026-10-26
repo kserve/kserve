@@ -570,6 +570,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 			}
+			customizeRouterKnativeService(ig, expectedKnService)
 			// Set ResourceVersion which is required for update operation.
 			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
 
@@ -708,6 +709,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 			}
+			customizeRouterKnativeService(ig, expectedKnService)
 			// Set ResourceVersion which is required for update operation.
 			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
 
@@ -883,6 +885,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 			}
+			customizeRouterKnativeService(ig, expectedKnService)
 			// Set ResourceVersion which is required for update operation.
 			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
 
@@ -1359,6 +1362,37 @@ var _ = Describe("Inference Graph controller test", func() {
 				expectResourceToExist(context.Background(), &corev1.Service{}, graphServiceKey)
 				expectIGToExist(context.Background(), graphServiceKey)
 
+				// The graph's deployment and service must be owned by the InferenceGraph so
+				// they are garbage-collected with it (guards the inference-graph caller
+				// passing the owner into RawKubeReconciler.Reconcile).
+				rawDeployment := &appsv1.Deployment{}
+				Expect(k8sClient.Get(context.Background(), graphServiceKey, rawDeployment)).To(Succeed())
+				depRef := metav1.GetControllerOf(rawDeployment)
+				Expect(depRef).NotTo(BeNil(), "graph deployment has no controller owner reference (orphaned)")
+				Expect(depRef.Kind).To(Equal("InferenceGraph"))
+				Expect(depRef.Name).To(Equal(graphServiceKey.Name))
+
+				rawService := &corev1.Service{}
+				Expect(k8sClient.Get(context.Background(), graphServiceKey, rawService)).To(Succeed())
+				svcRef := metav1.GetControllerOf(rawService)
+				Expect(svcRef).NotTo(BeNil(), "graph service has no controller owner reference (orphaned)")
+				Expect(svcRef.Kind).To(Equal("InferenceGraph"))
+				Expect(svcRef.Name).To(Equal(graphServiceKey.Name))
+
+				// The graph's deployment and service must carry the KServe managed
+				// label: the manager's Deployment/Service informer caches are scoped
+				// to this label, so without it the controller would lose watch events
+				// for these resources (e.g. availability status updates).
+				Expect(rawDeployment.Labels).To(HaveKeyWithValue(constants.KServeManagedLabelKey, constants.KServeManagedLabelValue),
+					"graph deployment must carry the managed label to be visible to the scoped cache")
+				Expect(rawService.Labels).To(HaveKeyWithValue(constants.KServeManagedLabelKey, constants.KServeManagedLabelValue),
+					"graph service must carry the managed label to be visible to the scoped cache")
+
+				// The graph becomes Ready only after the (label-scoped) Deployment
+				// watch delivers the availability update, proving the managed label
+				// keeps IG deployments visible to the scoped informer cache.
+				expectIGConditionStatus(ctx, graphServiceKey, apis.ConditionReady, corev1.ConditionTrue)
+
 				expectIGConditionStatus(ctx, graphServiceKey, v1beta1.Stopped, corev1.ConditionFalse)
 			})
 
@@ -1606,6 +1640,7 @@ var _ = Describe("Inference Graph controller test", func() {
 					},
 				},
 			}
+			customizeRouterKnativeService(ig, expectedKnService)
 			// Set ResourceVersion which is required for update operation.
 			expectedKnService.ResourceVersion = actualKnServiceCreated.ResourceVersion
 

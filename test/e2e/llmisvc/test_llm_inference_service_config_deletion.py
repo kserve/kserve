@@ -38,6 +38,11 @@ CONFIG_FINALIZER = "serving.kserve.io/llmisvcconfig-finalizer"
 API_VERSION = "v1alpha2"
 WELL_KNOWN_CONFIG_SUFFIX = "-config-llm-template"
 
+# test_well_known_config_deletion_prevented_by_webhook deletes a well-known config in
+# the kserve namespace. If the webhook ever lets that through, every test running
+# alongside loses the config, so this file runs in the serial CI step.
+pytestmark = pytest.mark.llmisvc_serial
+
 
 def _kserve_client() -> KServeClient:
     return KServeClient(
