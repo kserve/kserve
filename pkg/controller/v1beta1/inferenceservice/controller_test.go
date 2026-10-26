@@ -1019,14 +1019,6 @@ var _ = Describe("v1beta1 inference service controller", func() {
 			}, timeout, interval).Should(BeTrue(), "%T %s should exist", obj, objKey.Name)
 		}
 
-		// Checks that any Kubernetes object to be not found.
-		expectResourceIsDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
-			Consistently(func() bool {
-				err := k8sClient.Get(ctx, objKey, obj)
-				return apierr.IsNotFound(err)
-			}, fastTimeout, interval).Should(BeTrue(), "%T %s should not be created", obj, objKey.Name)
-		}
-
 		// Wait for any Kubernetes object to be not found.
 		expectResourceToBeDeleted := func(ctx context.Context, obj client.Object, objKey types.NamespacedName) {
 			Eventually(func() bool {
@@ -1110,14 +1102,16 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
 				}
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
-
-				// Check that the services were not created
-				expectResourceIsDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
-				expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check that the ISVC status reflects that it is stopped
 				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
+
+				expectAbsent(ctx,
+					absent(&knservingv1.Service{}, predictorServiceKey),
+					// Check that the services were not created
+					absent(&istioclientv1beta1.VirtualService{}, serviceKey),
+					absent(&corev1.Service{}, serviceKey),
+				)
 			})
 
 			It("Should delete the knative service/virtualService/service when the annotation is updated to true on an existing ISVC", func() {
@@ -1210,17 +1204,19 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
 				}
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
-
-				// Check that the services were not created
-				expectResourceIsDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
-				expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check that the ISVC status reflects that it is stopped
-				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
 
+				expectAbsent(ctx,
+					absent(&knservingv1.Service{}, predictorServiceKey),
+					// Check that the services were not created
+					absent(&istioclientv1beta1.VirtualService{}, serviceKey),
+					absent(&corev1.Service{}, serviceKey),
+				)
+
 				// Resume the inference service
+				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				updatedIsvc := actualIsvc.DeepCopy()
 				updatedIsvc.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
@@ -1372,21 +1368,23 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
 				}
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
 
 				// Transformer knative service
 				transformerServiceKey := types.NamespacedName{
 					Name:      constants.TransformerServiceName(serviceName),
 					Namespace: serviceKey.Namespace,
 				}
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, transformerServiceKey)
-
-				// Check that the services were not created
-				expectResourceIsDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
-				expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check that the ISVC status reflects that it is stopped
 				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
+
+				expectAbsent(ctx,
+					absent(&knservingv1.Service{}, predictorServiceKey),
+					absent(&knservingv1.Service{}, transformerServiceKey),
+					// Check that the services were not created
+					absent(&istioclientv1beta1.VirtualService{}, serviceKey),
+					absent(&corev1.Service{}, serviceKey),
+				)
 			})
 
 			It("Should delete the transformer knative service/virtualService/service when the annotation is updated to true on an existing ISVC", func() {
@@ -1488,24 +1486,26 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
 				}
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
 
 				// Transformer knative service
 				transformerServiceKey := types.NamespacedName{
 					Name:      constants.TransformerServiceName(serviceName),
 					Namespace: serviceKey.Namespace,
 				}
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, transformerServiceKey)
-
-				// Check that the services were not created
-				expectResourceIsDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
-				expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check that the ISVC status reflects that it is stopped
-				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
 
+				expectAbsent(ctx,
+					absent(&knservingv1.Service{}, predictorServiceKey),
+					absent(&knservingv1.Service{}, transformerServiceKey),
+					// Check that the services were not created
+					absent(&istioclientv1beta1.VirtualService{}, serviceKey),
+					absent(&corev1.Service{}, serviceKey),
+				)
+
 				// Resume the inference service
+				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				updatedIsvc := actualIsvc.DeepCopy()
 				updatedIsvc.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
@@ -1665,21 +1665,23 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
 				}
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
 
 				// Explainer knative service
 				explainerServiceKey := types.NamespacedName{
 					Name:      constants.ExplainerServiceName(serviceName),
 					Namespace: serviceKey.Namespace,
 				}
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, explainerServiceKey)
-
-				// Check that the services were not created
-				expectResourceIsDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
-				expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check that the ISVC status reflects that it is stopped
 				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
+
+				expectAbsent(ctx,
+					absent(&knservingv1.Service{}, predictorServiceKey),
+					absent(&knservingv1.Service{}, explainerServiceKey),
+					// Check that the services were not created
+					absent(&istioclientv1beta1.VirtualService{}, serviceKey),
+					absent(&corev1.Service{}, serviceKey),
+				)
 			})
 
 			It("Should delete the explainer knative service/virtualService/service when the annotation is updated to true on an existing ISVC", func() {
@@ -1781,24 +1783,26 @@ var _ = Describe("v1beta1 inference service controller", func() {
 					Name:      constants.PredictorServiceName(serviceKey.Name),
 					Namespace: serviceKey.Namespace,
 				}
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, predictorServiceKey)
 
 				// Explainer knative service
 				explainerServiceKey := types.NamespacedName{
 					Name:      constants.ExplainerServiceName(serviceName),
 					Namespace: serviceKey.Namespace,
 				}
-				expectResourceIsDeleted(context.Background(), &knservingv1.Service{}, explainerServiceKey)
-
-				// Check that the services were not created
-				expectResourceIsDeleted(context.Background(), &istioclientv1beta1.VirtualService{}, serviceKey)
-				expectResourceIsDeleted(context.Background(), &corev1.Service{}, serviceKey)
 
 				// Check that the ISVC status reflects that it is stopped
-				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				expectIsvcConditionStatus(ctx, serviceKey, v1beta1.Stopped, corev1.ConditionTrue)
 
+				expectAbsent(ctx,
+					absent(&knservingv1.Service{}, predictorServiceKey),
+					absent(&knservingv1.Service{}, explainerServiceKey),
+					// Check that the services were not created
+					absent(&istioclientv1beta1.VirtualService{}, serviceKey),
+					absent(&corev1.Service{}, serviceKey),
+				)
+
 				// Resume the inference service
+				actualIsvc := expectIsvcToExist(ctx, serviceKey)
 				updatedIsvc := actualIsvc.DeepCopy()
 				updatedIsvc.Annotations[constants.StopAnnotationKey] = "false"
 				Expect(k8sClient.Update(ctx, updatedIsvc)).NotTo(HaveOccurred())
