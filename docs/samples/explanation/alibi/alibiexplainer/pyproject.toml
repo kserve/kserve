@@ -16,7 +16,7 @@ dependencies = [
     "nest-asyncio>=1.4.0,<1.5",
     # needed since resolvers may pick an older llvmlite not supported on newer Python
     "llvmlite>0.38.1",
-    "tensorflow-io-gcs-filesystem==0.37.1",
+    "tensorflow-io-gcs-filesystem==0.37.1; python_full_version < '3.13'",
     "keras>=3.12.0",
     "urllib3>=2.6.0",
     "transformers>=4.53.0",
@@ -41,8 +41,20 @@ override-dependencies = [
     # alibi<0.10 declares pillow<11.0, but this override allows resolving to
     # the patched version. alibi's Pillow usage is compatible with 12.x.
     "pillow>=12.3.0",
-    # Force a protobuf version compatible with TensorFlow
-    "protobuf>=4.25.3,<5.0.0",
+    # alibi<0.10 pins old numpy/numba/shap/spacy stacks that have no wheels for newer
+    # Python versions and conflict with TensorFlow>=2.19 (ml-dtypes>=0.5.1 needs numpy>=2.1 on 3.13).
+    # Keep the numpy 1.x stack on Python <3.13 and use numpy 2.x on 3.13.
+    "numpy>=1.26.0,<2.0; python_full_version < '3.13'",
+    "numpy>=2.1.0,<3.0; python_full_version >= '3.13'",
+    "numba>=0.59.0,<0.60; python_full_version < '3.13'",
+    "numba>=0.61.0; python_full_version >= '3.13'",
+    "llvmlite>=0.42.0,<0.43; python_full_version < '3.13'",
+    "llvmlite>=0.44.0; python_full_version >= '3.13'",
+    "shap>=0.45.0",
+    "spacy>=3.8.7; python_full_version >= '3.13'",
+    "thinc>=8.3.4; python_full_version >= '3.13'",
+    "blis>=1.2.0; python_full_version >= '3.13'",
+    "scikit-image>=0.25.0; python_full_version >= '3.13'",
 ]
 
 [tool.uv.sources]
