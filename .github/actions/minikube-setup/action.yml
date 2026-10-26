@@ -52,9 +52,9 @@ runs:
         cpus: 'max'
         memory: 'max'
         start-args: --wait-timeout=6m0s --nodes=${{ inputs.nodes }} ${{ inputs.start-args }}
-        # The e2e workflows never run on master, so every entry would be scoped
-        # to one PR: 0.8-1.6 GB of the repo's 10 GB cache quota to save ~4 s on
-        # that PR's re-pushes.
+        # These workflows usually run on PRs, whose caches cannot be shared
+        # with other PRs. Manual runs on master can create shared entries.
+        # Measured PR re-push savings were only ~4 s for 0.8-1.6 GB per entry.
         cache: false
 
     - name: Configure MetalLB address pool
