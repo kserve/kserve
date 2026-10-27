@@ -176,6 +176,24 @@ func validatePVCEvictorCachePath(workloadName string, workload *v1alpha2.Workloa
 	return nil
 }
 
+func validatePVCEvictorLeaderWorkerTemplate(workloadName string, workload *v1alpha2.WorkloadSpec, defaultImage string) error {
+	if workload == nil || !workloadHasPVCTier(workload) || !workloadSupportsPVCEvictor(workload) {
+		return nil
+	}
+	leader := findPVCEvictorContainerTemplate(workload.Template)
+	worker := findPVCEvictorContainerTemplate(workload.Worker)
+	if leader == nil || worker == nil {
+		return nil
+	}
+
+	leader = withPVCEvictorDefaultImage(leader, defaultImage)
+	worker = withPVCEvictorDefaultImage(worker, defaultImage)
+	if pvcEvictorContainerTemplateHash(leader) != pvcEvictorContainerTemplateHash(worker) {
+		return fmt.Errorf("%s leader and worker Pods must use the same pvc-evictor container template", workloadName)
+	}
+	return nil
+}
+
 func validatePVCEvictorContainerTemplates(llmSvc *v1alpha2.LLMInferenceService) error {
 	return validatePVCEvictorContainerTemplatesWithDefaultImage(llmSvc, "")
 }
@@ -195,6 +213,12 @@ func validatePVCEvictorContainerTemplatesWithDefaultImage(llmSvc *v1alpha2.LLMIn
 		return err
 	}
 	if err := validatePVCEvictorCachePath("prefill workload", llmSvc.Spec.Prefill); err != nil {
+		return err
+	}
+	if err := validatePVCEvictorLeaderWorkerTemplate("main workload", &llmSvc.Spec.WorkloadSpec, defaultImage); err != nil {
+		return err
+	}
+	if err := validatePVCEvictorLeaderWorkerTemplate("prefill workload", llmSvc.Spec.Prefill, defaultImage); err != nil {
 		return err
 	}
 

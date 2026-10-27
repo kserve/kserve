@@ -1509,6 +1509,43 @@ func TestValidatePVCEvictorContainerTemplates(t *testing.T) {
 	})
 }
 
+func TestValidatePVCEvictorContainerTemplatesRejectsLeaderWorkerDrift(t *testing.T) {
+	workload := &v1alpha2.WorkloadSpec{
+		Template: &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName, Image: "example.com/evictor:v1"},
+			},
+		},
+		Worker: &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName, Image: "example.com/evictor:v2"},
+			},
+		},
+		KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+			Secondary: []v1alpha2.SecondaryTierSpec{{
+				FileSystem: &v1alpha2.FileSystemTierSpec{
+					PVC: &v1alpha2.PVCTierSpec{
+						Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv"},
+					},
+				},
+			}},
+		},
+	}
+	svc := &v1alpha2.LLMInferenceService{
+		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: *workload},
+	}
+
+	err := validatePVCEvictorContainerTemplates(svc)
+	if err == nil {
+		t.Fatal("different leader and worker pvc-evictor templates were accepted")
+	}
+	if !strings.Contains(err.Error(), "same pvc-evictor container template") {
+		t.Fatalf("error = %v, want leader/worker pvc-evictor template conflict", err)
+	}
+}
+
 func TestReconcilePVCEvictorsDeletesDuplicateDeployments(t *testing.T) {
 	svc := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
