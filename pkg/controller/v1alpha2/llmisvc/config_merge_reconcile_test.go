@@ -167,18 +167,21 @@ func TestCombineBaseRefsConfig_SchedulerVersionPrecedence(t *testing.T) {
 
 	for _, tc := range []struct {
 		name             string
+		baseRefVersion   string
 		serviceScheduler *v1alpha2.SchedulerSpec
 		wantPreset       bool
 		wantVersion      string
 		wantImage        string
 	}{
 		{
-			name:        "baseRef pins router 0.11.0",
-			wantVersion: "0.11.0",
-			wantImage:   "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0",
+			name:           "baseRef pins router 0.11.0",
+			baseRefVersion: "0.11.0",
+			wantVersion:    "0.11.0",
+			wantImage:      "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0",
 		},
 		{
-			name: "service overrides a baseRef router pin",
+			name:           "service 1.0.0 overrides a baseRef 0.11.0 pin",
+			baseRefVersion: "0.11.0",
 			serviceScheduler: &v1alpha2.SchedulerSpec{
 				Annotations: map[string]string{"app.kubernetes.io/version": "1.0.0"},
 				Template: &corev1.PodSpec{
@@ -191,6 +194,21 @@ func TestCombineBaseRefsConfig_SchedulerVersionPrecedence(t *testing.T) {
 			wantPreset:  true,
 			wantVersion: "1.0.0",
 			wantImage:   "ghcr.io/llm-d/llm-d-router-endpoint-picker:v1.0.0",
+		},
+		{
+			name:           "service 0.11.0 overrides a baseRef 1.0.0 pin",
+			baseRefVersion: "1.0.0",
+			serviceScheduler: &v1alpha2.SchedulerSpec{
+				Annotations: map[string]string{"app.kubernetes.io/version": "0.11.0"},
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "main",
+						Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0",
+					}},
+				},
+			},
+			wantVersion: "0.11.0",
+			wantImage:   "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -213,11 +231,11 @@ func TestCombineBaseRefsConfig_SchedulerVersionPrecedence(t *testing.T) {
 				Spec: v1alpha2.LLMInferenceServiceSpec{
 					Router: &v1alpha2.RouterSpec{
 						Scheduler: &v1alpha2.SchedulerSpec{
-							Annotations: map[string]string{"app.kubernetes.io/version": "0.11.0"},
+							Annotations: map[string]string{"app.kubernetes.io/version": tc.baseRefVersion},
 							Template: &corev1.PodSpec{
 								Containers: []corev1.Container{{
 									Name:  "main",
-									Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0",
+									Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v" + tc.baseRefVersion,
 								}},
 							},
 						},
