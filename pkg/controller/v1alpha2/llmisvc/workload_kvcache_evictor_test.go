@@ -43,7 +43,10 @@ import (
 func TestAttachPVCEvictor(t *testing.T) {
 	podSpec := &corev1.PodSpec{
 		AutomountServiceAccountToken: ptr.To(true),
-		Containers:                   []corev1.Container{{Name: mainContainerName}},
+		Containers: []corev1.Container{{
+			Name: mainContainerName,
+			Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
+		}},
 	}
 	secondary := []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 		PVC: &v1alpha2.PVCTierSpec{
@@ -92,7 +95,10 @@ func TestAttachPVCEvictor(t *testing.T) {
 
 func TestAttachPVCEvictorUsesConfigMapImage(t *testing.T) {
 	podSpec := &corev1.PodSpec{
-		Containers: []corev1.Container{{Name: mainContainerName}},
+		Containers: []corev1.Container{{
+			Name: mainContainerName,
+			Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
+		}},
 	}
 	secondary := []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 		PVC: &v1alpha2.PVCTierSpec{
@@ -172,7 +178,7 @@ func TestAttachPVCEvictorUsesContainerTemplate(t *testing.T) {
 	}
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
-			{Name: mainContainerName},
+			{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
 			{
 				Name:            pvcEvictorTemplateName,
 				Image:           "example.com/evictor:v1.2.3",
@@ -242,7 +248,7 @@ func TestAttachPVCEvictorUsesContainerTemplate(t *testing.T) {
 func TestAttachPVCEvictorImageOnlyTemplateKeepsDefaults(t *testing.T) {
 	podSpec := &corev1.PodSpec{
 		Containers: []corev1.Container{
-			{Name: mainContainerName},
+			{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
 			{Name: pvcEvictorTemplateName, Image: "example.com/evictor:v1.2.3"},
 		},
 	}
@@ -280,11 +286,45 @@ func TestValidatePVCEvictorCachePath(t *testing.T) {
 		}
 	}
 
-	if err := validatePVCEvictorContainerTemplates(newService(nil)); err == nil || !strings.Contains(err.Error(), kvTransferArgsEnvVar) {
-		t.Fatalf("legacy preset validation error = %v, want a %s migration error", err, kvTransferArgsEnvVar)
+	if err := validatePVCEvictorContainerTemplates(newService(nil)); err != nil {
+		t.Fatalf("legacy preset validation error = %v, want nil", err)
 	}
 	if err := validatePVCEvictorContainerTemplates(newService([]corev1.EnvVar{{Name: kvTransferArgsEnvVar}})); err != nil {
 		t.Fatalf("modern preset validation error = %v", err)
+	}
+}
+
+func TestPVCEvictorRequiresNewPreset(t *testing.T) {
+	secondary := []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+		PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc"}},
+	}}}
+	svc := &v1alpha2.LLMInferenceService{
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{Name: mainContainerName}},
+				},
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: secondary},
+			},
+		},
+	}
+
+	if err := validatePVCEvictorContainerTemplates(svc); err != nil {
+		t.Fatalf("legacy preset validation error = %v, want nil", err)
+	}
+	if targets := collectPVCEvictorTargets(svc); len(targets) != 0 {
+		t.Fatalf("legacy preset target count = %d, want 0", len(targets))
+	}
+
+	podSpec := svc.Spec.Template.DeepCopy()
+	attachKVCacheSecondaryTiers(podSpec, secondary, mainContainerName, nil)
+	if got, want := len(podSpec.Containers), 1; got != want {
+		t.Fatalf("legacy preset container count = %d, want %d", got, want)
+	}
+
+	labels := addPVCEvictorConsumerLabels(nil, secondary, podSpec)
+	if len(labels) != 0 {
+		t.Fatalf("legacy preset consumer labels = %v, want none", labels)
 	}
 }
 
@@ -313,7 +353,7 @@ func TestExpectedPVCEvictorDeploymentForPVCRef(t *testing.T) {
 						RunAsGroup: ptr.To(int64(1000)),
 						FSGroup:    ptr.To(int64(1000)),
 					},
-					Containers: []corev1.Container{{Name: "main"}},
+					Containers: []corev1.Container{{Name: "main", Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}},
 				},
 				Worker: &corev1.PodSpec{Tolerations: []corev1.Toleration{workerToleration}},
 				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
@@ -426,7 +466,7 @@ func TestExpectedPVCEvictorDeploymentUsesContainerTemplate(t *testing.T) {
 			WorkloadSpec: v1alpha2.WorkloadSpec{
 				Template: &corev1.PodSpec{
 					Containers: []corev1.Container{
-						{Name: "main"},
+						{Name: "main", Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
 						{
 							Name:            pvcEvictorTemplateName,
 							Image:           "example.com/evictor:v1.2.3",
@@ -908,6 +948,10 @@ func TestDesiredPVCEvictorTemplateAgreementsMarksUnresolved(t *testing.T) {
 	current := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
 		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{Containers: []corev1.Container{{
+				Name: mainContainerName,
+				Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
+			}}},
 			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 					PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{
@@ -1032,7 +1076,10 @@ func TestCollectPVCEvictorTargetsMergesDuplicateIdentityTolerations(t *testing.T
 		WorkloadSpec: v1alpha2.WorkloadSpec{
 			Template: &corev1.PodSpec{
 				Tolerations: []corev1.Toleration{first},
-				Containers:  []corev1.Container{{Name: mainContainerName}},
+				Containers: []corev1.Container{{
+					Name: mainContainerName,
+					Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
+				}},
 			},
 			Worker: &corev1.PodSpec{Tolerations: []corev1.Toleration{second}},
 			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{
@@ -1109,11 +1156,17 @@ func TestPVCEvictorPVCPredicate(t *testing.T) {
 
 func TestEnqueueOnPVCEvictorPVCChangeTargetsDirectAndBaseRefServices(t *testing.T) {
 	pvcRefWorkload := func() v1alpha2.WorkloadSpec {
-		return v1alpha2.WorkloadSpec{KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
-			Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
-				PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "cache"}},
+		return v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{Containers: []corev1.Container{{
+				Name: mainContainerName,
+				Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
 			}}},
-		}}
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+					PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "cache"}},
+				}}},
+			},
+		}
 	}
 	direct := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "direct", Namespace: "test"},
@@ -1179,7 +1232,7 @@ func TestReconcileExistingPVCEvictorDeploymentRejectsContainerTemplateDrift(t *t
 			Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
 				Template: &corev1.PodSpec{
 					Containers: []corev1.Container{
-						{Name: "main"},
+						{Name: "main", Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
 						{Name: pvcEvictorTemplateName, Image: image},
 					},
 				},
@@ -1460,6 +1513,10 @@ func TestReconcilePVCEvictorsDeletesDuplicateDeployments(t *testing.T) {
 	svc := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
 		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{Containers: []corev1.Container{{
+				Name: mainContainerName,
+				Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
+			}}},
 			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 					PVC: &v1alpha2.PVCTierSpec{
@@ -1508,6 +1565,10 @@ func TestReconcilePVCEvictorsDeletesStaleDeploymentBeforeReplacement(t *testing.
 	svc := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
 		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{Containers: []corev1.Container{{
+				Name: mainContainerName,
+				Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
+			}}},
 			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 					PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{
@@ -1594,6 +1655,10 @@ func TestReconcilePVCEvictorsDoesNotWaitForUnrelatedStaleDeployment(t *testing.T
 	svc := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
 		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{Containers: []corev1.Container{{
+				Name: mainContainerName,
+				Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
+			}}},
 			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 					PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "active-pvc", Path: "cache"}},
@@ -1648,6 +1713,10 @@ func TestReconcilePVCEvictorsSharedPVCAndFinalCleanup(t *testing.T) {
 		return &v1alpha2.LLMInferenceService{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test"},
 			Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{Containers: []corev1.Container{{
+					Name: mainContainerName,
+					Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
+				}}},
 				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 						PVC: &v1alpha2.PVCTierSpec{
@@ -1758,11 +1827,14 @@ func TestPVCEvictorRejectsReadOnlyMany(t *testing.T) {
 }
 
 func TestAddPVCEvictorConsumerLabels(t *testing.T) {
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}},
+	}
 	labels := addPVCEvictorConsumerLabels(nil, []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 		PVC: &v1alpha2.PVCTierSpec{
 			Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache/"},
 		},
-	}}})
+	}}}, podSpec)
 
 	if got, want := labels[pvcEvictorConsumerLabelKey("shared-pvc", "kv-cache")], "true"; got != want {
 		t.Fatalf("consumer label = %q, want %q", got, want)

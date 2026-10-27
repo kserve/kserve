@@ -321,13 +321,13 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 		utils.PropagateMap(llmSvc.Spec.Labels, &group.LeaderTemplate.Labels)
 		utils.PropagateMap(llmSvc.Spec.Annotations, &group.LeaderTemplate.Annotations, nonPropagatedSpecAnnotations...)
 		if llmSvc.Spec.KVCacheOffloading != nil {
-			group.LeaderTemplate.Labels = addPVCEvictorConsumerLabels(group.LeaderTemplate.Labels, llmSvc.Spec.KVCacheOffloading.Secondary)
+			group.LeaderTemplate.Labels = addPVCEvictorConsumerLabels(group.LeaderTemplate.Labels, llmSvc.Spec.KVCacheOffloading.Secondary, &group.LeaderTemplate.Spec)
 		}
 	}
 	utils.PropagateMap(llmSvc.Spec.Labels, &group.WorkerTemplate.Labels)
 	utils.PropagateMap(llmSvc.Spec.Annotations, &group.WorkerTemplate.Annotations, nonPropagatedSpecAnnotations...)
 	if llmSvc.Spec.KVCacheOffloading != nil {
-		group.WorkerTemplate.Labels = addPVCEvictorConsumerLabels(group.WorkerTemplate.Labels, llmSvc.Spec.KVCacheOffloading.Secondary)
+		group.WorkerTemplate.Labels = addPVCEvictorConsumerLabels(group.WorkerTemplate.Labels, llmSvc.Spec.KVCacheOffloading.Secondary, &group.WorkerTemplate.Spec)
 	}
 
 	// Inject tracing instrumentation when spec.tracing is set
@@ -511,13 +511,13 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 			utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &group.LeaderTemplate.Labels)
 			utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &group.LeaderTemplate.Annotations, nonPropagatedSpecAnnotations...)
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
-				group.LeaderTemplate.Labels = addPVCEvictorConsumerLabels(group.LeaderTemplate.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary)
+				group.LeaderTemplate.Labels = addPVCEvictorConsumerLabels(group.LeaderTemplate.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, &group.LeaderTemplate.Spec)
 			}
 		}
 		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &group.WorkerTemplate.Labels)
 		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &group.WorkerTemplate.Annotations, nonPropagatedSpecAnnotations...)
 		if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
-			group.WorkerTemplate.Labels = addPVCEvictorConsumerLabels(group.WorkerTemplate.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary)
+			group.WorkerTemplate.Labels = addPVCEvictorConsumerLabels(group.WorkerTemplate.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, &group.WorkerTemplate.Spec)
 		}
 	}
 

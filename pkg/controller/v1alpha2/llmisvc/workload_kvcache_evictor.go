@@ -158,7 +158,7 @@ func withPVCEvictorDefaultImage(template *corev1.Container, defaultImage string)
 }
 
 func validatePVCEvictorCachePath(workloadName string, workload *v1alpha2.WorkloadSpec) error {
-	if workload == nil || !workloadHasPVCTier(workload) {
+	if workload == nil || !workloadHasPVCTier(workload) || !workloadSupportsPVCEvictor(workload) {
 		return nil
 	}
 	for _, podSpec := range []*corev1.PodSpec{workload.Template, workload.Worker} {
@@ -204,7 +204,7 @@ func validatePVCEvictorContainerTemplatesWithDefaultImage(llmSvc *v1alpha2.LLMIn
 		defaultImage,
 	)
 	addWorkload := func(workload *v1alpha2.WorkloadSpec, template *corev1.Container) {
-		if workload == nil || workload.KVCacheOffloading == nil || !workloadHasPVCTier(workload) {
+		if workload == nil || workload.KVCacheOffloading == nil || !workloadHasPVCTier(workload) || !workloadSupportsPVCEvictor(workload) {
 			return
 		}
 		identities := make(map[string]pvcEvictorReference)
@@ -637,7 +637,7 @@ func setupPVCEvictorIndexes(ctx context.Context, indexer client.FieldIndexer) er
 func collectPVCEvictorPVCNames(llmSvc *v1alpha2.LLMInferenceService) []string {
 	names := make(map[string]struct{})
 	add := func(workload *v1alpha2.WorkloadSpec) {
-		if workload == nil || workload.KVCacheOffloading == nil {
+		if workload == nil || workload.KVCacheOffloading == nil || !workloadSupportsPVCEvictor(workload) {
 			return
 		}
 		for _, tier := range workload.KVCacheOffloading.Secondary {
@@ -1208,7 +1208,10 @@ func pvcEvictorConsumerLabelKey(claimName, subPath string) string {
 	return pvcEvictorConsumerPrefix + pvcEvictorKey(claimName, subPath)
 }
 
-func addPVCEvictorConsumerLabels(labels map[string]string, secondary []v1alpha2.SecondaryTierSpec) map[string]string {
+func addPVCEvictorConsumerLabels(labels map[string]string, secondary []v1alpha2.SecondaryTierSpec, podSpec *corev1.PodSpec) map[string]string {
+	if !supportsPVCEvictor(podSpec) {
+		return labels
+	}
 	if labels == nil {
 		labels = map[string]string{}
 	}
@@ -1370,7 +1373,7 @@ func collectPVCEvictorTargets(llmSvc *v1alpha2.LLMInferenceService) []pvcEvictor
 	targetIndexes := make(map[string]int)
 	mainTemplate := workloadPVCEvictorContainerTemplate(&llmSvc.Spec.WorkloadSpec)
 	add := func(workload *v1alpha2.WorkloadSpec, template *corev1.Container) {
-		if workload == nil || workload.KVCacheOffloading == nil {
+		if workload == nil || workload.KVCacheOffloading == nil || !workloadSupportsPVCEvictor(workload) {
 			return
 		}
 		tolerations := workloadPVCEvictorTolerations(workload)
@@ -1413,6 +1416,26 @@ func workloadPVCEvictorTolerations(workload *v1alpha2.WorkloadSpec) []corev1.Tol
 		tolerations = mergePVCEvictorTolerations(tolerations, workload.Worker.Tolerations...)
 	}
 	return tolerations
+}
+
+func supportsPVCEvictor(podSpec *corev1.PodSpec) bool {
+	if podSpec == nil {
+		return false
+	}
+	main := utils.GetContainerWithName(podSpec, mainContainerName)
+	if main == nil {
+		return false
+	}
+	return slices.ContainsFunc(main.Env, func(env corev1.EnvVar) bool {
+		return env.Name == kvTransferArgsEnvVar
+	})
+}
+
+func workloadSupportsPVCEvictor(workload *v1alpha2.WorkloadSpec) bool {
+	if workload == nil {
+		return false
+	}
+	return supportsPVCEvictor(workload.Template)
 }
 
 func mergePVCEvictorTolerations(existing []corev1.Toleration, additions ...corev1.Toleration) []corev1.Toleration {
