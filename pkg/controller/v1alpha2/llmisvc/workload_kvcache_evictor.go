@@ -731,7 +731,23 @@ func (r *LLMISVCReconciler) finalizePVCEvictors(ctx context.Context, llmSvc *v1a
 	if err != nil {
 		return fmt.Errorf("failed to load configuration for PVC evictor cleanup: %w", err)
 	}
-	return r.cleanupUnusedPVCEvictors(ctx, llmSvc.Namespace, config, nil, llmSvc.Name)
+	if err := r.cleanupUnusedPVCEvictors(ctx, llmSvc.Namespace, config, nil, llmSvc.Name); err != nil {
+		if errors.Is(err, errPVCEvictorCleanupUnsafe) && !llmSvcReferencesPVCEvictors(llmSvc) {
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func llmSvcReferencesPVCEvictors(llmSvc *v1alpha2.LLMInferenceService) bool {
+	if llmSvc == nil {
+		return false
+	}
+	if llmSvc.Status.GetCondition(v1alpha2.PVCEvictorReady) != nil {
+		return true
+	}
+	return len(collectPVCEvictorIdentities(llmSvc)) > 0
 }
 
 func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {

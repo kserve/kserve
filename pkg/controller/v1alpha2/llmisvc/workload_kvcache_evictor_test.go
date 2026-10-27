@@ -167,6 +167,15 @@ func TestFinalizePVCEvictorsStaysPendingWhenCleanupIsUnsafe(t *testing.T) {
 			DeletionTimestamp: &deletionTime,
 			Finalizers:        []string{"test.finalizer"},
 		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+					PVC: &v1alpha2.PVCTierSpec{
+						Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"},
+					},
+				}}},
+			},
+		}},
 	}
 	unresolved := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "unresolved", Namespace: "test"},
@@ -198,6 +207,51 @@ func TestFinalizePVCEvictorsStaysPendingWhenCleanupIsUnsafe(t *testing.T) {
 	err := reconciler.finalizePVCEvictors(t.Context(), deleting)
 	if err == nil {
 		t.Fatal("finalizePVCEvictors() = nil, want cleanup to remain pending")
+	}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(evictor), &appsv1.Deployment{}); err != nil {
+		t.Fatalf("PVC evictor Deployment was removed while cleanup was unsafe: %v", err)
+	}
+}
+
+func TestFinalizePVCEvictorsIgnoresUnsafeCleanupForUnrelatedService(t *testing.T) {
+	deletionTime := metav1.Now()
+	deleting := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "unrelated-deleting",
+			Namespace:         "test",
+			DeletionTimestamp: &deletionTime,
+			Finalizers:        []string{"test.finalizer"},
+		},
+	}
+	unresolved := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "unresolved", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			BaseRefs: []corev1.LocalObjectReference{{Name: "missing-config"}},
+		},
+	}
+	evictor := expectedPVCEvictorDeployment(deleting, pvcEvictorTarget{
+		claimName: "shared-pvc",
+		subPath:   "kv-cache",
+	})
+
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{
+		appsv1.AddToScheme,
+		corev1.AddToScheme,
+		v1alpha2.AddToScheme,
+	} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(deleting, unresolved, evictor, testInferenceServiceConfigMap()).
+		Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+
+	if err := reconciler.finalizePVCEvictors(t.Context(), deleting); err != nil {
+		t.Fatalf("finalizePVCEvictors() error = %v, want nil for unrelated service", err)
 	}
 	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(evictor), &appsv1.Deployment{}); err != nil {
 		t.Fatalf("PVC evictor Deployment was removed while cleanup was unsafe: %v", err)
