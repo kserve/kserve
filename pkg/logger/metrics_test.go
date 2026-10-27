@@ -103,6 +103,31 @@ func TestSendHttpCloudEventMetricsOnAcceptedStatus(t *testing.T) {
 	g.Expect(testutil.ToFloat64(EventsFailedTotal.WithLabelValues(CEInferenceRequest))).To(gomega.Equal(failedBefore))
 }
 
+// TestSendHttpCloudEventMetricsAreLabelledByType makes sure request and
+// response events are counted under their own label values.
+func TestSendHttpCloudEventMetricsAreLabelledByType(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	svc := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+		rw.WriteHeader(http.StatusOK)
+	}))
+	defer svc.Close()
+
+	requestSentBefore := testutil.ToFloat64(EventsSentTotal.WithLabelValues(CEInferenceRequest))
+	responseSentBefore := testutil.ToFloat64(EventsSentTotal.WithLabelValues(CEInferenceResponse))
+	responseDeliveryCountBefore := histogramSampleCount(t, CEInferenceResponse)
+
+	req := newTestLogRequest(svc.URL)
+	req.ReqType = CEInferenceResponse
+
+	w := newTestWorker()
+	g.Expect(w.sendHttpCloudEvent(req)).To(gomega.Succeed())
+
+	g.Expect(testutil.ToFloat64(EventsSentTotal.WithLabelValues(CEInferenceResponse))).To(gomega.Equal(responseSentBefore + 1))
+	g.Expect(testutil.ToFloat64(EventsSentTotal.WithLabelValues(CEInferenceRequest))).To(gomega.Equal(requestSentBefore))
+	g.Expect(histogramSampleCount(t, CEInferenceResponse)).To(gomega.Equal(responseDeliveryCountBefore + 1))
+}
+
 func TestSendHttpCloudEventMetricsOnNonOKStatus(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
