@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"k8s.io/client-go/kubernetes"
@@ -331,6 +332,15 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 	// Replace the spec with the merged configuration for reconciliation
 	// We are only writing to status, so we can safely use the original object.
 	llmSvc.Spec = baseCfg.Spec
+
+	if migrated := migrateLegacyPoolGroup(&llmSvc.Spec); len(migrated) > 0 {
+		logger.Info("Rewrote deprecated InferencePool API group in --pool-group",
+			"from", constants.InferencePoolV1Alpha2APIGroupName, "to", constants.InferencePoolV1APIGroupName, "templates", migrated)
+		r.Eventf(llmSvc, corev1.EventTypeWarning, "DeprecatedInferencePoolGroup",
+			"--pool-group=%s is no longer supported by llm-d-router and was rewritten to %s in %s; update the template to use %s",
+			constants.InferencePoolV1Alpha2APIGroupName, constants.InferencePoolV1APIGroupName,
+			strings.Join(migrated, ", "), constants.InferencePoolV1APIGroupName)
+	}
 
 	RecordAcceleratorAnnotation(llmSvc)
 
