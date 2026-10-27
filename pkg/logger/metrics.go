@@ -28,14 +28,14 @@ var (
 		Namespace: metricsNamespace,
 		Subsystem: metricsSubsystem,
 		Name:      "events_sent_total",
-		Help:      "Total number of CloudEvents successfully delivered to the log sink (HTTP 200).",
+		Help:      "Total number of CloudEvents successfully delivered to the log sink (2xx response).",
 	}, []string{"type"})
 
 	EventsFailedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metricsNamespace,
 		Subsystem: metricsSubsystem,
 		Name:      "events_failed_total",
-		Help:      "Total number of CloudEvents that failed to deliver to the log sink (connection error, timeout, or non-200 response).",
+		Help:      "Total number of CloudEvents that failed to deliver to the log sink (error building the event, connection error, timeout, or non-2xx response).",
 	}, []string{"type"})
 
 	EventsDroppedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
