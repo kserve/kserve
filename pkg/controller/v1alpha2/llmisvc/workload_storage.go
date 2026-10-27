@@ -99,7 +99,15 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 		llmSvc.Spec.StorageInitializer.Enabled != nil &&
 		!*llmSvc.Spec.StorageInitializer.Enabled
 	if storageInitializerDisabled {
-		// Skip storage-initializer when explicitly disabled
+		// Native OCI LoRA adapters do not use the storage initializer. Attach
+		// them before returning so disabling downloads does not disable native
+		// ImageVolume mounts.
+		if attachLoRA {
+			if err := r.attachLoRAAdapters(ctx, llmSvc, podSpec, config.ResolvedLoRAAdapters); err != nil {
+				return err
+			}
+		}
+		// Skip storage-backed model and adapter materialization when explicitly disabled.
 		return nil
 	}
 
