@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import json
 import ssl
 from typing import Union, List, Tuple, Any, Optional, Sequence, Mapping, Dict
 
 import grpc
 import httpx
+from httpx._utils import get_environment_proxies
 from orjson import orjson
 
 from .constants.constants import PredictorProtocol, INFERENCE_CONTENT_LENGTH_HEADER
@@ -332,6 +334,27 @@ class InferenceGRPCClient:
             raise rpc_error
 
 
+class _ProxyRetryTransport(httpx.AsyncBaseTransport):
+    def __init__(self, transport: httpx.AsyncBaseTransport, retries: int):
+        self._transport = transport
+        self._retries = retries
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        attempt = 0
+        while True:
+            try:
+                return await self._transport.handle_async_request(request)
+            except (httpx.ConnectError, httpx.ConnectTimeout):
+                if attempt >= self._retries:
+                    raise
+                if attempt:
+                    await asyncio.sleep(0.5 * 2 ** (attempt - 1))
+                attempt += 1
+
+    async def aclose(self):
+        await self._transport.aclose()
+
+
 class RESTConfig:
     """
     Configuration for REST inference client.
@@ -365,6 +388,7 @@ class RESTConfig:
         auth=None,
         verbose: bool = False,
     ):
+        self._custom_transport = transport is not None
         self.transport = transport
         self.protocol = (
             protocol.value if isinstance(protocol, PredictorProtocol) else protocol
@@ -378,13 +402,22 @@ class RESTConfig:
         self.auth = auth
         self.transport = transport
         self.verbose = verbose
-        if self.transport is None:
-            httpx.AsyncHTTPTransport(
-                retries=self.retries,
-                http2=self.http2,
-                cert=self.cert,
-                verify=self.verify,
-            )
+        if not self._custom_transport:
+            self.transport = self._create_transport()
+
+    def _create_transport(self, proxy=None):
+        transport = httpx.AsyncHTTPTransport(
+            retries=self.retries if proxy is None else 0,
+            http2=self.http2,
+            cert=self.cert,
+            verify=self.verify,
+            proxy=proxy,
+        )
+        return (
+            _ProxyRetryTransport(transport, self.retries)
+            if proxy is not None
+            else transport
+        )
 
 
 class InferenceRESTClient:
@@ -395,8 +428,17 @@ class InferenceRESTClient:
 
     def __init__(self, config: RESTConfig = None):
         self._config = RESTConfig() if config is None else config
+        mounts = None
+        if not self._config._custom_transport:
+            # HTTPX ignores environment proxies when a transport is supplied.
+            # Reuse its proxy map so NO_PROXY and scheme precedence still apply.
+            mounts = {
+                pattern: self._config._create_transport(proxy=proxy) if proxy else None
+                for pattern, proxy in get_environment_proxies().items()
+            }
         self._client = httpx.AsyncClient(
             transport=self._config.transport,
+            mounts=mounts,
             http2=self._config.http2,
             timeout=self._config.timeout,
             auth=self._config.auth,
