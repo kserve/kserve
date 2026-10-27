@@ -710,6 +710,33 @@ def _free_port():
         return sock.getsockname()[1]
 
 
+async def _start_grpc_server(model_server, implementation):
+    """Starts a GRPCServer on a free port, moving to another port if the one
+    picked is taken before the server binds it."""
+    for _ in range(5):
+        port = _free_port()
+        server = GRPCServer(
+            port,
+            model_server.dataplane,
+            model_server.model_repository_extension,
+            kwargs={
+                "grpc_server": implementation,
+                "grpc_max_send_message_length": MAX_GRPC_MESSAGE_LENGTH,
+                "grpc_max_receive_message_length": MAX_GRPC_MESSAGE_LENGTH,
+            },
+        )
+        serving = asyncio.create_task(server.start(max_workers=1))
+        # start() binds before it first awaits, so a lost port shows up here.
+        await asyncio.sleep(0)
+        if not serving.done():
+            return server, serving, port
+        error = serving.exception()
+        await server.stop()
+        if not (isinstance(error, RuntimeError) and "Failed to bind" in str(error)):
+            raise error
+    raise RuntimeError("could not find a free port for the gRPC server")
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("implementation", ["grpcio", "pygrpc-native"])
 async def test_grpc_server_implementations_serve_model_infer(implementation):
@@ -717,18 +744,7 @@ async def test_grpc_server_implementations_serve_model_infer(implementation):
         pytest.importorskip("pygrpc_native.aio")
     model_server = ModelServer()
     model_server.register_model(EchoModel("echo"))
-    port = _free_port()
-    server = GRPCServer(
-        port,
-        model_server.dataplane,
-        model_server.model_repository_extension,
-        kwargs={
-            "grpc_server": implementation,
-            "grpc_max_send_message_length": MAX_GRPC_MESSAGE_LENGTH,
-            "grpc_max_receive_message_length": MAX_GRPC_MESSAGE_LENGTH,
-        },
-    )
-    serving = asyncio.create_task(server.start(max_workers=1))
+    server, serving, port = await _start_grpc_server(model_server, implementation)
     try:
         async with grpc.aio.insecure_channel(f"localhost:{port}") as channel:
             await asyncio.wait_for(channel.channel_ready(), timeout=10)
