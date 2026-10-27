@@ -55,12 +55,16 @@ var (
 		Buckets:   prometheus.DefBuckets,
 	}, []string{"type"})
 
-	WorkQueueDepth = prometheus.NewGauge(prometheus.GaugeOpts{
+	// WorkQueueDepth is computed from len(WorkQueue) at scrape time, so it
+	// cannot go stale or drift. It does not count the one request the
+	// dispatcher may already have taken off the queue while it waits for a
+	// free worker.
+	WorkQueueDepth = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 		Namespace: metricsNamespace,
 		Subsystem: metricsSubsystem,
 		Name:      "work_queue_depth",
-		Help:      "Number of log requests currently buffered in the work queue, waiting for a worker.",
-	})
+		Help:      "Number of log requests currently buffered in the work queue, waiting for the dispatcher to pick them up.",
+	}, func() float64 { return float64(len(WorkQueue)) })
 )
 
 func init() {

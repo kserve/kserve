@@ -133,7 +133,10 @@ func TestSendHttpCloudEventMetricsOnConnectionFailure(t *testing.T) {
 	g.Expect(testutil.ToFloat64(EventsFailedTotal.WithLabelValues(CEInferenceRequest))).To(gomega.Equal(failedBefore + 1))
 }
 
-func TestQueueLogRequestUpdatesWorkQueueDepth(t *testing.T) {
+// TestWorkQueueDepthTracksQueueLength guards the gauge against going stale:
+// it must follow len(WorkQueue) on dequeue as well, without anyone calling
+// Set on it.
+func TestWorkQueueDepthTracksQueueLength(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	original := WorkQueue
@@ -142,9 +145,12 @@ func TestQueueLogRequestUpdatesWorkQueueDepth(t *testing.T) {
 
 	req := newTestLogRequest("http://127.0.0.1:0")
 
-	g.Expect(QueueLogRequest(req)).To(gomega.Succeed())
-	g.Expect(testutil.ToFloat64(WorkQueueDepth)).To(gomega.Equal(float64(1)))
+	g.Expect(testutil.ToFloat64(WorkQueueDepth)).To(gomega.Equal(float64(0)))
 
 	g.Expect(QueueLogRequest(req)).To(gomega.Succeed())
+	g.Expect(QueueLogRequest(req)).To(gomega.Succeed())
 	g.Expect(testutil.ToFloat64(WorkQueueDepth)).To(gomega.Equal(float64(2)))
+
+	<-WorkQueue
+	g.Expect(testutil.ToFloat64(WorkQueueDepth)).To(gomega.Equal(float64(1)))
 }

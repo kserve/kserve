@@ -67,7 +67,6 @@ var WorkQueue = make(chan LogRequest, LoggerWorkerQueueSize)
 func QueueLogRequest(req LogRequest) error {
 	select {
 	case WorkQueue <- req:
-		WorkQueueDepth.Set(float64(len(WorkQueue)))
 		return nil
 	default:
 		return fmt.Errorf("logger work queue is full (capacity %d), dropping log request %s", cap(WorkQueue), req.Id)
