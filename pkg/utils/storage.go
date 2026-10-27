@@ -407,14 +407,15 @@ func modelcarCommand(modelPath string) string {
 // modelcarSecurityContext returns the security context for the modelcar
 // containers, carrying the fields the Pod Security Standards "restricted"
 // profile requires. allowPrivilegeEscalation and capabilities can only be
-// set per container, runAsNonRoot is set per container as well so the
-// modelcar containers satisfy the profile even when it is only set on the
-// serving container, and the seccomp profile mirrors the
-// LLMInferenceService templates hardened in #5302.
-func modelcarSecurityContext() *corev1.SecurityContext {
-	return &corev1.SecurityContext{
+// set per container, and the seccomp profile mirrors the
+// LLMInferenceService templates hardened in #5302. If a UID is configured,
+// runAsUser is set from it and runAsNonRoot is derived from it — false for
+// UID 0, since the kubelet rejects runAsNonRoot together with runAsUser 0.
+// With no UID configured, both fields stay unset so pod-level policy or
+// admission mutators decide.
+func modelcarSecurityContext(uid *int64) *corev1.SecurityContext {
+	sc := &corev1.SecurityContext{
 		AllowPrivilegeEscalation: ptr.To(false),
-		RunAsNonRoot:             ptr.To(true),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},
@@ -422,6 +423,11 @@ func modelcarSecurityContext() *corev1.SecurityContext {
 			Type: corev1.SeccompProfileTypeRuntimeDefault,
 		},
 	}
+	if uid != nil {
+		sc.RunAsUser = uid
+		sc.RunAsNonRoot = ptr.To(*uid != 0)
+	}
+	return sc
 }
 
 // CreateModelcarContainer creates the definition of a container holding a model intended to be used as a sidecar (modelcar).
@@ -475,10 +481,7 @@ func CreateModelcarContainer(containerName string, image string, modelPath strin
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 	}
 
-	modelContainer.SecurityContext = modelcarSecurityContext()
-	if storageConfig.UidModelcar != nil {
-		modelContainer.SecurityContext.RunAsUser = storageConfig.UidModelcar
-	}
+	modelContainer.SecurityContext = modelcarSecurityContext(storageConfig.UidModelcar)
 
 	return modelContainer
 }
@@ -526,7 +529,7 @@ func CreateModelcarInitContainer(containerName string, image string, storageConf
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 	}
 
-	modelContainer.SecurityContext = modelcarSecurityContext()
+	modelContainer.SecurityContext = modelcarSecurityContext(storageConfig.UidModelcar)
 
 	return modelContainer
 }
