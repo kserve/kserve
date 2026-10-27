@@ -703,11 +703,15 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			// Select the default EndpointPickerConfig from the llmisvcconfig presets.
 			// The presets require llm-d-router image version >= routerPresetMinVersion.
 			// Older images fall back to the hardcoded schedulerConfigText().
-			// A service or baseRef can pin an older scheduler, so its resolved
-			// annotation wins over the well-known scheduler config.
+			// The final merge applies the service after baseRefs, so its
+			// scheduler version wins over both baseRefs and the well-known config.
 			versionCfg := schedulerCfg
 			if resolvedSpec.Router.Scheduler.Annotations["app.kubernetes.io/version"] != "" {
 				versionCfg = &v1alpha2.LLMInferenceServiceConfig{Spec: resolvedSpec}
+			}
+			if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil &&
+				llmSvc.Spec.Router.Scheduler.Annotations["app.kubernetes.io/version"] != "" {
+				versionCfg = &v1alpha2.LLMInferenceServiceConfig{Spec: llmSvc.Spec}
 			}
 			if injectDefaultSchedulerConfig && routerVersionSupportsPreset(ctx, versionCfg) {
 				switch {

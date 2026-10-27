@@ -160,64 +160,102 @@ func TestReconcileBaseRefs_DryRunValidatesRenderedSpec(t *testing.T) {
 	assert.Equal(t, condition.Message, ready.Message, "the exact cause should bubble up to Ready")
 }
 
-func TestCombineBaseRefsConfig_ServicePinnedSchedulerVersionWins(t *testing.T) {
-	scheme := runtime.NewScheme()
-	require.NoError(t, v1alpha2.AddToScheme(scheme))
-
+func TestCombineBaseRefsConfig_SchedulerVersionPrecedence(t *testing.T) {
 	const namespace = "test-ns"
-	objects := []client.Object{}
-	for _, name := range []string{
-		"config-llm-scheduler.yaml",
-		"config-llm-scheduler-eppconfig-default.yaml",
-		"config-llm-template.yaml",
-	} {
-		preset := loadPresetConfig(t, name)
-		preset.Namespace = namespace
-		objects = append(objects, preset)
-	}
-
-	pinnedScheduler := &v1alpha2.LLMInferenceServiceConfig{
-		ObjectMeta: metav1.ObjectMeta{Name: "pinned-scheduler", Namespace: namespace},
-		Spec: v1alpha2.LLMInferenceServiceSpec{
-			Router: &v1alpha2.RouterSpec{
-				Scheduler: &v1alpha2.SchedulerSpec{
-					Annotations: map[string]string{"app.kubernetes.io/version": "0.11.0"},
-					Template: &corev1.PodSpec{
-						Containers: []corev1.Container{{
-							Name:  "main",
-							Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0",
-						}},
-					},
-				},
-			},
-		},
-	}
-	objects = append(objects, pinnedScheduler)
-
 	modelURI, err := apis.ParseURL("hf://facebook/opt-125m")
 	require.NoError(t, err)
-	llmSvc := &v1alpha2.LLMInferenceService{
-		ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: namespace},
-		Spec: v1alpha2.LLMInferenceServiceSpec{
-			Model: v1alpha2.LLMModelSpec{URI: *modelURI},
-			Router: &v1alpha2.RouterSpec{
-				Scheduler: &v1alpha2.SchedulerSpec{},
-			},
-			BaseRefs: []corev1.LocalObjectReference{{Name: pinnedScheduler.Name}},
+
+	for _, tc := range []struct {
+		name             string
+		serviceScheduler *v1alpha2.SchedulerSpec
+		wantPreset       bool
+		wantVersion      string
+		wantImage        string
+	}{
+		{
+			name:        "baseRef pins router 0.11.0",
+			wantVersion: "0.11.0",
+			wantImage:   "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0",
 		},
-	}
-	r := &LLMISVCReconciler{
-		Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build(),
-	}
+		{
+			name: "service overrides a baseRef router pin",
+			serviceScheduler: &v1alpha2.SchedulerSpec{
+				Annotations: map[string]string{"app.kubernetes.io/version": "1.0.0"},
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  "main",
+						Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v1.0.0",
+					}},
+				},
+			},
+			wantPreset:  true,
+			wantVersion: "1.0.0",
+			wantImage:   "ghcr.io/llm-d/llm-d-router-endpoint-picker:v1.0.0",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			require.NoError(t, v1alpha2.AddToScheme(scheme))
 
-	combined, err := r.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+			objects := []client.Object{}
+			for _, name := range []string{
+				"config-llm-scheduler.yaml",
+				"config-llm-scheduler-eppconfig-default.yaml",
+				"config-llm-template.yaml",
+			} {
+				preset := loadPresetConfig(t, name)
+				preset.Namespace = namespace
+				objects = append(objects, preset)
+			}
 
-	require.NoError(t, err)
-	assert.Nil(t, combined.Config.Spec.Router.Scheduler.Config,
-		"a scheduler pinned to 0.11.0 through baseRefs must not receive the llm-d.ai/v1 preset")
-	assert.Equal(t, "0.11.0", combined.Config.Spec.Router.Scheduler.Annotations["app.kubernetes.io/version"])
-	assert.Equal(t, "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0",
-		combined.Config.Spec.Router.Scheduler.Template.Containers[0].Image)
+			pinnedScheduler := &v1alpha2.LLMInferenceServiceConfig{
+				ObjectMeta: metav1.ObjectMeta{Name: "pinned-scheduler", Namespace: namespace},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Router: &v1alpha2.RouterSpec{
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Annotations: map[string]string{"app.kubernetes.io/version": "0.11.0"},
+							Template: &corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Name:  "main",
+									Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v0.11.0",
+								}},
+							},
+						},
+					},
+				},
+			}
+			objects = append(objects, pinnedScheduler)
+
+			serviceScheduler := tc.serviceScheduler
+			if serviceScheduler == nil {
+				serviceScheduler = &v1alpha2.SchedulerSpec{}
+			}
+			llmSvc := &v1alpha2.LLMInferenceService{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: namespace},
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Model:    v1alpha2.LLMModelSpec{URI: *modelURI},
+					Router:   &v1alpha2.RouterSpec{Scheduler: serviceScheduler},
+					BaseRefs: []corev1.LocalObjectReference{{Name: pinnedScheduler.Name}},
+				},
+			}
+			r := &LLMISVCReconciler{
+				Client: fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build(),
+			}
+
+			combined, err := r.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+
+			require.NoError(t, err)
+			if tc.wantPreset {
+				require.NotNil(t, combined.Config.Spec.Router.Scheduler.Config)
+				assert.Contains(t, string(combined.Config.Spec.Router.Scheduler.Config.Inline.Raw), "llm-d.ai/v1")
+			} else {
+				assert.Nil(t, combined.Config.Spec.Router.Scheduler.Config,
+					"a scheduler pinned to 0.11.0 through baseRefs must not receive the llm-d.ai/v1 preset")
+			}
+			assert.Equal(t, tc.wantVersion, combined.Config.Spec.Router.Scheduler.Annotations["app.kubernetes.io/version"])
+			assert.Equal(t, tc.wantImage, combined.Config.Spec.Router.Scheduler.Template.Containers[0].Image)
+		})
+	}
 }
 
 func TestReconcileBaseRefs_DryRunUpdateRetainsWVA(t *testing.T) {
