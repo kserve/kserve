@@ -20,6 +20,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -153,4 +155,48 @@ func TestWorkQueueDepthTracksQueueLength(t *testing.T) {
 
 	<-WorkQueue
 	g.Expect(testutil.ToFloat64(WorkQueueDepth)).To(gomega.Equal(float64(1)))
+}
+
+// The failures below happen before anything is sent, so they must count as
+// failed deliveries but must not be observed in the delivery histogram.
+
+func TestSendHttpCloudEventCountsInvalidCACertAsFailure(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	certDir := t.TempDir()
+	g.Expect(os.WriteFile(filepath.Join(certDir, "ca.crt"), []byte("not a pem certificate"), 0o600)).To(gomega.Succeed())
+	original := caCertMountPath
+	defer func() { caCertMountPath = original }()
+	caCertMountPath = certDir
+
+	req := newTestLogRequest("https://127.0.0.1:0")
+	req.CertName = "ca.crt"
+
+	sentBefore := testutil.ToFloat64(EventsSentTotal.WithLabelValues(CEInferenceRequest))
+	failedBefore := testutil.ToFloat64(EventsFailedTotal.WithLabelValues(CEInferenceRequest))
+	deliveryCountBefore := histogramSampleCount(t, CEInferenceRequest)
+
+	w := newTestWorker()
+	g.Expect(w.sendHttpCloudEvent(req)).To(gomega.MatchError(gomega.ContainSubstring("parsing CA certificate")))
+
+	g.Expect(testutil.ToFloat64(EventsSentTotal.WithLabelValues(CEInferenceRequest))).To(gomega.Equal(sentBefore))
+	g.Expect(testutil.ToFloat64(EventsFailedTotal.WithLabelValues(CEInferenceRequest))).To(gomega.Equal(failedBefore + 1))
+	g.Expect(histogramSampleCount(t, CEInferenceRequest)).To(gomega.Equal(deliveryCountBefore))
+}
+
+func TestSendHttpCloudEventCountsTransportCreationErrorAsFailure(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// A URL that String()s into something cloudevents refuses as a target.
+	req := newTestLogRequest("http://127.0.0.1:0")
+	req.Url = &url.URL{Scheme: "http", Host: "not a host"}
+
+	failedBefore := testutil.ToFloat64(EventsFailedTotal.WithLabelValues(CEInferenceRequest))
+	deliveryCountBefore := histogramSampleCount(t, CEInferenceRequest)
+
+	w := newTestWorker()
+	g.Expect(w.sendHttpCloudEvent(req)).To(gomega.MatchError(gomega.ContainSubstring("creating http transport")))
+
+	g.Expect(testutil.ToFloat64(EventsFailedTotal.WithLabelValues(CEInferenceRequest))).To(gomega.Equal(failedBefore + 1))
+	g.Expect(histogramSampleCount(t, CEInferenceRequest)).To(gomega.Equal(deliveryCountBefore))
 }
