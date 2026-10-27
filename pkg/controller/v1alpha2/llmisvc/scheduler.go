@@ -1752,14 +1752,6 @@ func migrateLegacyPoolGroup(spec *v1alpha2.LLMInferenceServiceSpec) []string {
 	if migratePodSpecPoolGroup(&spec.Worker, isRoutingSidecar) {
 		migrated = append(migrated, "worker")
 	}
-	if spec.Prefill != nil {
-		if migratePodSpecPoolGroup(&spec.Prefill.Template, isRoutingSidecar) {
-			migrated = append(migrated, "prefill.template")
-		}
-		if migratePodSpecPoolGroup(&spec.Prefill.Worker, isRoutingSidecar) {
-			migrated = append(migrated, "prefill.worker")
-		}
-	}
 	return migrated
 }
 

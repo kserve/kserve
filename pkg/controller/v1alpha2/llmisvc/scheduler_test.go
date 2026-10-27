@@ -3359,9 +3359,6 @@ func pdSpec(version string) *v1alpha2.LLMInferenceServiceSpec {
 			Template: sidecarPodSpec("/app/pd-sidecar", "--enable-ssrf-protection=true", "--pool-group="+legacyGroup),
 			Worker:   sidecarPodSpec("/app/pd-sidecar", "--pool-group", legacyGroup),
 		},
-		Prefill: &v1alpha2.WorkloadSpec{
-			Template: sidecarPodSpec("/app/pd-sidecar", "--pool-group="+legacyGroup),
-		},
 		Router: &v1alpha2.RouterSpec{
 			Scheduler: &v1alpha2.SchedulerSpec{
 				Annotations: annotations,
@@ -3377,11 +3374,10 @@ func TestMigrateLegacyPoolGroup(t *testing.T) {
 
 		migrated := migrateLegacyPoolGroup(spec)
 
-		assert.Equal(t, []string{"router.scheduler.template", "template", "worker", "prefill.template"}, migrated)
+		assert.Equal(t, []string{"router.scheduler.template", "template", "worker"}, migrated)
 		assert.Equal(t, []string{"--pool-name", "pool", "--pool-group", gaGroup}, spec.Router.Scheduler.Template.Containers[0].Args)
 		assert.Equal(t, []string{"/app/pd-sidecar", "--enable-ssrf-protection=true", "--pool-group=" + gaGroup}, spec.Template.InitContainers[0].Command)
 		assert.Equal(t, []string{"/app/pd-sidecar", "--pool-group", gaGroup}, spec.Worker.InitContainers[0].Command)
-		assert.Equal(t, []string{"/app/pd-sidecar", "--pool-group=" + gaGroup}, spec.Prefill.Template.InitContainers[0].Command)
 	})
 
 	t.Run("leaves non-sidecar workload containers unchanged", func(t *testing.T) {
@@ -3390,13 +3386,12 @@ func TestMigrateLegacyPoolGroup(t *testing.T) {
 		migrateLegacyPoolGroup(spec)
 
 		assert.Equal(t, []string{"--pool-group=" + legacyGroup}, spec.Template.Containers[0].Args)
-		assert.Equal(t, []string{"--pool-group=" + legacyGroup}, spec.Prefill.Template.Containers[0].Args)
 	})
 
 	t.Run("rewrites newer versions", func(t *testing.T) {
 		spec := pdSpec("1.0.0")
 
-		assert.Len(t, migrateLegacyPoolGroup(spec), 4)
+		assert.Len(t, migrateLegacyPoolGroup(spec), 3)
 	})
 
 	t.Run("is idempotent", func(t *testing.T) {
@@ -3470,7 +3465,6 @@ func TestMigrateLegacyPoolGroup(t *testing.T) {
 
 	t.Run("rewrites routing sidecar declared as a regular container", func(t *testing.T) {
 		spec := pdSpec("0.11.0")
-		spec.Prefill = nil
 		spec.Worker = nil
 		spec.Template = &corev1.PodSpec{
 			Containers: []corev1.Container{
