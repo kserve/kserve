@@ -197,7 +197,7 @@ func TestCombineBaseRefsConfig_SchedulerVersionPrecedence(t *testing.T) {
 			scheme := runtime.NewScheme()
 			require.NoError(t, v1alpha2.AddToScheme(scheme))
 
-			objects := []client.Object{}
+			objects := make([]client.Object, 0, 4)
 			for _, name := range []string{
 				"config-llm-scheduler.yaml",
 				"config-llm-scheduler-eppconfig-default.yaml",
