@@ -407,11 +407,14 @@ func modelcarCommand(modelPath string) string {
 // modelcarSecurityContext returns the security context for the modelcar
 // containers, carrying the fields the Pod Security Standards "restricted"
 // profile requires. allowPrivilegeEscalation and capabilities can only be
-// set per container, and the seccomp profile mirrors the LLMInferenceService
-// templates hardened in #5302.
+// set per container, runAsNonRoot is set per container as well so the
+// modelcar containers satisfy the profile even when it is only set on the
+// serving container, and the seccomp profile mirrors the
+// LLMInferenceService templates hardened in #5302.
 func modelcarSecurityContext() *corev1.SecurityContext {
 	return &corev1.SecurityContext{
 		AllowPrivilegeEscalation: ptr.To(false),
+		RunAsNonRoot:             ptr.To(true),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},
 		},

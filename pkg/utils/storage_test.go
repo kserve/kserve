@@ -372,12 +372,12 @@ func TestModelcarNames(t *testing.T) {
 }
 
 func TestCreateModelcarContainersSecurityContext(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	assertRestrictedProfile := func(sc *corev1.SecurityContext) {
+	assertRestrictedProfile := func(g *gomega.WithT, sc *corev1.SecurityContext) {
 		g.Expect(sc).ToNot(gomega.BeNil())
 		g.Expect(sc.AllowPrivilegeEscalation).ToNot(gomega.BeNil())
 		g.Expect(*sc.AllowPrivilegeEscalation).To(gomega.BeFalse())
+		g.Expect(sc.RunAsNonRoot).ToNot(gomega.BeNil())
+		g.Expect(*sc.RunAsNonRoot).To(gomega.BeTrue())
 		g.Expect(sc.Capabilities).ToNot(gomega.BeNil())
 		g.Expect(sc.Capabilities.Drop).To(gomega.Equal([]corev1.Capability{"ALL"}))
 		g.Expect(sc.SeccompProfile).ToNot(gomega.BeNil())
@@ -385,6 +385,7 @@ func TestCreateModelcarContainersSecurityContext(t *testing.T) {
 	}
 
 	t.Run("Sidecar container without UID", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
 		container := CreateModelcarContainer(
 			constants.ModelcarContainerName,
 			"registry.example.com/model:v1",
@@ -392,11 +393,12 @@ func TestCreateModelcarContainersSecurityContext(t *testing.T) {
 			constants.StorageInitializerVolumeName,
 			&types.StorageInitializerConfig{},
 		)
-		assertRestrictedProfile(container.SecurityContext)
+		assertRestrictedProfile(g, container.SecurityContext)
 		g.Expect(container.SecurityContext.RunAsUser).To(gomega.BeNil())
 	})
 
 	t.Run("Sidecar container with UID keeps runAsUser", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
 		uid := int64(1000)
 		container := CreateModelcarContainer(
 			constants.ModelcarContainerName,
@@ -405,18 +407,19 @@ func TestCreateModelcarContainersSecurityContext(t *testing.T) {
 			constants.StorageInitializerVolumeName,
 			&types.StorageInitializerConfig{UidModelcar: &uid},
 		)
-		assertRestrictedProfile(container.SecurityContext)
+		assertRestrictedProfile(g, container.SecurityContext)
 		g.Expect(container.SecurityContext.RunAsUser).ToNot(gomega.BeNil())
 		g.Expect(*container.SecurityContext.RunAsUser).To(gomega.Equal(uid))
 	})
 
 	t.Run("Init container", func(t *testing.T) {
+		g := gomega.NewGomegaWithT(t)
 		container := CreateModelcarInitContainer(
 			constants.ModelcarInitContainerName,
 			"registry.example.com/model:v1",
 			&types.StorageInitializerConfig{},
 		)
-		assertRestrictedProfile(container.SecurityContext)
+		assertRestrictedProfile(g, container.SecurityContext)
 	})
 }
 
