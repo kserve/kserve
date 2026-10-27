@@ -703,7 +703,13 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			// Select the default EndpointPickerConfig from the llmisvcconfig presets.
 			// The presets require llm-d-router image version >= routerPresetMinVersion.
 			// Older images fall back to the hardcoded schedulerConfigText().
-			if injectDefaultSchedulerConfig && routerVersionSupportsPreset(ctx, schedulerCfg) {
+			// A service or baseRef can pin an older scheduler, so its resolved
+			// annotation wins over the well-known scheduler config.
+			versionCfg := schedulerCfg
+			if resolvedSpec.Router.Scheduler.Annotations["app.kubernetes.io/version"] != "" {
+				versionCfg = &v1alpha2.LLMInferenceServiceConfig{Spec: resolvedSpec}
+			}
+			if injectDefaultSchedulerConfig && routerVersionSupportsPreset(ctx, versionCfg) {
 				switch {
 				case isOmniRuntime(resolvedSpec.Runtime):
 					// Omni TTS/TTI: load-only profile. The text prefix-cache
