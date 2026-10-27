@@ -442,6 +442,17 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 
 	r.propagateSchedulerMetadata(llmSvc, d)
 
+	// Stop and delete paths only need the deployment identity and owner metadata.
+	// Do not run scheduler migrations there: an invalid old EndpointPickerConfig
+	// must not prevent cleanup of the existing scheduler.
+	if utils.GetForceStopRuntime(llmSvc) ||
+		llmSvc.Spec.Router == nil ||
+		llmSvc.Spec.Router.Scheduler == nil ||
+		llmSvc.Spec.Router.Scheduler.Template == nil ||
+		llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
+		return d, nil
+	}
+
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
 		d.Spec.Replicas = llmSvc.Spec.Router.Scheduler.Replicas
 		d.Spec.Template.Spec = *llmSvc.Spec.Router.Scheduler.Template.DeepCopy()

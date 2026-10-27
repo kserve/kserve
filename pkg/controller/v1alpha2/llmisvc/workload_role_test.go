@@ -419,6 +419,11 @@ schedulingProfiles:
   plugins:
   - pluginRef: queue-scorer
 `
+	const removedPluginConfig = `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: data-parallel-profile-handler
+`
 
 	newSvc := func(config string) *v1alpha2.LLMInferenceService {
 		svc := roleTestSingleNodeSvc()
@@ -469,6 +474,22 @@ schedulingProfiles:
 		curr := &appsv1.Deployment{}
 		g.Expect(c.Get(t.Context(), client.ObjectKeyFromObject(oldScheduler(svc)), curr)).To(Succeed())
 		g.Expect(curr.Spec.Template.Spec.Containers[0].Image).To(HaveSuffix(":v0.10.0"))
+	})
+
+	t.Run("deletes the scheduler while stopped before plugin validation", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		svc := newSvc(removedPluginConfig)
+		svc.Annotations = map[string]string{constants.StopAnnotationKey: "true"}
+		recorder := record.NewFakeRecorder(10)
+		old := oldScheduler(svc)
+		old.OwnerReferences = []metav1.OwnerReference{*metav1.NewControllerRef(svc, v1alpha2.LLMInferenceServiceGVK)}
+		c := roleTestClient(t, roleTestInferenceServiceConfigMap(), old)
+		r := &LLMISVCReconciler{Client: c, EventRecorder: recorder}
+
+		err := r.reconcileSchedulerDeployment(t.Context(), svc)
+
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(c.Get(t.Context(), client.ObjectKeyFromObject(old), &appsv1.Deployment{})).To(MatchError(ContainSubstring("not found")))
 	})
 
 	t.Run("builds the scheduler when the config has no role filter", func(t *testing.T) {
