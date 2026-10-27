@@ -371,6 +371,55 @@ func TestModelcarNames(t *testing.T) {
 	})
 }
 
+func TestCreateModelcarContainersSecurityContext(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	assertRestrictedProfile := func(sc *corev1.SecurityContext) {
+		g.Expect(sc).ToNot(gomega.BeNil())
+		g.Expect(sc.AllowPrivilegeEscalation).ToNot(gomega.BeNil())
+		g.Expect(*sc.AllowPrivilegeEscalation).To(gomega.BeFalse())
+		g.Expect(sc.Capabilities).ToNot(gomega.BeNil())
+		g.Expect(sc.Capabilities.Drop).To(gomega.Equal([]corev1.Capability{"ALL"}))
+		g.Expect(sc.SeccompProfile).ToNot(gomega.BeNil())
+		g.Expect(sc.SeccompProfile.Type).To(gomega.Equal(corev1.SeccompProfileTypeRuntimeDefault))
+	}
+
+	t.Run("Sidecar container without UID", func(t *testing.T) {
+		container := CreateModelcarContainer(
+			constants.ModelcarContainerName,
+			"registry.example.com/model:v1",
+			constants.DefaultModelLocalMountPath,
+			constants.StorageInitializerVolumeName,
+			&types.StorageInitializerConfig{},
+		)
+		assertRestrictedProfile(container.SecurityContext)
+		g.Expect(container.SecurityContext.RunAsUser).To(gomega.BeNil())
+	})
+
+	t.Run("Sidecar container with UID keeps runAsUser", func(t *testing.T) {
+		uid := int64(1000)
+		container := CreateModelcarContainer(
+			constants.ModelcarContainerName,
+			"registry.example.com/model:v1",
+			constants.DefaultModelLocalMountPath,
+			constants.StorageInitializerVolumeName,
+			&types.StorageInitializerConfig{UidModelcar: &uid},
+		)
+		assertRestrictedProfile(container.SecurityContext)
+		g.Expect(container.SecurityContext.RunAsUser).ToNot(gomega.BeNil())
+		g.Expect(*container.SecurityContext.RunAsUser).To(gomega.Equal(uid))
+	})
+
+	t.Run("Init container", func(t *testing.T) {
+		container := CreateModelcarInitContainer(
+			constants.ModelcarInitContainerName,
+			"registry.example.com/model:v1",
+			&types.StorageInitializerConfig{},
+		)
+		assertRestrictedProfile(container.SecurityContext)
+	})
+}
+
 func TestConfigureModelcarToContainerMultipleOCI(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	storageConfig := &types.StorageInitializerConfig{}

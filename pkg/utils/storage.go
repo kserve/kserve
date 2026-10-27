@@ -404,6 +404,23 @@ func modelcarCommand(modelPath string) string {
 	return fmt.Sprintf("ln -sf /proc/$$$$/root/models %s && sleep infinity", ShellQuote(modelPath))
 }
 
+// modelcarSecurityContext returns the security context for the modelcar
+// containers, carrying the fields the Pod Security Standards "restricted"
+// profile requires. allowPrivilegeEscalation and capabilities can only be
+// set per container, and the seccomp profile mirrors the LLMInferenceService
+// templates hardened in #5302.
+func modelcarSecurityContext() *corev1.SecurityContext {
+	return &corev1.SecurityContext{
+		AllowPrivilegeEscalation: ptr.To(false),
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
+}
+
 // CreateModelcarContainer creates the definition of a container holding a model intended to be used as a sidecar (modelcar).
 // The container is configured with CPU, memory, and UID settings from the storage initializer configuration.
 //
@@ -455,10 +472,9 @@ func CreateModelcarContainer(containerName string, image string, modelPath strin
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 	}
 
+	modelContainer.SecurityContext = modelcarSecurityContext()
 	if storageConfig.UidModelcar != nil {
-		modelContainer.SecurityContext = &corev1.SecurityContext{
-			RunAsUser: storageConfig.UidModelcar,
-		}
+		modelContainer.SecurityContext.RunAsUser = storageConfig.UidModelcar
 	}
 
 	return modelContainer
@@ -506,6 +522,8 @@ func CreateModelcarInitContainer(containerName string, image string, storageConf
 		},
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 	}
+
+	modelContainer.SecurityContext = modelcarSecurityContext()
 
 	return modelContainer
 }
