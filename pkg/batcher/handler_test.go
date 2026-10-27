@@ -179,21 +179,26 @@ func TestBatcherMixedPaths(t *testing.T) {
 
 	logger, _ := pkglogging.NewLogger("", "INFO")
 
-	// The predictor answers every instance with the path it was called on
+	// The predictor answers every instance with the path it was called on.
+	// Assertions must stay on the test goroutine, so the handler only records errors.
+	var mu sync.Mutex
+	var predictorErrs []error
 	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		b, err := io.ReadAll(req.Body)
-		g.Expect(err).ToNot(gomega.HaveOccurred())
 		var request Request
-		err = json.Unmarshal(b, &request)
-		g.Expect(err).ToNot(gomega.HaveOccurred())
-		predictions := make([]interface{}, len(request.Instances))
-		for i := range predictions {
-			predictions[i] = req.URL.Path
+		err := json.NewDecoder(req.Body).Decode(&request)
+		if err == nil {
+			predictions := make([]interface{}, len(request.Instances))
+			for i := range predictions {
+				predictions[i] = req.URL.Path
+			}
+			err = json.NewEncoder(rw).Encode(PredictionResponse{Predictions: predictions})
 		}
-		responseBytes, err := json.Marshal(PredictionResponse{Predictions: predictions})
-		g.Expect(err).ToNot(gomega.HaveOccurred())
-		_, err = rw.Write(responseBytes)
-		g.Expect(err).ToNot(gomega.HaveOccurred())
+		if err != nil {
+			mu.Lock()
+			predictorErrs = append(predictorErrs, err)
+			mu.Unlock()
+			rw.WriteHeader(http.StatusInternalServerError)
+		}
 	}))
 	defer predictor.Close()
 	predictorSvcUrl, err := url.Parse(predictor.URL)
@@ -202,9 +207,9 @@ func TestBatcherMixedPaths(t *testing.T) {
 	batchHandler := New(32, 500, httpProxy, logger)
 
 	paths := []string{"/v1/models/model-a:predict", "/v1/models/model-b:predict"}
-	responses := make([]Response, 4)
+	bodies := make([][]byte, 4)
 	var wg sync.WaitGroup
-	for i := range responses {
+	for i := range bodies {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
@@ -212,12 +217,15 @@ func TestBatcherMixedPaths(t *testing.T) {
 			r := httptest.NewRequest(http.MethodPost, paths[i%2], reader)
 			w := httptest.NewRecorder()
 			batchHandler.ServeHTTP(w, r)
-			g.Expect(json.Unmarshal(w.Body.Bytes(), &responses[i])).To(gomega.Succeed())
+			bodies[i] = w.Body.Bytes()
 		}(i)
 	}
 	wg.Wait()
 
-	for i, res := range responses {
+	g.Expect(predictorErrs).To(gomega.BeEmpty())
+	for i, body := range bodies {
+		var res Response
+		g.Expect(json.Unmarshal(body, &res)).To(gomega.Succeed())
 		g.Expect(res.Message).To(gomega.BeEmpty())
 		g.Expect(res.Predictions).To(gomega.Equal([]interface{}{paths[i%2], paths[i%2]}))
 	}
