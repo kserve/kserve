@@ -1718,6 +1718,120 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 	return nil
 }
 
+const poolGroupFlagName = "pool-group"
+
+// legacyPoolGroupMinVersion is the minimum scheduler version at which
+// migrateLegacyPoolGroup rewrites the legacy InferencePool API group.
+// Every llm-d-router version from v0.7.0 accepts the GA group.
+var legacyPoolGroupMinVersion = semver.New("0.11.0")
+
+// migrateLegacyPoolGroup rewrites --pool-group=inference.networking.x-k8s.io to
+// --pool-group=inference.networking.k8s.io in the scheduler "main" container and
+// in every routing sidecar container of the merged spec, when the scheduler
+// app.kubernetes.io/version annotation is >= legacyPoolGroupMinVersion.
+// Pod specs are replaced with modified copies, never mutated in place.
+// It returns the spec paths of the rewritten pod specs.
+func migrateLegacyPoolGroup(spec *v1alpha2.LLMInferenceServiceSpec) []string {
+	if spec.Router == nil || spec.Router.Scheduler == nil || spec.Router.Scheduler.Template == nil {
+		return nil
+	}
+	v, err := semver.NewVersion(spec.Router.Scheduler.Annotations["app.kubernetes.io/version"])
+	if err != nil || v.LessThan(*legacyPoolGroupMinVersion) {
+		return nil
+	}
+
+	isScheduler := func(name string) bool { return name == "main" }
+	isRoutingSidecar := func(name string) bool { return name == constants.LLMISVCRoutingSidecarContainerName }
+
+	var migrated []string
+	if migratePodSpecPoolGroup(&spec.Router.Scheduler.Template, isScheduler) {
+		migrated = append(migrated, "router.scheduler.template")
+	}
+	if migratePodSpecPoolGroup(&spec.Template, isRoutingSidecar) {
+		migrated = append(migrated, "template")
+	}
+	if migratePodSpecPoolGroup(&spec.Worker, isRoutingSidecar) {
+		migrated = append(migrated, "worker")
+	}
+	if spec.Prefill != nil {
+		if migratePodSpecPoolGroup(&spec.Prefill.Template, isRoutingSidecar) {
+			migrated = append(migrated, "prefill.template")
+		}
+		if migratePodSpecPoolGroup(&spec.Prefill.Worker, isRoutingSidecar) {
+			migrated = append(migrated, "prefill.worker")
+		}
+	}
+	return migrated
+}
+
+// migratePodSpecPoolGroup rewrites the legacy pool group in the Command and Args
+// of the init and regular containers whose name matches. When anything changes,
+// *podSpec is replaced with a modified deep copy.
+func migratePodSpecPoolGroup(podSpec **corev1.PodSpec, matches func(name string) bool) bool {
+	if *podSpec == nil {
+		return false
+	}
+	updated := (*podSpec).DeepCopy()
+	changed := false
+	for _, containers := range [][]corev1.Container{updated.InitContainers, updated.Containers} {
+		for i := range containers {
+			c := &containers[i]
+			if !matches(c.Name) {
+				continue
+			}
+			if command, ok := rewriteLegacyPoolGroup(c.Command); ok {
+				c.Command = command
+				changed = true
+			}
+			if args, ok := rewriteLegacyPoolGroup(c.Args); ok {
+				c.Args = args
+				changed = true
+			}
+		}
+	}
+	if changed {
+		*podSpec = updated
+	}
+	return changed
+}
+
+// rewriteLegacyPoolGroup returns a copy of args with the legacy InferencePool API
+// group replaced by the GA group in every -pool-group / --pool-group flag, in both
+// the --flag=value and --flag value forms. The returned bool reports whether any
+// value was replaced; when false, args is returned unchanged.
+func rewriteLegacyPoolGroup(args []string) ([]string, bool) {
+	var out []string
+	for i := 0; i < len(args); i++ {
+		if !strings.HasPrefix(args[i], "-") {
+			continue
+		}
+		name, value, hasValue := strings.Cut(strings.TrimLeft(args[i], "-"), "=")
+		if name != poolGroupFlagName {
+			continue
+		}
+		if hasValue {
+			if value == constants.InferencePoolV1Alpha2APIGroupName {
+				if out == nil {
+					out = slices.Clone(args)
+				}
+				out[i] = strings.TrimSuffix(args[i], value) + constants.InferencePoolV1APIGroupName
+			}
+			continue
+		}
+		if i+1 < len(args) && args[i+1] == constants.InferencePoolV1Alpha2APIGroupName {
+			if out == nil {
+				out = slices.Clone(args)
+			}
+			out[i+1] = constants.InferencePoolV1APIGroupName
+			i++
+		}
+	}
+	if out == nil {
+		return args, false
+	}
+	return out, true
+}
+
 // withMigrateDisaggHeadersHandler renames the prefill-header-handler plugin to
 // disagg-headers-handler (v0.7.0 rename).
 func withMigrateDisaggHeadersHandler(ctx context.Context, u *unstructured.Unstructured) error {

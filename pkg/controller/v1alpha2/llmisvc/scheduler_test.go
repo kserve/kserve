@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 	pkgtesting "github.com/kserve/kserve/pkg/testing"
 )
 
@@ -3245,4 +3246,217 @@ plugins:
 			tt.validateConfig(g, d.Spec.Template.Spec.Containers[0].Args[1])
 		})
 	}
+}
+
+const (
+	legacyGroup = constants.InferencePoolV1Alpha2APIGroupName
+	gaGroup     = constants.InferencePoolV1APIGroupName
+)
+
+func TestRewriteLegacyPoolGroup(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		want        []string
+		wantChanged bool
+	}{
+		{
+			name:        "double dash with equals",
+			args:        []string{"--pool-group=" + legacyGroup},
+			want:        []string{"--pool-group=" + gaGroup},
+			wantChanged: true,
+		},
+		{
+			name:        "single dash with equals",
+			args:        []string{"-pool-group=" + legacyGroup},
+			want:        []string{"-pool-group=" + gaGroup},
+			wantChanged: true,
+		},
+		{
+			name:        "double dash with separate value",
+			args:        []string{"--pool-name", "pool", "--pool-group", legacyGroup, "--zap-encoder", "json"},
+			want:        []string{"--pool-name", "pool", "--pool-group", gaGroup, "--zap-encoder", "json"},
+			wantChanged: true,
+		},
+		{
+			name:        "single dash with separate value",
+			args:        []string{"-pool-group", legacyGroup},
+			want:        []string{"-pool-group", gaGroup},
+			wantChanged: true,
+		},
+		{
+			name: "GA group is left unchanged",
+			args: []string{"--pool-group=" + gaGroup, "--pool-group", gaGroup},
+			want: []string{"--pool-group=" + gaGroup, "--pool-group", gaGroup},
+		},
+		{
+			name: "flag absent",
+			args: []string{"--pool-name", "pool", "--inference-pool=ns/pool"},
+			want: []string{"--pool-name", "pool", "--inference-pool=ns/pool"},
+		},
+		{
+			name: "legacy group as value of another flag is left unchanged",
+			args: []string{"--pool-group-extra=" + legacyGroup, "--other", legacyGroup},
+			want: []string{"--pool-group-extra=" + legacyGroup, "--other", legacyGroup},
+		},
+		{
+			name: "flag without value at end of args",
+			args: []string{"--pool-group"},
+			want: []string{"--pool-group"},
+		},
+		{
+			name: "nil args",
+			args: nil,
+			want: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, changed := rewriteLegacyPoolGroup(tt.args)
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantChanged, changed)
+		})
+	}
+}
+
+func TestRewriteLegacyPoolGroupDoesNotMutateInput(t *testing.T) {
+	args := []string{"--pool-group=" + legacyGroup}
+
+	got, changed := rewriteLegacyPoolGroup(args)
+
+	assert.True(t, changed)
+	assert.Equal(t, []string{"--pool-group=" + gaGroup}, got)
+	assert.Equal(t, []string{"--pool-group=" + legacyGroup}, args)
+}
+
+func eppPodSpec(args ...string) *corev1.PodSpec {
+	return &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: "main", Command: []string{"/app/epp"}, Args: args},
+		},
+	}
+}
+
+func sidecarPodSpec(command ...string) *corev1.PodSpec {
+	return &corev1.PodSpec{
+		InitContainers: []corev1.Container{
+			{Name: constants.LLMISVCRoutingSidecarContainerName, Command: command},
+		},
+		Containers: []corev1.Container{
+			{Name: "main", Args: []string{"--pool-group=" + legacyGroup}},
+		},
+	}
+}
+
+func pdSpec(version string) *v1alpha2.LLMInferenceServiceSpec {
+	annotations := map[string]string{}
+	if version != "" {
+		annotations["app.kubernetes.io/version"] = version
+	}
+	return &v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: sidecarPodSpec("/app/pd-sidecar", "--enable-ssrf-protection=true", "--pool-group="+legacyGroup),
+			Worker:   sidecarPodSpec("/app/pd-sidecar", "--pool-group", legacyGroup),
+		},
+		Prefill: &v1alpha2.WorkloadSpec{
+			Template: sidecarPodSpec("/app/pd-sidecar", "--pool-group="+legacyGroup),
+		},
+		Router: &v1alpha2.RouterSpec{
+			Scheduler: &v1alpha2.SchedulerSpec{
+				Annotations: annotations,
+				Template:    eppPodSpec("--pool-name", "pool", "--pool-group", legacyGroup),
+			},
+		},
+	}
+}
+
+func TestMigrateLegacyPoolGroup(t *testing.T) {
+	t.Run("rewrites scheduler and routing sidecars at the gated version", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+
+		migrated := migrateLegacyPoolGroup(spec)
+
+		assert.Equal(t, []string{"router.scheduler.template", "template", "worker", "prefill.template"}, migrated)
+		assert.Equal(t, []string{"--pool-name", "pool", "--pool-group", gaGroup}, spec.Router.Scheduler.Template.Containers[0].Args)
+		assert.Equal(t, []string{"/app/pd-sidecar", "--enable-ssrf-protection=true", "--pool-group=" + gaGroup}, spec.Template.InitContainers[0].Command)
+		assert.Equal(t, []string{"/app/pd-sidecar", "--pool-group", gaGroup}, spec.Worker.InitContainers[0].Command)
+		assert.Equal(t, []string{"/app/pd-sidecar", "--pool-group=" + gaGroup}, spec.Prefill.Template.InitContainers[0].Command)
+	})
+
+	t.Run("leaves non-sidecar workload containers unchanged", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+
+		migrateLegacyPoolGroup(spec)
+
+		assert.Equal(t, []string{"--pool-group=" + legacyGroup}, spec.Template.Containers[0].Args)
+		assert.Equal(t, []string{"--pool-group=" + legacyGroup}, spec.Prefill.Template.Containers[0].Args)
+	})
+
+	t.Run("rewrites newer versions", func(t *testing.T) {
+		spec := pdSpec("1.0.0")
+
+		assert.Len(t, migrateLegacyPoolGroup(spec), 4)
+	})
+
+	t.Run("is idempotent", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+		migrateLegacyPoolGroup(spec)
+		want := spec.DeepCopy()
+
+		migrated := migrateLegacyPoolGroup(spec)
+
+		assert.Empty(t, migrated)
+		assert.Equal(t, want, spec)
+	})
+
+	t.Run("does not mutate the original pod specs", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+		schedulerTemplate := spec.Router.Scheduler.Template
+		workloadTemplate := spec.Template
+
+		migrateLegacyPoolGroup(spec)
+
+		assert.Equal(t, []string{"--pool-name", "pool", "--pool-group", legacyGroup}, schedulerTemplate.Containers[0].Args)
+		assert.Equal(t, []string{"/app/pd-sidecar", "--enable-ssrf-protection=true", "--pool-group=" + legacyGroup}, workloadTemplate.InitContainers[0].Command)
+	})
+
+	for _, version := range []string{"0.10.0", "0.7.0", "", "not-a-version"} {
+		t.Run("skips scheduler version "+version, func(t *testing.T) {
+			spec := pdSpec(version)
+			want := spec.DeepCopy()
+
+			migrated := migrateLegacyPoolGroup(spec)
+
+			assert.Empty(t, migrated)
+			assert.Equal(t, want, spec)
+		})
+	}
+
+	t.Run("skips when there is no scheduler", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+		spec.Router = nil
+		want := spec.DeepCopy()
+
+		migrated := migrateLegacyPoolGroup(spec)
+
+		assert.Empty(t, migrated)
+		assert.Equal(t, want, spec)
+	})
+
+	t.Run("rewrites routing sidecar declared as a regular container", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+		spec.Prefill = nil
+		spec.Worker = nil
+		spec.Template = &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.LLMISVCRoutingSidecarContainerName, Args: []string{"--pool-group=" + legacyGroup}},
+			},
+		}
+
+		migrated := migrateLegacyPoolGroup(spec)
+
+		assert.Equal(t, []string{"router.scheduler.template", "template"}, migrated)
+		assert.Equal(t, []string{"--pool-group=" + gaGroup}, spec.Template.Containers[0].Args)
+	})
 }

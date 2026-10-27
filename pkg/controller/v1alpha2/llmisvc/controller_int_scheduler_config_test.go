@@ -2357,6 +2357,124 @@ schedulingProfiles:
 			}).WithContext(ctx).Should(Succeed())
 		})
 	})
+
+	Context("Legacy InferencePool API group in --pool-group", func() {
+		createServiceWithPoolGroup := func(ctx SpecContext, svcName, version string) (*v1alpha2.LLMInferenceService, *TestNamespace) {
+			testNs := NewTestNamespace(ctx, envTest)
+
+			modelConfig := LLMInferenceServiceConfig("model-config",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+				WithConfigModelName("facebook/opt-125m"),
+				WithConfigModelURI("hf://facebook/opt-125m"),
+			)
+
+			routerConfig := LLMInferenceServiceConfig("router-with-legacy-pool-group",
+				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
+			)
+			routerConfig.Spec.Router = &v1alpha2.RouterSpec{
+				Gateway: &v1alpha2.GatewaySpec{},
+				Route:   &v1alpha2.GatewayRoutesSpec{},
+				Scheduler: &v1alpha2.SchedulerSpec{
+					Annotations: map[string]string{"app.kubernetes.io/version": version},
+					Template: &corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name:  "main",
+								Image: "ghcr.io/llm-d/llm-d-router-endpoint-picker:v" + version,
+								Args: []string{
+									"--pool-name",
+									"test-pool",
+									"--pool-group",
+									constants.InferencePoolV1Alpha2APIGroupName,
+								},
+								Ports: []corev1.ContainerPort{
+									{Name: "grpc", ContainerPort: 9002, Protocol: corev1.ProtocolTCP},
+									{Name: "grpc-health", ContainerPort: 9003, Protocol: corev1.ProtocolTCP},
+									{Name: "metrics", ContainerPort: 9090, Protocol: corev1.ProtocolTCP},
+								},
+							},
+						},
+					},
+					Pool: &v1alpha2.InferencePoolSpec{},
+				},
+			}
+
+			Expect(envTest.Client.Create(ctx, modelConfig)).To(Succeed())
+			Expect(envTest.Client.Create(ctx, routerConfig)).To(Succeed())
+
+			llmSvc := LLMInferenceService(svcName,
+				InNamespace[*v1alpha2.LLMInferenceService](testNs.Name),
+				WithBaseRefs(
+					corev1.LocalObjectReference{Name: "model-config"},
+					corev1.LocalObjectReference{Name: "router-with-legacy-pool-group"},
+				),
+			)
+			Expect(envTest.Create(ctx, llmSvc)).To(Succeed())
+
+			return llmSvc, testNs
+		}
+
+		getSchedulerArgs := func(ctx context.Context, g Gomega, svcName, namespace string) []string {
+			deployment := &appsv1.Deployment{}
+			g.Expect(envTest.Get(ctx, types.NamespacedName{
+				Name:      kmeta.ChildName(svcName, "-kserve-router-scheduler"),
+				Namespace: namespace,
+			}, deployment)).To(Succeed())
+			for _, c := range deployment.Spec.Template.Spec.Containers {
+				if c.Name == "main" {
+					return c.Args
+				}
+			}
+			return nil
+		}
+
+		It("should rewrite the legacy pool group and emit a warning event for scheduler >= 0.11.0", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-legacy-pool-group"
+			llmSvc, testNs := createServiceWithPoolGroup(ctx, svcName, "0.11.0")
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then
+			Eventually(func(g Gomega, ctx context.Context) {
+				args := getSchedulerArgs(ctx, g, svcName, testNs.Name)
+				g.Expect(args).To(ContainElements("--pool-group", constants.InferencePoolV1APIGroupName))
+				g.Expect(args).NotTo(ContainElement(constants.InferencePoolV1Alpha2APIGroupName))
+			}).WithContext(ctx).Should(Succeed())
+
+			Eventually(func(g Gomega, ctx context.Context) {
+				ev := findEvent(ctx, envTest.Client, llmSvc, "DeprecatedInferencePoolGroup")
+				g.Expect(ev).NotTo(BeNil())
+				g.Expect(ev.Type).To(Equal(corev1.EventTypeWarning))
+				g.Expect(ev.Message).To(ContainSubstring("router.scheduler.template"))
+			}).WithContext(ctx).Should(Succeed())
+
+			// the user's spec is left as-is
+			stored := &v1alpha2.LLMInferenceServiceConfig{}
+			Expect(envTest.Get(ctx, types.NamespacedName{Name: "router-with-legacy-pool-group", Namespace: testNs.Name}, stored)).To(Succeed())
+			Expect(stored.Spec.Router.Scheduler.Template.Containers[0].Args).To(ContainElement(constants.InferencePoolV1Alpha2APIGroupName))
+		})
+
+		It("should keep the legacy pool group for scheduler < 0.11.0", func(ctx SpecContext) {
+			// given
+			svcName := "test-llm-legacy-pool-group-old"
+			llmSvc, testNs := createServiceWithPoolGroup(ctx, svcName, "0.10.0")
+			defer func() {
+				testNs.DeleteAndWait(ctx, llmSvc)
+			}()
+
+			// then
+			Eventually(func(g Gomega, ctx context.Context) {
+				args := getSchedulerArgs(ctx, g, svcName, testNs.Name)
+				g.Expect(args).To(ContainElements("--pool-group", constants.InferencePoolV1Alpha2APIGroupName))
+			}).WithContext(ctx).Should(Succeed())
+
+			Consistently(func(ctx context.Context) *corev1.Event {
+				return findEvent(ctx, envTest.Client, llmSvc, "DeprecatedInferencePoolGroup")
+			}).WithContext(ctx).WithTimeout(2 * time.Second).Should(BeNil())
+		})
+	})
 })
 
 // schedulerContainerName is the expected name of the main container in the scheduler deployment
