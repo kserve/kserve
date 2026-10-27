@@ -38,8 +38,6 @@ var (
 		Help:      "Total number of CloudEvents that failed to deliver to the log sink (connection error, timeout, or non-200 response).",
 	}, []string{"type"})
 
-	// TODO: wire this in once #6173 (bounded dispatch) lands -- QueueLogRequest
-	// doesn't have a drop path yet, so this stays at 0.
 	EventsDroppedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metricsNamespace,
 		Subsystem: metricsSubsystem,

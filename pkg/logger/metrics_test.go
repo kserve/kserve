@@ -157,6 +157,23 @@ func TestWorkQueueDepthTracksQueueLength(t *testing.T) {
 	g.Expect(testutil.ToFloat64(WorkQueueDepth)).To(gomega.Equal(float64(1)))
 }
 
+func TestQueueLogRequestCountsDroppedEvents(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	original := WorkQueue
+	defer func() { WorkQueue = original }()
+	WorkQueue = make(chan LogRequest, 1)
+
+	req := newTestLogRequest("http://127.0.0.1:0")
+	droppedBefore := testutil.ToFloat64(EventsDroppedTotal.WithLabelValues(CEInferenceRequest))
+
+	g.Expect(QueueLogRequest(req)).To(gomega.Succeed())
+	g.Expect(testutil.ToFloat64(EventsDroppedTotal.WithLabelValues(CEInferenceRequest))).To(gomega.Equal(droppedBefore))
+
+	g.Expect(QueueLogRequest(req)).To(gomega.HaveOccurred())
+	g.Expect(testutil.ToFloat64(EventsDroppedTotal.WithLabelValues(CEInferenceRequest))).To(gomega.Equal(droppedBefore + 1))
+}
+
 // The failures below happen before anything is sent, so they must count as
 // failed deliveries but must not be observed in the delivery histogram.
 

@@ -73,6 +73,7 @@ func QueueLogRequest(req LogRequest) error {
 	case WorkQueue <- req:
 		return nil
 	default:
+		EventsDroppedTotal.WithLabelValues(req.ReqType).Inc()
 		return fmt.Errorf("logger work queue is full (capacity %d), dropping log request %s", cap(WorkQueue), req.Id)
 	}
 }
