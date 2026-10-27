@@ -69,6 +69,8 @@ const (
 	pvcEvictorBaseRefsIndex    = "serving.kserve.io/pvc-evictor-base-ref"
 )
 
+var errPVCEvictorCleanupUnsafe = errors.New("PVC evictor cleanup is unsafe")
+
 func pvcEvictorContainerSecurityContext() *corev1.SecurityContext {
 	return &corev1.SecurityContext{
 		AllowPrivilegeEscalation: ptr.To(false),
@@ -777,7 +779,11 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 	}
 	pendingPVCs, err := r.cleanupUnusedPVCEvictorsWithResult(ctx, llmSvc.Namespace, config, llmSvc, "")
 	if err != nil {
-		return err
+		if errors.Is(err, errPVCEvictorCleanupUnsafe) {
+			pendingPVCs = nil
+		} else {
+			return err
+		}
 	}
 	deletionBlocksExpected := false
 	for _, deployment := range expected {
@@ -1261,7 +1267,7 @@ func (r *LLMISVCReconciler) cleanupUnusedPVCEvictorsWithResult(ctx context.Conte
 	}
 	if !cleanupSafe {
 		log.FromContext(ctx).Info("Skipping PVC evictor cleanup because one or more LLMInferenceServices could not be resolved")
-		return nil, nil
+		return nil, errPVCEvictorCleanupUnsafe
 	}
 
 	current := &appsv1.DeploymentList{}

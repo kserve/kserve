@@ -158,6 +158,114 @@ func TestFinalizePVCEvictorsSkipsConfigWithoutDeployments(t *testing.T) {
 	}
 }
 
+func TestFinalizePVCEvictorsStaysPendingWhenCleanupIsUnsafe(t *testing.T) {
+	deletionTime := metav1.Now()
+	deleting := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "deleting",
+			Namespace:         "test",
+			DeletionTimestamp: &deletionTime,
+			Finalizers:        []string{"test.finalizer"},
+		},
+	}
+	unresolved := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "unresolved", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			BaseRefs: []corev1.LocalObjectReference{{Name: "missing-config"}},
+		},
+	}
+	evictor := expectedPVCEvictorDeployment(deleting, pvcEvictorTarget{
+		claimName: "shared-pvc",
+		subPath:   "kv-cache",
+	})
+
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{
+		appsv1.AddToScheme,
+		corev1.AddToScheme,
+		v1alpha2.AddToScheme,
+	} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(deleting, unresolved, evictor, testInferenceServiceConfigMap()).
+		Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+
+	err := reconciler.finalizePVCEvictors(t.Context(), deleting)
+	if err == nil {
+		t.Fatal("finalizePVCEvictors() = nil, want cleanup to remain pending")
+	}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(evictor), &appsv1.Deployment{}); err != nil {
+		t.Fatalf("PVC evictor Deployment was removed while cleanup was unsafe: %v", err)
+	}
+}
+
+func TestReconcilePVCEvictorsContinuesWhenCleanupIsUnsafe(t *testing.T) {
+	current := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "current", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{Containers: []corev1.Container{{
+				Name: mainContainerName,
+				Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
+			}}},
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+					PVC: &v1alpha2.PVCTierSpec{
+						Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"},
+					},
+				}}},
+			},
+		}},
+	}
+	unresolved := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "unresolved", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			BaseRefs: []corev1.LocalObjectReference{{Name: "missing-config"}},
+		},
+	}
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-pvc", Namespace: "test"},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{
+		appsv1.AddToScheme,
+		corev1.AddToScheme,
+		v1alpha2.AddToScheme,
+	} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(current, unresolved, testInferenceServiceConfigMap()).
+		Build()
+	pvcReader := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient, APIReader: pvcReader}
+
+	if err := reconciler.reconcilePVCEvictors(t.Context(), current, &Config{}); err != nil {
+		t.Fatalf("reconcilePVCEvictors() error = %v, want nil when cleanup is unsafe", err)
+	}
+	deployments := &appsv1.DeploymentList{}
+	if err := fakeClient.List(t.Context(), deployments,
+		client.InNamespace("test"),
+		client.MatchingLabels{pvcEvictorLabel: "true"},
+	); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := len(deployments.Items), 1; got != want {
+		t.Fatalf("PVC evictor Deployment count = %d, want %d", got, want)
+	}
+}
+
 func TestAttachPVCEvictorUsesContainerTemplate(t *testing.T) {
 	customResources := corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("123m")},
