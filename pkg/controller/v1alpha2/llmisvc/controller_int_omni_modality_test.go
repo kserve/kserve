@@ -134,7 +134,7 @@ var _ = Describe("Omni Modality (TTS/TTI)", func() {
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected preset config in scheduler deployment")
-				g.Expect(configText).To(ContainSubstring("apiVersion: llm-d.ai/v1"))
+				g.Expect(configText).To(MatchRegexp(`(?m)^apiVersion: llm-d\.ai/v1$`))
 
 				pluginTypes, err := pluginTypesFromConfig(configText)
 				g.Expect(err).NotTo(HaveOccurred())
