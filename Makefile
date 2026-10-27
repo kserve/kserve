@@ -1,3 +1,13 @@
+# GNU Make 4.0+ required. The target-specific `export override` assignments in
+# Makefile.quality.mk are a parse error on GNU Make 3.81, which is what macOS
+# ships as /usr/bin/make. Checked before the includes so the failure names the
+# cause instead of the line make happened to choke on.
+ifneq ($(firstword $(sort 4.0 $(MAKE_VERSION))),4.0)
+$(error GNU Make 4.0+ required, found $(MAKE_VERSION). \
+  On macOS: brew install make, then prepend it to PATH: \
+  export PATH="$$(brew --prefix)/opt/make/libexec/gnubin:$$PATH")
+endif
+
 # The Go and Python based tools are defined in Makefile.tools.mk.
 include Makefile.tools.mk
 
