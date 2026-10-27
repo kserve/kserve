@@ -207,14 +207,14 @@ var _ = Describe("Node Ready Predicate", func() {
 	})
 
 	Describe("DeleteFunc", func() {
-		It("should return false for any node deletion", func() {
+		It("should return true so the deleted node's LocalModelNode is reconciled away", func() {
 			node := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{Name: "test-node"},
 			}
 			result := pred.Delete(event.DeleteEvent{
 				Object: node,
 			})
-			Expect(result).To(BeFalse())
+			Expect(result).To(BeTrue())
 		})
 	})
 })
