@@ -31,6 +31,31 @@ class TestEnsureHelmRepo(unittest.TestCase):
 
         self.assertEqual(run.call_count, 3)
 
+    def test_propagates_error_after_exhausted_retries(self):
+        run = unittest.mock.Mock(
+            side_effect=[
+                "[]",
+                subprocess.CalledProcessError(
+                    1, "helm repo add istio https://example.com"
+                ),
+                subprocess.CalledProcessError(
+                    1, "helm repo add istio https://example.com"
+                ),
+                subprocess.CalledProcessError(
+                    1, "helm repo add istio https://example.com"
+                ),
+            ]
+        )
+
+        with (
+            patch.object(generate_versions, "run", run),
+            patch.object(generate_versions.time, "sleep"),
+            self.assertRaises(subprocess.CalledProcessError),
+        ):
+            generate_versions.ensure_helm_repo("istio", "https://example.com")
+
+        self.assertEqual(run.call_count, 4)
+
 
 if __name__ == "__main__":
     unittest.main()
