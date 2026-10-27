@@ -3261,7 +3261,7 @@ plugins:
 - type: precise-prefix-cache-producer
   parameters:
     indexerConfig:
-      kvBlockScorerConfig:
+      %s:
         legacy: true
       kvBlockIndexConfig:
         enableMetrics: true
@@ -3272,10 +3272,12 @@ plugins:
 		name       string
 		version    string
 		apiVersion string
+		fieldName  string
 		removed    bool
 	}{
-		{name: "removes the field for v1.0.0", version: "1.0.0", apiVersion: "llm-d.ai/v1", removed: true},
-		{name: "leaves the field in place for v0.11.0", version: "0.11.0", apiVersion: "llm-d.ai/v1alpha1", removed: false},
+		{name: "removes the field for v1.0.0", version: "1.0.0", apiVersion: "llm-d.ai/v1", fieldName: "kvBlockScorerConfig", removed: true},
+		{name: "removes legacy field casing for v1.0.0", version: "1.0.0", apiVersion: "llm-d.ai/v1", fieldName: "KVBlockScorerConfig", removed: true},
+		{name: "leaves the field in place for v0.11.0", version: "0.11.0", apiVersion: "llm-d.ai/v1alpha1", fieldName: "kvBlockScorerConfig", removed: false},
 	}
 
 	for _, tt := range tests {
@@ -3292,7 +3294,7 @@ plugins:
 						},
 						Spec: corev1.PodSpec{
 							Containers: []corev1.Container{
-								{Name: "main", Args: []string{"--config-text", fmt.Sprintf(configTemplate, tt.apiVersion)}},
+								{Name: "main", Args: []string{"--config-text", fmt.Sprintf(configTemplate, tt.apiVersion, tt.fieldName)}},
 							},
 						},
 					},
@@ -3312,13 +3314,57 @@ plugins:
 			indexerConfig, _, err := unstructured.NestedMap(producer, "parameters", "indexerConfig")
 			g.Expect(err).NotTo(HaveOccurred())
 			if tt.removed {
-				g.Expect(indexerConfig).NotTo(HaveKey("kvBlockScorerConfig"))
+				g.Expect(indexerConfig).NotTo(HaveKey(tt.fieldName))
 			} else {
-				g.Expect(indexerConfig).To(HaveKey("kvBlockScorerConfig"))
+				g.Expect(indexerConfig).To(HaveKey(tt.fieldName))
 			}
 			g.Expect(indexerConfig).To(HaveKey("kvBlockIndexConfig"))
 		})
 	}
+}
+
+func TestSchedulerTransformRemovesKVBlockScorerConfigFromLaterProducer(t *testing.T) {
+	configYAML := `apiVersion: llm-d.ai/v1
+kind: EndpointPickerConfig
+plugins:
+- type: precise-prefix-cache-producer
+- type: precise-prefix-cache-producer
+  parameters:
+    indexerConfig:
+      KVBlockScorerConfig:
+        legacy: true
+      kvBlockIndexConfig:
+        enableMetrics: true
+`
+
+	d := &appsv1.Deployment{
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"app.kubernetes.io/version": "1.0.0"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "main", Args: []string{"--config-text", configYAML}}},
+				},
+			},
+		},
+	}
+
+	g := NewGomegaWithT(t)
+	g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)).To(Succeed())
+
+	var cfg map[string]interface{}
+	g.Expect(yaml.Unmarshal([]byte(d.Spec.Template.Spec.Containers[0].Args[1]), &cfg)).To(Succeed())
+	plugins, _, err := unstructured.NestedSlice(cfg, "plugins")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(plugins).To(HaveLen(2))
+
+	laterProducer, ok := plugins[1].(map[string]interface{})
+	g.Expect(ok).To(BeTrue())
+	indexerConfig, _, err := unstructured.NestedMap(laterProducer, "parameters", "indexerConfig")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(indexerConfig).NotTo(HaveKey("KVBlockScorerConfig"))
+	g.Expect(indexerConfig).To(HaveKey("kvBlockIndexConfig"))
 }
 
 func TestSchedulerTransformPreservesKVBlockScorerConfigDuringScorerDecomposition(t *testing.T) {

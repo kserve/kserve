@@ -1916,7 +1916,23 @@ func withRemoveKVBlockScorerConfig(_ context.Context, u *unstructured.Unstructur
 		if !ok || pluginMap["type"] != precisePrefixCacheProducerPlugin {
 			continue
 		}
-		unstructured.RemoveNestedField(pluginMap, "parameters", "indexerConfig", kvBlockScorerConfigField)
+
+		indexerConfigVal, found, err := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "indexerConfig")
+		if err != nil {
+			return err
+		}
+		if !found {
+			continue
+		}
+		indexerConfig, ok := indexerConfigVal.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		for key := range indexerConfig {
+			if strings.EqualFold(key, kvBlockScorerConfigField) {
+				delete(indexerConfig, key)
+			}
+		}
 	}
 
 	return nil
