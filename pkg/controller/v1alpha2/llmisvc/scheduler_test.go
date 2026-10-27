@@ -3444,6 +3444,30 @@ func TestMigrateLegacyPoolGroup(t *testing.T) {
 		assert.Equal(t, want, spec)
 	})
 
+	t.Run("rewrites flag split between command and args", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+		spec.Router.Scheduler.Template = &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "main", Command: []string{"/app/epp", "--pool-group"}, Args: []string{legacyGroup, "--pool-name", "pool"}},
+			},
+		}
+
+		migrated := migrateLegacyPoolGroup(spec)
+
+		assert.Contains(t, migrated, "router.scheduler.template")
+		assert.Equal(t, []string{"/app/epp", "--pool-group"}, spec.Router.Scheduler.Template.Containers[0].Command)
+		assert.Equal(t, []string{gaGroup, "--pool-name", "pool"}, spec.Router.Scheduler.Template.Containers[0].Args)
+	})
+
+	t.Run("leaves the untouched side of command and args as-is", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+
+		migrateLegacyPoolGroup(spec)
+
+		assert.Nil(t, spec.Template.InitContainers[0].Args)
+		assert.Equal(t, []string{"/app/epp"}, spec.Router.Scheduler.Template.Containers[0].Command)
+	})
+
 	t.Run("rewrites routing sidecar declared as a regular container", func(t *testing.T) {
 		spec := pdSpec("0.11.0")
 		spec.Prefill = nil

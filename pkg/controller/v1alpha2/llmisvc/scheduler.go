@@ -1722,7 +1722,6 @@ const poolGroupFlagName = "pool-group"
 
 // legacyPoolGroupMinVersion is the minimum scheduler version at which
 // migrateLegacyPoolGroup rewrites the legacy InferencePool API group.
-// Every llm-d-router version from v0.7.0 accepts the GA group.
 var legacyPoolGroupMinVersion = semver.New("0.11.0")
 
 // migrateLegacyPoolGroup rewrites --pool-group=inference.networking.x-k8s.io to
@@ -1764,9 +1763,10 @@ func migrateLegacyPoolGroup(spec *v1alpha2.LLMInferenceServiceSpec) []string {
 	return migrated
 }
 
-// migratePodSpecPoolGroup rewrites the legacy pool group in the Command and Args
-// of the init and regular containers whose name matches. When anything changes,
-// *podSpec is replaced with a modified deep copy.
+// migratePodSpecPoolGroup rewrites the legacy pool group in the init and regular
+// containers whose name matches. Command and Args are rewritten as one argument
+// list and split back at the original boundary. When anything changes, *podSpec
+// is replaced with a modified deep copy.
 func migratePodSpecPoolGroup(podSpec **corev1.PodSpec, matches func(name string) bool) bool {
 	if *podSpec == nil {
 		return false
@@ -1779,14 +1779,18 @@ func migratePodSpecPoolGroup(podSpec **corev1.PodSpec, matches func(name string)
 			if !matches(c.Name) {
 				continue
 			}
-			if command, ok := rewriteLegacyPoolGroup(c.Command); ok {
-				c.Command = command
-				changed = true
+			argv, ok := rewriteLegacyPoolGroup(slices.Concat(c.Command, c.Args))
+			if !ok {
+				continue
 			}
-			if args, ok := rewriteLegacyPoolGroup(c.Args); ok {
-				c.Args = args
-				changed = true
+			n := len(c.Command)
+			if !slices.Equal(argv[:n], c.Command) {
+				c.Command = argv[:n:n]
 			}
+			if !slices.Equal(argv[n:], c.Args) {
+				c.Args = argv[n:]
+			}
+			changed = true
 		}
 	}
 	if changed {
