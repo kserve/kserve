@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import signal
+
 import pytest
-from kserve import ModelServer
+from kserve import Model, ModelRepository, ModelServer
 
 UNKNOWN_MODEL_TYPE_ERR_MESSAGE = "Unknown model collection type"
 
@@ -70,3 +73,38 @@ def test_model_server_rejects_partial_ssl_configuration(ssl_certfile, ssl_keyfil
         ValueError, match="ssl_certfile and ssl_keyfile must be configured together"
     ):
         ModelServer(ssl_certfile=ssl_certfile, ssl_keyfile=ssl_keyfile)
+
+
+@pytest.mark.asyncio
+async def test_model_server_stop_unloads_models_after_grpc_drain():
+    events = []
+    drain = asyncio.Event()
+
+    class RecordingModel(Model):
+        def stop(self):
+            events.append("model stopped")
+            super().stop()
+
+    class DrainingGRPCServer:
+        async def stop(self, sig):
+            events.append("grpc drain started")
+            await drain.wait()
+            events.append("grpc drain finished")
+
+    model = RecordingModel("test-model")
+    model.ready = True
+    server = ModelServer(registered_models=ModelRepository())
+    server.register_model(model)
+    server._grpc_server = DrainingGRPCServer()
+
+    server.stop(signal.SIGTERM)
+    await asyncio.sleep(0.1)
+    # In-flight gRPC requests may still use the model while the server drains.
+    assert events == ["grpc drain started"]
+
+    drain.set()
+    for _ in range(50):
+        if "model stopped" in events:
+            break
+        await asyncio.sleep(0.01)
+    assert events == ["grpc drain started", "grpc drain finished", "model stopped"]
