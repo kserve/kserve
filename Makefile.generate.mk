@@ -18,10 +18,14 @@ generate-quick-install-scripts: validate-infra-scripts $(PYTHON_VENV)
 	@$(PYTHON_BIN)/pip install -q -r hack/setup/scripts/install-script-generator/requirements.txt
 	@$(PYTHON_BIN)/python hack/setup/scripts/install-script-generator/generator.py
 
-generate-chart-manifests: ## After config/ or charts/_common edits: regenerate chart files, then helm lint. Needs helm.
+generate-chart-manifests: helm-docs ## After config/ or charts/_common edits: regenerate chart files, then helm lint. Needs helm.
 	@bash hack/setup/scripts/generate_chart_manifests.sh
 	make lint-helm-charts
 	make verify-helm-helpers-consistency
+	@# Chart READMEs are rendered from each chart's values.yaml, which the script above
+	@# regenerates from charts/_common. Run helm-docs here, after the sync, so a change to a
+	@# common value is documented on the first precommit pass rather than the second.
+	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
 
 manifests: controller-gen kustomize yq ## After API type or RBAC marker changes: CRDs, RBAC, deepcopy. Needs network.
 	@$(CONTROLLER_GEN) $(CRD_OPTIONS) paths=./pkg/apis/serving/... output:crd:dir=config/crd/full	
@@ -178,7 +182,7 @@ manifests: controller-gen kustomize yq ## After API type or RBAC marker changes:
     # Copy Test inferenceconfig configmap to test overlay
 	cp config/configmap/inferenceservice.yaml config/overlays/test/configmap/inferenceservice.yaml
 
-generate: controller-gen helm-docs ## After API type changes: clientsets, OpenAPI, Python SDK, chart READMEs. Needs Java.
+generate: controller-gen ## After API type changes: clientsets, OpenAPI, Python SDK, chart READMEs. Needs Java.
 	@# Preserve existing copyright years across regeneration.
 	@grep -rn 'Copyright [0-9]\{4\} The KServe Authors' --include='*.go' --include='*.py' \
 		pkg/ cmd/ python/ 2>/dev/null | \
@@ -189,7 +193,6 @@ generate: controller-gen helm-docs ## After API type changes: clientsets, OpenAP
 	COPYRIGHT_YEARS_CACHE=/tmp/copyright_years_cache hack/python-sdk/client-gen.sh
 	@python3 hack/setup/preserve-copyright-years.py /tmp/copyright_years_cache
 	@rm -f /tmp/copyright_years_cache
-	$(HELM_DOCS) --chart-search-root=charts --output-file=README.md
 
 uv-lock: $(UV) ## After Python dependency changes: re-lock the python/ uv.lock files. Needs network.
 # Update the kserve package first as other packages depends on it.
