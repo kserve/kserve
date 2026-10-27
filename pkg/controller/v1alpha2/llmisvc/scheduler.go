@@ -61,6 +61,7 @@ const (
 	tokenProducerPlugin               = "token-producer"
 	precisePrefixCacheProducerPlugin  = "precise-prefix-cache-producer"
 	kvBlockScorerConfigField          = "kvBlockScorerConfig"
+	dataParallelProfileHandlerPlugin  = "data-parallel-profile-handler"
 	loraAffinityScorerPlugin          = "lora-affinity-scorer"
 	coreMetricsExtractorPlugin        = "model-server-protocol-metrics"
 	coreMetricsExtractorPluginRenamed = "core-metrics-extractor"
@@ -1467,6 +1468,25 @@ func schedulerConfigUsedPluginTypes(d *appsv1.Deployment, pluginTypes ...string)
 	return found
 }
 
+func schedulerConfigDeclaresPlugin(d *appsv1.Deployment, pluginType string) bool {
+	c := utils.GetContainerWithName(&d.Spec.Template.Spec, "main")
+	if c == nil {
+		return false
+	}
+	for i := range len(c.Args) - 1 {
+		if _, ok := inlineConfigTextFlags[c.Args[i]]; !ok {
+			continue
+		}
+		u := unstructured.Unstructured{}
+		if err := yaml.Unmarshal([]byte(c.Args[i+1]), &u.Object); err == nil && hasPluginType(u.Object, pluginType) {
+			return true
+		}
+	}
+	return false
+}
+
+type unsupportedSchedulerPluginError struct{ error }
+
 // checkRoleFiltersOnLegacyBothWorkload emits a Warning event and returns an
 // error, which stops the scheduler rollout, when EPPConfig uses
 // decode-filter or prefill-filter while pods are labelled llm-d.ai/role=both
@@ -1608,6 +1628,15 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 	}
 	if v.Compare(*semver.New("0.7.0")) < 0 {
 		return nil
+	}
+
+	if v.Compare(*semver.New("1.0.0")) >= 0 {
+		if schedulerConfigDeclaresPlugin(d, dataParallelProfileHandlerPlugin) {
+			return &unsupportedSchedulerPluginError{fmt.Errorf(
+				"scheduler deployment %s/%s uses removed plugin %q; update the EndpointPickerConfig before upgrading to llm-d-router v1.0.0: single-profile-handler is not behavior-equivalent, so review the data-parallel parameters and migrate manually",
+				d.GetNamespace(), d.GetName(), dataParallelProfileHandlerPlugin,
+			)}
+		}
 	}
 
 	writable := hasWritableConfigText(d)

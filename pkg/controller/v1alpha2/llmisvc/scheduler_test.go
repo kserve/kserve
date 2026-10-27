@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -3250,6 +3252,98 @@ plugins:
 
 			tt.validateConfig(g, d.Spec.Template.Spec.Containers[0].Args[1])
 		})
+	}
+}
+
+func TestSchedulerTransformRejectsRemovedDataParallelProfileHandler(t *testing.T) {
+	configYAML := `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: data-parallel-profile-handler
+  parameters:
+    primaryPort: 8000
+`
+
+	tests := []struct {
+		name    string
+		version string
+		args    []string
+		wantErr bool
+		errText string
+	}{
+		{
+			name:    "rejects the removed plugin for v1.0.0",
+			version: "1.0.0",
+			args:    []string{"--config-text", configYAML},
+			wantErr: true,
+			errText: "not behavior-equivalent",
+		},
+		{
+			name:    "allows manually maintained config-file for v1.0.0",
+			version: "1.0.0",
+			args:    []string{"--config-file", "/etc/scheduler/config.yaml"},
+		},
+		{
+			name:    "allows manually maintained config-file equals syntax for v1.0.0",
+			version: "1.0.0",
+			args:    []string{"--config-file=/etc/scheduler/config.yaml"},
+		},
+		{
+			name:    "keeps the deprecated plugin for v0.11.0",
+			version: "0.11.0",
+			args:    []string{"--config-text", configYAML},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			d := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-scheduler", Namespace: "test-ns"},
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{"app.kubernetes.io/version": tt.version},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{{Name: "main", Args: tt.args}},
+						},
+					},
+				},
+			}
+
+			err := schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)
+			if tt.wantErr {
+				g.Expect(err).To(HaveOccurred())
+				var unsupported *unsupportedSchedulerPluginError
+				g.Expect(errors.As(err, &unsupported)).To(BeTrue())
+				if tt.errText != "" {
+					g.Expect(err).To(MatchError(ContainSubstring(tt.errText)))
+				}
+				return
+			}
+			g.Expect(err).NotTo(HaveOccurred())
+		})
+	}
+}
+
+func TestSchedulerReconcileErrorUnsupportedPluginIsTerminal(t *testing.T) {
+	llmSvc := &v1alpha2.LLMInferenceService{}
+	r := &LLMISVCReconciler{EventRecorder: record.NewFakeRecorder(1)}
+	cause := &unsupportedSchedulerPluginError{errors.New("unsupported scheduler plugin")}
+
+	err := r.schedulerReconcileError(llmSvc, fmt.Errorf("wrapped: %w", cause))
+
+	require.ErrorIs(t, err, reconcile.TerminalError(nil))
+	condition := llmSvc.Status.GetCondition(v1alpha2.SchedulerWorkloadReady)
+	require.NotNil(t, condition)
+	assert.True(t, condition.IsFalse())
+	assert.Equal(t, "UnsupportedSchedulerPlugin", condition.Reason)
+	select {
+	case event := <-r.EventRecorder.(*record.FakeRecorder).Events:
+		assert.Contains(t, event, "UnsupportedSchedulerPlugin")
+	default:
+		t.Fatal("expected an UnsupportedSchedulerPlugin event")
 	}
 }
 
