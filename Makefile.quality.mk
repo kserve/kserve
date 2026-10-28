@@ -138,8 +138,17 @@ check: precommit ## What CI runs: precommit, then fail if it left the tree dirty
 #   make test TEST_PKGS="./pkg/controller/v1alpha2/llmisvc/..."
 TEST_PKGS ?= $$(go list ./pkg/...) ./cmd/...
 TEST_TIMEOUT ?= 30m
+# -vet=off: go test's built-in vet runs a subset of the analyzers `make vet` runs,
+# and `make vet` already ran - as a prerequisite of test, or in precommit-check on CI.
+GO_TEST = KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -vet=off --timeout $(TEST_TIMEOUT) $(TEST_PKGS) -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
 test: fmt vet manifests envtest test-qpext ## Go tests (pkg/, cmd/, qpext). Runs fmt, vet, manifests first: rewrites files, needs network.
-	KUBEBUILDER_ASSETS="$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test --timeout $(TEST_TIMEOUT) $(TEST_PKGS) -coverprofile coverage.out -coverpkg ./pkg/... ./cmd...
+	$(GO_TEST)
+
+# The Go Test workflow runs this: precommit-check already fails on fmt, vet and
+# manifests drift, so repeating them there only costs time.
+.PHONY: test-only
+test-only: envtest test-qpext ## After precommit, and in CI: test without its fmt, vet, manifests steps. Needs network.
+	$(GO_TEST)
 
 # Run a subset of the Go tests against the envtest assets of `make test`, without
 # its fmt, vet, manifests and qpext steps. Fails when no test or spec ran.

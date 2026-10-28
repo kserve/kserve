@@ -85,6 +85,9 @@ jobs:
       # immutable, so a bad entry stays until the key changes.
       # To drop one: gh cache list -R kserve/kserve --key precommit-go-, then
       # gh cache delete -R kserve/kserve <key>; the next master run rebuilds it.
+      #
+      # go.yml restores this entry too. Keep its `path` list identical to this
+      # one, or it silently misses and builds from scratch.
       - name: Restore Go cache
         id: go-cache
         uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
