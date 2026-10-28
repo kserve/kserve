@@ -268,6 +268,8 @@ func routerVersionSupportsPreset(ctx context.Context, cfg *v1alpha2.LLMInference
 // validateRoutingSidecarArgs rejects P/D sidecar commands incompatible with
 // the required minimum llm-d-router version. The scheduler version annotation
 // applies to both the endpoint-picker and routing-sidecar images.
+// Legacy --pool-group values are not rejected here; migrateLegacyPoolGroup
+// rewrites them after base-config reconciliation.
 func validateRoutingSidecarArgs(spec *v1alpha2.LLMInferenceServiceSpec) error {
 	if spec == nil || spec.Prefill == nil || spec.Router == nil || spec.Router.Scheduler == nil {
 		return nil
@@ -297,10 +299,6 @@ func validateRoutingSidecarArgs(spec *v1alpha2.LLMInferenceServiceSpec) error {
 		var actions []string
 		if _, found := flagValue(args, "--vllm-port"); found {
 			actions = append(actions, "replace --vllm-port with --model-server-port")
-		}
-		if value, found := flagValue(args, "--pool-group"); found &&
-			value == constants.InferencePoolV1Alpha2APIGroupName {
-			actions = append(actions, "set --pool-group="+constants.InferencePoolV1APIGroupName)
 		}
 		if len(actions) > 0 {
 			return &routingSidecarArgsError{fmt.Errorf(

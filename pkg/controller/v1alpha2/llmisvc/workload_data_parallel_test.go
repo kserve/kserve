@@ -468,16 +468,35 @@ func TestDataParallelRoutingLegacySidecarFlagCompatibility(t *testing.T) {
 	for _, tc := range []struct {
 		name            string
 		schedulerVer    string
+		command         []string
 		wantTerminalErr bool
 	}{
 		{
-			name:            "v1 annotation rejects legacy flags",
-			schedulerVer:    "1.0.0",
+			name:         "v1 annotation rejects removed vllm-port",
+			schedulerVer: "1.0.0",
+			command: []string{
+				"/app/pd-sidecar",
+				"--vllm-port=8200",
+				"--pool-group=inference.networking.x-k8s.io",
+			},
 			wantTerminalErr: true,
+		},
+		{
+			name:         "v1 annotation lets legacy pool-group reach migration",
+			schedulerVer: "1.0.0",
+			command: []string{
+				"/app/pd-sidecar",
+				"--pool-group=inference.networking.x-k8s.io",
+			},
 		},
 		{
 			name:         "pre-v1 annotation keeps legacy flags",
 			schedulerVer: "0.11.0",
+			command: []string{
+				"/app/pd-sidecar",
+				"--vllm-port=8200",
+				"--pool-group=inference.networking.x-k8s.io",
+			},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -485,13 +504,9 @@ func TestDataParallelRoutingLegacySidecarFlagCompatibility(t *testing.T) {
 			r.EventRecorder = record.NewFakeRecorder(10)
 			svc.Spec.Router.Scheduler.Annotations = map[string]string{"app.kubernetes.io/version": tc.schedulerVer}
 			svc.Spec.Worker.InitContainers = []corev1.Container{{
-				Name:  constants.LLMISVCRoutingSidecarContainerName,
-				Image: "sidecar:latest",
-				Command: []string{
-					"/app/pd-sidecar",
-					"--vllm-port=8200",
-					"--pool-group=inference.networking.x-k8s.io",
-				},
+				Name:    constants.LLMISVCRoutingSidecarContainerName,
+				Image:   "sidecar:latest",
+				Command: tc.command,
 			}}
 
 			_, err := r.reconcileBaseRefs(t.Context(), svc, &Config{})
@@ -502,7 +517,7 @@ func TestDataParallelRoutingLegacySidecarFlagCompatibility(t *testing.T) {
 			}
 			require.ErrorIs(t, err, reconcile.TerminalError(nil))
 			require.ErrorContains(t, err, "replace --vllm-port with --model-server-port")
-			require.ErrorContains(t, err, "set --pool-group=inference.networking.k8s.io")
+			require.NotContains(t, err.Error(), "set --pool-group=inference.networking.k8s.io")
 			condition := svc.Status.GetCondition(v1alpha2.PresetsCombined)
 			require.NotNil(t, condition)
 			assert.Equal(t, "RoutingSidecarArgsInvalid", condition.Reason)
