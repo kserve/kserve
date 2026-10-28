@@ -362,6 +362,94 @@ func TestReconcileBaseRefs_DryRunUpdateRetainsWVA(t *testing.T) {
 	}
 }
 
+func TestMergeSpecsReplacesPVCEvictorResources(t *testing.T) {
+	base := v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name: pvcEvictorTemplateName,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("1")},
+						Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("4")},
+					},
+				}},
+			},
+		},
+	}
+	override := v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{
+					Name: pvcEvictorTemplateName,
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m")},
+					},
+				}},
+			},
+		},
+	}
+
+	merged, err := mergeSpecs(t.Context(), base, override)
+	require.NoError(t, err)
+	container := findPVCEvictorContainerTemplate(merged.Template)
+	require.NotNil(t, container)
+	assert.Empty(t, container.Resources.Requests)
+	assert.Equal(t, corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m")}, container.Resources.Limits)
+}
+
+func TestMergeSpecsInheritsPVCEvictorTemplateToWorker(t *testing.T) {
+	base := v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
+			},
+			Worker: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
+			},
+		},
+	}
+	override := v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "custom:v1"}},
+			},
+		},
+	}
+
+	merged, err := mergeSpecs(t.Context(), base, override)
+	require.NoError(t, err)
+	workerContainer := findPVCEvictorContainerTemplate(merged.Worker)
+	require.NotNil(t, workerContainer)
+	assert.Equal(t, "custom:v1", workerContainer.Image)
+}
+
+func TestMergeSpecsInheritsPrefillPVCEvictorTemplateToWorker(t *testing.T) {
+	base := v1alpha2.LLMInferenceServiceSpec{
+		Prefill: &v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
+			},
+			Worker: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
+			},
+		},
+	}
+	override := v1alpha2.LLMInferenceServiceSpec{
+		Prefill: &v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "custom:v1"}},
+			},
+		},
+	}
+
+	merged, err := mergeSpecs(t.Context(), base, override)
+	require.NoError(t, err)
+	require.NotNil(t, merged.Prefill)
+	workerContainer := findPVCEvictorContainerTemplate(merged.Prefill.Worker)
+	require.NotNil(t, workerContainer)
+	assert.Equal(t, "custom:v1", workerContainer.Image)
+}
+
 // TestCombineBaseRefsConfig_TransferSlot pins the upgrade contract end to end: a
 // preset declaring the slot gets the argument filled in from the merged spec, and
 // one without it comes back untouched.

@@ -1524,6 +1524,65 @@ func MergeSpecs(ctx context.Context, cfgs ...v1alpha2.LLMInferenceServiceSpec) (
 	return out, nil
 }
 
+func hasPVCEvictorResources(resources corev1.ResourceRequirements) bool {
+	return len(resources.Requests) > 0 || len(resources.Limits) > 0 || len(resources.Claims) > 0
+}
+
+func pvcEvictorContainerRef(podSpec *corev1.PodSpec) *corev1.Container {
+	index := findPVCEvictorContainerTemplateIndex(podSpec)
+	if index < 0 {
+		return nil
+	}
+	return &podSpec.Containers[index]
+}
+
+func replacePVCEvictorResources(finalPodSpec, overridePodSpec *corev1.PodSpec) {
+	if finalPodSpec == nil || overridePodSpec == nil {
+		return
+	}
+	finalContainer := pvcEvictorContainerRef(finalPodSpec)
+	overrideContainer := pvcEvictorContainerRef(overridePodSpec)
+	if finalContainer == nil || overrideContainer == nil || !hasPVCEvictorResources(overrideContainer.Resources) {
+		return
+	}
+	finalContainer.Resources = *overrideContainer.Resources.DeepCopy()
+}
+
+func inheritPVCEvictorTemplate(finalTarget, overrideTarget, finalSource, overrideSource *corev1.PodSpec) {
+	if finalTarget == nil || finalSource == nil || overrideSource == nil {
+		return
+	}
+	if pvcEvictorContainerRef(overrideSource) == nil {
+		return
+	}
+	if overrideTarget != nil && pvcEvictorContainerRef(overrideTarget) != nil {
+		return
+	}
+	sourceContainer := pvcEvictorContainerRef(finalSource)
+	targetContainer := pvcEvictorContainerRef(finalTarget)
+	if sourceContainer == nil || targetContainer == nil {
+		return
+	}
+	*targetContainer = *sourceContainer.DeepCopy()
+}
+
+func normalizePVCEvictorMerge(final, override *v1alpha2.LLMInferenceServiceSpec) {
+	if final == nil || override == nil {
+		return
+	}
+
+	replacePVCEvictorResources(final.Template, override.Template)
+	replacePVCEvictorResources(final.Worker, override.Worker)
+	inheritPVCEvictorTemplate(final.Worker, override.Worker, final.Template, override.Template)
+
+	if final.Prefill == nil || override.Prefill == nil {
+		return
+	}
+	replacePVCEvictorResources(final.Prefill.Template, override.Prefill.Template)
+	replacePVCEvictorResources(final.Prefill.Worker, override.Prefill.Worker)
+	inheritPVCEvictorTemplate(final.Prefill.Worker, override.Prefill.Worker, final.Prefill.Template, override.Prefill.Template)
+}
+
 // mergeSpecs performs a strategic merge by creating a clean patch from the override
 // object and applying it to the base object.
 func mergeSpecs(ctx context.Context, base, override v1alpha2.LLMInferenceServiceSpec) (v1alpha2.LLMInferenceServiceSpec, error) {
@@ -1573,6 +1632,7 @@ func mergeSpecs(ctx context.Context, base, override v1alpha2.LLMInferenceService
 	if err := json.Unmarshal(mergedJSON, &finalSpec); err != nil {
 		return v1alpha2.LLMInferenceServiceSpec{}, fmt.Errorf("could not unmarshal merged spec: %w", err)
 	}
+	normalizePVCEvictorMerge(&finalSpec, &override)
 	return finalSpec, nil
 }
 
