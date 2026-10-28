@@ -139,8 +139,7 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 
 	// Reconcile the scheduler component that manages inference pools
 	if err := r.reconcileScheduler(ctx, llmSvc); err != nil {
-		llmSvc.MarkSchedulerWorkloadNotReady("SchedulerReconcileError", "Failed to reconcile scheduler: %v", err.Error())
-		return fmt.Errorf("failed to reconcile scheduler: %w", err)
+		return r.schedulerReconcileError(llmSvc, err)
 	}
 
 	// Reconcile HTTP routes for traffic routing
@@ -184,6 +183,18 @@ func (r *LLMISVCReconciler) reconcileRouter(ctx context.Context, llmSvc *v1alpha
 	r.EvaluateGatewayConditions(ctx, llmSvc, resolvedGWs)
 
 	return nil
+}
+
+func (r *LLMISVCReconciler) schedulerReconcileError(llmSvc *v1alpha2.LLMInferenceService, err error) error {
+	var unsupported *unsupportedSchedulerPluginError
+	if errors.As(err, &unsupported) {
+		llmSvc.MarkSchedulerWorkloadNotReady("UnsupportedSchedulerPlugin", "%s", unsupported.Error())
+		r.Eventf(llmSvc, corev1.EventTypeWarning, "UnsupportedSchedulerPlugin", "%s", unsupported.Error())
+		return reconcile.TerminalError(unsupported)
+	}
+
+	llmSvc.MarkSchedulerWorkloadNotReady("SchedulerReconcileError", "Failed to reconcile scheduler: %v", err.Error())
+	return fmt.Errorf("failed to reconcile scheduler: %w", err)
 }
 
 // reconcileHTTPRoutes manages HTTPRoute resources for traffic routing.

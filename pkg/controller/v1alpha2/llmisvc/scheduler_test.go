@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
@@ -2947,6 +2949,9 @@ func TestMigrateProducerParams(t *testing.T) {
 						"tokenizersPoolConfig": map[string]interface{}{
 							"modelName": "test-model",
 						},
+						"kvBlockScorerConfig": map[string]interface{}{
+							"legacy": true,
+						},
 						"kvBlockIndexConfig": map[string]interface{}{
 							"enableMetrics": true,
 						},
@@ -2956,6 +2961,8 @@ func TestMigrateProducerParams(t *testing.T) {
 			validate: func(g Gomega, result map[string]interface{}) {
 				ic := result["indexerConfig"].(map[string]interface{})
 				g.Expect(ic).NotTo(HaveKey("tokenizersPoolConfig"))
+				g.Expect(ic).To(HaveKey("kvBlockScorerConfig"),
+					"the version-gated scheduler transform must decide whether to remove kvBlockScorerConfig")
 				g.Expect(ic).To(HaveKey("kvBlockIndexConfig"))
 			},
 		},
@@ -3244,6 +3251,293 @@ plugins:
 			g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)).To(Succeed())
 
 			tt.validateConfig(g, d.Spec.Template.Spec.Containers[0].Args[1])
+		})
+	}
+}
+
+func TestSchedulerTransformRejectsRemovedDataParallelProfileHandler(t *testing.T) {
+	configYAML := `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: data-parallel-profile-handler
+  parameters:
+    primaryPort: 8000
+`
+
+	tests := []struct {
+		name    string
+		version string
+		args    []string
+		wantErr bool
+		errText string
+	}{
+		{
+			name:    "rejects the removed plugin for v1.0.0",
+			version: "1.0.0",
+			args:    []string{"--config-text", configYAML},
+			wantErr: true,
+			errText: "not behavior-equivalent",
+		},
+		{
+			name:    "allows manually maintained config-file for v1.0.0",
+			version: "1.0.0",
+			args:    []string{"--config-file", "/etc/scheduler/config.yaml"},
+		},
+		{
+			name:    "allows manually maintained config-file equals syntax for v1.0.0",
+			version: "1.0.0",
+			args:    []string{"--config-file=/etc/scheduler/config.yaml"},
+		},
+		{
+			name:    "keeps the deprecated plugin for v0.11.0",
+			version: "0.11.0",
+			args:    []string{"--config-text", configYAML},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			d := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-scheduler", Namespace: "test-ns"},
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{"app.kubernetes.io/version": tt.version},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{{Name: "main", Args: tt.args}},
+						},
+					},
+				},
+			}
+
+			err := schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)
+			if tt.wantErr {
+				g.Expect(err).To(HaveOccurred())
+				var unsupported *unsupportedSchedulerPluginError
+				g.Expect(errors.As(err, &unsupported)).To(BeTrue())
+				if tt.errText != "" {
+					g.Expect(err).To(MatchError(ContainSubstring(tt.errText)))
+				}
+				return
+			}
+			g.Expect(err).NotTo(HaveOccurred())
+		})
+	}
+}
+
+func TestSchedulerReconcileErrorUnsupportedPluginIsTerminal(t *testing.T) {
+	llmSvc := &v1alpha2.LLMInferenceService{}
+	r := &LLMISVCReconciler{EventRecorder: record.NewFakeRecorder(1)}
+	cause := &unsupportedSchedulerPluginError{errors.New("unsupported scheduler plugin")}
+
+	err := r.schedulerReconcileError(llmSvc, fmt.Errorf("wrapped: %w", cause))
+
+	require.ErrorIs(t, err, reconcile.TerminalError(nil))
+	condition := llmSvc.Status.GetCondition(v1alpha2.SchedulerWorkloadReady)
+	require.NotNil(t, condition)
+	assert.True(t, condition.IsFalse())
+	assert.Equal(t, "UnsupportedSchedulerPlugin", condition.Reason)
+	select {
+	case event := <-r.EventRecorder.(*record.FakeRecorder).Events:
+		assert.Contains(t, event, "UnsupportedSchedulerPlugin")
+	default:
+		t.Fatal("expected an UnsupportedSchedulerPlugin event")
+	}
+}
+
+func TestSchedulerTransformRemovesKVBlockScorerConfigFromProducer(t *testing.T) {
+	configTemplate := `apiVersion: %s
+kind: EndpointPickerConfig
+plugins:
+- type: token-producer
+- type: precise-prefix-cache-producer
+  parameters:
+    indexerConfig:
+      %s:
+        legacy: true
+      kvBlockIndexConfig:
+        enableMetrics: true
+- type: prefix-cache-scorer
+`
+
+	tests := []struct {
+		name       string
+		version    string
+		apiVersion string
+		fieldName  string
+		removed    bool
+	}{
+		{name: "removes the field for v1.0.0", version: "1.0.0", apiVersion: "llm-d.ai/v1", fieldName: "kvBlockScorerConfig", removed: true},
+		{name: "removes legacy field casing for v1.0.0", version: "1.0.0", apiVersion: "llm-d.ai/v1", fieldName: "KVBlockScorerConfig", removed: true},
+		{name: "leaves the field in place for v0.11.0", version: "0.11.0", apiVersion: "llm-d.ai/v1alpha1", fieldName: "kvBlockScorerConfig", removed: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			d := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"app.kubernetes.io/version": tt.version,
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "main", Args: []string{"--config-text", fmt.Sprintf(configTemplate, tt.apiVersion, tt.fieldName)}},
+							},
+						},
+					},
+				},
+			}
+
+			g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)).To(Succeed())
+
+			var cfg map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(d.Spec.Template.Spec.Containers[0].Args[1]), &cfg)).To(Succeed())
+			plugins, _, err := unstructured.NestedSlice(cfg, "plugins")
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(plugins).To(HaveLen(3))
+
+			producer, ok := plugins[1].(map[string]interface{})
+			g.Expect(ok).To(BeTrue())
+			indexerConfig, _, err := unstructured.NestedMap(producer, "parameters", "indexerConfig")
+			g.Expect(err).NotTo(HaveOccurred())
+			if tt.removed {
+				g.Expect(indexerConfig).NotTo(HaveKey(tt.fieldName))
+			} else {
+				g.Expect(indexerConfig).To(HaveKey(tt.fieldName))
+			}
+			g.Expect(indexerConfig).To(HaveKey("kvBlockIndexConfig"))
+		})
+	}
+}
+
+func TestSchedulerTransformRemovesKVBlockScorerConfigFromLaterProducer(t *testing.T) {
+	configYAML := `apiVersion: llm-d.ai/v1
+kind: EndpointPickerConfig
+plugins:
+- type: precise-prefix-cache-producer
+- type: precise-prefix-cache-producer
+  parameters:
+    indexerConfig:
+      KVBlockScorerConfig:
+        legacy: true
+      kvBlockIndexConfig:
+        enableMetrics: true
+`
+
+	d := &appsv1.Deployment{
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"app.kubernetes.io/version": "1.0.0"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "main", Args: []string{"--config-text", configYAML}}},
+				},
+			},
+		},
+	}
+
+	g := NewGomegaWithT(t)
+	g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)).To(Succeed())
+
+	var cfg map[string]interface{}
+	g.Expect(yaml.Unmarshal([]byte(d.Spec.Template.Spec.Containers[0].Args[1]), &cfg)).To(Succeed())
+	plugins, _, err := unstructured.NestedSlice(cfg, "plugins")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(plugins).To(HaveLen(2))
+
+	laterProducer, ok := plugins[1].(map[string]interface{})
+	g.Expect(ok).To(BeTrue())
+	indexerConfig, _, err := unstructured.NestedMap(laterProducer, "parameters", "indexerConfig")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(indexerConfig).NotTo(HaveKey("KVBlockScorerConfig"))
+	g.Expect(indexerConfig).To(HaveKey("kvBlockIndexConfig"))
+}
+
+func TestSchedulerTransformPreservesKVBlockScorerConfigDuringScorerDecomposition(t *testing.T) {
+	configYAML := `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: precise-prefix-cache-scorer
+  parameters:
+    indexerConfig:
+      kvBlockScorerConfig:
+        legacy: true
+      kvBlockIndexConfig:
+        enableMetrics: true
+`
+
+	tests := []struct {
+		name    string
+		version string
+		removed bool
+	}{
+		{name: "removes the field for v1.0.0 after decomposition", version: "1.0.0", removed: true},
+		{name: "keeps the field for v0.11.0 after decomposition", version: "0.11.0", removed: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			mainContainer := corev1.Container{
+				Name: "main",
+				Args: []string{"--config-text", configYAML},
+			}
+			d := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"app.kubernetes.io/version": tt.version,
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{mainContainer},
+						},
+					},
+				},
+			}
+			llmSvc := &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Router: &v1alpha2.RouterSpec{
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Template: &corev1.PodSpec{
+								Containers: []corev1.Container{mainContainer},
+							},
+						},
+					},
+				},
+			}
+			g.Expect(isTokenizerEnabled(llmSvc.Spec)).To(BeTrue(),
+				"the legacy precise-prefix-cache-scorer must trigger decomposition")
+
+			g.Expect(schedulerTransform(context.Background(), d, llmSvc, false)).To(Succeed())
+
+			var cfg map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(d.Spec.Template.Spec.Containers[0].Args[1]), &cfg)).To(Succeed())
+			plugins, _, err := unstructured.NestedSlice(cfg, "plugins")
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(plugins).To(HaveLen(3))
+
+			producer, ok := plugins[1].(map[string]interface{})
+			g.Expect(ok).To(BeTrue())
+			g.Expect(producer["type"]).To(Equal(precisePrefixCacheProducerPlugin))
+			indexerConfig, _, err := unstructured.NestedMap(producer, "parameters", "indexerConfig")
+			g.Expect(err).NotTo(HaveOccurred())
+			if tt.removed {
+				g.Expect(indexerConfig).NotTo(HaveKey("kvBlockScorerConfig"))
+			} else {
+				g.Expect(indexerConfig).To(HaveKey("kvBlockScorerConfig"))
+			}
+			g.Expect(indexerConfig).To(HaveKey("kvBlockIndexConfig"))
 		})
 	}
 }

@@ -400,18 +400,18 @@ schedulingProfiles:
 		})
 	})
 
-	Context("Default scheduler config with llm-d-router < 0.11.0", func() {
+	Context("Default scheduler config with llm-d-router < 1.0.0", func() {
 		It("should use default scheduler config when no config is specified (non-prefill)", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-default-scheduler-config"
 			testNs := NewTestNamespace(ctx, envTest)
 
-			// Override the scheduler template in the test namespace with version 0.10.0
+			// Override the scheduler template in the test namespace with version 0.11.0
 			// so routerVersionSupportsPreset returns false and the controller falls back
 			// to the legacy schedulerConfigText() instead of injecting the preset.
 			schedulerCfg := LLMInferenceServiceConfig("kserve-config-llm-scheduler",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
-				WithConfigSchedulerTemplate("0.10.0"),
+				WithConfigSchedulerTemplate("0.11.0"),
 			)
 			Expect(envTest.Client.Create(ctx, schedulerCfg)).To(Succeed())
 
@@ -439,11 +439,12 @@ schedulingProfiles:
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
-			// The scheduler template carries llm-d-router version 0.10.0 which is
-			// below routerPresetMinVersion (0.11.0), so the controller falls back
+			// The scheduler template carries llm-d-router version 0.11.0 which is
+			// below routerPresetMinVersion (1.0.0), so the controller falls back
 			// to the hardcoded schedulerConfigText() with the legacy plugin set.
 			configText, found := getSchedulerConfigText(expectedDeployment)
 			Expect(found).To(BeTrue(), "Expected default config in scheduler deployment")
+			Expect(configText).To(ContainSubstring("apiVersion: llm-d.ai/v1alpha1"))
 			Expect(configText).To(ContainSubstring("single-profile-handler"))
 			Expect(configText).To(ContainSubstring("queue-scorer"))
 			Expect(configText).To(ContainSubstring("prefix-cache-scorer"))
@@ -457,7 +458,7 @@ schedulingProfiles:
 
 			schedulerCfg := LLMInferenceServiceConfig("kserve-config-llm-scheduler",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
-				WithConfigSchedulerTemplate("0.10.0"),
+				WithConfigSchedulerTemplate("0.11.0"),
 			)
 			Expect(envTest.Client.Create(ctx, schedulerCfg)).To(Succeed())
 
@@ -492,10 +493,11 @@ schedulingProfiles:
 				}, expectedDeployment)
 			}).WithContext(ctx).Should(Succeed())
 
-			// llm-d-router version 0.10.0 < routerPresetMinVersion (0.11.0), so
+			// llm-d-router version 0.11.0 < routerPresetMinVersion (1.0.0), so
 			// the controller falls back to schedulerConfigText() with legacy P/D plugins.
 			configText, found := getSchedulerConfigText(expectedDeployment)
 			Expect(found).To(BeTrue(), "Expected P/D config in scheduler deployment")
+			Expect(configText).To(ContainSubstring("apiVersion: llm-d.ai/v1alpha1"))
 			Expect(configText).To(ContainSubstring("prefill-filter"))
 			Expect(configText).To(ContainSubstring("decode-filter"))
 			Expect(configText).To(ContainSubstring("disagg-profile-handler"))
@@ -505,18 +507,18 @@ schedulingProfiles:
 		})
 	})
 
-	Context("Default scheduler config with llm-d-router >= 0.11.0", func() {
+	Context("Default scheduler config with llm-d-router >= 1.0.0", func() {
 		It("should use default preset plugins (non-prefill)", func(ctx SpecContext) {
 			// given
 			svcName := "test-llm-preset-default"
 			testNs := NewTestNamespace(ctx, envTest)
 
-			// Override the scheduler template in the test namespace with version 0.11.0
+			// Override the scheduler template in the test namespace with version 1.0.0
 			// so routerVersionSupportsPreset returns true and the controller injects
 			// the default EPPConfig preset instead of the legacy schedulerConfigText().
 			schedulerCfg := LLMInferenceServiceConfig("kserve-config-llm-scheduler",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
-				WithConfigSchedulerTemplate("0.11.0"),
+				WithConfigSchedulerTemplate("1.0.0"),
 			)
 			Expect(envTest.Client.Create(ctx, schedulerCfg)).To(Succeed())
 
@@ -545,6 +547,7 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected preset config in scheduler deployment")
+				g.Expect(configText).To(MatchRegexp(`(?m)^apiVersion: llm-d\.ai/v1$`))
 
 				pluginTypes, err := pluginTypesFromConfig(configText)
 				g.Expect(err).NotTo(HaveOccurred())
@@ -571,7 +574,7 @@ schedulingProfiles:
 
 			schedulerCfg := LLMInferenceServiceConfig("kserve-config-llm-scheduler",
 				InNamespace[*v1alpha2.LLMInferenceServiceConfig](testNs.Name),
-				WithConfigSchedulerTemplate("0.11.0"),
+				WithConfigSchedulerTemplate("1.0.0"),
 			)
 			Expect(envTest.Client.Create(ctx, schedulerCfg)).To(Succeed())
 
@@ -608,6 +611,7 @@ schedulingProfiles:
 
 				configText, found := getSchedulerConfigText(expectedDeployment)
 				g.Expect(found).To(BeTrue(), "Expected P/D preset config in scheduler deployment")
+				g.Expect(configText).To(MatchRegexp(`(?m)^apiVersion: llm-d\.ai/v1$`))
 
 				pluginTypes, err := pluginTypesFromConfig(configText)
 				g.Expect(err).NotTo(HaveOccurred())

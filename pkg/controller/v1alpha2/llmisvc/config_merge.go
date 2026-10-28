@@ -144,10 +144,10 @@ const (
 	precisePrefixCacheScorerName = "precise-prefix-cache-scorer"
 )
 
-// routerPresetMinVersion is the minimum llm-d-router version that supports the
-// preset-based EPPConfig plugins. Services running older router images fall
-// back to the hardcoded schedulerConfigText().
-var routerPresetMinVersion = semver.New("0.11.0")
+// routerPresetMinVersion is the minimum llm-d-router version that supports
+// both the preset-based EPPConfig plugins and the llm-d.ai/v1 API. Services
+// running older router images fall back to the hardcoded schedulerConfigText().
+var routerPresetMinVersion = semver.New("1.0.0")
 
 var useVersionedConfig, _ = strconv.ParseBool(constants.GetEnvOrDefault("LLM_INFERENCE_SERVICE_VERSIONED_CONFIG", "true"))
 
@@ -243,6 +243,8 @@ type CombinedConfig struct {
 	ResolvedSchedulerConfigMap *types.NamespacedName
 }
 
+type routingSidecarArgsError struct{ error }
+
 // routerVersionSupportsPreset reports whether the scheduler config's declared
 // llm-d-router version (app.kubernetes.io/version annotation) is >=
 // routerPresetMinVersion. Returns false when the annotation is absent or
@@ -255,12 +257,79 @@ func routerVersionSupportsPreset(ctx context.Context, cfg *v1alpha2.LLMInference
 	if !ok || versionStr == "" {
 		return false
 	}
-	v, err := semver.NewVersion(versionStr)
+	supportsPreset, err := versionAtLeast(versionStr, routerPresetMinVersion.String())
 	if err != nil {
 		log.FromContext(ctx).Error(err, "Failed to parse llm-d-router version from scheduler config", "version", versionStr)
 		return false
 	}
-	return v.Compare(*routerPresetMinVersion) >= 0
+	return supportsPreset
+}
+
+// validateRoutingSidecarArgs rejects P/D sidecar commands incompatible with
+// the required minimum llm-d-router version. The scheduler version annotation
+// applies to both the endpoint-picker and routing-sidecar images.
+// Legacy --pool-group values are not rejected here; migrateLegacyPoolGroup
+// rewrites them after base-config reconciliation.
+func validateRoutingSidecarArgs(spec *v1alpha2.LLMInferenceServiceSpec) error {
+	if spec == nil || spec.Prefill == nil || spec.Router == nil || spec.Router.Scheduler == nil {
+		return nil
+	}
+
+	minVersion := "1.0.0"
+	routerIsV1, _ := versionAtLeast(
+		spec.Router.Scheduler.Annotations["app.kubernetes.io/version"],
+		minVersion,
+	)
+	if !routerIsV1 {
+		return nil
+	}
+
+	for _, workload := range []struct {
+		field string
+		pod   *corev1.PodSpec
+	}{
+		{"spec.template", spec.Template},
+		{"spec.worker", spec.Worker},
+	} {
+		sidecar := routingSidecar(workload.pod)
+		if sidecar == nil {
+			continue
+		}
+		args := slices.Concat(sidecar.Command, sidecar.Args)
+		var actions []string
+		if _, found := flagValue(args, "--vllm-port"); found {
+			actions = append(actions, "replace --vllm-port with --model-server-port and use llm-d-router-disagg-sidecar v1.0.0 or newer")
+		}
+		if len(actions) > 0 {
+			return &routingSidecarArgsError{fmt.Errorf(
+				"%s llm-d-routing-sidecar command is incompatible with llm-d-router v%s+: %s; update the LLMInferenceService spec or its referenced LLMInferenceServiceConfig",
+				workload.field, minVersion, strings.Join(actions, " and "),
+			)}
+		}
+	}
+	return nil
+}
+
+func flagValue(args []string, name string) (string, bool) {
+	for i, arg := range args {
+		if arg == name && i+1 < len(args) {
+			return args[i+1], true
+		}
+		if value, found := strings.CutPrefix(arg, name+"="); found {
+			return value, true
+		}
+	}
+	return "", false
+}
+
+func versionAtLeast(version, minimum string) (bool, error) {
+	versionValue, err := semver.NewVersion(version)
+	if err != nil {
+		return false, err
+	}
+
+	minimumVersion := semver.New(minimum)
+	return versionValue.Compare(*minimumVersion) >= 0, nil
 }
 
 // hasSchedulerEPPConfig reports whether a spec already supplies an EPPConfig for
@@ -407,6 +476,13 @@ func (r *LLMISVCReconciler) reconcileBaseRefs(ctx context.Context, llmSvc *v1alp
 		if errors.As(err, &dpRouting) {
 			llmSvc.MarkPresetsCombinedNotReady("DataParallelRoutingInvalid", "%s", dpRouting.Error())
 			return nil, reconcile.TerminalError(dpRouting)
+		}
+
+		var sidecarArgs *routingSidecarArgsError
+		if errors.As(err, &sidecarArgs) {
+			r.Eventf(llmSvc, corev1.EventTypeWarning, "RoutingSidecarArgsInvalid", "%s", sidecarArgs.Error())
+			llmSvc.MarkPresetsCombinedNotReady("RoutingSidecarArgsInvalid", "%s", sidecarArgs.Error())
+			return nil, reconcile.TerminalError(sidecarArgs)
 		}
 
 		llmSvc.MarkPresetsCombinedNotReady("CombineBaseError", "%s", conditionMessage(err))
@@ -625,7 +701,17 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 			// Select the default EndpointPickerConfig from the llmisvcconfig presets.
 			// The presets require llm-d-router image version >= routerPresetMinVersion.
 			// Older images fall back to the hardcoded schedulerConfigText().
-			if injectDefaultSchedulerConfig && routerVersionSupportsPreset(ctx, schedulerCfg) {
+			// The final merge applies the service after baseRefs, so its
+			// scheduler version wins over both baseRefs and the well-known config.
+			versionCfg := schedulerCfg
+			if resolvedSpec.Router.Scheduler.Annotations["app.kubernetes.io/version"] != "" {
+				versionCfg = &v1alpha2.LLMInferenceServiceConfig{Spec: resolvedSpec}
+			}
+			if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil &&
+				llmSvc.Spec.Router.Scheduler.Annotations["app.kubernetes.io/version"] != "" {
+				versionCfg = &v1alpha2.LLMInferenceServiceConfig{Spec: llmSvc.Spec}
+			}
+			if injectDefaultSchedulerConfig && routerVersionSupportsPreset(ctx, versionCfg) {
 				switch {
 				case isOmniRuntime(resolvedSpec.Runtime):
 					// Omni TTS/TTI: load-only profile. The text prefix-cache
@@ -835,6 +921,10 @@ func (r *LLMISVCReconciler) combineBaseRefsConfig(ctx context.Context, llmSvc *v
 
 	if err := applyKVCacheCarriers(llmSvcCfg); err != nil {
 		return nil, err
+	}
+
+	if err := validateRoutingSidecarArgs(&llmSvcCfg.Spec); err != nil {
+		return &CombinedConfig{Config: llmSvcCfg, AppliedConfigRefs: appliedRefs}, err
 	}
 
 	injectOmniRuntimeArgs(llmSvcCfg, isOmniRuntime(resolvedSpec.Runtime))

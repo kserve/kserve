@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -461,6 +462,74 @@ func TestDataParallelRoutingRejectsTooManyLocalRanks(t *testing.T) {
 	_, err := r.reconcileBaseRefs(t.Context(), svc, &Config{})
 	require.ErrorContains(t, err, "at most 8 local data-parallel ranks")
 	assert.ErrorIs(t, err, reconcile.TerminalError(nil))
+}
+
+func TestDataParallelRoutingLegacySidecarFlagCompatibility(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		schedulerVer    string
+		command         []string
+		wantTerminalErr bool
+	}{
+		{
+			name:         "v1 annotation rejects removed vllm-port",
+			schedulerVer: "1.0.0",
+			command: []string{
+				"/app/pd-sidecar",
+				"--vllm-port=8200",
+				"--pool-group=inference.networking.x-k8s.io",
+			},
+			wantTerminalErr: true,
+		},
+		{
+			name:         "v1 annotation lets legacy pool-group reach migration",
+			schedulerVer: "1.0.0",
+			command: []string{
+				"/app/pd-sidecar",
+				"--pool-group=inference.networking.x-k8s.io",
+			},
+		},
+		{
+			name:         "pre-v1 annotation keeps legacy flags",
+			schedulerVer: "0.11.0",
+			command: []string{
+				"/app/pd-sidecar",
+				"--vllm-port=8200",
+				"--pool-group=inference.networking.x-k8s.io",
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, r := dataParallelRoutingFixture(t, 1, 1)
+			r.EventRecorder = record.NewFakeRecorder(10)
+			svc.Spec.Router.Scheduler.Annotations = map[string]string{"app.kubernetes.io/version": tc.schedulerVer}
+			svc.Spec.Worker.InitContainers = []corev1.Container{{
+				Name:    constants.LLMISVCRoutingSidecarContainerName,
+				Image:   "sidecar:latest",
+				Command: tc.command,
+			}}
+
+			_, err := r.reconcileBaseRefs(t.Context(), svc, &Config{})
+
+			if !tc.wantTerminalErr {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, reconcile.TerminalError(nil))
+			require.ErrorContains(t, err, "replace --vllm-port with --model-server-port")
+			require.ErrorContains(t, err, "use llm-d-router-disagg-sidecar v1.0.0 or newer")
+			require.NotContains(t, err.Error(), "set --pool-group=inference.networking.k8s.io")
+			condition := svc.Status.GetCondition(v1alpha2.PresetsCombined)
+			require.NotNil(t, condition)
+			assert.Equal(t, "RoutingSidecarArgsInvalid", condition.Reason)
+			select {
+			case event := <-r.EventRecorder.(*record.FakeRecorder).Events:
+				assert.Contains(t, event, "RoutingSidecarArgsInvalid")
+			default:
+				t.Fatal("expected a routing-sidecar compatibility event")
+			}
+		})
+	}
 }
 
 func dataParallelRoutingFixture(t *testing.T, prefill, decode int32) (*v1alpha2.LLMInferenceService, *LLMISVCReconciler) {
