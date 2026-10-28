@@ -1171,15 +1171,24 @@ def assert_tokenizer_pipeline_wired(
 # when no KV connector is loaded, so this works on the CPU image too.
 VLLM_REQUEST_COUNTER = "vllm:request_success_total"
 
+# The workload container that runs vLLM, constants.LLMInferenceServiceContainerName
+# in Go.
+VLLM_CONTAINER = "main"
+
+# vLLM's API port on prefill pods, set by --port in config-llm-prefill-template.yaml.
+# On decode pods 8000 is the routing sidecar, which proxies to vLLM on 8001, so
+# reading it there would count decode's requests rather than fail.
+PREFILL_VLLM_PORT = 8000
+
 # Run inside the vLLM container: /metrics is on the API port, served over TLS
 # with a self-signed cert when LLMInferenceService TLS is on, plain HTTP if not.
-_READ_VLLM_METRICS = """
+_READ_VLLM_METRICS = f"""
 import ssl, urllib.request
 ctx = ssl._create_unverified_context()
 for scheme in ("https", "http"):
     try:
         with urllib.request.urlopen(
-            scheme + "://localhost:8000/metrics", context=ctx, timeout=10
+            scheme + "://localhost:{PREFILL_VLLM_PORT}/metrics", context=ctx, timeout=10
         ) as resp:
             print(resp.read().decode())
         break
@@ -1209,18 +1218,22 @@ def prefill_request_count(service_name: str, namespace: str) -> float:
             "app.kubernetes.io/component=llminferenceservice-workload-prefill"
         ),
     )
-    pod_names = [
-        p.metadata.name for p in pods.items if p.metadata.deletion_timestamp is None
-    ]
-    assert pod_names, f"No prefill pods found for {service_name}"
+    live_pods = [p for p in pods.items if p.metadata.deletion_timestamp is None]
+    assert live_pods, f"No prefill pods found for {service_name}"
 
     total = 0.0
-    for pod_name in pod_names:
+    for pod in live_pods:
+        pod_name = pod.metadata.name
+        containers = [c.name for c in pod.spec.containers]
+        assert VLLM_CONTAINER in containers, (
+            f"Prefill pod {pod_name} has no {VLLM_CONTAINER!r} container, "
+            f"only {containers}"
+        )
         out = k8s_stream(
             core_v1.connect_get_namespaced_pod_exec,
             pod_name,
             namespace,
-            container="main",
+            container=VLLM_CONTAINER,
             command=["python3", "-c", _READ_VLLM_METRICS],
             stderr=True,
             stdout=True,
