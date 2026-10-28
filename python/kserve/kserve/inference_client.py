@@ -13,13 +13,14 @@
 # limitations under the License.
 
 import asyncio
+import ipaddress
 import json
 import ssl
+from urllib.request import getproxies
 from typing import Union, List, Tuple, Any, Optional, Sequence, Mapping, Dict
 
 import grpc
 import httpx
-from httpx._utils import get_environment_proxies
 from orjson import orjson
 
 from .constants.constants import PredictorProtocol, INFERENCE_CONTENT_LENGTH_HEADER
@@ -334,6 +335,38 @@ class InferenceGRPCClient:
             raise rpc_error
 
 
+def _environment_proxy_mounts() -> dict[str, str | None]:
+    """Translate standard proxy settings into HTTPX mount patterns."""
+    proxy_info = getproxies()
+    mounts = {}
+
+    for scheme in ("http", "https", "all"):
+        proxy = proxy_info.get(scheme)
+        if proxy:
+            mounts[f"{scheme}://"] = proxy if "://" in proxy else f"http://{proxy}"
+
+    for host in proxy_info.get("no", "").split(","):
+        host = host.strip()
+        if host == "*":
+            return {}
+        if not host:
+            continue
+        if "://" in host:
+            pattern = host
+        else:
+            try:
+                address = ipaddress.ip_address(host.split("/")[0])
+            except ValueError:
+                pattern = (
+                    f"all://{host}" if host.lower() == "localhost" else f"all://*{host}"
+                )
+            else:
+                pattern = f"all://[{host}]" if address.version == 6 else f"all://{host}"
+        mounts[pattern] = None
+
+    return mounts
+
+
 class _ProxyRetryTransport(httpx.AsyncBaseTransport):
     def __init__(self, transport: httpx.AsyncBaseTransport, retries: int):
         self._transport = transport
@@ -431,10 +464,10 @@ class InferenceRESTClient:
         mounts = None
         if not self._config._custom_transport:
             # HTTPX ignores environment proxies when a transport is supplied.
-            # Reuse its proxy map so NO_PROXY and scheme precedence still apply.
+            # Reconstruct its proxy mounts so NO_PROXY and scheme precedence still apply.
             mounts = {
                 pattern: self._config._create_transport(proxy=proxy) if proxy else None
-                for pattern, proxy in get_environment_proxies().items()
+                for pattern, proxy in _environment_proxy_mounts().items()
             }
         self._client = httpx.AsyncClient(
             transport=self._config.transport,

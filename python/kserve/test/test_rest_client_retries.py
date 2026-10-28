@@ -12,11 +12,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import subprocess
+import sys
+
 import httpcore
 import httpx
 import pytest
 
 from kserve.inference_client import InferenceRESTClient, RESTConfig
+
+
+def test_inference_client_import_without_private_httpx_proxy_helper():
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import importlib\n"
+            "try:\n"
+            "    utils = importlib.import_module('httpx._utils')\n"
+            "except ModuleNotFoundError:\n"
+            "    pass\n"
+            "else:\n"
+            "    vars(utils).pop('get_environment_proxies', None)\n"
+            "import kserve.inference_client\n",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 @pytest.fixture(autouse=True)
@@ -80,9 +103,29 @@ async def test_rest_client_retries_connection_errors(
             "all-proxy.test",
         ),
         (
+            {"HTTP_PROXY": "http-proxy.test:8080"},
+            "http://predictor.test",
+            "http-proxy.test",
+        ),
+        (
             {"HTTP_PROXY": "http://http-proxy.test:8080", "NO_PROXY": "predictor.test"},
             "http://predictor.test",
             "predictor.test",
+        ),
+        (
+            {"ALL_PROXY": "http://all-proxy.test:8080", "NO_PROXY": "*"},
+            "http://predictor.test",
+            "predictor.test",
+        ),
+        (
+            {"HTTP_PROXY": "http://http-proxy.test:8080", "NO_PROXY": "127.0.0.1"},
+            "http://127.0.0.1",
+            "127.0.0.1",
+        ),
+        (
+            {"HTTP_PROXY": "http://http-proxy.test:8080", "NO_PROXY": "::1"},
+            "http://[::1]",
+            "::1",
         ),
     ],
 )
