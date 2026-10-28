@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
+import signal
+
 import pytest
 from kserve import ModelServer
 
@@ -70,3 +73,43 @@ def test_model_server_rejects_partial_ssl_configuration(ssl_certfile, ssl_keyfil
         ValueError, match="ssl_certfile and ssl_keyfile must be configured together"
     ):
         ModelServer(ssl_certfile=ssl_certfile, ssl_keyfile=ssl_keyfile)
+
+
+class _RecordingGRPCServer:
+    """A gRPC server stub that records its drain."""
+
+    def __init__(self, events):
+        self.events = events
+
+    async def stop(self, sig=None):
+        self.events.append("grpc.stop.start")
+        await asyncio.sleep(0)
+        self.events.append("grpc.stop.end")
+
+
+class _RecordingRepository:
+    def __init__(self, events, models):
+        self.events = events
+        self.models = models
+
+    def get_models(self):
+        return self.models
+
+    def unload(self, name):
+        self.events.append(f"unload.{name}")
+
+
+@pytest.mark.asyncio
+async def test_stop_unloads_models_after_grpc_server_drains():
+    events = []
+    server = ModelServer(enable_grpc=True)
+    server._grpc_server = _RecordingGRPCServer(events)
+    server.registered_models = _RecordingRepository(events, {"model": object()})
+
+    server.stop(signal.SIGTERM)
+    for _ in range(10):
+        if "unload.model" in events:
+            break
+        await asyncio.sleep(0)
+
+    assert events == ["grpc.stop.start", "grpc.stop.end", "unload.model"]

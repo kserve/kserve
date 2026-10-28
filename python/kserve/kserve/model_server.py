@@ -433,10 +433,13 @@ class ModelServer:
             if self._grpc_server:
                 logger.info("Stopping the grpc server")
                 await self._grpc_server.stop(sig)
+            # Unload only once the servers drained: gRPC stops accepting requests
+            # during the grace period, and requests still in flight need their
+            # model until then.
+            for model_name in list(self.registered_models.get_models().keys()):
+                self.registered_models.unload(model_name)
 
         asyncio.create_task(shutdown())
-        for model_name in list(self.registered_models.get_models().keys()):
-            self.registered_models.unload(model_name)
 
     def register_exception_handler(
         self,
