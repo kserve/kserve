@@ -746,7 +746,7 @@ func llmSvcReferencesPVCEvictors(llmSvc *v1alpha2.LLMInferenceService) bool {
 	if llmSvc == nil {
 		return false
 	}
-	return llmSvc.Status.GetCondition(v1alpha2.PVCEvictorReady) != nil || len(collectPVCEvictorIdentities(llmSvc)) > 0
+	return llmSvc.Status.GetCondition(v1alpha2.PVCEvictorReady) != nil || len(collectPVCEvictorTargets(llmSvc)) > 0
 }
 
 func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (err error) {

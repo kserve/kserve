@@ -286,6 +286,11 @@ func TestFinalizePVCEvictorsIgnoresUnsafeCleanupForUnrelatedService(t *testing.T
 			DeletionTimestamp: &deletionTime,
 			Finalizers:        []string{"test.finalizer"},
 		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+				PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"}},
+			}}}},
+		}},
 	}
 	unresolved := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "unresolved", Namespace: "test"},
