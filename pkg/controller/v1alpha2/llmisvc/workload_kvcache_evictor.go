@@ -141,18 +141,6 @@ func inheritedPVCEvictorContainerTemplate(workload *v1alpha2.WorkloadSpec, fallb
 	return fallback.DeepCopy()
 }
 
-func withPVCEvictorDefaultImage(template *corev1.Container, defaultImage string) *corev1.Container {
-	if template == nil || defaultImage == "" {
-		return template
-	}
-	if template.Image != "" {
-		return template
-	}
-	updated := template.DeepCopy()
-	updated.Image = defaultImage
-	return updated
-}
-
 func validatePVCEvictorCachePath(workloadName string, workload *v1alpha2.WorkloadSpec, containerTemplate *corev1.Container) error {
 	if workload == nil || containerTemplate == nil || !workloadHasPVCTier(workload) {
 		return nil
@@ -172,7 +160,7 @@ func validatePVCEvictorCachePath(workloadName string, workload *v1alpha2.Workloa
 	return nil
 }
 
-func validatePVCEvictorLeaderWorkerTemplate(workloadName string, workload *v1alpha2.WorkloadSpec, defaultImage string) error {
+func validatePVCEvictorLeaderWorkerTemplate(workloadName string, workload *v1alpha2.WorkloadSpec) error {
 	if workload == nil || !workloadHasPVCTier(workload) {
 		return nil
 	}
@@ -185,8 +173,6 @@ func validatePVCEvictorLeaderWorkerTemplate(workloadName string, workload *v1alp
 		return nil
 	}
 
-	leader = withPVCEvictorDefaultImage(leader, defaultImage)
-	worker = withPVCEvictorDefaultImage(worker, defaultImage)
 	if pvcEvictorContainerTemplateHash(leader) != pvcEvictorContainerTemplateHash(worker) {
 		return fmt.Errorf("%s leader and worker Pods must use the same pvc-evictor container template", workloadName)
 	}
@@ -194,10 +180,6 @@ func validatePVCEvictorLeaderWorkerTemplate(workloadName string, workload *v1alp
 }
 
 func validatePVCEvictorContainerTemplates(llmSvc *v1alpha2.LLMInferenceService) error {
-	return validatePVCEvictorContainerTemplatesWithDefaultImage(llmSvc, "")
-}
-
-func validatePVCEvictorContainerTemplatesWithDefaultImage(llmSvc *v1alpha2.LLMInferenceService, defaultImage string) error {
 	type pvcEvictorReference struct {
 		name string
 		path string
@@ -217,15 +199,14 @@ func validatePVCEvictorContainerTemplatesWithDefaultImage(llmSvc *v1alpha2.LLMIn
 	if err := validatePVCEvictorCachePath("prefill workload", llmSvc.Spec.Prefill, prefillTemplate); err != nil {
 		return err
 	}
-	if err := validatePVCEvictorLeaderWorkerTemplate("main workload", &llmSvc.Spec.WorkloadSpec, defaultImage); err != nil {
+	if err := validatePVCEvictorLeaderWorkerTemplate("main workload", &llmSvc.Spec.WorkloadSpec); err != nil {
 		return err
 	}
-	if err := validatePVCEvictorLeaderWorkerTemplate("prefill workload", llmSvc.Spec.Prefill, defaultImage); err != nil {
+	if err := validatePVCEvictorLeaderWorkerTemplate("prefill workload", llmSvc.Spec.Prefill); err != nil {
 		return err
 	}
 
 	workloads := make([]workloadTemplates, 0, 2)
-	mainTemplate = withPVCEvictorDefaultImage(mainTemplate, defaultImage)
 	addWorkload := func(workload *v1alpha2.WorkloadSpec, template *corev1.Container) {
 		if workload == nil || workload.KVCacheOffloading == nil || !workloadHasPVCTier(workload) {
 			return
@@ -247,7 +228,7 @@ func validatePVCEvictorContainerTemplatesWithDefaultImage(llmSvc *v1alpha2.LLMIn
 		})
 	}
 	addWorkload(&llmSvc.Spec.WorkloadSpec, mainTemplate)
-	addWorkload(llmSvc.Spec.Prefill, withPVCEvictorDefaultImage(prefillTemplate, defaultImage))
+	addWorkload(llmSvc.Spec.Prefill, prefillTemplate)
 	if len(workloads) == 0 {
 		return nil
 	}
@@ -754,7 +735,7 @@ func llmSvcReferencesPVCEvictors(llmSvc *v1alpha2.LLMInferenceService) bool {
 }
 
 func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
-	expected, err := r.expectedPVCEvictorDeployments(ctx, llmSvc, config)
+	expected, err := r.expectedPVCEvictorDeployments(ctx, llmSvc)
 	if err != nil {
 		return err
 	}
@@ -1097,10 +1078,6 @@ func (r *LLMISVCReconciler) desiredPVCEvictorTemplateAgreements(ctx context.Cont
 			service.Spec = combined.Config.Spec
 		}
 		for _, target := range collectPVCEvictorTargets(service) {
-			target.containerTemplate = withPVCEvictorDefaultImage(
-				target.containerTemplate,
-				config.PVCEvictorImage,
-			)
 			identity := pvcEvictorIdentity(target.claimName, target.subPath)
 			if hashesByIdentity[identity] == nil {
 				hashesByIdentity[identity] = make(map[templateHashes]struct{})
@@ -1218,7 +1195,7 @@ func retainExternalOwnerReferences(ownerReferences []metav1.OwnerReference) []me
 	return retained
 }
 
-func (r *LLMISVCReconciler) expectedPVCEvictorDeployments(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (map[string]*appsv1.Deployment, error) {
+func (r *LLMISVCReconciler) expectedPVCEvictorDeployments(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService) (map[string]*appsv1.Deployment, error) {
 	if utils.GetForceStopRuntime(llmSvc) {
 		return map[string]*appsv1.Deployment{}, nil
 	}
@@ -1236,10 +1213,6 @@ func (r *LLMISVCReconciler) expectedPVCEvictorDeployments(ctx context.Context, l
 			return nil, reconcile.TerminalError(fmt.Errorf("PVC %s/%s has unsupported access modes %v for a pvc.ref evictor; use ReadWriteOnce or ReadWriteMany", llmSvc.Namespace, targets[i].claimName, pvc.Spec.AccessModes))
 		}
 		targets[i].requiresNodeAffinity = pvcRequiresNodeAffinity(pvc)
-		targets[i].containerTemplate = withPVCEvictorDefaultImage(
-			targets[i].containerTemplate,
-			config.PVCEvictorImage,
-		)
 		target := targets[i]
 		deployment := expectedPVCEvictorDeployment(llmSvc, target)
 		expected[deployment.Name] = deployment

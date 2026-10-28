@@ -184,7 +184,6 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		template.Spec = *llmSvc.Spec.Template.DeepCopy()
 		evictorTemplate = takePVCEvictorContainerTemplate(&template.Spec)
-		evictorTemplate = withPVCEvictorDefaultImage(evictorTemplate, config.PVCEvictorImage)
 
 		var serviceAccount *corev1.ServiceAccount = nil
 		if hasRoutingSidecar(template.Spec) || config.ModelExpress != nil {
@@ -341,7 +340,6 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 		if evictorTemplate == nil {
 			evictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
 		}
-		evictorTemplate = withPVCEvictorDefaultImage(evictorTemplate, config.PVCEvictorImage)
 
 		// A prefill workload that already runs keeps the ServiceAccount it
 		// runs with — including none — whichever backend deploys it: the

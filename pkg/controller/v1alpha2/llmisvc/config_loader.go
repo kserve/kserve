@@ -119,9 +119,6 @@ type FeatureGates struct {
 //	  {"featureGates": {"disaggregatedSet": true}}
 type LLMISVCConfig struct {
 	FeatureGates FeatureGates `json:"featureGates,omitempty"`
-	// PVCEvictorImage is the cluster-wide default image for generated PVC
-	// evictor containers. An empty value uses the built-in upstream image.
-	PVCEvictorImage string `json:"pvcEvictorImage,omitempty"`
 }
 
 // NewLLMISVCConfig parses the "llmisvc" key from the inferenceservice-config ConfigMap.
@@ -176,10 +173,6 @@ type Config struct {
 	// inferenceservice-config. The zero value leaves every gate off, so a directly
 	// constructed Config behaves as it did before any gate existed.
 	FeatureGates FeatureGates `json:"featureGates,omitempty"`
-
-	// PVCEvictorImage is the cluster-wide default image for generated PVC evictor
-	// containers. An explicit image in an LLMInferenceService takes precedence.
-	PVCEvictorImage string `json:"pvcEvictorImage,omitempty"`
 
 	// Storage and credential configs are excluded from JSON serialization
 	// as they contain sensitive information
@@ -331,7 +324,6 @@ func toConfig(isvcConfigMap *corev1.ConfigMap) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse %s config: %w", llmISVCConfigMapKey, errConvert)
 	}
 	config.FeatureGates = llmISVCConfig.FeatureGates
-	config.PVCEvictorImage = strings.TrimSpace(llmISVCConfig.PVCEvictorImage)
 
 	return config, nil
 }

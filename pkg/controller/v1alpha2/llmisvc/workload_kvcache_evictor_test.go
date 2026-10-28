@@ -93,46 +93,6 @@ func TestAttachPVCEvictor(t *testing.T) {
 	}
 }
 
-func TestAttachPVCEvictorUsesConfigMapImage(t *testing.T) {
-	podSpec := &corev1.PodSpec{
-		Containers: []corev1.Container{{
-			Name: mainContainerName,
-			Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
-		}},
-	}
-	secondary := []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
-		PVC: &v1alpha2.PVCTierSpec{
-			Spec: &corev1.PersistentVolumeClaimSpec{},
-		},
-	}}}
-
-	evictorTemplate := withPVCEvictorDefaultImage(nil, "registry.example.com/kv-cache-evictor:v1")
-	attachKVCacheSecondaryTiers(podSpec, secondary, mainContainerName, evictorTemplate)
-
-	evictor := podSpec.Containers[1]
-	if got, want := evictor.Image, "registry.example.com/kv-cache-evictor:v1"; got != want {
-		t.Errorf("evictor image = %q, want %q", got, want)
-	}
-}
-
-func TestWithPVCEvictorDefaultImage(t *testing.T) {
-	configImage := "registry.example.com/kv-cache-evictor:v1"
-
-	if got := withPVCEvictorDefaultImage(nil, configImage); got != nil {
-		t.Fatalf("withPVCEvictorDefaultImage(nil, image) = %+v, want nil", got)
-	}
-
-	explicit := &corev1.Container{Image: "example.com/evictor:v1.2.3"}
-	if got := withPVCEvictorDefaultImage(explicit, configImage); got.Image != explicit.Image {
-		t.Errorf("image = %q, want explicit image %q", got.Image, explicit.Image)
-	}
-
-	empty := &corev1.Container{}
-	if got := withPVCEvictorDefaultImage(empty, ""); got != empty || got.Image != "" {
-		t.Errorf("withPVCEvictorDefaultImage(empty, \"\") = %+v, want the original empty template", got)
-	}
-}
-
 func TestFinalizePVCEvictorsSkipsConfigWithoutDeployments(t *testing.T) {
 	scheme := runtime.NewScheme()
 	if err := appsv1.AddToScheme(scheme); err != nil {
@@ -1732,24 +1692,6 @@ func TestValidatePVCEvictorContainerTemplates(t *testing.T) {
 		}
 	})
 
-	t.Run("a config image can complete a template that matches a custom image", func(t *testing.T) {
-		prefill := newRefWorkload("", corev1.ResourceRequirements{}, "shared-pvc", "kv")
-		prefill.Template.Containers = []corev1.Container{{Name: "main", Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}}
-		svc := &v1alpha2.LLMInferenceService{
-			Spec: v1alpha2.LLMInferenceServiceSpec{
-				WorkloadSpec: *newRefWorkload("registry.example.com/kv-cache-evictor:v1", corev1.ResourceRequirements{}, "shared-pvc", "kv"),
-				Prefill:      prefill,
-			},
-		}
-		err := validatePVCEvictorContainerTemplatesWithDefaultImage(
-			svc,
-			"registry.example.com/kv-cache-evictor:v1",
-		)
-		if err != nil {
-			t.Fatalf("validatePVCEvictorContainerTemplatesWithDefaultImage() error = %v", err)
-		}
-	})
-
 	t.Run("prefill inherits the main template on the same pvc.ref path", func(t *testing.T) {
 		prefill := newRefWorkload("", corev1.ResourceRequirements{}, "shared-pvc", "kv")
 		prefill.Template.Containers = []corev1.Container{{Name: "main", Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}}
@@ -2224,7 +2166,7 @@ func TestExpectedPVCEvictorDeploymentsRejectsUnsupportedAccessMode(t *testing.T)
 	}
 	reconciler := &LLMISVCReconciler{APIReader: fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()}
 
-	_, err := reconciler.expectedPVCEvictorDeployments(t.Context(), service, &Config{})
+	_, err := reconciler.expectedPVCEvictorDeployments(t.Context(), service)
 	if err == nil || !errors.Is(err, reconcile.TerminalError(nil)) {
 		t.Fatalf("expected terminal unsupported-access-mode error, got %v", err)
 	}

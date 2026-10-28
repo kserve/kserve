@@ -249,7 +249,6 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 			Spec: *llmSvc.Spec.Template.DeepCopy(),
 		}
 		leaderEvictorTemplate = takePVCEvictorContainerTemplate(&group.LeaderTemplate.Spec)
-		leaderEvictorTemplate = withPVCEvictorDefaultImage(leaderEvictorTemplate, config.PVCEvictorImage)
 
 		serviceAccount, _, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
 		if err != nil {
@@ -285,7 +284,6 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 		if workerEvictorTemplate == nil {
 			workerEvictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
 		}
-		workerEvictorTemplate = withPVCEvictorDefaultImage(workerEvictorTemplate, config.PVCEvictorImage)
 
 		serviceAccount, _, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
 		if err != nil {
@@ -453,7 +451,6 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 			if prefillLeaderEvictorTemplate == nil {
 				prefillLeaderEvictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
 			}
-			prefillLeaderEvictorTemplate = withPVCEvictorDefaultImage(prefillLeaderEvictorTemplate, config.PVCEvictorImage)
 
 			group.LeaderTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
@@ -476,7 +473,6 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 					prefillWorkerEvictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
 				}
 			}
-			prefillWorkerEvictorTemplate = withPVCEvictorDefaultImage(prefillWorkerEvictorTemplate, config.PVCEvictorImage)
 
 			group.WorkerTemplate.Spec.ServiceAccountName = serviceAccount.GetName()
 
