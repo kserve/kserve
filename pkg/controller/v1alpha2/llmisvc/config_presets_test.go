@@ -991,14 +991,14 @@ func addExpectedPVCEvictorPresetOutput(config *v1alpha2.LLMInferenceServiceConfi
 	config.Annotations = map[string]string{
 		"internal.serving.kserve.io/kv-cache-shm-percent-of-cpu": "120",
 	}
-	config.Spec.WorkloadSpec.Annotations = map[string]string{
+	config.Spec.Annotations = map[string]string{
 		"serving.kserve.io/model-based-routing-enabled": "true",
 	}
 	if hasWorker {
-		config.Spec.WorkloadSpec.Labels = map[string]string{
+		config.Spec.Labels = map[string]string{
 			"serving.kserve.io/llmisvc-revision": "placeholder",
 		}
-		config.Spec.WorkloadSpec.Annotations["serving.kserve.io/enable-disaggregated-set"] = "true"
+		config.Spec.Annotations["serving.kserve.io/enable-disaggregated-set"] = "true"
 	}
 	addExpectedPVCEvictorContainer(config.Spec.Template)
 	if hasWorker {

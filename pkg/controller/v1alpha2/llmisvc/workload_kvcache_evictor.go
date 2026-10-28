@@ -265,6 +265,16 @@ func validatePVCEvictorContainerTemplates(llmSvc *v1alpha2.LLMInferenceService) 
 				}
 			}
 		}
+		allLegacy := true
+		for _, workload := range identityWorkloads {
+			if !workload.legacy {
+				allLegacy = false
+				break
+			}
+		}
+		if allLegacy {
+			continue
+		}
 		securityHashes := make(map[string]struct{})
 		for _, workload := range identityWorkloads {
 			for _, securityContext := range workload.securityContexts {

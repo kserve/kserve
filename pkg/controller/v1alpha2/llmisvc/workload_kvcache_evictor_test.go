@@ -1726,6 +1726,27 @@ func TestValidatePVCEvictorContainerTemplates(t *testing.T) {
 		}
 	})
 
+	t.Run("legacy workloads ignore different security contexts", func(t *testing.T) {
+		main := &v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				SecurityContext: &corev1.PodSecurityContext{FSGroup: ptr.To(int64(1000))},
+				Containers:      []corev1.Container{{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}},
+			},
+			Worker: &corev1.PodSpec{
+				SecurityContext: &corev1.PodSecurityContext{FSGroup: ptr.To(int64(2000))},
+				Containers:      []corev1.Container{{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}},
+			},
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+				PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv"}},
+			}}}},
+		}
+		if err := validatePVCEvictorContainerTemplates(&v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: *main},
+		}); err != nil {
+			t.Fatalf("legacy workload security-context differences were rejected: %v", err)
+		}
+	})
+
 	t.Run("different images on separate pvc.spec workloads are allowed", func(t *testing.T) {
 		svc := &v1alpha2.LLMInferenceService{
 			Spec: v1alpha2.LLMInferenceServiceSpec{
