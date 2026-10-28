@@ -68,7 +68,10 @@ const (
 	pvcEvictorBaseRefsIndex    = "serving.kserve.io/pvc-evictor-base-ref"
 )
 
-var errPVCEvictorCleanupUnsafe = errors.New("PVC evictor cleanup is unsafe")
+var (
+	errPVCEvictorCleanupUnsafe         = errors.New("PVC evictor cleanup is unsafe")
+	errPVCEvictorUnsupportedAccessMode = errors.New("unsupported PVC access mode")
+)
 
 func pvcEvictorContainerSecurityContext() *corev1.SecurityContext {
 	return &corev1.SecurityContext{
@@ -706,12 +709,29 @@ func (r *LLMISVCReconciler) finalizePVCEvictors(ctx context.Context, llmSvc *v1a
 		// PVC evictors finish deletion even when the global ConfigMap is absent.
 		return r.cleanupPVCEvictorServiceAccount(ctx, llmSvc.Namespace, map[string]struct{}{}, map[string]struct{}{})
 	}
+	var (
+		config *Config
+		err    error
+	)
+	if !llmSvcReferencesPVCEvictors(llmSvc) && len(llmSvc.Spec.BaseRefs) > 0 {
+		config, err = r.loadConfig(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to load configuration for PVC evictor cleanup: %w", err)
+		}
+		combined, err := r.combineBaseRefsConfig(ctx, llmSvc, config)
+		if err != nil {
+			return fmt.Errorf("failed to resolve PVC evictor references for cleanup: %w", err)
+		}
+		llmSvc.Spec = combined.Config.Spec
+	}
 	if !llmSvcReferencesPVCEvictors(llmSvc) {
 		return nil
 	}
-	config, err := r.loadConfig(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to load configuration for PVC evictor cleanup: %w", err)
+	if config == nil {
+		config, err = r.loadConfig(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to load configuration for PVC evictor cleanup: %w", err)
+		}
 	}
 	if err := r.cleanupUnusedPVCEvictors(ctx, llmSvc.Namespace, config, nil, llmSvc.Name); err != nil {
 		if errors.Is(err, errPVCEvictorCleanupUnsafe) && !llmSvcReferencesPVCEvictors(llmSvc) {
@@ -726,7 +746,7 @@ func llmSvcReferencesPVCEvictors(llmSvc *v1alpha2.LLMInferenceService) bool {
 	if llmSvc == nil {
 		return false
 	}
-	return llmSvc.Status.GetCondition(v1alpha2.PVCEvictorReady) != nil
+	return llmSvc.Status.GetCondition(v1alpha2.PVCEvictorReady) != nil || len(collectPVCEvictorIdentities(llmSvc)) > 0
 }
 
 func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (err error) {
@@ -735,7 +755,9 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 			return
 		}
 		reason := "ReconcilePVCEvictorError"
-		if errors.Is(err, reconcile.TerminalError(nil)) {
+		if errors.Is(err, errPVCEvictorUnsupportedAccessMode) {
+			reason = "UnsupportedPVCAccessMode"
+		} else if errors.Is(err, reconcile.TerminalError(nil)) {
 			reason = "InvalidPVCEvictorConfiguration"
 		}
 		llmSvc.MarkPVCEvictorNotReady(reason, "%s", err.Error())
@@ -1217,7 +1239,7 @@ func (r *LLMISVCReconciler) expectedPVCEvictorDeployments(ctx context.Context, l
 			return nil, fmt.Errorf("failed to get PVC %s/%s for evictor: %w", llmSvc.Namespace, targets[i].claimName, err)
 		}
 		if pvcHasReadWriteOncePod(pvc) || pvcHasReadOnlyMany(pvc) {
-			return nil, reconcile.TerminalError(fmt.Errorf("PVC %s/%s has unsupported access modes %v for a pvc.ref evictor; use ReadWriteOnce or ReadWriteMany", llmSvc.Namespace, targets[i].claimName, pvc.Spec.AccessModes))
+			return nil, reconcile.TerminalError(fmt.Errorf("%w: PVC %s/%s has unsupported access modes %v for a pvc.ref evictor; use ReadWriteOnce or ReadWriteMany", errPVCEvictorUnsupportedAccessMode, llmSvc.Namespace, targets[i].claimName, pvc.Spec.AccessModes))
 		}
 		targets[i].requiresNodeAffinity = pvcRequiresNodeAffinity(pvc)
 		target := targets[i]
@@ -1246,6 +1268,8 @@ func pvcHasReadWriteOncePod(pvc *corev1.PersistentVolumeClaim) bool {
 }
 
 func pvcHasReadOnlyMany(pvc *corev1.PersistentVolumeClaim) bool {
+	// Mixed access modes remain unsupported for PVC evictors. A future change can
+	// accept ReadOnlyMany when the same PVC also declares a writable mode.
 	for _, accessMode := range pvc.Spec.AccessModes {
 		if accessMode == corev1.ReadOnlyMany {
 			return true

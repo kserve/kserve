@@ -144,11 +144,7 @@ func TestFinalizePVCEvictorsSkipsConfigForUnrelatedDeletingService(t *testing.T)
 		Namespace:         "test",
 		DeletionTimestamp: &deletionTime,
 		Finalizers:        []string{"test.finalizer"},
-	}, Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
-		KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
-			PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"}},
-		}}}},
-	}}}
+	}}
 	evictor := expectedPVCEvictorDeployment(deleting, pvcEvictorTarget{
 		claimName: "shared-pvc",
 		subPath:   "kv-cache",
@@ -168,6 +164,60 @@ func TestFinalizePVCEvictorsSkipsConfigForUnrelatedDeletingService(t *testing.T)
 	}
 	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(evictor), &appsv1.Deployment{}); err != nil {
 		t.Fatalf("unrelated PVC evictor Deployment was removed: %v", err)
+	}
+}
+
+func TestFinalizePVCEvictorsCleansDeploymentWithoutReadyStatus(t *testing.T) {
+	deletionTime := metav1.Now()
+	deleting := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "deleting",
+			Namespace:         "test",
+			DeletionTimestamp: &deletionTime,
+			Finalizers:        []string{"test.finalizer"},
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{BaseRefs: []corev1.LocalObjectReference{{Name: "evictor-base"}}},
+	}
+	baseConfig := &v1alpha2.LLMInferenceServiceConfig{
+		ObjectMeta: metav1.ObjectMeta{Name: "evictor-base", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{Containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName},
+			}},
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+				PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"}},
+			}}}},
+		}},
+	}
+	evictor := expectedPVCEvictorDeployment(deleting, pvcEvictorTarget{
+		claimName: "shared-pvc", subPath: "kv-cache",
+		containerTemplate: &corev1.Container{Name: pvcEvictorTemplateName, Image: "example.com/evictor:preset"},
+	})
+
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{
+		appsv1.AddToScheme,
+		corev1.AddToScheme,
+		v1alpha2.AddToScheme,
+	} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(deleting, baseConfig, evictor, testInferenceServiceConfigMap(), func() *v1alpha2.LLMInferenceServiceConfig {
+			preset := loadPresetConfig(t, "config-llm-template.yaml")
+			preset.Namespace = constants.KServeNamespace
+			return preset
+		}()).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+
+	if err := reconciler.finalizePVCEvictors(t.Context(), deleting); err != nil {
+		t.Fatalf("finalizePVCEvictors() error = %v", err)
+	}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(evictor), &appsv1.Deployment{}); err == nil {
+		t.Fatal("PVC evictor Deployment remains after finalization")
 	}
 }
 
@@ -2236,6 +2286,50 @@ func TestExpectedPVCEvictorDeploymentsRejectsUnsupportedAccessMode(t *testing.T)
 	_, err := reconciler.expectedPVCEvictorDeployments(t.Context(), service)
 	if err == nil || !errors.Is(err, reconcile.TerminalError(nil)) {
 		t.Fatalf("expected terminal unsupported-access-mode error, got %v", err)
+	}
+}
+
+func TestReconcilePVCEvictorsMarksUnsupportedPVCAccessMode(t *testing.T) {
+	service := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{Containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName},
+			}},
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+				PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc"}},
+			}}}},
+		}},
+	}
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-pvc", Namespace: "test"},
+		Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{
+			corev1.ReadWriteMany,
+			corev1.ReadOnlyMany,
+		}},
+	}
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{
+		appsv1.AddToScheme,
+		corev1.AddToScheme,
+		v1alpha2.AddToScheme,
+	} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reconciler := &LLMISVCReconciler{
+		Client:    fake.NewClientBuilder().WithScheme(scheme).Build(),
+		APIReader: fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build(),
+	}
+
+	if err := reconciler.reconcilePVCEvictors(t.Context(), service, &Config{}); err == nil {
+		t.Fatal("reconcilePVCEvictors() error = nil, want unsupported access-mode error")
+	}
+	condition := service.Status.GetCondition(v1alpha2.PVCEvictorReady)
+	if condition == nil || condition.Reason != "UnsupportedPVCAccessMode" {
+		t.Fatalf("PVCEvictorReady = %#v, want UnsupportedPVCAccessMode", condition)
 	}
 }
 
