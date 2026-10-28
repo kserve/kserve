@@ -726,11 +726,13 @@ func (r *LLMISVCReconciler) finalizePVCEvictors(ctx context.Context, llmSvc *v1a
 	if !llmSvcReferencesPVCEvictors(llmSvc) && len(llmSvc.Spec.BaseRefs) > 0 {
 		config, err = r.loadConfig(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to load configuration for PVC evictor cleanup: %w", err)
+			log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization because configuration could not be loaded", "error", err)
+			return nil
 		}
 		combined, err := r.combineBaseRefsConfig(ctx, llmSvc, config)
 		if err != nil {
-			return fmt.Errorf("failed to resolve PVC evictor references for cleanup: %w", err)
+			log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization because references could not be resolved", "error", err)
+			return nil
 		}
 		llmSvc.Spec = combined.Config.Spec
 	}
@@ -740,11 +742,13 @@ func (r *LLMISVCReconciler) finalizePVCEvictors(ctx context.Context, llmSvc *v1a
 	if config == nil {
 		config, err = r.loadConfig(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to load configuration for PVC evictor cleanup: %w", err)
+			log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization because configuration could not be loaded", "error", err)
+			return nil
 		}
 	}
 	if err := r.cleanupUnusedPVCEvictors(ctx, llmSvc.Namespace, config, nil, llmSvc.Name); err != nil {
-		if errors.Is(err, errPVCEvictorCleanupUnsafe) && !llmSvcReferencesPVCEvictors(llmSvc) {
+		if errors.Is(err, errPVCEvictorCleanupUnsafe) {
+			log.FromContext(ctx).Info("Skipping PVC evictor cleanup during finalization because ownership could not be resolved", "error", err)
 			return nil
 		}
 		return err

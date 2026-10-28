@@ -221,7 +221,44 @@ func TestFinalizePVCEvictorsCleansDeploymentWithoutReadyStatus(t *testing.T) {
 	}
 }
 
-func TestFinalizePVCEvictorsStaysPendingWhenCleanupIsUnsafe(t *testing.T) {
+func TestFinalizePVCEvictorsAllowsDeletionWhenBaseRefsCannotResolve(t *testing.T) {
+	deletionTime := metav1.Now()
+	deleting := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "deleting",
+			Namespace:         "test",
+			DeletionTimestamp: &deletionTime,
+			Finalizers:        []string{"test.finalizer"},
+		},
+		Spec: v1alpha2.LLMInferenceServiceSpec{BaseRefs: []corev1.LocalObjectReference{{Name: "missing-config"}}},
+	}
+	evictor := expectedPVCEvictorDeployment(deleting, pvcEvictorTarget{
+		claimName: "shared-pvc", subPath: "kv-cache",
+	})
+
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{
+		appsv1.AddToScheme,
+		corev1.AddToScheme,
+		v1alpha2.AddToScheme,
+	} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(deleting, evictor, testInferenceServiceConfigMap()).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+
+	if err := reconciler.finalizePVCEvictors(t.Context(), deleting); err != nil {
+		t.Fatalf("finalizePVCEvictors() error = %v, want deletion to continue", err)
+	}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(evictor), &appsv1.Deployment{}); err != nil {
+		t.Fatalf("PVC evictor Deployment was removed while ownership was unresolved: %v", err)
+	}
+}
+
+func TestFinalizePVCEvictorsAllowsDeletionWhenCleanupIsUnsafe(t *testing.T) {
 	deletionTime := metav1.Now()
 	deleting := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -268,9 +305,8 @@ func TestFinalizePVCEvictorsStaysPendingWhenCleanupIsUnsafe(t *testing.T) {
 		Build()
 	reconciler := &LLMISVCReconciler{Client: fakeClient}
 
-	err := reconciler.finalizePVCEvictors(t.Context(), deleting)
-	if err == nil {
-		t.Fatal("finalizePVCEvictors() = nil, want cleanup to remain pending")
+	if err := reconciler.finalizePVCEvictors(t.Context(), deleting); err != nil {
+		t.Fatalf("finalizePVCEvictors() error = %v, want deletion to continue", err)
 	}
 	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(evictor), &appsv1.Deployment{}); err != nil {
 		t.Fatalf("PVC evictor Deployment was removed while cleanup was unsafe: %v", err)
