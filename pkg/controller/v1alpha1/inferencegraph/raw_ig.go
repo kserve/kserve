@@ -193,5 +193,4 @@ func PropagateRawStatus(graphStatus *v1alpha1.InferenceGraphStatus, deployment *
 			break
 		}
 	}
-	graphStatus.ObservedGeneration = deployment.Status.ObservedGeneration
 }
