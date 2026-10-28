@@ -450,6 +450,75 @@ func TestMergeSpecsInheritsPrefillPVCEvictorTemplateToWorker(t *testing.T) {
 	assert.Equal(t, "custom:v1", workerContainer.Image)
 }
 
+func TestMergeSpecsInheritsMainPVCEvictorTemplateToPrefill(t *testing.T) {
+	base := v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
+			},
+		},
+		Prefill: &v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
+			},
+			Worker: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
+			},
+		},
+	}
+	override := v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "custom:v1"}},
+			},
+		},
+	}
+
+	merged, err := mergeSpecs(t.Context(), base, override)
+	require.NoError(t, err)
+	require.NotNil(t, merged.Prefill)
+	prefillContainer := findPVCEvictorContainerTemplate(merged.Prefill.Template)
+	require.NotNil(t, prefillContainer)
+	assert.Equal(t, "custom:v1", prefillContainer.Image)
+	workerContainer := findPVCEvictorContainerTemplate(merged.Prefill.Worker)
+	require.NotNil(t, workerContainer)
+	assert.Equal(t, "custom:v1", workerContainer.Image)
+}
+
+func TestMergeSpecsPreservesExplicitPrefillPVCEvictorOverride(t *testing.T) {
+	base := v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
+			},
+		},
+		Prefill: &v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
+			},
+		},
+	}
+	override := v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "main-custom:v1"}},
+			},
+		},
+		Prefill: &v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{
+				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "prefill-custom:v1"}},
+			},
+		},
+	}
+
+	merged, err := mergeSpecs(t.Context(), base, override)
+	require.NoError(t, err)
+	require.NotNil(t, merged.Prefill)
+	prefillContainer := findPVCEvictorContainerTemplate(merged.Prefill.Template)
+	require.NotNil(t, prefillContainer)
+	assert.Equal(t, "prefill-custom:v1", prefillContainer.Image)
+}
+
 // TestCombineBaseRefsConfig_TransferSlot pins the upgrade contract end to end: a
 // preset declaring the slot gets the argument filled in from the merged spec, and
 // one without it comes back untouched.
