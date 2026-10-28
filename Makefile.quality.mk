@@ -97,6 +97,10 @@ verify-helm-helpers-consistency:
 verify-minimal-crd-sync:
 	@bash hack/verify-minimal-crd-sync.sh
 
+# Verify that every path and symbol the agent guides (AGENTS.md, GATES.md) name still exists (offline).
+verify-agents-md-refs:
+	@python3 hack/verify-agents-md-refs.py
+
 .PHONY: ensure-go-version-upgrade ensure-golangci-go-version
 ensure-go-version-upgrade: ensure-golangci-go-version
 
@@ -124,7 +128,7 @@ sync-helm-common-helpers:
 spell-check: $(CODESPELL) ## codespell the repo. Read-only.
 	$(CODESPELL)
 
-precommit: ensure-go-version-upgrade sync-deps sync-img-env vet go-lint py-fmt py-lint sh-lint e2e-collect generate tidy manifests uv-lock generate-quick-install-scripts generate-chart-manifests sync-helm-common-helpers sync-helm-common-resource-helpers sync-helm-multi-resource-helpers verify-pinned-actions verify-minimal-crd-sync boilerplate spell-check ## Before each commit: lint --fix, every generator, lock files. Rewrites files, needs network.
+precommit: ensure-go-version-upgrade sync-deps sync-img-env vet go-lint py-fmt py-lint sh-lint e2e-collect generate tidy manifests uv-lock generate-quick-install-scripts generate-chart-manifests sync-helm-common-helpers sync-helm-common-resource-helpers sync-helm-multi-resource-helpers verify-pinned-actions verify-minimal-crd-sync verify-agents-md-refs boilerplate spell-check ## Before each commit: lint --fix, every generator, lock files. Rewrites files, needs network.
 
 check: precommit ## What CI runs: precommit, then fail if it left the tree dirty.
 	@if [ ! -z "`git status -s`" ]; then \

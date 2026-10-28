@@ -25,6 +25,8 @@ Read the guide for a directory before you change files in it. Each guide lists t
 
 When you add or change a guide line, say for which kinds, modes and build paths it holds, and check that scope against the tree. Why: a line distilled from one review is true for the case that review covered; applied wider, it sends an agent to a wrong manifest with no hesitation.
 
+Name code in backticks: a path, a file and symbol such as `config_merge.go:templateFuncs`, or an identifier in an "In the tree:" line. `make precommit` fails when one of them no longer exists.
+
 | Directory | Guide covers |
 |---|---|
 | `pkg/controller/v1alpha2/llmisvc/` | preset pinning, sub-reconciler shape, status, routing, watches, tests; `GATES.md` there for gates, slots and companion workloads |
