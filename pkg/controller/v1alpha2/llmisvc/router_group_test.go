@@ -114,8 +114,82 @@ func TestFilterEligibleMembers(t *testing.T) {
 		assert.Equal(t, "v2", eligible[0].Name)
 	})
 
-	t.Run("excludes peer without RouterReady", func(t *testing.T) {
+	t.Run("excludes peer without any status", func(t *testing.T) {
 		peer := memberSvc("v2", "llama-70b", 1, false, now)
+		members := []v1alpha2.LLMInferenceService{
+			routableMember("v1", "llama-70b", 9, now),
+			peer,
+		}
+		eligible := filterEligibleMembers(members, "self")
+		require.Len(t, eligible, 1)
+		assert.Equal(t, "v1", eligible[0].Name)
+	})
+
+	// A route write leaves the writer's HTTPRoutesReady (and so RouterReady) False
+	// until the gateway re-accepts the new generation. Peers route to the member's
+	// backend, not through its route, so that must not evict it: evicting rewrites
+	// the peers' routes, un-accepts them in turn, and the group never settles.
+	t.Run("includes peer whose own route is not yet accepted", func(t *testing.T) {
+		peer := routableMember("v2", "llama-70b", 1, now)
+		setRouteNotAccepted(&peer)
+		members := []v1alpha2.LLMInferenceService{
+			routableMember("v1", "llama-70b", 9, now),
+			peer,
+		}
+		eligible := filterEligibleMembers(members, "self")
+		require.Len(t, eligible, 2)
+	})
+
+	t.Run("excludes scheduler peer with InferencePoolReady False", func(t *testing.T) {
+		peer := routableMember("v2", "llama-70b", 1, now)
+		peer.Status.SetConditions(apis.Conditions{
+			{Type: v1alpha2.InferencePoolReady, Status: corev1.ConditionFalse},
+			{Type: v1alpha2.SchedulerWorkloadReady, Status: corev1.ConditionTrue},
+		})
+		members := []v1alpha2.LLMInferenceService{
+			routableMember("v1", "llama-70b", 9, now),
+			peer,
+		}
+		eligible := filterEligibleMembers(members, "self")
+		require.Len(t, eligible, 1)
+		assert.Equal(t, "v1", eligible[0].Name)
+	})
+
+	t.Run("excludes scheduler peer without InferencePoolReady", func(t *testing.T) {
+		peer := routableMember("v2", "llama-70b", 1, now)
+		peer.Status.SetConditions(apis.Conditions{
+			{Type: v1alpha2.SchedulerWorkloadReady, Status: corev1.ConditionTrue},
+		})
+		members := []v1alpha2.LLMInferenceService{
+			routableMember("v1", "llama-70b", 9, now),
+			peer,
+		}
+		eligible := filterEligibleMembers(members, "self")
+		require.Len(t, eligible, 1)
+		assert.Equal(t, "v1", eligible[0].Name)
+	})
+
+	t.Run("includes service-backed peer without pool conditions", func(t *testing.T) {
+		peer := routableMember("v2", "llama-70b", 1, now)
+		peer.Spec.Router.Scheduler = nil
+		peer.Status.SetConditions(apis.Conditions{
+			{Type: v1alpha2.HTTPRoutesReady, Status: corev1.ConditionFalse},
+			{Type: v1alpha2.RouterReady, Status: corev1.ConditionFalse},
+		})
+		members := []v1alpha2.LLMInferenceService{
+			routableMember("v1", "llama-70b", 9, now),
+			peer,
+		}
+		eligible := filterEligibleMembers(members, "self")
+		require.Len(t, eligible, 2)
+	})
+
+	t.Run("excludes peer with SchedulerWorkloadReady False", func(t *testing.T) {
+		peer := routableMember("v2", "llama-70b", 1, now)
+		peer.Status.SetConditions(apis.Conditions{
+			{Type: v1alpha2.InferencePoolReady, Status: corev1.ConditionTrue},
+			{Type: v1alpha2.SchedulerWorkloadReady, Status: corev1.ConditionFalse},
+		})
 		members := []v1alpha2.LLMInferenceService{
 			routableMember("v1", "llama-70b", 9, now),
 			peer,
@@ -518,6 +592,16 @@ func TestTrafficFieldsChanged(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "own route re-acceptance flap does not fan out",
+			old:  func() *v1alpha2.LLMInferenceService { s := routableMember("v1", "g", 9, now); return &s }(),
+			new: func() *v1alpha2.LLMInferenceService {
+				s := routableMember("v1", "g", 9, now)
+				setRouteNotAccepted(&s)
+				return &s
+			}(),
+			want: false,
+		},
+		{
 			name: "replica count change without routable transition",
 			old:  func() *v1alpha2.LLMInferenceService { s := routableMember("v1", "g", 9, now); return &s }(),
 			new: func() *v1alpha2.LLMInferenceService {
@@ -604,7 +688,7 @@ func TestResolveMemberBackendRef(t *testing.T) {
 				},
 			},
 			want: gwapiv1.BackendObjectReference{
-				Group: ptr.To(gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName)),
+				Group: ptr.To(gwapiv1.Group(constants.InferencePoolV1APIGroupName)),
 				Kind:  ptr.To(gwapiv1.Kind("InferencePool")),
 				Name:  "my-custom-pool",
 				Port:  ptr.To(gwapiv1.PortNumber(8000)),
@@ -677,10 +761,12 @@ func TestResolveMemberBackendRef(t *testing.T) {
 
 func routableMember(name, group string, weight int32, ts metav1.Time) v1alpha2.LLMInferenceService {
 	svc := memberSvc(name, group, weight, false, ts)
-	svc.Status.SetConditions(apis.Conditions{{
-		Type:   v1alpha2.RouterReady,
-		Status: corev1.ConditionTrue,
-	}})
+	svc.Status.SetConditions(apis.Conditions{
+		{Type: v1alpha2.RouterReady, Status: corev1.ConditionTrue},
+		{Type: v1alpha2.HTTPRoutesReady, Status: corev1.ConditionTrue},
+		{Type: v1alpha2.InferencePoolReady, Status: corev1.ConditionTrue},
+		{Type: v1alpha2.SchedulerWorkloadReady, Status: corev1.ConditionTrue},
+	})
 	svc.Status.Workloads = &v1alpha2.WorkloadStatus{
 		Primary: &v1alpha2.ObservedWorkloadStatus{
 			TypedLocalObjectReference: corev1.TypedLocalObjectReference{
@@ -690,6 +776,19 @@ func routableMember(name, group string, weight int32, ts metav1.Time) v1alpha2.L
 		},
 	}
 	return svc
+}
+
+// setRouteNotAccepted puts a member in the state its own reconcile leaves it in
+// right after writing its HTTPRoute: the route's new generation is not yet
+// accepted, so HTTPRoutesReady and the RouterReady rollup are False while the
+// backend-side conditions stay True.
+func setRouteNotAccepted(svc *v1alpha2.LLMInferenceService) {
+	svc.Status.SetConditions(apis.Conditions{
+		{Type: v1alpha2.RouterReady, Status: corev1.ConditionFalse},
+		{Type: v1alpha2.HTTPRoutesReady, Status: corev1.ConditionFalse},
+		{Type: v1alpha2.InferencePoolReady, Status: corev1.ConditionTrue},
+		{Type: v1alpha2.SchedulerWorkloadReady, Status: corev1.ConditionTrue},
+	})
 }
 
 func memberSvc(name, group string, weight int32, stopped bool, ts metav1.Time) v1alpha2.LLMInferenceService {

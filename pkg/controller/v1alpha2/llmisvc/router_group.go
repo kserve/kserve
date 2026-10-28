@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
+	"knative.dev/pkg/apis"
 	kmeta "knative.dev/pkg/kmeta"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -218,7 +219,7 @@ func resolveMemberBackendRef(
 		member.Spec.Router.Scheduler != nil &&
 		member.Spec.Router.Scheduler.Pool.HasRef() {
 		return gwapiv1.BackendObjectReference{
-			Group: ptr.To(gwapiv1.Group(constants.InferencePoolV1Alpha2APIGroupName)),
+			Group: ptr.To(gwapiv1.Group(constants.InferencePoolV1APIGroupName)),
 			Kind:  ptr.To(gwapiv1.Kind("InferencePool")),
 			Name:  gwapiv1.ObjectName(member.Spec.Router.Scheduler.Pool.Ref.Name),
 			Port:  ptr.To(gwapiv1.PortNumber(8000)),
@@ -363,12 +364,28 @@ func filterEligibleMembers(members []v1alpha2.LLMInferenceService, selfName stri
 	return eligible
 }
 
-// isMemberRoutable reports whether a member has routing infrastructure ready
-// and at least one available replica on every configured workload.
+// isMemberRoutable reports whether a member's backend can take traffic from a
+// peer's route: its scheduler path (InferencePool, EPP, tokenizer) is ready
+// when configured, and every configured workload has at least one ready
+// replica.
+//
+// It deliberately ignores the member's own HTTPRoutesReady and GatewaysReady
+// (and so RouterReady, which rolls them up). Peers never send traffic through
+// a member's route, only to its backend. Every route write bumps the route's
+// generation and leaves HTTPRoutesReady False until the gateway re-accepts it,
+// so gating on RouterReady let one member's route write drop it from its peers'
+// routes, which rewrote and un-accepted their routes, which dropped them in
+// turn. With concurrent reconciles that feedback loop never settles.
 func isMemberRoutable(member *v1alpha2.LLMInferenceService) bool {
-	cond := member.Status.GetCondition(v1alpha2.RouterReady)
-	if cond == nil || !cond.IsTrue() {
-		return false
+	for _, t := range memberBackendConditions {
+		if cond := member.Status.GetCondition(t); cond != nil && !cond.IsTrue() {
+			return false
+		}
+	}
+	if member.Spec.Router != nil && member.Spec.Router.Scheduler != nil {
+		if cond := member.Status.GetCondition(v1alpha2.InferencePoolReady); cond == nil || !cond.IsTrue() {
+			return false
+		}
 	}
 	ws := member.Status.Workloads
 	if ws == nil || ws.Primary == nil {
@@ -380,4 +397,13 @@ func isMemberRoutable(member *v1alpha2.LLMInferenceService) bool {
 		}
 	}
 	return true
+}
+
+// memberBackendConditions are the router sub-conditions that describe a
+// member's backend rather than its own route. When present and not True the
+// member is not routable from peers.
+var memberBackendConditions = []apis.ConditionType{
+	v1alpha2.InferencePoolReady,
+	v1alpha2.SchedulerWorkloadReady,
+	v1alpha2.TokenizerReady,
 }

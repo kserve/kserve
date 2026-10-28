@@ -18,6 +18,7 @@ package llmisvc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,12 +33,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	igwapi "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
+	"github.com/kserve/kserve/pkg/constants"
 	pkgtesting "github.com/kserve/kserve/pkg/testing"
 )
 
@@ -2946,6 +2949,9 @@ func TestMigrateProducerParams(t *testing.T) {
 						"tokenizersPoolConfig": map[string]interface{}{
 							"modelName": "test-model",
 						},
+						"kvBlockScorerConfig": map[string]interface{}{
+							"legacy": true,
+						},
 						"kvBlockIndexConfig": map[string]interface{}{
 							"enableMetrics": true,
 						},
@@ -2955,6 +2961,8 @@ func TestMigrateProducerParams(t *testing.T) {
 			validate: func(g Gomega, result map[string]interface{}) {
 				ic := result["indexerConfig"].(map[string]interface{})
 				g.Expect(ic).NotTo(HaveKey("tokenizersPoolConfig"))
+				g.Expect(ic).To(HaveKey("kvBlockScorerConfig"),
+					"the version-gated scheduler transform must decide whether to remove kvBlockScorerConfig")
 				g.Expect(ic).To(HaveKey("kvBlockIndexConfig"))
 			},
 		},
@@ -3245,4 +3253,522 @@ plugins:
 			tt.validateConfig(g, d.Spec.Template.Spec.Containers[0].Args[1])
 		})
 	}
+}
+
+func TestSchedulerTransformRejectsRemovedDataParallelProfileHandler(t *testing.T) {
+	configYAML := `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: data-parallel-profile-handler
+  parameters:
+    primaryPort: 8000
+`
+
+	tests := []struct {
+		name    string
+		version string
+		args    []string
+		wantErr bool
+		errText string
+	}{
+		{
+			name:    "rejects the removed plugin for v1.0.0",
+			version: "1.0.0",
+			args:    []string{"--config-text", configYAML},
+			wantErr: true,
+			errText: "not behavior-equivalent",
+		},
+		{
+			name:    "allows manually maintained config-file for v1.0.0",
+			version: "1.0.0",
+			args:    []string{"--config-file", "/etc/scheduler/config.yaml"},
+		},
+		{
+			name:    "allows manually maintained config-file equals syntax for v1.0.0",
+			version: "1.0.0",
+			args:    []string{"--config-file=/etc/scheduler/config.yaml"},
+		},
+		{
+			name:    "keeps the deprecated plugin for v0.11.0",
+			version: "0.11.0",
+			args:    []string{"--config-text", configYAML},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+			d := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-scheduler", Namespace: "test-ns"},
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{"app.kubernetes.io/version": tt.version},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{{Name: "main", Args: tt.args}},
+						},
+					},
+				},
+			}
+
+			err := schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)
+			if tt.wantErr {
+				g.Expect(err).To(HaveOccurred())
+				var unsupported *unsupportedSchedulerPluginError
+				g.Expect(errors.As(err, &unsupported)).To(BeTrue())
+				if tt.errText != "" {
+					g.Expect(err).To(MatchError(ContainSubstring(tt.errText)))
+				}
+				return
+			}
+			g.Expect(err).NotTo(HaveOccurred())
+		})
+	}
+}
+
+func TestSchedulerReconcileErrorUnsupportedPluginIsTerminal(t *testing.T) {
+	llmSvc := &v1alpha2.LLMInferenceService{}
+	r := &LLMISVCReconciler{EventRecorder: record.NewFakeRecorder(1)}
+	cause := &unsupportedSchedulerPluginError{errors.New("unsupported scheduler plugin")}
+
+	err := r.schedulerReconcileError(llmSvc, fmt.Errorf("wrapped: %w", cause))
+
+	require.ErrorIs(t, err, reconcile.TerminalError(nil))
+	condition := llmSvc.Status.GetCondition(v1alpha2.SchedulerWorkloadReady)
+	require.NotNil(t, condition)
+	assert.True(t, condition.IsFalse())
+	assert.Equal(t, "UnsupportedSchedulerPlugin", condition.Reason)
+	select {
+	case event := <-r.EventRecorder.(*record.FakeRecorder).Events:
+		assert.Contains(t, event, "UnsupportedSchedulerPlugin")
+	default:
+		t.Fatal("expected an UnsupportedSchedulerPlugin event")
+	}
+}
+
+func TestSchedulerTransformRemovesKVBlockScorerConfigFromProducer(t *testing.T) {
+	configTemplate := `apiVersion: %s
+kind: EndpointPickerConfig
+plugins:
+- type: token-producer
+- type: precise-prefix-cache-producer
+  parameters:
+    indexerConfig:
+      %s:
+        legacy: true
+      kvBlockIndexConfig:
+        enableMetrics: true
+- type: prefix-cache-scorer
+`
+
+	tests := []struct {
+		name       string
+		version    string
+		apiVersion string
+		fieldName  string
+		removed    bool
+	}{
+		{name: "removes the field for v1.0.0", version: "1.0.0", apiVersion: "llm-d.ai/v1", fieldName: "kvBlockScorerConfig", removed: true},
+		{name: "removes legacy field casing for v1.0.0", version: "1.0.0", apiVersion: "llm-d.ai/v1", fieldName: "KVBlockScorerConfig", removed: true},
+		{name: "leaves the field in place for v0.11.0", version: "0.11.0", apiVersion: "llm-d.ai/v1alpha1", fieldName: "kvBlockScorerConfig", removed: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			d := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"app.kubernetes.io/version": tt.version,
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{Name: "main", Args: []string{"--config-text", fmt.Sprintf(configTemplate, tt.apiVersion, tt.fieldName)}},
+							},
+						},
+					},
+				},
+			}
+
+			g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)).To(Succeed())
+
+			var cfg map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(d.Spec.Template.Spec.Containers[0].Args[1]), &cfg)).To(Succeed())
+			plugins, _, err := unstructured.NestedSlice(cfg, "plugins")
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(plugins).To(HaveLen(3))
+
+			producer, ok := plugins[1].(map[string]interface{})
+			g.Expect(ok).To(BeTrue())
+			indexerConfig, _, err := unstructured.NestedMap(producer, "parameters", "indexerConfig")
+			g.Expect(err).NotTo(HaveOccurred())
+			if tt.removed {
+				g.Expect(indexerConfig).NotTo(HaveKey(tt.fieldName))
+			} else {
+				g.Expect(indexerConfig).To(HaveKey(tt.fieldName))
+			}
+			g.Expect(indexerConfig).To(HaveKey("kvBlockIndexConfig"))
+		})
+	}
+}
+
+func TestSchedulerTransformRemovesKVBlockScorerConfigFromLaterProducer(t *testing.T) {
+	configYAML := `apiVersion: llm-d.ai/v1
+kind: EndpointPickerConfig
+plugins:
+- type: precise-prefix-cache-producer
+- type: precise-prefix-cache-producer
+  parameters:
+    indexerConfig:
+      KVBlockScorerConfig:
+        legacy: true
+      kvBlockIndexConfig:
+        enableMetrics: true
+`
+
+	d := &appsv1.Deployment{
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{"app.kubernetes.io/version": "1.0.0"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{Name: "main", Args: []string{"--config-text", configYAML}}},
+				},
+			},
+		},
+	}
+
+	g := NewGomegaWithT(t)
+	g.Expect(schedulerTransform(context.Background(), d, &v1alpha2.LLMInferenceService{}, false)).To(Succeed())
+
+	var cfg map[string]interface{}
+	g.Expect(yaml.Unmarshal([]byte(d.Spec.Template.Spec.Containers[0].Args[1]), &cfg)).To(Succeed())
+	plugins, _, err := unstructured.NestedSlice(cfg, "plugins")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(plugins).To(HaveLen(2))
+
+	laterProducer, ok := plugins[1].(map[string]interface{})
+	g.Expect(ok).To(BeTrue())
+	indexerConfig, _, err := unstructured.NestedMap(laterProducer, "parameters", "indexerConfig")
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(indexerConfig).NotTo(HaveKey("KVBlockScorerConfig"))
+	g.Expect(indexerConfig).To(HaveKey("kvBlockIndexConfig"))
+}
+
+func TestSchedulerTransformPreservesKVBlockScorerConfigDuringScorerDecomposition(t *testing.T) {
+	configYAML := `apiVersion: llm-d.ai/v1alpha1
+kind: EndpointPickerConfig
+plugins:
+- type: precise-prefix-cache-scorer
+  parameters:
+    indexerConfig:
+      kvBlockScorerConfig:
+        legacy: true
+      kvBlockIndexConfig:
+        enableMetrics: true
+`
+
+	tests := []struct {
+		name    string
+		version string
+		removed bool
+	}{
+		{name: "removes the field for v1.0.0 after decomposition", version: "1.0.0", removed: true},
+		{name: "keeps the field for v0.11.0 after decomposition", version: "0.11.0", removed: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewGomegaWithT(t)
+
+			mainContainer := corev1.Container{
+				Name: "main",
+				Args: []string{"--config-text", configYAML},
+			}
+			d := &appsv1.Deployment{
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"app.kubernetes.io/version": tt.version,
+							},
+						},
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{mainContainer},
+						},
+					},
+				},
+			}
+			llmSvc := &v1alpha2.LLMInferenceService{
+				Spec: v1alpha2.LLMInferenceServiceSpec{
+					Router: &v1alpha2.RouterSpec{
+						Scheduler: &v1alpha2.SchedulerSpec{
+							Template: &corev1.PodSpec{
+								Containers: []corev1.Container{mainContainer},
+							},
+						},
+					},
+				},
+			}
+			g.Expect(isTokenizerEnabled(llmSvc.Spec)).To(BeTrue(),
+				"the legacy precise-prefix-cache-scorer must trigger decomposition")
+
+			g.Expect(schedulerTransform(context.Background(), d, llmSvc, false)).To(Succeed())
+
+			var cfg map[string]interface{}
+			g.Expect(yaml.Unmarshal([]byte(d.Spec.Template.Spec.Containers[0].Args[1]), &cfg)).To(Succeed())
+			plugins, _, err := unstructured.NestedSlice(cfg, "plugins")
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(plugins).To(HaveLen(3))
+
+			producer, ok := plugins[1].(map[string]interface{})
+			g.Expect(ok).To(BeTrue())
+			g.Expect(producer["type"]).To(Equal(precisePrefixCacheProducerPlugin))
+			indexerConfig, _, err := unstructured.NestedMap(producer, "parameters", "indexerConfig")
+			g.Expect(err).NotTo(HaveOccurred())
+			if tt.removed {
+				g.Expect(indexerConfig).NotTo(HaveKey("kvBlockScorerConfig"))
+			} else {
+				g.Expect(indexerConfig).To(HaveKey("kvBlockScorerConfig"))
+			}
+			g.Expect(indexerConfig).To(HaveKey("kvBlockIndexConfig"))
+		})
+	}
+}
+
+const (
+	legacyGroup = constants.InferencePoolV1Alpha2APIGroupName
+	gaGroup     = constants.InferencePoolV1APIGroupName
+)
+
+func TestRewriteLegacyPoolGroup(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		want        []string
+		wantChanged bool
+	}{
+		{
+			name:        "double dash with equals",
+			args:        []string{"--pool-group=" + legacyGroup},
+			want:        []string{"--pool-group=" + gaGroup},
+			wantChanged: true,
+		},
+		{
+			name:        "single dash with equals",
+			args:        []string{"-pool-group=" + legacyGroup},
+			want:        []string{"-pool-group=" + gaGroup},
+			wantChanged: true,
+		},
+		{
+			name:        "double dash with separate value",
+			args:        []string{"--pool-name", "pool", "--pool-group", legacyGroup, "--zap-encoder", "json"},
+			want:        []string{"--pool-name", "pool", "--pool-group", gaGroup, "--zap-encoder", "json"},
+			wantChanged: true,
+		},
+		{
+			name:        "single dash with separate value",
+			args:        []string{"-pool-group", legacyGroup},
+			want:        []string{"-pool-group", gaGroup},
+			wantChanged: true,
+		},
+		{
+			name: "GA group is left unchanged",
+			args: []string{"--pool-group=" + gaGroup, "--pool-group", gaGroup},
+			want: []string{"--pool-group=" + gaGroup, "--pool-group", gaGroup},
+		},
+		{
+			name: "flag absent",
+			args: []string{"--pool-name", "pool", "--inference-pool=ns/pool"},
+			want: []string{"--pool-name", "pool", "--inference-pool=ns/pool"},
+		},
+		{
+			name: "legacy group as value of another flag is left unchanged",
+			args: []string{"--pool-group-extra=" + legacyGroup, "--other", legacyGroup},
+			want: []string{"--pool-group-extra=" + legacyGroup, "--other", legacyGroup},
+		},
+		{
+			name: "flag without value at end of args",
+			args: []string{"--pool-group"},
+			want: []string{"--pool-group"},
+		},
+		{
+			name: "nil args",
+			args: nil,
+			want: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, changed := rewriteLegacyPoolGroup(tt.args)
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantChanged, changed)
+		})
+	}
+}
+
+func TestRewriteLegacyPoolGroupDoesNotMutateInput(t *testing.T) {
+	args := []string{"--pool-group=" + legacyGroup}
+
+	got, changed := rewriteLegacyPoolGroup(args)
+
+	assert.True(t, changed)
+	assert.Equal(t, []string{"--pool-group=" + gaGroup}, got)
+	assert.Equal(t, []string{"--pool-group=" + legacyGroup}, args)
+}
+
+func eppPodSpec(args ...string) *corev1.PodSpec {
+	return &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: "main", Command: []string{"/app/epp"}, Args: args},
+		},
+	}
+}
+
+func sidecarPodSpec(command ...string) *corev1.PodSpec {
+	return &corev1.PodSpec{
+		InitContainers: []corev1.Container{
+			{Name: constants.LLMISVCRoutingSidecarContainerName, Command: command},
+		},
+		Containers: []corev1.Container{
+			{Name: "main", Args: []string{"--pool-group=" + legacyGroup}},
+		},
+	}
+}
+
+func pdSpec(version string) *v1alpha2.LLMInferenceServiceSpec {
+	annotations := map[string]string{}
+	if version != "" {
+		annotations["app.kubernetes.io/version"] = version
+	}
+	return &v1alpha2.LLMInferenceServiceSpec{
+		WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: sidecarPodSpec("/app/pd-sidecar", "--enable-ssrf-protection=true", "--pool-group="+legacyGroup),
+			Worker:   sidecarPodSpec("/app/pd-sidecar", "--pool-group", legacyGroup),
+		},
+		Router: &v1alpha2.RouterSpec{
+			Scheduler: &v1alpha2.SchedulerSpec{
+				Annotations: annotations,
+				Template:    eppPodSpec("--pool-name", "pool", "--pool-group", legacyGroup),
+			},
+		},
+	}
+}
+
+func TestMigrateLegacyPoolGroup(t *testing.T) {
+	t.Run("rewrites scheduler and routing sidecars at the gated version", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+
+		migrated := migrateLegacyPoolGroup(spec)
+
+		assert.Equal(t, []string{"router.scheduler.template", "template", "worker"}, migrated)
+		assert.Equal(t, []string{"--pool-name", "pool", "--pool-group", gaGroup}, spec.Router.Scheduler.Template.Containers[0].Args)
+		assert.Equal(t, []string{"/app/pd-sidecar", "--enable-ssrf-protection=true", "--pool-group=" + gaGroup}, spec.Template.InitContainers[0].Command)
+		assert.Equal(t, []string{"/app/pd-sidecar", "--pool-group", gaGroup}, spec.Worker.InitContainers[0].Command)
+	})
+
+	t.Run("leaves non-sidecar workload containers unchanged", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+
+		migrateLegacyPoolGroup(spec)
+
+		assert.Equal(t, []string{"--pool-group=" + legacyGroup}, spec.Template.Containers[0].Args)
+	})
+
+	t.Run("rewrites newer versions", func(t *testing.T) {
+		spec := pdSpec("1.0.0")
+
+		assert.Len(t, migrateLegacyPoolGroup(spec), 3)
+	})
+
+	t.Run("is idempotent", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+		migrateLegacyPoolGroup(spec)
+		want := spec.DeepCopy()
+
+		migrated := migrateLegacyPoolGroup(spec)
+
+		assert.Empty(t, migrated)
+		assert.Equal(t, want, spec)
+	})
+
+	t.Run("does not mutate the original pod specs", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+		schedulerTemplate := spec.Router.Scheduler.Template
+		workloadTemplate := spec.Template
+
+		migrateLegacyPoolGroup(spec)
+
+		assert.Equal(t, []string{"--pool-name", "pool", "--pool-group", legacyGroup}, schedulerTemplate.Containers[0].Args)
+		assert.Equal(t, []string{"/app/pd-sidecar", "--enable-ssrf-protection=true", "--pool-group=" + legacyGroup}, workloadTemplate.InitContainers[0].Command)
+	})
+
+	for _, version := range []string{"0.10.0", "0.7.0", "", "not-a-version"} {
+		t.Run("skips scheduler version "+version, func(t *testing.T) {
+			spec := pdSpec(version)
+			want := spec.DeepCopy()
+
+			migrated := migrateLegacyPoolGroup(spec)
+
+			assert.Empty(t, migrated)
+			assert.Equal(t, want, spec)
+		})
+	}
+
+	t.Run("skips when there is no scheduler", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+		spec.Router = nil
+		want := spec.DeepCopy()
+
+		migrated := migrateLegacyPoolGroup(spec)
+
+		assert.Empty(t, migrated)
+		assert.Equal(t, want, spec)
+	})
+
+	t.Run("rewrites flag split between command and args", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+		spec.Router.Scheduler.Template = &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "main", Command: []string{"/app/epp", "--pool-group"}, Args: []string{legacyGroup, "--pool-name", "pool"}},
+			},
+		}
+
+		migrated := migrateLegacyPoolGroup(spec)
+
+		assert.Contains(t, migrated, "router.scheduler.template")
+		assert.Equal(t, []string{"/app/epp", "--pool-group"}, spec.Router.Scheduler.Template.Containers[0].Command)
+		assert.Equal(t, []string{gaGroup, "--pool-name", "pool"}, spec.Router.Scheduler.Template.Containers[0].Args)
+	})
+
+	t.Run("leaves the untouched side of command and args as-is", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+
+		migrateLegacyPoolGroup(spec)
+
+		assert.Nil(t, spec.Template.InitContainers[0].Args)
+		assert.Equal(t, []string{"/app/epp"}, spec.Router.Scheduler.Template.Containers[0].Command)
+	})
+
+	t.Run("rewrites routing sidecar declared as a regular container", func(t *testing.T) {
+		spec := pdSpec("0.11.0")
+		spec.Worker = nil
+		spec.Template = &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: constants.LLMISVCRoutingSidecarContainerName, Args: []string{"--pool-group=" + legacyGroup}},
+			},
+		}
+
+		migrated := migrateLegacyPoolGroup(spec)
+
+		assert.Equal(t, []string{"router.scheduler.template", "template"}, migrated)
+		assert.Equal(t, []string{"--pool-group=" + gaGroup}, spec.Template.Containers[0].Args)
+	})
 }

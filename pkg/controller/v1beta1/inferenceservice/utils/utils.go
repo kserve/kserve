@@ -23,7 +23,9 @@ import (
 	"fmt"
 	"html/template"
 	"regexp"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -279,6 +281,65 @@ func mergeArgs(runtimeArgs, isvcArgs []string) []string {
 		merged = append(merged, runtimeArgs[i])
 	}
 	return append(merged, isvcArgs...)
+}
+
+// GetArgValue extracts the value for a CLI flag from an args slice.
+// It handles both "--flag value" (two elements) and "--flag=value" (single element) forms.
+// A flag that is last in the slice, or immediately followed by another flag, has no value.
+func GetArgValue(args []string, flag string) (string, bool) {
+	var lastVal string
+	found := false
+	for i, arg := range args {
+		if arg == flag && i+1 < len(args) && !isFlag(args[i+1]) {
+			lastVal = args[i+1]
+			found = true
+		}
+		if after, ok := strings.CutPrefix(arg, flag+"="); ok {
+			lastVal = after
+			found = true
+		}
+	}
+	return lastVal, found
+}
+
+// SetArgValue replaces every occurrence of a flag in an args slice, or appends
+// it if absent. It handles both two-element and "=" forms. A flag with no value
+// - last in the slice, or immediately followed by another flag - has the value
+// inserted after it rather than overwriting the next element.
+func SetArgValue(args []string, flag, value string) []string {
+	found := false
+	// Indexed rather than range: inserting may reallocate, and range would keep
+	// iterating the original backing array.
+	for i := 0; i < len(args); i++ {
+		if args[i] == flag {
+			if i+1 < len(args) && !isFlag(args[i+1]) {
+				args[i+1] = value
+			} else {
+				args = slices.Insert(args, i+1, value)
+			}
+			i++ // skip the value we just wrote
+			found = true
+			continue
+		}
+		if strings.HasPrefix(args[i], flag+"=") {
+			args[i] = flag + "=" + value
+			found = true
+		}
+	}
+	if found {
+		return args
+	}
+	return append(args, flag, value)
+}
+
+// isFlag reports whether an arg is a flag rather than a value. A lone "-" and
+// negative numbers are values, not flags.
+func isFlag(arg string) bool {
+	if !strings.HasPrefix(arg, "-") || arg == "-" {
+		return false
+	}
+	_, err := strconv.ParseFloat(arg, 64)
+	return err != nil
 }
 
 func flagName(arg string) string {

@@ -103,6 +103,30 @@ def _vllm_running_requests_trigger(pod_prefix_template, threshold):
     }
 
 
+def _ds_vllm_running_requests_trigger(role, threshold="1"):
+    """Build a KEDA `prometheus` trigger for one DisaggregatedSet role.
+
+    The regex matches the role's pods, named
+    <svc>-kserve-pd-<slice>-<revision>-<role>-<group index>.
+    """
+    query = (
+        "avg(vllm:num_requests_running{"
+        'namespace="{{ .ObjectMeta.Namespace }}",'
+        'pod=~"^{{ .ObjectMeta.Name }}-kserve-pd-[0-9]+-[a-z0-9]+-' + role + '-[0-9]+$"'
+        "})"
+    )
+    return {
+        "type": "prometheus",
+        "name": "vllm-running-requests",
+        "metadata": {
+            "serverAddress": PROMETHEUS_SERVER_ADDRESS,
+            "query": query,
+            "threshold": threshold,
+            "unsafeSsl": "true",
+        },
+    }
+
+
 # PVC storage test constants
 PVC_STORAGE_NAME = "e2e-pvc-model-storage"
 STORAGE_INITIALIZER_IMAGE = os.environ.get(
@@ -361,6 +385,49 @@ if not 1 <= LORA_ADAPTER_COUNT <= LORA_REALISTIC_FIXTURE_SIZE:
     )
 LORA_REALISTIC_ADAPTER_NAMES = _LORA_REALISTIC_FIXTURE_NAMES[:LORA_ADAPTER_COUNT]
 
+# ModelExpress: the server installed by test/scripts/gh-actions/setup-modelexpress.sh,
+# and a vLLM image with the modelexpress client for GPU tests.
+MODELEXPRESS_ADDRESS = os.environ.get(
+    "MODELEXPRESS_ADDRESS", "modelexpress.modelexpress.svc:8001"
+)
+MODELEXPRESS_VLLM_CUDA_IMAGE = os.environ.get("MODELEXPRESS_VLLM_CUDA_IMAGE", "")
+# A safetensors model seeded by test/scripts/gh-actions/seed-s3-model.sh.
+MODELEXPRESS_MODEL_URI = os.environ.get(
+    "MODELEXPRESS_MODEL_URI", "s3://example-models/Qwen/Qwen2.5-0.5B-Instruct"
+)
+MODELEXPRESS_MODEL_NAME = os.environ.get(
+    "MODELEXPRESS_MODEL_NAME", "Qwen/Qwen2.5-0.5B-Instruct"
+)
+# Extended resource that attaches an RDMA NIC to the pod, e.g. "rdma/ib".
+MODELEXPRESS_RDMA_RESOURCE = os.environ.get("MODELEXPRESS_RDMA_RESOURCE", "")
+
+
+def _modelexpress_gpu_workload():
+    limits = {"nvidia.com/gpu": "1"}
+    if MODELEXPRESS_RDMA_RESOURCE:
+        limits[MODELEXPRESS_RDMA_RESOURCE] = "1"
+    return {
+        "template": {
+            "containers": [
+                {
+                    "name": "main",
+                    "image": MODELEXPRESS_VLLM_CUDA_IMAGE,
+                    "resources": {
+                        "limits": dict(limits),
+                        "requests": {**limits, "cpu": "4", "memory": "32Gi"},
+                    },
+                    "securityContext": {
+                        "allowPrivilegeEscalation": False,
+                        "runAsNonRoot": True,
+                        "capabilities": {"add": ["IPC_LOCK"], "drop": ["ALL"]},
+                        "seccompProfile": {"type": "RuntimeDefault"},
+                    },
+                }
+            ],
+        },
+    }
+
+
 LLMINFERENCESERVICE_CONFIGS = {
     "workload-single-cpu": {
         "template": {
@@ -458,6 +525,10 @@ LLMINFERENCESERVICE_CONFIGS = {
     },
     "model-fb-opt-125m": {
         "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
+    },
+    "workload-single-gpu-modelexpress": _modelexpress_gpu_workload(),
+    "model-modelexpress": {
+        "model": {"uri": MODELEXPRESS_MODEL_URI, "name": MODELEXPRESS_MODEL_NAME},
     },
     "model-fb-opt-125m-oci": {
         "model": {"uri": OPT_125M_OCI_MODEL_URI, "name": "facebook/opt-125m"},
@@ -894,7 +965,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "llm-d.ai/v1alpha1",
+                        "apiVersion": "llm-d.ai/v1",
                         "kind": "EndpointPickerConfig",
                         "plugins": [
                             {"type": "single-profile-handler"},
@@ -922,7 +993,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "llm-d.ai/v1alpha1",
+                        "apiVersion": "llm-d.ai/v1",
                         "kind": "EndpointPickerConfig",
                         "plugins": [
                             {"type": "single-profile-handler"},
@@ -987,7 +1058,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                             "args": [
                                 "--config-text",
                                 (
-                                    "apiVersion: llm-d.ai/v1alpha1\n"
+                                    "apiVersion: llm-d.ai/v1\n"
                                     "kind: EndpointPickerConfig\n"
                                     "plugins:\n"
                                     "- type: single-profile-handler\n"
@@ -1033,7 +1104,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "llm-d.ai/v1alpha1",
+                        "apiVersion": "llm-d.ai/v1",
                         "kind": "EndpointPickerConfig",
                         "plugins": [
                             {"type": "single-profile-handler"},
@@ -1257,7 +1328,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 "--cert-path",
                                 "/var/run/kserve/tls",
                                 "--pool-group",
-                                "inference.networking.x-k8s.io",
+                                "inference.networking.k8s.io",
                                 "--pool-name",
                                 "{{ ChildName .ObjectMeta.Name `-inference-pool` }}",
                                 "--pool-namespace",
@@ -1275,7 +1346,7 @@ LLMINFERENCESERVICE_CONFIGS = {
                                 "vllm:kv_cache_usage_perc",
                                 "--config-text",
                                 (
-                                    "apiVersion: llm-d.ai/v1alpha1\n"
+                                    "apiVersion: llm-d.ai/v1\n"
                                     "kind: EndpointPickerConfig\n"
                                     "plugins:\n"
                                     "- type: single-profile-handler\n"
@@ -1650,6 +1721,34 @@ LLMINFERENCESERVICE_CONFIGS = {
             },
         }
     },
+    # Direct KEDA triggers for roles on the DisaggregatedSet backend. Role pods
+    # are named <svc>-kserve-pd-<slice>-<revision>-<role>-<group index>.
+    "scaling-prefill-ds-keda": {
+        "prefill": {
+            "scaling": {
+                "minReplicas": 1,
+                "maxReplicas": 3,
+                "keda": {
+                    "pollingInterval": 5,
+                    "cooldownPeriod": 10,
+                    "initialCooldownPeriod": 0,
+                    "triggers": [_ds_vllm_running_requests_trigger("prefill")],
+                },
+            }
+        }
+    },
+    "scaling-decode-ds-keda": {
+        "scaling": {
+            "minReplicas": 1,
+            "maxReplicas": 3,
+            "keda": {
+                "pollingInterval": 5,
+                "cooldownPeriod": 10,
+                "initialCooldownPeriod": 0,
+                "triggers": [_ds_vllm_running_requests_trigger("decode")],
+            },
+        }
+    },
     "workload-llmd-simulator-kvcache": {
         "replicas": 2,
         "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
@@ -1709,7 +1808,7 @@ LLMINFERENCESERVICE_CONFIGS = {
             "scheduler": {
                 "config": {
                     "inline": {
-                        "apiVersion": "llm-d.ai/v1alpha1",
+                        "apiVersion": "llm-d.ai/v1",
                         "kind": "EndpointPickerConfig",
                         "featureGates": ["flowControl"],
                         "plugins": [
@@ -2048,7 +2147,7 @@ def inject_k8s_proxy():
 
 
 # Scheduler config YAML used for ConfigMap ref tests
-SCHEDULER_CONFIG_YAML = """apiVersion: llm-d.ai/v1alpha1
+SCHEDULER_CONFIG_YAML = """apiVersion: llm-d.ai/v1
 kind: EndpointPickerConfig
 plugins:
 - type: single-profile-handler
@@ -2124,7 +2223,7 @@ def delete_scheduler_configmap(namespace):
 
 
 INFERENCE_OBJECTIVE_GROUP = "llm-d.ai"
-INFERENCE_OBJECTIVE_VERSION = "v1alpha2"
+INFERENCE_OBJECTIVE_VERSION = "v1"
 INFERENCE_OBJECTIVE_PLURAL = "inferenceobjectives"
 
 
@@ -2148,7 +2247,7 @@ def create_inference_objectives(pool_name, objectives, namespace):
                 "namespace": namespace,
             },
             "spec": {
-                "poolRef": {"name": pool_name},
+                "poolRefs": [{"name": pool_name}],
                 "priority": obj["priority"],
             },
         }

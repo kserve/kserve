@@ -60,6 +60,8 @@ const (
 	prefixCacheScorerPlugin           = "prefix-cache-scorer"
 	tokenProducerPlugin               = "token-producer"
 	precisePrefixCacheProducerPlugin  = "precise-prefix-cache-producer"
+	kvBlockScorerConfigField          = "kvBlockScorerConfig"
+	dataParallelProfileHandlerPlugin  = "data-parallel-profile-handler"
 	loraAffinityScorerPlugin          = "lora-affinity-scorer"
 	coreMetricsExtractorPlugin        = "model-server-protocol-metrics"
 	coreMetricsExtractorPluginRenamed = "core-metrics-extractor"
@@ -244,6 +246,12 @@ func (r *LLMISVCReconciler) reconcileV1InferencePool(ctx context.Context, llmSvc
 // reconcileV1Alpha2InferencePool reconciles the v1alpha2 InferencePool.
 // It is a no-op when the v1alpha2 InferencePool CRD is not installed on the cluster.
 func (r *LLMISVCReconciler) reconcileV1Alpha2InferencePool(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, shouldDelete bool) error {
+	if !shouldDelete && inferencePoolRequiresV1(&llmSvc.Spec) {
+		// Do not publish a truncated, single-port copy of a multi-port pool.
+		// Preserve existing legacy pools during migration, but allow explicit
+		// cleanup to reach the delete path below.
+		return nil
+	}
 	ok, err := utils.IsCrdAvailable(r.Config, igwapiv1alpha2.GroupVersion.String(), "InferencePool")
 	if err != nil {
 		return fmt.Errorf("checking v1alpha2 InferencePool CRD availability: %w", err)
@@ -433,6 +441,17 @@ func (r *LLMISVCReconciler) expectedSchedulerDeployment(ctx context.Context, llm
 	}
 
 	r.propagateSchedulerMetadata(llmSvc, d)
+
+	// Stop and delete paths only need the deployment identity and owner metadata.
+	// Do not run scheduler migrations there: an invalid old EndpointPickerConfig
+	// must not prevent cleanup of the existing scheduler.
+	if utils.GetForceStopRuntime(llmSvc) ||
+		llmSvc.Spec.Router == nil ||
+		llmSvc.Spec.Router.Scheduler == nil ||
+		llmSvc.Spec.Router.Scheduler.Template == nil ||
+		llmSvc.Spec.Router.Scheduler.Pool.HasRef() {
+		return d, nil
+	}
 
 	if llmSvc.Spec.Router != nil && llmSvc.Spec.Router.Scheduler != nil && llmSvc.Spec.Router.Scheduler.Template != nil {
 		d.Spec.Replicas = llmSvc.Spec.Router.Scheduler.Replicas
@@ -1460,6 +1479,25 @@ func schedulerConfigUsedPluginTypes(d *appsv1.Deployment, pluginTypes ...string)
 	return found
 }
 
+func schedulerConfigDeclaresPlugin(d *appsv1.Deployment, pluginType string) bool {
+	c := utils.GetContainerWithName(&d.Spec.Template.Spec, "main")
+	if c == nil {
+		return false
+	}
+	for i := range len(c.Args) - 1 {
+		if _, ok := inlineConfigTextFlags[c.Args[i]]; !ok {
+			continue
+		}
+		u := unstructured.Unstructured{}
+		if err := yaml.Unmarshal([]byte(c.Args[i+1]), &u.Object); err == nil && hasPluginType(u.Object, pluginType) {
+			return true
+		}
+	}
+	return false
+}
+
+type unsupportedSchedulerPluginError struct{ error }
+
 // checkRoleFiltersOnLegacyBothWorkload emits a Warning event and returns an
 // error, which stops the scheduler rollout, when EPPConfig uses
 // decode-filter or prefill-filter while pods are labelled llm-d.ai/role=both
@@ -1588,6 +1626,8 @@ func hasDeprecatedMetricFlags(d *appsv1.Deployment) bool {
 //     relocate saturationDetector and parser (removed from EndpointPickerConfig
 //     in v0.11.0) and dataLayer.peerDiscovery (only deprecated in v0.11.0, not
 //     removed) to the fields that replaced them
+//  10. withRemoveKVBlockScorerConfig - drop indexerConfig.kvBlockScorerConfig from
+//     precise-prefix-cache-producer (v1.0.0 rejects the field)
 func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alpha2.LLMInferenceService, enableTLS bool) error {
 	version, ok := d.Spec.Template.Annotations["app.kubernetes.io/version"]
 	if !ok || version == "" {
@@ -1599,6 +1639,15 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 	}
 	if v.Compare(*semver.New("0.7.0")) < 0 {
 		return nil
+	}
+
+	if v.Compare(*semver.New("1.0.0")) >= 0 {
+		if schedulerConfigDeclaresPlugin(d, dataParallelProfileHandlerPlugin) {
+			return &unsupportedSchedulerPluginError{fmt.Errorf(
+				"scheduler deployment %s/%s uses removed plugin %q; update the EndpointPickerConfig before upgrading to llm-d-router v1.0.0: single-profile-handler is not behavior-equivalent, so review the data-parallel parameters and migrate manually",
+				d.GetNamespace(), d.GetName(), dataParallelProfileHandlerPlugin,
+			)}
+		}
 	}
 
 	writable := hasWritableConfigText(d)
@@ -1706,10 +1755,124 @@ func schedulerTransform(ctx context.Context, d *appsv1.Deployment, llmSvc *v1alp
 		)
 	}
 
+	if v.Compare(*semver.New("1.0.0")) >= 0 {
+		opts = append(opts, withRemoveKVBlockScorerConfig)
+	}
+
 	if err := mutateSchedulerConfig(ctx, d, opts...); err != nil {
 		return fmt.Errorf("failed to mutate config: %w", err)
 	}
 	return nil
+}
+
+const poolGroupFlagName = "pool-group"
+
+// legacyPoolGroupMinVersion is the minimum scheduler version at which
+// migrateLegacyPoolGroup rewrites the legacy InferencePool API group.
+var legacyPoolGroupMinVersion = semver.New("0.11.0")
+
+// migrateLegacyPoolGroup rewrites --pool-group=inference.networking.x-k8s.io to
+// --pool-group=inference.networking.k8s.io in the scheduler "main" container and
+// in every routing sidecar container of the merged spec, when the scheduler
+// app.kubernetes.io/version annotation is >= legacyPoolGroupMinVersion.
+// Pod specs are replaced with modified copies, never mutated in place.
+// It returns the spec paths of the rewritten pod specs.
+func migrateLegacyPoolGroup(spec *v1alpha2.LLMInferenceServiceSpec) []string {
+	if spec.Router == nil || spec.Router.Scheduler == nil || spec.Router.Scheduler.Template == nil {
+		return nil
+	}
+	v, err := semver.NewVersion(spec.Router.Scheduler.Annotations["app.kubernetes.io/version"])
+	if err != nil || v.LessThan(*legacyPoolGroupMinVersion) {
+		return nil
+	}
+
+	isScheduler := func(name string) bool { return name == "main" }
+	isRoutingSidecar := func(name string) bool { return name == constants.LLMISVCRoutingSidecarContainerName }
+
+	var migrated []string
+	if migratePodSpecPoolGroup(&spec.Router.Scheduler.Template, isScheduler) {
+		migrated = append(migrated, "router.scheduler.template")
+	}
+	if migratePodSpecPoolGroup(&spec.Template, isRoutingSidecar) {
+		migrated = append(migrated, "template")
+	}
+	if migratePodSpecPoolGroup(&spec.Worker, isRoutingSidecar) {
+		migrated = append(migrated, "worker")
+	}
+	return migrated
+}
+
+// migratePodSpecPoolGroup rewrites the legacy pool group in the init and regular
+// containers whose name matches. Command and Args are rewritten as one argument
+// list and split back at the original boundary. When anything changes, *podSpec
+// is replaced with a modified deep copy.
+func migratePodSpecPoolGroup(podSpec **corev1.PodSpec, matches func(name string) bool) bool {
+	if *podSpec == nil {
+		return false
+	}
+	updated := (*podSpec).DeepCopy()
+	changed := false
+	for _, containers := range [][]corev1.Container{updated.InitContainers, updated.Containers} {
+		for i := range containers {
+			c := &containers[i]
+			if !matches(c.Name) {
+				continue
+			}
+			argv, ok := rewriteLegacyPoolGroup(slices.Concat(c.Command, c.Args))
+			if !ok {
+				continue
+			}
+			n := len(c.Command)
+			if !slices.Equal(argv[:n], c.Command) {
+				c.Command = argv[:n:n]
+			}
+			if !slices.Equal(argv[n:], c.Args) {
+				c.Args = argv[n:]
+			}
+			changed = true
+		}
+	}
+	if changed {
+		*podSpec = updated
+	}
+	return changed
+}
+
+// rewriteLegacyPoolGroup returns a copy of args with the legacy InferencePool API
+// group replaced by the GA group in every -pool-group / --pool-group flag, in both
+// the --flag=value and --flag value forms. The returned bool reports whether any
+// value was replaced; when false, args is returned unchanged.
+func rewriteLegacyPoolGroup(args []string) ([]string, bool) {
+	var out []string
+	for i := 0; i < len(args); i++ {
+		if !strings.HasPrefix(args[i], "-") {
+			continue
+		}
+		name, value, hasValue := strings.Cut(strings.TrimLeft(args[i], "-"), "=")
+		if name != poolGroupFlagName {
+			continue
+		}
+		if hasValue {
+			if value == constants.InferencePoolV1Alpha2APIGroupName {
+				if out == nil {
+					out = slices.Clone(args)
+				}
+				out[i] = strings.TrimSuffix(args[i], value) + constants.InferencePoolV1APIGroupName
+			}
+			continue
+		}
+		if i+1 < len(args) && args[i+1] == constants.InferencePoolV1Alpha2APIGroupName {
+			if out == nil {
+				out = slices.Clone(args)
+			}
+			out[i+1] = constants.InferencePoolV1APIGroupName
+			i++
+		}
+	}
+	if out == nil {
+		return args, false
+	}
+	return out, true
 }
 
 // withMigrateDisaggHeadersHandler renames the prefill-header-handler plugin to
@@ -1774,6 +1937,45 @@ func withMigratePeerDiscovery(_ context.Context, u *unstructured.Unstructured) e
 		[]string{"dataLayer", "peerDiscovery"},
 		[]string{"dataLayer", "discovery", "peers"},
 		nil)
+}
+
+// withRemoveKVBlockScorerConfig removes a field that llm-d-router v1.0.0
+// rejects in precise-prefix-cache-producer parameters.
+func withRemoveKVBlockScorerConfig(_ context.Context, u *unstructured.Unstructured) error {
+	val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
+	if err != nil || !found {
+		return err
+	}
+	plugins, ok := val.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	for _, plugin := range plugins {
+		pluginMap, ok := plugin.(map[string]interface{})
+		if !ok || pluginMap["type"] != precisePrefixCacheProducerPlugin {
+			continue
+		}
+
+		indexerConfigVal, found, err := unstructured.NestedFieldNoCopy(pluginMap, "parameters", "indexerConfig")
+		if err != nil {
+			return err
+		}
+		if !found {
+			continue
+		}
+		indexerConfig, ok := indexerConfigVal.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		for key := range indexerConfig {
+			if strings.EqualFold(key, kvBlockScorerConfigField) {
+				delete(indexerConfig, key)
+			}
+		}
+	}
+
+	return nil
 }
 
 // withMigrateLLMDAPIVersion rewrites the deprecated EndpointPickerConfig
@@ -1873,7 +2075,9 @@ func withRemoveUnnecessaryTokenizer(d *appsv1.Deployment) mutateSchedulerConfigF
 // standalone token-producer) and tokenProcessorConfig (promoted to the
 // top-level parameters where the new producer expects it; older versions
 // of kvcache.Config accepted it inside indexerConfig, but the current
-// version does not and silently ignores it).
+// version does not and silently ignores it). kvBlockScorerConfig is preserved
+// here because llm-d-router versions before v1.0.0 still accept it;
+// withRemoveKVBlockScorerConfig removes it only for v1.0.0 and newer.
 func migrateProducerParams(oldPlugin map[string]interface{}) map[string]interface{} {
 	params, ok := oldPlugin["parameters"].(map[string]interface{})
 	if !ok || len(params) == 0 {
@@ -1962,6 +2166,8 @@ func withInjectTokenProducerConfig(tokenizerURL string) mutateSchedulerConfigFun
 // User-specified parameters (tokenProcessorConfig, kvEventsConfig,
 // indexerConfig.kvBlockIndexConfig) are preserved on the producer plugin;
 // only tokenizersPoolConfig is dropped (handled by token-producer over HTTP).
+// kvBlockScorerConfig is also preserved here for pre-v1.0.0 routers and is
+// removed by the version-gated withRemoveKVBlockScorerConfig migration.
 func withDecomposePrecisePrefixCacheScorer(tokenizerURL string) mutateSchedulerConfigFunc {
 	return func(ctx context.Context, u *unstructured.Unstructured) error {
 		val, found, err := unstructured.NestedFieldNoCopy(u.Object, "plugins")
@@ -2242,6 +2448,9 @@ func withCoreMetricsExtractorPlugin(extracted map[string]string) mutateScheduler
 			"name": coreMetricsExtractorPlugin,
 			"type": coreMetricsExtractorPlugin,
 			"parameters": map[string]interface{}{
+				// TODO: Migrate this together with the model-server Pod labels.
+				// Keep the old key during the upgrade; handle the new llm-d.ai key
+				// with the other label changes in a later release.
 				"engineLabelKey": "inference.networking.k8s.io/engine-type",
 				"defaultEngine":  "vllm",
 				"engineConfigs": []interface{}{

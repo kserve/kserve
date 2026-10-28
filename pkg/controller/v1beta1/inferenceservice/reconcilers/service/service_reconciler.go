@@ -283,7 +283,7 @@ func semanticServiceEquals(desired, existing *corev1.Service) bool {
 func (r *ServiceReconciler) Reconcile(ctx context.Context) ([]*corev1.Service, error) {
 	for _, svc := range r.ServiceList {
 		// reconcile Service
-		checkResult, _, err := r.checkServiceExist(ctx, r.client, svc)
+		checkResult, existing, err := r.checkServiceExist(ctx, r.client, svc)
 		log.Info("service reconcile", "checkResult", checkResult, "err", err)
 		if err != nil {
 			return nil, err
@@ -295,6 +295,14 @@ func (r *ServiceReconciler) Reconcile(ctx context.Context) ([]*corev1.Service, e
 			opErr = r.client.Create(ctx, svc)
 		case constants.CheckResultUpdate:
 			opErr = r.client.Update(ctx, svc)
+		case constants.CheckResultExisted:
+			if svc.Labels[constants.KServeManagedLabelKey] != existing.Labels[constants.KServeManagedLabelKey] {
+				before := existing.DeepCopy()
+				existing.Labels = utils.Union(existing.Labels, map[string]string{
+					constants.KServeManagedLabelKey: svc.Labels[constants.KServeManagedLabelKey],
+				})
+				opErr = r.client.Patch(ctx, existing, client.MergeFrom(before))
+			}
 		case constants.CheckResultDelete:
 			if svc.GetDeletionTimestamp() == nil { // check if the service was already deleted
 				log.Info("Deleting service", "namespace", svc.Namespace, "name", svc.Name)
@@ -320,6 +328,9 @@ func (r *ServiceReconciler) SetControllerReferences(owner metav1.Object, scheme 
 		if err := controllerutil.SetControllerReference(owner, svc, scheme); err != nil {
 			return err
 		}
+		svc.Labels = utils.Union(svc.Labels, map[string]string{
+			constants.KServeManagedLabelKey: constants.KServeManagedLabelValue,
+		})
 	}
 	return nil
 }

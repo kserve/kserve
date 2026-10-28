@@ -307,7 +307,9 @@ var _ = Describe("LLMInferenceService Controller", func() {
 				// before asserting anything held still. Requiring two consecutive reads
 				// at the same ResourceVersion is what separates "settled" from "the
 				// update landed but the status write has not happened yet" - the latter
-				// moves the version in the middle of the window below.
+				// moves the version in the middle of the window below. The polling interval
+				// is that quiet period, so it is pinned rather than taken from the suite
+				// default: it has to outlast the controller's status write under load.
 				var afterTriggerRV string
 				Eventually(func(g Gomega, ctx context.Context) {
 					current := &v1alpha2.LLMInferenceService{}
@@ -317,7 +319,7 @@ var _ = Describe("LLMInferenceService Controller", func() {
 					previous := afterTriggerRV
 					afterTriggerRV = current.ResourceVersion
 					g.Expect(afterTriggerRV).To(Equal(previous), "resource version is still moving")
-				}).WithContext(ctx).Should(Succeed())
+				}).WithContext(ctx).WithPolling(250 * time.Millisecond).Should(Succeed())
 
 				// A settled ResourceVersion is what makes the rest meaningful: a
 				// controller still writing would keep moving it.

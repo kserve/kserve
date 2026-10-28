@@ -176,7 +176,7 @@ func rowSchema(t []TFTensor) *openapi3.Schema {
 		schema.Items.Value.Properties[i.Name] = i.RowSchema().NewRef()
 		schema.Items.Value.Required = append(schema.Items.Value.Required, i.Name)
 	}
-	schema.AdditionalProperties = openapi3.AdditionalProperties{
+	schema.Items.Value.AdditionalProperties = openapi3.AdditionalProperties{
 		Has:    ptr.To(false),
 		Schema: nil,
 	}
