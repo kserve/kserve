@@ -126,6 +126,20 @@ func takePVCEvictorContainerTemplate(podSpec *corev1.PodSpec) *corev1.Container 
 	return template
 }
 
+func inheritPVCEvictorImage(template *corev1.Container, fallbacks ...*corev1.Container) *corev1.Container {
+	if template == nil || template.Image != "" {
+		return template
+	}
+	for _, fallback := range fallbacks {
+		if fallback != nil && fallback.Image != "" {
+			updated := template.DeepCopy()
+			updated.Image = fallback.Image
+			return updated
+		}
+	}
+	return template
+}
+
 func workloadPVCEvictorContainerTemplate(workload *v1alpha2.WorkloadSpec) *corev1.Container {
 	if workload == nil {
 		return nil

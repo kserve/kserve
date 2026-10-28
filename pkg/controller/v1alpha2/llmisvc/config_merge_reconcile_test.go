@@ -450,6 +450,68 @@ func TestCombineBaseRefsConfigRendersMainPVCEvictorOverrideForPrefill(t *testing
 	assert.Equal(t, "example.com/evictor:custom", evictor.Image)
 }
 
+func TestCombineBaseRefsConfigFillsPrefillPVCEvictorImage(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
+
+	const namespace = "test-ns"
+	modelURL, err := apis.ParseURL("pvc://test-model")
+	require.NoError(t, err)
+	decodePreset := loadPresetConfig(t, "config-llm-decode-template.yaml")
+	decodePreset.Namespace = namespace
+	prefillPreset := loadPresetConfig(t, "config-llm-prefill-template.yaml")
+	prefillPreset.Namespace = namespace
+
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: namespace},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Model: v1alpha2.LLMModelSpec{URI: *modelURL, Name: ptr.To("test-model")},
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  pvcEvictorTemplateName,
+						Image: "example.com/evictor:custom",
+					}},
+				},
+			},
+			Prefill: &v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name: pvcEvictorTemplateName,
+						Resources: corev1.ResourceRequirements{
+							Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("2")},
+						},
+					}},
+				},
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					CPU: resource.MustParse("1Gi"),
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{Spec: &corev1.PersistentVolumeClaimSpec{}},
+					}}},
+				},
+			},
+		},
+	}
+
+	reconciler := &LLMISVCReconciler{
+		Client: fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(decodePreset, prefillPreset).
+			Build(),
+	}
+	combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
+	require.NoError(t, err)
+
+	llmSvc.Spec = combined.Config.Spec
+	pod, err := reconciler.expectedSingleNodePrefillPodTemplate(t.Context(), llmSvc, &Config{}, corev1.PodSpec{})
+	require.NoError(t, err)
+	evictor := utils.GetContainerWithName(&pod.Template.Spec, "pvc-evictor-kv-cache-secondary-0")
+	require.NotNil(t, evictor, "prefill did not render its explicit pvc-evictor template")
+	assert.Equal(t, "example.com/evictor:custom", evictor.Image)
+	assert.Equal(t, corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("2")}, evictor.Resources.Requests)
+}
+
 func TestMergeSpecsPreservesExplicitPrefillPVCEvictorOverride(t *testing.T) {
 	base := v1alpha2.LLMInferenceServiceSpec{
 		WorkloadSpec: v1alpha2.WorkloadSpec{

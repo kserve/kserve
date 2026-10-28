@@ -339,6 +339,8 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 		evictorTemplate = takePVCEvictorContainerTemplate(&template.Spec)
 		if evictorTemplate == nil {
 			evictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
+		} else {
+			evictorTemplate = inheritPVCEvictorImage(evictorTemplate, findPVCEvictorContainerTemplate(llmSvc.Spec.Template))
 		}
 
 		// A prefill workload that already runs keeps the ServiceAccount it
