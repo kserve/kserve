@@ -1214,7 +1214,7 @@ func (r *LLMISVCReconciler) expectedPVCEvictorDeployments(ctx context.Context, l
 			return nil, fmt.Errorf("failed to get PVC %s/%s for evictor: %w", llmSvc.Namespace, targets[i].claimName, err)
 		}
 		if pvcHasReadWriteOncePod(pvc) || pvcHasReadOnlyMany(pvc) {
-			return nil, fmt.Errorf("PVC %s/%s is not writable for a pvc.ref evictor; use ReadWriteOnce or ReadWriteMany", llmSvc.Namespace, targets[i].claimName)
+			return nil, reconcile.TerminalError(fmt.Errorf("PVC %s/%s has unsupported access modes %v for a pvc.ref evictor; use ReadWriteOnce or ReadWriteMany", llmSvc.Namespace, targets[i].claimName, pvc.Spec.AccessModes))
 		}
 		targets[i].requiresNodeAffinity = pvcRequiresNodeAffinity(pvc)
 		targets[i].containerTemplate = withPVCEvictorDefaultImage(

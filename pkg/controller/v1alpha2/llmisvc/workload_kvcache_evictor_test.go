@@ -2116,6 +2116,35 @@ func TestPVCEvictorRejectsReadOnlyMany(t *testing.T) {
 	}
 }
 
+func TestExpectedPVCEvictorDeploymentsRejectsUnsupportedAccessMode(t *testing.T) {
+	service := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{Containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName},
+			}},
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+				PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc"}},
+			}}}},
+		}},
+	}
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-pvc", Namespace: "test"},
+		Spec:       corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod}},
+	}
+	scheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	reconciler := &LLMISVCReconciler{APIReader: fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()}
+
+	_, err := reconciler.expectedPVCEvictorDeployments(t.Context(), service, &Config{})
+	if err == nil || !errors.Is(err, reconcile.TerminalError(nil)) {
+		t.Fatalf("expected terminal unsupported-access-mode error, got %v", err)
+	}
+}
+
 func TestAddPVCEvictorConsumerLabels(t *testing.T) {
 	labels := addPVCEvictorConsumerLabels(nil, []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 		PVC: &v1alpha2.PVCTierSpec{
