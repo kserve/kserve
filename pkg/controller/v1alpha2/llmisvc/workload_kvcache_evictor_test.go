@@ -43,10 +43,10 @@ import (
 func TestAttachPVCEvictor(t *testing.T) {
 	podSpec := &corev1.PodSpec{
 		AutomountServiceAccountToken: ptr.To(true),
-		Containers: []corev1.Container{{
-			Name: mainContainerName,
-			Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
-		}},
+		Containers: []corev1.Container{
+			{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+			{Name: pvcEvictorTemplateName},
+		},
 	}
 	secondary := []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 		PVC: &v1alpha2.PVCTierSpec{
@@ -550,7 +550,10 @@ func TestExpectedPVCEvictorDeploymentForPVCRef(t *testing.T) {
 						RunAsGroup: ptr.To(int64(1000)),
 						FSGroup:    ptr.To(int64(1000)),
 					},
-					Containers: []corev1.Container{{Name: "main", Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}},
+					Containers: []corev1.Container{
+						{Name: "main", Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+						{Name: pvcEvictorTemplateName},
+					},
 				},
 				Worker: &corev1.PodSpec{Tolerations: []corev1.Toleration{workerToleration}},
 				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
@@ -1192,10 +1195,10 @@ func TestDesiredPVCEvictorTemplateAgreementsMarksUnresolved(t *testing.T) {
 	current := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
 		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
-			Template: &corev1.PodSpec{Containers: []corev1.Container{{
-				Name: mainContainerName,
-				Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
-			}}},
+			Template: &corev1.PodSpec{Containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName},
+			}},
 			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 					PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{
@@ -1320,10 +1323,10 @@ func TestCollectPVCEvictorTargetsMergesDuplicateIdentityTolerations(t *testing.T
 		WorkloadSpec: v1alpha2.WorkloadSpec{
 			Template: &corev1.PodSpec{
 				Tolerations: []corev1.Toleration{first},
-				Containers: []corev1.Container{{
-					Name: mainContainerName,
-					Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
-				}},
+				Containers: []corev1.Container{
+					{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+					{Name: pvcEvictorTemplateName},
+				},
 			},
 			Worker: &corev1.PodSpec{Tolerations: []corev1.Toleration{second}},
 			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{
