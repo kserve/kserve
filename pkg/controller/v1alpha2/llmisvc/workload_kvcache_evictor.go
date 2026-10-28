@@ -732,6 +732,9 @@ func (r *LLMISVCReconciler) finalizePVCEvictors(ctx context.Context, llmSvc *v1a
 		// PVC evictors finish deletion even when the global ConfigMap is absent.
 		return r.cleanupPVCEvictorServiceAccount(ctx, llmSvc.Namespace, map[string]struct{}{}, map[string]struct{}{})
 	}
+	if !llmSvcReferencesPVCEvictors(llmSvc) {
+		return nil
+	}
 	config, err := r.loadConfig(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration for PVC evictor cleanup: %w", err)
@@ -749,10 +752,7 @@ func llmSvcReferencesPVCEvictors(llmSvc *v1alpha2.LLMInferenceService) bool {
 	if llmSvc == nil {
 		return false
 	}
-	if llmSvc.Status.GetCondition(v1alpha2.PVCEvictorReady) != nil {
-		return true
-	}
-	return len(collectPVCEvictorIdentities(llmSvc)) > 0
+	return llmSvc.Status.GetCondition(v1alpha2.PVCEvictorReady) != nil
 }
 
 func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {

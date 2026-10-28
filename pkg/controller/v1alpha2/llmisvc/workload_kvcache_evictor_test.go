@@ -158,6 +158,40 @@ func TestFinalizePVCEvictorsSkipsConfigWithoutDeployments(t *testing.T) {
 	}
 }
 
+func TestFinalizePVCEvictorsSkipsConfigForUnrelatedDeletingService(t *testing.T) {
+	deletionTime := metav1.Now()
+	deleting := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{
+		Name:              "unrelated-deleting",
+		Namespace:         "test",
+		DeletionTimestamp: &deletionTime,
+		Finalizers:        []string{"test.finalizer"},
+	}, Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+		KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+			PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"}},
+		}}}},
+	}}}
+	evictor := expectedPVCEvictorDeployment(deleting, pvcEvictorTarget{
+		claimName: "shared-pvc",
+		subPath:   "kv-cache",
+	})
+
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{appsv1.AddToScheme, v1alpha2.AddToScheme} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(deleting, evictor).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+
+	if err := reconciler.finalizePVCEvictors(t.Context(), deleting); err != nil {
+		t.Fatalf("finalizePVCEvictors() error = %v, want nil", err)
+	}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(evictor), &appsv1.Deployment{}); err != nil {
+		t.Fatalf("unrelated PVC evictor Deployment was removed: %v", err)
+	}
+}
+
 func TestFinalizePVCEvictorsStaysPendingWhenCleanupIsUnsafe(t *testing.T) {
 	deletionTime := metav1.Now()
 	deleting := &v1alpha2.LLMInferenceService{
@@ -177,6 +211,7 @@ func TestFinalizePVCEvictorsStaysPendingWhenCleanupIsUnsafe(t *testing.T) {
 			},
 		}},
 	}
+	deleting.MarkPVCEvictorReady()
 	unresolved := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "unresolved", Namespace: "test"},
 		Spec: v1alpha2.LLMInferenceServiceSpec{
