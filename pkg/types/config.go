@@ -37,6 +37,10 @@ type StorageInitializerConfig struct {
 	MemoryModelcar          string `json:"memoryModelcar"`
 	EnableOciImageSource    bool   `json:"enableModelcar"`
 	UidModelcar             *int64 `json:"uidModelcar"`
+	// SecurityContext replaces the restricted default context on the storage-initializer
+	// init container built without a ClusterStorageContainer. Leave it unset to keep the
+	// restricted Pod Security Standard defaults; set it for an image that must run as root.
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 	// EnableOciModelSupport enables any OCI-backed model storage path.
 	// Backcompat: EnableOciImageSource (enableModelcar) remains functional; this is the newer switch.
 	EnableOciModelSupport bool `json:"enableOciModelSupport"`

@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
 
 	"github.com/kserve/kserve/pkg/constants"
 )
@@ -500,4 +501,23 @@ func GetParentDirectory(path string) string {
 	}
 
 	return parentDir
+}
+
+// RestrictedStorageInitializerSecurityContext returns the container security
+// context that satisfies the restricted Pod Security Standard for the
+// storage-initializer init container. It mirrors
+// config/storagecontainers/default.yaml. The image declares OCI user 1000, so
+// runAsNonRoot is verifiable without a fixed runAsUser.
+func RestrictedStorageInitializerSecurityContext() *corev1.SecurityContext {
+	return &corev1.SecurityContext{
+		AllowPrivilegeEscalation: ptr.To(false),
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+		Privileged:   ptr.To(false),
+		RunAsNonRoot: ptr.To(true),
+		SeccompProfile: &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		},
+	}
 }

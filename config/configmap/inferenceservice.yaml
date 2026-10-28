@@ -197,6 +197,12 @@ data:
            # suffix. Valid values: "modelcar" (default sidecar), "native" (K8s ImageVolume), "fetch" (init-container).
            "ociModelMode": "modelcar",
 
+           # securityContext replaces the container securityContext of the storage initializer init container
+           # that is injected when no ClusterStorageContainer matches the storageUri. When it is unset the
+           # restricted Pod Security Standard defaults apply (runAsNonRoot, no privilege escalation, all
+           # capabilities dropped, RuntimeDefault seccomp). Set it for a custom image that must run as root.
+           # "securityContext": {"runAsNonRoot": false},
+
            # cpuModelcar is the cpu request and limit that is used for the passive modelcar container. It can be
            # set very low, but should be allowed by any Kubernetes LimitRange that might apply.
            "cpuModelcar": "10m",
