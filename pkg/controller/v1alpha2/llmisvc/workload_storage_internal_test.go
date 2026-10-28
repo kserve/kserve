@@ -20,10 +20,16 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sfake "k8s.io/client-go/kubernetes/fake"
 
+	"github.com/kserve/kserve/pkg/apis/serving/v1alpha2"
 	"github.com/kserve/kserve/pkg/constants"
+	"github.com/kserve/kserve/pkg/credentials"
+	kserveTypes "github.com/kserve/kserve/pkg/types"
 	"github.com/kserve/kserve/pkg/utils"
 )
 
@@ -334,4 +340,182 @@ func TestMergeStorageInitializerContainer(t *testing.T) {
 			t.Errorf("args mismatch (-want +got):\n%s", diff)
 		}
 	})
+}
+
+func TestAddsDefaultHFEnv(t *testing.T) {
+	t.Parallel()
+
+	args := []string{"hf://facebook/opt-125m", constants.DefaultModelLocalMountPath}
+	live := func(args []string, env ...corev1.EnvVar) *corev1.Container {
+		return &corev1.Container{Name: constants.StorageInitializerContainerName, Args: args, Env: env}
+	}
+
+	tests := []struct {
+		name    string
+		current *corev1.Container
+		want    bool
+	}{
+		{
+			name:    "no live init container",
+			current: nil,
+			want:    true,
+		},
+		{
+			name:    "live container downloads from s3",
+			current: live([]string{"s3://models/opt-125m", constants.DefaultModelLocalMountPath}, corev1.EnvVar{Name: "AWS_ACCESS_KEY_ID", Value: "key"}),
+			want:    true,
+		},
+		{
+			name:    "live container downloads a different hf repo",
+			current: live([]string{"hf://facebook/opt-350m", constants.DefaultModelLocalMountPath}),
+			want:    true,
+		},
+		{
+			name:    "live container downloads the model without adapters",
+			current: live([]string{"hf://facebook/opt-125m", constants.DefaultModelLocalMountPath, "s3://bucket/lora", "/mnt/models/lora/a"}),
+			want:    true,
+		},
+		{
+			name:    "live container downloads the same model with HF_ env",
+			current: live(args, corev1.EnvVar{Name: "HF_XET_HIGH_PERFORMANCE", Value: "0"}),
+			want:    true,
+		},
+		{
+			name:    "live container downloads the same model without HF_ env",
+			current: live(args, corev1.EnvVar{Name: "TOKIO_WORKER_THREADS", Value: "1"}),
+			want:    false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			require.Equal(t, tt.want, addsDefaultHFEnv(tt.current, args))
+		})
+	}
+}
+
+// hfEnvNames returns the names of the HF_ environment variables on the container.
+func hfEnvNames(c *corev1.Container) []string {
+	var names []string
+	for _, e := range c.Env {
+		if len(e.Name) > 3 && e.Name[:3] == "HF_" {
+			names = append(names, e.Name)
+		}
+	}
+	return names
+}
+
+var defaultHFEnvNames = []string{"HF_HUB_ENABLE_HF_TRANSFER", "HF_XET_HIGH_PERFORMANCE", "HF_XET_NUM_CONCURRENT_RANGE_GETS"}
+
+func TestAttachHfModelArtifactDefaultEnv(t *testing.T) {
+	t.Parallel()
+
+	sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "default"}}
+	r := &LLMISVCReconciler{Client: selectorTestClient(t), Clientset: k8sfake.NewSimpleClientset()}
+	llmSvc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "opt-125m", Namespace: "default"}}
+	storageConfig := &kserveTypes.StorageInitializerConfig{Image: "kserve/storage-initializer:test", CpuRequest: "100m", CpuLimit: "1", MemoryRequest: "200Mi", MemoryLimit: "1Gi"}
+	credentialConfig := &credentials.CredentialConfig{}
+	modelUri := "hf://facebook/opt-125m"
+
+	liveInit := func(args []string, env ...corev1.EnvVar) corev1.PodSpec {
+		return corev1.PodSpec{InitContainers: []corev1.Container{{
+			Name:  constants.StorageInitializerContainerName,
+			Image: storageConfig.Image,
+			Args:  args,
+			Env:   env,
+		}}}
+	}
+
+	tests := []struct {
+		name string
+		curr corev1.PodSpec
+		want []string
+	}{
+		{
+			name: "new service",
+			curr: corev1.PodSpec{},
+			want: defaultHFEnvNames,
+		},
+		{
+			name: "model uri changed from s3 to hf",
+			curr: liveInit([]string{"s3://models/facebook/opt-125m", constants.DefaultModelLocalMountPath}, corev1.EnvVar{Name: "AWS_ACCESS_KEY_ID", Value: "key"}),
+			want: defaultHFEnvNames,
+		},
+		{
+			name: "hf repo changed",
+			curr: liveInit([]string{"hf://facebook/opt-350m", constants.DefaultModelLocalMountPath}),
+			want: defaultHFEnvNames,
+		},
+		{
+			name: "same hf uri on a pod without HF_ env",
+			curr: liveInit([]string{modelUri, constants.DefaultModelLocalMountPath}),
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+			require.NoError(t, r.attachHfModelArtifact(t.Context(), sa, llmSvc, modelUri, tt.curr, podSpec, storageConfig, credentialConfig, "main", constants.DefaultModelLocalMountPath))
+
+			initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
+			require.NotNil(t, initContainer)
+			require.Equal(t, tt.want, hfEnvNames(initContainer))
+		})
+	}
+}
+
+func TestAttachMultiStorageDownloadsDefaultEnv(t *testing.T) {
+	t.Parallel()
+
+	sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: "default"}}
+	r := &LLMISVCReconciler{Client: selectorTestClient(t), Clientset: k8sfake.NewSimpleClientset()}
+	llmSvc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "opt-125m", Namespace: "default"}}
+	storageConfig := &kserveTypes.StorageInitializerConfig{Image: "kserve/storage-initializer:test", CpuRequest: "100m", CpuLimit: "1", MemoryRequest: "200Mi", MemoryLimit: "1Gi"}
+	credentialConfig := &credentials.CredentialConfig{}
+	pairs := []storageDownloadPair{
+		{uri: "hf://facebook/opt-125m", path: constants.DefaultModelLocalMountPath},
+		{uri: "s3://bucket/lora", path: "/mnt/models/lora/a"},
+	}
+
+	liveInit := func(args ...string) corev1.PodSpec {
+		return corev1.PodSpec{InitContainers: []corev1.Container{{
+			Name:  constants.StorageInitializerContainerName,
+			Image: storageConfig.Image,
+			Args:  args,
+		}}}
+	}
+
+	tests := []struct {
+		name string
+		curr corev1.PodSpec
+		want []string
+	}{
+		{
+			name: "adapter added to a pod without HF_ env",
+			curr: liveInit("hf://facebook/opt-125m", constants.DefaultModelLocalMountPath),
+			want: defaultHFEnvNames,
+		},
+		{
+			name: "model uri changed from s3 to hf",
+			curr: liveInit("s3://models/facebook/opt-125m", constants.DefaultModelLocalMountPath, "s3://bucket/lora", "/mnt/models/lora/a"),
+			want: defaultHFEnvNames,
+		},
+		{
+			name: "same downloads on a pod without HF_ env",
+			curr: liveInit("hf://facebook/opt-125m", constants.DefaultModelLocalMountPath, "s3://bucket/lora", "/mnt/models/lora/a"),
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			podSpec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+			require.NoError(t, r.attachMultiStorageDownloads(t.Context(), sa, llmSvc, tt.curr, podSpec, storageConfig, credentialConfig, "main", pairs))
+
+			initContainer := utils.GetInitContainerWithName(podSpec, constants.StorageInitializerContainerName)
+			require.NotNil(t, initContainer)
+			require.Equal(t, tt.want, hfEnvNames(initContainer))
+		})
+	}
 }
