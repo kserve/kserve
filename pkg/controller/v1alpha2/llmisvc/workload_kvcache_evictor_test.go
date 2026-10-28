@@ -45,7 +45,7 @@ func TestAttachPVCEvictor(t *testing.T) {
 		AutomountServiceAccountToken: ptr.To(true),
 		Containers: []corev1.Container{
 			{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
-			{Name: pvcEvictorTemplateName},
+			{Name: pvcEvictorTemplateName, Image: "example.com/evictor:preset"},
 		},
 	}
 	secondary := []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
@@ -67,7 +67,7 @@ func TestAttachPVCEvictor(t *testing.T) {
 	if got, want := evictor.Name, "pvc-evictor-kv-cache-secondary-0"; got != want {
 		t.Errorf("evictor name = %q, want %q", got, want)
 	}
-	if got, want := evictor.Image, pvcEvictorImage; got != want {
+	if got, want := evictor.Image, "example.com/evictor:preset"; got != want {
 		t.Errorf("evictor image = %q, want %q", got, want)
 	}
 	if diff := cmp.Diff(pvcEvictorResources(), evictor.Resources); diff != "" {
@@ -90,6 +90,25 @@ func TestAttachPVCEvictor(t *testing.T) {
 	wantMount := corev1.VolumeMount{Name: "kv-cache-secondary-0", MountPath: "/mnt/kv-cache-0"}
 	if diff := cmp.Diff(wantMount, evictor.VolumeMounts[0]); diff != "" {
 		t.Errorf("evictor volume mount diff (-want +got):\n%s", diff)
+	}
+}
+
+func TestAttachPVCEvictorDoesNotInventImage(t *testing.T) {
+	podSpec := &corev1.PodSpec{
+		Containers: []corev1.Container{
+			{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+			{Name: pvcEvictorTemplateName},
+		},
+	}
+	secondary := []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+		PVC: &v1alpha2.PVCTierSpec{Spec: &corev1.PersistentVolumeClaimSpec{}},
+	}}}
+
+	evictorTemplate := takePVCEvictorContainerTemplate(podSpec)
+	attachKVCacheSecondaryTiers(podSpec, secondary, mainContainerName, evictorTemplate)
+
+	if got := podSpec.Containers[1].Image; got != "" {
+		t.Fatalf("evictor image = %q, want empty when the template has no image", got)
 	}
 }
 
@@ -822,7 +841,10 @@ func TestEnsurePVCEvictorServiceAccountRepairsTokenAutomount(t *testing.T) {
 
 func TestReconcileExistingPVCEvictorDeploymentRepairsDrift(t *testing.T) {
 	svc := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
-	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{claimName: "shared-pvc", subPath: "kv-cache"})
+	expected := expectedPVCEvictorDeployment(svc, pvcEvictorTarget{
+		claimName: "shared-pvc", subPath: "kv-cache",
+		containerTemplate: &corev1.Container{Name: pvcEvictorTemplateName, Image: "example.com/evictor:preset"},
+	})
 	current := expected.DeepCopy()
 	current.Spec.Template.Spec.Containers[0].Image = "quay.io/example/old-evictor:old"
 	current.Labels[pvcEvictorKeyLabel] = "changed"
@@ -852,8 +874,8 @@ func TestReconcileExistingPVCEvictorDeploymentRepairsDrift(t *testing.T) {
 	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(expected), got); err != nil {
 		t.Fatalf("get repaired Deployment: %v", err)
 	}
-	if got.Spec.Template.Spec.Containers[0].Image != pvcEvictorImage {
-		t.Fatalf("image = %q, want %q", got.Spec.Template.Spec.Containers[0].Image, pvcEvictorImage)
+	if got.Spec.Template.Spec.Containers[0].Image != "example.com/evictor:preset" {
+		t.Fatalf("image = %q, want preset image", got.Spec.Template.Spec.Containers[0].Image)
 	}
 	if got.Labels[pvcEvictorKeyLabel] != expected.Labels[pvcEvictorKeyLabel] {
 		t.Fatalf("key label = %q, want %q", got.Labels[pvcEvictorKeyLabel], expected.Labels[pvcEvictorKeyLabel])

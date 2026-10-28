@@ -50,7 +50,6 @@ import (
 )
 
 const (
-	pvcEvictorImage            = "ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499"
 	pvcEvictorCacheDirectory   = "kv/model-cache/models"
 	pvcEvictorMountPath        = "/mnt/kv-cache-evictor"
 	pvcEvictorTemplateName     = "pvc-evictor"
@@ -305,7 +304,6 @@ func newPVCEvictorContainer(template *corev1.Container, name, volumeName, mountP
 func normalizedPVCEvictorContainer(template *corev1.Container) corev1.Container {
 	if template == nil {
 		return corev1.Container{
-			Image:           pvcEvictorImage,
 			ImagePullPolicy: corev1.PullAlways,
 			SecurityContext: pvcEvictorContainerSecurityContext(),
 			Resources:       pvcEvictorResources(),
@@ -313,9 +311,6 @@ func normalizedPVCEvictorContainer(template *corev1.Container) corev1.Container 
 	}
 
 	evictor := *template.DeepCopy()
-	if evictor.Image == "" {
-		evictor.Image = pvcEvictorImage
-	}
 	if evictor.ImagePullPolicy == "" {
 		evictor.ImagePullPolicy = corev1.PullAlways
 	}
