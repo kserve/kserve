@@ -1316,6 +1316,24 @@ func TestPVCEvictorPVCPredicate(t *testing.T) {
 	}
 }
 
+func TestCollectPVCEvictorPVCNamesDoesNotRequireRenderedTemplate(t *testing.T) {
+	service := &v1alpha2.LLMInferenceService{
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc"}},
+					}}},
+				},
+			},
+		},
+	}
+
+	if got, want := collectPVCEvictorPVCNames(service), []string{"shared-pvc"}; !cmp.Equal(got, want) {
+		t.Fatalf("PVC names = %v, want %v", got, want)
+	}
+}
+
 func TestEnqueueOnPVCEvictorPVCChangeTargetsDirectAndBaseRefServices(t *testing.T) {
 	pvcRefWorkload := func() v1alpha2.WorkloadSpec {
 		return v1alpha2.WorkloadSpec{

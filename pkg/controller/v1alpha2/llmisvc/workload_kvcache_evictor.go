@@ -667,9 +667,8 @@ func setupPVCEvictorIndexes(ctx context.Context, indexer client.FieldIndexer) er
 
 func collectPVCEvictorPVCNames(llmSvc *v1alpha2.LLMInferenceService) []string {
 	names := make(map[string]struct{})
-	mainTemplate := workloadPVCEvictorContainerTemplate(&llmSvc.Spec.WorkloadSpec)
-	add := func(workload *v1alpha2.WorkloadSpec, template *corev1.Container) {
-		if workload == nil || workload.KVCacheOffloading == nil || template == nil {
+	add := func(workload *v1alpha2.WorkloadSpec) {
+		if workload == nil || workload.KVCacheOffloading == nil {
 			return
 		}
 		for _, tier := range workload.KVCacheOffloading.Secondary {
@@ -679,8 +678,8 @@ func collectPVCEvictorPVCNames(llmSvc *v1alpha2.LLMInferenceService) []string {
 			names[tier.FileSystem.PVC.Ref.Name] = struct{}{}
 		}
 	}
-	add(&llmSvc.Spec.WorkloadSpec, mainTemplate)
-	add(llmSvc.Spec.Prefill, inheritedPVCEvictorContainerTemplate(llmSvc.Spec.Prefill, mainTemplate))
+	add(&llmSvc.Spec.WorkloadSpec)
+	add(llmSvc.Spec.Prefill)
 	result := make([]string, 0, len(names))
 	for name := range names {
 		result = append(result, name)
