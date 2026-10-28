@@ -172,3 +172,61 @@ func TestBatcherDefaults(t *testing.T) {
 	g.Expect(batchHandler.MaxBatchSize).To(gomega.Equal(MaxBatchSize))
 	g.Expect(batchHandler.MaxLatency).To(gomega.Equal(MaxLatency))
 }
+
+// Tests that requests for different models are never sent to the predictor in one batch
+func TestBatcherMixedPaths(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	logger, _ := pkglogging.NewLogger("", "INFO")
+
+	// The predictor answers every instance with the path it was called on.
+	// Assertions must stay on the test goroutine, so the handler only records errors.
+	var mu sync.Mutex
+	var predictorErrs []error
+	predictor := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		var request Request
+		err := json.NewDecoder(req.Body).Decode(&request)
+		if err == nil {
+			predictions := make([]interface{}, len(request.Instances))
+			for i := range predictions {
+				predictions[i] = req.URL.Path
+			}
+			err = json.NewEncoder(rw).Encode(PredictionResponse{Predictions: predictions})
+		}
+		if err != nil {
+			mu.Lock()
+			predictorErrs = append(predictorErrs, err)
+			mu.Unlock()
+			rw.WriteHeader(http.StatusInternalServerError)
+		}
+	}))
+	defer predictor.Close()
+	predictorSvcUrl, err := url.Parse(predictor.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	httpProxy := httputil.NewSingleHostReverseProxy(predictorSvcUrl)
+	batchHandler := New(32, 500, httpProxy, logger)
+
+	paths := []string{"/v1/models/model-a:predict", "/v1/models/model-b:predict"}
+	bodies := make([][]byte, 4)
+	var wg sync.WaitGroup
+	for i := range bodies {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			reader := bytes.NewReader([]byte(`{"instances": [[1, 2], [3, 4]]}`))
+			r := httptest.NewRequest(http.MethodPost, paths[i%2], reader)
+			w := httptest.NewRecorder()
+			batchHandler.ServeHTTP(w, r)
+			bodies[i] = w.Body.Bytes()
+		}(i)
+	}
+	wg.Wait()
+
+	g.Expect(predictorErrs).To(gomega.BeEmpty())
+	for i, body := range bodies {
+		var res Response
+		g.Expect(json.Unmarshal(body, &res)).To(gomega.Succeed())
+		g.Expect(res.Message).To(gomega.BeEmpty())
+		g.Expect(res.Predictions).To(gomega.Equal([]interface{}{paths[i%2], paths[i%2]}))
+	}
+}
