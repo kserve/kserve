@@ -397,92 +397,57 @@ func TestMergeSpecsReplacesPVCEvictorResources(t *testing.T) {
 	assert.Equal(t, corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("500m")}, container.Resources.Limits)
 }
 
-func TestMergeSpecsInheritsPVCEvictorTemplateToWorker(t *testing.T) {
-	base := v1alpha2.LLMInferenceServiceSpec{
-		WorkloadSpec: v1alpha2.WorkloadSpec{
-			Template: &corev1.PodSpec{
-				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
-			},
-			Worker: &corev1.PodSpec{
-				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
-			},
-		},
-	}
-	override := v1alpha2.LLMInferenceServiceSpec{
-		WorkloadSpec: v1alpha2.WorkloadSpec{
-			Template: &corev1.PodSpec{
-				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "custom:v1"}},
-			},
-		},
-	}
+func TestCombineBaseRefsConfigRendersMainPVCEvictorOverrideForPrefill(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, v1alpha2.AddToScheme(scheme))
 
-	merged, err := mergeSpecs(t.Context(), base, override)
+	const namespace = "test-ns"
+	modelURL, err := apis.ParseURL("pvc://test-model")
 	require.NoError(t, err)
-	workerContainer := findPVCEvictorContainerTemplate(merged.Worker)
-	require.NotNil(t, workerContainer)
-	assert.Equal(t, "custom:v1", workerContainer.Image)
-}
+	decodePreset := loadPresetConfig(t, "config-llm-decode-template.yaml")
+	decodePreset.Namespace = namespace
+	prefillPreset := loadPresetConfig(t, "config-llm-prefill-template.yaml")
+	prefillPreset.Namespace = namespace
 
-func TestMergeSpecsInheritsPrefillPVCEvictorTemplateToWorker(t *testing.T) {
-	base := v1alpha2.LLMInferenceServiceSpec{
-		Prefill: &v1alpha2.WorkloadSpec{
-			Template: &corev1.PodSpec{
-				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
+	llmSvc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-llm", Namespace: namespace},
+		Spec: v1alpha2.LLMInferenceServiceSpec{
+			Model: v1alpha2.LLMModelSpec{URI: *modelURL, Name: ptr.To("test-model")},
+			WorkloadSpec: v1alpha2.WorkloadSpec{
+				Template: &corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:  pvcEvictorTemplateName,
+						Image: "example.com/evictor:custom",
+					}},
+				},
 			},
-			Worker: &corev1.PodSpec{
-				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
+			Prefill: &v1alpha2.WorkloadSpec{
+				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+					CPU: resource.MustParse("1Gi"),
+					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+						PVC: &v1alpha2.PVCTierSpec{Spec: &corev1.PersistentVolumeClaimSpec{}},
+					}}},
+				},
 			},
 		},
 	}
-	override := v1alpha2.LLMInferenceServiceSpec{
-		Prefill: &v1alpha2.WorkloadSpec{
-			Template: &corev1.PodSpec{
-				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "custom:v1"}},
-			},
-		},
-	}
 
-	merged, err := mergeSpecs(t.Context(), base, override)
+	reconciler := &LLMISVCReconciler{
+		Client: fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(decodePreset, prefillPreset).
+			Build(),
+	}
+	combined, err := reconciler.combineBaseRefsConfig(t.Context(), llmSvc, &Config{})
 	require.NoError(t, err)
-	require.NotNil(t, merged.Prefill)
-	workerContainer := findPVCEvictorContainerTemplate(merged.Prefill.Worker)
-	require.NotNil(t, workerContainer)
-	assert.Equal(t, "custom:v1", workerContainer.Image)
-}
 
-func TestMergeSpecsInheritsMainPVCEvictorTemplateToPrefill(t *testing.T) {
-	base := v1alpha2.LLMInferenceServiceSpec{
-		WorkloadSpec: v1alpha2.WorkloadSpec{
-			Template: &corev1.PodSpec{
-				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
-			},
-		},
-		Prefill: &v1alpha2.WorkloadSpec{
-			Template: &corev1.PodSpec{
-				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
-			},
-			Worker: &corev1.PodSpec{
-				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "preset:v1"}},
-			},
-		},
-	}
-	override := v1alpha2.LLMInferenceServiceSpec{
-		WorkloadSpec: v1alpha2.WorkloadSpec{
-			Template: &corev1.PodSpec{
-				Containers: []corev1.Container{{Name: pvcEvictorTemplateName, Image: "custom:v1"}},
-			},
-		},
-	}
-
-	merged, err := mergeSpecs(t.Context(), base, override)
+	llmSvc.Spec = combined.Config.Spec
+	pod, err := reconciler.expectedSingleNodePrefillPodTemplate(t.Context(), llmSvc, &Config{}, corev1.PodSpec{})
 	require.NoError(t, err)
-	require.NotNil(t, merged.Prefill)
-	prefillContainer := findPVCEvictorContainerTemplate(merged.Prefill.Template)
-	require.NotNil(t, prefillContainer)
-	assert.Equal(t, "custom:v1", prefillContainer.Image)
-	workerContainer := findPVCEvictorContainerTemplate(merged.Prefill.Worker)
-	require.NotNil(t, workerContainer)
-	assert.Equal(t, "custom:v1", workerContainer.Image)
+	evictor := utils.GetContainerWithName(&pod.Template.Spec, "pvc-evictor-kv-cache-secondary-0")
+	require.NotNil(t, evictor, "prefill did not inherit the main pvc-evictor template")
+	assert.Equal(t, "example.com/evictor:custom", evictor.Image)
 }
 
 func TestMergeSpecsPreservesExplicitPrefillPVCEvictorOverride(t *testing.T) {

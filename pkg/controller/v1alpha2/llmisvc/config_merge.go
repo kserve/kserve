@@ -1548,24 +1548,6 @@ func replacePVCEvictorResources(finalPodSpec, overridePodSpec *corev1.PodSpec) {
 	finalContainer.Resources = *overrideContainer.Resources.DeepCopy()
 }
 
-func inheritPVCEvictorTemplate(finalTarget, overrideTarget, finalSource, overrideSource *corev1.PodSpec) {
-	if finalTarget == nil || finalSource == nil || overrideSource == nil {
-		return
-	}
-	if pvcEvictorContainerRef(overrideSource) == nil {
-		return
-	}
-	if overrideTarget != nil && pvcEvictorContainerRef(overrideTarget) != nil {
-		return
-	}
-	sourceContainer := pvcEvictorContainerRef(finalSource)
-	targetContainer := pvcEvictorContainerRef(finalTarget)
-	if sourceContainer == nil || targetContainer == nil {
-		return
-	}
-	*targetContainer = *sourceContainer.DeepCopy()
-}
-
 func normalizePVCEvictorMerge(final, override *v1alpha2.LLMInferenceServiceSpec) {
 	if final == nil || override == nil {
 		return
@@ -1573,28 +1555,12 @@ func normalizePVCEvictorMerge(final, override *v1alpha2.LLMInferenceServiceSpec)
 
 	replacePVCEvictorResources(final.Template, override.Template)
 	replacePVCEvictorResources(final.Worker, override.Worker)
-	inheritPVCEvictorTemplate(final.Worker, override.Worker, final.Template, override.Template)
 
-	if final.Prefill == nil {
+	if final.Prefill == nil || override.Prefill == nil {
 		return
 	}
-	var overridePrefill *v1alpha2.WorkloadSpec
-	if override != nil {
-		overridePrefill = override.Prefill
-	}
-	var overridePrefillTemplate *corev1.PodSpec
-	var overridePrefillWorker *corev1.PodSpec
-	if overridePrefill != nil {
-		overridePrefillTemplate = overridePrefill.Template
-		overridePrefillWorker = overridePrefill.Worker
-	}
-	inheritPVCEvictorTemplate(final.Prefill.Template, overridePrefillTemplate, final.Template, override.Template)
-	if overridePrefillTemplate == nil {
-		overridePrefillTemplate = final.Prefill.Template
-	}
-	replacePVCEvictorResources(final.Prefill.Template, overridePrefillTemplate)
-	replacePVCEvictorResources(final.Prefill.Worker, overridePrefillWorker)
-	inheritPVCEvictorTemplate(final.Prefill.Worker, overridePrefillWorker, final.Prefill.Template, overridePrefillTemplate)
+	replacePVCEvictorResources(final.Prefill.Template, override.Prefill.Template)
+	replacePVCEvictorResources(final.Prefill.Worker, override.Prefill.Worker)
 }
 
 // mergeSpecs performs a strategic merge by creating a clean patch from the override

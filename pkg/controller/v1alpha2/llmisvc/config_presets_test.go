@@ -747,7 +747,7 @@ func TestPresetFiles(t *testing.T) {
 	}
 
 	addExpectedPVCEvictorPresetOutput(tt["config-llm-template.yaml"].expected, false)
-	addExpectedPVCEvictorPresetOutput(tt["config-llm-decode-worker-data-parallel.yaml"].expected, true)
+	addExpectedPVCEvictorPresetOutput(tt["config-llm-decode-worker-data-parallel.yaml"].expected, false)
 
 	remaining := llmisvc.WellKnownDefaultConfigs.Union(llmisvc.WellKnownBaseRefConfigs)
 
@@ -771,6 +771,16 @@ func TestPresetFiles(t *testing.T) {
 			}
 
 			config := loadConfig(t, data, filePath)
+
+			rolePodSpecs := []*corev1.PodSpec{config.Spec.Worker}
+			if config.Spec.Prefill != nil {
+				rolePodSpecs = append(rolePodSpecs, config.Spec.Prefill.Template, config.Spec.Prefill.Worker)
+			}
+			for _, podSpec := range rolePodSpecs {
+				if podSpec != nil && utils.GetContainerWithName(podSpec, "pvc-evictor") != nil {
+					t.Errorf("%s: pvc-evictor must be declared only on spec.template", filename)
+				}
+			}
 
 			name := config.Name
 			if !llmisvc.WellKnownDefaultConfigs.Has(name) && !llmisvc.WellKnownBaseRefConfigs.Has(name) {
