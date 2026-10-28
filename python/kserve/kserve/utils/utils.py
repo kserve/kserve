@@ -58,8 +58,10 @@ def get_ig_namespace(inferencegraph):
 def _cgroup_v1_cpu_limit():
     """Return the cgroup v1 CPU limit as a whole number of cpus, or None if unset.
 
-    The process's own cgroup and its ancestor cgroups are checked up to the
-    mount root, and the minimum effective limit is returned.
+    The process's own cgroup and its visible ancestor cgroups are checked up to
+    the mount root, and the minimum effective limit is returned. Positive
+    quotas are clamped to at least 1, so fractional allocations (such as 0.5
+    CPU) report 1.
     """
     candidates = []
     try:
@@ -106,8 +108,10 @@ def _cgroup_v2_cpu_limit():
     """Return the cgroup v2 CPU limit as a whole number of cpus, or None if unset.
 
     cpu.max holds "<quota> <period>", or "max <period>" when there is no limit.
-    The process's own cgroup and its ancestor cgroups are checked up to the
-    mount root, and the minimum effective limit is returned.
+    The process's own cgroup and its visible ancestor cgroups are checked up to
+    the mount root, and the minimum effective limit is returned. Positive
+    quotas are clamped to at least 1, so fractional allocations (such as 0.5
+    CPU) report 1.
     """
     paths = []
     try:
@@ -143,7 +147,8 @@ def cpu_count():
     Takes the minimum value from the following locations:
     - Total system cpus available on the host.
     - CPU Affinity (if set)
-    - Cgroups limit (if set)
+    - Cgroups limit (if set; visible ancestor cgroups are checked, and
+      fractional quotas such as 0.5 report 1)
     """
     # os.cpu_count() may return None when the count is undetermined; fall back
     # to 1 so the min() comparisons below (with affinity / cgroups limits) don't

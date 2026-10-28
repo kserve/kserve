@@ -198,6 +198,11 @@ def test_cgroup_v2_fractional_parent_quota_clamped_to_one(fake_files):
     assert utils.cpu_count() == 1
 
 
+def test_cgroup_v2_fractional_container_quota_clamped_to_one(fake_files):
+    fake_files[ROOT_CPU_MAX] = "50000 100000\n"
+    assert utils.cpu_count() == 1
+
+
 def test_cgroup_v1_fractional_parent_quota_clamped_to_one(fake_files):
     fake_files[PROC_CGROUP] = "2:cpu,cpuacct:/kubepods/pod-1/container-1\n"
     fake_files[
@@ -210,6 +215,12 @@ def test_cgroup_v1_fractional_parent_quota_clamped_to_one(fake_files):
     fake_files["/sys/fs/cgroup/cpu,cpuacct/kubepods/pod-1/cpu.cfs_period_us"] = (
         "100000\n"
     )
+    assert utils.cpu_count() == 1
+
+
+def test_cgroup_v1_fractional_container_quota_clamped_to_one(fake_files):
+    fake_files[V1_QUOTA] = "50000\n"
+    fake_files[V1_PERIOD] = "100000\n"
     assert utils.cpu_count() == 1
 
 
