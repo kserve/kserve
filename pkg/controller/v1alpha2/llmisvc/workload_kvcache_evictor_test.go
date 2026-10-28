@@ -1027,6 +1027,53 @@ func TestReconcileExistingPVCEvictorDeploymentRejectsSecurityDrift(t *testing.T)
 	}
 }
 
+func TestReconcileExistingPVCEvictorDeploymentUpdatesNodeHashWhenUnresolved(t *testing.T) {
+	service := &v1alpha2.LLMInferenceService{ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"}}
+	expected := expectedPVCEvictorDeployment(service, pvcEvictorTarget{
+		claimName:            "shared-pvc",
+		subPath:              "kv-cache",
+		containerTemplate:    &corev1.Container{Name: pvcEvictorTemplateName, Image: "example.com/new"},
+		requiresNodeAffinity: true,
+	})
+	current := expected.DeepCopy()
+	current.Spec.Template.Spec.Containers[0].Image = "example.com/old"
+	current.Annotations[pvcEvictorContainerHash] = pvcEvictorContainerTemplateHash(
+		&corev1.Container{Name: pvcEvictorTemplateName, Image: "example.com/old"},
+	)
+	if current.Spec.Template.Annotations == nil {
+		current.Spec.Template.Annotations = make(map[string]string)
+	}
+	current.Spec.Template.Annotations[pvcEvictorConsumerNodeHash] = "old-hash"
+
+	scheme := runtime.NewScheme()
+	if err := appsv1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(current).Build()
+	reconciler := &LLMISVCReconciler{Client: fakeClient}
+	agreements := map[string]pvcEvictorTemplateAgreement{
+		pvcEvictorIdentity("shared-pvc", "kv-cache"): {
+			agreed:           true,
+			unresolved:       true,
+			consumerNodeHash: "new-hash",
+		},
+	}
+
+	if err := reconciler.reconcileExistingPVCEvictorDeployment(t.Context(), agreements, current, expected); err != nil {
+		t.Fatalf("reconcileExistingPVCEvictorDeployment() error = %v", err)
+	}
+	updated := &appsv1.Deployment{}
+	if err := fakeClient.Get(t.Context(), client.ObjectKeyFromObject(current), updated); err != nil {
+		t.Fatal(err)
+	}
+	if got := updated.Spec.Template.Annotations[pvcEvictorConsumerNodeHash]; got != "new-hash" {
+		t.Fatalf("consumer node hash = %q, want %q", got, "new-hash")
+	}
+	if got := updated.Spec.Template.Spec.Containers[0].Image; got != "example.com/old" {
+		t.Fatalf("container image = %q, want preserved existing image", got)
+	}
+}
+
 func TestReconcileExistingPVCEvictorDeploymentUpdatesAgreedSecurityContext(t *testing.T) {
 	newService := func(name string) *v1alpha2.LLMInferenceService {
 		return &v1alpha2.LLMInferenceService{

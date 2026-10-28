@@ -787,8 +787,10 @@ func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1
 				deployment.Annotations[pvcEvictorPVCName],
 				deployment.Annotations[pvcEvictorPVCPath],
 			)
-			if agreement, ok := agreements[identity]; ok && !agreement.unresolved {
-				deployment.Spec.Template.Spec.Tolerations = slices.Clone(agreement.tolerations)
+			if agreement, ok := agreements[identity]; ok {
+				if !agreement.unresolved {
+					deployment.Spec.Template.Spec.Tolerations = slices.Clone(agreement.tolerations)
+				}
 				if agreement.consumerNodeHash != "" {
 					if deployment.Spec.Template.Annotations == nil {
 						deployment.Spec.Template.Annotations = make(map[string]string)
@@ -981,6 +983,12 @@ func (r *LLMISVCReconciler) reconcileExistingPVCEvictorDeployment(ctx context.Co
 		expected.Spec.Template.Spec.Tolerations = mergePVCEvictorTolerations(
 			slices.Clone(current.Spec.Template.Spec.Tolerations), agreement.tolerations...,
 		)
+		if agreement.consumerNodeHash != "" {
+			if expected.Spec.Template.Annotations == nil {
+				expected.Spec.Template.Annotations = make(map[string]string)
+			}
+			expected.Spec.Template.Annotations[pvcEvictorConsumerNodeHash] = agreement.consumerNodeHash
+		}
 	}
 	if (current.Annotations[pvcEvictorSecurityHash] != expected.Annotations[pvcEvictorSecurityHash] &&
 		(current.Annotations[pvcEvictorSecurityHash] != "" || expected.Annotations[pvcEvictorSecurityHash] != "")) ||
@@ -997,12 +1005,25 @@ func (r *LLMISVCReconciler) reconcileExistingPVCEvictorDeployment(ctx context.Co
 				"pvcName", expected.Annotations[pvcEvictorPVCName],
 				"pvcPath", expected.Annotations[pvcEvictorPVCPath],
 			)
-			if pvcEvictorRequiresNodeAffinity(expected) &&
-				!equality.Semantic.DeepEqual(current.Spec.Template.Spec.Tolerations, expected.Spec.Template.Spec.Tolerations) {
+			if pvcEvictorRequiresNodeAffinity(expected) {
 				updated := current.DeepCopy()
-				updated.Spec.Template.Spec.Tolerations = slices.Clone(expected.Spec.Template.Spec.Tolerations)
-				if err := r.Update(ctx, updated); err != nil {
-					return fmt.Errorf("failed to update tolerations on shared PVC evictor Deployment %s/%s: %w", current.Namespace, current.Name, err)
+				changed := false
+				if !equality.Semantic.DeepEqual(current.Spec.Template.Spec.Tolerations, expected.Spec.Template.Spec.Tolerations) {
+					updated.Spec.Template.Spec.Tolerations = slices.Clone(expected.Spec.Template.Spec.Tolerations)
+					changed = true
+				}
+				hash := expected.Spec.Template.Annotations[pvcEvictorConsumerNodeHash]
+				if hash != "" && current.Spec.Template.Annotations[pvcEvictorConsumerNodeHash] != hash {
+					if updated.Spec.Template.Annotations == nil {
+						updated.Spec.Template.Annotations = make(map[string]string)
+					}
+					updated.Spec.Template.Annotations[pvcEvictorConsumerNodeHash] = hash
+					changed = true
+				}
+				if changed {
+					if err := r.Update(ctx, updated); err != nil {
+						return fmt.Errorf("failed to update preserved settings on shared PVC evictor Deployment %s/%s: %w", current.Namespace, current.Name, err)
+					}
 				}
 			}
 			return nil
