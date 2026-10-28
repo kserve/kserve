@@ -517,6 +517,7 @@ func TestDataParallelRoutingLegacySidecarFlagCompatibility(t *testing.T) {
 			}
 			require.ErrorIs(t, err, reconcile.TerminalError(nil))
 			require.ErrorContains(t, err, "replace --vllm-port with --model-server-port")
+			require.ErrorContains(t, err, "use llm-d-router-disagg-sidecar v1.0.0 or newer")
 			require.NotContains(t, err.Error(), "set --pool-group=inference.networking.k8s.io")
 			condition := svc.Status.GetCondition(v1alpha2.PresetsCombined)
 			require.NotNil(t, condition)

@@ -298,7 +298,7 @@ func validateRoutingSidecarArgs(spec *v1alpha2.LLMInferenceServiceSpec) error {
 		args := slices.Concat(sidecar.Command, sidecar.Args)
 		var actions []string
 		if _, found := flagValue(args, "--vllm-port"); found {
-			actions = append(actions, "replace --vllm-port with --model-server-port")
+			actions = append(actions, "replace --vllm-port with --model-server-port and use llm-d-router-disagg-sidecar v1.0.0 or newer")
 		}
 		if len(actions) > 0 {
 			return &routingSidecarArgsError{fmt.Errorf(
