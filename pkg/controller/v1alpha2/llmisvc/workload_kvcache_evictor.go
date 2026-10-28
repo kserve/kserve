@@ -128,10 +128,7 @@ func workloadPVCEvictorContainerTemplate(workload *v1alpha2.WorkloadSpec) *corev
 	if workload == nil {
 		return nil
 	}
-	if template := findPVCEvictorContainerTemplate(workload.Template); template != nil {
-		return template
-	}
-	return findPVCEvictorContainerTemplate(workload.Worker)
+	return findPVCEvictorContainerTemplate(workload.Template)
 }
 
 func inheritedPVCEvictorContainerTemplate(workload *v1alpha2.WorkloadSpec, fallback *corev1.Container) *corev1.Container {
@@ -159,8 +156,8 @@ func withPVCEvictorDefaultImage(template *corev1.Container, defaultImage string)
 	return updated
 }
 
-func validatePVCEvictorCachePath(workloadName string, workload *v1alpha2.WorkloadSpec) error {
-	if workload == nil || !workloadHasPVCTier(workload) || !workloadSupportsPVCEvictor(workload) {
+func validatePVCEvictorCachePath(workloadName string, workload *v1alpha2.WorkloadSpec, containerTemplate *corev1.Container) error {
+	if workload == nil || containerTemplate == nil || !workloadHasPVCTier(workload) {
 		return nil
 	}
 	for _, podSpec := range []*corev1.PodSpec{workload.Template, workload.Worker} {
@@ -179,11 +176,14 @@ func validatePVCEvictorCachePath(workloadName string, workload *v1alpha2.Workloa
 }
 
 func validatePVCEvictorLeaderWorkerTemplate(workloadName string, workload *v1alpha2.WorkloadSpec, defaultImage string) error {
-	if workload == nil || !workloadHasPVCTier(workload) || !workloadSupportsPVCEvictor(workload) {
+	if workload == nil || !workloadHasPVCTier(workload) {
 		return nil
 	}
 	leader := findPVCEvictorContainerTemplate(workload.Template)
 	worker := findPVCEvictorContainerTemplate(workload.Worker)
+	if leader == nil && worker != nil {
+		return fmt.Errorf("%s worker Pods require the pvc-evictor container on the main template too", workloadName)
+	}
 	if leader == nil || worker == nil {
 		return nil
 	}
@@ -207,14 +207,17 @@ func validatePVCEvictorContainerTemplatesWithDefaultImage(llmSvc *v1alpha2.LLMIn
 	}
 	type workloadTemplates struct {
 		template         *corev1.Container
+		legacy           bool
 		securityContexts []*corev1.PodSecurityContext
 		identities       map[string]pvcEvictorReference
 	}
 
-	if err := validatePVCEvictorCachePath("main workload", &llmSvc.Spec.WorkloadSpec); err != nil {
+	mainTemplate := workloadPVCEvictorContainerTemplate(&llmSvc.Spec.WorkloadSpec)
+	prefillTemplate := inheritedPVCEvictorContainerTemplate(llmSvc.Spec.Prefill, mainTemplate)
+	if err := validatePVCEvictorCachePath("main workload", &llmSvc.Spec.WorkloadSpec, mainTemplate); err != nil {
 		return err
 	}
-	if err := validatePVCEvictorCachePath("prefill workload", llmSvc.Spec.Prefill); err != nil {
+	if err := validatePVCEvictorCachePath("prefill workload", llmSvc.Spec.Prefill, prefillTemplate); err != nil {
 		return err
 	}
 	if err := validatePVCEvictorLeaderWorkerTemplate("main workload", &llmSvc.Spec.WorkloadSpec, defaultImage); err != nil {
@@ -225,12 +228,9 @@ func validatePVCEvictorContainerTemplatesWithDefaultImage(llmSvc *v1alpha2.LLMIn
 	}
 
 	workloads := make([]workloadTemplates, 0, 2)
-	mainTemplate := withPVCEvictorDefaultImage(
-		workloadPVCEvictorContainerTemplate(&llmSvc.Spec.WorkloadSpec),
-		defaultImage,
-	)
+	mainTemplate = withPVCEvictorDefaultImage(mainTemplate, defaultImage)
 	addWorkload := func(workload *v1alpha2.WorkloadSpec, template *corev1.Container) {
-		if workload == nil || workload.KVCacheOffloading == nil || !workloadHasPVCTier(workload) || !workloadSupportsPVCEvictor(workload) {
+		if workload == nil || workload.KVCacheOffloading == nil || !workloadHasPVCTier(workload) {
 			return
 		}
 		identities := make(map[string]pvcEvictorReference)
@@ -244,48 +244,53 @@ func validatePVCEvictorContainerTemplatesWithDefaultImage(llmSvc *v1alpha2.LLMIn
 		}
 		workloads = append(workloads, workloadTemplates{
 			template:         template,
+			legacy:           template == nil,
 			securityContexts: workloadPVCEvictorSecurityContexts(workload),
 			identities:       identities,
 		})
 	}
 	addWorkload(&llmSvc.Spec.WorkloadSpec, mainTemplate)
-	addWorkload(llmSvc.Spec.Prefill, withPVCEvictorDefaultImage(
-		inheritedPVCEvictorContainerTemplate(llmSvc.Spec.Prefill, mainTemplate),
-		defaultImage,
-	))
+	addWorkload(llmSvc.Spec.Prefill, withPVCEvictorDefaultImage(prefillTemplate, defaultImage))
 	if len(workloads) == 0 {
 		return nil
 	}
 
-	templatesByIdentity := make(map[string][]*corev1.Container)
-	securityHashesByIdentity := make(map[string]map[string]struct{})
+	workloadsByIdentity := make(map[string][]workloadTemplates)
 	referencesByIdentity := make(map[string]pvcEvictorReference)
 	for _, workload := range workloads {
 		for identity, reference := range workload.identities {
-			templatesByIdentity[identity] = append(templatesByIdentity[identity], workload.template)
-			if securityHashesByIdentity[identity] == nil {
-				securityHashesByIdentity[identity] = make(map[string]struct{})
-			}
-			for _, securityContext := range workload.securityContexts {
-				securityHashesByIdentity[identity][pvcEvictorSecurityContextHash(securityContext)] = struct{}{}
-			}
+			workloadsByIdentity[identity] = append(workloadsByIdentity[identity], workload)
 			referencesByIdentity[identity] = reference
 		}
 	}
-	for identity, templates := range templatesByIdentity {
-		if len(templates) < 2 {
+	for identity, identityWorkloads := range workloadsByIdentity {
+		if len(identityWorkloads) < 2 {
 			continue
 		}
-		expectedHash := pvcEvictorContainerTemplateHash(templates[0])
-		for _, template := range templates[1:] {
-			if pvcEvictorContainerTemplateHash(template) != expectedHash {
+		legacy := identityWorkloads[0].legacy
+		for _, workload := range identityWorkloads[1:] {
+			if workload.legacy != legacy {
+				reference := referencesByIdentity[identity]
+				return fmt.Errorf("all workloads using PVC %q and path %q must use the same KV cache root", reference.name, reference.path)
+			}
+		}
+		if legacy {
+			continue
+		}
+		expectedHash := pvcEvictorContainerTemplateHash(identityWorkloads[0].template)
+		for _, workload := range identityWorkloads[1:] {
+			if pvcEvictorContainerTemplateHash(workload.template) != expectedHash {
 				reference := referencesByIdentity[identity]
 				return fmt.Errorf("all workloads using PVC %q and path %q must use the same pvc-evictor container template", reference.name, reference.path)
 			}
 		}
-	}
-	for identity, hashes := range securityHashesByIdentity {
-		if len(hashes) > 1 {
+		securityHashes := make(map[string]struct{})
+		for _, workload := range identityWorkloads {
+			for _, securityContext := range workload.securityContexts {
+				securityHashes[pvcEvictorSecurityContextHash(securityContext)] = struct{}{}
+			}
+		}
+		if len(securityHashes) > 1 {
 			reference := referencesByIdentity[identity]
 			return fmt.Errorf("all workloads using PVC %q and path %q must use the same vLLM PodSecurityContext", reference.name, reference.path)
 		}
@@ -662,8 +667,9 @@ func setupPVCEvictorIndexes(ctx context.Context, indexer client.FieldIndexer) er
 
 func collectPVCEvictorPVCNames(llmSvc *v1alpha2.LLMInferenceService) []string {
 	names := make(map[string]struct{})
-	add := func(workload *v1alpha2.WorkloadSpec) {
-		if workload == nil || workload.KVCacheOffloading == nil || !workloadSupportsPVCEvictor(workload) {
+	mainTemplate := workloadPVCEvictorContainerTemplate(&llmSvc.Spec.WorkloadSpec)
+	add := func(workload *v1alpha2.WorkloadSpec, template *corev1.Container) {
+		if workload == nil || workload.KVCacheOffloading == nil || template == nil {
 			return
 		}
 		for _, tier := range workload.KVCacheOffloading.Secondary {
@@ -673,8 +679,8 @@ func collectPVCEvictorPVCNames(llmSvc *v1alpha2.LLMInferenceService) []string {
 			names[tier.FileSystem.PVC.Ref.Name] = struct{}{}
 		}
 	}
-	add(&llmSvc.Spec.WorkloadSpec)
-	add(llmSvc.Spec.Prefill)
+	add(&llmSvc.Spec.WorkloadSpec, mainTemplate)
+	add(llmSvc.Spec.Prefill, inheritedPVCEvictorContainerTemplate(llmSvc.Spec.Prefill, mainTemplate))
 	result := make([]string, 0, len(names))
 	for name := range names {
 		result = append(result, name)
@@ -1254,8 +1260,8 @@ func pvcEvictorConsumerLabelKey(claimName, subPath string) string {
 	return pvcEvictorConsumerPrefix + pvcEvictorKey(claimName, subPath)
 }
 
-func addPVCEvictorConsumerLabels(labels map[string]string, secondary []v1alpha2.SecondaryTierSpec, podSpec *corev1.PodSpec) map[string]string {
-	if !supportsPVCEvictor(podSpec) {
+func addPVCEvictorConsumerLabels(labels map[string]string, secondary []v1alpha2.SecondaryTierSpec, pvcEvictorEnabled bool) map[string]string {
+	if !pvcEvictorEnabled {
 		return labels
 	}
 	if labels == nil {
@@ -1419,7 +1425,7 @@ func collectPVCEvictorTargets(llmSvc *v1alpha2.LLMInferenceService) []pvcEvictor
 	targetIndexes := make(map[string]int)
 	mainTemplate := workloadPVCEvictorContainerTemplate(&llmSvc.Spec.WorkloadSpec)
 	add := func(workload *v1alpha2.WorkloadSpec, template *corev1.Container) {
-		if workload == nil || workload.KVCacheOffloading == nil || !workloadSupportsPVCEvictor(workload) {
+		if workload == nil || workload.KVCacheOffloading == nil || template == nil {
 			return
 		}
 		tolerations := workloadPVCEvictorTolerations(workload)
@@ -1462,26 +1468,6 @@ func workloadPVCEvictorTolerations(workload *v1alpha2.WorkloadSpec) []corev1.Tol
 		tolerations = mergePVCEvictorTolerations(tolerations, workload.Worker.Tolerations...)
 	}
 	return tolerations
-}
-
-func supportsPVCEvictor(podSpec *corev1.PodSpec) bool {
-	if podSpec == nil {
-		return false
-	}
-	main := utils.GetContainerWithName(podSpec, mainContainerName)
-	if main == nil {
-		return false
-	}
-	return slices.ContainsFunc(main.Env, func(env corev1.EnvVar) bool {
-		return env.Name == kvTransferArgsEnvVar
-	})
-}
-
-func workloadSupportsPVCEvictor(workload *v1alpha2.WorkloadSpec) bool {
-	if workload == nil {
-		return false
-	}
-	return supportsPVCEvictor(workload.Template)
 }
 
 func mergePVCEvictorTolerations(existing []corev1.Toleration, additions ...corev1.Toleration) []corev1.Toleration {

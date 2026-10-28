@@ -458,13 +458,13 @@ func TestValidatePVCEvictorCachePath(t *testing.T) {
 
 func TestPVCEvictorRequiresNewPreset(t *testing.T) {
 	secondary := []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
-		PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc"}},
+		PVC: &v1alpha2.PVCTierSpec{Spec: &corev1.PersistentVolumeClaimSpec{}},
 	}}}
 	svc := &v1alpha2.LLMInferenceService{
 		Spec: v1alpha2.LLMInferenceServiceSpec{
 			WorkloadSpec: v1alpha2.WorkloadSpec{
 				Template: &corev1.PodSpec{
-					Containers: []corev1.Container{{Name: mainContainerName}},
+					Containers: []corev1.Container{{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}},
 				},
 				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{Secondary: secondary},
 			},
@@ -484,7 +484,7 @@ func TestPVCEvictorRequiresNewPreset(t *testing.T) {
 		t.Fatalf("legacy preset container count = %d, want %d", got, want)
 	}
 
-	labels := addPVCEvictorConsumerLabels(nil, secondary, podSpec)
+	labels := addPVCEvictorConsumerLabels(nil, secondary, false)
 	if len(labels) != 0 {
 		t.Fatalf("legacy preset consumer labels = %v, want none", labels)
 	}
@@ -1593,7 +1593,7 @@ func TestValidatePVCEvictorContainerTemplates(t *testing.T) {
 		}
 	})
 
-	t.Run("a missing template conflicts with a custom template on the same pvc.ref path", func(t *testing.T) {
+	t.Run("a legacy main workload conflicts with a new prefill workload on the same pvc.ref path", func(t *testing.T) {
 		main := newRefWorkload("", corev1.ResourceRequirements{}, "shared-pvc", "kv")
 		main.Template.Containers = []corev1.Container{{Name: "main", Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}}
 		svc := &v1alpha2.LLMInferenceService{
@@ -1604,10 +1604,28 @@ func TestValidatePVCEvictorContainerTemplates(t *testing.T) {
 		}
 		err := validatePVCEvictorContainerTemplates(svc)
 		if err == nil {
-			t.Fatal("a custom prefill template with a default main template was accepted")
+			t.Fatal("a legacy main workload and a new prefill workload were accepted")
 		}
-		if !strings.Contains(err.Error(), "same pvc-evictor container template") {
-			t.Fatalf("error = %v, want pvc.ref template conflict", err)
+		if !strings.Contains(err.Error(), "same KV cache root") {
+			t.Fatalf("error = %v, want KV cache root conflict", err)
+		}
+	})
+
+	t.Run("a modern main workload cannot inherit into a legacy prefill preset", func(t *testing.T) {
+		prefill := newWorkload("", corev1.ResourceRequirements{}, false)
+		prefill.Template.Containers = []corev1.Container{{Name: "main"}}
+		svc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: *newWorkload("example.com/evictor:v1", corev1.ResourceRequirements{}, false),
+				Prefill:      prefill,
+			},
+		}
+		err := validatePVCEvictorContainerTemplates(svc)
+		if err == nil {
+			t.Fatal("a modern main workload inherited the pvc-evictor into a legacy prefill preset")
+		}
+		if !strings.Contains(err.Error(), "prefill workload uses a legacy KV-cache preset") {
+			t.Fatalf("error = %v, want legacy prefill preset rejection", err)
 		}
 	})
 
@@ -1650,6 +1668,31 @@ func TestValidatePVCEvictorContainerTemplates(t *testing.T) {
 		}
 	})
 
+	t.Run("prefill inherits the main template for a prefill-only pvc.ref", func(t *testing.T) {
+		main := newRefWorkload("example.com/evictor:v1", corev1.ResourceRequirements{}, "unused-pvc", "unused-path")
+		main.KVCacheOffloading = nil
+		prefill := newRefWorkload("", corev1.ResourceRequirements{}, "shared-pvc", "kv")
+		prefill.Template.Containers = []corev1.Container{{Name: "main", Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}}
+		svc := &v1alpha2.LLMInferenceService{
+			Spec: v1alpha2.LLMInferenceServiceSpec{
+				WorkloadSpec: *main,
+				Prefill:      prefill,
+			},
+		}
+
+		targets := collectPVCEvictorTargets(svc)
+		if len(targets) != 1 {
+			t.Fatalf("PVC evictor target count = %d, want 1", len(targets))
+		}
+		if targets[0].containerTemplate == nil || targets[0].containerTemplate.Image != "example.com/evictor:v1" {
+			t.Fatalf("prefill did not inherit main template: %#v", targets[0].containerTemplate)
+		}
+		names := collectPVCEvictorPVCNames(svc)
+		if len(names) != 1 || names[0] != "shared-pvc" {
+			t.Fatalf("PVC names = %v, want [shared-pvc]", names)
+		}
+	})
+
 	t.Run("different pvc.ref templates are rejected", func(t *testing.T) {
 		svc := &v1alpha2.LLMInferenceService{
 			Spec: v1alpha2.LLMInferenceServiceSpec{
@@ -1669,6 +1712,36 @@ func TestValidatePVCEvictorContainerTemplates(t *testing.T) {
 			t.Fatalf("error = %v, want pvc.ref template conflict", err)
 		}
 	})
+}
+
+func TestValidatePVCEvictorContainerTemplatesRejectsWorkerOnlyMarker(t *testing.T) {
+	workload := &v1alpha2.WorkloadSpec{
+		Template: &corev1.PodSpec{
+			Containers: []corev1.Container{{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}},
+		},
+		Worker: &corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName},
+			},
+		},
+		KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+			Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+				PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache"}},
+			}}},
+		},
+	}
+	svc := &v1alpha2.LLMInferenceService{
+		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: *workload},
+	}
+
+	err := validatePVCEvictorContainerTemplates(svc)
+	if err == nil {
+		t.Fatal("a worker-only pvc-evictor marker was accepted")
+	}
+	if !strings.Contains(err.Error(), "main template too") {
+		t.Fatalf("error = %v, want worker-only marker rejection", err)
+	}
 }
 
 func TestValidatePVCEvictorContainerTemplatesRejectsLeaderWorkerDrift(t *testing.T) {
@@ -2026,14 +2099,11 @@ func TestPVCEvictorRejectsReadOnlyMany(t *testing.T) {
 }
 
 func TestAddPVCEvictorConsumerLabels(t *testing.T) {
-	podSpec := &corev1.PodSpec{
-		Containers: []corev1.Container{{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}}},
-	}
 	labels := addPVCEvictorConsumerLabels(nil, []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 		PVC: &v1alpha2.PVCTierSpec{
 			Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc", Path: "kv-cache/"},
 		},
-	}}}, podSpec)
+	}}}, true)
 
 	if got, want := labels[pvcEvictorConsumerLabelKey("shared-pvc", "kv-cache")], "true"; got != want {
 		t.Fatalf("consumer label = %q, want %q", got, want)
@@ -2050,7 +2120,7 @@ func TestKVCacheSecondaryRootDirForPVCEvictor(t *testing.T) {
 		}}},
 	}
 
-	rendered, err := kvTransferJSON(kv)
+	rendered, err := kvTransferJSON(kv, true)
 	if err != nil {
 		t.Fatalf("kvTransferJSON() error = %v", err)
 	}
@@ -2065,6 +2135,35 @@ func TestKVCacheSecondaryRootDirForPVCEvictor(t *testing.T) {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
 	if got, want := payload.Extra.Secondary[0].RootDir, "/mnt/kv-cache-0/"+pvcEvictorCacheDirectory; got != want {
+		t.Errorf("root_dir = %q, want %q", got, want)
+	}
+}
+
+func TestKVCacheSecondaryRootDirWithoutPVCEvictor(t *testing.T) {
+	kv := &v1alpha2.KVCacheOffloadingSpec{
+		CPU: resource.MustParse("10Gi"),
+		Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+			PVC: &v1alpha2.PVCTierSpec{
+				Ref: &v1alpha2.PVCRefTierSpec{Name: "shared-pvc"},
+			},
+		}}},
+	}
+
+	rendered, err := kvTransferJSON(kv, false)
+	if err != nil {
+		t.Fatalf("kvTransferJSON() error = %v", err)
+	}
+	var payload struct {
+		Extra struct {
+			Secondary []struct {
+				RootDir string `json:"root_dir"`
+			} `json:"secondary_tiers"`
+		} `json:"kv_connector_extra_config"`
+	}
+	if err := json.Unmarshal([]byte(rendered), &payload); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if got, want := payload.Extra.Secondary[0].RootDir, "/mnt/kv-cache-0"; got != want {
 		t.Errorf("root_dir = %q, want %q", got, want)
 	}
 }

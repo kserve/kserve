@@ -63,7 +63,7 @@ const mainContainerName = "main"
 // leaves only the shell quoting.
 func applyKVCacheCarriers(cfg *v1alpha2.LLMInferenceServiceConfig) error {
 	for _, t := range kvCacheTargets(cfg) {
-		if err := applyCarriersForPodSpec(t.name, t.podSpec, t.kv); err != nil {
+		if err := applyCarriersForPodSpec(t.name, t.podSpec, t.kv, t.pvcEvictorEnabled); err != nil {
 			return err
 		}
 	}
@@ -88,29 +88,32 @@ func (e *kvTransferSlotError) Error() string {
 
 // kvCacheTarget is one pod spec and the KV cache configuration that governs it.
 type kvCacheTarget struct {
-	name    string
-	podSpec *corev1.PodSpec
-	kv      *v1alpha2.KVCacheOffloadingSpec
+	name              string
+	podSpec           *corev1.PodSpec
+	kv                *v1alpha2.KVCacheOffloadingSpec
+	pvcEvictorEnabled bool
 }
 
 // kvCacheTargets lists the pod specs a KV cache configuration reaches. Prefill
 // carries its own, so the two halves of a disaggregated service are governed
 // separately.
 func kvCacheTargets(cfg *v1alpha2.LLMInferenceServiceConfig) []kvCacheTarget {
+	mainEvictor := findPVCEvictorContainerTemplate(cfg.Spec.Template) != nil
 	targets := []kvCacheTarget{
-		{"template", cfg.Spec.Template, cfg.Spec.KVCacheOffloading},
-		{"worker", cfg.Spec.Worker, cfg.Spec.KVCacheOffloading},
+		{"template", cfg.Spec.Template, cfg.Spec.KVCacheOffloading, mainEvictor},
+		{"worker", cfg.Spec.Worker, cfg.Spec.KVCacheOffloading, mainEvictor},
 	}
 	if cfg.Spec.Prefill != nil {
+		prefillEvictor := mainEvictor || findPVCEvictorContainerTemplate(cfg.Spec.Prefill.Template) != nil
 		targets = append(targets,
-			kvCacheTarget{"prefill template", cfg.Spec.Prefill.Template, cfg.Spec.Prefill.KVCacheOffloading},
-			kvCacheTarget{"prefill worker", cfg.Spec.Prefill.Worker, cfg.Spec.Prefill.KVCacheOffloading},
+			kvCacheTarget{"prefill template", cfg.Spec.Prefill.Template, cfg.Spec.Prefill.KVCacheOffloading, prefillEvictor},
+			kvCacheTarget{"prefill worker", cfg.Spec.Prefill.Worker, cfg.Spec.Prefill.KVCacheOffloading, prefillEvictor},
 		)
 	}
 	return targets
 }
 
-func applyCarriersForPodSpec(workload string, podSpec *corev1.PodSpec, kv *v1alpha2.KVCacheOffloadingSpec) error {
+func applyCarriersForPodSpec(workload string, podSpec *corev1.PodSpec, kv *v1alpha2.KVCacheOffloadingSpec, pvcEvictorEnabled bool) error {
 	if podSpec == nil {
 		return nil
 	}
@@ -138,7 +141,7 @@ func applyCarriersForPodSpec(workload string, podSpec *corev1.PodSpec, kv *v1alp
 		return nil
 	}
 
-	jsonStr, err := kvTransferJSON(kv)
+	jsonStr, err := kvTransferJSON(kv, pvcEvictorEnabled)
 	if err != nil {
 		return fmt.Errorf("%s: rendering %s: %w", workload, kvTransferArgsEnvVar, err)
 	}
@@ -171,7 +174,7 @@ func normalizeKVTransferSlot(c *corev1.Container) int {
 // kvTransferJSON builds the --kv-transfer-config payload. The cpu byte count is
 // whatever the spec says: rejecting one here would turn a spec the API accepted
 // into a terminal reconcile failure. Admission refuses a bad cpu.
-func kvTransferJSON(kv *v1alpha2.KVCacheOffloadingSpec) (string, error) {
+func kvTransferJSON(kv *v1alpha2.KVCacheOffloadingSpec, pvcEvictorEnabled bool) (string, error) {
 	extraConfig := map[string]any{
 		"spec_name":        specNameCPUOffloading,
 		"cpu_bytes_to_use": kv.CPU.Value(),
@@ -184,9 +187,13 @@ func kvTransferJSON(kv *v1alpha2.KVCacheOffloadingSpec) (string, error) {
 		if s.FileSystem == nil {
 			continue
 		}
+		rootDir := fmt.Sprintf("/mnt/kv-cache-%d", i)
+		if pvcEvictorEnabled {
+			rootDir = kvCacheSecondaryRootDir(i, s, rootDir)
+		}
 		entry := map[string]any{
 			"type":     "fs",
-			"root_dir": kvCacheSecondaryRootDir(i, s, fmt.Sprintf("/mnt/kv-cache-%d", i)),
+			"root_dir": rootDir,
 		}
 		secondaryTiers = append(secondaryTiers, entry)
 	}
@@ -421,7 +428,7 @@ func attachFileSystemKVCacheTier(podSpec *corev1.PodSpec, fs *v1alpha2.FileSyste
 		}
 	}
 
-	if fs.PVC != nil && fs.PVC.Spec != nil && supportsPVCEvictor(podSpec) {
+	if fs.PVC != nil && fs.PVC.Spec != nil && evictorTemplate != nil {
 		attachPVCEvictor(podSpec, volumeName, mountPath, subPath, evictorTemplate)
 	}
 }

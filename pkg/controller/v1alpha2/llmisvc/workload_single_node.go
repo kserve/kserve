@@ -180,9 +180,10 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 		},
 	}
 
+	var evictorTemplate *corev1.Container
 	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		template.Spec = *llmSvc.Spec.Template.DeepCopy()
-		evictorTemplate := takePVCEvictorContainerTemplate(&template.Spec)
+		evictorTemplate = takePVCEvictorContainerTemplate(&template.Spec)
 		evictorTemplate = withPVCEvictorDefaultImage(evictorTemplate, config.PVCEvictorImage)
 
 		var serviceAccount *corev1.ServiceAccount = nil
@@ -228,7 +229,7 @@ func (r *LLMISVCReconciler) expectedSingleNodeMainPodTemplate(ctx context.Contex
 	utils.PropagateMap(llmSvc.Spec.Labels, &template.Labels)
 	utils.PropagateMap(llmSvc.Spec.Annotations, &template.Annotations, nonPropagatedSpecAnnotations...)
 	if llmSvc.Spec.KVCacheOffloading != nil {
-		template.Labels = addPVCEvictorConsumerLabels(template.Labels, llmSvc.Spec.KVCacheOffloading.Secondary, &template.Spec)
+		template.Labels = addPVCEvictorConsumerLabels(template.Labels, llmSvc.Spec.KVCacheOffloading.Secondary, evictorTemplate != nil)
 	}
 
 	// Inject tracing instrumentation when spec.tracing is set
@@ -333,9 +334,10 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 		template.Labels = maps.Clone(labels)
 	}
 
+	var evictorTemplate *corev1.Container
 	if llmSvc.Spec.Prefill != nil && llmSvc.Spec.Prefill.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		template.Spec = *llmSvc.Spec.Prefill.Template.DeepCopy()
-		evictorTemplate := takePVCEvictorContainerTemplate(&template.Spec)
+		evictorTemplate = takePVCEvictorContainerTemplate(&template.Spec)
 		if evictorTemplate == nil {
 			evictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
 		}
@@ -397,7 +399,7 @@ func (r *LLMISVCReconciler) expectedSingleNodePrefillPodTemplate(ctx context.Con
 		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &template.Labels)
 		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &template.Annotations, nonPropagatedSpecAnnotations...)
 		if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
-			template.Labels = addPVCEvictorConsumerLabels(template.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, &template.Spec)
+			template.Labels = addPVCEvictorConsumerLabels(template.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, evictorTemplate != nil)
 		}
 	}
 

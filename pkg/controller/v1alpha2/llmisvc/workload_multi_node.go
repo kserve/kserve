@@ -235,6 +235,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 		RestartPolicy: lwsapi.RecreateGroupOnPodRestart,
 	}
 
+	var leaderEvictorTemplate, workerEvictorTemplate *corev1.Container
 	if llmSvc.Spec.Template != nil && !utils.GetForceStopRuntime(llmSvc) {
 		err := r.propagateInferencePoolRefLabelSelector(ctx, llmSvc, leaderLabels)
 		if err != nil {
@@ -247,7 +248,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 			},
 			Spec: *llmSvc.Spec.Template.DeepCopy(),
 		}
-		leaderEvictorTemplate := takePVCEvictorContainerTemplate(&group.LeaderTemplate.Spec)
+		leaderEvictorTemplate = takePVCEvictorContainerTemplate(&group.LeaderTemplate.Spec)
 		leaderEvictorTemplate = withPVCEvictorDefaultImage(leaderEvictorTemplate, config.PVCEvictorImage)
 
 		serviceAccount, _, err := r.expectedMultiNodeMainServiceAccount(ctx, llmSvc)
@@ -280,7 +281,7 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 	}
 	if llmSvc.Spec.Worker != nil && !utils.GetForceStopRuntime(llmSvc) {
 		group.WorkerTemplate.Spec = *llmSvc.Spec.Worker.DeepCopy()
-		workerEvictorTemplate := takePVCEvictorContainerTemplate(&group.WorkerTemplate.Spec)
+		workerEvictorTemplate = takePVCEvictorContainerTemplate(&group.WorkerTemplate.Spec)
 		if workerEvictorTemplate == nil {
 			workerEvictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
 		}
@@ -321,13 +322,13 @@ func (r *LLMISVCReconciler) expectedMultiNodeMainLeaderWorkerTemplate(ctx contex
 		utils.PropagateMap(llmSvc.Spec.Labels, &group.LeaderTemplate.Labels)
 		utils.PropagateMap(llmSvc.Spec.Annotations, &group.LeaderTemplate.Annotations, nonPropagatedSpecAnnotations...)
 		if llmSvc.Spec.KVCacheOffloading != nil {
-			group.LeaderTemplate.Labels = addPVCEvictorConsumerLabels(group.LeaderTemplate.Labels, llmSvc.Spec.KVCacheOffloading.Secondary, &group.LeaderTemplate.Spec)
+			group.LeaderTemplate.Labels = addPVCEvictorConsumerLabels(group.LeaderTemplate.Labels, llmSvc.Spec.KVCacheOffloading.Secondary, leaderEvictorTemplate != nil)
 		}
 	}
 	utils.PropagateMap(llmSvc.Spec.Labels, &group.WorkerTemplate.Labels)
 	utils.PropagateMap(llmSvc.Spec.Annotations, &group.WorkerTemplate.Annotations, nonPropagatedSpecAnnotations...)
 	if llmSvc.Spec.KVCacheOffloading != nil {
-		group.WorkerTemplate.Labels = addPVCEvictorConsumerLabels(group.WorkerTemplate.Labels, llmSvc.Spec.KVCacheOffloading.Secondary, &group.WorkerTemplate.Spec)
+		group.WorkerTemplate.Labels = addPVCEvictorConsumerLabels(group.WorkerTemplate.Labels, llmSvc.Spec.KVCacheOffloading.Secondary, workerEvictorTemplate != nil)
 	}
 
 	// Inject tracing instrumentation when spec.tracing is set
@@ -427,6 +428,7 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 		RestartPolicy: lwsapi.RecreateGroupOnPodRestart,
 	}
 
+	var prefillLeaderEvictorTemplate, prefillWorkerEvictorTemplate *corev1.Container
 	if llmSvc.Spec.Prefill != nil && !utils.GetForceStopRuntime(llmSvc) {
 		group.Size = llmSvc.Spec.Prefill.Parallelism.GetSize()
 
@@ -447,7 +449,7 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 				},
 				Spec: *llmSvc.Spec.Prefill.Template.DeepCopy(),
 			}
-			prefillLeaderEvictorTemplate := takePVCEvictorContainerTemplate(&group.LeaderTemplate.Spec)
+			prefillLeaderEvictorTemplate = takePVCEvictorContainerTemplate(&group.LeaderTemplate.Spec)
 			if prefillLeaderEvictorTemplate == nil {
 				prefillLeaderEvictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Template)
 			}
@@ -467,7 +469,7 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 		}
 		if llmSvc.Spec.Prefill.Worker != nil {
 			group.WorkerTemplate.Spec = *llmSvc.Spec.Prefill.Worker.DeepCopy()
-			prefillWorkerEvictorTemplate := takePVCEvictorContainerTemplate(&group.WorkerTemplate.Spec)
+			prefillWorkerEvictorTemplate = takePVCEvictorContainerTemplate(&group.WorkerTemplate.Spec)
 			if prefillWorkerEvictorTemplate == nil {
 				prefillWorkerEvictorTemplate = findPVCEvictorContainerTemplate(llmSvc.Spec.Prefill.Template)
 				if prefillWorkerEvictorTemplate == nil {
@@ -511,13 +513,13 @@ func (r *LLMISVCReconciler) expectedMultiNodePrefillLeaderWorkerTemplate(ctx con
 			utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &group.LeaderTemplate.Labels)
 			utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &group.LeaderTemplate.Annotations, nonPropagatedSpecAnnotations...)
 			if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
-				group.LeaderTemplate.Labels = addPVCEvictorConsumerLabels(group.LeaderTemplate.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, &group.LeaderTemplate.Spec)
+				group.LeaderTemplate.Labels = addPVCEvictorConsumerLabels(group.LeaderTemplate.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, prefillLeaderEvictorTemplate != nil)
 			}
 		}
 		utils.PropagateMap(llmSvc.Spec.Prefill.Labels, &group.WorkerTemplate.Labels)
 		utils.PropagateMap(llmSvc.Spec.Prefill.Annotations, &group.WorkerTemplate.Annotations, nonPropagatedSpecAnnotations...)
 		if llmSvc.Spec.Prefill.KVCacheOffloading != nil {
-			group.WorkerTemplate.Labels = addPVCEvictorConsumerLabels(group.WorkerTemplate.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, &group.WorkerTemplate.Spec)
+			group.WorkerTemplate.Labels = addPVCEvictorConsumerLabels(group.WorkerTemplate.Labels, llmSvc.Spec.Prefill.KVCacheOffloading.Secondary, prefillWorkerEvictorTemplate != nil)
 		}
 	}
 

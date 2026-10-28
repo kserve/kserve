@@ -110,6 +110,22 @@ spec:
       - name: SSL_CERT_DIR
         value: /var/run/kserve/tls:/var/run/secrets/kubernetes.io/serviceaccount:/etc/pki/tls/certs
     containers:
+    - name: pvc-evictor
+      image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: Always
+      resources:
+        requests:
+          cpu: "1"
+          memory: 1Gi
+        limits:
+          cpu: "4"
+          memory: 2Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        runAsNonRoot: true
     - image: docker.io/vllm/vllm-openai:v0.31.0
       imagePullPolicy: IfNotPresent
       name: main
@@ -464,6 +480,22 @@ spec:
         secretName: '{{ ChildName .ObjectMeta.Name `-kserve-self-signed-certs` }}'
   worker:
     containers:
+    - name: pvc-evictor
+      image: ghcr.io/llm-d-incubation/kv-cache-evictor@sha256:3a3d2458d89fc40392b47b6e209c60932311c92933d8682505073dcd29b4e499
+      imagePullPolicy: Always
+      resources:
+        requests:
+          cpu: "1"
+          memory: 1Gi
+        limits:
+          cpu: "4"
+          memory: 2Gi
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+        runAsNonRoot: true
     - image: docker.io/vllm/vllm-openai:v0.31.0
       imagePullPolicy: IfNotPresent
       name: main
