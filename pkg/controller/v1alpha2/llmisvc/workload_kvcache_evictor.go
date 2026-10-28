@@ -261,24 +261,25 @@ func validatePVCEvictorContainerTemplatesWithDefaultImage(llmSvc *v1alpha2.LLMIn
 		}
 	}
 	for identity, identityWorkloads := range workloadsByIdentity {
-		if len(identityWorkloads) < 2 {
+		if len(identityWorkloads) == 0 {
 			continue
 		}
-		legacy := identityWorkloads[0].legacy
-		for _, workload := range identityWorkloads[1:] {
-			if workload.legacy != legacy {
-				reference := referencesByIdentity[identity]
-				return fmt.Errorf("all workloads using PVC %q and path %q must use the same KV cache root", reference.name, reference.path)
+		if len(identityWorkloads) >= 2 {
+			legacy := identityWorkloads[0].legacy
+			for _, workload := range identityWorkloads[1:] {
+				if workload.legacy != legacy {
+					reference := referencesByIdentity[identity]
+					return fmt.Errorf("all workloads using PVC %q and path %q must use the same KV cache root", reference.name, reference.path)
+				}
 			}
-		}
-		if legacy {
-			continue
-		}
-		expectedHash := pvcEvictorContainerTemplateHash(identityWorkloads[0].template)
-		for _, workload := range identityWorkloads[1:] {
-			if pvcEvictorContainerTemplateHash(workload.template) != expectedHash {
-				reference := referencesByIdentity[identity]
-				return fmt.Errorf("all workloads using PVC %q and path %q must use the same pvc-evictor container template", reference.name, reference.path)
+			if !legacy {
+				expectedHash := pvcEvictorContainerTemplateHash(identityWorkloads[0].template)
+				for _, workload := range identityWorkloads[1:] {
+					if pvcEvictorContainerTemplateHash(workload.template) != expectedHash {
+						reference := referencesByIdentity[identity]
+						return fmt.Errorf("all workloads using PVC %q and path %q must use the same pvc-evictor container template", reference.name, reference.path)
+					}
+				}
 			}
 		}
 		securityHashes := make(map[string]struct{})
