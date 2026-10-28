@@ -359,6 +359,11 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to reconcile workload: %w", err)
 	}
 
+	var pvcEvictorErr error
+	if err := r.reconcilePVCEvictors(ctx, llmSvc, config); err != nil {
+		pvcEvictorErr = fmt.Errorf("failed to reconcile PVC evictors: %w", err)
+	}
+
 	if err := r.reconcileRouter(ctx, llmSvc, config); err != nil {
 		return fmt.Errorf("failed to reconcile networking: %w", err)
 	}
@@ -374,6 +379,9 @@ func (r *LLMISVCReconciler) reconcile(ctx context.Context, llmSvc *v1alpha2.LLMI
 		return fmt.Errorf("failed to observe workload status: %w", err)
 	}
 
+	if pvcEvictorErr != nil {
+		return pvcEvictorErr
+	}
 	return nil
 }
 

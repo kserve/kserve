@@ -18,7 +18,6 @@ package llmisvc
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -129,15 +128,6 @@ func (r *LLMISVCReconciler) reconcileWorkload(ctx context.Context, llmSvc *v1alp
 	if err := r.reconcileSingleNodeWorkload(ctx, llmSvc, config, useDisaggregatedSet); err != nil {
 		llmSvc.MarkMainWorkloadNotReady("ReconcileSingleNodeWorkloadError", err.Error())
 		return fmt.Errorf("failed to reconcile single node workload: %w", err)
-	}
-
-	if err := r.reconcilePVCEvictors(ctx, llmSvc, config); err != nil {
-		reason := "ReconcilePVCEvictorError"
-		if errors.Is(err, reconcile.TerminalError(nil)) {
-			reason = "InvalidPVCEvictorConfiguration"
-		}
-		llmSvc.MarkPVCEvictorNotReady(reason, "%s", err.Error())
-		return fmt.Errorf("failed to reconcile PVC evictors: %w", err)
 	}
 
 	if useDisaggregatedSet {

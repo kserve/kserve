@@ -734,7 +734,19 @@ func llmSvcReferencesPVCEvictors(llmSvc *v1alpha2.LLMInferenceService) bool {
 	return llmSvc.Status.GetCondition(v1alpha2.PVCEvictorReady) != nil
 }
 
-func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) error {
+func (r *LLMISVCReconciler) reconcilePVCEvictors(ctx context.Context, llmSvc *v1alpha2.LLMInferenceService, config *Config) (err error) {
+	defer func() {
+		if err == nil {
+			return
+		}
+		reason := "ReconcilePVCEvictorError"
+		if errors.Is(err, reconcile.TerminalError(nil)) {
+			reason = "InvalidPVCEvictorConfiguration"
+		}
+		llmSvc.MarkPVCEvictorNotReady(reason, "%s", err.Error())
+		llmSvc.DetermineWorkloadReadiness()
+	}()
+
 	expected, err := r.expectedPVCEvictorDeployments(ctx, llmSvc)
 	if err != nil {
 		return err

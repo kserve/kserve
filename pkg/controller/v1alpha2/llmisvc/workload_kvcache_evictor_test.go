@@ -315,6 +315,51 @@ func TestReconcilePVCEvictorsContinuesWhenCleanupIsUnsafe(t *testing.T) {
 	}
 }
 
+func TestReconcilePVCEvictorsMarksReconcileError(t *testing.T) {
+	svc := &v1alpha2.LLMInferenceService{
+		ObjectMeta: metav1.ObjectMeta{Name: "current", Namespace: "test"},
+		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
+			Template: &corev1.PodSpec{Containers: []corev1.Container{{
+				Name: mainContainerName,
+				Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
+			}, {Name: pvcEvictorTemplateName}}},
+			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
+				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
+					PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{
+						Name: "shared-pvc",
+						Path: "kv-cache",
+					}},
+				}}},
+			},
+		}},
+	}
+
+	scheme := runtime.NewScheme()
+	for _, addToScheme := range []func(*runtime.Scheme) error{
+		appsv1.AddToScheme,
+		corev1.AddToScheme,
+		v1alpha2.AddToScheme,
+	} {
+		if err := addToScheme(scheme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reconciler := &LLMISVCReconciler{
+		Client: fake.NewClientBuilder().WithScheme(scheme).Build(),
+	}
+
+	if err := reconciler.reconcilePVCEvictors(t.Context(), svc, &Config{}); err == nil {
+		t.Fatal("reconcilePVCEvictors() error = nil, want PVC API reader error")
+	}
+	condition := svc.Status.GetCondition(v1alpha2.PVCEvictorReady)
+	if condition == nil {
+		t.Fatal("PVCEvictorReady condition was not set")
+	}
+	if condition.Status != corev1.ConditionFalse || condition.Reason != "ReconcilePVCEvictorError" {
+		t.Fatalf("PVCEvictorReady = %#v, want False/ReconcilePVCEvictorError", condition)
+	}
+}
+
 func TestAttachPVCEvictorUsesContainerTemplate(t *testing.T) {
 	customResources := corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("123m")},
