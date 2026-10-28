@@ -276,10 +276,10 @@ func TestReconcilePVCEvictorsContinuesWhenCleanupIsUnsafe(t *testing.T) {
 	current := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "current", Namespace: "test"},
 		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
-			Template: &corev1.PodSpec{Containers: []corev1.Container{{
-				Name: mainContainerName,
-				Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
-			}}},
+			Template: &corev1.PodSpec{Containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName},
+			}},
 			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 					PVC: &v1alpha2.PVCTierSpec{
@@ -1897,10 +1897,10 @@ func TestReconcilePVCEvictorsDeletesDuplicateDeployments(t *testing.T) {
 	svc := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
 		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
-			Template: &corev1.PodSpec{Containers: []corev1.Container{{
-				Name: mainContainerName,
-				Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
-			}}},
+			Template: &corev1.PodSpec{Containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName},
+			}},
 			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 					PVC: &v1alpha2.PVCTierSpec{
@@ -2039,10 +2039,10 @@ func TestReconcilePVCEvictorsDoesNotWaitForUnrelatedStaleDeployment(t *testing.T
 	svc := &v1alpha2.LLMInferenceService{
 		ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "test"},
 		Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
-			Template: &corev1.PodSpec{Containers: []corev1.Container{{
-				Name: mainContainerName,
-				Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
-			}}},
+			Template: &corev1.PodSpec{Containers: []corev1.Container{
+				{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+				{Name: pvcEvictorTemplateName},
+			}},
 			KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 				Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 					PVC: &v1alpha2.PVCTierSpec{Ref: &v1alpha2.PVCRefTierSpec{Name: "active-pvc", Path: "cache"}},
@@ -2097,10 +2097,10 @@ func TestReconcilePVCEvictorsSharedPVCAndFinalCleanup(t *testing.T) {
 		return &v1alpha2.LLMInferenceService{
 			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "test"},
 			Spec: v1alpha2.LLMInferenceServiceSpec{WorkloadSpec: v1alpha2.WorkloadSpec{
-				Template: &corev1.PodSpec{Containers: []corev1.Container{{
-					Name: mainContainerName,
-					Env:  []corev1.EnvVar{{Name: kvTransferArgsEnvVar}},
-				}}},
+				Template: &corev1.PodSpec{Containers: []corev1.Container{
+					{Name: mainContainerName, Env: []corev1.EnvVar{{Name: kvTransferArgsEnvVar}}},
+					{Name: pvcEvictorTemplateName},
+				}},
 				KVCacheOffloading: &v1alpha2.KVCacheOffloadingSpec{
 					Secondary: []v1alpha2.SecondaryTierSpec{{FileSystem: &v1alpha2.FileSystemTierSpec{
 						PVC: &v1alpha2.PVCTierSpec{

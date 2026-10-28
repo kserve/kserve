@@ -49,6 +49,13 @@ import (
 	"github.com/kserve/kserve/pkg/utils"
 )
 
+func mainContainerForMergeTest(t *testing.T, podSpec *corev1.PodSpec) *corev1.Container {
+	t.Helper()
+	container := utils.GetContainerWithName(podSpec, mainContainerName)
+	require.NotNil(t, container, "main container not found")
+	return container
+}
+
 func TestReconcileBaseRefs_DryRunValidatesRenderedSpec(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1alpha2.AddToScheme(scheme))
@@ -417,7 +424,7 @@ func TestCombineBaseRefsConfig_TransferSlot(t *testing.T) {
 			require.NotNil(t, combined.Config.Spec.Template)
 			podSpec := combined.Config.Spec.Template
 			require.Len(t, podSpec.Containers, 1)
-			main := &podSpec.Containers[0]
+			main := mainContainerForMergeTest(t, podSpec)
 
 			// This preset asks for no headroom, so its declared size stands.
 			// Secondary-tier volumes are attached later by the workload builders.
@@ -476,7 +483,7 @@ func TestCombineBaseRefsConfig_RendersDegenerateKVCacheCPUFromBaseRef(t *testing
 
 			require.NotNil(t, combined.Config.Spec.Template)
 			require.Len(t, combined.Config.Spec.Template.Containers, 1)
-			transfer, filled := utils.GetEnvVarValue(combined.Config.Spec.Template.Containers[0].Env, kvTransferArgsEnvVar)
+			transfer, filled := utils.GetEnvVarValue(mainContainerForMergeTest(t, combined.Config.Spec.Template).Env, kvTransferArgsEnvVar)
 			require.True(t, filled)
 			assert.Contains(t, transfer, "cpu_bytes_to_use")
 		})
@@ -854,7 +861,7 @@ func TestCombineBaseRefsConfig_RendersAgainstBaseRefValues(t *testing.T) {
 	require.NotNil(t, combined.Config.Spec.Template)
 	require.NotEmpty(t, combined.Config.Spec.Template.Containers)
 
-	cmd := strings.Join(combined.Config.Spec.Template.Containers[0].Command, " ")
+	cmd := strings.Join(mainContainerForMergeTest(t, combined.Config.Spec.Template).Command, " ")
 	assert.Contains(t, cmd, "--data-parallel-size 2",
 		"parallelism supplied through a baseRef must reach the rendered command")
 	assert.Contains(t, cmd, "--enable-expert-parallel")
@@ -915,7 +922,7 @@ func TestCombineBaseRefsConfig_GracePeriodFromBaseRef(t *testing.T) {
 
 	// and: the engine is told to stop within it, not within the default
 	require.NotEmpty(t, combined.Config.Spec.Template.Containers)
-	cmd := strings.Join(combined.Config.Spec.Template.Containers[0].Command, " ")
+	cmd := strings.Join(mainContainerForMergeTest(t, combined.Config.Spec.Template).Command, " ")
 	assert.Contains(t, cmd, "--shutdown-timeout 280",
 		"300s grace period, less the 15s preStop and a 5s signal buffer")
 	assert.NotContains(t, cmd, "--shutdown-timeout 40",
@@ -978,11 +985,11 @@ func TestCombineBaseRefsConfig_DisaggregatedBaseRefValues(t *testing.T) {
 	require.NotNil(t, combined.Config.Spec.Prefill.Template)
 	require.NotEmpty(t, combined.Config.Spec.Prefill.Template.Containers)
 
-	decodeCmd := strings.Join(combined.Config.Spec.Template.Containers[0].Command, " ")
+	decodeCmd := strings.Join(mainContainerForMergeTest(t, combined.Config.Spec.Template).Command, " ")
 	assert.Contains(t, decodeCmd, "--data-parallel-size 4")
 	assert.Contains(t, decodeCmd, "--enable-expert-parallel")
 
-	prefillCmd := strings.Join(combined.Config.Spec.Prefill.Template.Containers[0].Command, " ")
+	prefillCmd := strings.Join(mainContainerForMergeTest(t, combined.Config.Spec.Prefill.Template).Command, " ")
 	assert.Contains(t, prefillCmd, "--data-parallel-size 2")
 	assert.Contains(t, prefillCmd, "--enable-expert-parallel")
 }
@@ -1050,7 +1057,7 @@ func TestCombineBaseRefsConfig_ServiceWinsOverBaseRef(t *testing.T) {
 
 	require.NotNil(t, combined.Config.Spec.Template)
 	require.NotEmpty(t, combined.Config.Spec.Template.Containers)
-	cmd := strings.Join(combined.Config.Spec.Template.Containers[0].Command, " ")
+	cmd := strings.Join(mainContainerForMergeTest(t, combined.Config.Spec.Template).Command, " ")
 	assert.Contains(t, cmd, "--tensor-parallel-size 8",
 		"the rendered command must match the deployed spec, not the overridden baseRef")
 	assert.NotContains(t, cmd, "--tensor-parallel-size 2")
@@ -1116,7 +1123,7 @@ func TestCombineBaseRefsConfig_RendersAgainstCanonicalPreRenderSpec(t *testing.T
 	require.NotNil(t, combined.Config.Spec.Template)
 	require.Len(t, combined.Config.Spec.Template.Containers, 1)
 
-	container := combined.Config.Spec.Template.Containers[0]
+	container := mainContainerForMergeTest(t, combined.Config.Spec.Template)
 	wantEnv := make([]string, 0, len(container.Env))
 	for _, env := range container.Env {
 		wantEnv = append(wantEnv, env.Name+"="+env.Value+";")
@@ -1207,7 +1214,7 @@ func TestCombineBaseRefsConfig_BareServiceRendersUnchanged(t *testing.T) {
 				if pod == nil || len(pod.Containers) == 0 {
 					continue
 				}
-				cmd := strings.Join(pod.Containers[0].Command, " ")
+				cmd := strings.Join(mainContainerForMergeTest(t, pod).Command, " ")
 				if !strings.Contains(cmd, "--shutdown-timeout") {
 					continue
 				}
