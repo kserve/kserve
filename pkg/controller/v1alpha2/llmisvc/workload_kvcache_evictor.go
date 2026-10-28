@@ -142,11 +142,8 @@ func inheritedPVCEvictorContainerTemplate(workload *v1alpha2.WorkloadSpec, fallb
 }
 
 func withPVCEvictorDefaultImage(template *corev1.Container, defaultImage string) *corev1.Container {
-	if defaultImage == "" {
+	if template == nil || defaultImage == "" {
 		return template
-	}
-	if template == nil {
-		return &corev1.Container{Image: defaultImage}
 	}
 	if template.Image != "" {
 		return template

@@ -118,8 +118,8 @@ func TestAttachPVCEvictorUsesConfigMapImage(t *testing.T) {
 func TestWithPVCEvictorDefaultImage(t *testing.T) {
 	configImage := "registry.example.com/kv-cache-evictor:v1"
 
-	if got := withPVCEvictorDefaultImage(nil, configImage); got == nil || got.Image != configImage {
-		t.Fatalf("withPVCEvictorDefaultImage(nil, image) = %+v, want image %q", got, configImage)
+	if got := withPVCEvictorDefaultImage(nil, configImage); got != nil {
+		t.Fatalf("withPVCEvictorDefaultImage(nil, image) = %+v, want nil", got)
 	}
 
 	explicit := &corev1.Container{Image: "example.com/evictor:v1.2.3"}
