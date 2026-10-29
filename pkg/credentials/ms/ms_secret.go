@@ -21,24 +21,27 @@ import (
 )
 
 const (
-	MSTokenKey = "MODELSCOPE_API_TOKEN" //nolint:gosec // G101: this is an env var key name, not a credential value // #nosec G101
+	MSEndpointKey = "MODELSCOPE_ENDPOINT"
+	MSTokenKey    = "MODELSCOPE_API_TOKEN" //nolint:gosec // G101: this is an env var key name, not a credential value // #nosec G101
 )
 
 func BuildSecretEnvs(secret *corev1.Secret) []corev1.EnvVar {
 	envs := make([]corev1.EnvVar, 0)
 
-	if _, ok := secret.Data[MSTokenKey]; ok {
-		envs = append(envs, corev1.EnvVar{
-			Name: MSTokenKey,
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secret.Name,
+	for _, key := range []string{MSTokenKey, MSEndpointKey} {
+		if _, ok := secret.Data[key]; ok {
+			envs = append(envs, corev1.EnvVar{
+				Name: key,
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: secret.Name,
+						},
+						Key: key,
 					},
-					Key: MSTokenKey,
 				},
-			},
-		})
+			})
+		}
 	}
 	return envs
 }

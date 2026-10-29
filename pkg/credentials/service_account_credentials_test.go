@@ -17,13 +17,18 @@ limitations under the License.
 package credentials
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/onsi/gomega/types"
 
+	"github.com/stretchr/testify/require"
+	kubernetesfake "k8s.io/client-go/kubernetes/fake"
+
 	"github.com/kserve/kserve/pkg/credentials/azure"
 	"github.com/kserve/kserve/pkg/credentials/gcs"
 	"github.com/kserve/kserve/pkg/credentials/hdfs"
+	"github.com/kserve/kserve/pkg/credentials/ms"
 	"github.com/kserve/kserve/pkg/credentials/s3"
 
 	"github.com/google/go-cmp/cmp"
@@ -2412,6 +2417,53 @@ func TestCredentialBuilder_CreateStorageSpecSecretEnvs(t *testing.T) {
 		}
 		if err := c.Delete(t.Context(), tc.secret); err != nil {
 			t.Errorf("Failed to delete secret %s because of: %v", tc.secret.Name, err)
+		}
+	}
+}
+
+func TestModelScopeCredentialBuilder(t *testing.T) {
+	for _, keys := range [][]string{
+		{"MODELSCOPE_ENDPOINT"},
+		{ms.MSTokenKey},
+		{"MODELSCOPE_ENDPOINT", ms.MSTokenKey},
+	} {
+		for _, useAnnotation := range []bool{false, true} {
+			t.Run(fmt.Sprintf("keys=%v/annotation=%t", keys, useAnnotation), func(t *testing.T) {
+				secret := &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{Name: "modelscope", Namespace: "default"},
+					Data:       map[string][]byte{},
+				}
+				want := make([]corev1.EnvVar, 0, len(keys))
+				for _, key := range keys {
+					secret.Data[key] = []byte("test-value")
+					want = append(want, corev1.EnvVar{
+						Name: key,
+						ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
+							Key:                  key,
+						}},
+					})
+				}
+				sa := &corev1.ServiceAccount{
+					ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: secret.Namespace},
+				}
+				annotations := map[string]string{}
+				const annotation = "serving.kserve.io/storageSecretName"
+				if useAnnotation {
+					annotations[annotation] = secret.Name
+				} else {
+					sa.Secrets = []corev1.ObjectReference{{Name: secret.Name}}
+				}
+				builder := NewCredentialBuilderFromConfig(nil,
+					kubernetesfake.NewSimpleClientset(sa, secret),
+					CredentialConfig{StorageSecretNameAnnotation: annotation})
+				container := corev1.Container{Name: "storage-initializer"}
+				var volumes []corev1.Volume
+				err := builder.CreateSecretVolumeAndEnv(t.Context(), sa.Namespace, annotations, sa.Name, &container, &volumes)
+				require.NoError(t, err)
+				require.ElementsMatch(t, want, container.Env)
+				require.Empty(t, volumes)
+			})
 		}
 	}
 }
