@@ -14,6 +14,7 @@ limitations under the License.
 package logger
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -52,10 +53,10 @@ func newCountingServer(handler http.HandlerFunc) (*httptest.Server, *int64) {
 // one new connection per event. After caching it, each worker opens one
 // connection and reuses it for every subsequent event.
 func TestWorkerHTTPConnectionReuse(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
 	for _, concurrency := range []int{5, 25} {
 		t.Run(fmt.Sprintf("workers=%d", concurrency), func(t *testing.T) {
+			g := gomega.NewGomegaWithT(t)
+
 			const eventsPerWorker = 20
 			totalEvents := concurrency * eventsPerWorker
 
@@ -67,8 +68,12 @@ func TestWorkerHTTPConnectionReuse(t *testing.T) {
 			target, err := url.Parse(srv.URL)
 			g.Expect(err).ToNot(gomega.HaveOccurred())
 
+			// Worker goroutines must not call g.Expect: a failed assertion
+			// would FailNow from a goroutine other than the test's. Each one
+			// records its first error instead, asserted below.
+			sendErrs := make([]error, concurrency)
 			var wg sync.WaitGroup
-			for range concurrency {
+			for i := range concurrency {
 				worker := NewWorker(0, nil, zaptest.NewLogger(t).Sugar())
 				wg.Go(func() {
 					for range eventsPerWorker {
@@ -82,11 +87,15 @@ func TestWorkerHTTPConnectionReuse(t *testing.T) {
 							SourceUri:      target,
 							OccurrenceTime: time.Now(),
 						}
-						g.Expect(worker.sendHttpCloudEvent(req)).To(gomega.Succeed())
+						if err := worker.sendHttpCloudEvent(req); err != nil {
+							sendErrs[i] = err
+							return
+						}
 					}
 				})
 			}
 			wg.Wait()
+			g.Expect(errors.Join(sendErrs...)).To(gomega.Succeed())
 
 			observed := atomic.LoadInt64(newConns)
 			t.Logf("concurrency=%d events=%d new_connections=%d", concurrency, totalEvents, observed)
@@ -95,4 +104,58 @@ func TestWorkerHTTPConnectionReuse(t *testing.T) {
 			g.Expect(observed).To(gomega.BeNumerically("<=", int64(concurrency)+5))
 		})
 	}
+}
+
+// TestWorkerHTTPClientTimeoutFreesStuckWorker checks that the configured
+// timeout reaches the HTTP client: a worker whose event hits an endpoint that
+// never answers must give up after the timeout and deliver its next event,
+// instead of being stranded.
+func TestWorkerHTTPClientTimeoutFreesStuckWorker(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	const clientTimeout = 200 * time.Millisecond
+	// Longer than the assertion below but finite, so that if the timeout is
+	// not applied the test fails instead of hanging.
+	const stuckFor = 5 * time.Second
+
+	var requests, delivered int64
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if atomic.AddInt64(&requests, 1) == 1 {
+			select {
+			case <-release:
+			case <-time.After(stuckFor):
+			}
+			return
+		}
+		atomic.AddInt64(&delivered, 1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	// srv.Close waits for in-flight handlers, so release must be closed first
+	// (deferred calls run last-in first-out).
+	defer srv.Close()
+	defer close(release)
+
+	target, err := url.Parse(srv.URL)
+	g.Expect(err).ToNot(gomega.HaveOccurred())
+	body := []byte("{}")
+	req := LogRequest{
+		Url:            target,
+		Bytes:          &body,
+		ContentType:    "application/json",
+		ReqType:        CEInferenceRequest,
+		Id:             "test-id",
+		SourceUri:      target,
+		OccurrenceTime: time.Now(),
+	}
+	worker := NewWorker(0, nil, zaptest.NewLogger(t).Sugar(), WithHTTPClientTimeout(clientTimeout))
+
+	start := time.Now()
+	_ = worker.sendHttpCloudEvent(req) // the stuck endpoint; its outcome is not what is under test
+	g.Expect(time.Since(start)).To(gomega.BeNumerically("<", stuckFor/2),
+		"the stuck request should be cut short by the client timeout")
+
+	g.Expect(worker.sendHttpCloudEvent(req)).To(gomega.Succeed())
+	g.Expect(atomic.LoadInt64(&delivered)).To(gomega.BeEquivalentTo(1),
+		"the same worker should deliver its next event after the timeout")
 }
