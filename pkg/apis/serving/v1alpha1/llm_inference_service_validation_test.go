@@ -71,11 +71,12 @@ func TestValidateKVCacheOffloading(t *testing.T) {
 			}}},
 		},
 	}}}
-	assert.NoError(t, validator.validate(t.Context(), nil, valid))
+	_, err := validator.validate(t.Context(), nil, valid)
+	assert.NoError(t, err)
 
 	invalid := valid.DeepCopy()
 	invalid.Spec.KVCacheOffloading.Secondary[0].FileSystem.PVC = &PVCTierSpec{}
-	err := validator.validate(t.Context(), nil, invalid)
+	_, err = validator.validate(t.Context(), nil, invalid)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exactly one of emptyDir or pvc")
 }
@@ -495,7 +496,7 @@ func TestValidateManagedDRAAnnotations_V1Alpha1(t *testing.T) {
 			svc.Annotations = tt.annotations
 
 			// Exercise the full validate() path to ensure DRA validation is wired in.
-			err := validator.validate(t.Context(), nil, svc)
+			_, err := validator.validate(t.Context(), nil, svc)
 			if tt.wantErrCount == 0 {
 				assert.NoError(t, err)
 			} else {
@@ -579,6 +580,41 @@ func TestValidateCreateModelExpress_V1Alpha1(t *testing.T) {
 
 			_, err := validator.ValidateCreate(t.Context(), svc)
 
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestValidateCreateConfidential_V1Alpha1(t *testing.T) {
+	validator := &LLMInferenceServiceValidator{}
+	for _, tt := range []struct {
+		name         string
+		confidential *ConfidentialSpec
+		uri          apis.URL
+		wantErr      string
+		wantWarning  string
+	}{
+		{name: "valid resourceId is admitted", confidential: &ConfidentialSpec{Enabled: true, ResourceId: ptr.To("kbs:///default/key/model-key")}, uri: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"}},
+		{name: "malformed resourceId is rejected", confidential: &ConfidentialSpec{Enabled: true, ResourceId: ptr.To("invalid-id")}, uri: apis.URL{Scheme: "hf", Host: "meta-llama/Llama-2-7b"}, wantErr: "spec.model.confidential.resourceId"},
+		{name: "OCI URI warns", confidential: &ConfidentialSpec{Enabled: true}, uri: apis.URL{Scheme: "oci", Host: "registry/model:latest"}, wantWarning: "OCI URIs"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newBaseLLMInferenceService()
+			svc.Spec.Model.URI = tt.uri
+			svc.Spec.Model.Confidential = tt.confidential
+
+			warnings, err := validator.ValidateCreate(t.Context(), svc)
+
+			if tt.wantWarning != "" {
+				require.Len(t, warnings, 1)
+				assert.Contains(t, warnings[0], tt.wantWarning)
+			} else {
+				assert.Empty(t, warnings)
+			}
 			if tt.wantErr == "" {
 				require.NoError(t, err)
 				return
