@@ -75,36 +75,66 @@ def test_model_server_rejects_partial_ssl_configuration(ssl_certfile, ssl_keyfil
         ModelServer(ssl_certfile=ssl_certfile, ssl_keyfile=ssl_keyfile)
 
 
+class _RecordingModel(Model):
+    def __init__(self, name, events):
+        super().__init__(name)
+        self.events = events
+        self.ready = True
+
+    def stop(self):
+        self.events.append("model stopped")
+        super().stop()
+
+
+class _DrainingServer:
+    def __init__(self, events, drain):
+        self.events = events
+        self.drain = drain
+
+    async def stop(self, sig):
+        self.events.append("drain started")
+        await self.drain.wait()
+        self.events.append("drain finished")
+
+
+async def _wait_until(predicate):
+    for _ in range(50):
+        if predicate():
+            return
+        await asyncio.sleep(0.01)
+
+
 @pytest.mark.asyncio
-async def test_model_server_stop_unloads_models_after_grpc_drain():
+@pytest.mark.parametrize("server_attr", ["_rest_multiprocess_server", "_grpc_server"])
+async def test_model_server_stop_unloads_models_after_drain(server_attr):
     events = []
     drain = asyncio.Event()
-
-    class RecordingModel(Model):
-        def stop(self):
-            events.append("model stopped")
-            super().stop()
-
-    class DrainingGRPCServer:
-        async def stop(self, sig):
-            events.append("grpc drain started")
-            await drain.wait()
-            events.append("grpc drain finished")
-
-    model = RecordingModel("test-model")
-    model.ready = True
     server = ModelServer(registered_models=ModelRepository())
-    server.register_model(model)
-    server._grpc_server = DrainingGRPCServer()
+    server.register_model(_RecordingModel("test-model", events))
+    setattr(server, server_attr, _DrainingServer(events, drain))
 
     server.stop(signal.SIGTERM)
     await asyncio.sleep(0.1)
-    # In-flight gRPC requests may still use the model while the server drains.
-    assert events == ["grpc drain started"]
+    # In-flight requests may still use the model while the server drains.
+    assert events == ["drain started"]
 
     drain.set()
-    for _ in range(50):
-        if "model stopped" in events:
-            break
-        await asyncio.sleep(0.01)
-    assert events == ["grpc drain started", "grpc drain finished", "model stopped"]
+    await _wait_until(lambda: "model stopped" in events)
+    assert events == ["drain started", "drain finished", "model stopped"]
+
+
+@pytest.mark.asyncio
+async def test_model_server_stop_unloads_models_when_server_stop_fails():
+    events = []
+
+    class FailingGRPCServer:
+        async def stop(self, sig):
+            raise RuntimeError("grpc stop failed")
+
+    server = ModelServer(registered_models=ModelRepository())
+    server.register_model(_RecordingModel("test-model", events))
+    server._grpc_server = FailingGRPCServer()
+
+    server.stop(signal.SIGTERM)
+    await _wait_until(lambda: "model stopped" in events)
+    assert events == ["model stopped"]

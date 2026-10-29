@@ -425,18 +425,21 @@ class ModelServer:
         """
 
         async def shutdown():
-            await InferenceClientFactory().close()
-            logger.info("Stopping the model server")
-            if self._rest_multiprocess_server:
-                logger.info("Stopping the rest server")
-                await self._rest_multiprocess_server.stop(sig)
-            if self._grpc_server:
-                logger.info("Stopping the grpc server")
-                await self._grpc_server.stop(sig)
-            # Unload only after the servers have drained, so in-flight
-            # requests don't run against a stopped model or engine.
-            for model_name in list(self.registered_models.get_models().keys()):
-                self.registered_models.unload(model_name)
+            try:
+                await InferenceClientFactory().close()
+                logger.info("Stopping the model server")
+                if self._rest_multiprocess_server:
+                    logger.info("Stopping the rest server")
+                    await self._rest_multiprocess_server.stop(sig)
+                if self._grpc_server:
+                    logger.info("Stopping the grpc server")
+                    await self._grpc_server.stop(sig)
+            finally:
+                # Unload only after the servers have drained, so in-flight
+                # requests don't run against a stopped model or engine. Unload
+                # even if a server failed to stop.
+                for model_name in list(self.registered_models.get_models().keys()):
+                    self.registered_models.unload(model_name)
 
         asyncio.create_task(shutdown())
 
