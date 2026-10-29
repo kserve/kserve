@@ -356,6 +356,7 @@ func configureSchedulerMetricsProtocol(service *corev1.Service, pod *corev1.PodS
 	for i := range service.Spec.Ports {
 		if service.Spec.Ports[i].Name == "metrics" {
 			service.Spec.Ports[i].AppProtocol = ptr.To(protocol)
+			break
 		}
 	}
 }
