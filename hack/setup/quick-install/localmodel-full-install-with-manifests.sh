@@ -9067,6 +9067,13 @@ rules:
   - update
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+- apiGroups:
   - apps
   resources:
   - daemonsets
@@ -9076,13 +9083,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-  - list
 - apiGroups:
   - authentication.k8s.io
   resources:

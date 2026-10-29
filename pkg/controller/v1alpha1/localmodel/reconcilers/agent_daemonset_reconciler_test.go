@@ -173,6 +173,32 @@ func TestAgentDaemonSetDropsOnlyItsOwnTolerations(t *testing.T) {
 	assert.NotContains(t, daemonSet.Annotations, ManagedTolerationsAnnotation)
 }
 
+func TestAgentDaemonSetDoesNotClaimOverlappingInstallTimeTolerations(t *testing.T) {
+	// The install already tolerates the GPU taint that the node group also declares.
+	c := newAgentDaemonSetReconciler(t,
+		makeAgentDaemonSet([]corev1.Toleration{gpuToleration()}, nil),
+		makeNodeGroup("gpu", []corev1.Toleration{gpuToleration(), inferenceToleration()}),
+	)
+
+	daemonSet := reconcileAgentDaemonSet(t, c, "gpu")
+
+	assert.Equal(t, []corev1.Toleration{gpuToleration(), inferenceToleration()}, daemonSet.Spec.Template.Spec.Tolerations)
+	var managed []corev1.Toleration
+	require.NoError(t, json.Unmarshal([]byte(daemonSet.Annotations[ManagedTolerationsAnnotation]), &managed))
+	assert.Equal(t, []corev1.Toleration{inferenceToleration()}, managed)
+
+	// Removing the tolerations from the node group must leave the install-time one in place.
+	nodeGroup := &v1alpha1.LocalModelNodeGroup{}
+	require.NoError(t, c.Get(context.Background(), types.NamespacedName{Name: "gpu"}, nodeGroup))
+	nodeGroup.Spec.Tolerations = nil
+	require.NoError(t, c.Update(context.Background(), nodeGroup))
+
+	daemonSet = reconcileAgentDaemonSet(t, c, "gpu")
+
+	assert.Equal(t, []corev1.Toleration{gpuToleration()}, daemonSet.Spec.Template.Spec.Tolerations)
+	assert.NotContains(t, daemonSet.Annotations, ManagedTolerationsAnnotation)
+}
+
 func TestAgentDaemonSetKeepsTolerationsWhenAnnotationIsMalformed(t *testing.T) {
 	c := newAgentDaemonSetReconciler(t,
 		makeAgentDaemonSet(

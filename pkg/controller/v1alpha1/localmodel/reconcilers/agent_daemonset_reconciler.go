@@ -96,11 +96,19 @@ func (c *AgentDaemonSetReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			tolerations = append(tolerations, toleration)
 		}
 	}
-	tolerations = appendMissingTolerations(tolerations, nodeGroupTolerations)
+	// Only claim the tolerations we actually add; one the install already sets must survive its
+	// removal from the node groups.
+	var added []corev1.Toleration
+	for _, toleration := range nodeGroupTolerations {
+		if !containsToleration(tolerations, toleration) {
+			added = append(added, toleration)
+		}
+	}
+	tolerations = append(tolerations, added...)
 
 	annotation := ""
-	if len(nodeGroupTolerations) > 0 {
-		marshalled, err := json.Marshal(nodeGroupTolerations)
+	if len(added) > 0 {
+		marshalled, err := json.Marshal(added)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
