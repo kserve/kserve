@@ -72,7 +72,7 @@ func extractAndStripStorageInitializer(podSpec *corev1.PodSpec) *corev1.Containe
 }
 
 // attachModelArtifacts configures a PodSpec to fetch and use a model from a provided URI in the LLMInferenceService.
-// The storage backend (PVC, OCI, Hugging Face, or S3) is determined from the URI schema and the appropriate helper function
+// The storage backend (PVC, OCI, Hugging Face, ModelScope, or S3) is determined from the URI schema and the appropriate helper function
 // is called to configure the PodSpec. This function will adjust volumes, container arguments, container volume mounts,
 // add containers, and do other changes to the PodSpec to ensure the model is fetched properly from storage.
 //
@@ -178,16 +178,17 @@ func (r *LLMISVCReconciler) attachModelArtifacts(ctx context.Context, serviceAcc
 			extractAndStripStorageInitializer(podSpec)
 		}
 
-	case constants.HfURIPrefix:
+	case constants.HfURIPrefix, constants.MsURIPrefix:
+		nativeHF := nativeModelExpress && strings.HasPrefix(modelUri, constants.HfURIPrefix)
 		switch {
-		case nativeModelExpress && len(loraPairs) > 0:
+		case nativeHF && len(loraPairs) > 0:
 			if err := r.attachMultiStorageDownloads(ctx, serviceAccount, llmSvc, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, loraPairs); err != nil {
 				return err
 			}
-		case nativeModelExpress:
+		case nativeHF:
 			extractAndStripStorageInitializer(podSpec)
 		case len(loraPairs) == 0:
-			if err := r.attachHfModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath); err != nil {
+			if err := r.attachHubModelArtifact(ctx, serviceAccount, llmSvc, modelUri, curr, podSpec, config.StorageConfig, config.CredentialConfig, containerName, modelPath); err != nil {
 				return err
 			}
 		default:
@@ -337,22 +338,9 @@ func (r *LLMISVCReconciler) attachS3ModelArtifact(ctx context.Context, serviceAc
 	return nil
 }
 
-// attachHfModelArtifact configures a PodSpec to use a model stored in the hugging face hub.
-// Model downloading is delegated to vLLM by passing the HF URI and other required arguments.
-//
-// Parameters:
-//   - ctx: The context for API calls and logging.
-//   - serviceAccount: service account associated with the LLMInferenceService.
-//   - llmSvc: The LLMInferenceService resource containing the model specification.
-//   - modelUri: The URI of the model in the S3-compatible object store.
-//   - podSpec: The PodSpec to which the S3 model should be attached.
-//   - storageConfig: The storage initializer configuration.
-//   - credentialConfig: The credential configuration used for model downloads.
-//
-// Returns:
-//
-//	An error if the configuration fails, otherwise nil.
-func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
+// attachHubModelArtifact downloads a Hugging Face or ModelScope model using the
+// storage initializer and injects credentials from the service account.
+func (r *LLMISVCReconciler) attachHubModelArtifact(ctx context.Context, serviceAccount *corev1.ServiceAccount, llmSvc *v1alpha2.LLMInferenceService, modelUri string, curr corev1.PodSpec, podSpec *corev1.PodSpec, storageConfig *kserveTypes.StorageInitializerConfig, credentialConfig *credentials.CredentialConfig, containerName string, modelPath string) error {
 	if err := r.attachStorageInitializer(llmSvc, modelUri, curr, podSpec, storageConfig, containerName, modelPath); err != nil {
 		return err
 	}
@@ -383,9 +371,9 @@ func (r *LLMISVCReconciler) attachHfModelArtifact(ctx context.Context, serviceAc
 		// Add HF default env vars when the init container is new or already has HF_ env vars
 		// from a previous reconciliation. Skip only when upgrading from an older operator version
 		// that didn't set these vars, to avoid unnecessary pod restarts.
-		if currentInitContainer == nil || slices.ContainsFunc(currentInitContainer.Env, func(e corev1.EnvVar) bool {
+		if strings.HasPrefix(modelUri, constants.HfURIPrefix) && (currentInitContainer == nil || slices.ContainsFunc(currentInitContainer.Env, func(e corev1.EnvVar) bool {
 			return strings.HasPrefix(e.Name, "HF_")
-		}) {
+		})) {
 			utils.AddDefaultHuggingFaceEnvVars(initContainer)
 		}
 

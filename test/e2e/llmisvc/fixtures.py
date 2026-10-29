@@ -526,6 +526,14 @@ LLMINFERENCESERVICE_CONFIGS = {
     "model-fb-opt-125m": {
         "model": {"uri": OPT_125M_MODEL_URI, "name": "facebook/opt-125m"},
     },
+    "model-fb-opt-125m-modelscope": {
+        # Keep this independent of OPT_125M_MODEL_URI: CI overrides that URI
+        # with S3, but this test must download from ModelScope.
+        "model": {
+            "uri": "modelscope://facebook/opt-125m:master",
+            "name": "facebook/opt-125m",
+        },
+    },
     "workload-single-gpu-modelexpress": _modelexpress_gpu_workload(),
     "model-modelexpress": {
         "model": {"uri": MODELEXPRESS_MODEL_URI, "name": MODELEXPRESS_MODEL_NAME},
