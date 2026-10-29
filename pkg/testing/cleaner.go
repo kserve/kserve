@@ -22,6 +22,7 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,14 +76,28 @@ func (c *Cleaner) DeleteAll(ctx context.Context, objects ...client.Object) { //n
 			// Note that any resources within the namespace that we don't
 			// successfully delete could reappear if the namespace is ever
 			// recreated with the same name.
-			// Delete all namespaced resources in this namespace
+			// Delete all namespaced resources in this namespace, many types at a
+			// time. ResourceVersion "0" serves each list from the watch cache
+			// without first waiting for it to catch up with etcd, which made up
+			// most of the cleanup time. An object created a moment before can be
+			// missed, as it could be after a consistent list, and namespaces are
+			// unique per spec, so it can't leak into another one.
+			g, gctx := errgroup.WithContext(ctx)
+			g.SetLimit(16)
 			for _, gvk := range c.namespacedGVKs {
-				u := unstructured.Unstructured{}
-				u.SetGroupVersionKind(gvk)
+				g.Go(func() error {
+					u := unstructured.Unstructured{}
+					u.SetGroupVersionKind(gvk)
 
-				deleteErr := c.client.DeleteAllOf(ctx, &u, client.InNamespace(namespace.Name))
-				Expect(client.IgnoreNotFound(ignoreMethodNotAllowed(deleteErr))).ShouldNot(HaveOccurred())
+					deleteErr := c.client.DeleteAllOf(gctx, &u, client.InNamespace(namespace.Name),
+						&client.DeleteAllOfOptions{ListOptions: client.ListOptions{
+							Raw: &metav1.ListOptions{ResourceVersion: "0"},
+						}})
+
+					return client.IgnoreNotFound(ignoreMethodNotAllowed(deleteErr))
+				})
 			}
+			Expect(g.Wait()).ShouldNot(HaveOccurred())
 
 			Eventually(func() error {
 				key := client.ObjectKeyFromObject(namespace)
